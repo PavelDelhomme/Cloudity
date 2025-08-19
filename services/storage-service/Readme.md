@@ -1,0 +1,1 @@
+# Service de stockage cloud (Django/FastAPI)
