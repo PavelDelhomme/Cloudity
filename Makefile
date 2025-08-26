@@ -491,3 +491,271 @@ soft-restart: ## Redémarrage en douceur (sans reconstruire)
 	@echo "🔄 Redémarrage en douceur..."
 	@docker compose restart
 	@echo "✅ Services redémarrés!"
+
+# Gestion individuelle des services
+stop-service: ## Arrête un service spécifique
+	@echo "🛑 Arrêter un service"
+	@echo "1) auth-service"
+	@echo "2) api-gateway"
+	@echo "3) admin-service" 
+	@echo "4) admin-dashboard"
+	@echo "5) postgres"
+	@echo "6) redis"
+	@echo "7) tous les services"
+	@read -p "Choisir un service (1-7): " choice; \
+	case $$choice in \
+		1) docker compose stop auth-service ;; \
+		2) docker compose stop api-gateway ;; \
+		3) docker compose stop admin-service ;; \
+		4) docker compose stop admin-dashboard ;; \
+		5) docker compose stop postgres ;; \
+		6) docker compose stop redis ;; \
+		7) docker compose stop ;; \
+		*) echo "Choix invalide" ;; \
+	esac
+
+restart-service: ## Redémarre un service spécifique
+	@echo "🔄 Redémarrer un service"
+	@echo "1) auth-service"
+	@echo "2) api-gateway"
+	@echo "3) admin-service" 
+	@echo "4) admin-dashboard"
+	@echo "5) postgres"
+	@echo "6) redis"
+	@echo "7) tous les services"
+	@read -p "Choisir un service (1-7): " choice; \
+	case $$choice in \
+		1) docker compose restart auth-service ;; \
+		2) docker compose restart api-gateway ;; \
+		3) docker compose restart admin-service ;; \
+		4) docker compose restart admin-dashboard ;; \
+		5) docker compose restart postgres ;; \
+		6) docker compose restart redis ;; \
+		7) docker compose restart ;; \
+		*) echo "Choix invalide" ;; \
+	esac
+
+logs-service: ## Affiche les logs d'un service spécifique
+	@echo "📋 Logs d'un service"
+	@echo "1) auth-service"
+	@echo "2) api-gateway"
+	@echo "3) admin-service" 
+	@echo "4) admin-dashboard"
+	@echo "5) postgres"
+	@echo "6) redis"
+	@echo "7) tous les services"
+	@read -p "Choisir un service (1-7): " choice; \
+	case $$choice in \
+		1) docker compose logs -f auth-service ;; \
+		2) docker compose logs -f api-gateway ;; \
+		3) docker compose logs -f admin-service ;; \
+		4) docker compose logs -f admin-dashboard ;; \
+		5) docker compose logs -f postgres ;; \
+		6) docker compose logs -f redis ;; \
+		7) docker compose logs -f ;; \
+		*) echo "Choix invalide" ;; \
+	esac
+
+# Gestion des applications mobiles
+init-mobile: ## Initialise toutes les applications mobiles
+	@echo "📱 Initialisation des applications mobiles..."
+	@if command -v flutter >/dev/null 2>&1; then \
+		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
+			if [ -d "$$app" ]; then \
+				echo "Initialisation de $$app"; \
+				cd $$app && flutter pub get; \
+			fi; \
+		done; \
+		echo "✅ Applications mobiles initialisées"; \
+	else \
+		echo "⚠️  Flutter non installé, applications mobiles ignorées"; \
+	fi
+
+build-mobile: ## Build toutes les applications mobiles
+	@echo "🔨 Build des applications mobiles..."
+	@if command -v flutter >/dev/null 2>&1; then \
+		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
+			if [ -d "$$app" ]; then \
+				echo "Build de $$app"; \
+				cd $$app && flutter build apk --debug; \
+			fi; \
+		done; \
+		echo "✅ Applications mobiles construites"; \
+	else \
+		echo "⚠️  Flutter non installé, applications mobiles ignorées"; \
+	fi
+
+run-mobile: ## Exécute une application mobile en mode développement
+	@echo "📱 Exécuter une application mobile"
+	@if command -v flutter >/dev/null 2>&1; then \
+		echo "Choisissez une application mobile:"; \
+		apps=(); \
+		i=1; \
+		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
+			if [ -d "$$app" ]; then \
+				apps[$$i]=$$app; \
+				echo "$$i) $${app#mobile/}"; \
+				i=$$((i+1)); \
+			fi; \
+		done; \
+		read -p "Choisir une application (1-$$((i-1))): " choice; \
+		if [ -n "$${apps[$$choice]}" ]; then \
+			cd $${apps[$$choice]} && flutter run; \
+		else \
+			echo "Choix invalide"; \
+		fi; \
+	else \
+		echo "⚠️  Flutter non installé"; \
+	fi
+
+# Gestion de l'infrastructure
+create-volume: ## Crée un volume Docker
+	@echo "💾 Création d'un volume..."
+	@read -p "Nom du volume (préfixe cloudity- sera ajouté): " name; \
+	if [ -n "$$name" ]; then \
+		docker volume create cloudity-$$name; \
+		echo "✅ Volume cloudity-$$name créé"; \
+	else \
+		echo "⚠️  Nom de volume requis"; \
+	fi
+
+create-network: ## Crée un réseau Docker
+	@echo "🌐 Création d'un réseau..."
+	@read -p "Nom du réseau (préfixe cloudity- sera ajouté): " name; \
+	if [ -n "$$name" ]; then \
+		docker network create cloudity-$$name; \
+		echo "✅ Réseau cloudity-$$name créé"; \
+	else \
+		echo "⚠️  Nom de réseau requis"; \
+	fi
+
+list-resources: ## Liste les ressources Docker (conteneurs, volumes, réseaux)
+	@echo "📋 Ressources Docker:"
+	@echo "Conteneurs:"
+	@docker ps -a --filter name=cloudity
+	@echo ""
+	@echo "Volumes:"
+	@docker volume ls --filter name=cloudity
+	@echo ""
+	@echo "Réseaux:"
+	@docker network ls --filter name=cloudity
+
+# Gestion du stockage
+init-storage: ## Initialise les dossiers de stockage
+	@echo "🗄️  Initialisation du stockage..."
+	@mkdir -p storage/postgres storage/redis storage/mongodb storage/media storage/logs storage/backups storage/uploads storage/certs
+	@chmod -R 755 storage
+	@echo "✅ Stockage initialisé"
+
+backup-all: ## Sauvegarde toutes les données
+	@echo "💾 Sauvegarde complète..."
+	@mkdir -p storage/backups/$(shell date +%Y%m%d)
+	@if docker compose ps postgres | grep -q Up; then \
+		echo "Sauvegarde PostgreSQL..."; \
+		docker compose exec postgres pg_dump -U cloudity_admin cloudity | gzip > storage/backups/$(shell date +%Y%m%d)/postgres_$(shell date +%Y%m%d_%H%M%S).sql.gz; \
+	fi
+	@if docker compose ps mongodb | grep -q Up; then \
+		echo "Sauvegarde MongoDB..."; \
+		docker compose exec mongodb mongodump --archive | gzip > storage/backups/$(shell date +%Y%m%d)/mongodb_$(shell date +%Y%m%d_%H%M%S).gz; \
+	fi
+	@echo "Sauvegarde des fichiers..."
+	@tar -czf storage/backups/$(shell date +%Y%m%d)/files_$(shell date +%Y%m%d_%H%M%S).tar.gz -C storage media uploads
+	@echo "✅ Sauvegarde complète terminée dans storage/backups/$(shell date +%Y%m%d)/"
+
+restore-latest: ## Restaure la dernière sauvegarde
+	@echo "📥 Restauration de la dernière sauvegarde..."
+	@latest_dir=$$(ls -td storage/backups/*/ | head -1); \
+	echo "Dossier de sauvegarde: $$latest_dir"; \
+	if [ -f "$$(ls -t $$latest_dir/postgres_*.sql.gz | head -1)" ]; then \
+		echo "Restauration PostgreSQL..."; \
+		gunzip -c $$(ls -t $$latest_dir/postgres_*.sql.gz | head -1) | docker compose exec -T postgres psql -U cloudity_admin cloudity; \
+	fi; \
+	if [ -f "$$(ls -t $$latest_dir/mongodb_*.gz | head -1)" ]; then \
+		echo "Restauration MongoDB..."; \
+		gunzip -c $$(ls -t $$latest_dir/mongodb_*.gz | head -1) | docker compose exec -T mongodb mongorestore --archive; \
+	fi; \
+	if [ -f "$$(ls -t $$latest_dir/files_*.tar.gz | head -1)" ]; then \
+		echo "Restauration des fichiers..."; \
+		tar -xzf $$(ls -t $$latest_dir/files_*.tar.gz | head -1) -C storage; \
+	fi; \
+	echo "✅ Restauration terminée"
+
+# Gestion du frontend
+frontend-menu: ## Menu des services frontend
+	@echo "🎨 Services frontend"
+	@echo "1) Démarrer admin-dashboard"
+	@echo "2) Démarrer tous les frontends"
+	@echo "3) Arrêter admin-dashboard"
+	@echo "4) Arrêter tous les frontends"
+	@echo "5) Rebuild admin-dashboard"
+	@read -p "Choisir une action (1-5): " choice; \
+	case $$choice in \
+		1) docker compose up -d admin-dashboard ;; \
+		2) docker compose up -d admin-dashboard ;; \
+		3) docker compose stop admin-dashboard ;; \
+		4) docker compose stop admin-dashboard ;; \
+		5) make rebuild-dashboard ;; \
+		*) echo "Choix invalide" ;; \
+	esac
+
+create-frontend: ## Crée un nouveau service frontend
+	@echo "🎨 Création d'un nouveau service frontend..."
+	@read -p "Nom du service (ex: user-dashboard): " name; \
+	if [ -n "$$name" ]; then \
+		mkdir -p frontend/$$name/src; \
+		cp -r frontend/admin-dashboard/Dockerfile* frontend/$$name/; \
+		cp frontend/admin-dashboard/package.json frontend/admin-dashboard/vite.config.js frontend/$$name/; \
+		cp -r frontend/admin-dashboard/src/App.tsx frontend/admin-dashboard/src/main.tsx frontend/$$name/src/; \
+		cp frontend/admin-dashboard/index.html frontend/$$name/; \
+		sed -i "s/admin-dashboard/$$name/g" frontend/$$name/package.json; \
+		echo "✅ Service frontend $$name créé"; \
+	else \
+		echo "⚠️  Nom de service requis"; \
+	fi
+
+add-service: ## Ajoute un nouveau service au docker-compose.yml
+	@echo "➕ Ajout d'un nouveau service..."
+	@echo "Type de service:"
+	@echo "1) Backend Go"
+	@echo "2) Backend Python"
+	@echo "3) Backend Rust"
+	@echo "4) Frontend"
+	@read -p "Choisir un type (1-4): " type; \
+	read -p "Nom du service: " name; \
+	if [ -n "$$name" ]; then \
+		case $$type in \
+			1) \
+				mkdir -p backend/$$name; \
+				echo "# Service $$name (Go)" >> docker-compose.services.yml; \
+				echo "  $$name:" >> docker-compose.services.yml; \
+				echo "    build:" >> docker-compose.services.yml; \
+				echo "      context: ./backend/$$name" >> docker-compose.services.yml; \
+				echo "      dockerfile: Dockerfile.dev" >> docker-compose.services.yml; \
+				echo "    container_name: cloudity-$$name" >> docker-compose.services.yml; \
+				echo "    restart: unless-stopped" >> docker-compose.services.yml; \
+				echo "    volumes:" >> docker-compose.services.yml; \
+				echo "      - ./backend/$$name:/app:cached" >> docker-compose.services.yml; \
+				echo "    networks:" >> docker-compose.services.yml; \
+				echo "      - cloudity-network" >> docker-compose.services.yml; \
+				echo "    depends_on:" >> docker-compose.services.yml; \
+				echo "      - postgres" >> docker-compose.services.yml; \
+				echo "      - redis" >> docker-compose.services.yml; \
+				;; \
+			2) \
+				mkdir -p backend/$$name; \
+				# Similaire à Go mais avec différentes dépendances \
+				;; \
+			3) \
+				mkdir -p backend/$$name; \
+				# Configuration pour Rust \
+				;; \
+			4) \
+				mkdir -p frontend/$$name; \
+				# Configuration pour Frontend \
+				;; \
+			*) echo "Type invalide" ;; \
+		esac; \
+		echo "✅ Service $$name ajouté au docker-compose.yml"; \
+	else \
+		echo "⚠️  Nom de service requis"; \
+	fi
