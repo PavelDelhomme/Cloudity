@@ -1,1 +1,0 @@
-# Service calendrier (Django/FastAPI)

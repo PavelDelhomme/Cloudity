@@ -1,1 +1,0 @@
-# Service wallet crypto (FastAPI)

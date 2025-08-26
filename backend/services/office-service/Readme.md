@@ -1,1 +1,0 @@
-# Service suite office (FastAPI)

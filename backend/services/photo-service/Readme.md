@@ -1,1 +1,0 @@
-# Service de photos (FastAPI)

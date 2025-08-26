@@ -1,1 +1,0 @@
-# Service gestion impôts (Django)

@@ -1,1 +1,0 @@
-# Service gestionnaire de mots de passe (FastAPI)
