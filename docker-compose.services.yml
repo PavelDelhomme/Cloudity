@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudity-postgres-services
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cloudity_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity_secure_password_2025}
+      POSTGRES_DB: ${POSTGRES_DB:-cloudity}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_services_data:/var/lib/postgresql/data
+      - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cloudity_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloudity-services-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: cloudity-redis-services
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_password_2025}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_services_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cloudity-services-network
+
+  # Service d'authentification
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-auth-service-only
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
+    volumes:
+      - ./backend/auth-service:/app:cached
+      - go_mod_cache_auth_services:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cloudity-services-network
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-api-gateway-only
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - ADMIN_SERVICE_URL=http://admin-service:8082
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
+    volumes:
+      - ./backend/api-gateway:/app:cached
+      - go_mod_cache_gateway_services:/go/pkg/mod
+    depends_on:
+      - auth-service
+    networks:
+      - cloudity-services-network
+
+  # Service d'administration
+  admin-service:
+    build:
+      context: ./backend/admin-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-admin-service-only
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
+    volumes:
+      - ./backend/admin-service:/app:cached
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cloudity-services-network
+
+networks:
+  cloudity-services-network:
+    driver: bridge
+    name: cloudity-services-network
+
+volumes:
+  postgres_services_data:
+    driver: local
+  redis_services_data:
+    driver: local
+  go_mod_cache_auth_services:
+    driver: local
+  go_mod_cache_gateway_services:
+    driver: local

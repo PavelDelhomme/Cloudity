@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+# Variables d'environnement pour éviter les questions interactives
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PIP_NO_CACHE_DIR=1
+
+# Installation des dépendances système
+RUN apt-get update && apt-get install -y \
+    curl \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Installation d'uvicorn avec reloading pour le développement
+RUN pip install uvicorn[standard] watchfiles
+
+# Copie et installation des requirements
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copie du code
+COPY . .
+
+# Exposition du port
+EXPOSE 8082
+
+# Commande de développement avec hot reload
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8082", "--reload", "--reload-dir", "/app"]
