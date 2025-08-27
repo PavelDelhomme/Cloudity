@@ -101,3 +101,8 @@ clean: ## Nettoyage infrastructure
 
 stop: ## Arrêt infrastructure
 	@$(COMPOSE) stop
+
+email-migrate: ## Migration tables email
+	$(call log_info,"Migration système email")
+	@docker compose exec postgres psql -U ${POSTGRES_USER:-cloudity_admin} -d ${POSTGRES_DB:-cloudity} -f /docker-entrypoint-initdb.d/04-email-system.sql
+	$(call log_success,"Migration email terminée")

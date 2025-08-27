@@ -200,10 +200,11 @@ services:
     ports:
       - "8092:8092"
     environment:
-      - DATABASE_URL=postgresql://cloudity_user:${DB_PASSWORD}@database:5432/cloudity
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       - DOMAIN=alias.delhomme.ovh
     depends_on:
-      - database
+      postgres:
+        condition: service_healthy
     volumes:
       - ./backend/alias-service:/app
       - alias-target:/app/target

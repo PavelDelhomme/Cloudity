@@ -4,6 +4,9 @@
 include ../scripts/colors.mk
 
 SERVICES := auth-service api-gateway admin-service
+EMAIL_SERVICES := alias-service email-service
+ALL_SERVICES := $(SERVICES) $(EMAIL_SERVICES)
+
 COMPOSE = docker compose -f ../docker-compose.yml
 
 help: ## Services Backend Cloudity
@@ -95,3 +98,22 @@ clean: ## Nettoyage backend
 
 stop: ## Arrêt backend
 	@$(COMPOSE) stop $(SERVICES)
+
+
+
+email-services: ## Démarrer services email backend
+	$(call log_info,"Démarrage services email backend")
+	@$(COMPOSE) up -d alias-service email-service mail-server
+	$(call log_success,"Services email backend démarrés")
+
+alias-dev: ## Service alias uniquement
+	$(call log_info,"Démarrage service alias")
+	@$(COMPOSE) up -d alias-service
+	$(call log_success,"Service alias: http://localhost:8092")
+
+email-test: ## Tests services email
+	@$(MAKE) -C alias-service test
+	@$(MAKE) -C email-service test
+
+email-logs: ## Logs services email
+	@$(COMPOSE) logs -f alias-service email-service
