@@ -4,7 +4,7 @@
 include ../scripts/colors.mk
 
 SERVICES := auth-service api-gateway admin-service
-EMAIL_SERVICES := alias-service email-service password-service²
+EMAIL_SERVICES := alias-service email-service password-service
 ALL_SERVICES := $(SERVICES) $(EMAIL_SERVICES)
 
 COMPOSE = docker compose -f ../docker-compose.yml
