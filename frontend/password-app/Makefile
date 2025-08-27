@@ -12,13 +12,19 @@ setup: ## Setup Node.js
 	@npm install
 	$(call log_success,"Password Manager configuré")
 
-dev: ## Démarrage développement
-	$(call log_info,"Démarrage Password Manager")
-	@npm run dev &
+# ✅ DOCKER PAR DÉFAUT
+dev: ## Démarrage développement avec Docker
+	$(call log_info,"Démarrage Password Manager Docker")
+	@docker compose -f ../../docker-compose.yml up -d password-app
 	$(call log_success,"Password Manager: http://localhost:8095")
 
-dev-docker: ## Démarrage avec Docker
-	@docker compose -f ../../docker-compose.yml up -d password-app
+dev-docker: ## Démarrage avec Docker (alias)
+	@$(MAKE) dev
+
+dev-local: ## Démarrage local (sans Docker)
+	$(call log_info,"Démarrage local Password Manager")
+	@npm run dev &
+	$(call log_success,"Password Manager local: http://localhost:8095")
 
 build: ## Build production
 	$(call log_info,"Build Password Manager")
@@ -49,6 +55,15 @@ security-audit: ## Audit sécurité
 	@npm audit
 	@npm run audit:security
 
+logs: ## Logs développement
+	@docker compose -f ../../docker-compose.yml logs -f password-app
+
+status: ## Status du service
+	@docker compose -f ../../docker-compose.yml ps password-app
+
+shell: ## Shell dans container
+	@docker compose -f ../../docker-compose.yml exec password-app /bin/sh
+
 clean: ## Nettoyage
 	@rm -rf node_modules/ dist/ .vite/
-	@npm cache clean --force
+	@docker compose -f ../../docker-compose.yml stop password-app

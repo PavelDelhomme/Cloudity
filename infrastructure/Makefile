@@ -42,9 +42,21 @@ wait-postgres: ## Attente PostgreSQL
 db-init: ## Initialisation base de données
 	$(call log_info,"Initialisation BDD")
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d postgres -f /docker-entrypoint-initdb.d/01-create-database.sql
-	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity_db -f /docker-entrypoint-initdb.d/02-create-tenants.sql
-	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity_db -f /docker-entrypoint-initdb.d/03-setup-rls.sql
+	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/02-create-tenants.sql
+	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/03-setup-rls.sql
 	$(call log_success,"BDD initialisée")
+
+wait-postgres: ## Attente PostgreSQL
+	$(call log_info,"Attente PostgreSQL...")
+	@timeout=30; \
+	while [ $$timeout -gt 0 ]; do \
+		if $(COMPOSE) exec postgres pg_isready -U cloudity_admin >/dev/null 2>&1; then \
+			$(call log_success,"PostgreSQL prêt"); \
+			break; \
+		fi; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done
 
 db-reset-all: ## Reset complet des BDD
 	$(call log_warning,"Reset des BDD")

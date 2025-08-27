@@ -1,120 +1,73 @@
-# mobile/Makefile - Applications mobiles Cloudity
-.PHONY: help setup dev clean
+# mobile/admin_app/Makefile
+.PHONY: help dev build test clean setup
 
 include ../scripts/colors.mk
 
-MOBILE_APPS := admin_app email_app password_app
-
-help: ## Mobile Cloudity
-	@echo "$(CYAN)📱 Mobile Cloudity$(NC)"
-	@echo "Applications: $(MOBILE_APPS)"
+help: ## Admin App Mobile Flutter
+	@echo "$(PURPLE)📱 Admin App Mobile$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
-setup: ## Setup toutes les apps
-	$(call log_info,"Setup applications mobiles")
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(call log_info,"Setup $$app"); \
-			$(MAKE) -C $$app setup; \
-		fi; \
-	done
-	$(call log_success,"Mobile setup terminé")
+setup: ## Setup Flutter
+	$(call log_info,"Setup Admin App Mobile")
+	@flutter pub get
+	@flutter doctor
+	$(call log_success,"Admin App Mobile configuré")
 
-# ═══════════════════════════════════════════════════════════════
-# APPLICATIONS INDIVIDUELLES
-# ═══════════════════════════════════════════════════════════════
+dev: ## Démarrage développement
+	$(call log_info,"Démarrage Admin App Mobile")
+	@flutter run --debug
+	$(call log_success,"Admin App Mobile démarré")
 
-admin-app: ## Admin app mobile
-	@$(MAKE) -C admin_app dev
+dev-android: ## Démarrage Android
+	@flutter run -d android
 
-email-app: ## Email app mobile  
-	@$(MAKE) -C email_app dev
+dev-ios: ## Démarrage iOS
+	@flutter run -d ios
 
-password-app: ## Password app mobile
-	@$(MAKE) -C password_app dev
+dev-web: ## Démarrage Web
+	@flutter run -d web-server --web-port 8096
 
-# ═══════════════════════════════════════════════════════════════
-# DÉVELOPPEMENT
-# ═══════════════════════════════════════════════════════════════
+build: ## Build production
+	$(call log_info,"Build Admin App Mobile")
+	@flutter build apk --release
+	@flutter build ios --release
+	$(call log_success,"Build terminé")
 
-dev: ## Menu développement mobile
-	@echo "$(CYAN)Applications disponibles:$(NC)"
-	@echo "1) make admin-app - Dashboard administrateur"
-	@echo "2) make email-app - Client email mobile"  
-	@echo "3) make password-app - Gestionnaire mots de passe"
+build-android: ## Build Android APK
+	@flutter build apk --release
 
-dev-all: ## Développement toutes apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app dev & \
-		fi; \
-	done
+build-ios: ## Build iOS
+	@flutter build ios --release
 
-# ═══════════════════════════════════════════════════════════════
-# TESTS
-# ═══════════════════════════════════════════════════════════════
+build-web: ## Build Web
+	@flutter build web
 
-test: ## Tests toutes les apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app test; \
-		fi; \
-	done
+test: ## Tests Flutter
+	$(call log_info,"Tests Admin App Mobile")
+	@flutter test
+	$(call log_success,"Tests terminés")
 
-test-admin: ## Tests admin app
-	@$(MAKE) -C admin_app test
+test-integration: ## Tests d'intégration
+	@flutter test integration_test/
 
-test-email: ## Tests email app
-	@$(MAKE) -C email_app test
+test-widget: ## Tests widgets
+	@flutter test test/widget_test.dart
 
-test-password: ## Tests password app
-	@$(MAKE) -C password_app test
+lint: ## Linting Dart
+	@flutter analyze
 
-# ═══════════════════════════════════════════════════════════════
-# BUILDS
-# ═══════════════════════════════════════════════════════════════
+format: ## Formatage Dart
+	@dart format .
 
-build: ## Build toutes les apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app build; \
-		fi; \
-	done
-
-build-android: ## Build Android toutes apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app build-android; \
-		fi; \
-	done
-
-build-ios: ## Build iOS toutes apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app build-ios; \
-		fi; \
-	done
-
-# ═══════════════════════════════════════════════════════════════
-# MAINTENANCE
-# ═══════════════════════════════════════════════════════════════
-
-clean: ## Nettoyage toutes apps
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			$(MAKE) -C $$app clean; \
-		fi; \
-	done
-
-status: ## Status applications mobiles
-	@echo "$(CYAN)Mobile Apps Status:$(NC)"
-	@for app in $(MOBILE_APPS); do \
-		if [ -d "$$app" ]; then \
-			echo "$$app: $(GREEN)Présent$(NC)"; \
-		else \
-			echo "$$app: $(RED)À créer$(NC)"; \
-		fi; \
-	done
-
-doctor: ## Flutter doctor toutes apps
+doctor: ## Flutter Doctor
 	@flutter doctor -v
+
+devices: ## Appareils disponibles
+	@flutter devices
+
+clean: ## Nettoyage Flutter
+	@flutter clean
+	@flutter pub get
+
+upgrade: ## Mise à jour dépendances
+	@flutter pub upgrade

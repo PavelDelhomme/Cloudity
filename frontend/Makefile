@@ -8,32 +8,95 @@ help: ## Frontend Cloudity
 	@echo "$(PURPLE)🎨 Frontend Cloudity$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
-dev-admin: ## Démarrer admin dashboard
+
+# ═══════════════════════════════════════════════════════════════
+# APPLICATIONS INDIVIDUELLES
+# ═══════════════════════════════════════════════════════════════
+
+admin-dashboard: ## Admin dashboard
+	@$(MAKE) -C admin-dashboard dev
+
+email-app: ## Email application
+	@$(MAKE) -C email-app dev-docker
+
+password-app: ## Password manager
+	@$(MAKE) -C password-app dev-docker
+
+dev-admin: ## Admin dashboard
 	$(call log_info,"Démarrage admin dashboard")
-	@docker compose -f ../docker-compose.yml up -d admin-dashboard
+	@docker compose -f ../docker-compose.yml up -d admin-dashboard  
 	$(call log_success,"Admin dashboard: http://localhost:3000")
 
 dev-all: ## Tous les frontends
-	$(call log_info, "Démarrage frontends")
+	$(call log_info,"Démarrage frontends")
 	@$(MAKE) dev-admin
-	@if [ -d "email-app" ]; then $(MAKE) email-frontend; fi
-	@if [ -d "password-app" ]; then $(MAKE) password-frontend; fi
-	$(call log_success, "Frontends démarrés")
+	@if [ -d "email-app" ]; then $(MAKE) email-app; fi
+	@if [ -d "password-app" ]; then $(MAKE) password-app; fi
+	$(call log_success,"Frontends démarrés")
 
-email-frontend: ## Démarrer frontend email
+email-frontend: ## Frontend email avec Docker
 	$(call log_info,"Démarrage frontend email")
-	@if [ -d "email-app" ]; then \
-		cd email-app && npm install && npm run dev & \
-		$(call log_success, "Email app: http://localhost:8094"); \
-	else \
-		$(call log_warning, "email-app n'existe pas encore"); \
-	fi
+	@docker compose -f ../docker-compose.yml up -d email-app
+	$(call log_success,"Email app: http://localhost:8094")
 
-password-frontend: ## Frontend password
+password-frontend: ## Frontend password avec Docker
 	$(call log_info,"Démarrage frontend password")
-	@if [ -d "password-app" ]; then \
-		cd password-app && npm install && npm run dev & \
-		$(call log_success,"Password app: http://localhost:8095"); \
-	else \
-		$(call log_warning,"password-app n'existe pas encore"); \
-	fi
+	@docker compose -f ../docker-compose.yml up -d password-app
+	$(call log_success,"Password app: http://localhost:8095")
+
+# ═══════════════════════════════════════════════════════════════
+# TESTS
+# ═══════════════════════════════════════════════════════════════
+
+test-admin-dashboard: ## Tests dashboard
+	@$(MAKE) -C admin-dashboard test
+
+test-email-app: ## Tests email app
+	@$(MAKE) -C email-app test
+
+test-password-app: ## Tests password app
+	@$(MAKE) -C password-app test
+
+test-all: ## Tests tous les frontends
+	@for app in admin-dashboard email-app password-app; do \
+		if [ -d "$$app" ]; then \
+			$(MAKE) -C $$app test; \
+		fi; \
+	done
+
+# ═══════════════════════════════════════════════════════════════
+# BUILD
+# ═══════════════════════════════════════════════════════════════
+
+build-admin-dashboard: ## Build dashboard
+	@$(MAKE) -C admin-dashboard build
+
+build-email-app: ## Build email app
+	@$(MAKE) -C email-app build
+
+build-password-app: ## Build password app
+	@$(MAKE) -C password-app build
+
+build-all: ## Build tous les frontends
+	@for app in admin-dashboard email-app password-app; do \
+		if [ -d "$$app" ]; then \
+			$(MAKE) -C $$app build; \
+		fi; \
+	done
+
+# ═══════════════════════════════════════════════════════════════
+# MAINTENANCE
+# ═══════════════════════════════════════════════════════════════
+
+status: ## Status frontend
+	@echo "$(PURPLE)Frontend Status:$(NC)"
+	@docker compose -f ../docker-compose.yml ps admin-dashboard email-app password-app
+
+clean: ## Nettoyage frontend
+	@docker compose -f ../docker-compose.yml stop admin-dashboard email-app password-app
+	@for app in admin-dashboard email-app password-app; do \
+		if [ -d "$$app/node_modules" ]; then rm -rf $$app/node_modules; fi; \
+	done
+
+logs: ## Logs frontend
+	@docker compose -f ../docker-compose.yml logs -f admin-dashboard email-app password-app

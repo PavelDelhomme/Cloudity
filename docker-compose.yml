@@ -211,6 +211,48 @@ services:
     networks:
       - cloudity-network
 
+# Frontend Email App
+  email-app:
+    build:
+      context: ./frontend/email-app
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-email-app
+    restart: unless-stopped
+    ports:
+      - "8094:8094"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend/email-app:/app:cached
+      - email_node_modules:/app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - cloudity-network
+
+  # Frontend Password App
+  password-app:
+    build:
+      context: ./frontend/password-app
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-password-app
+    restart: unless-stopped
+    ports:
+      - "8095:8095"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend/password-app:/app:cached
+      - password_node_modules:/app/node_modules
+    depends_on:
+      - api-gateway
+    networks:
+      - cloudity-network
+
 networks:
   cloudity-network:
     driver: bridge
@@ -237,3 +279,9 @@ volumes:
     name: cloudity-node-modules-cache
   alias-target:
     driver: local
+  email_node_modules:
+    driver: local
+    name: cloudity-email-node-modules
+  password_node_modules:
+    driver: local
+    name: cloudity-password-node-modules
