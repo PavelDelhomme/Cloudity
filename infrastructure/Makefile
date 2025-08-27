@@ -3,7 +3,7 @@
 
 include ../scripts/colors.mk
 
-COMPOSE = docker compose -f docker-compose.infrastructure.yml
+COMPOSE = docker compose -f ../docker-compose.yml
 
 help: ## Infrastructure Cloudity
 	@echo "$(BLUE)🏗️ Infrastructure Cloudity$(NC)"
@@ -104,5 +104,5 @@ stop: ## Arrêt infrastructure
 
 email-migrate: ## Migration tables email
 	$(call log_info,"Migration système email")
-	@docker compose exec postgres psql -U ${POSTGRES_USER:-cloudity_admin} -d ${POSTGRES_DB:-cloudity} -f /docker-entrypoint-initdb.d/04-email-system.sql
+	@docker compose -f ../docker-compose.yml exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/04-email-system.sql
 	$(call log_success,"Migration email terminée")
