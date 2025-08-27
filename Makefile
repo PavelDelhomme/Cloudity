@@ -223,6 +223,10 @@ quick-start: ## Démarrage rapide (recommandé)
 	@$(MAKE) health
 
 
+# ═══════════════════════════════════════════════════════════════
+# GESTION FINE DES SERVICES EMAIL
+# ═══════════════════════════════════════════════════════════════
+
 # Commandes Email System
 .PHONY: email-dev email-build email-up email-down email-logs email-migrate
 
@@ -269,6 +273,16 @@ email-clean: ## Nettoyer le système email
 	docker system prune -f
 
 
+email-services: ## Services email complets
+	@$(MAKE) -C backend email-services
+
+email-service: ## Service email core
+	@$(MAKE) -C backend email-service
+
+password-service: ## Service password manager
+	@$(MAKE) -C backend password-service
+
+
 # Service Alias
 .PHONY: alias-dev alias-build alias-test
 
@@ -284,3 +298,7 @@ alias-test: ## Tests du service alias
 
 alias-logs: ## Logs du service alias
 	docker compose logs -f alias-service
+
+
+frontend-dev: ## Service frontend
+	@$(MAKE) -C frontend dev-all

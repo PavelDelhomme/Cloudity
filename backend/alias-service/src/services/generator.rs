@@ -1,5 +1,4 @@
 use rand::Rng;
-use regex::Regex;
 
 pub struct AliasGenerator {
     adjectives: Vec<&'static str>,
@@ -39,10 +38,6 @@ impl AliasGenerator {
         format!("{}-{}-{}{}@{}", theme, adj, noun, num, domain)
     }
 
-    pub fn generate_sequential(&self, base: &str, domain: &str, count: i32) -> String {
-        format!("{}{}@{}", base, count + 1, domain)
-    }
-
     fn generate_random_string(&self, length: usize) -> String {
         use rand::distributions::Alphanumeric;
         rand::thread_rng()
@@ -51,10 +46,5 @@ impl AliasGenerator {
             .map(char::from)
             .collect::<String>()
             .to_lowercase()
-    }
-
-    pub fn validate_email(&self, email: &str) -> bool {
-        let email_regex = Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-        email_regex.is_match(email)
     }
 }

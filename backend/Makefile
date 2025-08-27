@@ -4,15 +4,16 @@
 include ../scripts/colors.mk
 
 SERVICES := auth-service api-gateway admin-service
-EMAIL_SERVICES := alias-service email-service
+EMAIL_SERVICES := alias-service email-service password-service²
 ALL_SERVICES := $(SERVICES) $(EMAIL_SERVICES)
 
 COMPOSE = docker compose -f ../docker-compose.yml
 
 help: ## Services Backend Cloudity
-	@echo "$(PURPLE)🔧 Services Backend$(NC)"
-	@echo "Services: $(SERVICES)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
+@echo "$(PURPLE)🔧 Services Backend$(NC)"
+	@echo "Services Core: $(SERVICES)"
+	@echo "Services Email: $(EMAIL_SERVICES)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup backend services
 	$(call log_info,"Setup services backend")
@@ -101,10 +102,15 @@ stop: ## Arrêt backend
 
 
 
-email-services: ## Démarrer services email backend
+email-services: ## Démarrer services email backend ## mail-server attention ce service n'est plus appeler est surtout bah faut vérifier si il faut pas le démarer bref
 	$(call log_info,"Démarrage services email backend")
-	@$(COMPOSE) up -d alias-service email-service mail-server
-	$(call log_success,"Services email backend démarrés")
+	@$(COMPOSE) up -d alias-service email-service password-service
+	$(call log_success,"Services email démarrés") 
+
+email-service: ## Service email uniquement
+	$(call log_info,"Démarrage service email")
+	@$(MAKE) -C email-service dev
+	$(call log_success,"Service email: http://localhost:8091")
 
 alias-dev: ## Service alias uniquement
 	$(call log_info,"Démarrage service alias")
@@ -117,3 +123,8 @@ email-test: ## Tests services email
 
 email-logs: ## Logs services email
 	@$(COMPOSE) logs -f alias-service email-service
+
+dev-all: ## Tous les services backend
+	$(call log_info, "Démarrage backend complet")
+	@$(COMPOSE) up -d $(ALL_SERVICES)
+	$(call log_success,"Backend complet démarré")
