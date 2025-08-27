@@ -1,0 +1,5 @@
+/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/backend/email-service/target/debug/deps/smallvec-bdd833abe90ac9dd.d: /home/pactivisme/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.1/src/lib.rs
+
+/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/backend/email-service/target/debug/deps/libsmallvec-bdd833abe90ac9dd.rmeta: /home/pactivisme/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.1/src/lib.rs
+
+/home/pactivisme/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.1/src/lib.rs:

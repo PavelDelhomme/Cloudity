@@ -28,7 +28,7 @@ pub struct AppState {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::init();
+    tracing_subscriber::fmt::init();
     dotenv::dotenv().ok();
 
     let database_url = std::env::var("DATABASE_URL")

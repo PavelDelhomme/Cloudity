@@ -1,3 +1,4 @@
+# backend/email-service/Makefile
 .PHONY: help dev build test clean
 
 include ../../scripts/colors.mk
