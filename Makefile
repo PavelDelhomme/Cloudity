@@ -221,3 +221,71 @@ quick-start: ## Démarrage rapide (recommandé)
 	@$(MAKE) dev-core
 	@sleep 5
 	@$(MAKE) health
+
+
+# Commandes Email System
+.PHONY: email-dev email-build email-up email-down email-logs
+
+email-dev: ## Démarrer le système email en mode développement
+	@echo "$(GREEN)🚀 Démarrage système email développement...$(NC)"
+	docker compose -f docker-compose.yml -f docker-compose.email.yml up -d
+	@echo "$(GREEN)✅ Système email démarré!$(NC)"
+	@echo "Email App: http://localhost:8093"
+	@echo "Email Service: http://localhost:8091"
+	@echo "Alias Service: http://localhost:8092"
+
+email-build: ## Construire les images email
+	@echo "$(YELLOW)🔨 Construction images email...$(NC)"
+	docker compose -f docker-compose.email.yml build
+
+email-up: email-build ## Démarrer tous les services email
+	docker compose -f docker-compose.yml -f docker-compose.email.yml up -d
+
+email-down: ## Arrêter les services email
+	docker compose -f docker-compose.email.yml down
+
+email-logs: ## Voir les logs des services email
+	docker compose -f docker-compose.email.yml logs -f
+
+# Commandes de développement spécifiques
+email-rust-dev: ## Mode dev pour services Rust
+	cd backend/email-service && cargo watch -x run &
+	cd backend/alias-service && cargo watch -x run &
+
+email-vue-dev: ## Mode dev pour frontend Vue
+	cd frontend/email-app && npm run dev
+
+# Tests
+email-test: ## Tests des services email
+	cd backend/email-service && cargo test
+	cd backend/alias-service && cargo test
+
+# Nettoyage
+email-clean: ## Nettoyer le système email
+	docker compose -f docker-compose.email.yml down -v
+	docker system prune -f
+
+
+# Service Alias
+.PHONY: alias-dev alias-build alias-test
+
+alias-dev: ## Démarrer le service alias
+	@echo "$(GREEN)🚀 Démarrage service alias...$(NC)"
+	docker compose up -d alias-service
+	@echo "$(GREEN)✅ Service alias: http://localhost:8092$(NC)"
+
+alias-build: ## Construire le service alias
+	@echo "$(YELLOW)🔨 Construction service alias...$(NC)"
+	docker compose build alias-service
+
+alias-test: ## Tests du service alias
+	cd backend/alias-service && cargo test
+
+alias-logs: ## Logs du service alias
+	docker compose logs -f alias-service
+
+# Migration email
+email-migrate: ## Exécuter migrations email
+	@echo "$(BLUE)📊 Migration base de données email...$(NC)"
+	docker compose exec database psql -U cloudity_user -d cloudity -f /docker-entrypoint-initdb.d/04-email-system.sql
+	@echo "$(GREEN)✅ Migrations email terminées!$(NC)"

@@ -1,0 +1,90 @@
+services:
+  # Service Email Principal (Rust)
+  email-service:
+    build: 
+      context: ./backend/email-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8091:8091"
+    environment:
+      - DATABASE_URL=postgresql://cloudity_user:${DB_PASSWORD}@database:5432/cloudity
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=postfix
+      - IMAP_HOST=dovecot
+    depends_on:
+      - database
+      - redis
+      - postfix
+      - dovecot
+    volumes:
+      - ./backend/email-service:/app
+      - /app/target
+
+  # Service Alias (Rust)
+  alias-service:
+    build:
+      context: ./backend/alias-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8092:8092"
+    environment:
+      - DATABASE_URL=postgresql://cloudity_user:${DB_PASSWORD}@database:5432/cloudity
+      - DOMAIN=alias.delhomme.ovh
+    depends_on:
+      - database
+    volumes:
+      - ./backend/alias-service:/app
+      - /app/target
+
+  # Serveur SMTP Custom (Postfix)
+  postfix:
+    build: ./backend/mail-server/postfix
+    ports:
+      - "25:25"
+      - "587:587"
+    environment:
+      - MYHOSTNAME=mail.delhomme.ovh
+      - MYDOMAIN=delhomme.ovh
+      - ALIAS_DOMAIN=alias.delhomme.ovh
+    volumes:
+      - maildata:/var/mail
+      - ./backend/mail-server/postfix/main.cf:/etc/postfix/main.cf
+    depends_on:
+      - database
+
+  # Serveur IMAP Custom (Dovecot)
+  dovecot:
+    build: ./backend/mail-server/dovecot
+    ports:
+      - "143:143"
+      - "993:993"
+    environment:
+      - MAIL_LOCATION=maildir:/var/mail/%d/%n
+    volumes:
+      - maildata:/var/mail
+      - ./backend/mail-server/dovecot/dovecot.conf:/etc/dovecot/dovecot.conf
+    depends_on:
+      - database
+
+  # Application Email Frontend
+  email-app:
+    build:
+      context: ./frontend/email-app
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8093:8093"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_EMAIL_SERVICE_URL=http://localhost:8091
+      - VITE_ALIAS_SERVICE_URL=http://localhost:8092
+    volumes:
+      - ./frontend/email-app:/app
+      - /app/node_modules
+    depends_on:
+      - api-gateway
+      - email-service
+      - alias-service
+
+volumes:
+  maildata:
+    driver: local

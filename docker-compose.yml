@@ -192,6 +192,24 @@ services:
     profiles:
       - dev
 
+  # Service Alias
+  alias-service:
+    build:
+      context: ./backend/alias-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8092:8092"
+    environment:
+      - DATABASE_URL=postgresql://cloudity_user:${DB_PASSWORD}@database:5432/cloudity
+      - DOMAIN=alias.delhomme.ovh
+    depends_on:
+      - database
+    volumes:
+      - ./backend/alias-service:/app
+      - alias-target:/app/target
+    networks:
+      - cloudity-network
+
 networks:
   cloudity-network:
     driver: bridge
@@ -216,3 +234,5 @@ volumes:
   node_modules_cache:
     driver: local
     name: cloudity-node-modules-cache
+  alias-target:
+    driver: local
