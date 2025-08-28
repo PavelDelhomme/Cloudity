@@ -1,13 +1,11 @@
-# frontend/Makefile
+# frontend/Makefile - Version complète
 .PHONY: help dev-admin dev-all email-frontend password-frontend
 
 include ../scripts/colors.mk
 
-
 help: ## Frontend Cloudity
 	@echo "$(PURPLE)🎨 Frontend Cloudity$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
-
 
 # ═══════════════════════════════════════════════════════════════
 # APPLICATIONS INDIVIDUELLES

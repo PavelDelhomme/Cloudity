@@ -211,7 +211,7 @@ services:
     networks:
       - cloudity-network
 
-# Frontend Email App
+  # Frontend Email App
   email-app:
     build:
       context: ./frontend/email-app
