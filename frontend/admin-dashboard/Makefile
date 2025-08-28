@@ -4,7 +4,7 @@
 include ../../scripts/colors.mk
 
 help: ## Admin Dashboard Vue.js
-	@echo "$(PURPLE)📊 Admin Dashboard$(NC)"
+	printf "$(PURPLE)📊 Admin Dashboard$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup Node.js

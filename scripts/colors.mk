@@ -10,19 +10,19 @@ CYAN := $(shell printf "\033[0;36m")
 NC := $(shell printf "\033[0m")
 
 define log_info
-	@echo "$(CYAN)ℹ️  $(1)$(NC)"
+	printf "$(CYAN)ℹ️  $(1)$(NC)"
 endef
 
 define log_success
-	@echo "$(GREEN)✅ $(1)$(NC)"
+	printf "$(GREEN)✅ $(1)$(NC)"
 endef
 
 define log_warning
-	@echo "$(YELLOW)⚠️  $(1)$(NC)"
+	printf "$(YELLOW)⚠️  $(1)$(NC)"
 endef
 
 define log_error
-	@echo "$(RED)❌ $(1)$(NC)"
+	printf "$(RED)❌ $(1)$(NC)"
 endef
 
 

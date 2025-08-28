@@ -6,7 +6,7 @@ include ../scripts/colors.mk
 COMPOSE = docker compose -f ../docker-compose.yml
 
 help: ## Infrastructure Cloudity
-	@echo "$(BLUE)🏗️ Infrastructure Cloudity$(NC)"
+	printf "$(BLUE)🏗️ Infrastructure Cloudity$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
 setup: ## Configuration initiale infrastructure
@@ -46,18 +46,6 @@ db-init: ## Initialisation base de données
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/03-setup-rls.sql
 	$(call log_success,"BDD initialisée")
 
-wait-postgres: ## Attente PostgreSQL
-	$(call log_info,"Attente PostgreSQL...")
-	@timeout=30; \
-	while [ $$timeout -gt 0 ]; do \
-		if $(COMPOSE) exec postgres pg_isready -U cloudity_admin >/dev/null 2>&1; then \
-			$(call log_success,"PostgreSQL prêt"); \
-			break; \
-		fi; \
-		sleep 2; \
-		timeout=$$((timeout-2)); \
-	done
-
 db-reset-all: ## Reset complet des BDD
 	$(call log_warning,"Reset des BDD")
 	@$(COMPOSE) down postgres -v
@@ -92,15 +80,24 @@ restore-latest: ## Restauration
 	$(call log_success,"Restauration terminée")
 
 status: ## Status infrastructure
-	@echo "$(BLUE)Infrastructure Status:$(NC)"
+	@printf "$(BLUE)Infrastructure Status:$(NC)"
 	@$(COMPOSE) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
 
 health: ## Health check infrastructure
-	@$(COMPOSE) exec postgres pg_isready -U cloudity_admin && $(call log_success,"PostgreSQL OK") || $(call log_error,"PostgreSQL KO")
-	@$(COMPOSE) exec redis redis-cli ping >/dev/null && $(call log_success,"Redis OK") || $(call log_error,"Redis KO")
+	@printf "$(CYAN)Health Check Infrastructure:$(NC)\n"
+	@if $(COMPOSE) exec postgres pg_isready -U cloudity_admin >/dev/null 2>&1; then \
+		$(call log_success,"PostgreSQL OK"); \
+	else \
+		$(call log_error,"PostgreSQL KO"); \
+	fi
+	@if $(COMPOSE) exec redis redis-cli ping >/dev/null 2>&1; then \
+		$(call log_success,"Redis OK"); \
+	else \
+		$(call log_error,"Redis KO"); \
+	fi
 
 logs: ## Logs infrastructure
-	@$(COMPOSE) logs -f
+	@$(COMPOSE) logs -f postgres redis
 
 shell-postgres: ## Shell PostgreSQL
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity_db
@@ -109,10 +106,10 @@ shell-redis: ## Shell Redis
 	@$(COMPOSE) exec redis redis-cli
 
 clean: ## Nettoyage infrastructure
-	@$(COMPOSE) down -v --remove-orphans
+	@$(COMPOSE) down postgres redis -v --remove-orphans
 
 stop: ## Arrêt infrastructure
-	@$(COMPOSE) stop
+	@$(COMPOSE) stop postgres redis
 
 email-migrate: ## Migration tables email
 	$(call log_info,"Migration système email")

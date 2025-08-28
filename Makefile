@@ -17,18 +17,18 @@ INFRASTRUCTURE_SERVICES := postgres redis
 ALL_SERVICES := $(INFRASTRUCTURE_SERVICES) $(BACKEND_SERVICES) $(FRONTEND_SERVICES)
 
 help: ## Aide principale Cloudity
-	@echo "$(GREEN)🚀 Cloudity - Écosystème Cloud Multi-Tenant$(NC)"
-	@echo "$(YELLOW)Architecture modulaire avec Makefiles séparés$(NC)"
-	@echo ""
-	@echo "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
+	printf "$(GREEN)🚀 Cloudity - Écosystème Cloud Multi-Tenant$(NC)"
+	printf "$(YELLOW)Architecture modulaire avec Makefiles séparés$(NC)"
+	printf ""
+	printf "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-25s$(NC) %s\n", $$1, $$2}'
-	@echo ""
-	@echo "$(CYAN)═══ MODULES DISPONIBLES ═══$(NC)"
-	@echo "$(YELLOW)Infrastructure:$(NC) make -C infrastructure help"
-	@echo "$(YELLOW)Backend:$(NC)       make -C backend help"
-	@echo "$(YELLOW)Frontend:$(NC)      make -C frontend help"
-	@echo "$(YELLOW)Mobile:$(NC)        make -C mobile help"
-	@echo "$(YELLOW)Tests:$(NC)         make -C tests help"
+	printf ""
+	printf "$(CYAN)═══ MODULES DISPONIBLES ═══$(NC)"
+	printf "$(YELLOW)Infrastructure:$(NC) make -C infrastructure help"
+	printf "$(YELLOW)Backend:$(NC)       make -C backend help"
+	printf "$(YELLOW)Frontend:$(NC)      make -C frontend help"
+	printf "$(YELLOW)Mobile:$(NC)        make -C mobile help"
+	printf "$(YELLOW)Tests:$(NC)         make -C tests help"
 
 # ═══════════════════════════════════════════════════════════════
 # ORCHESTRATION GLOBALE
@@ -112,7 +112,7 @@ test-load: ## Tests de charge
 # ═══════════════════════════════════════════════════════════════
 
 status: ## Status global du système
-	@echo "$(CYAN)═══ STATUS GLOBAL CLOUDITY ═══$(NC)"
+	printf "$(CYAN)═══ STATUS GLOBAL CLOUDITY ═══$(NC)"
 	@$(MAKE) -C infrastructure status
 	@$(MAKE) -C backend status
 	@$(MAKE) -C frontend status
@@ -202,9 +202,9 @@ restart: ## Redémarrage complet
 # ═══════════════════════════════════════════════════════════════
 
 shell: ## Menu shell services
-	@echo "$(CYAN)Services disponibles:$(NC)"
-	@echo "1) auth-service    2) api-gateway    3) admin-service"
-	@echo "4) postgres        5) redis          6) admin-dashboard"
+	printf "$(CYAN)Services disponibles:$(NC)"
+	printf "1) auth-service    2) api-gateway    3) admin-service"
+	printf "4) postgres        5) redis          6) admin-dashboard"
 	@read -p "Choisir service (1-6): " choice; \
 	case $$choice in \
 		1) $(MAKE) -C backend shell-auth ;; \
@@ -213,7 +213,7 @@ shell: ## Menu shell services
 		4) $(MAKE) -C infrastructure shell-postgres ;; \
 		5) $(MAKE) -C infrastructure shell-redis ;; \
 		6) $(MAKE) -C frontend shell-admin ;; \
-		*) echo "Choix invalide" ;; \
+		*) printf "Choix invalide" ;; \
 	esac
 
 quick-start: ## Démarrage rapide (recommandé)
@@ -243,7 +243,7 @@ email-migrate: ## Migrations email
 	$(call log_success,"Migrations email terminées!")
 
 email-build: ## Construire les images email
-	@echo "$(YELLOW)🔨 Construction images email...$(NC)"
+	printf "$(YELLOW)🔨 Construction images email...$(NC)"
 	docker compose -f docker-compose.email.yml build
 
 email-up: email-build ## Démarrer tous les services email
@@ -290,7 +290,7 @@ alias-dev: ## Service alias uniquement
 	@$(MAKE) -C backend alias-dev
 
 alias-build: ## Construire le service alias
-	@echo "$(YELLOW)🔨 Construction service alias...$(NC)"
+	printf "$(YELLOW)🔨 Construction service alias...$(NC)"
 	docker compose build alias-service
 
 alias-test: ## Tests du service alias

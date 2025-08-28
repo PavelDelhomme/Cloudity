@@ -4,7 +4,7 @@
 include ../../scripts/colors.mk
 
 help: ## Mail Server Custom
-	@echo "$(PURPLE)📮 Mail Server$(NC)"
+	printf "$(PURPLE)📮 Mail Server$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup mail server
@@ -25,8 +25,8 @@ build: ## Build images mail server
 
 test: ## Tests configuration
 	$(call log_info,"Tests Mail Server")
-	@echo "Test SMTP..." && nc -zv localhost 587
-	@echo "Test IMAP..." && nc -zv localhost 993
+	printf "Test SMTP..." && nc -zv localhost 587
+	printf "Test IMAP..." && nc -zv localhost 993
 	$(call log_success,"Tests terminés")
 
 test-smtp: ## Test SMTP uniquement

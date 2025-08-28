@@ -4,7 +4,7 @@
 include ../../scripts/colors.mk
 
 help: ## API Gateway Go
-	@echo "$(PURPLE)🌐 API Gateway$(NC)"
+	printf "$(PURPLE)🌐 API Gateway$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup environnement Go

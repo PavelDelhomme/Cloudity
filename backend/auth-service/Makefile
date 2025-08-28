@@ -8,7 +8,7 @@ PORT := 8081
 COMPOSE = docker compose -f ../../docker-compose.yml
 
 help: ## Service d'authentification Cloudity
-	@echo "$(GREEN)🔐 Auth Service$(NC)"
+	printf "$(GREEN)🔐 Auth Service$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
 setup: ## Configuration initiale

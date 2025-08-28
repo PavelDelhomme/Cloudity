@@ -4,7 +4,7 @@
 include ../../scripts/colors.mk
 
 help: ## Admin App Mobile Flutter
-	@echo "$(PURPLE)📱 Admin App Mobile$(NC)"
+	printf "$(PURPLE)📱 Admin App Mobile$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup Flutter

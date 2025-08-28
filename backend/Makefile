@@ -10,9 +10,9 @@ ALL_SERVICES := $(SERVICES) $(EMAIL_SERVICES)
 COMPOSE = docker compose -f ../docker-compose.yml
 
 help: ## Services Backend Cloudity
-	@echo "$(PURPLE)🔧 Services Backend$(NC)"
-	@echo "Services Core: $(SERVICES)"
-	@echo "Services Email: $(EMAIL_SERVICES)"
+	@printf "$(PURPLE)🔧 Services Backend$(NC)"
+	@printf "Services Core: $(SERVICES)"
+	@printf "Services Email: $(EMAIL_SERVICES)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup backend services
@@ -132,10 +132,29 @@ build-mail: ## Build mail server
 # ═══════════════════════════════════════════════════════════════
 
 status: ## Status services backend
-	@echo "$(PURPLE)Backend Services:$(NC)"
+	@printf "$(PURPLE)Backend Services:$(NC)\n"
 	@for service in $(SERVICES); do \
-		echo -n "$$service: "; \
-		$(MAKE) -C $$service status 2>/dev/null || echo "$(RED)Stopped$(NC)"; \
+		printf "$(CYAN)$$service:$(NC) "; \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			printf "$(GREEN)Running$(NC)"; \
+			port=$$($(COMPOSE) ps $$service --format "{{.Ports}}" 2>/dev/null | grep -o ":[0-9]*->" | cut -d: -f2 | cut -d- -f1 | head -1); \
+			if [ ! -z "$$port" ]; then \
+				printf " (port $$port)"; \
+			fi; \
+		else \
+			printf "$(RED)Stopped$(NC)"; \
+		fi; \
+		printf "\n"; \
+	done
+	@printf "\n$(PURPLE)Email Services:$(NC)\n"
+	@for service in $(EMAIL_SERVICES); do \
+		printf "$(CYAN)$$service:$(NC) "; \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			printf "$(GREEN)Running$(NC)"; \
+		else \
+			printf "$(RED)Stopped$(NC)"; \
+		fi; \
+		printf "\n"; \
 	done
 
 health: ## Health check backend

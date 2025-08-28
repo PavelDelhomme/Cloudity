@@ -1,10 +1,10 @@
-# mobile/admin_app/Makefile
+# mobile/Makefile
 .PHONY: help dev build test clean setup
 
 include ../scripts/colors.mk
 
 help: ## Admin App Mobile Flutter
-	@echo "$(PURPLE)📱 Admin App Mobile$(NC)"
+	printf "$(PURPLE)📱 Admin App Mobile$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup Flutter
@@ -71,3 +71,19 @@ clean: ## Nettoyage Flutter
 
 upgrade: ## Mise à jour dépendances
 	@flutter pub upgrade
+
+
+status: ## Status applications mobiles
+	@printf "$(CYAN)Mobile Apps Status:$(NC)\n"
+	@for app in $(MOBILE_APPS); do \
+		if [ -d "$$app" ]; then \
+			printf "$(GREEN)✅$(NC) $$app: Présent\n"; \
+		else \
+			printf "$(RED)❌$(NC) $$app: À créer\n"; \
+		fi; \
+	done
+	@if command -v flutter >/dev/null 2>&1; then \
+		printf "$(GREEN)✅$(NC) Flutter installé\n"; \
+	else \
+		printf "$(YELLOW)⚠️$(NC) Flutter non installé\n"; \
+	fi

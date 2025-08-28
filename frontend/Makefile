@@ -4,7 +4,7 @@
 include ../scripts/colors.mk
 
 help: ## Frontend Cloudity
-	@echo "$(PURPLE)🎨 Frontend Cloudity$(NC)"
+	printf "$(PURPLE)🎨 Frontend Cloudity$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 # ═══════════════════════════════════════════════════════════════
@@ -87,8 +87,30 @@ build-all: ## Build tous les frontends
 # ═══════════════════════════════════════════════════════════════
 
 status: ## Status frontend
-	@echo "$(PURPLE)Frontend Status:$(NC)"
-	@docker compose -f ../docker-compose.yml ps admin-dashboard email-app password-app
+	@printf "$(PURPLE)Frontend Status:$(NC)\n"
+	@if $(COMPOSE) ps admin-dashboard --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+		printf "$(GREEN)✅$(NC) admin-dashboard: Running\n"; \
+	else \
+		printf "$(RED)❌$(NC) admin-dashboard: Stopped\n"; \
+	fi
+	@if [ -d "email-app" ]; then \
+		if $(COMPOSE) ps email-app --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			printf "$(GREEN)✅$(NC) email-app: Running\n"; \
+		else \
+			printf "$(YELLOW)⚠️$(NC) email-app: Stopped\n"; \
+		fi; \
+	else \
+		printf "$(RED)❌$(NC) email-app: À créer\n"; \
+	fi
+	@if [ -d "password-app" ]; then \
+		if $(COMPOSE) ps password-app --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			printf "$(GREEN)✅$(NC) password-app: Running\n"; \
+		else \
+			printf "$(YELLOW)⚠️$(NC) password-app: Stopped\n"; \
+		fi; \
+	else \
+		printf "$(RED)❌$(NC) password-app: À créer\n"; \
+	fi
 
 clean: ## Nettoyage frontend
 	@docker compose -f ../docker-compose.yml stop admin-dashboard email-app password-app

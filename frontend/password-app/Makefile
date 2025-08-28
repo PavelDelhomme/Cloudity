@@ -4,7 +4,7 @@
 include ../../scripts/colors.mk
 
 help: ## Password Manager App Vue.js
-	@echo "$(PURPLE)🔐 Password Manager$(NC)"
+	printf "$(PURPLE)🔐 Password Manager$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\\n", $$1, $$2}'
 
 setup: ## Setup Node.js
