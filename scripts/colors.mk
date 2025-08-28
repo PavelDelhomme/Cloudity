@@ -1,11 +1,13 @@
 # scripts/colors.mk - Couleurs partagées
-GREEN=\033[0;32m
-YELLOW=\033[0;33m
-RED=\033[0;31m
-BLUE=\033[0;34m
-PURPLE=\033[0;35m
-CYAN=\033[0;36m
-NC=\033[0m
+SHELL := /bin/bash
+
+GREEN := $(shell printf "\033[0;32m")
+YELLOW := $(shell printf "\033[0;33m") 
+RED := $(shell printf "\033[0;31m")
+BLUE := $(shell printf "\033[0;34m")
+PURPLE := $(shell printf "\033[0;35m")
+CYAN := $(shell printf "\033[0;36m")
+NC := $(shell printf "\033[0m")
 
 define log_info
 	@echo "$(CYAN)ℹ️  $(1)$(NC)"
@@ -22,3 +24,12 @@ endef
 define log_error
 	@echo "$(RED)❌ $(1)$(NC)"
 endef
+
+
+# Test de couleurs
+test-colors: ## Test des couleurs
+	$(call log_info,"Test couleur info")
+	$(call log_success,"Test couleur success")
+	$(call log_warning,"Test couleur warning")
+	$(call log_error,"Test couleur error")
+	@printf "$(GREEN)Vert$(NC) $(YELLOW)Jaune$(NC) $(RED)Rouge$(NC) $(BLUE)Bleu$(NC)\n"
