@@ -1,0 +1,496 @@
+$ make -C infrastructure logs
+make: Entering directory 'C:/Users/Paul/Documents/Dev/Perso/Cloudity/infrastructure'
+cloudity-postgres  | The files belonging to this database system will be owned by user "postgres".
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+cloudity-postgres  | This user must also own the server process.
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * Redis version=7.4.5, bits=64, commit=00000000, modified=0, pid=1, just started
+cloudity-postgres  | 
+cloudity-postgres  | The database cluster will be initialized with locale "en_US.utf8".
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * Configuration loaded
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.171 * monotonic clock: POSIX clock_gettime
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.172 * Running mode=standalone, port=6379.
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.172 * Server initialized
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.191 * Creating AOF base file appendonly.aof.1.base.rdb on server start
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.206 * Creating AOF incr file appendonly.aof.1.incr.aof on server start
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.206 * Ready to accept connections tcp
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.854 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.855 * Redis version=7.4.5, bits=64, commit=00000000, modified=0, pid=1, just started
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.855 * Configuration loaded
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.855 * monotonic clock: POSIX clock_gettime
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.857 * Running mode=standalone, port=6379.
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.857 * Server initialized
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Reading RDB base file on AOF loading...
+cloudity-postgres  | The default database encoding has accordingly been set to "UTF8".
+cloudity-postgres  | The default text search configuration will be set to "english".
+cloudity-postgres  | 
+cloudity-postgres  | Data page checksums are disabled.
+cloudity-postgres  | 
+cloudity-postgres  | fixing permissions on existing directory /var/lib/postgresql/data/pgdata ... ok
+cloudity-postgres  | creating subdirectories ... ok
+cloudity-postgres  | selecting dynamic shared memory implementation ... posix
+cloudity-postgres  | selecting default max_connections ... 100
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Loading RDB produced by version 7.4.5
+cloudity-postgres  | selecting default shared_buffers ... 128MB
+cloudity-postgres  | selecting default time zone ... UTC
+cloudity-postgres  | creating configuration files ... ok
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB age 83107 seconds
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB memory usage when created 0.90 Mb
+cloudity-postgres  | running bootstrap script ... ok
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB is base AOF
+cloudity-postgres  | sh: locale: not found
+cloudity-postgres  | 2025-08-28 09:18:33.579 UTC [36] WARNING:  no usable system locales were found
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Done loading RDB, keys loaded: 0, keys expired: 0.
+cloudity-postgres  | performing post-bootstrap initialization ... ok
+cloudity-postgres  | syncing data to disk ... ok
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * DB loaded from base file appendonly.aof.1.base.rdb: 0.002 seconds
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * DB loaded from append only file: 0.004 seconds
+cloudity-postgres  | Success. You can now start the database server using:
+cloudity-postgres  | 
+cloudity-postgres  |     pg_ctl -D /var/lib/postgresql/data/pgdata -l logfile start
+cloudity-postgres  | 
+cloudity-postgres  | initdb: warning: enabling "trust" authentication for local connections
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * Opening AOF incr file appendonly.aof.1.incr.aof on server start
+cloudity-postgres  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run 
+initdb.
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * Ready to accept connections tcp
+cloudity-postgres  | waiting for server to start....2025-08-28 09:18:34.066 GMT [48] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+cloudity-postgres  | 2025-08-28 09:18:34.073 GMT [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-28 09:18:34.092 GMT [51] LOG:  database system was shut down at 2025-08-28 09:18:33 GMT
+cloudity-postgres  | 2025-08-28 09:18:34.100 GMT [48] LOG:  database system is ready to accept connections
+cloudity-postgres  |  done
+cloudity-postgres  | server started
+cloudity-postgres  | CREATE DATABASE
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/01-create-database.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/02-create-tenants.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/03-setup-rls.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/04-email-system.sql
+cloudity-postgres  | CREATE EXTENSION
+cloudity-postgres  | 2025-08-28 09:18:34.242 GMT [67] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:18:34.242 GMT [67] STATEMENT:  CREATE TABLE IF NOT EXISTS folders (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+cloudity-postgres  |        type VARCHAR(50) DEFAULT 'custom', -- inbox, sent, drafts, trash, spam, custom
+cloudity-postgres  |        icon VARCHAR(50),
+cloudity-postgres  |        sort_order INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | psql:/docker-entrypoint-initdb.d/04-email-system.sql:16: ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 
+cloudity-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+cloudity-postgres  | 
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit 
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  listening on IPv6 address "::1", port 5432
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+cloudity-postgres  | 2025-08-28 09:18:34.978 GMT [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-28 09:18:34.992 GMT [30] LOG:  database system was interrupted; last known up at 2025-08-28 09:18:34 GMT
+cloudity-postgres  | 2025-08-28 09:18:35.123 GMT [30] LOG:  database system was not properly shut down; automatic recovery in progress
+cloudity-postgres  | 2025-08-28 09:18:35.128 GMT [30] LOG:  redo starts at 0/1509918
+cloudity-postgres  | 2025-08-28 09:18:35.143 GMT [30] LOG:  invalid magic number 0000 in log segment 000000010000000000000001, offset 9641984
+cloudity-postgres  | 2025-08-28 09:18:35.143 GMT [30] LOG:  redo done at 0/1931FA8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.01 s
+cloudity-postgres  | 2025-08-28 09:18:35.155 GMT [28] LOG:  checkpoint starting: end-of-recovery immediate wait
+cloudity-postgres  | 2025-08-28 09:18:35.248 GMT [28] LOG:  checkpoint complete: wrote 924 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.017 s, sync=0.061 s, total=0.098 s; sync files=302, longest=0.023 s, average=0.001 s; distance=4257 kB, estimate=4257 kB
+cloudity-postgres  | 2025-08-28 09:18:35.253 GMT [1] LOG:  database system is ready to accept connections
+cloudity-postgres  | 2025-08-28 09:18:35.941 GMT [40] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.221 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.221 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS folders (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+cloudity-postgres  |        type VARCHAR(50) DEFAULT 'custom', -- inbox, sent, drafts, trash, spam, custom
+cloudity-postgres  |        icon VARCHAR(50),
+cloudity-postgres  |        sort_order INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.243 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.243 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS emails (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        message_id VARCHAR(255) UNIQUE,
+cloudity-postgres  |        thread_id UUID,
+cloudity-postgres  |        subject TEXT,
+cloudity-postgres  |        from_address VARCHAR(255) NOT NULL,
+cloudity-postgres  |        from_name VARCHAR(255),
+cloudity-postgres  |        to_addresses JSONB NOT NULL,
+cloudity-postgres  |        cc_addresses JSONB,
+cloudity-postgres  |        bcc_addresses JSONB,
+cloudity-postgres  |        reply_to VARCHAR(255),
+cloudity-postgres  |        body_text TEXT,
+cloudity-postgres  |        body_html TEXT,
+cloudity-postgres  |        attachments JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        folder_id UUID REFERENCES folders(id),
+cloudity-postgres  |        labels JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        is_read BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_starred BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_archived BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_spam BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_important BOOLEAN DEFAULT false,
+cloudity-postgres  |        priority INTEGER DEFAULT 3, -- 1=high, 3=normal, 5=low
+cloudity-postgres  |        size_bytes INTEGER DEFAULT 0,
+cloudity-postgres  |        encrypted BOOLEAN DEFAULT false,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.261 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.261 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_aliases (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        source_email VARCHAR(255) UNIQUE NOT NULL,
+cloudity-postgres  |        destination_email VARCHAR(255) NOT NULL,
+cloudity-postgres  |        domain VARCHAR(255) NOT NULL DEFAULT 'alias.delhomme.ovh',
+cloudity-postgres  |        alias_type VARCHAR(50) DEFAULT 'random', -- random, thematic, temporary, sequential
+cloudity-postgres  |        description TEXT,
+cloudity-postgres  |        is_active BOOLEAN DEFAULT true,
+cloudity-postgres  |        usage_count INTEGER DEFAULT 0,
+cloudity-postgres  |        max_usage INTEGER,
+cloudity-postgres  |        expires_at TIMESTAMP,
+cloudity-postgres  |        tags JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.274 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.274 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_rules (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        description TEXT,
+cloudity-postgres  |        conditions JSONB NOT NULL,
+cloudity-postgres  |        actions JSONB NOT NULL,
+cloudity-postgres  |        is_active BOOLEAN DEFAULT true,
+cloudity-postgres  |        priority INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_drafts (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        subject TEXT,
+cloudity-postgres  |        to_addresses JSONB,
+cloudity-postgres  |        cc_addresses JSONB,
+cloudity-postgres  |        bcc_addresses JSONB,
+cloudity-postgres  |        body_text TEXT,
+cloudity-postgres  |        body_html TEXT,
+cloudity-postgres  |        attachments JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        scheduled_at TIMESTAMP,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_user_folder ON emails(user_id, folder_id);
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_thread ON emails(thread_id);
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_created ON emails(created_at DESC);
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] ERROR:  relation "email_aliases" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] STATEMENT:  CREATE INDEX idx_aliases_source ON email_aliases(source_email);
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] ERROR:  relation "email_aliases" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] STATEMENT:  CREATE INDEX idx_aliases_user ON email_aliases(user_id) WHERE is_active = true;
+cloudity-postgres  | 2025-08-28 09:22:44.292 GMT [243] ERROR:  relation "users" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.292 GMT [243] STATEMENT:  CREATE TRIGGER create_default_folders_trigger
+cloudity-postgres  |        AFTER INSERT ON users
+cloudity-postgres  |        FOR EACH ROW
+cloudity-postgres  |        EXECUTE FUNCTION create_default_folders();
+cloudity-postgres  | 2025-08-28 09:23:35.328 GMT [28] LOG:  checkpoint starting: time
+cloudity-postgres  | 2025-08-28 09:23:40.456 GMT [28] LOG:  checkpoint complete: wrote 51 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=5.040 s, sync=0.046 s, total=5.128 s; sync files=53, longest=0.022 s, average=0.001 s; distance=270 kB, estimate=3859 kB
+cloudity-postgres  | 
+cloudity-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+cloudity-postgres  | 
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit 
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  listening on IPv6 address "::1", port 5432
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+cloudity-postgres  | 2025-08-29 08:23:40.997 GMT [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-29 08:23:41.009 GMT [29] LOG:  database system was interrupted; last known up at 2025-08-28 09:23:40 GMT
+cloudity-postgres  | 2025-08-29 08:23:41.701 GMT [29] LOG:  database system was not properly shut down; automatic recovery in progress
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  redo starts at 0/1975980
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  invalid record length at 0/1975A68: wanted 24, got 0
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  redo done at 0/1975A30 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+cloudity-postgres  | 2025-08-29 08:23:41.720 GMT [27] LOG:  checkpoint starting: end-of-recovery immediate wait
+cloudity-postgres  | 2025-08-29 08:23:41.758 GMT [27] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.005 s, total=0.043 s; sync files=2, longest=0.003 s, average=0.003 s; distance=0 kB, estimate=0 kB
+cloudity-postgres  | 2025-08-29 08:23:41.770 GMT [1] LOG:  database system is ready to accept connections
+cloudity-postgres  | 2025-08-29 09:45:58.311 GMT [3571] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-29 10:17:36.463 GMT [4986] FATAL:  database "cloudity_admin" does not exist
+Et donc j'ai iun fichr vire pour 02-create-tenants.sql fait le moi s'il te plait 
+pareil pour le 01-create-database.sql il est vide fait le moi 
+ainsi que le 03-setup-rls.sql du coup sinon j'aurai toujours les erreur la 
+et surtout il faudra pourquoi tes exemple de tenants on doit obligatoirement avoir un moins les tenants d'administratoin et de tests s'il te plait enfaite hein ??
+Et donc j'ia fait ce que tu m'a donner mais pas 
+Et je n'ia pas d'interface pour vérifier postgresql enfaite j'aimerai avoir l'interface web qui vas bien pour analyser cela enfaite du coup 
+Mais donc la actuellelmen jia ceci dans le status d'infrasturecutre enfaite : 
+Paul@DESKTOP-FESHS7F MINGW64 ~/Documents/Dev/Perso/Cloudity (feature/auth-service)
+$ make -C infrastructure status
+make: Entering directory 'C:/Users/Paul/Documents/Dev/Perso/Cloudity/infrastructure'
+Infrastructure Status:NAME                    STATUS                      PORTS
+cloudity-auth-service   Up 16 minutes (unhealthy)   0.0.0.0:8081->8081/tcp     
+cloudity-postgres       Up 2 hours (healthy)        0.0.0.0:5432->5432/tcp     
+cloudity-redis          Up 2 hours (healthy)        0.0.0.0:6379->6379/tcp     
+make: Leaving directory 'C:/Users/Paul/Documents/Dev/Perso/Cloudity/infrastructure'
+Paul@DESKTOP-FESHS7F MINGW64 ~/Documents/Dev/Perso/Cloudity (feature/auth-service)
+$
+Et donc ceci dans le slogs de infrastructure donc : 
+Paul@DESKTOP-FESHS7F MINGW64 ~/Documents/Dev/Perso/Cloudity (feature/auth-service)
+$ make -C infrastructure logs
+make: Entering directory 'C:/Users/Paul/Documents/Dev/Perso/Cloudity/infrastructure'
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+cloudity-postgres  | The files belonging to this database system will be owned by user "postgres".
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * Redis version=7.4.5, bits=64, commit=00000000, modified=0, pid=1, just started
+cloudity-redis     | 1:C 28 Aug 2025 09:18:33.171 * Configuration loaded
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.171 * monotonic clock: POSIX clock_gettime
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.172 * Running mode=standalone, port=6379.
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.172 * Server initialized
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.191 * Creating AOF base file appendonly.aof.1.base.rdb on server start
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.206 * Creating AOF incr file appendonly.aof.1.incr.aof on server start
+cloudity-redis     | 1:M 28 Aug 2025 09:18:33.206 * Ready to accept connections tcp
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.854 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.855 * Redis version=7.4.5, bits=64, commit=00000000, modified=0, pid=1, just started
+cloudity-redis     | 1:C 29 Aug 2025 08:23:40.855 * Configuration loaded
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.855 * monotonic clock: POSIX clock_gettime
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.857 * Running mode=standalone, port=6379.
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.857 * Server initialized
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Reading RDB base file on AOF loading...
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Loading RDB produced by version 7.4.5
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB age 83107 seconds
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB memory usage when created 0.90 Mb
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * RDB is base AOF
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.860 * Done loading RDB, keys loaded: 0, keys expired: 0.
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * DB loaded from base file appendonly.aof.1.base.rdb: 0.002 seconds
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * DB loaded from append only file: 0.004 seconds
+cloudity-postgres  | This user must also own the server process.
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * Opening AOF incr file appendonly.aof.1.incr.aof on server start
+cloudity-redis     | 1:M 29 Aug 2025 08:23:40.861 * Ready to accept connections tcp
+cloudity-postgres  | 
+cloudity-postgres  | The database cluster will be initialized with locale "en_US.utf8".
+cloudity-postgres  | The default database encoding has accordingly been set to "UTF8".
+cloudity-postgres  | The default text search configuration will be set to "english".
+cloudity-postgres  | 
+cloudity-postgres  | Data page checksums are disabled.
+cloudity-postgres  | 
+cloudity-postgres  | fixing permissions on existing directory /var/lib/postgresql/data/pgdata ... ok
+cloudity-postgres  | creating subdirectories ... ok
+cloudity-postgres  | selecting dynamic shared memory implementation ... posix
+cloudity-postgres  | selecting default max_connections ... 100
+cloudity-postgres  | selecting default shared_buffers ... 128MB
+cloudity-postgres  | selecting default time zone ... UTC
+cloudity-postgres  | creating configuration files ... ok
+cloudity-postgres  | running bootstrap script ... ok
+cloudity-postgres  | sh: locale: not found
+cloudity-postgres  | 2025-08-28 09:18:33.579 UTC [36] WARNING:  no usable system locales were found
+cloudity-postgres  | performing post-bootstrap initialization ... ok
+cloudity-postgres  | syncing data to disk ... ok
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | Success. You can now start the database server using:
+cloudity-postgres  | 
+cloudity-postgres  |     pg_ctl -D /var/lib/postgresql/data/pgdata -l logfile start
+cloudity-postgres  | 
+cloudity-postgres  | initdb: warning: enabling "trust" authentication for local connections
+cloudity-postgres  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run 
+initdb.
+cloudity-postgres  | waiting for server to start....2025-08-28 09:18:34.066 GMT [48] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit
+cloudity-postgres  | 2025-08-28 09:18:34.073 GMT [48] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-28 09:18:34.092 GMT [51] LOG:  database system was shut down at 2025-08-28 09:18:33 GMT
+cloudity-postgres  | 2025-08-28 09:18:34.100 GMT [48] LOG:  database system is ready to accept connections
+cloudity-postgres  |  done
+cloudity-postgres  | server started
+cloudity-postgres  | CREATE DATABASE
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/01-create-database.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/02-create-tenants.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/03-setup-rls.sql
+cloudity-postgres  | 
+cloudity-postgres  | 
+cloudity-postgres  | /usr/local/bin/docker-entrypoint.sh: running /docker-entrypoint-initdb.d/04-email-system.sql
+cloudity-postgres  | CREATE EXTENSION
+cloudity-postgres  | 2025-08-28 09:18:34.242 GMT [67] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:18:34.242 GMT [67] STATEMENT:  CREATE TABLE IF NOT EXISTS folders (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+cloudity-postgres  |        type VARCHAR(50) DEFAULT 'custom', -- inbox, sent, drafts, trash, spam, custom
+cloudity-postgres  |        icon VARCHAR(50),
+cloudity-postgres  |        sort_order INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | psql:/docker-entrypoint-initdb.d/04-email-system.sql:16: ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 
+cloudity-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+cloudity-postgres  | 
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit 
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  listening on IPv6 address "::1", port 5432
+cloudity-postgres  | 2025-08-28 09:18:34.966 GMT [1] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+cloudity-postgres  | 2025-08-28 09:18:34.978 GMT [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-28 09:18:34.992 GMT [30] LOG:  database system was interrupted; last known up at 2025-08-28 09:18:34 GMT
+cloudity-postgres  | 2025-08-28 09:18:35.123 GMT [30] LOG:  database system was not properly shut down; automatic recovery in progress
+cloudity-postgres  | 2025-08-28 09:18:35.128 GMT [30] LOG:  redo starts at 0/1509918
+cloudity-postgres  | 2025-08-28 09:18:35.143 GMT [30] LOG:  invalid magic number 0000 in log segment 000000010000000000000001, offset 9641984
+cloudity-postgres  | 2025-08-28 09:18:35.143 GMT [30] LOG:  redo done at 0/1931FA8 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.01 s
+cloudity-postgres  | 2025-08-28 09:18:35.155 GMT [28] LOG:  checkpoint starting: end-of-recovery immediate wait
+cloudity-postgres  | 2025-08-28 09:18:35.248 GMT [28] LOG:  checkpoint complete: wrote 924 buffers (5.6%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.017 s, sync=0.061 s, total=0.098 s; sync files=302, longest=0.023 s, average=0.001 s; distance=4257 kB, estimate=4257 kB
+cloudity-postgres  | 2025-08-28 09:18:35.253 GMT [1] LOG:  database system is ready to accept connections
+cloudity-postgres  | 2025-08-28 09:18:35.941 GMT [40] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.221 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.221 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS folders (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        parent_id UUID REFERENCES folders(id) ON DELETE CASCADE,
+cloudity-postgres  |        type VARCHAR(50) DEFAULT 'custom', -- inbox, sent, drafts, trash, spam, custom
+cloudity-postgres  |        icon VARCHAR(50),
+cloudity-postgres  |        sort_order INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.243 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.243 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS emails (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        message_id VARCHAR(255) UNIQUE,
+cloudity-postgres  |        thread_id UUID,
+cloudity-postgres  |        subject TEXT,
+cloudity-postgres  |        from_address VARCHAR(255) NOT NULL,
+cloudity-postgres  |        from_name VARCHAR(255),
+cloudity-postgres  |        to_addresses JSONB NOT NULL,
+cloudity-postgres  |        cc_addresses JSONB,
+cloudity-postgres  |        bcc_addresses JSONB,
+cloudity-postgres  |        reply_to VARCHAR(255),
+cloudity-postgres  |        body_text TEXT,
+cloudity-postgres  |        body_html TEXT,
+cloudity-postgres  |        attachments JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        folder_id UUID REFERENCES folders(id),
+cloudity-postgres  |        labels JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        is_read BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_starred BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_archived BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_spam BOOLEAN DEFAULT false,
+cloudity-postgres  |        is_important BOOLEAN DEFAULT false,
+cloudity-postgres  |        priority INTEGER DEFAULT 3, -- 1=high, 3=normal, 5=low
+cloudity-postgres  |        size_bytes INTEGER DEFAULT 0,
+cloudity-postgres  |        encrypted BOOLEAN DEFAULT false,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.261 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.261 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_aliases (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        source_email VARCHAR(255) UNIQUE NOT NULL,
+cloudity-postgres  |        destination_email VARCHAR(255) NOT NULL,
+cloudity-postgres  |        domain VARCHAR(255) NOT NULL DEFAULT 'alias.delhomme.ovh',
+cloudity-postgres  |        alias_type VARCHAR(50) DEFAULT 'random', -- random, thematic, temporary, sequential
+cloudity-postgres  |        description TEXT,
+cloudity-postgres  |        is_active BOOLEAN DEFAULT true,
+cloudity-postgres  |        usage_count INTEGER DEFAULT 0,
+cloudity-postgres  |        max_usage INTEGER,
+cloudity-postgres  |        expires_at TIMESTAMP,
+cloudity-postgres  |        tags JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.274 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.274 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_rules (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        name VARCHAR(255) NOT NULL,
+cloudity-postgres  |        description TEXT,
+cloudity-postgres  |        conditions JSONB NOT NULL,
+cloudity-postgres  |        actions JSONB NOT NULL,
+cloudity-postgres  |        is_active BOOLEAN DEFAULT true,
+cloudity-postgres  |        priority INTEGER DEFAULT 0,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "tenants" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE TABLE IF NOT EXISTS email_drafts (
+cloudity-postgres  |        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+cloudity-postgres  |        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+cloudity-postgres  |        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+cloudity-postgres  |        subject TEXT,
+cloudity-postgres  |        to_addresses JSONB,
+cloudity-postgres  |        cc_addresses JSONB,
+cloudity-postgres  |        bcc_addresses JSONB,
+cloudity-postgres  |        body_text TEXT,
+cloudity-postgres  |        body_html TEXT,
+cloudity-postgres  |        attachments JSONB DEFAULT '[]'::jsonb,
+cloudity-postgres  |        scheduled_at TIMESTAMP,
+cloudity-postgres  |        created_at TIMESTAMP DEFAULT NOW(),
+cloudity-postgres  |        updated_at TIMESTAMP DEFAULT NOW()
+cloudity-postgres  |    );
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_user_folder ON emails(user_id, folder_id);
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_thread ON emails(thread_id);
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.286 GMT [243] STATEMENT:  CREATE INDEX idx_emails_created ON emails(created_at DESC);
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] ERROR:  relation "email_aliases" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] STATEMENT:  CREATE INDEX idx_aliases_source ON email_aliases(source_email);
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] ERROR:  relation "email_aliases" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.287 GMT [243] STATEMENT:  CREATE INDEX idx_aliases_user ON email_aliases(user_id) WHERE is_active = true;
+cloudity-postgres  | 2025-08-28 09:22:44.292 GMT [243] ERROR:  relation "users" does not exist
+cloudity-postgres  | 2025-08-28 09:22:44.292 GMT [243] STATEMENT:  CREATE TRIGGER create_default_folders_trigger
+cloudity-postgres  |        AFTER INSERT ON users
+cloudity-postgres  |        FOR EACH ROW
+cloudity-postgres  |        EXECUTE FUNCTION create_default_folders();
+cloudity-postgres  | 2025-08-28 09:23:35.328 GMT [28] LOG:  checkpoint starting: time
+cloudity-postgres  | 2025-08-28 09:23:40.456 GMT [28] LOG:  checkpoint complete: wrote 51 buffers (0.3%); 0 WAL file(s) added, 0 removed, 0 recycled; write=5.040 s, sync=0.046 s, total=5.128 s; sync files=53, longest=0.022 s, average=0.001 s; distance=270 kB, estimate=3859 kB
+cloudity-postgres  | 
+cloudity-postgres  | PostgreSQL Database directory appears to contain a database; Skipping initialization
+cloudity-postgres  | 
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  starting PostgreSQL 15.14 on x86_64-pc-linux-musl, compiled by gcc (Alpine 14.2.0) 14.2.0, 64-bit 
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  listening on IPv6 address "::1", port 5432
+cloudity-postgres  | 2025-08-29 08:23:40.985 GMT [1] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+cloudity-postgres  | 2025-08-29 08:23:40.997 GMT [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+cloudity-postgres  | 2025-08-29 08:23:41.009 GMT [29] LOG:  database system was interrupted; last known up at 2025-08-28 09:23:40 GMT
+cloudity-postgres  | 2025-08-29 08:23:41.701 GMT [29] LOG:  database system was not properly shut down; automatic recovery in progress
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  redo starts at 0/1975980
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  invalid record length at 0/1975A68: wanted 24, got 0
+cloudity-postgres  | 2025-08-29 08:23:41.708 GMT [29] LOG:  redo done at 0/1975A30 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+cloudity-postgres  | 2025-08-29 08:23:41.720 GMT [27] LOG:  checkpoint starting: end-of-recovery immediate wait
+cloudity-postgres  | 2025-08-29 08:23:41.758 GMT [27] LOG:  checkpoint complete: wrote 3 buffers (0.0%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.005 s, total=0.043 s; sync files=2, longest=0.003 s, average=0.003 s; distance=0 kB, estimate=0 kB
+cloudity-postgres  | 2025-08-29 08:23:41.770 GMT [1] LOG:  database system is ready to accept connections
+cloudity-postgres  | 2025-08-29 09:45:58.311 GMT [3571] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-29 10:17:36.463 GMT [4986] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-29 10:22:55.250 GMT [5242] FATAL:  database "cloudity_admin" does not exist
+cloudity-postgres  | 2025-08-29 10:22:56.278 GMT [5271] ERROR:  relation "users" does not exist
+cloudity-postgres  | 2025-08-29 10:22:56.278 GMT [5271] STATEMENT:  ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+cloudity-postgres  | 2025-08-29 10:22:56.278 GMT [5271] ERROR:  relation "users" does not exist
+cloudity-postgres  | 2025-08-29 10:22:56.278 GMT [5271] STATEMENT:  CREATE POLICY tenant_isolation_users ON users
+cloudity-postgres  |      FOR ALL USING (tenant_id::TEXT = current_setting('cloudity.tenant'));
+cloudity-postgres  | 2025-08-29 10:22:56.279 GMT [5271] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-29 10:22:56.279 GMT [5271] STATEMENT:  ALTER TABLE emails ENABLE ROW LEVEL SECURITY;
+cloudity-postgres  | 2025-08-29 10:22:56.279 GMT [5271] ERROR:  relation "emails" does not exist
+cloudity-postgres  | 2025-08-29 10:22:56.279 GMT [5271] STATEMENT:  CREATE POLICY tenant_isolation_emails ON emails
+cloudity-postgres  |      FOR ALL USING (tenant_id::TEXT = current_setting('cloudity.tenant'));
+cloudity-postgres  | 2025-08-29 10:23:43.390 GMT [27] LOG:  checkpoint starting: time
+cloudity-postgres  | 2025-08-29 10:25:22.828 GMT [27] LOG:  checkpoint complete: wrote 989 buffers (6.0%); 1 WAL file(s) added, 0 removed, 0 recycled; write=99.286 s, sync=0.086 s, total=99.440 s; sync files=344, longest=0.008 s, average=0.001 s; distance=4541 kB, estimate=4541 kB

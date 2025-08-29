@@ -21,24 +21,24 @@ password-app: ## Password manager
 	@$(MAKE) -C password-app dev-docker
 
 dev-admin: ## Admin dashboard
-	$(call log_info,"Démarrage admin dashboard")
+	$(call log_info,"Demarrage admin dashboard")
 	@docker compose -f ../docker-compose.yml up -d admin-dashboard  
 	$(call log_success,"Admin dashboard: http://localhost:3000")
 
 dev-all: ## Tous les frontends
-	$(call log_info,"Démarrage frontends")
+	$(call log_info,"Demarrage frontends")
 	@$(MAKE) dev-admin
 	@if [ -d "email-app" ]; then $(MAKE) email-app; fi
 	@if [ -d "password-app" ]; then $(MAKE) password-app; fi
-	$(call log_success,"Frontends démarrés")
+	$(call log_success,"Frontends demarres")
 
 email-frontend: ## Frontend email avec Docker
-	$(call log_info,"Démarrage frontend email")
+	$(call log_info,"DDemarrage frontend email")
 	@docker compose -f ../docker-compose.yml up -d email-app
 	$(call log_success,"Email app: http://localhost:8094")
 
 password-frontend: ## Frontend password avec Docker
-	$(call log_info,"Démarrage frontend password")
+	$(call log_info,"DDemarrage frontend password")
 	@docker compose -f ../docker-compose.yml up -d password-app
 	$(call log_success,"Password app: http://localhost:8095")
 

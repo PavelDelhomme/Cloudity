@@ -10,11 +10,11 @@ help: ## Password Manager App Vue.js
 setup: ## Setup Node.js
 	$(call log_info,"Setup Password Manager")
 	@npm install
-	$(call log_success,"Password Manager configuré")
+	$(call log_success,"Password Manager configure")
 
 # ✅ DOCKER PAR DÉFAUT
 dev: ## Démarrage développement avec Docker
-	$(call log_info,"Démarrage Password Manager Docker")
+	$(call log_info,"Demarrage Password Manager Docker")
 	@docker compose -f ../../docker-compose.yml up -d password-app
 	$(call log_success,"Password Manager: http://localhost:8095")
 
@@ -22,14 +22,14 @@ dev-docker: ## Démarrage avec Docker (alias)
 	@$(MAKE) dev
 
 dev-local: ## Démarrage local (sans Docker)
-	$(call log_info,"Démarrage local Password Manager")
+	$(call log_info,"Demarrage local Password Manager")
 	@npm run dev &
 	$(call log_success,"Password Manager local: http://localhost:8095")
 
 build: ## Build production
 	$(call log_info,"Build Password Manager")
 	@npm run build
-	$(call log_success,"Build terminé")
+	$(call log_success,"Build termine")
 
 preview: ## Preview production
 	@npm run preview
@@ -37,7 +37,7 @@ preview: ## Preview production
 test: ## Tests Vue.js
 	$(call log_info,"Tests Password Manager")
 	@npm run test:unit
-	$(call log_success,"Tests terminés")
+	$(call log_success,"Tests termines")
 
 test-crypto: ## Tests cryptographie
 	@npm run test:crypto

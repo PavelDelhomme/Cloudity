@@ -11,12 +11,12 @@ setup: ## Setup Flutter
 	$(call log_info,"Setup Admin App Mobile")
 	@flutter pub get
 	@flutter doctor
-	$(call log_success,"Admin App Mobile configuré")
+	$(call log_success,"Admin App Mobile configuree")
 
 dev: ## Démarrage développement
-	$(call log_info,"Démarrage Admin App Mobile")
+	$(call log_info,"Demarrage Admin App Mobile")
 	@flutter run --debug
-	$(call log_success,"Admin App Mobile démarré")
+	$(call log_success,"Admin App Mobile demarre")
 
 dev-android: ## Démarrage Android
 	@flutter run -d android
@@ -31,7 +31,7 @@ build: ## Build production
 	$(call log_info,"Build Admin App Mobile")
 	@flutter build apk --release
 	@flutter build ios --release
-	$(call log_success,"Build terminé")
+	$(call log_success,"Build termine")
 
 build-android: ## Build Android APK
 	@flutter build apk --release
@@ -45,7 +45,7 @@ build-web: ## Build Web
 test: ## Tests Flutter
 	$(call log_info,"Tests Admin App Mobile")
 	@flutter test
-	$(call log_success,"Tests terminés")
+	$(call log_success,"Tests termines")
 
 test-integration: ## Tests d'intégration
 	@flutter test integration_test/

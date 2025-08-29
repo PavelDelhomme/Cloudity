@@ -17,18 +17,18 @@ INFRASTRUCTURE_SERVICES := postgres redis
 ALL_SERVICES := $(INFRASTRUCTURE_SERVICES) $(BACKEND_SERVICES) $(FRONTEND_SERVICES)
 
 help: ## Aide principale Cloudity
-	printf "$(GREEN)🚀 Cloudity - Écosystème Cloud Multi-Tenant$(NC)"
-	printf "$(YELLOW)Architecture modulaire avec Makefiles séparés$(NC)"
-	printf ""
-	printf "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
+	printf "$(GREEN) Cloudity - Ecosysteme Cloud Multi-Tenant$(NC)"
+	echo "$(YELLOW)Architecture modulaire avec Makefiles separes$(NC)"
+	echo ""
+	echo "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-25s$(NC) %s\n", $$1, $$2}'
-	printf ""
-	printf "$(CYAN)═══ MODULES DISPONIBLES ═══$(NC)"
-	printf "$(YELLOW)Infrastructure:$(NC) make -C infrastructure help"
-	printf "$(YELLOW)Backend:$(NC)       make -C backend help"
-	printf "$(YELLOW)Frontend:$(NC)      make -C frontend help"
-	printf "$(YELLOW)Mobile:$(NC)        make -C mobile help"
-	printf "$(YELLOW)Tests:$(NC)         make -C tests help"
+	echo ""
+	echo "$(CYAN)═══ MODULES DISPONIBLES ═══$(NC)"
+	echo "$(YELLOW)Infrastructure:$(NC) make -C infrastructure help"
+	echo "$(YELLOW)Backend:$(NC)       make -C backend help"
+	echo "$(YELLOW)Frontend:$(NC)      make -C frontend help"
+	echo "$(YELLOW)Mobile:$(NC)        make -C mobile help"
+	echo "$(YELLOW)Tests:$(NC)         make -C tests help"
 
 # ═══════════════════════════════════════════════════════════════
 # ORCHESTRATION GLOBALE
@@ -40,29 +40,29 @@ setup: ## Configuration initiale complète
 	@$(MAKE) -C backend setup
 	@$(MAKE) -C frontend setup
 	@$(MAKE) -C mobile setup
-	$(call log_success,"Setup Cloudity terminé!")
+	$(call log_success,"Setup Cloudity termine!")
 
 dev-full: ## Environnement développement complet
-	$(call log_info,"Démarrage environnement complet")
+	$(call log_info,"DDemarrage environnement complet")
 	@$(MAKE) -C infrastructure dev
 	@$(MAKE) -C backend dev-all
 	@$(MAKE) -C frontend dev-all
-	$(call log_success,"Environnement complet démarré")
+	$(call log_success,"Environnement complet demarre")
 	@$(MAKE) status
 
 dev-core: ## Environnement développement core (infra + auth)
-	$(call log_info,"Démarrage environnement core")
+	$(call log_info,"DDemarrage environnement core")
 	@$(MAKE) -C infrastructure dev
 	@$(MAKE) -C backend dev-auth
 	@$(MAKE) -C frontend dev-admin
-	$(call log_success,"Environnement core démarré")
+	$(call log_success,"Environnement core demarre")
 
 dev-mobile: ## Environnement pour développement mobile
-	$(call log_info,"Démarrage environnement mobile")
+	$(call log_info,"DDemarrage environnement mobile")
 	@$(MAKE) -C infrastructure dev
 	@$(MAKE) -C backend dev-api
 	@$(MAKE) -C mobile dev
-	$(call log_success,"Environnement mobile démarré")
+	$(call log_success,"Environnement mobile demarre")
 
 # ═══════════════════════════════════════════════════════════════
 # GESTION FINE DES SERVICES
@@ -92,7 +92,7 @@ test-all: ## Tests complets du système
 	@$(MAKE) -C backend test-all
 	@$(MAKE) -C frontend test-all
 	@$(MAKE) -C mobile test-all
-	$(call log_success,"Tests complets terminés")
+	$(call log_success,"Tests complets termines")
 
 test-unit: ## Tests unitaires uniquement
 	@$(MAKE) -C backend test-unit
@@ -141,10 +141,10 @@ logs-infra: ## Logs infrastructure
 # ═══════════════════════════════════════════════════════════════
 
 db-reset: ## Reset complet des BDD
-	$(call log_warning,"Reset des bases de données")
+	$(call log_warning,"Reset des bases de donnees")
 	@$(MAKE) -C infrastructure db-reset-all
 	@$(MAKE) -C backend db-migrate-all
-	$(call log_success,"Bases de données réinitialisées")
+	$(call log_success,"Bases de donnees reinitialisees")
 
 db-migrate: ## Migrations de toutes les BDD
 	@$(MAKE) -C infrastructure db-migrate-all
@@ -163,17 +163,17 @@ db-restore: ## Restauration dernière sauvegarde
 # ═══════════════════════════════════════════════════════════════
 
 prod-deploy: ## Déploiement production
-	$(call log_info,"Déploiement production")
+	$(call log_info,"Deploiement production")
 	@$(MAKE) -C infrastructure prod
 	@$(MAKE) -C backend prod
 	@$(MAKE) -C frontend prod
-	$(call log_success,"Déploiement production terminé")
+	$(call log_success,"Deploiement production termine")
 
 build-all: ## Build complet de tous les services
 	$(call log_info,"Build complet")
 	@$(MAKE) -C backend build-all
 	@$(MAKE) -C frontend build-all
-	$(call log_success,"Build complet terminé")
+	$(call log_success,"Build complet termine")
 
 # ═══════════════════════════════════════════════════════════════
 # NETTOYAGE & MAINTENANCE
@@ -186,12 +186,12 @@ clean: ## Nettoyage complet
 	@$(MAKE) -C frontend clean
 	@$(MAKE) -C mobile clean
 	@docker system prune -af
-	$(call log_success,"Nettoyage terminé")
+	$(call log_success,"Nettoyage termine")
 
 stop: ## Arrêt de tous les services
-	$(call log_info,"Arrêt des services")
+	$(call log_info,"Arret des services")
 	@$(COMPOSE) stop
-	$(call log_success,"Services arrêtés")
+	$(call log_success,"Services arrêtes")
 
 restart: ## Redémarrage complet
 	@$(MAKE) stop
@@ -217,7 +217,7 @@ shell: ## Menu shell services
 	esac
 
 quick-start: ## Démarrage rapide (recommandé)
-	$(call log_info,"Démarrage rapide Cloudity")
+	$(call log_info,"DDemarrage rapide Cloudity")
 	@$(MAKE) dev-core
 	@sleep 5
 	@$(MAKE) health
@@ -231,16 +231,16 @@ quick-start: ## Démarrage rapide (recommandé)
 .PHONY: email-dev email-build email-up email-down email-logs email-migrate
 
 email-dev: ## Démarrer le système email complet
-	$(call log_info,"Démarrage système email")
+	$(call log_info,"Demarrage systeme email")
 	@$(MAKE) -C infrastructure dev
 	@$(MAKE) -C backend email-services
 	@$(MAKE) -C frontend email-frontend
-	$(call log_success,"Système email démarré!")
+	$(call log_success,"Systeme email demarre!")
 
 email-migrate: ## Migrations email
-	$(call log_info,"Migration base de données email")
+	$(call log_info,"Migration base de donnees email")
 	@$(MAKE) -C infrastructure email-migrate
-	$(call log_success,"Migrations email terminées!")
+	$(call log_success,"Migrations email terminees!")
 
 email-build: ## Construire les images email
 	printf "$(YELLOW)🔨 Construction images email...$(NC)"

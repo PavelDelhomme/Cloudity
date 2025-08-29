@@ -13,26 +13,26 @@ setup: ## Configuration initiale infrastructure
 	$(call log_info,"Setup infrastructure")
 	@mkdir -p storage/{postgres,redis,mongodb,logs,backups,certs}
 	@chmod +x ../scripts/*.sh 2>/dev/null || true
-	$(call log_success,"Infrastructure configurée")
+	$(call log_success,"Infrastructure configuree")
 
 dev: ## Infrastructure développement
-	$(call log_info,"Démarrage infrastructure dev")
+	$(call log_info,"Demarrage infrastructure dev")
 	@$(COMPOSE) up -d postgres redis
 	@$(MAKE) wait-postgres
 	@$(MAKE) db-init
-	$(call log_success,"Infrastructure dev prête")
+	$(call log_success,"Infrastructure dev prete")
 
 prod: ## Infrastructure production
-	$(call log_info,"Démarrage infrastructure prod")
+	$(call log_info,"Demarrage infrastructure prod")
 	@$(COMPOSE) -f docker-compose.infrastructure.yml -f docker-compose.prod.yml up -d
-	$(call log_success,"Infrastructure prod prête")
+	$(call log_success,"Infrastructure prod prete")
 
 wait-postgres: ## Attente PostgreSQL
 	$(call log_info,"Attente PostgreSQL...")
 	@timeout=30; \
 	while [ $$timeout -gt 0 ]; do \
 		if $(COMPOSE) exec postgres pg_isready -U cloudity_admin >/dev/null 2>&1; then \
-			$(call log_success,"PostgreSQL prêt"); \
+			$(call log_success,"PostgreSQL pret"); \
 			break; \
 		fi; \
 		sleep 2; \
@@ -44,7 +44,7 @@ db-init: ## Initialisation base de données
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d postgres -f /docker-entrypoint-initdb.d/01-create-database.sql
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/02-create-tenants.sql
 	@$(COMPOSE) exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/03-setup-rls.sql
-	$(call log_success,"BDD initialisée")
+	$(call log_success,"BDD initialise")
 
 db-reset-all: ## Reset complet des BDD
 	$(call log_warning,"Reset des BDD")
@@ -52,7 +52,7 @@ db-reset-all: ## Reset complet des BDD
 	@$(COMPOSE) up -d postgres
 	@$(MAKE) wait-postgres
 	@$(MAKE) db-init
-	$(call log_success,"BDD réinitialisées")
+	$(call log_success,"BDD reinitialisees")
 
 db-migrate-all: ## Migrations
 	@$(MAKE) db-init
@@ -65,19 +65,19 @@ db-seed-tenants: ## Données de test
 	('Demo Tenant', 'demo', 100, 5, '[\"drive\", \"mail\"]'), \
 	('Test Tenant', 'test', 50, 3, '[\"chat\"]') \
 	ON CONFLICT (name) DO NOTHING;"
-	$(call log_success,"Tenants créés")
+	$(call log_success,"Tenants creates")
 
 backup-all: ## Sauvegarde complète
 	$(call log_info,"Sauvegarde")
 	@mkdir -p storage/backups/$(shell date +%Y%m%d)
 	@$(COMPOSE) exec postgres pg_dump -U cloudity_admin cloudity_db | gzip > storage/backups/$(shell date +%Y%m%d)/postgres_$(shell date +%Y%m%d_%H%M%S).sql.gz
-	$(call log_success,"Sauvegarde créée")
+	$(call log_success,"Sauvegarde creee")
 
 restore-latest: ## Restauration
 	$(call log_info,"Restauration")
 	@latest=$$(ls -t storage/backups/*/postgres_*.sql.gz | head -1); \
 	gunzip -c $$latest | $(COMPOSE) exec -T postgres psql -U cloudity_admin cloudity_db
-	$(call log_success,"Restauration terminée")
+	$(call log_success,"Restauration terminee")
 
 status: ## Status infrastructure
 	@printf "$(BLUE)Infrastructure Status:$(NC)"
@@ -112,6 +112,6 @@ stop: ## Arrêt infrastructure
 	@$(COMPOSE) stop postgres redis
 
 email-migrate: ## Migration tables email
-	$(call log_info,"Migration système email")
+	$(call log_info,"Migration systeme email")
 	@docker compose -f ../docker-compose.yml exec postgres psql -U cloudity_admin -d cloudity -f /docker-entrypoint-initdb.d/04-email-system.sql
-	$(call log_success,"Migration email terminée")
+	$(call log_success,"Migration email terminee")
