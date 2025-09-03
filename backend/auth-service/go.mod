@@ -1,4 +1,4 @@
-module github.com/pavel/cloudity/auth-service
+module github.com/PavelDelhomme/Cloudity/backend/auth-service
 
 go 1.23.0
 

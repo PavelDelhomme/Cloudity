@@ -45,12 +45,12 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatal("Failed to ping database:", err)
 	}
-    log.Println("✅ Database connected successfully")
-	
+	log.Println("✅ Database connected successfully")
+
 	// Redis connection
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     getEnvOrDefault("REDIS_URL", "localhost:6379"), // ✅ Fonction custom
-	    Password: os.Getenv("REDIS_PASSWORD"),
+		Addr:     "redis:6379", // ✅ Fonction custom
+		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
 	})
 
@@ -79,29 +79,29 @@ func main() {
 		c.Next()
 	})
 
-    // ✅ Routes corrigées
-    auth := r.Group("/api/v1/auth")
-    {
-        auth.POST("/register", authService.Register)
-        auth.POST("/login", authService.Login)           // ✅ Méthode ajoutée
-        auth.POST("/refresh", authService.RefreshToken)  // ✅ Méthode ajoutée
-        auth.GET("/validate", authService.ValidateToken) // ✅ Méthode ajoutée
-        auth.GET("/profile", authService.GetProfile)     // ✅ Méthode ajoutée
-    }
+	// ✅ Routes corrigées
+	auth := r.Group("/api/v1/auth")
+	{
+		auth.POST("/register", authService.Register)
+		auth.POST("/login", authService.Login)           // ✅ Méthode ajoutée
+		auth.POST("/refresh", authService.RefreshToken)  // ✅ Méthode ajoutée
+		auth.GET("/validate", authService.ValidateToken) // ✅ Méthode ajoutée
+		auth.GET("/profile", authService.GetProfile)     // ✅ Méthode ajoutée
+	}
 
-    // Health check
-    r.GET("/health", func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "status": "healthy",
-            "service": "auth-service",
-            "timestamp": time.Now().UTC(),
-        })
-    })
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":    "healthy",
+			"service":   "auth-service",
+			"timestamp": time.Now().UTC(),
+		})
+	})
 
-    log.Println("🚀 Auth Service starting on port 8081...")
-    if err := r.Run(":8081"); err != nil {
-        log.Fatal("Failed to start server:", err)
-    }
+	log.Println("🚀 Auth Service starting on port 8081...")
+	if err := r.Run(":8081"); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }
 
 func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
@@ -118,7 +118,7 @@ func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 	}
 
 	// Générer des clés temporaires si fichiers non trouvés
-    log.Println("⚠️ Generating temporary RSA keys...")
+	log.Println("⚠️ Generating temporary RSA keys...")
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		log.Fatal("Failed to generate RSA keys:", err)
@@ -162,8 +162,8 @@ func (a *AuthService) Register(c *gin.Context) {
 	token, _ := a.generateToken(userID, tenantID, req.Email)
 	c.JSON(201, gin.H{
 		"access_token": token,
-		"user_id": userID,
-		"message": "User registered successfully",
+		"user_id":      userID,
+		"message":      "User registered successfully",
 	})
 }
 
@@ -184,12 +184,12 @@ func (a *AuthService) generateToken(userID, tenantID, email string) (string, err
 
 func (a *AuthService) generateRefreshToken(userID, tenantID, email string) (string, error) {
 	claims := Claims{
-		UserID: userID,
+		UserID:   userID,
 		TenantID: tenantID,
-		Email: email,
+		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 jours
-            IssuedAt:  jwt.NewNumericDate(time.Now()),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
@@ -206,8 +206,8 @@ func getEnvOrDefault(key, defaultValue string) string {
 
 func (a *AuthService) Login(c *gin.Context) {
 	var req struct {
-		Email 		string `json:"email" binding:"required,email"`
-		Password 	string `json:"password" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -229,12 +229,12 @@ func (a *AuthService) Login(c *gin.Context) {
 		FROM users
 		WHERE email = $1 AND tenant_id = $2 AND is_active = true
 	`, req.Email, tenantID).Scan(&userID, &hashedPassword)
-	
+
 	if err != nil {
 		c.JSON(401, gin.H{"error": "Invalid credentials"})
 		return
 	}
-	
+
 	// Vérifier mot de passe
 	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
 		c.JSON(401, gin.H{"error": "Invalid credentials"})
@@ -246,11 +246,11 @@ func (a *AuthService) Login(c *gin.Context) {
 	refreshToken, _ := a.generateRefreshToken(userID, tenantID, req.Email)
 
 	c.JSON(200, gin.H{
-		"access_token": accessToken,
+		"access_token":  accessToken,
 		"refresh_token": refreshToken,
-		"token_type": "Bearer",
-		"expires_in": 3600,
-		"user_id": userID,
+		"token_type":    "Bearer",
+		"expires_in":    3600,
+		"user_id":       userID,
 	})
 }
 
@@ -259,33 +259,33 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
 
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(400, gin.H{"error": err.Error()})
-        return
-    }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
 
-    // Valider refresh token (implémentation basique)
-    token, err := jwt.ParseWithClaims(req.RefreshToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-        return a.publicKey, nil
-    })
+	// Valider refresh token (implémentation basique)
+	token, err := jwt.ParseWithClaims(req.RefreshToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return a.publicKey, nil
+	})
 
-    if err != nil || !token.Valid {
-        c.JSON(401, gin.H{"error": "Invalid refresh token"})
-        return
-    }
+	if err != nil || !token.Valid {
+		c.JSON(401, gin.H{"error": "Invalid refresh token"})
+		return
+	}
 
-    claims := token.Claims.(*Claims)
-    
-    // Générer nouveaux tokens
-    newAccessToken, _ := a.generateToken(claims.UserID, claims.TenantID, claims.Email)
-    newRefreshToken, _ := a.generateRefreshToken(claims.UserID, claims.TenantID, claims.Email)
+	claims := token.Claims.(*Claims)
 
-    c.JSON(200, gin.H{
-        "access_token": newAccessToken,
-        "refresh_token": newRefreshToken,
-        "token_type": "Bearer",
-        "expires_in": 3600,
-    })
+	// Générer nouveaux tokens
+	newAccessToken, _ := a.generateToken(claims.UserID, claims.TenantID, claims.Email)
+	newRefreshToken, _ := a.generateRefreshToken(claims.UserID, claims.TenantID, claims.Email)
+
+	c.JSON(200, gin.H{
+		"access_token":  newAccessToken,
+		"refresh_token": newRefreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    3600,
+	})
 }
 
 func (a *AuthService) ValidateToken(c *gin.Context) {
@@ -313,10 +313,10 @@ func (a *AuthService) ValidateToken(c *gin.Context) {
 
 	claims := token.Claims.(*Claims)
 	c.JSON(200, gin.H{
-		"valid": true,
-		"user_id": claims.UserID,
+		"valid":     true,
+		"user_id":   claims.UserID,
 		"tenant_id": claims.TenantID,
-		"email": claims.Email,
+		"email":     claims.Email,
 	})
 }
 

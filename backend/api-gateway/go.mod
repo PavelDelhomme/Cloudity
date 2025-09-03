@@ -1,6 +1,6 @@
-module github.com/pavel/cloudity/api-gateway
+module github.com/PavelDelhomme/Cloudity/backend/api-gateway
 
-go 1.21
+go 1.23.0
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.0
