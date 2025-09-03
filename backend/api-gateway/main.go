@@ -1,118 +1,83 @@
 package main
 
 import (
-    "context"
-    "log"
-    "net/http"
-    "net/http/httputil"
-    "net/url"
-    "os"
-    "strings"
-    "time"
+	"log"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"os"
+	"time"
 
-    "github.com/gorilla/mux"
-    "github.com/golang-jwt/jwt/v5"
-    "github.com/joho/godotenv"
-    "github.com/rs/cors"
-    "golang.org/x/time/rate"
+	"github.com/gorilla/mux"
+	_ "github.com/joho/godotenv/autoload"
+	"github.com/rs/cors"
 )
 
-type Service struct {
-    Name   string
-    URL    string
-    Prefix string
-}
-
-var services = []Service{
-    {Name: "auth", URL: "http://auth-service:8081", Prefix: "/auth"},
-    {Name: "admin", URL: "http://admin-service:8082", Prefix: "/admin"},
-}
-
-var limiter = rate.NewLimiter(10, 20) // 10 requests per second, burst of 20
-
 func main() {
-    godotenv.Load()
-    
-    r := mux.NewRouter()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
 
-    // Middleware
-    r.Use(rateLimitMiddleware)
-    r.Use(authMiddleware)
-    r.Use(loggingMiddleware)
+	authServiceURL := os.Getenv("AUTH_SERVICE_URL")
+	if authServiceURL == "" {
+		authServiceURL = "http://auth-service:8081"
+	}
 
-    // Health check
-    r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-        w.WriteHeader(http.StatusOK)
-        w.Write([]byte(`{"status":"healthy"}`))
-    }).Methods("GET")
+	adminServiceURL := os.Getenv("ADMIN_SERVICE_URL")
+	if adminServiceURL == "" {
+		adminServiceURL = "http://admin-service:8082"
+	}
 
-    // Service routing
-    for _, service := range services {
-        serviceURL, _ := url.Parse(service.URL)
-        proxy := httputil.NewSingleHostReverseProxy(serviceURL)
-        
-        r.PathPrefix(service.Prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            r.URL.Host = serviceURL.Host
-            r.URL.Scheme = serviceURL.Scheme
-            r.Header.Set("X-Forwarded-Host", r.Host)
-            proxy.ServeHTTP(w, r)
-        })
-    }
+	r := mux.NewRouter()
 
-    // CORS
-    c := cors.New(cors.Options{
-        AllowedOrigins: []string{"http://localhost:3000", "http://localhost:5173"},
-        AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-        AllowedHeaders: []string{"*"},
-        AllowCredentials: true,
-    })
-
-    handler := c.Handler(r)
-    
-    log.Println("API Gateway starting on port 8080...")
-    http.ListenAndServe(":8080", handler)
-}
-
-func rateLimitMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        if !limiter.Allow() {
-            http.Error(w, "Too many requests", http.StatusTooManyRequests)
-            return
-        }
-        next.ServeHTTP(w, r)
-    })
-}
-
-func authMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Skip auth for public endpoints
-        if strings.HasPrefix(r.URL.Path, "/auth/login") || 
-           strings.HasPrefix(r.URL.Path, "/auth/register") ||
-           strings.HasPrefix(r.URL.Path, "/health") {
-            next.ServeHTTP(w, r)
-            return
-        }
-
-        authHeader := r.Header.Get("Authorization")
-        if authHeader == "" {
-            next.ServeHTTP(w, r)
-            return
-        }
-
-        tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-        
-        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-            // Validate with auth service public key
-            return loadPublicKey(), nil
-        })
-
-        if err == nil && token.Valid {
-            if claims, ok := token.Claims.(jwt.MapClaims); ok {
-                r.Header.Set("X-User-ID", claims["user_id"].(string))
-                r.Header.Set("X-Tenant-ID", claims["tenant_id"].(string))
+	// Health check
+	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{
+            "status": "healthy",
+            "service": "api-gateway",
+            "timestamp": "` + time.Now().UTC().Format(time.RFC3339) + `",
+            "services": {
+                "auth_service": "` + authServiceURL + `",
+                "admin_service": "` + adminServiceURL + `"
             }
-        }
+        }`))
+	}).Methods("GET")
 
-        next.ServeHTTP(w, r)
-    })
+	// Proxy vers auth-service
+	authURL, _ := url.Parse(authServiceURL)
+	authProxy := httputil.NewSingleHostReverseProxy(authURL)
+	r.PathPrefix("/api/v1/auth/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Host = authURL.Host
+		r.URL.Scheme = authURL.Scheme
+		r.Header.Set("X-Forwarded-Host", r.Host)
+		authProxy.ServeHTTP(w, r)
+	})
+
+	// Proxy vers admin-service
+	adminURL, _ := url.Parse(adminServiceURL)
+	adminProxy := httputil.NewSingleHostReverseProxy(adminURL)
+	r.PathPrefix("/api/v1/admin/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Host = adminURL.Host
+		r.URL.Scheme = adminURL.Scheme
+		r.Header.Set("X-Forwarded-Host", r.Host)
+		adminProxy.ServeHTTP(w, r)
+	})
+
+	// CORS
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"*"},
+		AllowCredentials: true,
+	})
+
+	handler := c.Handler(r)
+
+	log.Printf("API Gateway starting on port %s", port)
+	log.Printf("Proxying /api/v1/auth/* to %s", authServiceURL)
+	log.Printf("Proxying /api/v1/admin/* to %s", adminServiceURL)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
