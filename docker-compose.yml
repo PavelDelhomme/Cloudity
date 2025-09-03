@@ -9,13 +9,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity_secure_password_2025}
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
       PGDATA: /var/lib/postgresql/data/pgdata
+    command: postgres -c listen_addresses='*' -c port=5432 -c max_connections=200 -c shared_buffers=256MB
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
-      - ./infrastructure/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cloudity_admin} -d ${POSTGRES_DB:-cloudity}"]
       interval: 10s
