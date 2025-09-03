@@ -33,8 +33,8 @@ CREATE TABLE IF NOT EXISTS users (
     is_active         BOOLEAN          DEFAULT true,
     email_verified    BOOLEAN          DEFAULT false,
     last_login        TIMESTAMPTZ,
-    created_at        TIMESTAMPTZ,     DEFAULT NOW(),
-    updated_at        TIMESTAMPTZ,     DEFAULT NOW(),
+    created_at        TIMESTAMPTZ      DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ      DEFAULT NOW(),
     UNIQUE (tenant_id, email)
 );
 
@@ -50,7 +50,7 @@ INSERT INTO tenants (name, subdomain, max_storage_gb, max_users, features) VALUE
     ('Admin Tenant', 'admin', 10000, 1000, '["all"]'::jsonb),
     ('Demo Tenant', 'demo', 100, 5, '["drive", "mail"]'::jsonb),
     ('Test Tenant', 'test', 50, 3, '["chat"]'::jsonb)
-    ON CONFLICT (name) DO NOTHING;
+    ON CONFLICT (subdomain) DO NOTHING;
 
 -- Utilisateur admin par défaut
 INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role)

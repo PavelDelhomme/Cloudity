@@ -112,7 +112,7 @@ CREATE POLICY tenant_isolation_policy ON tenant_users
 ```ini
 # pgbouncer.ini
 [databases]
-cloudity_db = host=localhost port=5432 dbname=cloudity_production
+cloudity = host=localhost port=5432 dbname=cloudity_production
 
 [pgbouncer]
 pool_mode = transaction

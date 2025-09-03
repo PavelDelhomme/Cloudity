@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -17,6 +18,16 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+	log.Println("✅ Database connected successfully")
 
 	// Route de santé
 	r.GET("/health", func(c *gin.Context) {

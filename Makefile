@@ -17,9 +17,9 @@ INFRASTRUCTURE_SERVICES := postgres redis
 ALL_SERVICES := $(INFRASTRUCTURE_SERVICES) $(BACKEND_SERVICES) $(FRONTEND_SERVICES)
 
 help: ## Aide principale Cloudity
-	printf "$(GREEN) Cloudity - Ecosysteme Cloud Multi-Tenant$(NC)"
+	echo "$(GREEN) Cloudity - Ecosysteme Cloud Multi-Tenant$(NC)"
 	echo "$(YELLOW)Architecture modulaire avec Makefiles separes$(NC)"
-	echo ""
+	""
 	echo "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-25s$(NC) %s\n", $$1, $$2}'
 	echo ""
