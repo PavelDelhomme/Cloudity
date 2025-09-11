@@ -36,14 +36,14 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{
-            "status": "healthy",
-            "service": "api-gateway",
-            "timestamp": "` + time.Now().UTC().Format(time.RFC3339) + `",
-            "services": {
-                "auth_service": "` + authServiceURL + `",
-                "admin_service": "` + adminServiceURL + `"
-            }
-        }`))
+			"status": "healthy",
+			"service": "api-gateway",
+			"timestamp": "` + time.Now().UTC().Format(time.RFC3339) + `",
+			"services": {
+				"auth_service": "` + authServiceURL + `",
+				"admin_service": "` + adminServiceURL + `"
+			}
+		}`))
 	}).Methods("GET")
 
 	// Proxy vers auth-service
@@ -66,12 +66,12 @@ func main() {
 		adminProxy.ServeHTTP(w, r)
 	})
 
-	// CORS
+	// CORS CORRIGÉ - une seule origin ou wildcard
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowedOrigins:   []string{"*"}, // CORRIGÉ: wildcard seul
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false, // CORRIGÉ: false avec wildcard
 	})
 
 	handler := c.Handler(r)
