@@ -1,245 +1,130 @@
-# scripts/colors.mk - Système de couleurs et fonctions utilitaires CORRIGÉ
+# scripts/colors.mk - Système de couleurs FINAL CORRIGÉ
 # À inclure dans tous les Makefiles avec: include scripts/colors.mk
 
 # ═══════════════════════════════════════════════════════════════
-# DÉFINITION DES COULEURS - CORRIGÉES
+# DÉFINITION DES COULEURS - VERSION BASH COMPATIBLE
 # ═══════════════════════════════════════════════════════════════
 
-# Couleurs de base - avec printf au lieu d'echo
-RED     = \033[0;31m
-GREEN   = \033[0;32m
-YELLOW  = \033[1;33m
-BLUE    = \033[0;34m
-PURPLE  = \033[0;35m
-CYAN    = \033[0;36m
-WHITE   = \033[1;37m
-GRAY    = \033[0;37m
-NC      = \033[0m
+# Couleurs de base - syntaxe bash compatible
+RED     := $(shell printf "\033[0;31m")
+GREEN   := $(shell printf "\033[0;32m")
+YELLOW  := $(shell printf "\033[1;33m")
+BLUE    := $(shell printf "\033[0;34m")
+PURPLE  := $(shell printf "\033[0;35m")
+CYAN    := $(shell printf "\033[0;36m")
+WHITE   := $(shell printf "\033[1;37m")
+GRAY    := $(shell printf "\033[0;37m")
+NC      := $(shell printf "\033[0m")
 
 # Couleurs étendues
-BOLD    = \033[1m
-DIM     = \033[2m
-UNDER   = \033[4m
+BOLD    := $(shell printf "\033[1m")
+DIM     := $(shell printf "\033[2m")
+UNDER   := $(shell printf "\033[4m")
 
 # ═══════════════════════════════════════════════════════════════
 # ÉMOJIS ET ICÔNES
 # ═══════════════════════════════════════════════════════════════
 
-# Émojis d'état
-EMOJI_SUCCESS = ✅
-EMOJI_ERROR   = ❌
-EMOJI_WARNING = ⚠️
-EMOJI_INFO    = ℹ️
-EMOJI_ROCKET  = 🚀
-EMOJI_GEAR    = ⚙️
-EMOJI_CLEAN   = 🧹
-EMOJI_TEST    = 🧪
-EMOJI_BUILD   = 🔨
-EMOJI_DOC     = 📚
-EMOJI_LOCK    = 🔐
-EMOJI_MAIL    = 📧
-EMOJI_DB      = 🗄️
+EMOJI_SUCCESS := ✅
+EMOJI_ERROR   := ❌
+EMOJI_WARNING := ⚠️
+EMOJI_INFO    := ℹ️
+EMOJI_ROCKET  := 🚀
+EMOJI_GEAR    := ⚙️
+EMOJI_CLEAN   := 🧹
+EMOJI_TEST    := 🧪
+EMOJI_BUILD   := 🔨
+EMOJI_DOC     := 📚
+EMOJI_LOCK    := 🔐
+EMOJI_MAIL    := 📧
+EMOJI_DB      := 🗄️
 
 # ═══════════════════════════════════════════════════════════════
-# FONCTIONS DE LOGGING - CORRIGÉES
+# FONCTIONS DE LOGGING - VERSION SIMPLE
 # ═══════════════════════════════════════════════════════════════
 
-# Fonction de log générique avec printf
-define log
-	@printf "$(1)[%s] $(2)$(NC)\n" "$$(date '+%H:%M:%S')"
-endef
-
-# Fonctions spécialisées
+# Fonction de log simple avec echo
 define log_info
-	$(call log,$(BLUE),$(EMOJI_INFO) $(1))
+	@echo "$(BLUE)$(EMOJI_INFO) $(1)$(NC)"
 endef
 
 define log_success
-	$(call log,$(GREEN),$(EMOJI_SUCCESS) $(1))
+	@echo "$(GREEN)$(EMOJI_SUCCESS) $(1)$(NC)"
 endef
 
 define log_warning
-	$(call log,$(YELLOW),$(EMOJI_WARNING) $(1))
+	@echo "$(YELLOW)$(EMOJI_WARNING) $(1)$(NC)"
 endef
 
 define log_error
-	$(call log,$(RED),$(EMOJI_ERROR) $(1))
+	@echo "$(RED)$(EMOJI_ERROR) $(1)$(NC)"
 endef
 
 define log_rocket
-	$(call log,$(PURPLE),$(EMOJI_ROCKET) $(1))
+	@echo "$(PURPLE)$(EMOJI_ROCKET) $(1)$(NC)"
 endef
 
 define log_gear
-	$(call log,$(CYAN),$(EMOJI_GEAR) $(1))
+	@echo "$(CYAN)$(EMOJI_GEAR) $(1)$(NC)"
 endef
 
 # ═══════════════════════════════════════════════════════════════
-# FONCTIONS UTILITAIRES - CORRIGÉES
+# FONCTIONS UTILITAIRES
 # ═══════════════════════════════════════════════════════════════
 
-# Vérification de service Docker
-define check_service
+# Vérification de service Docker - simple
+define check_service_status
 	@if docker compose ps $(1) --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
-		printf "$(GREEN)$(1): Running$(NC)\n"; \
+		echo "$(GREEN)$(1): Running$(NC)"; \
 	else \
-		printf "$(RED)$(1): Stopped$(NC)\n"; \
+		echo "$(RED)$(1): Stopped$(NC)"; \
 	fi
 endef
 
-# Attente de service - CORRIGÉE
-define wait_for_service
-	@printf "$(YELLOW)Attente de $(1)...$(NC)\n"; \
-	timeout=30; \
+# Attente de service - simple
+define wait_for_postgres
+	@echo "$(YELLOW)Attente PostgreSQL...$(NC)"
+	@timeout=30; \
 	while [ $$timeout -gt 0 ]; do \
-		if curl -sf $(2) >/dev/null 2>&1; then \
-			printf "$(GREEN)$(1) prêt!$(NC)\n"; \
+		if docker compose exec postgres pg_isready -U cloudity_admin >/dev/null 2>&1; then \
+			echo "$(GREEN)PostgreSQL prêt!$(NC)"; \
 			break; \
 		fi; \
-		sleep 1; \
-		timeout=$$((timeout-1)); \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
 	done; \
-	if [ $$timeout -eq 0 ]; then \
-		printf "$(RED)Timeout: $(1) non disponible$(NC)\n"; \
-		exit 1; \
-	fi
-endef
-
-# Fonction de confirmation
-define confirm
-	@printf "$(YELLOW)$(1) (y/N)?$(NC) "; \
-	read -r response; \
-	if [ "$$response" != "y" ] && [ "$$response" != "Y" ]; then \
-		printf "$(RED)Opération annulée$(NC)\n"; \
+	if [ $$timeout -le 0 ]; then \
+		echo "$(RED)PostgreSQL timeout$(NC)"; \
 		exit 1; \
 	fi
 endef
 
 # ═══════════════════════════════════════════════════════════════
-# TEMPLATES DE MESSAGES - CORRIGÉS
+# TEMPLATES DE MESSAGES
 # ═══════════════════════════════════════════════════════════════
 
-# Header de section
-define section_header
-	@printf "\n"
-	@printf "$(CYAN)═══ $(1) ═══$(NC)\n"
-	@printf "\n"
+define show_header
+	@echo ""
+	@echo "$(CYAN)═══ $(1) ═══$(NC)"
+	@echo ""
 endef
 
-# Séparateur
-define separator
-	@printf "$(GRAY)═══════════════════════════════════════════════════════════════$(NC)\n"
-endef
-
-# Message de bienvenue
-define welcome_message
-	@printf "\n"
-	@printf "$(BOLD)$(GREEN)$(EMOJI_ROCKET) Bienvenue dans Cloudity $(EMOJI_ROCKET)$(NC)\n"
-	@printf "$(CYAN)Écosystème cloud privé multi-tenant$(NC)\n"
-	@printf "\n"
+define show_separator
+	@echo "$(GRAY)═══════════════════════════════════════════════════════$(NC)"
 endef
 
 # ═══════════════════════════════════════════════════════════════
-# FONCTIONS DE VALIDATION - CORRIGÉES
+# VALIDATION
 # ═══════════════════════════════════════════════════════════════
 
-# Vérification Docker
 define check_docker
 	@if ! command -v docker >/dev/null 2>&1; then \
-		printf "$(RED)$(EMOJI_ERROR) Docker n'est pas installé$(NC)\n"; \
-		exit 1; \
-	fi; \
-	if ! docker info >/dev/null 2>&1; then \
-		printf "$(RED)$(EMOJI_ERROR) Docker n'est pas démarré$(NC)\n"; \
-		exit 1; \
-	fi; \
-	printf "$(GREEN)$(EMOJI_SUCCESS) Docker OK$(NC)\n"
-endef
-
-# Vérification Docker Compose
-define check_docker_compose
-	@if ! docker compose version >/dev/null 2>&1; then \
-		if ! docker-compose version >/dev/null 2>&1; then \
-			printf "$(RED)$(EMOJI_ERROR) Docker Compose n'est pas installé$(NC)\n"; \
-			exit 1; \
-		fi; \
-	fi; \
-	printf "$(GREEN)$(EMOJI_SUCCESS) Docker Compose OK$(NC)\n"
-endef
-
-# Vérification Node.js
-define check_nodejs
-	@if ! command -v node >/dev/null 2>&1; then \
-		printf "$(YELLOW)$(EMOJI_WARNING) Node.js non installé (optionnel)$(NC)\n"; \
-	else \
-		printf "$(GREEN)$(EMOJI_SUCCESS) Node.js OK ($$(node --version))$(NC)\n"; \
-	fi
-endef
-
-# Vérification Rust
-define check_rust
-	@if ! command -v cargo >/dev/null 2>&1; then \
-		printf "$(YELLOW)$(EMOJI_WARNING) Rust/Cargo non installé (optionnel)$(NC)\n"; \
-	else \
-		printf "$(GREEN)$(EMOJI_SUCCESS) Rust OK ($$(rustc --version | cut -d' ' -f2))$(NC)\n"; \
-	fi
-endef
-
-# ═══════════════════════════════════════════════════════════════
-# FONCTIONS D'AFFICHAGE - CORRIGÉES
-# ═══════════════════════════════════════════════════════════════
-
-# Affichage des URLs de services
-define show_service_urls
-	@printf "\n"
-	@printf "$(CYAN)═══ SERVICES DISPONIBLES ═══$(NC)\n"
-	@printf "$(GREEN)🌐 API Gateway:$(NC)     http://localhost:8000\n"
-	@printf "$(GREEN)🔐 Auth Service:$(NC)    http://localhost:8081\n" 
-	@printf "$(GREEN)⚙️  Admin Service:$(NC)   http://localhost:8082\n"
-	@printf "$(GREEN)📊 Admin Dashboard:$(NC) http://localhost:3000\n"
-	@printf "$(GREEN)📧 Email Service:$(NC)   http://localhost:8091\n"
-	@printf "$(GREEN)🏷️  Alias Service:$(NC)   http://localhost:8092\n"
-	@printf "$(GREEN)🗄️  Database Admin:$(NC) http://localhost:8083\n"
-	@printf "\n"
-endef
-
-# Affichage du status coloré
-define show_status
-	@printf "$(CYAN)%-20s$(NC) " "$(1):"; \
-	if $(2); then \
-		printf "$(GREEN)Running$(NC)"; \
-	else \
-		printf "$(RED)Stopped$(NC)"; \
-	fi; \
-	printf "\n"
-endef
-
-# ═══════════════════════════════════════════════════════════════
-# UTILITAIRES DE DÉVELOPPEMENT - CORRIGÉS
-# ═══════════════════════════════════════════════════════════════
-
-# Fonction de cleanup générique
-define cleanup
-	$(call log_info,"Nettoyage $(1)")
-	@docker compose down $(1) 2>/dev/null || true
-	@docker system prune -f >/dev/null 2>&1 || true
-	$(call log_success,"$(1) nettoyé")
-endef
-
-# Fonction de build générique
-define build_service
-	$(call log_info,"Build $(1)")
-	@docker compose build $(1)
-	$(call log_success,"$(1) construit")
-endef
-
-# Fonction de test générique
-define test_service
-	$(call log_info,"Tests $(1)")
-	@if $(2); then \
-		$(call log_success,"Tests $(1) OK"); \
-	else \
-		$(call log_error,"Tests $(1) échoués"); \
+		echo "$(RED)$(EMOJI_ERROR) Docker non installé$(NC)"; \
 		exit 1; \
 	fi
+	@if ! docker info >/dev/null 2>&1; then \
+		echo "$(RED)$(EMOJI_ERROR) Docker non démarré$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)$(EMOJI_SUCCESS) Docker OK$(NC)"
 endef

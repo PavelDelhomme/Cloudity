@@ -1,0 +1,95 @@
+# Configuration Docker Compose pour Admin Dashboard
+# À ajouter dans votre docker-compose.yml
+
+version: '3.8'
+
+services:
+  # ═══════════════════════════════════════════════════════════════
+  # FRONTEND - ADMIN DASHBOARD
+  # ═══════════════════════════════════════════════════════════════
+  
+  admin-dashboard:
+    build:
+      context: ./frontend/admin-dashboard
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: cloudity-admin-dashboard
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - VITE_AUTH_URL=http://localhost:8081
+      - VITE_ADMIN_URL=http://localhost:8082
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend/admin-dashboard:/app:cached
+      - admin_node_modules:/app/node_modules
+      - admin_vite_cache:/app/.vite
+    depends_on:
+      - api-gateway
+      - admin-service
+    networks:
+      - cloudity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ═══════════════════════════════════════════════════════════════
+  # FRONTEND - EMAIL APP
+  # ═══════════════════════════════════════════════════════════════
+  
+  email-app:
+    build:
+      context: ./frontend/email-app
+      dockerfile: Dockerfile.dev
+      target: development
+    container_name: cloudity-email-app
+    restart: unless-stopped
+    ports:
+      - "8094:8094"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:8000
+      - VITE_EMAIL_SERVICE_URL=http://localhost:8091
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend/email-app:/app:cached
+      - email_node_modules:/app/node_modules
+      - email_vite_cache:/app/.vite
+    depends_on:
+      - api-gateway
+    networks:
+      - cloudity-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8094"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ═══════════════════════════════════════════════════════════════
+# VOLUMES
+# ═══════════════════════════════════════════════════════════════
+
+volumes:
+  # Frontend caches
+  admin_node_modules:
+    driver: local
+    name: cloudity-admin-node-modules
+  
+  admin_vite_cache:
+    driver: local
+    name: cloudity-admin-vite-cache
+  
+  email_node_modules:
+    driver: local  
+    name: cloudity-email-node-modules
+  
+  email_vite_cache:
+    driver: local
+    name: cloudity-email-vite-cache

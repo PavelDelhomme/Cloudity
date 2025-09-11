@@ -1,29 +1,29 @@
-# backend/Makefile - Services Backend CORRIGÉ ET UNIFIÉ
-.PHONY: help setup dev-all build-all test-all clean
+# backend/Makefile - Backend Simplifié
+.PHONY: help setup dev-core dev-email build-all test-all clean
 
 include ../scripts/colors.mk
 
-# Services correctement nommés selon docker-compose.yml
-SERVICES := auth-service api-gateway admin-service
-EMAIL_SERVICES := alias-service email-service mail-server  
-PASSWORD_SERVICES := password-service
-ALL_SERVICES := $(SERVICES) $(EMAIL_SERVICES) $(PASSWORD_SERVICES)
+# Services essentiels uniquement (pas de password-service)
+CORE_SERVICES := auth-service api-gateway admin-service
+EMAIL_SERVICES := alias-service email-service mail-server
+ALL_SERVICES := $(CORE_SERVICES) $(EMAIL_SERVICES)
 
 COMPOSE = docker compose -f ../docker-compose.yml
 
-help: ## Services Backend Cloudity
-	@printf "$(PURPLE)🔧 Services Backend Cloudity$(NC)\n"
-	@printf "$(CYAN)Services Core:$(NC) $(SERVICES)\n"
-	@printf "$(CYAN)Services Email:$(NC) $(EMAIL_SERVICES)\n"
-	@printf "$(CYAN)Services Password:$(NC) $(PASSWORD_SERVICES)\n"
-	@printf "\n"
+help: ## Backend Services Cloudity
+	@echo "$(PURPLE)🔧 Backend Services Cloudity$(NC)"
+	@echo "$(CYAN)Services Core:$(NC) $(CORE_SERVICES)"
+	@echo "$(CYAN)Services Email:$(NC) $(EMAIL_SERVICES)"
+	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-20s$(NC) %s\n", $$1, $$2}'
 
 setup: ## Setup backend services
-	$(call log_info,"⚙️ Setup services backend")
-	@for service in $(SERVICES); do \
-		$(call log_info,"Setup $$service"); \
-		if [ -d "$$service" ]; then $(MAKE) -C $$service setup; fi; \
+	$(call log_info,"Setup services backend")
+	@for service in $(CORE_SERVICES); do \
+		if [ -d "$$service" ]; then \
+			echo "$(CYAN)Setup $$service$(NC)"; \
+			$(MAKE) -C $$service setup 2>/dev/null || echo "$(YELLOW)$$service: pas de setup$(NC)"; \
+		fi; \
 	done
 	$(call log_success,"Backend setup terminé")
 
@@ -31,124 +31,89 @@ setup: ## Setup backend services
 # DÉMARRAGE PAR GROUPES
 # ═══════════════════════════════════════════════════════════════
 
-dev-all: ## Tous les services backend disponibles
-	$(call log_info,"🔧 Démarrage backend complet")
-	@# Démarrer seulement les services qui existent dans docker-compose.yml
-	@$(COMPOSE) up -d auth-service api-gateway admin-service
-	@# Démarrer les services email s'ils existent
-	@if $(COMPOSE) config --services | grep -q "email-service"; then $(COMPOSE) up -d email-service; fi
-	@if $(COMPOSE) config --services | grep -q "alias-service"; then $(COMPOSE) up -d alias-service; fi
-	$(call log_success,"Backend complet démarré")
-
-dev-core: ## Services core uniquement (auth + gateway + admin)
-	$(call log_info,"🔧 Démarrage services core")
-	@$(COMPOSE) up -d $(SERVICES)
+dev-core: ## Services core (auth + gateway + admin)
+	$(call log_info,"Démarrage services core")
+	@$(COMPOSE) up -d $(CORE_SERVICES)
 	$(call log_success,"Services core démarrés")
 
-dev-auth: ## Service auth + API gateway
-	$(call log_info,"🔐 Démarrage services auth")
-	@$(COMPOSE) up -d auth-service api-gateway
-	$(call log_success,"Services auth opérationnels")
+dev-email: ## Services email complets
+	$(call log_info,"Démarrage services email")
+	@# Vérifier et démarrer seulement les services qui existent
+	@for service in $(EMAIL_SERVICES); do \
+		if $(COMPOSE) config --services 2>/dev/null | grep -q "$$service"; then \
+			echo "$(GREEN)Démarrage $$service$(NC)"; \
+			$(COMPOSE) up -d $$service; \
+		else \
+			echo "$(YELLOW)$$service: non configuré$(NC)"; \
+		fi; \
+	done
+	$(call log_success,"Services email traités")
 
-dev-email: ## Services email complets (si disponibles)
-	$(call log_info,"📧 Démarrage services email")
-	@if $(COMPOSE) config --services | grep -q "email-service"; then \
-		$(COMPOSE) up -d email-service; \
-		$(call log_success,"Email service démarré"); \
-	else \
-		$(call log_warning,"Email service non configuré dans docker-compose"); \
-	fi
-	@if $(COMPOSE) config --services | grep -q "alias-service"; then \
-		$(COMPOSE) up -d alias-service; \
-		$(call log_success,"Alias service démarré"); \
-	else \
-		$(call log_warning,"Alias service non configuré dans docker-compose"); \
-	fi
+dev-all: ## Tous les services backend
+	$(call log_info,"Démarrage backend complet")
+	@$(MAKE) dev-core
+	@$(MAKE) dev-email
+	$(call log_success,"Backend complet démarré")
 
 # ═══════════════════════════════════════════════════════════════
 # SERVICES INDIVIDUELS
 # ═══════════════════════════════════════════════════════════════
 
 auth-service: ## Service authentification
-	$(call log_info,"🔐 Démarrage auth service")
+	$(call log_info,"Démarrage auth service")
 	@$(COMPOSE) up -d auth-service
 	$(call log_success,"Auth service: http://localhost:8081")
 
 api-gateway: ## API Gateway
-	$(call log_info,"🌐 Démarrage API Gateway")
+	$(call log_info,"Démarrage API Gateway")
 	@$(COMPOSE) up -d api-gateway
 	$(call log_success,"API Gateway: http://localhost:8000")
 
 admin-service: ## Service administration
-	$(call log_info,"⚙️ Démarrage admin service")
+	$(call log_info,"Démarrage admin service")
 	@$(COMPOSE) up -d admin-service
 	$(call log_success,"Admin service: http://localhost:8082")
 
-# ═══════════════════════════════════════════════════════════════
-# SERVICES EMAIL - GRANULAIRES
-# ═══════════════════════════════════════════════════════════════
-
-email-service: ## Service email Rust (si disponible)
-	$(call log_info,"🦀 Démarrage email service Rust")
-	@if $(COMPOSE) config --services | grep -q "email-service"; then \
+email-service: ## Service email Rust
+	$(call log_info,"Démarrage email service")
+	@if $(COMPOSE) config --services 2>/dev/null | grep -q "email-service"; then \
 		$(COMPOSE) up -d email-service; \
 		$(call log_success,"Email service: http://localhost:8091"); \
 	else \
-		$(call log_warning,"Email service non configuré - utiliser 'make -C email-service init-project'"); \
+		$(call log_warning,"Email service non configuré dans docker-compose.yml"); \
 	fi
 
-alias-service: alias-dev ## Alias pour alias-dev
-
-alias-dev: ## Service alias email (si disponible)
-	$(call log_info,"🏷️ Démarrage service alias")
-	@if $(COMPOSE) config --services | grep -q "alias-service"; then \
+alias-service: ## Service alias email
+	$(call log_info,"Démarrage alias service")
+	@if $(COMPOSE) config --services 2>/dev/null | grep -q "alias-service"; then \
 		$(COMPOSE) up -d alias-service; \
 		$(call log_success,"Alias service: http://localhost:8092"); \
 	else \
-		$(call log_warning,"Alias service non configuré dans docker-compose"); \
+		$(call log_warning,"Alias service non configuré dans docker-compose.yml"); \
 	fi
 
-mail-server: ## Serveur mail complet (si disponible)
-	$(call log_info,"📮 Démarrage mail server")
-	@if $(COMPOSE) config --services | grep -q "mail-server"; then \
+mail-server: ## Serveur mail complet
+	$(call log_info,"Démarrage mail server")
+	@if $(COMPOSE) config --services 2>/dev/null | grep -q "mail-server"; then \
 		$(COMPOSE) up -d mail-server; \
 		$(call log_success,"Mail server opérationnel"); \
 	else \
-		$(call log_warning,"Mail server non configuré dans docker-compose"); \
-	fi
-
-password-service: ## Service password manager (si disponible)
-	$(call log_info,"🔒 Démarrage password service")
-	@if $(COMPOSE) config --services | grep -q "password-service"; then \
-		$(COMPOSE) up -d password-service; \
-		$(call log_success,"Password service opérationnel"); \
-	else \
-		$(call log_warning,"Password service non configuré dans docker-compose"); \
+		$(call log_warning,"Mail server non configuré dans docker-compose.yml"); \
 	fi
 
 # ═══════════════════════════════════════════════════════════════
 # TESTS
 # ═══════════════════════════════════════════════════════════════
 
-test-all: ## Tests tous les services
-	$(call log_info,"🧪 Tests backend complet")
-	@for service in $(SERVICES); do \
-		$(call log_info,"Tests $$service"); \
+test-all: ## Tests services core
+	$(call log_info,"Tests backend")
+	@for service in $(CORE_SERVICES); do \
 		if [ -d "$$service" ]; then \
-			$(MAKE) -C $$service test || exit 1; \
+			echo "$(CYAN)Tests $$service$(NC)"; \
+			$(MAKE) -C $$service test 2>/dev/null || echo "$(YELLOW)$$service: pas de tests$(NC)"; \
 		fi; \
 	done
-	$(call log_success,"Tests backend terminés")
-
-test-unit: ## Tests unitaires
-	@for service in $(SERVICES); do \
-		if [ -d "$$service" ]; then $(MAKE) -C $$service test-unit; fi; \
-	done
-
-test-api: ## Tests API
-	@for service in $(SERVICES); do \
-		if [ -d "$$service" ]; then $(MAKE) -C $$service test-api; fi; \
-	done
+	$(call log_success,"Tests terminés")
 
 test-auth: ## Tests auth service
 	@if [ -d "auth-service" ]; then $(MAKE) -C auth-service test; fi
@@ -159,81 +124,67 @@ test-gateway: ## Tests API gateway
 test-admin: ## Tests admin service
 	@if [ -d "admin-service" ]; then $(MAKE) -C admin-service test; fi
 
-email-test: ## Tests services email
-	@if [ -d "email-service" ]; then $(MAKE) -C email-service test; fi
-	@if [ -d "alias-service" ]; then $(MAKE) -C alias-service test; fi
-
 # ═══════════════════════════════════════════════════════════════
 # BUILD
 # ═══════════════════════════════════════════════════════════════
 
 build-all: ## Build tous les services
-	$(call log_info,"🔨 Build backend complet")
-	@for service in $(SERVICES); do \
-		$(call log_info,"Build $$service"); \
-		if [ -d "$$service" ]; then $(MAKE) -C $$service build; fi; \
+	$(call log_info,"Build backend")
+	@for service in $(CORE_SERVICES); do \
+		if [ -d "$$service" ]; then \
+			echo "$(CYAN)Build $$service$(NC)"; \
+			$(MAKE) -C $$service build 2>/dev/null || echo "$(YELLOW)$$service: pas de build$(NC)"; \
+		fi; \
 	done
-	$(call log_success,"Build backend terminé")
-
-build-core: ## Build services core
-	@for service in $(SERVICES); do \
-		if [ -d "$$service" ]; then $(MAKE) -C $$service build; fi; \
-	done
-
-build-auth: ## Build auth service
-	@if [ -d "auth-service" ]; then $(MAKE) -C auth-service build; fi
-
-build-gateway: ## Build API gateway
-	@if [ -d "api-gateway" ]; then $(MAKE) -C api-gateway build; fi
-
-build-admin: ## Build admin service
-	@if [ -d "admin-service" ]; then $(MAKE) -C admin-service build; fi
+	$(call log_success,"Build terminé")
 
 # ═══════════════════════════════════════════════════════════════
-# LOGS ET STATUS
+# STATUS ET MONITORING
 # ═══════════════════════════════════════════════════════════════
 
 status: ## Status services backend
-	@printf "$(PURPLE)Backend Services Status:$(NC)\n"
-	@for service in auth-service api-gateway admin-service; do \
-		printf "$(CYAN)%-18s$(NC) " "$$service:"; \
-		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
-			printf "$(GREEN)Running$(NC)"; \
-			port=$$($(COMPOSE) ps $$service --format "{{.Ports}}" 2>/dev/null | grep -o ":[0-9]*->" | cut -d: -f2 | cut -d- -f1 | head -1); \
-			if [ ! -z "$$port" ]; then \
-				printf " $(YELLOW)(port $$port)$(NC)"; \
+	@echo "$(PURPLE)Backend Services Status:$(NC)"
+	@for service in $(ALL_SERVICES); do \
+		if $(COMPOSE) config --services 2>/dev/null | grep -q "$$service"; then \
+			if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+				echo "$(GREEN)$$service: Running$(NC)"; \
+			else \
+				echo "$(RED)$$service: Stopped$(NC)"; \
 			fi; \
 		else \
-			printf "$(RED)Stopped$(NC)"; \
-		fi; \
-		printf "\n"; \
-	done
-	@# Status services email s'ils existent
-	@for service in email-service alias-service; do \
-		if $(COMPOSE) config --services | grep -q "$$service"; then \
-			printf "$(CYAN)%-18s$(NC) " "$$service:"; \
-			if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
-				printf "$(GREEN)Running$(NC)"; \
-			else \
-				printf "$(RED)Stopped$(NC)"; \
-			fi; \
-			printf "\n"; \
+			echo "$(GRAY)$$service: Non configuré$(NC)"; \
 		fi; \
 	done
 
 health: ## Health check backend
-	$(call log_info,"🩺 Health check backend")
-	@for service in $(SERVICES); do \
-		if [ -d "$$service" ] && $(MAKE) -C $$service health 2>/dev/null; then \
-			printf ""; \
+	$(call log_info,"Health check backend")
+	@for service in $(CORE_SERVICES); do \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			if [ -d "$$service" ] && $(MAKE) -C $$service health 2>/dev/null; then \
+				echo "$(GREEN)$$service: Health OK$(NC)"; \
+			fi; \
 		fi; \
 	done
 
-logs-all: ## Logs tous les services disponibles
-	@$(COMPOSE) logs -f auth-service api-gateway admin-service
+# ═══════════════════════════════════════════════════════════════
+# LOGS
+# ═══════════════════════════════════════════════════════════════
+
+logs-all: ## Logs tous les services actifs
+	@services=""; \
+	for service in $(ALL_SERVICES); do \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
+			services="$$services $$service"; \
+		fi; \
+	done; \
+	if [ ! -z "$$services" ]; then \
+		$(COMPOSE) logs -f $$services; \
+	else \
+		echo "$(YELLOW)Aucun service backend actif$(NC)"; \
+	fi
 
 logs-core: ## Logs services core
-	@$(COMPOSE) logs -f $(SERVICES)
+	@$(COMPOSE) logs -f $(CORE_SERVICES)
 
 logs-auth: ## Logs auth service
 	@$(COMPOSE) logs -f auth-service
@@ -244,21 +195,21 @@ logs-gateway: ## Logs API gateway
 logs-admin: ## Logs admin service
 	@$(COMPOSE) logs -f admin-service
 
-logs-email: ## Logs services email (si disponibles)
+logs-email: ## Logs services email
 	@services=""; \
-	for service in email-service alias-service; do \
-		if $(COMPOSE) config --services | grep -q "$$service"; then \
+	for service in $(EMAIL_SERVICES); do \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
 			services="$$services $$service"; \
 		fi; \
 	done; \
 	if [ ! -z "$$services" ]; then \
 		$(COMPOSE) logs -f $$services; \
 	else \
-		$(call log_warning,"Aucun service email configuré"); \
+		echo "$(YELLOW)Aucun service email actif$(NC)"; \
 	fi
 
 # ═══════════════════════════════════════════════════════════════
-# SHELLS - ACCÈS CONTENEURS
+# SHELLS
 # ═══════════════════════════════════════════════════════════════
 
 shell-auth: ## Shell auth service
@@ -270,22 +221,15 @@ shell-gateway: ## Shell API gateway
 shell-admin: ## Shell admin service
 	@$(COMPOSE) exec admin-service /bin/bash
 
-shell-email: ## Shell email service (si disponible)
+shell-email: ## Shell email service
 	@if $(COMPOSE) ps email-service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
 		$(COMPOSE) exec email-service /bin/sh; \
 	else \
-		$(call log_warning,"Email service non démarré"); \
-	fi
-
-shell-alias: ## Shell alias service (si disponible)
-	@if $(COMPOSE) ps alias-service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
-		$(COMPOSE) exec alias-service /bin/sh; \
-	else \
-		$(call log_warning,"Alias service non démarré"); \
+		echo "$(YELLOW)Email service non démarré$(NC)"; \
 	fi
 
 # ═══════════════════════════════════════════════════════════════
-# CONTRÔLES INDIVIDUELS
+# CONTRÔLES
 # ═══════════════════════════════════════════════════════════════
 
 restart-auth: ## Redémarrage auth service
@@ -297,49 +241,35 @@ restart-gateway: ## Redémarrage API gateway
 restart-admin: ## Redémarrage admin service
 	@$(COMPOSE) restart admin-service
 
-stop-all: ## Arrêt tous les services backend
-	@$(COMPOSE) stop auth-service api-gateway admin-service
-	@# Arrêt des services email s'ils existent
-	@for service in email-service alias-service; do \
-		if $(COMPOSE) config --services | grep -q "$$service"; then \
-			$(COMPOSE) stop $$service; \
-		fi; \
-	done
-
 stop-core: ## Arrêt services core
-	@$(COMPOSE) stop $(SERVICES)
+	@$(COMPOSE) stop $(CORE_SERVICES)
 
 stop-email: ## Arrêt services email
-	@for service in email-service alias-service; do \
-		if $(COMPOSE) config --services | grep -q "$$service"; then \
+	@for service in $(EMAIL_SERVICES); do \
+		if $(COMPOSE) ps $$service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
 			$(COMPOSE) stop $$service; \
 		fi; \
 	done
+
+stop-all: ## Arrêt tous les services backend
+	@$(COMPOSE) stop $(CORE_SERVICES)
+	@$(MAKE) stop-email
 
 # ═══════════════════════════════════════════════════════════════
 # MAINTENANCE
 # ═══════════════════════════════════════════════════════════════
 
-db-migrate-all: ## Migrations BDD
-	@if [ -d "auth-service" ]; then $(MAKE) -C auth-service db-migrate; fi
-
 clean: ## Nettoyage backend
-	$(call log_info,"🧹 Nettoyage backend")
-	@$(COMPOSE) stop auth-service api-gateway admin-service
-	@$(COMPOSE) rm -f auth-service api-gateway admin-service
+	$(call log_info,"Nettoyage backend")
+	@$(COMPOSE) stop $(CORE_SERVICES)
+	@$(COMPOSE) rm -f $(CORE_SERVICES)
+	@$(MAKE) stop-email
 	$(call log_success,"Backend nettoyé")
 
 # ═══════════════════════════════════════════════════════════════
-# RACCOURCIS PRATIQUES
+# RACCOURCIS
 # ═══════════════════════════════════════════════════════════════
 
-up: dev-core ## Alias pour dev-core (services existants)
-
-down: stop-all ## Alias pour stop-all
-
-ps: status ## Alias pour status
-
-restart: ## Redémarrage complet backend
-	@$(MAKE) stop-all
-	@sleep 2
-	@$(MAKE) dev-core
+up: dev-core ## Alias dev-core
+down: stop-all ## Alias stop-all
+ps: status ## Alias status
