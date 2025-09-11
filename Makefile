@@ -19,7 +19,6 @@ ALL_SERVICES := $(INFRASTRUCTURE_SERVICES) $(BACKEND_SERVICES) $(FRONTEND_SERVIC
 help: ## Aide principale Cloudity
 	echo "$(GREEN) Cloudity - Ecosysteme Cloud Multi-Tenant$(NC)"
 	echo "$(YELLOW)Architecture modulaire avec Makefiles separes$(NC)"
-	""
 	echo "$(CYAN)═══ COMMANDES PRINCIPALES ═══$(NC)"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "$(GREEN)%-25s$(NC) %s\n", $$1, $$2}'
 	echo ""
@@ -233,7 +232,7 @@ quick-start: ## Démarrage rapide (recommandé)
 email-dev: ## Démarrer le système email complet
 	$(call log_info,"Demarrage systeme email")
 	@$(MAKE) -C infrastructure dev
-	@$(MAKE) -C backend email-services
+	@$(MAKE) -C backend email-service
 	@$(MAKE) -C frontend email-frontend
 	$(call log_success,"Systeme email demarre!")
 
@@ -272,10 +271,6 @@ email-clean: ## Nettoyer le système email
 	docker compose -f docker-compose.email.yml down -v
 	docker system prune -f
 
-
-email-services: ## Services email complets
-	@$(MAKE) -C backend email-services
-
 email-service: ## Service email core
 	@$(MAKE) -C backend email-service
 
@@ -302,3 +297,43 @@ alias-logs: ## Logs du service alias
 
 frontend-dev: ## Service frontend
 	@$(MAKE) -C frontend dev-all
+
+run-local: ## Démarrage complet local API/infra/backends/frontends
+	@echo "🚀 Démarrage Cloudity local complet..."
+	@$(MAKE) -C infrastructure dev
+	@sleep 3
+	@$(COMPOSE) up -d auth-service api-gateway admin-service
+	@sleep 2
+	@$(MAKE) -C frontend dev-admin
+	@echo "✅ Cloudity démarré!"
+	@echo "📊 Admin: http://localhost:3000"
+	@echo "🔧 API Gateway: http://localhost:8000" 
+	@echo "🔐 Auth Service: http://localhost:8081"
+	@$(COMPOSE) ps
+
+run-simple: ## Démarrage simple qui marche
+	@echo "🚀 Démarrage services essentiels..."
+	@$(COMPOSE) up -d postgres redis
+	@sleep 3
+	@$(COMPOSE) up -d auth-service api-gateway admin-service
+	@sleep 2  
+	@$(COMPOSE) up -d admin-dashboard
+	@echo "✅ Services démarrés!"
+	@echo "📊 Admin Dashboard: http://localhost:3000"
+	@echo "🌐 API Gateway: http://localhost:8000"
+	@$(COMPOSE) ps
+
+stop-all: ## Arrêt complet de tous les services
+	@echo "🛑 Arrêt de tous les services..."
+	@$(COMPOSE) down
+	@echo "✅ Tous les services arrêtés"
+
+clean-all: ## Nettoyage complet avec volumes
+	@echo "🧹 Nettoyage complet..."
+	@$(COMPOSE) down -v --remove-orphans
+	@docker system prune -f
+	@echo "✅ Nettoyage terminé"
+
+status-simple: ## Status rapide
+	@echo "📊 Status services Cloudity:"
+	@$(COMPOSE) ps

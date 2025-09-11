@@ -25,7 +25,7 @@ setup: ## Setup backend services
 
 dev-all: ## Tous les services backend
 	$(call log_info,"Démarrage backend complet")
-	@$(COMPOSE) up -d $(ALL_SERVICES)
+	@$(COMPOSE) up -d $(SERVICES)  # ← Seulement les services existants
 	$(call log_success,"Backend complet démarré")
 
 dev-auth: ## Service auth uniquement
@@ -53,7 +53,7 @@ mail-server: ## Serveur mail
 # SERVICES EMAIL
 # ═══════════════════════════════════════════════════════════════
 
-email-services: ## Tous les services email
+email-service: ## Tous les services email
 	$(call log_info,"Démarrage services email")
 	@$(COMPOSE) up -d alias-service email-service password-service
 	$(call log_success,"Services email démarrés")
