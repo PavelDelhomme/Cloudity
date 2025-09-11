@@ -106,7 +106,7 @@ func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 		}
 	}
 
-	// Générer des clés temporaires si fichiers non trouvés
+	// Générer des clés temporaires si fichiers non trouvés ddepuis fichiers
 	log.Println("⚠️ Generating temporary RSA keys...")
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
