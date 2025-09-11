@@ -1,17 +1,28 @@
-from fastapi import FastAPI, Depends, HTTPException
+# ADMIN SERVICE AMÉLIORÉ - Version complète
+# Ajouter ces améliorations à ton admin-service actuel
+
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg2
 import psycopg2.extras
 import os
-from datetime import datetime
-from typing import List, Dict, Optional
-from pydantic import BaseModel
+import json
+import subprocess
+import requests
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel, EmailStr
 import uvicorn
+import logging
+
+# Configuration logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Cloudity Admin Service",
-    description="Multi-tenant administration API",
-    version="1.0.0"
+    description="Multi-tenant administration API with full management capabilities",
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -22,91 +33,195 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Database connection
-def get_db():
-    conn = psycopg2.connect(
-        os.getenv("DATABASE_URL"),
-        cursor_factory=psycopg2.extras.RealDictCursor
-    )
-    try:
-        yield conn
-    finally:
-        conn.close()
+# === NOUVEAUX MODÈLES PYDANTIC ===
 
-# Pydantic models
-class TenantResponse(BaseModel):
-    id: str
+class ServiceStatus(BaseModel):
     name: str
-    subdomain: Optional[str]
     status: str
-    max_users: int
-    max_storage_gb: int
-    created_at: Optional[str]
+    port: int
+    url: str
+    uptime: Optional[str] = None
+    memory_usage: Optional[str] = None
+    cpu_usage: Optional[str] = None
 
-class UserResponse(BaseModel):
-    id: str
-    email: str
-    first_name: Optional[str]
-    last_name: Optional[str]
-    role: str
-    is_active: bool
-    tenant_name: str
-    created_at: Optional[str]
+class EmailConfig(BaseModel):
+    smtp_host: str
+    smtp_port: int
+    smtp_user: str
+    smtp_password: str
+    use_tls: bool = True
+    use_ssl: bool = False
 
-class CreateTenantRequest(BaseModel):
+class UserGroup(BaseModel):
+    id: Optional[str] = None
     name: str
-    subdomain: str
-    max_users: int = 10
-    max_storage_gb: int = 100
-
-class CreateUserRequest(BaseModel):
+    description: Optional[str] = None
+    permissions: List[str]
     tenant_id: str
-    email: str
-    password: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    role: str = "user"
 
-# Health check
-@app.get("/health")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "admin-service",
-        "timestamp": datetime.utcnow().isoformat()
-    }
+class SystemStats(BaseModel):
+    total_users: int
+    total_tenants: int
+    active_sessions: int
+    storage_used: float
+    database_size: str
+    uptime: str
 
-# Tenants endpoints
-@app.get("/api/v1/admin/tenants", response_model=List[TenantResponse])
-async def get_tenants(db=Depends(get_db)):
+# === TABLES SUPPLÉMENTAIRES ===
+
+async def init_additional_tables(db):
+    """Créer les tables supplémentaires"""
     cur = db.cursor()
+    
+    # Table groupes utilisateurs
     cur.execute("""
-        SELECT id, name, subdomain, status, max_users, max_storage_gb, created_at 
-        FROM tenants 
-        ORDER BY created_at DESC
+        CREATE TABLE IF NOT EXISTS user_groups (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            permissions JSONB DEFAULT '[]'::jsonb,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tenant_id, name)
+        );
     """)
-    tenants = []
-    for row in cur.fetchall():
-        tenants.append(TenantResponse(
-            id=str(row['id']),
-            name=row['name'],
-            subdomain=row['subdomain'],
-            status=row['status'],
-            max_users=row['max_users'],
-            max_storage_gb=row['max_storage_gb'],
-            created_at=row['created_at'].isoformat() if row['created_at'] else None
-        ))
-    return tenants
+    
+    # Table configuration email
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS email_configs (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            smtp_host VARCHAR(255) NOT NULL,
+            smtp_port INTEGER DEFAULT 587,
+            smtp_user VARCHAR(255) NOT NULL,
+            smtp_password VARCHAR(255) NOT NULL,
+            use_tls BOOLEAN DEFAULT TRUE,
+            use_ssl BOOLEAN DEFAULT FALSE,
+            from_email VARCHAR(255),
+            from_name VARCHAR(255),
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(tenant_id)
+        );
+    """)
+    
+    # Table sessions actives
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS active_sessions (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash VARCHAR(255) NOT NULL,
+            ip_address INET,
+            user_agent TEXT,
+            expires_at TIMESTAMPTZ NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            last_activity TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    
+    # Ajouter colonne group_id à users
+    cur.execute("""
+        ALTER TABLE users 
+        ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES user_groups(id);
+    """)
+    
+    db.commit()
 
-@app.post("/api/v1/admin/tenants")
-async def create_tenant(tenant: CreateTenantRequest, db=Depends(get_db)):
+# === ENDPOINTS AMÉLIORÉS ===
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialiser les tables au démarrage"""
+    try:
+        conn = psycopg2.connect(
+            os.getenv("DATABASE_URL"),
+            cursor_factory=psycopg2.extras.RealDictCursor
+        )
+        await init_additional_tables(conn)
+        conn.close()
+        logger.info("✅ Tables supplémentaires initialisées")
+    except Exception as e:
+        logger.error(f"❌ Erreur initialisation tables: {e}")
+
+# === STATISTIQUES SYSTÈME ===
+
+@app.get("/api/v1/admin/stats", response_model=SystemStats)
+async def get_system_stats(db=Depends(get_db)):
+    """Statistiques globales du système"""
+    cur = db.cursor()
+    
+    # Total utilisateurs
+    cur.execute("SELECT COUNT(*) FROM users WHERE is_active = true")
+    total_users = cur.fetchone()[0]
+    
+    # Total tenants
+    cur.execute("SELECT COUNT(*) FROM tenants WHERE is_active = true")
+    total_tenants = cur.fetchone()[0]
+    
+    # Sessions actives (dernière heure)
+    cur.execute("""
+        SELECT COUNT(*) FROM active_sessions 
+        WHERE last_activity > NOW() - INTERVAL '1 hour'
+    """)
+    active_sessions = cur.fetchone()[0] or 0
+    
+    # Taille base de données
+    cur.execute("""
+        SELECT pg_size_pretty(pg_database_size(current_database()))
+    """)
+    database_size = cur.fetchone()[0]
+    
+    return SystemStats(
+        total_users=total_users,
+        total_tenants=total_tenants,
+        active_sessions=active_sessions,
+        storage_used=0.0,  # À calculer selon ton système
+        database_size=database_size,
+        uptime="N/A"  # À calculer depuis le démarrage
+    )
+
+# === GESTION GROUPES UTILISATEURS ===
+
+@app.get("/api/v1/admin/groups")
+async def get_user_groups(tenant_id: str = Query(None), db=Depends(get_db)):
+    """Liste des groupes utilisateurs"""
+    cur = db.cursor()
+    
+    query = "SELECT * FROM user_groups"
+    params = []
+    
+    if tenant_id:
+        query += " WHERE tenant_id = %s"
+        params.append(tenant_id)
+    
+    query += " ORDER BY name"
+    cur.execute(query, params)
+    
+    groups = []
+    for row in cur.fetchall():
+        groups.append({
+            "id": str(row['id']),
+            "tenant_id": str(row['tenant_id']),
+            "name": row['name'],
+            "description": row['description'],
+            "permissions": row['permissions'],
+            "created_at": row['created_at'].isoformat()
+        })
+    
+    return {"groups": groups}
+
+@app.post("/api/v1/admin/groups")
+async def create_user_group(group: UserGroup, db=Depends(get_db)):
+    """Créer un groupe utilisateurs"""
     cur = db.cursor()
     try:
         cur.execute("""
-            INSERT INTO tenants (name, subdomain, max_users, max_storage_gb, status)
-            VALUES (%s, %s, %s, %s, 'active')
-            RETURNING id, name, subdomain, status, max_users, max_storage_gb, created_at
-        """, (tenant.name, tenant.subdomain, tenant.max_users, tenant.max_storage_gb))
+            INSERT INTO user_groups (tenant_id, name, description, permissions)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, name, description, permissions, created_at
+        """, (group.tenant_id, group.name, group.description, json.dumps(group.permissions)))
         
         result = cur.fetchone()
         db.commit()
@@ -114,182 +229,224 @@ async def create_tenant(tenant: CreateTenantRequest, db=Depends(get_db)):
         return {
             "id": str(result['id']),
             "name": result['name'],
-            "subdomain": result['subdomain'],
-            "status": result['status'],
-            "max_users": result['max_users'],
-            "max_storage_gb": result['max_storage_gb'],
+            "description": result['description'],
+            "permissions": result['permissions'],
             "created_at": result['created_at'].isoformat()
         }
     except psycopg2.Error as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Erreur création groupe: {str(e)}")
 
-# Users endpoints
-@app.get("/api/v1/admin/users", response_model=List[UserResponse])
-async def get_users(db=Depends(get_db)):
+# === CONFIGURATION EMAIL ===
+
+@app.get("/api/v1/admin/email-config/{tenant_id}")
+async def get_email_config(tenant_id: str, db=Depends(get_db)):
+    """Configuration email d'un tenant"""
     cur = db.cursor()
     cur.execute("""
-        SELECT u.id, u.email, u.first_name, u.last_name, u.role, 
-               u.is_active, u.created_at, t.name as tenant_name
-        FROM users u 
-        JOIN tenants t ON u.tenant_id = t.id 
-        ORDER BY u.created_at DESC
-    """)
-    users = []
-    for row in cur.fetchall():
-        users.append(UserResponse(
-            id=str(row['id']),
-            email=row['email'],
-            first_name=row['first_name'],
-            last_name=row['last_name'],
-            role=row['role'],
-            is_active=row['is_active'],
-            tenant_name=row['tenant_name'],
-            created_at=row['created_at'].isoformat() if row['created_at'] else None
-        ))
-    return users
-
-@app.post("/api/v1/admin/users")
-async def create_user(user: CreateUserRequest, db=Depends(get_db)):
-    import bcrypt
+        SELECT smtp_host, smtp_port, smtp_user, use_tls, use_ssl, 
+               from_email, from_name, is_active
+        FROM email_configs 
+        WHERE tenant_id = %s
+    """, (tenant_id,))
     
+    result = cur.fetchone()
+    if not result:
+        raise HTTPException(status_code=404, detail="Configuration email non trouvée")
+    
+    return {
+        "smtp_host": result['smtp_host'],
+        "smtp_port": result['smtp_port'],
+        "smtp_user": result['smtp_user'],
+        "use_tls": result['use_tls'],
+        "use_ssl": result['use_ssl'],
+        "from_email": result['from_email'],
+        "from_name": result['from_name'],
+        "is_active": result['is_active']
+    }
+
+@app.put("/api/v1/admin/email-config/{tenant_id}")
+async def update_email_config(tenant_id: str, config: EmailConfig, db=Depends(get_db)):
+    """Mettre à jour la configuration email"""
     cur = db.cursor()
     try:
-        # Hash password
-        hashed_password = bcrypt.hashpw(user.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
         cur.execute("""
-            INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, true)
-            RETURNING id, email, first_name, last_name, role, is_active, created_at
-        """, (user.tenant_id, user.email, hashed_password, user.first_name, user.last_name, user.role))
+            INSERT INTO email_configs (
+                tenant_id, smtp_host, smtp_port, smtp_user, smtp_password,
+                use_tls, use_ssl, is_active
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, true)
+            ON CONFLICT (tenant_id) 
+            DO UPDATE SET 
+                smtp_host = EXCLUDED.smtp_host,
+                smtp_port = EXCLUDED.smtp_port,
+                smtp_user = EXCLUDED.smtp_user,
+                smtp_password = EXCLUDED.smtp_password,
+                use_tls = EXCLUDED.use_tls,
+                use_ssl = EXCLUDED.use_ssl,
+                updated_at = CURRENT_TIMESTAMP
+        """, (tenant_id, config.smtp_host, config.smtp_port, 
+              config.smtp_user, config.smtp_password, config.use_tls, config.use_ssl))
         
-        result = cur.fetchone()
         db.commit()
-        
-        return {
-            "id": str(result['id']),
-            "email": result['email'],
-            "first_name": result['first_name'],
-            "last_name": result['last_name'],
-            "role": result['role'],
-            "is_active": result['is_active'],
-            "created_at": result['created_at'].isoformat()
-        }
+        return {"message": "Configuration email mise à jour avec succès"}
     except psycopg2.Error as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Erreur mise à jour: {str(e)}")
 
-# Services status endpoint
-@app.get("/api/v1/admin/services")
-async def get_services_status():
-    import requests
-    
-    services = [
-        {"name": "auth-service", "url": "http://auth-service:8081/health", "port": 8081},
-        {"name": "api-gateway", "url": "http://api-gateway:8000/health", "port": 8000},
-        {"name": "admin-service", "url": "http://localhost:8082/health", "port": 8082},
+# === SERVICES AVANCÉS ===
+
+@app.get("/api/v1/admin/services/detailed")
+async def get_services_detailed():
+    """État détaillé de tous les services"""
+    services_config = [
+        {"name": "auth-service", "container": "cloudity-auth-service", "port": 8081},
+        {"name": "api-gateway", "container": "cloudity-api-gateway", "port": 8000},
+        {"name": "admin-service", "container": "cloudity-admin-service", "port": 8082},
+        {"name": "postgres", "container": "cloudity-postgres", "port": 5432},
+        {"name": "redis", "container": "cloudity-redis", "port": 6379},
     ]
     
-    status_list = []
-    for service in services:
+    detailed_status = []
+    
+    for service in services_config:
         try:
-            response = requests.get(service["url"], timeout=2)
-            status = "healthy" if response.status_code == 200 else "unhealthy"
-        except:
-            status = "offline"
-        
-        status_list.append({
-            "name": service["name"],
-            "status": status,
-            "port": service["port"],
-            "url": f"http://localhost:{service['port']}"
-        })
-    
-    return {"services": status_list}
-
-# Services Control Endpoints
-@app.post("/api/v1/admin/services/{service_name}/{action}")
-async def control_service(service_name: str, action: str):
-    """Start/Stop/Restart Docker services"""
-    import subprocess
-    
-    allowed_actions = ['start', 'stop', 'restart']
-    allowed_services = ['auth-service', 'api-gateway', 'admin-service']
-    
-    if action not in allowed_actions or service_name not in allowed_services:
-        raise HTTPException(status_code=400, detail="Invalid action or service")
-    
-    try:
-        if action == 'restart':
-            subprocess.run(['docker', 'compose', 'restart', service_name], check=True)
-        elif action == 'stop':
-            subprocess.run(['docker', 'compose', 'stop', service_name], check=True)
-        elif action == 'start':
-            subprocess.run(['docker', 'compose', 'start', service_name], check=True)
+            # Vérifier si le container existe et tourne
+            result = subprocess.run([
+                'docker', 'inspect', service['container'], 
+                '--format', '{{.State.Status}},{{.State.StartedAt}},{{.Config.Image}}'
+            ], capture_output=True, text=True, timeout=5)
             
-        return {"message": f"Service {service_name} {action} successful"}
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to {action} service: {str(e)}")
+            if result.returncode == 0:
+                status_info = result.stdout.strip().split(',')
+                status = status_info[0]
+                started_at = status_info[1] if len(status_info) > 1 else "N/A"
+                image = status_info[2] if len(status_info) > 2 else "N/A"
+                
+                # Calculer uptime
+                uptime = "N/A"
+                if status == "running" and started_at != "N/A":
+                    try:
+                        start_time = datetime.fromisoformat(started_at.replace('Z', '+00:00'))
+                        uptime_delta = datetime.now() - start_time.replace(tzinfo=None)
+                        uptime = str(uptime_delta).split('.')[0]  # Sans microsecondes
+                    except:
+                        uptime = "N/A"
+                
+                detailed_status.append({
+                    "name": service['name'],
+                    "container": service['container'],
+                    "status": status,
+                    "port": service['port'],
+                    "url": f"http://localhost:{service['port']}",
+                    "uptime": uptime,
+                    "image": image,
+                    "started_at": started_at
+                })
+            else:
+                detailed_status.append({
+                    "name": service['name'],
+                    "container": service['container'],
+                    "status": "not_found",
+                    "port": service['port'],
+                    "url": f"http://localhost:{service['port']}",
+                    "uptime": "N/A",
+                    "image": "N/A",
+                    "started_at": "N/A"
+                })
+                
+        except Exception as e:
+            logger.error(f"Erreur vérification service {service['name']}: {e}")
+            detailed_status.append({
+                "name": service['name'],
+                "container": service['container'],
+                "status": "error",
+                "port": service['port'],
+                "url": f"http://localhost:{service['port']}",
+                "uptime": "N/A",
+                "image": "N/A",
+                "started_at": "N/A",
+                "error": str(e)
+            })
+    
+    return {"services": detailed_status}
 
-# Database Management
-@app.get("/api/v1/admin/database/tables")
-async def get_database_tables(db=Depends(get_db)):
-    """Liste toutes les tables de la base"""
-    cur = db.cursor()
-    cur.execute("""
-        SELECT table_name, table_rows, data_length 
-        FROM information_schema.tables 
-        WHERE table_schema = 'cloudity'
-    """)
-    
-    tables = []
-    for row in cur.fetchall():
-        tables.append({
-            "name": row,
-            "rows": row,
-            "size": row
-        })
-    
-    return {"tables": tables}
+# === LOGS EN TEMPS RÉEL AMÉLIORÉS ===
 
-@app.get("/api/v1/admin/database/query")
-async def execute_query(query: str, db=Depends(get_db)):
-    """Exécuter une requête SQL"""
-    if not query.upper().startswith('SELECT'):
-        raise HTTPException(status_code=400, detail="Only SELECT queries allowed")
-    
-    cur = db.cursor()
+@app.get("/api/v1/admin/logs/{service_name}/stream")
+async def stream_service_logs(service_name: str, lines: int = 50, follow: bool = False):
+    """Logs en streaming d'un service"""
     try:
-        cur.execute(query)
-        results = cur.fetchall()
-        columns = [desc for desc in cur.description]
+        cmd = ['docker', 'logs', f'cloudity-{service_name}', '--tail', str(lines)]
+        if follow:
+            cmd.append('-f')
+            
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
-        return {
-            "columns": columns,
-            "rows": results
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-# Logs en temps réel
-@app.get("/api/v1/admin/logs/{service_name}")
-async def get_service_logs(service_name: str, lines: int = 100):
-    """Récupérer les logs d'un service"""
-    import subprocess
-    
-    try:
-        result = subprocess.run(
-            ['docker', 'logs', f'cloudity-{service_name}', '--tail', str(lines)],
-            capture_output=True, text=True, check=True
-        )
+        logs = result.stdout.split('\n') + result.stderr.split('\n')
+        logs = [log for log in logs if log.strip()]  # Supprimer lignes vides
         
         return {
             "service": service_name,
-            "logs": result.stdout.split('\n')
+            "logs": logs,
+            "total_lines": len(logs),
+            "timestamp": datetime.now().isoformat()
         }
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get logs: {str(e)}")
+    except subprocess.TimeoutExpired:
+        return {
+            "service": service_name,
+            "logs": ["Timeout - logs trop volumineux"],
+            "total_lines": 0,
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur récupération logs: {str(e)}")
+
+# === BASE DE DONNÉES AVANCÉE ===
+
+@app.get("/api/v1/admin/database/schema")
+async def get_database_schema(db=Depends(get_db)):
+    """Schéma complet de la base de données"""
+    cur = db.cursor()
+    
+    # Tables et colonnes
+    cur.execute("""
+        SELECT 
+            t.table_name,
+            c.column_name,
+            c.data_type,
+            c.is_nullable,
+            c.column_default
+        FROM information_schema.tables t
+        JOIN information_schema.columns c ON t.table_name = c.table_name
+        WHERE t.table_schema = 'public'
+        ORDER BY t.table_name, c.ordinal_position
+    """)
+    
+    schema = {}
+    for row in cur.fetchall():
+        table = row['table_name']
+        if table not in schema:
+            schema[table] = {
+                "columns": [],
+                "row_count": 0
+            }
+        
+        schema[table]["columns"].append({
+            "name": row['column_name'],
+            "type": row['data_type'],
+            "nullable": row['is_nullable'] == 'YES',
+            "default": row['column_default']
+        })
+    
+    # Compter les lignes de chaque table
+    for table in schema.keys():
+        try:
+            cur.execute(f'SELECT COUNT(*) FROM "{table}"')
+            schema[table]["row_count"] = cur.fetchone()[0]
+        except:
+            schema[table]["row_count"] = 0
+    
+    return {"schema": schema}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082, reload=True)
