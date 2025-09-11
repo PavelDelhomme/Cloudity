@@ -49,7 +49,7 @@ func main() {
 
 	// Redis connection
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     "redis:6379", // ✅ Fonction custom
+		Addr:     "redis:6379",
 		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       0,
 	})
@@ -66,27 +66,16 @@ func main() {
 
 	r := gin.Default()
 
-	// Middleware CORS
-	r.Use(func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Tenant-ID")
+	// PAS DE CORS ICI - géré par l'API Gateway uniquement
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-		c.Next()
-	})
-
-	// ✅ Routes corrigées
+	// Routes
 	auth := r.Group("/api/v1/auth")
 	{
 		auth.POST("/register", authService.Register)
-		auth.POST("/login", authService.Login)           // ✅ Méthode ajoutée
-		auth.POST("/refresh", authService.RefreshToken)  // ✅ Méthode ajoutée
-		auth.GET("/validate", authService.ValidateToken) // ✅ Méthode ajoutée
-		auth.GET("/profile", authService.GetProfile)     // ✅ Méthode ajoutée
+		auth.POST("/login", authService.Login)
+		auth.POST("/refresh", authService.RefreshToken)
+		auth.GET("/validate", authService.ValidateToken)
+		auth.GET("/profile", authService.GetProfile)
 	}
 
 	// Health check
@@ -138,23 +127,36 @@ func (a *AuthService) Register(c *gin.Context) {
 		return
 	}
 
-	// Récupérer tenant ID depuis header
-	tenantID := c.GetHeader("X-Tenant-ID")
-	if tenantID == "" {
+	// Récupérer tenant ID depuis header - GÉRER "admin" comme UUID
+	tenantIDHeader := c.GetHeader("X-Tenant-ID")
+	if tenantIDHeader == "" {
 		c.JSON(400, gin.H{"error": "X-Tenant-ID header required"})
 		return
+	}
+
+	// Convertir "admin" en UUID du tenant admin
+	var tenantID string
+	if tenantIDHeader == "admin" {
+		err := a.db.QueryRow("SELECT id FROM tenants WHERE subdomain = 'admin' OR name = 'Admin Tenant' LIMIT 1").Scan(&tenantID)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Admin tenant not found"})
+			return
+		}
+	} else {
+		tenantID = tenantIDHeader
 	}
 
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 
 	var userID string
 	err := a.db.QueryRow(`
-        INSERT INTO users (email, password_hash, tenant_id, is_active, created_at)
-        VALUES ($1, $2, $3, true, NOW())
-        RETURNING id
-    `, req.Email, string(hashedPassword), tenantID).Scan(&userID)
+		INSERT INTO users (email, password_hash, tenant_id, is_active, created_at)
+		VALUES ($1, $2, $3, true, NOW())
+		RETURNING id
+	`, req.Email, string(hashedPassword), tenantID).Scan(&userID)
 
 	if err != nil {
+		log.Printf("Register error: %v", err)
 		c.JSON(500, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -164,6 +166,76 @@ func (a *AuthService) Register(c *gin.Context) {
 		"access_token": token,
 		"user_id":      userID,
 		"message":      "User registered successfully",
+	})
+}
+
+func (a *AuthService) Login(c *gin.Context) {
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Récupérer tenant ID depuis header - GÉRER "admin" comme UUID
+	tenantIDHeader := c.GetHeader("X-Tenant-ID")
+	if tenantIDHeader == "" {
+		c.JSON(400, gin.H{"error": "X-Tenant-ID header required"})
+		return
+	}
+
+	// Convertir "admin" en UUID du tenant admin
+	var tenantID string
+	if tenantIDHeader == "admin" {
+		err := a.db.QueryRow("SELECT id FROM tenants WHERE subdomain = 'admin' OR name = 'Admin Tenant' LIMIT 1").Scan(&tenantID)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Admin tenant not found"})
+			return
+		}
+	} else {
+		tenantID = tenantIDHeader
+	}
+
+	// Chercher l'utilisateur
+	var userID, hashedPassword string
+	err := a.db.QueryRow(`
+		SELECT id, password_hash
+		FROM users
+		WHERE email = $1 AND tenant_id = $2 AND is_active = true
+	`, req.Email, tenantID).Scan(&userID, &hashedPassword)
+
+	if err != nil {
+		log.Printf("Login error - user not found: %v", err)
+		c.JSON(401, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Vérifier mot de passe
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
+		log.Printf("Login error - password mismatch: %v", err)
+		c.JSON(401, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	// Générer tokens
+	accessToken, _ := a.generateToken(userID, tenantID, req.Email)
+	refreshToken, _ := a.generateRefreshToken(userID, tenantID, req.Email)
+
+	c.JSON(200, gin.H{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+		"token_type":    "Bearer",
+		"expires_in":    3600,
+		"user_id":       userID,
+		"user": gin.H{
+			"id":        userID,
+			"email":     req.Email,
+			"tenant_id": tenantID,
+			"role":      "admin", // Pour l'admin
+		},
 	})
 }
 
@@ -188,70 +260,13 @@ func (a *AuthService) generateRefreshToken(userID, tenantID, email string) (stri
 		TenantID: tenantID,
 		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)), // 7 jours
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(a.privateKey)
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-func (a *AuthService) Login(c *gin.Context) {
-	var req struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Récupérer tenant ID depuis header
-	tenantID := c.GetHeader("X-Tenant-ID")
-	if tenantID == "" {
-		c.JSON(400, gin.H{"error": "X-Tenant-ID header required"})
-		return
-	}
-
-	// Chercher l'utilisateur
-	var userID, hashedPassword string
-	err := a.db.QueryRow(`
-		SELECT id, password_hash
-		FROM users
-		WHERE email = $1 AND tenant_id = $2 AND is_active = true
-	`, req.Email, tenantID).Scan(&userID, &hashedPassword)
-
-	if err != nil {
-		c.JSON(401, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Vérifier mot de passe
-	if err := bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(req.Password)); err != nil {
-		c.JSON(401, gin.H{"error": "Invalid credentials"})
-		return
-	}
-
-	// Générer tokens
-	accessToken, _ := a.generateToken(userID, tenantID, req.Email)
-	refreshToken, _ := a.generateRefreshToken(userID, tenantID, req.Email)
-
-	c.JSON(200, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"token_type":    "Bearer",
-		"expires_in":    3600,
-		"user_id":       userID,
-	})
 }
 
 func (a *AuthService) RefreshToken(c *gin.Context) {
@@ -264,7 +279,7 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Valider refresh token (implémentation basique)
+	// Valider refresh token
 	token, err := jwt.ParseWithClaims(req.RefreshToken, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return a.publicKey, nil
 	})
@@ -321,7 +336,6 @@ func (a *AuthService) ValidateToken(c *gin.Context) {
 }
 
 func (a *AuthService) GetProfile(c *gin.Context) {
-	// Récupérer user ID depuis token (implémentation basique)
 	c.JSON(200, gin.H{
 		"message": "Profile endpoint - implement token validation",
 	})
