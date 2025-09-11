@@ -328,3 +328,147 @@ paul-setup: ## Setup complet pour paul@delhomme.ovh
 	@echo "🌐 Admin Dashboard: http://localhost:3000"
 	@echo "👤 Email: paul@delhomme.ovh"
 	@echo "🔑 Password: Pavel180400&Ovh@Delhomme"
+
+
+
+
+
+
+init-db-direct: ## Initialiser BDD directement (force)
+	@echo "🔧 Initialisation directe base de données"
+	@echo "⏳ Attente PostgreSQL (10s)..."
+	@sleep 10
+	@echo "📋 Test connexion PostgreSQL..."
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "SELECT 'PostgreSQL prêt!' as status;" || { echo "❌ PostgreSQL pas accessible"; exit 1; }
+	@echo "🔍 Tables existantes avant:"
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\dt" 2>/dev/null || echo "Aucune table"
+	@echo ""
+	@echo "🚀 Création extensions..."
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"; \
+	CREATE EXTENSION IF NOT EXISTS \"pgcrypto\"; \
+	SELECT 'Extensions créées' as status;"
+	@echo ""
+	@echo "🏗️ Création tables principales..."
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	CREATE TABLE IF NOT EXISTS tenants ( \
+	    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), \
+	    name VARCHAR(255) NOT NULL, \
+	    subdomain VARCHAR(63) UNIQUE, \
+	    domain VARCHAR(255) UNIQUE, \
+	    max_storage_gb INTEGER DEFAULT 100, \
+	    max_users INTEGER DEFAULT 10, \
+	    features JSONB DEFAULT '[\"drive\", \"mail\"]'::jsonb, \
+	    settings JSONB DEFAULT '{}'::jsonb, \
+	    subscription_tier VARCHAR(64) DEFAULT 'starter', \
+	    status VARCHAR(64) DEFAULT 'active', \
+	    is_active BOOLEAN DEFAULT TRUE, \
+	    config JSONB DEFAULT '{}', \
+	    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP, \
+	    updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP \
+	); \
+	SELECT 'Table tenants créée' as status;"
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	CREATE TABLE IF NOT EXISTS users ( \
+	    id UUID PRIMARY KEY DEFAULT gen_random_uuid(), \
+	    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, \
+	    email VARCHAR(255) NOT NULL, \
+	    password_hash VARCHAR(255) NOT NULL, \
+	    first_name VARCHAR(255), \
+	    last_name VARCHAR(255), \
+	    role VARCHAR(64) DEFAULT 'user', \
+	    permissions JSONB DEFAULT '[]'::jsonb, \
+	    is_active BOOLEAN DEFAULT true, \
+	    email_verified BOOLEAN DEFAULT false, \
+	    last_login TIMESTAMPTZ, \
+	    created_at TIMESTAMPTZ DEFAULT NOW(), \
+	    updated_at TIMESTAMPTZ DEFAULT NOW(), \
+	    UNIQUE (tenant_id, email) \
+	); \
+	SELECT 'Table users créée' as status;"
+	@echo ""
+	@echo "👑 Création tenant admin + utilisateur paul@delhomme.ovh..."
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	INSERT INTO tenants (id, name, subdomain, max_storage_gb, max_users, features) VALUES \
+	    ('550e8400-e29b-41d4-a716-446655440000', 'Admin Tenant', 'admin', 10000, 1000, '[\"all\"]'::jsonb) \
+	ON CONFLICT (id) DO UPDATE SET \
+	    name = EXCLUDED.name, \
+	    subdomain = EXCLUDED.subdomain; \
+	SELECT 'Tenant admin créé/mis à jour' as status;"
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	INSERT INTO users (tenant_id, email, password_hash, first_name, last_name, role, is_active) \
+	VALUES ( \
+	    '550e8400-e29b-41d4-a716-446655440000', \
+	    'paul@delhomme.ovh', \
+	    '\$$2b\$$12\$$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqyT4/OEo48wGCcFCCfr2JW', \
+	    'Paul', \
+	    'Delhomme',  \
+	    'admin', \
+	    true \
+	) ON CONFLICT (tenant_id, email) DO UPDATE SET \
+	    password_hash = EXCLUDED.password_hash, \
+	    first_name = EXCLUDED.first_name, \
+	    last_name = EXCLUDED.last_name, \
+	    role = EXCLUDED.role, \
+	    is_active = true; \
+	SELECT 'Utilisateur paul@delhomme.ovh créé/mis à jour' as status;"
+	@echo ""
+	@echo "✅ Vérifications finales:"
+	@echo "📊 Tables créées:"
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	SELECT table_name \
+	FROM information_schema.tables \
+	WHERE table_schema = 'public' AND table_type = 'BASE TABLE' \
+	ORDER BY table_name;"
+	@echo ""
+	@echo "👤 Utilisateurs admin:"
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	SELECT \
+	    u.email, \
+	    u.first_name, \
+	    u.last_name, \
+	    u.role, \
+	    u.is_active, \
+	    t.name as tenant_name, \
+	    t.subdomain, \
+	    t.id as tenant_uuid \
+	FROM users u \
+	JOIN tenants t ON u.tenant_id = t.id \
+	WHERE u.role = 'admin' \
+	ORDER BY u.created_at DESC;"
+	@echo ""
+	@echo "✅ INITIALISATION TERMINÉE !"
+	@echo "🔑 Credentials admin :"
+	@echo "   Email: paul@delhomme.ovh" 
+	@echo "   Password: Pavel180400&Ovh@Delhomme"
+	@echo "   Tenant: admin (UUID: 550e8400-e29b-41d4-a716-446655440000)"
+
+test-tenant-lookup: ## Test recherche tenant admin
+	@echo "🔍 Test recherche tenant admin..."
+	@docker compose exec -T postgres psql -U cloudity_admin -d cloudity -c "\
+	SELECT \
+	    id as tenant_uuid, \
+	    name, \
+	    subdomain, \
+	    status \
+	FROM tenants \
+	WHERE subdomain = 'admin' OR name = 'Admin Tenant' \
+	LIMIT 1;"
+
+# Workflow complet corrigé
+paul-setup-final: ## Setup complet avec init BDD forcé
+	@echo "🚀 Configuration complète paul@delhomme.ovh - VERSION FINALE"
+	@$(MAKE) clean-all
+	@sleep 2
+	@$(MAKE) quick-start
+	@sleep 5
+	@$(MAKE) init-db-direct
+	@sleep 3
+	@$(MAKE) restart-auth
+	@sleep 3
+	@$(MAKE) test-admin-login
+	@echo ""
+	@echo "✅ Setup final terminé!"
+	@echo "🌐 Admin Dashboard: http://localhost:3000"
+	@echo "👤 Email: paul@delhomme.ovh"
+	@echo "🔑 Password: Pavel180400&Ovh@Delhomme"
