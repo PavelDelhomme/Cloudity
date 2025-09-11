@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-cloudity_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity_secure_password_2025}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity}
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
       PGDATA: /var/lib/postgresql/data/pgdata
     command: postgres -c listen_addresses='*' -c port=5432 -c max_connections=200 -c shared_buffers=256MB
@@ -28,7 +28,7 @@ services:
     image: redis:7-alpine
     container_name: cloudity-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_password_2025} --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure} --appendonly yes
     ports:
       - "6379:6379"
     volumes:
@@ -53,9 +53,9 @@ services:
       - "8081:8081"
     environment:
       - PORT=8081
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       - REDIS_URL=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - GO_ENV=development
     volumes:
@@ -113,9 +113,9 @@ services:
       - "8082:8082"
     environment:
       - PORT=8082
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity}@postgres:5432/${POSTGRES_DB:-cloudity}
       - REDIS_URL=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - PYTHON_ENV=development
     volumes:
@@ -166,9 +166,9 @@ services:
       - "8091:8091"
     environment:
       - PORT=8091
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity}@postgres:5432/${POSTGRES_DB:-cloudity}
       - REDIS_URL=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure}
       - SMTP_DOMAIN=delhomme.ovh
       - RUST_LOG=info
     volumes:
@@ -212,7 +212,7 @@ services:
     ports:
       - "8084:8081"
     environment:
-      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_password_2025}
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_secure}
       HTTP_USER: admin
       HTTP_PASSWORD: admin
     depends_on:
@@ -230,7 +230,7 @@ services:
     ports:
       - "8092:8092"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       - DOMAIN=alias.delhomme.ovh
     depends_on:
       postgres:

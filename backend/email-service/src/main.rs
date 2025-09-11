@@ -60,7 +60,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Configuration de la base de données
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://cloudity_admin:cloudity_secure_password_2025@postgres:5432/cloudity".to_string());
+        .unwrap_or_else(|_| "postgresql://cloudity_admin:cloudity@postgres:5432/cloudity".to_string());
     
     info!("🔗 Connexion à la base de données...");
     let db = PgPool::connect(&database_url).await?;

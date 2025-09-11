@@ -1,4 +1,4 @@
-# Makefile principal - Cloudity FINAL
+# Makefile principal - Cloudity CORRIGÉ
 .PHONY: help setup dev clean status health
 
 include scripts/colors.mk
@@ -42,9 +42,10 @@ dev-email: ## Système email complet paul@delhomme.ovh
 	$(call log_gear,"Démarrage système email paul@delhomme.ovh")
 	@$(MAKE) infra-start
 	@sleep 3
-	@$(MAKE) backend-all
+	@$(MAKE) backend-core
 	@sleep 2
-	@$(MAKE) frontend-all
+	@$(MAKE) email-service
+	@$(MAKE) email-app
 	@echo ""
 	@$(MAKE) show-urls
 	$(call log_success,"Système email paul@delhomme.ovh opérationnel!")
@@ -118,26 +119,7 @@ email-app: ## Application email paul@delhomme.ovh
 	$(call log_success,"Email app: http://localhost:8094")
 
 # ═══════════════════════════════════════════════════════════════
-# CONTRÔLES
-# ═══════════════════════════════════════════════════════════════
-
-restart-auth: ## Redémarrage auth service
-	@$(COMPOSE) restart auth-service
-
-restart-email: ## Redémarrage services email
-	@$(COMPOSE) restart email-service alias-service email-app
-
-stop-backend: ## Arrêt services backend
-	@$(COMPOSE) stop $(ALL_BACKEND)
-
-stop-frontend: ## Arrêt applications frontend
-	@$(COMPOSE) stop $(FRONTEND_SERVICES)
-
-stop-all: ## Arrêt complet
-	@$(COMPOSE) down
-
-# ═══════════════════════════════════════════════════════════════
-# MONITORING
+# MONITORING - CORRIGÉ
 # ═══════════════════════════════════════════════════════════════
 
 status: ## Status services
@@ -209,7 +191,7 @@ logs-frontend: ## Logs applications frontend
 	@$(COMPOSE) logs -f $(FRONTEND_SERVICES)
 
 logs-email: ## Logs système email complet
-	@$(COMPOSE) logs -f email-service alias-service email-app
+	@$(COMPOSE) logs -f email-service email-app
 
 logs-admin: ## Logs admin complet
 	@$(COMPOSE) logs -f admin-service admin-dashboard
@@ -228,15 +210,6 @@ test-health: ## Test endpoints santé
 	fi
 	@if $(COMPOSE) ps email-service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
 		curl -sf http://localhost:8091/health && echo "$(GREEN)✅ Email Service OK$(NC)" || echo "$(RED)❌ Email Service KO$(NC)"; \
-	fi
-
-test-email-login: ## Test connexion email paul@delhomme.ovh
-	$(call log_info,"Test connexion paul@delhomme.ovh")
-	@if $(COMPOSE) ps email-service --format "{{.Status}}" 2>/dev/null | grep -q "Up"; then \
-		curl -sf -X POST http://localhost:8091/api/v1/login \
-			-H "Content-Type: application/json" \
-			-d '{"email":"paul@delhomme.ovh","password":"your_email_password"}' \
-			>/dev/null && echo "$(GREEN)✅ Email Login OK$(NC)" || echo "$(YELLOW)⚠️ Configurez le mot de passe$(NC)"; \
 	fi
 
 # ═══════════════════════════════════════════════════════════════
@@ -267,16 +240,6 @@ setup-delhomme: ## Configuration DNS paul@delhomme.ovh
 	@echo "TXT   \"v=spf1 mx ~all\""
 	@echo "TXT   _dmarc \"v=DMARC1; p=none; rua=mailto:paul@delhomme.ovh\""
 	$(call log_success,"Configuration DNS documentée")
-
-init-email-account: ## Initialisation compte paul@delhomme.ovh
-	$(call log_info,"Initialisation compte paul@delhomme.ovh")
-	@echo "$(YELLOW)Créer le compte email principal:$(NC)"
-	@echo "Email: paul@delhomme.ovh"
-	@echo "Alias supportés:"
-	@echo "  - paul+github@delhomme.ovh"
-	@echo "  - paul+shopping@delhomme.ovh" 
-	@echo "  - paul+work@delhomme.ovh"
-	$(call log_success,"Compte email documenté")
 
 # ═══════════════════════════════════════════════════════════════
 # UTILITAIRES
@@ -317,3 +280,22 @@ ps: status ## Alias status
 # Raccourcis spécialisés
 email: dev-email ## Alias système email complet
 admin: admin-dashboard ## Alias admin dashboard
+
+# ═══════════════════════════════════════════════════════════════
+# CONTRÔLES
+# ═══════════════════════════════════════════════════════════════
+
+restart-auth: ## Redémarrage auth service
+	@$(COMPOSE) restart auth-service
+
+restart-email: ## Redémarrage services email
+	@$(COMPOSE) restart email-service email-app
+
+stop-backend: ## Arrêt services backend
+	@$(COMPOSE) stop $(ALL_BACKEND)
+
+stop-frontend: ## Arrêt applications frontend
+	@$(COMPOSE) stop $(FRONTEND_SERVICES)
+
+stop-all: ## Arrêt complet
+	@$(COMPOSE) down

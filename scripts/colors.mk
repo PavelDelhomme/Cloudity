@@ -1,27 +1,27 @@
-# scripts/colors.mk - FINAL COMPATIBLE MANJARO
+# scripts/colors.mk - VERSION FINALE SANS PRINTF
 # À inclure dans tous les Makefiles avec: include scripts/colors.mk
 
 # ═══════════════════════════════════════════════════════════════
-# COULEURS - VERSION ECHO SIMPLE (compatible Manjaro)
+# COULEURS - VERSION ECHO DIRECTE (compatible Manjaro)
 # ═══════════════════════════════════════════════════════════════
 
-RED     = \033[0;31m
-GREEN   = \033[0;32m
-YELLOW  = \033[1;33m
-BLUE    = \033[0;34m
-PURPLE  = \033[0;35m
-CYAN    = \033[0;36m
-WHITE   = \033[1;37m
-GRAY    = \033[0;37m
-NC      = \033[0m
+RED     := \033[0;31m
+GREEN   := \033[0;32m
+YELLOW  := \033[1;33m
+BLUE    := \033[0;34m
+PURPLE  := \033[0;35m
+CYAN    := \033[0;36m
+WHITE   := \033[1;37m
+GRAY    := \033[0;37m
+NC      := \033[0m
 
 # Émojis
-EMOJI_SUCCESS = ✅
-EMOJI_ERROR   = ❌
-EMOJI_WARNING = ⚠️
-EMOJI_INFO    = ℹ️
-EMOJI_ROCKET  = 🚀
-EMOJI_GEAR    = ⚙️
+EMOJI_SUCCESS := ✅
+EMOJI_ERROR   := ❌
+EMOJI_WARNING := ⚠️
+EMOJI_INFO    := ℹ️
+EMOJI_ROCKET  := 🚀
+EMOJI_GEAR    := ⚙️
 
 # ═══════════════════════════════════════════════════════════════
 # FONCTIONS DE LOGGING - ECHO SIMPLE
@@ -52,7 +52,7 @@ define log_gear
 endef
 
 # ═══════════════════════════════════════════════════════════════
-# FONCTIONS UTILITAIRES
+# FONCTIONS UTILITAIRES - CORRIGÉES
 # ═══════════════════════════════════════════════════════════════
 
 define wait_for_postgres

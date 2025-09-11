@@ -17,9 +17,9 @@ if [ ! -f ".env" ]; then
     cat > .env << 'EOF'
 # Cloudity Environment Configuration
 POSTGRES_USER=cloudity_admin
-POSTGRES_PASSWORD=cloudity_secure_password_2025
+POSTGRES_PASSWORD=cloudity
 POSTGRES_DB=cloudity
-REDIS_PASSWORD=redis_secure_password_2025
+REDIS_PASSWORD=redis_secure
 JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
 BUILD_TARGET=Dockerfile.dev
 NODE_ENV=development
