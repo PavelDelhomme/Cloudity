@@ -1,19 +1,50 @@
-FROM rust:1.75-slim
+# backend/email-service/Dockerfile - Email Service Rust
+FROM rust:1.75-alpine AS builder
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Installation des dépendances système
+RUN apk add --no-cache \
+    musl-dev \
+    openssl-dev \
+    pkgconfig \
+    git
 
-RUN cargo install cargo-watch
+# Copie des fichiers de configuration Cargo
+COPY Cargo.toml Cargo.lock ./
 
-COPY Cargo.toml ./
-RUN cargo fetch
+# Création d'un projet temporaire pour mettre en cache les dépendances
+RUN mkdir src && \
+    echo "fn main() {}" > src/main.rs && \
+    cargo build --release && \
+    rm -rf src
 
-COPY . .
+# Copie du code source réel
+COPY src ./src
+
+# Build de l'application
+RUN cargo build --release
+
+# Image de production
+FROM alpine:latest
+
+WORKDIR /app
+
+# Installation des dépendances runtime
+RUN apk add --no-cache \
+    ca-certificates \
+    openssl
+
+# Copie de l'exécutable depuis le builder
+COPY --from=builder /app/target/release/email-service /app/email-service
+
+# Création d'un utilisateur non-root
+RUN addgroup -g 1000 emailservice && \
+    adduser -D -s /bin/sh -u 1000 -G emailservice emailservice
+
+# Changement vers l'utilisateur non-root
+USER emailservice
 
 EXPOSE 8091
 
-CMD ["cargo", "watch", "-x", "run"]
+CMD ["./email-service"]

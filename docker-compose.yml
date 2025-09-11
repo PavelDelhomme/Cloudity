@@ -155,6 +155,37 @@ services:
       - api-gateway
     networks:
       - cloudity-network
+  # Service Email Rust
+  email-service:
+    build:
+      context: ./backend/email-service
+      dockerfile: Dockerfile
+    container_name: cloudity-email-service
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      - PORT=8091
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
+      - REDIS_URL=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
+      - SMTP_DOMAIN=delhomme.ovh
+      - RUST_LOG=info
+    volumes:
+      - ./backend/email-service:/app:cached
+      - email_target_cache:/app/target
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8091/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
 
   # Adminer pour gestion base de données (développement)
   adminer:
@@ -284,3 +315,6 @@ volumes:
   password_node_modules:
     driver: local
     name: cloudity-password-node-modules
+  email_target_cache:
+    driver: local
+    name: cloudity-email-target-cache
