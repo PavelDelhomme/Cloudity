@@ -1,35 +1,43 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import { API_CONFIG } from '../config/api';
 
-const API_BASE_URL = 'http://localhost:8082';
 
 class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
     this.client = axios.create({
-      baseURL: API_BASE_URL,
-      timeout: 10000,
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      baseURL: API_CONFIG.BASE_URL,
+      timeout: API_CONFIG.TIMEOUT,
+      headers: API_CONFIG.HEADERS,
     });
 
+    // Intercepteur pour les réponses
     this.client.interceptors.response.use(
       (response: AxiosResponse) => {
-        // Gérer les réponses vides ou malformées
-        if (!response.data) {
-          return { data: null };
-        }
         return response.data;
       },
       (error) => {
         console.error('API Error:', error);
         if (error.response?.status === 401) {
-          localStorage.removeItem('auth_token');
+          localStorage.removeItem('admin-token');
+          localStorage.removeItem('admin-user');
           window.location.href = '/login';
         }
         return Promise.reject(error);
       }
+    );
+
+    // Intercepteur pour les requêtes (ajouter token si disponible)
+    this.client.interceptors.request.use(
+      (config) => {
+        const token = localStorage.getItem('admin-token');
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
     );
   }
 

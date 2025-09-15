@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 8094",
+    "dev": "vite --port 8094 --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview"
   },
