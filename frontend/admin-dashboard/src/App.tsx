@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import Login from './Login'
 import { adminService } from './services/admin.service'
+import { TenantsManager } from './components/admin/TenantsManager'
+import { DatabaseManager } from './components/admin/DatabaseManager'
+import './App.css'
+
+// Nouveaux composants Admin (si présents selon votre structure). Sinon, des placeholders ci-dessous
+// import { TenantsManager } from './components/admin/TenantsManager'
+// import { DatabaseManager } from './components/admin/DatabaseManager'
 
 const styles = {
   container: { minHeight: '100vh', backgroundColor: '#f5f5f5', fontFamily: 'Arial, sans-serif' },
@@ -201,6 +208,7 @@ function Dashboard() {
   )
 }
 
+// Fallback simple TenantsManager si votre projet n'a pas encore components/admin/TenantsManager.tsx
 function TenantsManagement() {
   const [tenants, setTenants] = useState([])
   const [loading, setLoading] = useState(true)
@@ -562,10 +570,10 @@ function App() {
       <Layout user={user} onLogout={logout}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/tenants" element={<TenantsManagement />} />
+          <Route path="/tenants" element={<TenantsManager />} />
           <Route path="/users" element={<UsersManagement />} />
           <Route path="/services" element={<ServicesControl />} />
-          <Route path="/database" element={<div style={styles.card}>🚧 Base de données - À développer</div>} />
+          <Route path="/database" element={<DatabaseManager />} />
           <Route path="/email" element={<div style={styles.card}>🚧 Configuration Email - À développer</div>} />
           <Route path="/logs" element={<div style={styles.card}>🚧 Logs temps réel - À développer</div>} />
         </Routes>
@@ -575,3 +583,6 @@ function App() {
 }
 
 export default App
+
+// Database placeholder page connected to adminService database endpoints
+// DatabasePage component removed in favor of DatabaseManager component

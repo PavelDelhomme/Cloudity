@@ -12,5 +12,7 @@ export const ENDPOINTS = {
   USERS: '/api/v1/admin/users',
   TENANTS: '/api/v1/admin/tenants',
   LOGS: '/api/v1/admin/logs',
-  CONTROL_SERVICE: (name: string, action: string) => `/api/v1/admin/services/${name}/${action}`
+  CONTROL_SERVICE: (name: string, action: string) => `/api/v1/admin/services/${name}/${action}`,
+  DATABASES: '/api/v1/admin/databases',
+  DB_BACKUP: (id: string) => `/api/v1/admin/databases/${id}/backup`
 };

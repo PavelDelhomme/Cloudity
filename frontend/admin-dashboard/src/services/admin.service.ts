@@ -4,6 +4,8 @@ import { ENDPOINTS } from '../config/api';
 export const adminService = {
   // Statistiques
   getSystemStats: () => api.get(ENDPOINTS.STATS),
+  // alias pour compatibilité avec App.tsx fourni
+  getStats: () => api.get(ENDPOINTS.STATS),
   
   // Services
   getServicesStatus: () => api.get(ENDPOINTS.SERVICES),
@@ -34,6 +36,12 @@ export const adminService = {
   getDatabaseSchema: () => api.get('/api/v1/admin/database/schema'),
   executeQuery: (query: string) => 
     api.get('/api/v1/admin/database/query', { params: { query } }),
+  // Nouvelles opérations databases pour DatabaseManager
+  listDatabases: () => api.get(ENDPOINTS.DATABASES),
+  getDatabaseById: (id: string) => api.get(`${ENDPOINTS.DATABASES}/${id}`),
+  createDatabase: (payload: any) => api.post(ENDPOINTS.DATABASES, payload),
+  deleteDatabase: (id: string) => api.delete(`${ENDPOINTS.DATABASES}/${id}`),
+  backupDatabase: (id: string) => api.post(ENDPOINTS.DB_BACKUP(id)),
 };
 
 export default adminService;
