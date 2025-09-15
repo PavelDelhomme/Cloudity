@@ -1,0 +1,1639 @@
+
+chunk-ZXN67JHZ.js?v=1220d199:21580 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+App.tsx:119 🔄 Chargement des données dashboard...
+react-router-dom.js?v=1220d199:4409 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+warnOnce @ react-router-dom.js?v=1220d199:4409
+logDeprecation @ react-router-dom.js?v=1220d199:4412
+logV6DeprecationWarnings @ react-router-dom.js?v=1220d199:4415
+(anonymous) @ react-router-dom.js?v=1220d199:5290
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+react-router-dom.js?v=1220d199:4409 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+warnOnce @ react-router-dom.js?v=1220d199:4409
+logDeprecation @ react-router-dom.js?v=1220d199:4412
+logV6DeprecationWarnings @ react-router-dom.js?v=1220d199:4418
+(anonymous) @ react-router-dom.js?v=1220d199:5290
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:119 🔄 Chargement des données dashboard...
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+chunk-ZXN67JHZ.js?v=1220d199:21580 Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+App.tsx:119 🔄 Chargement des données dashboard...
+react-router-dom.js?v=1220d199:4409 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+warnOnce @ react-router-dom.js?v=1220d199:4409
+logDeprecation @ react-router-dom.js?v=1220d199:4412
+logV6DeprecationWarnings @ react-router-dom.js?v=1220d199:4415
+(anonymous) @ react-router-dom.js?v=1220d199:5290
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+react-router-dom.js?v=1220d199:4409 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
+warnOnce @ react-router-dom.js?v=1220d199:4409
+logDeprecation @ react-router-dom.js?v=1220d199:4412
+logV6DeprecationWarnings @ react-router-dom.js?v=1220d199:4418
+(anonymous) @ react-router-dom.js?v=1220d199:5290
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:119 🔄 Chargement des données dashboard...
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:19356
+workLoop @ chunk-ZXN67JHZ.js?v=1220d199:197
+flushWork @ chunk-ZXN67JHZ.js?v=1220d199:176
+performWorkUntilDeadline @ chunk-ZXN67JHZ.js?v=1220d199:384
+App.tsx:216 🔄 Chargement des tenants...
+App.tsx:216 🔄 Chargement des tenants...
+:3000/tenants:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadTenants @ App.tsx:217
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:221 ❌ Failed to load tenants: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadTenants @ App.tsx:221
+await in loadTenants
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadTenants @ App.tsx:217
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+:3000/tenants:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadTenants @ App.tsx:217
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:221 ❌ Failed to load tenants: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadTenants @ App.tsx:221
+await in loadTenants
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadTenants @ App.tsx:217
+(anonymous) @ App.tsx:229
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:462 🔄 Chargement des utilisateurs...
+App.tsx:462 🔄 Chargement des utilisateurs...
+:3000/users:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadUsers @ App.tsx:463
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:467 ❌ Failed to load users: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadUsers @ App.tsx:467
+await in loadUsers
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadUsers @ App.tsx:463
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+:3000/users:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadUsers @ App.tsx:463
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:467 ❌ Failed to load users: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadUsers @ App.tsx:467
+await in loadUsers
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadUsers @ App.tsx:463
+(anonymous) @ App.tsx:475
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:337 🔄 Chargement des services...
+App.tsx:337 🔄 Chargement des services...
+:3000/services:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadServices @ App.tsx:338
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:343 ❌ Failed to load services: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadServices @ App.tsx:343
+await in loadServices
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadServices @ App.tsx:338
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+:3000/services:1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadServices @ App.tsx:338
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:343 ❌ Failed to load services: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadServices @ App.tsx:343
+await in loadServices
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadServices @ App.tsx:338
+(anonymous) @ App.tsx:351
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:119 🔄 Chargement des données dashboard...
+App.tsx:119 🔄 Chargement des données dashboard...
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/tenants' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:128 ❌ Tenants error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:128
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/tenants net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getTenants @ admin.service.ts:22
+loadDashboardData @ App.tsx:123
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+commitPassiveMountOnFiber @ chunk-ZXN67JHZ.js?v=1220d199:18184
+commitPassiveMountEffects_complete @ chunk-ZXN67JHZ.js?v=1220d199:18157
+commitPassiveMountEffects_begin @ chunk-ZXN67JHZ.js?v=1220d199:18147
+commitPassiveMountEffects @ chunk-ZXN67JHZ.js?v=1220d199:18137
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19518
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/users' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:139 ❌ Users error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:139
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/users net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getUsers @ admin.service.ts:16
+loadDashboardData @ App.tsx:134
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+(index):1 Access to XMLHttpRequest at 'http://localhost:8000/api/v1/admin/services/detailed' from origin 'http://localhost:3000' has been blocked by CORS policy: The 'Access-Control-Allow-Origin' header contains multiple values '*, *', but only one is allowed.
+api.ts:21 API Error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+(anonymous) @ api.ts:21
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+App.tsx:150 ❌ Services error: AxiosError {message: 'Network Error', name: 'AxiosError', code: 'ERR_NETWORK', config: {…}, request: XMLHttpRequest, …}
+loadDashboardData @ App.tsx:150
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
+requests.js:1  GET http://localhost:8000/api/v1/admin/services/detailed net::ERR_FAILED 200 (OK)
+_$initInterceptor.s.XMLHttpRequest.send @ requests.js:1
+XMLHttpRequest.send @ traffic.js:1
+dispatchXhrRequest @ axios.js?v=1220d199:1683
+xhr @ axios.js?v=1220d199:1563
+dispatchRequest @ axios.js?v=1220d199:2038
+Promise.then
+_request @ axios.js?v=1220d199:2241
+request @ axios.js?v=1220d199:2150
+Axios.<computed> @ axios.js?v=1220d199:2278
+wrap @ axios.js?v=1220d199:8
+get @ api.ts:45
+getServicesStatus @ admin.service.ts:9
+loadDashboardData @ App.tsx:145
+await in loadDashboardData
+(anonymous) @ App.tsx:162
+commitHookEffectListMount @ chunk-ZXN67JHZ.js?v=1220d199:16936
+invokePassiveEffectMountInDEV @ chunk-ZXN67JHZ.js?v=1220d199:18352
+invokeEffectsInDev @ chunk-ZXN67JHZ.js?v=1220d199:19729
+commitDoubleInvokeEffectsInDEV @ chunk-ZXN67JHZ.js?v=1220d199:19714
+flushPassiveEffectsImpl @ chunk-ZXN67JHZ.js?v=1220d199:19531
+flushPassiveEffects @ chunk-ZXN67JHZ.js?v=1220d199:19475
+commitRootImpl @ chunk-ZXN67JHZ.js?v=1220d199:19444
+commitRoot @ chunk-ZXN67JHZ.js?v=1220d199:19305
+performSyncWorkOnRoot @ chunk-ZXN67JHZ.js?v=1220d199:18923
+flushSyncCallbacks @ chunk-ZXN67JHZ.js?v=1220d199:9135
+(anonymous) @ chunk-ZXN67JHZ.js?v=1220d199:18655
