@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# CLOUDITY - SCRIPT SETUP PRINCIPAL
-# Point d'entrée pour la configuration du système
+# CLOUDITY - SCRIPT BUILD PRINCIPAL
+# Point d'entrée pour le build du système
 # ═══════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -10,30 +10,37 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Sourcer le module setup
-source "$SCRIPT_DIR/modules/setup.sh"
+# Sourcer le module build
+source "$SCRIPT_DIR/modules/build.sh"
 
 # ═══════════════════════════════════════════════════════════════
 # FONCTION D'AIDE
 # ═══════════════════════════════════════════════════════════════
 
 show_help() {
-    echo "Cloudity Setup Script v2.0"
+    echo "Cloudity Build Script v2.0"
     echo ""
-    echo "Usage: $0 [OPTION]"
+    echo "Usage: $0 [ACTION] [PARAM]"
     echo ""
-    echo "Options:"
-    echo "  dev, development    Configuration environnement développement"
-    echo "  prod, production    Configuration environnement production"
-    echo "  deps, dependencies  Installation des dépendances système"
-    echo "  frontend            Installation dépendances frontend"
-    echo "  all                 Installation complète (deps + dev + frontend)"
-    echo "  help, -h, --help    Afficher cette aide"
+    echo "Actions:"
+    echo "  all                 Build complet (infrastructure + backend + frontend)"
+    echo "  infra               Build infrastructure uniquement"
+    echo "  backend             Build backend uniquement"
+    echo "  frontend            Build frontend uniquement"
+    echo "  prod                Build optimisé pour production"
+    echo "  deploy [tag]        Déployer vers registry avec tag (défaut: latest)"
+    echo "  test                Tester les builds"
+    echo "  clean               Nettoyer les artefacts de build"
+    echo "  help                Afficher cette aide"
+    echo ""
+    echo "Variables d'environnement:"
+    echo "  REGISTRY            Registry Docker pour le déploiement"
     echo ""
     echo "Exemples:"
-    echo "  $0 dev              # Setup développement"
-    echo "  $0 prod             # Setup production"
-    echo "  $0 all              # Setup complet"
+    echo "  $0 all              # Build complet"
+    echo "  $0 backend          # Build backend seulement"
+    echo "  $0 deploy v1.0      # Déployer avec tag v1.0"
+    echo "  REGISTRY=myregistry.com $0 deploy"
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -44,15 +51,16 @@ main() {
     # Changer vers le répertoire du projet
     cd "$PROJECT_ROOT"
     
-    local setup_type="${1:-dev}"
+    local action="${1:-all}"
+    local param="$2"
     
-    case "$setup_type" in
+    case "$action" in
         "help"|"-h"|"--help")
             show_help
             exit 0
             ;;
         *)
-            main_setup "$setup_type"
+            main_build "$action" "$param"
             ;;
     esac
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════════════
-# CLOUDITY - SCRIPT SETUP PRINCIPAL
-# Point d'entrée pour la configuration du système
+# CLOUDITY - SCRIPT DATABASE PRINCIPAL
+# Point d'entrée pour la gestion de la base de données
 # ═══════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -10,30 +10,40 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Sourcer le module setup
-source "$SCRIPT_DIR/modules/setup.sh"
+# Sourcer le module database
+source "$SCRIPT_DIR/modules/database.sh"
 
 # ═══════════════════════════════════════════════════════════════
 # FONCTION D'AIDE
 # ═══════════════════════════════════════════════════════════════
 
 show_help() {
-    echo "Cloudity Setup Script v2.0"
+    echo "Cloudity Database Script v2.0"
     echo ""
-    echo "Usage: $0 [OPTION]"
+    echo "Usage: $0 [ACTION] [PARAM]"
     echo ""
-    echo "Options:"
-    echo "  dev, development    Configuration environnement développement"
-    echo "  prod, production    Configuration environnement production"
-    echo "  deps, dependencies  Installation des dépendances système"
-    echo "  frontend            Installation dépendances frontend"
-    echo "  all                 Installation complète (deps + dev + frontend)"
-    echo "  help, -h, --help    Afficher cette aide"
+    echo "Actions:"
+    echo "  init                Initialiser la base de données"
+    echo "  backup [nom]        Créer une sauvegarde (nom optionnel)"
+    echo "  restore <fichier>   Restaurer depuis une sauvegarde"
+    echo "  reset               Réinitialiser complètement la BDD"
+    echo "  maintenance         Maintenance et nettoyage"
+    echo "  stats               Afficher les statistiques"
+    echo "  list                Lister les sauvegardes disponibles"
+    echo "  help                Afficher cette aide"
+    echo ""
+    echo "Variables d'environnement:"
+    echo "  DB_HOST             Host PostgreSQL (défaut: localhost)"
+    echo "  DB_PORT             Port PostgreSQL (défaut: 5432)"
+    echo "  DB_NAME             Nom de la BDD (défaut: cloudity)"
+    echo "  DB_USER             Utilisateur BDD (défaut: cloudity_admin)"
+    echo "  DB_PASSWORD         Mot de passe BDD"
     echo ""
     echo "Exemples:"
-    echo "  $0 dev              # Setup développement"
-    echo "  $0 prod             # Setup production"
-    echo "  $0 all              # Setup complet"
+    echo "  $0 init             # Initialiser la BDD"
+    echo "  $0 backup           # Sauvegarde automatique"
+    echo "  $0 backup prod_v1   # Sauvegarde nommée"
+    echo "  $0 restore backup.sql"
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -44,15 +54,16 @@ main() {
     # Changer vers le répertoire du projet
     cd "$PROJECT_ROOT"
     
-    local setup_type="${1:-dev}"
+    local action="${1:-init}"
+    local param="$2"
     
-    case "$setup_type" in
+    case "$action" in
         "help"|"-h"|"--help")
             show_help
             exit 0
             ;;
         *)
-            main_setup "$setup_type"
+            main_database "$action" "$param"
             ;;
     esac
 }
