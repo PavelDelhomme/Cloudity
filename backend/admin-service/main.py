@@ -124,64 +124,8 @@ async def get_system_stats(db=Depends(get_db)):
         logger.error(f"Stats error: {e}")
         return JSONResponse(SystemStats().dict())
 
-# === SERVICES DOCKER - MOCK ===
-@app.get("/api/v1/admin/services/detailed")
-async def get_services_detailed():
-    """État détaillé des services - Mock"""
-    services_mock = [
-        {
-            "name": "auth-service",
-            "container": "cloudity-auth-service",
-            "status": "running",
-            "port": 8081,
-            "url": "http://localhost:8081",
-            "uptime": "Running",
-            "image": "cloudity-auth-service:dev",
-            "started_at": "2025-09-15T20:00:00Z"
-        },
-        {
-            "name": "api-gateway",
-            "container": "cloudity-api-gateway",
-            "status": "running",
-            "port": 8000,
-            "url": "http://localhost:8000",
-            "uptime": "Running",
-            "image": "cloudity-api-gateway:dev",
-            "started_at": "2025-09-15T20:00:00Z"
-        },
-        {
-            "name": "admin-service",
-            "container": "cloudity-admin-service",
-            "status": "running",
-            "port": 8082,
-            "url": "http://localhost:8082",
-            "uptime": "Running",
-            "image": "cloudity-admin-service:dev",
-            "started_at": "2025-09-15T20:00:00Z"
-        },
-        {
-            "name": "postgres",
-            "container": "cloudity-postgres",
-            "status": "running",
-            "port": 5432,
-            "url": "http://localhost:5432",
-            "uptime": "Running",
-            "image": "postgres:15-alpine",
-            "started_at": "2025-09-15T20:00:00Z"
-        },
-        {
-            "name": "redis",
-            "container": "cloudity-redis",
-            "status": "running",
-            "port": 6379,
-            "url": "http://localhost:6379",
-            "uptime": "Running",
-            "image": "redis:7-alpine",
-            "started_at": "2025-09-15T20:00:00Z"
-        }
-    ]
-    
-    return JSONResponse({"services": services_mock})
+# === SERVICES DOCKER ===
+
 
 # === TENANTS CRUD ===
 @app.get("/api/v1/admin/tenants")
@@ -493,45 +437,319 @@ async def delete_user(user_id: str, db=Depends(get_db)):
 
 # === BASE DE DONNÉES MANAGEMENT ===
 @app.get("/api/v1/admin/databases")
-async def get_databases():
-    """Liste des bases de données par tenant - Mock"""
-    databases = [
-        {
-            "id": "db-admin-001",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
-            "tenant_name": "Admin",
-            "database_name": "cloudity_admin",
-            "status": "active",
-            "size": "45.2 MB",
-            "connections": 3,
-            "last_backup": "2025-09-15T10:00:00Z"
-        },
-        {
-            "id": "db-acme-001", 
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440001",
-            "tenant_name": "ACME Corp",
-            "database_name": "cloudity_acme",
-            "status": "active",
-            "size": "12.8 MB",
-            "connections": 1,
-            "last_backup": "2025-09-15T09:00:00Z"
-        }
-    ]
-    
-    return JSONResponse(databases)
+async def get_databases(db=Depends(get_db)):
+    """Liste des bases de données et tables"""
+    try:
+        cur = db.cursor()
+        
+        # Obtenir la liste des tables
+        cur.execute("""
+            SELECT table_name, table_type 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public'
+            ORDER BY table_name
+        """)
+        tables = cur.fetchall()
+        
+        # Obtenir les statistiques des tables
+        table_stats = []
+        for table in tables:
+            table_name = table['table_name']
+            
+            # Compter les lignes
+            cur.execute(f"SELECT COUNT(*) as count FROM {table_name}")
+            count_result = cur.fetchone()
+            row_count = count_result['count'] if count_result else 0
+            
+            # Obtenir la taille
+            cur.execute(f"""
+                SELECT pg_size_pretty(pg_total_relation_size('{table_name}')) as size
+            """)
+            size_result = cur.fetchone()
+            table_size = size_result['size'] if size_result else '0 bytes'
+            
+            table_stats.append({
+                "name": table_name,
+                "type": table['table_type'],
+                "rows": row_count,
+                "size": table_size
+            })
+        
+        # Statistiques générales de la base
+        cur.execute("SELECT pg_size_pretty(pg_database_size(current_database())) as db_size")
+        db_size_result = cur.fetchone()
+        db_size = db_size_result['db_size'] if db_size_result else '0 bytes'
+        
+        cur.execute("SELECT current_database() as db_name")
+        db_name_result = cur.fetchone()
+        db_name = db_name_result['db_name'] if db_name_result else 'cloudity'
+        
+        return JSONResponse({
+            "database": db_name,
+            "size": db_size,
+            "tables": table_stats,
+            "total_tables": len(tables)
+        })
+        
+    except Exception as e:
+        logger.error(f"Database info error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get database info: {str(e)}")
 
-@app.post("/api/v1/admin/databases/{tenant_id}/backup")
-async def backup_database(tenant_id: str):
-    """Créer un backup pour un tenant - Mock"""
-    backup_id = str(uuid.uuid4())
+@app.get("/api/v1/admin/database/schema")
+async def get_database_schema(db=Depends(get_db)):
+    """Schéma de la base de données"""
+    try:
+        cur = db.cursor()
+        
+        # Obtenir les colonnes de toutes les tables
+        cur.execute("""
+            SELECT 
+                t.table_name,
+                c.column_name,
+                c.data_type,
+                c.is_nullable,
+                c.column_default,
+                c.character_maximum_length
+            FROM information_schema.tables t
+            JOIN information_schema.columns c ON t.table_name = c.table_name
+            WHERE t.table_schema = 'public'
+            ORDER BY t.table_name, c.ordinal_position
+        """)
+        columns = cur.fetchall()
+        
+        # Organiser par table
+        schema = {}
+        for col in columns:
+            table_name = col['table_name']
+            if table_name not in schema:
+                schema[table_name] = []
+            
+            schema[table_name].append({
+                "column": col['column_name'],
+                "type": col['data_type'],
+                "nullable": col['is_nullable'] == 'YES',
+                "default": col['column_default'],
+                "max_length": col['character_maximum_length']
+            })
+        
+        return JSONResponse({"schema": schema})
+        
+    except Exception as e:
+        logger.error(f"Schema error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get schema: {str(e)}")
+
+@app.get("/api/v1/admin/database/query")
+async def execute_query(query: str, db=Depends(get_db)):
+    """Exécuter une requête SQL (lecture seule)"""
+    try:
+        # Sécurité: seulement les requêtes SELECT
+        if not query.strip().upper().startswith('SELECT'):
+            raise HTTPException(status_code=400, detail="Only SELECT queries are allowed")
+        
+        cur = db.cursor()
+        cur.execute(query)
+        
+        # Limiter les résultats
+        results = cur.fetchmany(1000)  # Maximum 1000 lignes
+        
+        return JSONResponse({
+            "query": query,
+            "results": results,
+            "count": len(results)
+        })
+        
+    except Exception as e:
+        logger.error(f"Query error: {e}")
+        raise HTTPException(status_code=500, detail=f"Query failed: {str(e)}")
+
+@app.post("/api/v1/admin/databases/{table_name}/backup")
+async def backup_table(table_name: str, db=Depends(get_db)):
+    """Sauvegarder une table"""
+    try:
+        cur = db.cursor()
+        
+        # Vérifier que la table existe
+        cur.execute("""
+            SELECT COUNT(*) FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = %s
+        """, (table_name,))
+        
+        if cur.fetchone()['count'] == 0:
+            raise HTTPException(status_code=404, detail="Table not found")
+        
+        # Exporter les données
+        cur.execute(f"SELECT * FROM {table_name}")
+        data = cur.fetchall()
+        
+        # Créer un fichier de sauvegarde
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_filename = f"/app/storage/backups/{table_name}_backup_{timestamp}.json"
+        
+        import json
+        with open(backup_filename, 'w') as f:
+            json.dump(data, f, indent=2, default=str)
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Table {table_name} backed up successfully",
+            "filename": backup_filename,
+            "rows": len(data)
+        })
+        
+    except Exception as e:
+        logger.error(f"Backup error: {e}")
+        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
+
+# ═══════════════════════════════════════════════════════════════
+# GESTION DES SERVICES DOCKER
+# ═══════════════════════════════════════════════════════════════
+
+class ServiceAction(BaseModel):
+    action: str  # start, stop, restart
+    service: str
+
+@app.get("/api/v1/admin/services")
+async def get_all_services():
+    """Récupérer la liste de tous les services avec leur statut"""
+    try:
+        # Utiliser l'API Gateway pour obtenir les informations des services
+        import requests
+        
+        try:
+            response = requests.get("http://api-gateway:8000/health", timeout=5)
+            if response.status_code == 200:
+                gateway_data = response.json()
+                gateway_services = gateway_data.get("services", {})
+            else:
+                gateway_services = {}
+        except Exception as e:
+            logger.warning(f"Could not reach API Gateway: {e}")
+            gateway_services = {}
+        
+        # Définition complète des services (actuels et futurs)
+        all_services = {
+            # Infrastructure
+            "postgres": {"type": "infrastructure", "port": "5432", "description": "PostgreSQL Database", "category": "database"},
+            "redis": {"type": "infrastructure", "port": "6379", "description": "Redis Cache", "category": "cache"},
+            "adminer": {"type": "infrastructure", "port": "8083", "description": "Adminer - DB Management", "category": "tools"},
+            "redis-commander": {"type": "infrastructure", "port": "8084", "description": "Redis Commander - Redis Management", "category": "tools"},
+            
+            # Backend Core
+            "auth-service": {"type": "backend-core", "port": "8081", "description": "Authentication Service", "category": "core"},
+            "api-gateway": {"type": "backend-core", "port": "8000", "description": "API Gateway", "category": "core"},
+            "admin-service": {"type": "backend-core", "port": "8082", "description": "Admin Service", "category": "core"},
+            
+            # Backend Email
+            "email-service": {"type": "backend-email", "port": "8091", "description": "Email Service", "category": "email"},
+            "alias-service": {"type": "backend-email", "port": "8092", "description": "Alias Service", "category": "email"},
+            
+            # Backend Password
+            "password-service": {"type": "backend-password", "port": "8093", "description": "Password Service", "category": "security"},
+            
+            # Backend Futurs
+            "2fa-service": {"type": "backend-2fa", "port": "8096", "description": "2FA Service", "category": "security"},
+            "calendar-service": {"type": "backend-calendar", "port": "8097", "description": "Calendar Service", "category": "productivity"},
+            "drive-service": {"type": "backend-drive", "port": "8098", "description": "Drive Service", "category": "storage"},
+            "office-service": {"type": "backend-office", "port": "8099", "description": "Office Service", "category": "productivity"},
+            "gallery-service": {"type": "backend-gallery", "port": "8100", "description": "Gallery Service", "category": "media"},
+            
+            # Frontend Applications
+            "admin-dashboard": {"type": "frontend", "port": "3000", "description": "Admin Dashboard", "category": "admin"},
+            "email-app": {"type": "frontend", "port": "8094", "description": "Email Application", "category": "email"},
+            "password-app": {"type": "frontend", "port": "8095", "description": "Password Application", "category": "security"},
+            "2fa-app": {"type": "frontend", "port": "3001", "description": "2FA Application", "category": "security"},
+            "calendar-app": {"type": "frontend", "port": "3002", "description": "Calendar Application", "category": "productivity"},
+            "drive-app": {"type": "frontend", "port": "3003", "description": "Drive Application", "category": "storage"},
+            "office-app": {"type": "frontend", "port": "3004", "description": "Office Application", "category": "productivity"},
+            "gallery-app": {"type": "frontend", "port": "3005", "description": "Gallery Application", "category": "media"},
+        }
+        
+        complete_services = []
+        for service_name, service_def in all_services.items():
+            # Récupérer le statut depuis l'API Gateway si disponible
+            gateway_service = gateway_services.get(service_name, {})
+            status = gateway_service.get("status", "unknown")
+            
+            # Mapper les statuts
+            if status == "healthy":
+                status = "running"
+            elif status == "unreachable":
+                status = "stopped"
+            elif status == "unknown":
+                status = "unknown"
+            
+            service_info = {
+                "name": service_name,
+                "status": status,
+                "container": f"cloudity-{service_name}",
+                "url": f"http://localhost:{service_def['port']}",
+                "uptime": "Running" if status == "running" else "Stopped",
+                "image": f"cloudity-{service_name}:dev",
+                "started_at": "2025-09-15T20:00:00Z" if status == "running" else None,
+                **service_def
+            }
+            complete_services.append(service_info)
+        
+        return JSONResponse({
+            "services": complete_services,
+            "total": len(complete_services),
+            "running": len([s for s in complete_services if s["status"] == "running"]),
+            "stopped": len([s for s in complete_services if s["status"] == "stopped"]),
+            "unknown": len([s for s in complete_services if s["status"] == "unknown"])
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting services: {e}")
+        return JSONResponse({
+            "error": "Failed to get services",
+            "message": str(e)
+        }, status_code=500)
+
+@app.post("/api/v1/admin/services/{service_name}/{action}")
+async def control_service(service_name: str, action: str):
+    """Contrôler un service Docker (start/stop/restart)"""
+    if action not in ["start", "stop", "restart"]:
+        raise HTTPException(status_code=400, detail="Action must be start, stop, or restart")
     
-    return JSONResponse({
-        "backup_id": backup_id,
-        "tenant_id": tenant_id,
-        "status": "started",
-        "message": f"Backup started for tenant {tenant_id}",
-        "timestamp": datetime.now().isoformat()
-    })
+    try:
+        # Pour l'instant, retourner les instructions pour utiliser les commandes make
+        # Car l'admin-service n'a pas accès au docker socket
+        make_command = f"make service-{action}-{service_name}"
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Pour {action} le service {service_name}, utilisez la commande : {make_command}",
+            "command": make_command,
+            "note": "Le contrôle direct depuis l'interface nécessite l'accès au docker socket",
+            "timestamp": datetime.now().isoformat()
+        })
+            
+    except Exception as e:
+        logger.error(f"Service action error: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e),
+            "message": "Service action failed"
+        }, status_code=500)
+
+@app.get("/api/v1/admin/services/{service_name}/logs")
+async def get_service_logs(service_name: str, lines: int = 100):
+    """Obtenir les logs d'un service"""
+    try:
+        return JSONResponse({
+            "service": service_name,
+            "logs": f"📋 Logs pour {service_name}\n\n⚠️  Fonctionnalité en cours d'implémentation.\n\nPour voir les logs actuellement, utilisez :\nmake service-logs-{service_name}\n\nOu directement :\ndocker compose logs -f {service_name}",
+            "lines": lines,
+            "timestamp": datetime.now().isoformat(),
+            "note": "Docker socket access needed for real-time logs"
+        })
+            
+    except Exception as e:
+        logger.error(f"Error getting logs for {service_name}: {e}")
+        return JSONResponse({
+            "error": "Failed to get service logs",
+            "message": str(e)
+        }, status_code=500)
 
 # === CATCHALL DEBUG ===
 @app.get("/{path:path}")
@@ -543,7 +761,9 @@ async def catch_all(path: str):
         "available_endpoints": [
             "/health",
             "/api/v1/admin/stats",
-            "/api/v1/admin/services/detailed",
+            "/api/v1/admin/services",
+            "/api/v1/admin/services/action",
+            "/api/v1/admin/services/{service_name}/logs",
             "/api/v1/admin/tenants",
             "/api/v1/admin/users",
             "/api/v1/admin/databases"

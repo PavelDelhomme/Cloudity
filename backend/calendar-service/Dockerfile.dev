@@ -1,0 +1,20 @@
+# Calendrier - Dockerfile de développement
+# À implémenter selon le langage choisi (Go, Rust, Python, etc.)
+
+FROM alpine:latest
+
+LABEL maintainer="Cloudity Team"
+LABEL service="calendar-service"
+LABEL version="0.1.0"
+
+# Installation des dépendances de base
+RUN apk add --no-cache ca-certificates
+
+# Création du répertoire de travail
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 8097
+
+# Point d'entrée temporaire
+CMD ["echo", "Calendrier - À implémenter"]

@@ -1,0 +1,14 @@
+# 2FA - Dockerfile de développement
+FROM node:18-alpine
+
+LABEL maintainer="Cloudity Team"
+LABEL app="2fa-app"
+LABEL version="0.1.0"
+
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 3001
+
+# Point d'entrée temporaire
+CMD ["echo", "2FA - À implémenter"]

@@ -1,0 +1,15 @@
+{
+  "name": "drive-app",
+  "version": "0.1.0",
+  "description": "Application web Drive",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'À implémenter'",
+    "build": "echo 'À implémenter'",
+    "start": "echo 'À implémenter'"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+  }
+}

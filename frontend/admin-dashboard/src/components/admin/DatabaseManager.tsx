@@ -13,9 +13,11 @@ export const DatabaseManager: React.FC = () => {
     try {
       setLoading(true);
       const response = await adminService.getDatabases();
-      setDatabases(response.data);
+      // L'API retourne directement un tableau, pas un objet avec .data
+      setDatabases(Array.isArray(response) ? response : response.data || []);
     } catch (error) {
       console.error('Error loading databases:', error);
+      setDatabases([]); // Fallback vers un tableau vide
     } finally {
       setLoading(false);
     }

@@ -241,6 +241,27 @@ services:
     networks:
       - cloudity-network
 
+  # Service Password
+  password-service:
+    build:
+      context: ./backend/password-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-password-service
+    restart: unless-stopped
+    ports:
+      - "8093:8093"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your-32-byte-encryption-key-here}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/password-service:/app
+      - password-target:/app/target
+    networks:
+      - cloudity-network
+
   # Frontend Email App
   email-app:
     build:
@@ -309,6 +330,9 @@ volumes:
     name: cloudity-node-modules-cache
   alias-target:
     driver: local
+  password-target:
+    driver: local
+    name: cloudity-password-target
   email_node_modules:
     driver: local
     name: cloudity-email-node-modules

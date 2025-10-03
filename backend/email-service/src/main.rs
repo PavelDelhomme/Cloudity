@@ -6,18 +6,29 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use lettre::{Message, SmtpTransport, Transport};
+use lettre::transport::smtp::authentication::Credentials;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct AppState {
     db: PgPool,
+    smtp_config: SmtpConfig,
+}
+
+#[derive(Clone)]
+pub struct SmtpConfig {
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -69,7 +80,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sqlx::query("SELECT 1").fetch_one(&db).await?;
     info!("✅ Base de données connectée");
 
-    let app_state = Arc::new(AppState { db });
+    // Configuration SMTP
+    let smtp_config = SmtpConfig {
+        host: std::env::var("SMTP_HOST").unwrap_or_else(|_| "postfix".to_string()),
+        port: std::env::var("SMTP_PORT")
+            .unwrap_or_else(|_| "587".to_string())
+            .parse()
+            .unwrap_or(587),
+        username: std::env::var("SMTP_USERNAME").unwrap_or_else(|_| "cloudity".to_string()),
+        password: std::env::var("SMTP_PASSWORD").unwrap_or_else(|_| "cloudity".to_string()),
+    };
+
+    info!("📧 Configuration SMTP: {}:{}", smtp_config.host, smtp_config.port);
+
+    let app_state = Arc::new(AppState { db, smtp_config });
 
     // Configuration des routes
     let app = Router::new()
@@ -191,6 +215,15 @@ async fn send_email(
     let resolved_to = resolve_email_alias(&state.db, &email.to_addr).await
         .unwrap_or_else(|_| email.to_addr.clone());
 
+    // Envoi via SMTP
+    match send_via_smtp(&state.smtp_config, &email.from_addr, &resolved_to, &email.subject, &email.body).await {
+        Ok(_) => info!("✅ Email envoyé via SMTP"),
+        Err(e) => {
+            error!("❌ Erreur envoi SMTP: {}", e);
+            // Continue pour sauvegarder en base même si l'envoi échoue
+        }
+    }
+
     // Sauvegarde en base de données
     let saved_email = sqlx::query(
         "INSERT INTO emails (from_addr, to_addr, subject, body, html_body, folder, is_read, created_at)
@@ -226,6 +259,30 @@ async fn send_email(
 
     info!("✅ Email sauvegardé avec ID: {:?}", result.id);
     Ok(Json(result))
+}
+
+async fn send_via_smtp(
+    smtp_config: &SmtpConfig,
+    from: &str,
+    to: &str,
+    subject: &str,
+    body: &str,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let email = Message::builder()
+        .from(from.parse()?)
+        .to(to.parse()?)
+        .subject(subject)
+        .body(body.to_string())?;
+
+    let creds = Credentials::new(smtp_config.username.clone(), smtp_config.password.clone());
+
+    let mailer = SmtpTransport::relay(&smtp_config.host)?
+        .port(smtp_config.port)
+        .credentials(creds)
+        .build();
+
+    mailer.send(&email)?;
+    Ok(())
 }
 
 async fn get_aliases(State(state): State<Arc<AppState>>) -> Result<Json<Vec<EmailAlias>>, StatusCode> {

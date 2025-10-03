@@ -8,7 +8,8 @@ export const API_CONFIG = {
 
 export const ENDPOINTS = {
   STATS: '/api/v1/admin/stats',
-  SERVICES: '/api/v1/admin/services/detailed',
+  SERVICES: '/api/v1/admin/services',
+  DATABASES: '/api/v1/admin/databases',
   USERS: '/api/v1/admin/users',
   TENANTS: '/api/v1/admin/tenants',
   LOGS: '/api/v1/admin/logs',

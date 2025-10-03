@@ -1,0 +1,14 @@
+# Office - Dockerfile de développement
+FROM node:18-alpine
+
+LABEL maintainer="Cloudity Team"
+LABEL app="office-app"
+LABEL version="0.1.0"
+
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 3004
+
+# Point d'entrée temporaire
+CMD ["echo", "Office - À implémenter"]

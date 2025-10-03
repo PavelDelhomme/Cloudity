@@ -1,0 +1,20 @@
+# Service 2FA - Dockerfile de développement
+# À implémenter selon le langage choisi (Go, Rust, Python, etc.)
+
+FROM alpine:latest
+
+LABEL maintainer="Cloudity Team"
+LABEL service="2fa-service"
+LABEL version="0.1.0"
+
+# Installation des dépendances de base
+RUN apk add --no-cache ca-certificates
+
+# Création du répertoire de travail
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 8096
+
+# Point d'entrée temporaire
+CMD ["echo", "2FA Service - À implémenter"]

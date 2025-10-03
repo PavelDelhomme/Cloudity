@@ -1,0 +1,14 @@
+# Galerie - Dockerfile de développement
+FROM node:18-alpine
+
+LABEL maintainer="Cloudity Team"
+LABEL app="gallery-app"
+LABEL version="0.1.0"
+
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 3005
+
+# Point d'entrée temporaire
+CMD ["echo", "Galerie - À implémenter"]

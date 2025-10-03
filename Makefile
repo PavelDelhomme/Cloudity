@@ -7,12 +7,14 @@
 include makefiles/config.mk
 
 # Inclusion des modules
-include makefiles/infra.mk
-include makefiles/backend.mk
-include makefiles/frontend.mk
-include makefiles/api.mk
-include makefiles/admin.mk
-include makefiles/tools.mk
+include makefiles/services.mk
+include makefiles/stacks.mk
+include makefiles/infrastructure/services.mk
+include makefiles/backend/services.mk
+include makefiles/frontend/apps.mk
+include makefiles/api/endpoints.mk
+include makefiles/admin/management.mk
+include makefiles/tools/dev.mk
 
 # ═══════════════════════════════════════════════════════════════
 # TARGETS .PHONY - ÉVITER LES CONFLITS
@@ -30,124 +32,66 @@ include makefiles/tools.mk
 # ═══════════════════════════════════════════════════════════════
 
 help: ## Aide complète Cloudity
-	@echo "$(PURPLE)🚀 CLOUDITY - Système de Gestion Centralisé v2.0$(NC)"
+	@echo "$(PURPLE)🚀 CLOUDITY - Système de Gestion Modulaire v3.1$(NC)"
 	@echo ""
 	@echo "$(CYAN)═══ DÉMARRAGE RAPIDE ═══$(NC)"
-	@echo "$(GREEN)make start$(NC)           # Démarrage intelligent (infra + backend + admin)"
-	@echo "$(GREEN)make start-email$(NC)     # Stack email complète"
-	@echo "$(GREEN)make start-frontend$(NC)  # Stack frontend complète"
-	@echo "$(GREEN)make start-full$(NC)      # Tous les services"
+	@echo "$(GREEN)make stack-start-admin$(NC)       # Stack administration complète"
+	@echo "$(GREEN)make stack-start-email$(NC)       # Stack email complète"
+	@echo "$(GREEN)make stack-start-password$(NC)    # Stack gestion mots de passe"
+	@echo "$(GREEN)make start-infra$(NC)             # Infrastructure seulement"
+	@echo "$(GREEN)make stack-start-full$(NC)        # Tous les services"
 	@echo ""
 	@echo "$(CYAN)═══ GESTION DES SERVICES ═══$(NC)"
-	@echo "$(GREEN)make start-<service>$(NC)     # Démarrer un service"
-	@echo "$(GREEN)make stop-<service>$(NC)      # Arrêter un service"
-	@echo "$(GREEN)make restart-<service>$(NC)   # Redémarrer un service"
-	@echo "$(GREEN)make status$(NC)              # Status de tous les services"
-	@echo "$(GREEN)make health$(NC)              # Health check des services"
+	@echo "$(GREEN)make service-start-<nom>$(NC)     # Démarrer un service avec dépendances"
+	@echo "$(GREEN)make service-stop-<nom>$(NC)      # Arrêter un service"
+	@echo "$(GREEN)make service-restart-<nom>$(NC)   # Redémarrer un service"
+	@echo "$(GREEN)make service-status-<nom>$(NC)    # Status d'un service"
+	@echo "$(GREEN)make service-logs-<nom>$(NC)      # Logs d'un service"
 	@echo ""
-	@echo "$(CYAN)═══ LOGS ET MONITORING ═══$(NC)"
-	@echo "$(GREEN)make logs$(NC)                # Logs de tous les services"
-	@echo "$(GREEN)make logs-<service>$(NC)      # Logs d'un service"
-	@echo "$(GREEN)make logs-backend$(NC)        # Logs backend"
-	@echo "$(GREEN)make logs-frontend$(NC)       # Logs frontend"
-	@echo "$(GREEN)make logs-infra$(NC)          # Logs infrastructure"
+	@echo "$(CYAN)═══ GESTION DES STACKS ═══$(NC)"
+	@echo "$(GREEN)make stack-start-<nom>$(NC)       # Démarrer une stack"
+	@echo "$(GREEN)make stack-stop-<nom>$(NC)        # Arrêter une stack"
+	@echo "$(GREEN)make stack-restart-<nom>$(NC)     # Redémarrer une stack"
+	@echo "$(GREEN)make stack-status-<nom>$(NC)      # Status d'une stack"
 	@echo ""
-	@echo "$(CYAN)═══ ACCÈS ET UTILITAIRES ═══$(NC)"
-	@echo "$(GREEN)make shell-<service>$(NC)     # Accès shell à un service"
-	@echo "$(GREEN)make urls$(NC)                # Afficher les URLs des services"
-	@echo "$(GREEN)make clean$(NC)               # Nettoyer les services"
-	@echo "$(GREEN)make clean-all$(NC)           # Nettoyage complet"
+	@echo "$(CYAN)═══ UTILITAIRES ═══$(NC)"
+	@echo "$(GREEN)make status$(NC)                  # Status global de tous les services"
+	@echo "$(GREEN)make urls$(NC)                    # Afficher les URLs des services"
+	@echo "$(GREEN)make clean$(NC)                   # Nettoyer les services"
 	@echo ""
-	@echo "$(CYAN)═══ MODULES DISPONIBLES ═══$(NC)"
-	@echo "$(YELLOW)Infrastructure:$(NC) make start-infra, make status-infra"
-	@echo "$(YELLOW)Backend:$(NC) make start-backend, make health-backend"
-	@echo "$(YELLOW)Frontend:$(NC) make start-frontend, make build-frontend"
-	@echo "$(YELLOW)API:$(NC) make start-api, make test-api, make api-docs"
-	@echo "$(YELLOW)Admin:$(NC) make start-admin, make admin-stats"
-	@echo "$(YELLOW)Tools:$(NC) make dev-setup, make docker-clean"
+	@echo "$(CYAN)═══ AIDE CONTEXTUELLE ═══$(NC)"
+	@echo "$(GREEN)make service$(NC)                 # Aide détaillée des services"
+	@echo "$(GREEN)make stack$(NC)                   # Aide détaillée des stacks"
+	@echo "$(GREEN)make infra$(NC)                   # Aide infrastructure"
 	@echo ""
-	@echo "$(CYAN)═══ SERVICES DISPONIBLES ═══$(NC)"
-	@echo "$(YELLOW)Infrastructure:$(NC) $(INFRASTRUCTURE_SERVICES)"
-	@echo "$(YELLOW)Backend Core:$(NC) $(BACKEND_CORE_SERVICES)"
-	@echo "$(YELLOW)Backend Email:$(NC) $(BACKEND_EMAIL_SERVICES)"
-	@echo "$(YELLOW)Frontend:$(NC) $(FRONTEND_SERVICES)"
+	@echo "$(CYAN)═══ STACKS DISPONIBLES ═══$(NC)"
+	@echo "$(YELLOW)admin:$(NC) Dashboard d'administration complet"
+	@echo "$(YELLOW)email:$(NC) Système email complet avec interface"
+	@echo "$(YELLOW)password:$(NC) Gestionnaire de mots de passe"
+	@echo "$(YELLOW)infra:$(NC) Infrastructure (postgres + redis)"
 	@echo ""
-	@echo "$(CYAN)═══ STACKS PRÉDÉFINIES ═══$(NC)"
-	@echo "$(GREEN)infra$(NC)      - Infrastructure (postgres, redis)"
-	@echo "$(GREEN)backend$(NC)    - Backend complet"
-	@echo "$(GREEN)frontend$(NC)   - Frontend complet"
-	@echo "$(GREEN)email$(NC)      - Stack email complète"
-	@echo "$(GREEN)admin$(NC)      - Stack administration"
-	@echo "$(GREEN)full$(NC)       - Tous les services"
+	@echo "$(CYAN)═══ EXEMPLES D'USAGE ═══$(NC)"
+	@echo "$(GRAY)make stack-start-admin$(NC)        # Pour tester le dashboard"
+	@echo "$(GRAY)make service-start-auth-service$(NC) # Un service spécifique"
+	@echo "$(GRAY)make service-logs-postgres$(NC)    # Logs d'un service"
 
 # ═══════════════════════════════════════════════════════════════
 # DÉMARRAGE INTELLIGENT DES SERVICES
 # ═══════════════════════════════════════════════════════════════
 
-start: ## Démarrage intelligent par défaut
+start: ## Démarrage par défaut (stack admin)
 	$(call log_rocket,"Démarrage Cloudity par défaut")
-	@$(MAKE) start-admin
-
-start-full: ## Démarrer tous les services
-	$(call log_rocket,"Démarrage complet Cloudity")
-	@$(MAKE) start-infra
-	@sleep 3
-	@$(COMPOSE) up -d $(ALL_BACKEND_SERVICES)
-	@sleep 2
-	@$(COMPOSE) up -d $(FRONTEND_SERVICES)
-	@sleep 2
-	@$(MAKE) urls
-	$(call log_success,"Cloudity complet opérationnel")
-
-start-email: ## Démarrer la stack email complète
-	$(call log_rocket,"Démarrage stack email")
-	@$(MAKE) start-backend-email
-	@sleep 2
-	@$(COMPOSE) up -d email-app
-	@sleep 2
-	@$(MAKE) urls
-	$(call log_success,"Stack email opérationnelle")
+	@make start-admin
 
 # ═══════════════════════════════════════════════════════════════
-# ARRÊT DES SERVICES
+# COMMANDES GLOBALES (DÉLÉGATION AUX STACKS)
 # ═══════════════════════════════════════════════════════════════
 
 stop: ## Arrêter tous les services
-	$(call log_info,"Arrêt de tous les services")
-	@$(COMPOSE) down
-	$(call log_success,"Tous les services arrêtés")
+	@make stop-full
 
-stop-full: ## Arrêter tous les services avec nettoyage
-	$(call log_info,"Arrêt complet avec nettoyage")
-	@$(COMPOSE) down --remove-orphans
-	$(call log_success,"Arrêt complet terminé")
-
-stop-email: ## Arrêter la stack email
-	$(call log_info,"Arrêt stack email")
-	@$(COMPOSE) stop $(BACKEND_EMAIL_SERVICES) email-app
-	$(call log_success,"Stack email arrêtée")
-
-# ═══════════════════════════════════════════════════════════════
-# REDÉMARRAGE DES SERVICES
-# ═══════════════════════════════════════════════════════════════
-
-restart: ## Redémarrer tous les services
-	$(call log_info,"Redémarrage de tous les services")
-	@$(MAKE) stop
-	@sleep 2
-	@$(MAKE) start
-	$(call log_success,"Tous les services redémarrés")
-
-restart-full: ## Redémarrer tous les services complets
-	$(call log_info,"Redémarrage complet")
-	@$(MAKE) stop-full
-	@sleep 2
-	@$(MAKE) start-full
-
-restart-email: ## Redémarrer la stack email
-	@$(MAKE) stop-email
-	@sleep 2
-	@$(MAKE) start-email
+restart: ## Redémarrer par défaut (stack admin)
+	@make restart-admin
 
 # ═══════════════════════════════════════════════════════════════
 # MONITORING ET STATUS GLOBAL
@@ -156,14 +100,31 @@ restart-email: ## Redémarrer la stack email
 status: ## Status de tous les services
 	@echo "$(CYAN)═══ STATUS CLOUDITY GLOBAL ═══$(NC)"
 	@echo ""
-	@$(MAKE) status-infra
-	@$(MAKE) status-backend
-	@$(MAKE) status-frontend
+	@echo "$(PURPLE)Services Infrastructure:$(NC)"
+	@$(call check_service_status,postgres)
+	@$(call check_service_status,redis)
+	@echo ""
+	@echo "$(PURPLE)Services Backend Core:$(NC)"
+	@$(call check_service_status,auth-service)
+	@$(call check_service_status,api-gateway)
+	@$(call check_service_status,admin-service)
+	@echo ""
+	@echo "$(PURPLE)Services Backend Email:$(NC)"
+	@$(call check_service_status,email-service)
+	@$(call check_service_status,alias-service)
+	@echo ""
+	@echo "$(PURPLE)Services Backend Password:$(NC)"
+	@$(call check_service_status,password-service)
+	@echo ""
+	@echo "$(PURPLE)Applications Frontend:$(NC)"
+	@$(call check_service_status,admin-dashboard)
+	@$(call check_service_status,email-app)
+	@$(call check_service_status,password-app)
 
 health: ## Health check global des services
 	$(call log_info,"Health check global")
-	@$(MAKE) health-backend
-	@$(MAKE) health-api
+	@make health-backend
+	@make health-api
 
 # ═══════════════════════════════════════════════════════════════
 # LOGS GLOBAUX
@@ -185,7 +146,7 @@ clean: ## Nettoyage des services
 clean-all: ## Nettoyage complet avec volumes
 	$(call log_warning,"Nettoyage complet avec volumes")
 	@$(COMPOSE) down -v --remove-orphans
-	@$(MAKE) docker-clean
+	@make docker-clean
 	$(call log_success,"Nettoyage complet terminé")
 
 # ═══════════════════════════════════════════════════════════════
@@ -196,12 +157,13 @@ up: start ## Alias pour start
 down: stop ## Alias pour stop
 ps: status ## Alias pour status
 
-# Raccourcis par stack
-infra: start-infra ## Raccourci infrastructure
+# Raccourcis par stack (délégation)
+infra: infra-help ## Aide infrastructure contextuelle
 backend: start-backend ## Raccourci backend
 frontend: start-frontend ## Raccourci frontend
 email: start-email ## Raccourci email
 admin: start-admin ## Raccourci admin
+password: start-password ## Raccourci password
 full: start-full ## Raccourci full
 
 # Raccourcis développement
@@ -223,17 +185,17 @@ shell: ## Menu interactif pour accès shell
 	@echo "10) password-app  11) dev-shell"
 	@read -p "Choisir (1-11): " choice; \
 	case $$choice in \
-		1) $(MAKE) shell-postgres ;; \
-		2) $(MAKE) shell-redis ;; \
-		3) $(MAKE) shell-auth-service ;; \
-		4) $(MAKE) shell-api-gateway ;; \
-		5) $(MAKE) shell-admin-service ;; \
-		6) $(MAKE) shell-email-service ;; \
-		7) $(MAKE) shell-alias-service ;; \
-		8) $(MAKE) shell-admin-dashboard ;; \
-		9) $(MAKE) shell-email-app ;; \
-		10) $(MAKE) shell-password-app ;; \
-		11) $(MAKE) dev-shell ;; \
+		1) make shell-postgres ;; \
+		2) make shell-redis ;; \
+		3) make shell-auth-service ;; \
+		4) make shell-api-gateway ;; \
+		5) make shell-admin-service ;; \
+		6) make shell-email-service ;; \
+		7) make shell-alias-service ;; \
+		8) make shell-admin-dashboard ;; \
+		9) make shell-email-app ;; \
+		10) make shell-password-app ;; \
+		11) make dev-shell ;; \
 		*) echo "$(RED)Choix invalide$(NC)" ;; \
 	esac
 
@@ -243,8 +205,8 @@ shell: ## Menu interactif pour accès shell
 
 setup: ## Setup initial du projet
 	$(call log_rocket,"Setup initial Cloudity")
-	@$(MAKE) dev-setup
-	@$(MAKE) tools-install
+	@make dev-setup
+	@make tools-install
 	$(call log_success,"Setup terminé")
 
 # ═══════════════════════════════════════════════════════════════
@@ -257,6 +219,6 @@ version: ## Afficher la version
 
 info: ## Informations système
 	@echo "$(CYAN)═══ INFORMATIONS SYSTÈME ═══$(NC)"
-	@$(MAKE) version
+	@make version
 	@echo ""
-	@$(MAKE) debug-env
+	@make debug-env

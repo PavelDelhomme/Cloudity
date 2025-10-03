@@ -1,0 +1,14 @@
+# Drive - Dockerfile de développement
+FROM node:18-alpine
+
+LABEL maintainer="Cloudity Team"
+LABEL app="drive-app"
+LABEL version="0.1.0"
+
+WORKDIR /app
+
+# Port d'écoute
+EXPOSE 3003
+
+# Point d'entrée temporaire
+CMD ["echo", "Drive - À implémenter"]

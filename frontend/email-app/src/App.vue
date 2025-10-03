@@ -270,9 +270,8 @@ export default {
       body: ''
     })
 
-    // API Configuration
+    // API Configuration - Tout passe par l'API Gateway
     const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
-    const EMAIL_API = import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://localhost:8091'
 
     // Authentification
     const handleLogin = async () => {
@@ -321,7 +320,7 @@ export default {
     // Gestion emails
     const loadEmails = async () => {
       try {
-        const response = await axios.get(`${EMAIL_API}/api/v1/emails`)
+        const response = await axios.get(`${API_BASE}/api/v1/emails`)
         emails.value = response.data.map(email => ({
           ...email,
           selected: false
@@ -389,7 +388,7 @@ export default {
     // Gestion alias
     const loadAliases = async () => {
       try {
-        const response = await axios.get(`${EMAIL_API}/api/v1/aliases`)
+        const response = await axios.get(`${API_BASE}/api/v1/aliases`)
         aliases.value = response.data
       } catch (err) {
         console.error('Erreur chargement alias:', err)
@@ -401,7 +400,7 @@ export default {
       
       try {
         const aliasEmail = `paul+${newAlias.prefix}@delhomme.ovh`
-        const response = await axios.post(`${EMAIL_API}/api/v1/aliases`, {
+        const response = await axios.post(`${API_BASE}/api/v1/aliases`, {
           alias: aliasEmail,
           target_email: 'paul@delhomme.ovh',
           is_active: true
@@ -435,7 +434,7 @@ export default {
       isSending.value = true
       
       try {
-        await axios.post(`${EMAIL_API}/api/v1/emails`, {
+        await axios.post(`${API_BASE}/api/v1/emails`, {
           from_addr: currentUser.value.email,
           to_addr: composeForm.to,
           subject: composeForm.subject,

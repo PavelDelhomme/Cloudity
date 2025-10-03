@@ -1,5 +1,5 @@
 # backend/email-service/Dockerfile - CORRIGÉ POUR CARGO VERSION
-FROM rust:1.70-alpine AS builder
+FROM rust:1.82-alpine AS builder
 
 WORKDIR /app
 
