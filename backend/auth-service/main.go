@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
 	"database/sql"
 	"log"
@@ -116,4 +117,31 @@ func (a *AuthService) generateToken(userID, tenantID, email string) (string, err
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	return token.SignedString(a.privateKey)
+}
+
+func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
+	privPath := "private.pem"
+	pubPath := "public.pem"
+	if _, err := os.Stat(privPath); err == nil {
+		privBytes, _ := os.ReadFile(privPath)
+		pubBytes, _ := os.ReadFile(pubPath)
+		priv, err1 := jwt.ParseRSAPrivateKeyFromPEM(privBytes)
+		pub, err2 := jwt.ParseRSAPublicKeyFromPEM(pubBytes)
+		if err1 == nil && err2 == nil {
+			return priv, pub
+		}
+	}
+	log.Println("RSA keys not found, using in-memory key for dev")
+	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
+	return priv, &priv.PublicKey
+}
+
+func (a *AuthService) Login(c *gin.Context) { c.JSON(501, gin.H{"error": "not implemented yet"}) }
+func (a *AuthService) RefreshToken(c *gin.Context) {
+	c.JSON(501, gin.H{"error": "not implemented yet"})
+}
+func (a *AuthService) Enable2FA(c *gin.Context) { c.JSON(501, gin.H{"error": "not implemented yet"}) }
+func (a *AuthService) Verify2FA(c *gin.Context) { c.JSON(501, gin.H{"error": "not implemented yet"}) }
+func (a *AuthService) ValidateToken(c *gin.Context) {
+	c.JSON(501, gin.H{"error": "not implemented yet"})
 }

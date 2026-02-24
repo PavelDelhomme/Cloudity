@@ -1,6 +1,28 @@
+# CLOUDITY
+
+## Démarrage rapide
+
+```bash
+make up    # Démarre toute la stack (ports 60XX)
+make down  # Arrête la stack
+make help  # Liste des commandes
+```
+
+| Accès | URL |
+|-------|-----|
+| **Dashboard admin** | http://localhost:6001 |
+| **API** | http://localhost:6000 |
+| Adminer (DB) | http://localhost:6083 |
+| Redis Commander | http://localhost:6084 |
+
+Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
+**Suivi du projet et roadmap** : voir **[STATUS.md](./STATUS.md)**.
+
+---
+
 # Vue d'ensemble du projet
 
-CLOUDITY est un écosystème cloud privé complet offrant plus de 15 applications intégrées, conçu pour fonctionner de manière totalement autonome sans dépendances externes. Le système utilise une architecture multitenant avec isolation stricte des données, collaboration temps réel, et sécurité maximale.
+CLOUDITY est un écosystème cloud privé complet (type Proton Mail + Proton Pass + Gmail + Drive), auto-hébergé, chiffré et extensible. Architecture multitenant avec isolation stricte des données, collaboration temps réel, et sécurité maximale.
 
 <br />
 

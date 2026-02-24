@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity_secure_password_2025}
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
     ports:
-      - "5432:5432"
+      - "6042:5432"
     volumes:
       - postgres_services_data:/var/lib/postgresql/data
       - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_password_2025}
     ports:
-      - "6379:6379"
+      - "6079:6379"
     volumes:
       - redis_services_data:/data
     healthcheck:
@@ -49,7 +49,7 @@ services:
     container_name: cloudity-auth-service-only
     restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "6081:8081"
     environment:
       - PORT=8081
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
@@ -75,7 +75,7 @@ services:
     container_name: cloudity-api-gateway-only
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "6000:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081
@@ -97,7 +97,7 @@ services:
     container_name: cloudity-admin-service-only
     restart: unless-stopped
     ports:
-      - "8082:8082"
+      - "6082:8082"
     environment:
       - PORT=8082
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}

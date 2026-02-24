@@ -1,79 +1,87 @@
 #!/bin/bash
+# Setup initial du projet Cloudity (structure, .env, clés, deps)
+# Après: make up pour démarrer la stack (ports 60XX)
 
-echo "🚀 Setting up Cloudity development environment..."
+set -e
 
-# Check for required tools
-check_command() {
-    if ! command -v $1 &> /dev/null; then
-        echo "❌ $1 is not installed. Please install it first."
+echo "🚀 Cloudity - Setup initial"
+echo "============================"
+
+# Outils requis
+for cmd in docker; do
+    if ! command -v $cmd &>/dev/null; then
+        echo "❌ $cmd est requis."
         exit 1
     fi
-}
+done
+if ! docker compose version &>/dev/null && ! docker-compose version &>/dev/null; then
+    echo "❌ Docker Compose est requis."
+    exit 1
+fi
+echo "✅ Docker (Compose) OK"
 
-check_command docker
-check_command docker-compose
-check_command make
-
-# Create necessary directories
-echo "📁 Creating project directories..."
-mkdir -p backend/{auth-service,api-gateway,admin-service}
+# Dossiers
+echo "📁 Création des dossiers..."
+mkdir -p backend/auth-service backend/api-gateway backend/admin-service
 mkdir -p frontend/admin-dashboard
 mkdir -p mobile/admin_app
-mkdir -p infrastructure/{postgres,nginx}
+mkdir -p infrastructure/postgresql/init
+mkdir -p storage/postgres storage/redis storage/logs storage/backups
 mkdir -p scripts
-mkdir -p backups
 
-# Copy environment file
+# .env
 if [ ! -f .env ]; then
-    echo "📝 Creating .env file..."
-    cp .env.example .env
-    echo "⚠️  Please update .env with your configuration"
-fi
-
-# Generate JWT keys
-if [ ! -f backend/auth-service/private.pem ]; then
-    echo "🔐 Generating RSA keys for JWT..."
-    openssl genrsa -out backend/auth-service/private.pem 2048
-    openssl rsa -in backend/auth-service/private.pem -outform PEM -pubout -out backend/auth-service/public.pem
-fi
-
-# Initialize Go modules
-echo "📦 Initializing Go modules..."
-(cd backend/auth-service && go mod init github.com/PavelDelhomme/Cloudity/auth-service 2>/dev/null || true)
-(cd backend/api-gateway && go mod init github.com/PavelDelhomme/Cloudity/api-gateway 2>/dev/null || true)
-
-# Initialize Node projects
-echo "📦 Initializing Node projects..."
-(cd frontend/admin-dashboard && npm init -y 2>/dev/null || true)
-
-# Initialize Flutter project
-echo "📦 Initializing Flutter project..."
-if command -v flutter &> /dev/null; then
-    (cd mobile && flutter create admin_app --org com.cloudity 2>/dev/null || true)
+    echo "📝 Création de .env..."
+    [ -f .env.example ] && cp .env.example .env || {
+        cat > .env << 'EOF'
+POSTGRES_USER=cloudity_admin
+POSTGRES_PASSWORD=cloudity_secure_password_2025
+POSTGRES_DB=cloudity
+REDIS_PASSWORD=redis_secure_password_2025
+JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
+NODE_ENV=development
+VITE_API_URL=http://localhost:6000
+CORS_ORIGINS=http://localhost:6001,http://localhost:5173
+EOF
+    }
+    echo "✅ .env créé (à personnaliser si besoin)"
 else
-    echo "⚠️  Flutter not installed, skipping mobile app initialization"
+    echo "⚠️  .env existe déjà"
 fi
 
-# Pull Docker images
-echo "🐳 Pulling Docker images..."
-docker pull postgres:15-alpine
-docker pull redis:7-alpine
-docker pull golang:1.21-alpine
-docker pull python:3.11-slim
-docker pull node:18-alpine
-docker pull nginx:alpine
+# Clés RSA (auth-service)
+if [ ! -f backend/auth-service/private.pem ]; then
+    echo "🔐 Génération des clés RSA (JWT)..."
+    openssl genrsa -out backend/auth-service/private.pem 2048 2>/dev/null
+    openssl rsa -in backend/auth-service/private.pem -pubout -out backend/auth-service/public.pem 2>/dev/null
+    echo "✅ Clés créées"
+fi
 
-# Create Docker network
-echo "🌐 Creating Docker network..."
-docker network create cloudity-network 2>/dev/null || true
+# Go modules
+echo "📦 Go modules..."
+(cd backend/auth-service && go mod tidy 2>/dev/null) || true
+(cd backend/api-gateway && go mod tidy 2>/dev/null) || true
 
-echo "✅ Setup complete!"
+# Node (frontend)
+if [ -f frontend/admin-dashboard/package.json ]; then
+    echo "📦 npm install (admin-dashboard)..."
+    (cd frontend/admin-dashboard && npm install 2>/dev/null) || true
+fi
+
+# Flutter
+if command -v flutter &>/dev/null && [ -d mobile/admin_app ]; then
+    echo "📦 Flutter pub get..."
+    (cd mobile/admin_app && flutter pub get 2>/dev/null) || true
+fi
+
+# Permissions scripts
+chmod +x scripts/*.sh 2>/dev/null || true
+
 echo ""
-echo "Next steps:"
-echo "1. Update .env file with your configuration"
-echo "2. Run 'make dev' to start the development environment"
-echo "3. Access the services:"
-echo "   - API Gateway: http://localhost:8080"
-echo "   - Admin Dashboard: http://localhost:3000"
+echo "✅ Setup terminé."
 echo ""
-echo "Happy coding! 🎉"
+echo "Démarrer la stack:  make up"
+echo "Arrêter la stack:   make down"
+echo "Aide:               make help"
+echo "Suivi projet:       voir STATUS.md"
+echo ""

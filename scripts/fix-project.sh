@@ -23,7 +23,7 @@ REDIS_PASSWORD=redis_secure_password_2025
 JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
 BUILD_TARGET=Dockerfile.dev
 NODE_ENV=development
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=http://localhost:6000
 EOF
     echo "✅ Fichier .env créé"
 fi
@@ -184,8 +184,7 @@ echo ""
 echo "🎉 Réparation terminée!"
 echo ""
 echo "📋 Prochaines étapes:"
-echo "1. docker compose build --no-cache"  
-echo "2. docker compose up -d postgres redis"
-echo "3. Attendre 10 secondes"
-echo "4. docker compose up -d"
+echo "   make up     # Démarre toute la stack (ports 60XX)"
+echo "   make down   # Arrête la stack"
+echo "   make help   # Liste des commandes"
 echo ""

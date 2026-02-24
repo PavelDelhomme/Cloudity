@@ -1,0 +1,8 @@
+# Développement Cloudity : overrides optionnels
+# make up utilise docker-compose.yml + --profile dev pour lancer Adminer (6083) et Redis Commander (6084)
+# Ce fichier peut contenir des surcharges spécifiques au dev si besoin (ex. variables, mounts).
+
+version: "3.8"
+
+# Les ports 60XX et les services sont définis dans docker-compose.yml
+# Aucune surcharge nécessaire pour l'instant

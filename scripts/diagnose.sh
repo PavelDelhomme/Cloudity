@@ -65,7 +65,7 @@ check_file "frontend/admin-dashboard/src/App.tsx"
 # Infrastructure
 echo -e "\n🗄️  Infrastructure:"
 check_dir "infrastructure/postgresql"
-check_file "infrastructure/postgresql/postgresql.conf"
+check_file "infrastructure/postgresql/init/01-schema.sql"
 check_dir "infrastructure/postgresql/init"
 
 echo -e "\n🐳 Vérification Docker:"
@@ -99,9 +99,9 @@ else
     echo -e "${RED}❌${NC} Fichier .env manquant"
 fi
 
-echo -e "\n📦 Vérification des ports:"
-echo "-------------------------"
-ports=(5432 6379 8000 8081 8082 3000)
+echo -e "\n📦 Vérification des ports (60XX):"
+echo "-----------------------------------"
+ports=(6042 6079 6000 6081 6082 6001 6083 6084)
 for port in "${ports[@]}"; do
     if netstat -tuln 2>/dev/null | grep -q ":$port "; then
         echo -e "${YELLOW}⚠️${NC} Port $port déjà utilisé"

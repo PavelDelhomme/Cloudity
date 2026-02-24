@@ -10,12 +10,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "6042:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
-      - ./infrastructure/postgresql/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cloudity_admin} -d ${POSTGRES_DB:-cloudity}"]
       interval: 10s
@@ -24,19 +22,20 @@ services:
     networks:
       - cloudity-network
 
-  # Redis pour cache et sessions
+  # Redis pour cache et sessions (mot de passe développé via shell)
   redis:
     image: redis:7-alpine
     container_name: cloudity-redis
     restart: unless-stopped
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_password_2025} --appendonly yes
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password_2025}
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
     ports:
-      - "6379:6379"
+      - "6079:6379"
     volumes:
       - redis_data:/data
-      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,7 +50,7 @@ services:
     container_name: cloudity-auth-service
     restart: unless-stopped
     ports:
-      - "8081:8081"
+      - "6081:8081"
     environment:
       - PORT=8081
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
@@ -83,7 +82,7 @@ services:
     container_name: cloudity-api-gateway
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "6000:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081
@@ -111,7 +110,7 @@ services:
     container_name: cloudity-admin-service
     restart: unless-stopped
     ports:
-      - "8082:8082"
+      - "6082:8082"
     environment:
       - PORT=8082
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
@@ -143,10 +142,10 @@ services:
     container_name: cloudity-admin-dashboard
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "6001:3000"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://localhost:6000
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
@@ -163,7 +162,7 @@ services:
     container_name: cloudity-adminer
     restart: unless-stopped
     ports:
-      - "8083:8080"
+      - "6083:8080"
     environment:
       ADMINER_DEFAULT_SERVER: postgres
       ADMINER_DESIGN: nette
@@ -174,19 +173,22 @@ services:
     profiles:
       - dev
 
-  # Redis Commander pour gestion Redis (développement)
+  # Redis Commander (dev) : connexion unique avec même mot de passe que redis
   redis-commander:
     image: ghcr.io/joeferner/redis-commander:latest
     container_name: cloudity-redis-commander
     restart: unless-stopped
     ports:
-      - "8084:8081"
+      - "6084:8081"
     environment:
+      # Format: label:host:port:db:password (même mot de passe que le service redis)
       REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_password_2025}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password_2025}
       HTTP_USER: admin
       HTTP_PASSWORD: admin
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - cloudity-network
     profiles:

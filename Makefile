@@ -1,4 +1,4 @@
-.PHONY: help init dev prod build test clean logs backup restore services-only infrastructure-only
+.PHONY: help up down init dev prod build test clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -13,11 +13,38 @@ COMPOSE_DEV = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.dev.yml
 COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
+# Ports 60XX (voir STATUS.md)
+PORT_GATEWAY = 6000
+PORT_DASHBOARD = 6001
+PORT_AUTH = 6081
+PORT_ADMIN = 6082
+PORT_POSTGRES = 6042
+PORT_REDIS = 6079
+
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
 	@echo ''
+	@echo '  make up    - Démarre toute la stack (dev + outils Adminer/Redis Commander)'
+	@echo '  make down  - Arrête toute la stack'
+	@echo '  make logs  - Logs de tous les services en temps réel'
+	@echo ''
 	@echo 'Targets disponibles:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
+	@echo "🚀 Démarrage Cloudity..."
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
+	@echo "✅ Stack démarrée. Accès:"
+	@echo "   Dashboard:  http://localhost:$(PORT_DASHBOARD)"
+	@echo "   API:        http://localhost:$(PORT_GATEWAY)"
+	@echo "   Auth:       http://localhost:$(PORT_AUTH)"
+	@echo "   Admin API:  http://localhost:$(PORT_ADMIN)"
+	@echo "   Adminer:    http://localhost:6083  |  Redis Commander: http://localhost:6084"
+
+down: ## Arrête toute la stack
+	@echo "🛑 Arrêt de Cloudity..."
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down
+	@echo "✅ Stack arrêtée."
 
 init: ## Initialisation complète du projet (première fois)
 	@echo "🚀 Initialisation de Cloudity..."
@@ -40,7 +67,7 @@ create-env: ## Crée le fichier .env
 		echo "JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025" >> .env; \
 		echo "BUILD_TARGET=dev" >> .env; \
 		echo "NODE_ENV=development" >> .env; \
-		echo "VITE_API_URL=http://localhost:8000" >> .env; \
+		echo "VITE_API_URL=http://localhost:6000" >> .env; \
 		echo "✅ Fichier .env créé"; \
 	else \
 		echo "⚠️  Fichier .env existe déjà"; \
@@ -79,18 +106,8 @@ setup-infrastructure: ## Configure l'infrastructure
 	@chmod +x scripts/*.sh 2>/dev/null || true
 	@echo "✅ Infrastructure configurée"
 
-dev: ## Démarre l'environnement de développement complet
-	@echo "🔧 Démarrage de l'environnement de développement..."
-	@$(COMPOSE) $(COMPOSE_FILES) up -d
-	@echo "✅ Environnement de développement lancé!"
-	@echo "📍 Services disponibles:"
-	@echo "   - API Gateway:       http://localhost:8000"
-	@echo "   - Auth Service:      http://localhost:8081"
-	@echo "   - Admin Service:     http://localhost:8082"
-	@echo "   - Admin Dashboard:   http://localhost:3000"
-	@echo "   - PostgreSQL:        localhost:5432"
-	@echo "   - Redis:             localhost:6379"
-	@echo "   - Adminer:           http://localhost:8083"
+dev: ## Démarre l'environnement de développement (équivalent à make up)
+	@$(MAKE) up
 
 services-only: ## Démarre uniquement les services backend
 	@echo "🛠️  Démarrage des services backend..."
@@ -129,34 +146,49 @@ build-admin: ## Build uniquement le service admin
 build-dashboard: ## Build uniquement le dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) build admin-dashboard
 
-test: ## Lance tous les tests
-	@echo "🧪 Lancement des tests..."
-	@$(COMPOSE) $(COMPOSE_FILES) exec auth-service go test ./... 2>/dev/null || echo "⚠️  Tests auth-service échoués"
-	@$(COMPOSE) $(COMPOSE_FILES) exec api-gateway go test ./... 2>/dev/null || echo "⚠️  Tests api-gateway échoués"
-	@$(COMPOSE) $(COMPOSE_FILES) exec admin-service python -m pytest 2>/dev/null || echo "⚠️  Tests admin-service échoués"
-	@$(COMPOSE) $(COMPOSE_FILES) exec admin-dashboard npm test 2>/dev/null || echo "⚠️  Tests admin-dashboard échoués"
-	@echo "✅ Tests terminés!"
+test: ## Lance tous les tests (unitaires + applicatifs)
+	@echo "🧪 Tests unitaires / applicatifs..."
+	@echo "  [auth-service]"
+	@(cd backend/auth-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [api-gateway]"
+	@(cd backend/api-gateway && go test -v -count=1 ./...) || exit 1
+	@echo "  [admin-service]"
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
+	@echo "  [admin-dashboard]"
+	@$(COMPOSE) $(COMPOSE_FILES) build -q admin-dashboard 2>/dev/null || true
+	@docker run --rm cloudity-admin-dashboard npm run test || exit 1
+	@echo "✅ Tous les tests sont passés."
 
-clean: ## Arrête et supprime tout
+test-e2e: ## Tests E2E (stack doit être démarrée: make up)
+	@chmod +x scripts/test-e2e.sh
+	@./scripts/test-e2e.sh
+
+test-docker: ## Lance les tests dans les conteneurs (make up avant)
+	@echo "🧪 Tests dans les conteneurs..."
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T auth-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T api-gateway go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
+	@docker run --rm cloudity-admin-dashboard npm run test || exit 1
+	@echo "✅ Tests Docker terminés."
+
+clean: ## Arrête et supprime conteneurs + volumes
 	@echo "🧹 Nettoyage complet..."
-	@$(COMPOSE) $(COMPOSE_FILES) down -v --remove-orphans
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down -v --remove-orphans
 	@$(COMPOSE_SERVICES) down -v --remove-orphans 2>/dev/null || true
-	@$(COMPOSE_DEV) down -v --remove-orphans 2>/dev/null || true
 	@$(COMPOSE_PROD) down -v --remove-orphans 2>/dev/null || true
 	@docker system prune -f
-	@echo "✅ Nettoyage terminé!"
+	@echo "✅ Nettoyage terminé."
 
-stop: ## Arrête tous les services sans supprimer les volumes
-	@echo "🛑 Arrêt des services..."
-	@$(COMPOSE) $(COMPOSE_FILES) stop
-	@echo "✅ Services arrêtés!"
+stop: ## Arrête tous les services sans supprimer les volumes (équivalent à make down)
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev stop
+	@echo "✅ Services arrêtés."
 
 restart: ## Redémarre tous les services
-	@make stop
-	@make dev
+	@make down
+	@make up
 
-logs: ## Affiche tous les logs
-	@$(COMPOSE) $(COMPOSE_FILES) logs -f
+logs: ## Logs de tous les services en temps réel (Ctrl+C pour quitter)
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev logs -f
 
 logs-auth: ## Logs du service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f auth-service
@@ -191,18 +223,18 @@ shell-dashboard: ## Shell dans le dashboard
 psql: ## Se connecte à PostgreSQL
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity
 
-redis-cli: ## Se connecte à Redis
-	@$(COMPOSE) $(COMPOSE_FILES) exec redis redis-cli -a redis_secure_password_2025
+redis-cli: ## Se connecte à Redis (mot de passe depuis .env)
+	@$(COMPOSE) $(COMPOSE_FILES) exec redis sh -c 'redis-cli -a "$$REDIS_PASSWORD"'
 
-health: ## Vérifie la santé des services
-	@echo "🏥 Vérification de la santé des services..."
+health: ## Vérifie la santé des services (ports 60XX)
+	@echo "🏥 Vérification des services (ports 60XX)..."
 	@$(COMPOSE) $(COMPOSE_FILES) ps
 	@echo ""
-	@echo "Tests de connectivité:"
-	@curl -s -f http://localhost:8000/health && echo "✅ API Gateway: OK" || echo "❌ API Gateway: FAIL"
-	@curl -s -f http://localhost:8081/health && echo "✅ Auth Service: OK" || echo "❌ Auth Service: FAIL"
-	@curl -s -f http://localhost:8082/health && echo "✅ Admin Service: OK" || echo "❌ Admin Service: FAIL"
-	@curl -s -f http://localhost:3000 && echo "✅ Admin Dashboard: OK" || echo "❌ Admin Dashboard: FAIL"
+	@echo "Connectivité:"
+	@curl -s -f http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6000): OK" || echo "  ❌ API Gateway (6000): FAIL"
+	@curl -s -f http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth Service (6081): OK" || echo "  ❌ Auth Service (6081): FAIL"
+	@curl -s -f http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin Service (6082): OK" || echo "  ❌ Admin Service (6082): FAIL"
+	@curl -s -f http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard (6001): FAIL"
 
 backup: ## Sauvegarde la base de données
 	@echo "💾 Sauvegarde de la base de données..."
@@ -215,14 +247,9 @@ restore: ## Restaure la dernière sauvegarde
 	@gunzip -c $(shell ls -t storage/backups/*.sql.gz | head -1) | $(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin cloudity
 	@echo "✅ Base de données restaurée!"
 
-seed: ## Remplit la base avec des données de test
-	@echo "🌱 Insertion des données de test..."
-	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "\
-		INSERT INTO tenants (name, domain, database_url) VALUES \
-		('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), \
-		('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') \
-		ON CONFLICT (domain) DO NOTHING;"
-	@echo "✅ Données de test insérées!"
+seed: ## Insère des données de test (tenants)
+	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "INSERT INTO tenants (name, domain, database_url) VALUES ('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), ('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') ON CONFLICT (domain) DO NOTHING;"
+	@echo "✅ Seed OK."
 
 format: ## Formate le code de tous les services
 	@echo "✨ Formatage du code..."
@@ -240,12 +267,11 @@ update-deps: ## Met à jour les dépendances
 	@cd mobile/admin_app && flutter pub upgrade 2>/dev/null || true
 	@echo "✅ Dépendances mises à jour!"
 
-reset: ## Reset complet du projet
-	@echo "🔄 Reset complet du projet..."
+reset: ## Reset complet (clean + init + up)
 	@make clean
 	@make init
-	@make dev
-	@echo "✅ Reset terminé!"
+	@make up
+	@echo "✅ Reset terminé."
 
 
 diagnose: ## Lance le diagnostic complet du projet
@@ -258,32 +284,26 @@ fix-project: ## Répare automatiquement les problèmes du projet
 	@chmod +x scripts/fix-project.sh
 	@./scripts/fix-project.sh
 
-step-by-step: ## Démarrage étape par étape (recommandé)
-	@echo "🏗️  Démarrage étape par étape de Cloudity..."
-	@echo "Étape 1/4: Nettoyage..."
-	@$(COMPOSE) $(COMPOSE_FILES) down -v --remove-orphans 2>/dev/null || true
-	@echo "Étape 2/4: Build des services..."
+step-by-step: ## Démarrage étape par étape (recommandé pour premier run)
+	@echo "🏗️  Démarrage étape par étape..."
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down -v --remove-orphans 2>/dev/null || true
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --progress=plain
-	@echo "Étape 3/4: Démarrage infrastructure..."
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis
-	@echo "Attente 15 secondes pour l'initialisation..."
+	@echo "Attente 15 s (init DB)..."
 	@sleep 15
-	@echo "Étape 4/4: Démarrage des services..."
-	@$(COMPOSE) $(COMPOSE_FILES) up -d
-	@echo "✅ Démarrage terminé!"
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
+	@echo "✅ Terminé."
 	@make quick-check
 
-quick-check: ## Test rapide de tous les services
-	@echo "🏥 Vérification rapide des services..."
-	@echo "Infrastructure:"
-	@docker compose exec postgres pg_isready -U cloudity_admin && echo "  ✅ PostgreSQL: OK" || echo "  ❌ PostgreSQL: FAIL"
-	@docker compose exec redis redis-cli -a redis_secure_password_2025 ping >/dev/null && echo "  ✅ Redis: OK" || echo "  ❌ Redis: FAIL"
-	@sleep 5
-	@echo "Services:"
-	@curl -sf http://localhost:8081/health >/dev/null && echo "  ✅ Auth Service (8081): OK" || echo "  ❌ Auth Service (8081): FAIL"
-	@curl -sf http://localhost:8000/health >/dev/null && echo "  ✅ API Gateway (8000): OK" || echo "  ❌ API Gateway (8000): FAIL"
-	@curl -sf http://localhost:8082/health >/dev/null && echo "  ✅ Admin Service (8082): OK" || echo "  ❌ Admin Service (8082): FAIL"
-	@curl -sf http://localhost:3000 >/dev/null && echo "  ✅ Dashboard (3000): OK" || echo "  ❌ Dashboard (3000): FAIL"
+quick-check: ## Test rapide de tous les services (ports 60XX)
+	@echo "🏥 Vérification rapide (ports 60XX)..."
+	@$(COMPOSE) $(COMPOSE_FILES) exec postgres pg_isready -U cloudity_admin -d cloudity 2>/dev/null && echo "  ✅ PostgreSQL (6042): OK" || echo "  ❌ PostgreSQL: FAIL"
+	@$(COMPOSE) $(COMPOSE_FILES) exec redis sh -c 'redis-cli -a "$$REDIS_PASSWORD" ping' 2>/dev/null | grep -q PONG && echo "  ✅ Redis (6079): OK" || echo "  ❌ Redis: FAIL"
+	@sleep 3
+	@curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth (6081): OK" || echo "  ❌ Auth: FAIL"
+	@curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6000): OK" || echo "  ❌ API Gateway: FAIL"
+	@curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin (6082): OK" || echo "  ❌ Admin: FAIL"
+	@curl -sf http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard: FAIL"
 
 debug-logs: ## Affiche les logs des services qui posent problème
 	@echo "🐛 Debug des services..."
@@ -317,40 +337,31 @@ status: ## Affiche l'état détaillé de tous les services
 	@echo "Réseaux:"
 	@docker network ls --filter name=cloudity --format "table {{.Name}}\t{{.Driver}}"
 
-wait-for-services: ## Attend que les services soient prêts
-	@echo "⏳ Attente de la disponibilité des services..."
+wait-for-services: ## Attend que les services soient prêts (ports 60XX)
+	@echo "⏳ Attente des services (60XX)..."
 	@timeout=60; \
 	while [ $$timeout -gt 0 ]; do \
-		if curl -sf http://localhost:8081/health >/dev/null && \
-		   curl -sf http://localhost:8000/health >/dev/null && \
-		   curl -sf http://localhost:8082/health >/dev/null; then \
-			echo "✅ Tous les services sont prêts!"; \
+		if curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && \
+		   curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && \
+		   curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null; then \
+			echo "✅ Services prêts."; \
 			break; \
 		fi; \
-		echo "Attente... ($$timeout secondes restantes)"; \
+		echo "Attente... ($$timeout s)"; \
 		sleep 5; \
 		timeout=$$((timeout-5)); \
 	done; \
-	if [ $$timeout -eq 0 ]; then \
-		echo "❌ Timeout: certains services ne sont pas prêts"; \
-		make debug-logs; \
-	fi
+	if [ $$timeout -eq 0 ]; then make debug-logs; fi
 
 backend-only: ## Lance uniquement les services backend (sans frontend)
-	@echo "🛠️  Démarrage backend uniquement..."
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis auth-service api-gateway admin-service
 	@make wait-for-services
 
-test-api: ## Test les API des services backend
+test-api: ## Test les API (ports 60XX)
 	@echo "🧪 Test des API..."
-	@echo "Test Auth Service:"
-	@curl -X POST http://localhost:8081/auth/login -H "Content-Type: application/json" -d '{}' || echo "  Auth endpoint non prêt"
-	@echo ""
-	@echo "Test API Gateway:"
-	@curl http://localhost:8000/auth/health || echo "  Gateway proxy non prêt"
-	@echo ""
-	@echo "Test Admin Service:"
-	@curl http://localhost:8082/health || echo "  Admin service non prêt"
+	@curl -s http://localhost:$(PORT_GATEWAY)/health && echo ""
+	@curl -s http://localhost:$(PORT_AUTH)/health && echo ""
+	@curl -s http://localhost:$(PORT_ADMIN)/health && echo ""
 
 emergency-reset: ## Reset d'urgence complet
 	@echo "🚨 Reset d'urgence..."
@@ -369,11 +380,9 @@ full-setup: ## Setup complet du projet de A à Z
 	@make quick-check
 	@echo "🎉 Setup complet terminé!"
 
-dev-watch: ## Lance dev avec monitoring des logs
-	@echo "👀 Démarrage avec monitoring..."
-	@$(COMPOSE) $(COMPOSE_FILES) up -d
-	@echo "Services démarrés, monitoring des logs..."
-	@$(COMPOSE) $(COMPOSE_FILES) logs -f
+dev-watch: ## Lance up + suivi des logs
+	@$(MAKE) up
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev logs -f
 
 # Vérifier les fichiers Dockerfile.dev
 check-dockerfiles: ## Vérifie la présence et le contenu des Dockerfiles
@@ -435,38 +444,21 @@ rebuild-service: ## Menu pour reconstruire un service spécifique
 		*) echo "Choix invalide" ;; \
 	esac
 
-rebuild-auth: ## Reconstruit le service auth
-	@echo "🔄 Reconstruction de auth-service..."
-	@docker compose down auth-service
-	@docker compose build --no-cache auth-service
-	@docker compose up -d auth-service
-	@echo "✅ auth-service reconstruit!"
+rebuild-auth: ## Reconstruit auth-service
+	@$(COMPOSE) $(COMPOSE_FILES) stop auth-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache auth-service && $(COMPOSE) $(COMPOSE_FILES) up -d auth-service && echo "✅ auth-service OK"
 
-rebuild-gateway: ## Reconstruit le service api-gateway
-	@echo "🔄 Reconstruction de api-gateway..."
-	@docker compose down api-gateway
-	@docker compose build --no-cache api-gateway
-	@docker compose up -d api-gateway
-	@echo "✅ api-gateway reconstruit!"
+rebuild-gateway: ## Reconstruit api-gateway
+	@$(COMPOSE) $(COMPOSE_FILES) stop api-gateway 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache api-gateway && $(COMPOSE) $(COMPOSE_FILES) up -d api-gateway && echo "✅ api-gateway OK"
 
-rebuild-admin: ## Reconstruit le service admin
-	@echo "🔄 Reconstruction de admin-service..."
-	@docker compose down admin-service
-	@docker compose build --no-cache admin-service
-	@docker compose up -d admin-service
-	@echo "✅ admin-service reconstruit!"
+rebuild-admin: ## Reconstruit admin-service
+	@$(COMPOSE) $(COMPOSE_FILES) stop admin-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache admin-service && $(COMPOSE) $(COMPOSE_FILES) up -d admin-service && echo "✅ admin-service OK"
 
-rebuild-dashboard: ## Reconstruit le dashboard
-	@echo "🔄 Reconstruction de admin-dashboard..."
-	@docker compose down admin-dashboard
-	@docker compose build --no-cache admin-dashboard
-	@docker compose up -d admin-dashboard
-	@echo "✅ admin-dashboard reconstruit!"
+rebuild-dashboard: ## Reconstruit admin-dashboard
+	@$(COMPOSE) $(COMPOSE_FILES) stop admin-dashboard 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache admin-dashboard && $(COMPOSE) $(COMPOSE_FILES) up -d admin-dashboard && echo "✅ admin-dashboard OK"
 
-setup-infra-only: ## Configure l'infrastructure uniquement (pas de build)
-	@echo "🛠️ Configuration de l'infrastructure uniquement..."
-	@docker compose up -d postgres redis
-	@echo "✅ Infrastructure démarrée!"
+setup-infra-only: ## Démarre uniquement Postgres + Redis
+	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis
+	@echo "✅ Postgres (6042), Redis (6079) démarrés."
 
 start-service: ## Démarre un service spécifique
 	@echo "🚀 Démarrer un service"

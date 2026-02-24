@@ -1,4 +1,16 @@
-# Plan d'implémentation
+# Plan d'implémentation CLOUDITY
+
+**Référence au quotidien** : [STATUS.md](./STATUS.md) (suivi détaillé, checklist, ports 60XX).  
+**Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6000 (API), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
+
+---
+
+## Phase 0 – Infra commune (base actuelle)
+
+> - Docker Compose global (Postgres, Redis, auth, api-gateway, admin-service, admin-dashboard)
+> - Ports 60XX standardisés (voir STATUS.md)
+> - Init PostgreSQL dans `infrastructure/postgresql/init/`
+> - Templates / structure pour futurs services (Mail Core, Password Manager, Drive)
 
 ## Phase 1 : Infrastructure de base (Mois 1-)
 ### Semaines 1-2: Setup PostgresSQL multitenant
@@ -18,9 +30,9 @@
 > - Intégration mTLS
 
 ### Semaines 10-13: Services de base
-> - Service Mail (Python/FastAPI)
+> - **Mail Core** : Postfix + Dovecot + Rspamd + mail-directory-service (Go)
 > - Service Calendar (Go)
-> - Service Drive (Rust)
+> - **Drive** (Rust) plus tard
 
 ## Phase 3 : Suite collaborative (Mois )
 ### Semaines 14-16: Frontend React
@@ -35,7 +47,7 @@
 
 ## Phase 4 : Services avancés (Mois )
 ### Semaine 26-32: Services sécurité
-> - Password Manager (Rust)
+> - **Password Manager** (Go ou Rust) : vault chiffré côté client, extension navigateur, intégration alias mail
 > - Wallet avec HSM (Rust)
 > - VPN/Proxy (Go)
 

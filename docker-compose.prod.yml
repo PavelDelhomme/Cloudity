@@ -1,0 +1,55 @@
+# Overrides pour l'environnement de production Cloudity
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Ou: make prod
+# Les services adminer et redis-commander ne sont pas démarrés (pas de profil dev).
+
+version: "3.8"
+
+services:
+  postgres:
+    restart: always
+    # En prod, on peut limiter les ports exposés ou ne pas les exposer (accès interne uniquement)
+    ports:
+      - "6042:5432"
+
+  redis:
+    restart: always
+    ports:
+      - "6079:6379"
+
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile.dev
+    restart: always
+    environment:
+      - GO_ENV=production
+
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile.dev
+    restart: always
+    ports:
+      - "6000:8000"
+    environment:
+      - GO_ENV=production
+
+  admin-service:
+    build:
+      context: ./backend/admin-service
+      dockerfile: Dockerfile.dev
+    restart: always
+    environment:
+      - PYTHON_ENV=production
+
+  admin-dashboard:
+    build:
+      context: ./frontend/admin-dashboard
+      dockerfile: Dockerfile.dev
+    restart: always
+    ports:
+      - "6001:3000"
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=https://api.cloudity.io
