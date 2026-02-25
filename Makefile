@@ -1,4 +1,4 @@
-.PHONY: help up down init dev prod build test clean logs backup restore services-only infrastructure-only
+.PHONY: help up down init dev prod build test tests clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -24,12 +24,21 @@ PORT_REDIS = 6079
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo '  make up    - Démarre toute la stack (dev + outils Adminer/Redis Commander)'
-	@echo '  make down  - Arrête toute la stack'
-	@echo '  make logs  - Logs de tous les services en temps réel'
+	@echo '  make up          - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
+	@echo '  make up-full     - up + attente services + seed + seed-admin (compte démo toujours créé)'
+	@echo '  make down       - Arrête toute la stack'
+	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — 97 tests'
+	@echo '  make tests      - TOUT: unit/app + E2E + sécurité, avec rapport dans reports/test-YYYYMMDD-HHMMSS.log'
+	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
+	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
+	@echo '  make test-all   - TOUT: make test + test-e2e + test-security (stack up requise pour e2e)'
+	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
+	@echo '  make test-docker - Même batterie que test mais exécutée dans les conteneurs (make up avant)'
+	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
+	@echo '  make logs       - Logs de tous les services en temps réel'
 	@echo ''
 	@echo 'Targets disponibles:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."
@@ -40,6 +49,11 @@ up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Comman
 	@echo "   Auth:       http://localhost:$(PORT_AUTH)"
 	@echo "   Admin API:  http://localhost:$(PORT_ADMIN)"
 	@echo "   Adminer:    http://localhost:6083  |  Redis Commander: http://localhost:6084"
+	@echo ""
+	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
+
+up-full: up wait-for-services seed seed-admin ## Démarre la stack + seed tenants + compte démo (admin@cloudity.local / Admin123!)
+	@echo "✅ Stack et compte de démo prêts."
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
@@ -67,7 +81,7 @@ create-env: ## Crée le fichier .env
 		echo "JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025" >> .env; \
 		echo "BUILD_TARGET=dev" >> .env; \
 		echo "NODE_ENV=development" >> .env; \
-		echo "VITE_API_URL=http://localhost:6000" >> .env; \
+		echo "VITE_API_URL=" >> .env; \
 		echo "✅ Fichier .env créé"; \
 	else \
 		echo "⚠️  Fichier .env existe déjà"; \
@@ -146,30 +160,49 @@ build-admin: ## Build uniquement le service admin
 build-dashboard: ## Build uniquement le dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) build admin-dashboard
 
-test: ## Lance tous les tests (unitaires + applicatifs)
+# make test = unitaires + applicatifs uniquement (PAS les E2E). E2E = make test-e2e (après make up).
+test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lance pas les E2E.
 	@echo "🧪 Tests unitaires / applicatifs..."
 	@echo "  [auth-service]"
 	@(cd backend/auth-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [api-gateway]"
 	@(cd backend/api-gateway && go test -v -count=1 ./...) || exit 1
+	@echo "  [password-manager]"
+	@(cd backend/password-manager && go test -v -count=1 ./...) || exit 1
+	@echo "  [mail-directory-service]"
+	@(cd backend/mail-directory-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [admin-service]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
 	@echo "  [admin-dashboard]"
-	@$(COMPOSE) $(COMPOSE_FILES) build -q admin-dashboard 2>/dev/null || true
-	@docker run --rm cloudity-admin-dashboard npm run test || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tous les tests sont passés."
 
-test-e2e: ## Tests E2E (stack doit être démarrée: make up)
+# make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
+tests: ## Lance tous les tests (unit/app + E2E + sécurité) et génère un rapport (reports/test-YYYYMMDD-HHMMSS.log)
+	@chmod +x scripts/run-tests-with-report.sh
+	@./scripts/run-tests-with-report.sh
+
+test-all: test test-e2e test-security ## TOUT: unit/app + E2E + sécurité (stack up + 20-30 s pour E2E)
+
+test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
 	@chmod +x scripts/test-e2e.sh
 	@./scripts/test-e2e.sh
 
-test-docker: ## Lance les tests dans les conteneurs (make up avant)
+test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
+	@chmod +x scripts/test-security.sh
+	@./scripts/test-security.sh
+
+test-docker: ## Lance les tests dans les conteneurs (make up avant). Même batterie que make test.
 	@echo "🧪 Tests dans les conteneurs..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T auth-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T api-gateway go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T password-manager go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T mail-directory-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
-	@docker run --rm cloudity-admin-dashboard npm run test || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tests Docker terminés."
+
+test-full: test-all test-docker ## TOUT + tests dans les conteneurs (make up avant, puis 20-30 s)
 
 clean: ## Arrête et supprime conteneurs + volumes
 	@echo "🧹 Nettoyage complet..."
@@ -226,6 +259,11 @@ psql: ## Se connecte à PostgreSQL
 redis-cli: ## Se connecte à Redis (mot de passe depuis .env)
 	@$(COMPOSE) $(COMPOSE_FILES) exec redis sh -c 'redis-cli -a "$$REDIS_PASSWORD"'
 
+migrate-mail: ## Applique le schéma mail sur une base existante (make up avant)
+	@echo "📧 Application du schéma mail..."
+	@cat infrastructure/postgresql/migrations/20250225_mail_schema.sql | $(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1
+	@echo "✅ Schéma mail appliqué."
+
 health: ## Vérifie la santé des services (ports 60XX)
 	@echo "🏥 Vérification des services (ports 60XX)..."
 	@$(COMPOSE) $(COMPOSE_FILES) ps
@@ -250,6 +288,14 @@ restore: ## Restaure la dernière sauvegarde
 seed: ## Insère des données de test (tenants)
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "INSERT INTO tenants (name, domain, database_url) VALUES ('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), ('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') ON CONFLICT (domain) DO NOTHING;"
 	@echo "✅ Seed OK."
+
+seed-admin: ## Crée le compte de démo admin@cloudity.local / Admin123! (stack up, tenant 1 doit exister)
+	@echo "👤 Création du compte de démo (admin@cloudity.local)..."
+	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
+	  -H "Content-Type: application/json" \
+	  -d '{"email":"admin@cloudity.local","password":"Admin123!","tenant_id":"1"}' >/dev/null && \
+	  echo "✅ Compte créé. Connexion: admin@cloudity.local / Admin123!" || \
+	  (echo "⚠️  Le compte existe peut‑être déjà. Utilisez: admin@cloudity.local / Admin123!"; exit 0)
 
 format: ## Formate le code de tous les services
 	@echo "✨ Formatage du code..."
@@ -295,15 +341,17 @@ step-by-step: ## Démarrage étape par étape (recommandé pour premier run)
 	@echo "✅ Terminé."
 	@make quick-check
 
-quick-check: ## Test rapide de tous les services (ports 60XX)
+quick-check: ## Test rapide de tous les services (ports 60XX). Lancer après: make up
 	@echo "🏥 Vérification rapide (ports 60XX)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres pg_isready -U cloudity_admin -d cloudity 2>/dev/null && echo "  ✅ PostgreSQL (6042): OK" || echo "  ❌ PostgreSQL: FAIL"
 	@$(COMPOSE) $(COMPOSE_FILES) exec redis sh -c 'redis-cli -a "$$REDIS_PASSWORD" ping' 2>/dev/null | grep -q PONG && echo "  ✅ Redis (6079): OK" || echo "  ❌ Redis: FAIL"
-	@sleep 3
+	@sleep 2
 	@curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth (6081): OK" || echo "  ❌ Auth: FAIL"
 	@curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6000): OK" || echo "  ❌ API Gateway: FAIL"
 	@curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin (6082): OK" || echo "  ❌ Admin: FAIL"
 	@curl -sf http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard: FAIL"
+	@curl -sf http://localhost:6084 >/dev/null && echo "  ✅ Redis Commander (6084): OK" || echo "  ⚠️  Redis Commander (6084): non démarré (make up avec profil dev)"
+	@curl -sf http://localhost:6083 >/dev/null && echo "  ✅ Adminer (6083): OK" || echo "  ⚠️  Adminer (6083): non démarré (make up avec profil dev)"
 
 debug-logs: ## Affiche les logs des services qui posent problème
 	@echo "🐛 Debug des services..."

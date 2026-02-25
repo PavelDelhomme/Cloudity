@@ -93,7 +93,14 @@ services:
       - ./backend/api-gateway:/app:cached
       - go_mod_cache_gateway:/go/pkg/mod
     depends_on:
-      - auth-service
+      auth-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_healthy
+      password-manager:
+        condition: service_healthy
+      mail-directory-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
       interval: 30s
@@ -134,6 +141,58 @@ services:
     networks:
       - cloudity-network
 
+  # Password Manager (Phase 1) — vaults/items chiffrés côté client
+  password-manager:
+    build:
+      context: ./backend/password-manager
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-password-manager
+    restart: unless-stopped
+    ports:
+      - "6051:8051"
+    environment:
+      - PORT=8051
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/password-manager:/app:cached
+      - go_mod_cache_pass:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8051/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
+  # Mail Directory (Phase 2) — domaines, boîtes, alias
+  mail-directory-service:
+    build:
+      context: ./backend/mail-directory-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-mail-directory-service
+    restart: unless-stopped
+    ports:
+      - "6050:8050"
+    environment:
+      - PORT=8050
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/mail-directory-service:/app:cached
+      - go_mod_cache_mail:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
   # Dashboard d'administration React
   admin-dashboard:
     build:
@@ -145,7 +204,7 @@ services:
       - "6001:3000"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://localhost:6000
+      - VITE_API_URL=
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
@@ -173,7 +232,8 @@ services:
     profiles:
       - dev
 
-  # Redis Commander (dev) : connexion unique avec même mot de passe que redis
+  # Redis Commander (dev) : connexion au service redis du réseau Docker (host=redis, pas localhost)
+  # Format REDIS_HOSTS = label:host:port:db:password (voir entrypoint joeferner/redis-commander)
   redis-commander:
     image: ghcr.io/joeferner/redis-commander:latest
     container_name: cloudity-redis-commander
@@ -181,9 +241,8 @@ services:
     ports:
       - "6084:8081"
     environment:
-      # Format: label:host:port:db:password (même mot de passe que le service redis)
-      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_password_2025}
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password_2025}
+      # Obligatoire : host "redis" = nom du service sur le réseau Docker (sinon l'image utilise localhost)
+      REDIS_HOSTS: "local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_password_2025}"
       HTTP_USER: admin
       HTTP_PASSWORD: admin
     depends_on:
@@ -218,3 +277,9 @@ volumes:
   node_modules_cache:
     driver: local
     name: cloudity-node-modules-cache
+  go_mod_cache_pass:
+    driver: local
+    name: cloudity-go-mod-cache-pass
+  go_mod_cache_mail:
+    driver: local
+    name: cloudity-go-mod-cache-mail

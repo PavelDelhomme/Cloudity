@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 
 export default defineConfig({
   plugins: [react()],
@@ -14,12 +14,12 @@ export default defineConfig({
       usePolling: true,
     },
     proxy: {
-      '/api': {
-        target: 'http://api-gateway:8000',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
-      }
-    }
+      '/auth': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/admin': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/pass': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/mail': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/health': { target: 'http://api-gateway:8000', changeOrigin: true },
+    },
   },
   build: {
     outDir: 'dist',
