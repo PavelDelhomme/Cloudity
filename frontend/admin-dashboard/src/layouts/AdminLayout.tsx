@@ -29,11 +29,11 @@ export default function AdminLayout() {
     end ? location.pathname === href : location.pathname.startsWith(href)
 
   return (
-    <div className="min-h-screen bg-gray-100 flex">
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-200">
-          <Link to="/admin" className="text-base font-semibold text-gray-900">Cloudity</Link>
-          <p className="text-xs text-gray-500 mt-0.5">Administration</p>
+    <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
+      <aside className="w-56 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700">
+          <Link to="/admin" className="text-base font-semibold text-gray-900 dark:text-slate-100">Cloudity</Link>
+          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Administration</p>
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
           {adminNav.map((item) => {
@@ -45,8 +45,8 @@ export default function AdminLayout() {
                 to={item.href}
                 className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
                   active
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-blue-600 dark:bg-blue-500 text-white'
+                    : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
                 }`}
               >
                 <Icon className="w-4 h-4 shrink-0" />
@@ -55,10 +55,10 @@ export default function AdminLayout() {
             )
           })}
         </nav>
-        <div className="p-2 border-t border-gray-200 space-y-0.5">
+        <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-0.5">
           <Link
             to="/app"
-            className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
           >
             <ArrowLeft className="w-4 h-4" />
             Retour à l’app
@@ -66,7 +66,7 @@ export default function AdminLayout() {
           <button
             type="button"
             onClick={logout}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
           >
             <LogOut className="w-4 h-4" />
             Déconnexion

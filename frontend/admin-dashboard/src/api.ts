@@ -344,13 +344,23 @@ export async function uploadDriveFile(
   form.append('file', file)
   form.append('name', file.name)
   if (parentId != null) form.append('parent_id', String(parentId))
-  const res = await fetch(apiUrl('/drive/nodes/upload'), {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
-  })
-  if (!res.ok) throw new Error(`Upload: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string; size: number }>
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+  try {
+    const res = await fetch(apiUrl('/drive/nodes/upload'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(text ? `Upload: ${res.status} - ${text}` : `Upload: ${res.status}`)
+    }
+    return res.json() as Promise<{ id: number; name: string; size: number }>
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 // Calendar — événements

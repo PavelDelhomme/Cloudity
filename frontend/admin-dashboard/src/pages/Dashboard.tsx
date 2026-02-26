@@ -21,7 +21,7 @@ export default function Dashboard() {
   if (!accessToken) {
     return (
       <PageLayout title="Tableau de bord">
-        <p className="text-slate-500">Non authentifié.</p>
+        <p className="text-slate-500 dark:text-slate-400">Non authentifié.</p>
       </PageLayout>
     )
   }
@@ -29,7 +29,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <PageLayout title="Tableau de bord">
-        <div className="flex items-center gap-2 text-slate-500">
+        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
           <span className="inline-block w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
           Chargement des statistiques…
         </div>
@@ -40,7 +40,7 @@ export default function Dashboard() {
   if (error) {
     return (
       <PageLayout title="Tableau de bord">
-        <p className="text-red-600">{error instanceof Error ? error.message : 'Erreur'}</p>
+        <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : 'Erreur'}</p>
       </PageLayout>
     )
   }
@@ -83,8 +83,8 @@ export default function Dashboard() {
             <Card key={c.label} className="p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">{c.label}</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900" data-testid={c.label === 'Tenants actifs' ? 'stat-active-tenants' : c.label === 'Utilisateurs total' ? 'stat-total-users' : 'stat-api-calls'}>
+                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{c.label}</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100" data-testid={c.label === 'Tenants actifs' ? 'stat-active-tenants' : c.label === 'Utilisateurs total' ? 'stat-total-users' : 'stat-api-calls'}>
                     {c.value}
                   </p>
                 </div>

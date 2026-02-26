@@ -73,6 +73,23 @@ describe('App', () => {
     expect(screen.getByText('Choisissez une application pour continuer.')).toBeTruthy()
   })
 
+  it('renders Drive page when authenticated at /app/drive', () => {
+    const auth = {
+      accessToken: 'token',
+      refreshToken: null,
+      tenantId: 1,
+      email: 'user@test.com',
+    }
+    localStorage.setItem('cloudity_admin_auth', JSON.stringify(auth))
+    render(
+      <TestWrapper initialEntries={['/app/drive']}>
+        <AppRoutes />
+      </TestWrapper>
+    )
+    expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
+    expect(screen.getByText('Téléverser')).toBeTruthy()
+  })
+
   it('renders Calendar page when authenticated at /app/calendar', () => {
     const auth = {
       accessToken: 'token',

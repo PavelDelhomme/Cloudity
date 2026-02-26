@@ -2,7 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider, useAuth } from './authContext'
+import { AuthProvider, useAuth, Global401Handler } from './authContext'
 
 import Landing from './pages/public/Landing'
 import LoginPage from './pages/public/LoginPage'
@@ -11,11 +11,14 @@ import RegisterPage from './pages/public/RegisterPage'
 import AppLayout from './layouts/AppLayout'
 import AppHub from './pages/app/AppHub'
 import DrivePage from './pages/app/DrivePage'
+import OfficePage from './pages/app/OfficePage'
 import PassPage from './pages/app/PassPage'
 import MailPage from './pages/app/MailPage'
 import CalendarPage from './pages/app/CalendarPage'
 import NotesPage from './pages/app/NotesPage'
 import TasksPage from './pages/app/TasksPage'
+import ContactsPage from './pages/app/ContactsPage'
+import PhotosPage from './pages/app/PhotosPage'
 import AppSettingsPage from './pages/app/AppSettingsPage'
 
 import AdminLayout from './layouts/AdminLayout'
@@ -50,6 +53,7 @@ function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; 
 export function AppRoutes() {
   return (
     <AuthProvider>
+      <Global401Handler />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route
@@ -79,18 +83,21 @@ export function AppRoutes() {
         >
           <Route index element={<AppHub />} />
           <Route path="drive" element={<DrivePage />} />
+          <Route path="office" element={<OfficePage />} />
           <Route path="pass" element={<PassPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="calendar" element={<CalendarPage />} />
           <Route path="notes" element={<NotesPage />} />
           <Route path="tasks" element={<TasksPage />} />
+          <Route path="contacts" element={<ContactsPage />} />
+          <Route path="photos" element={<PhotosPage />} />
           <Route path="settings" element={<AppSettingsPage />} />
         </Route>
 
         <Route
           path="/admin"
           element={
-            <RequireAuth returnTo="/admin">
+            <RequireAuth to="/admin">
               <AdminLayout />
             </RequireAuth>
           }

@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 
 const STORAGE_KEY = 'cloudity_admin_auth'
 
@@ -89,6 +91,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+/** Déconnecte et redirige vers /login quand une requête API renvoie 401 (token invalide ou expiré). */
+export function Global401Handler() {
+  const { logout, isAuthenticated } = useAuth()
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const cache = queryClient.getQueryCache()
+    const unsub = cache.subscribe((event) => {
+      if (event?.type !== 'updated') return
+      const q = event.query
+      if (q.state.status === 'error' && q.state.error instanceof Error && String(q.state.error.message).includes('401')) {
+        toast.error('Session expirée ou token invalide. Reconnectez-vous.')
+        logout()
+      }
+    })
+    return () => unsub()
+  }, [queryClient, logout, isAuthenticated])
+
+  return null
 }
 
 export function useAuth(): AuthContextValue {

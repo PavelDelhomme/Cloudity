@@ -37,30 +37,36 @@ describe('AppHub', () => {
     expect(screen.getByText('Choisissez une application pour continuer.')).toBeTruthy()
   })
 
-  it('renders all 6 app cards: Drive, Pass, Mail, Calendar, Notes, Tasks', () => {
+  it('renders all 9 app cards: Drive, Office, Pass, Mail, Calendar, Notes, Tasks, Contacts, Photos', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Office' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Pass' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Mail' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Calendar' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Tasks' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Photos' })).toBeTruthy()
   })
 
   it('links each app to correct route', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('link', { name: /Drive/ }).getAttribute('href')).toBe('/app/drive')
+    expect(screen.getByRole('link', { name: /Office/ }).getAttribute('href')).toBe('/app/office')
     expect(screen.getByRole('link', { name: /Pass/ }).getAttribute('href')).toBe('/app/pass')
     expect(screen.getByRole('link', { name: /Mail/ }).getAttribute('href')).toBe('/app/mail')
     expect(screen.getByRole('link', { name: /Calendar/ }).getAttribute('href')).toBe('/app/calendar')
     expect(screen.getByRole('link', { name: /Notes/ }).getAttribute('href')).toBe('/app/notes')
     expect(screen.getByRole('link', { name: /Tasks/ }).getAttribute('href')).toBe('/app/tasks')
+    expect(screen.getByRole('link', { name: /Contacts/ }).getAttribute('href')).toBe('/app/contacts')
+    expect(screen.getByRole('link', { name: /Photos/ }).getAttribute('href')).toBe('/app/photos')
   })
 
-  it('shows coming soon for Calendar, Notes, Tasks', () => {
+  it('shows coming soon for Office, Contacts, Photos', () => {
     render(wrap(<AppHub />))
-    expect(screen.getByText('Agenda et événements (à venir).')).toBeTruthy()
-    expect(screen.getByText('Notes et bloc-notes (à venir).')).toBeTruthy()
-    expect(screen.getByText('Tâches et to-do (à venir).')).toBeTruthy()
+    expect(screen.getByText(/Documents, tableurs et présentations.*À venir/)).toBeTruthy()
+    expect(screen.getByText(/Carnet d.adresses.*à venir/i)).toBeTruthy()
+    expect(screen.getByText(/Galerie et stockage photos.*à venir/)).toBeTruthy()
   })
 })

@@ -38,26 +38,26 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-[#f8fafc] dark:bg-slate-900 px-4 py-12">
       <div className="w-full max-w-[400px]">
         {/* Logo + titre */}
         <div className="text-center mb-8">
           <Link
             to="/"
-            className="inline-block text-2xl font-semibold text-gray-900 tracking-tight hover:text-gray-700"
+            className="inline-block text-2xl font-semibold text-gray-900 dark:text-slate-100 tracking-tight hover:text-gray-700 dark:hover:text-slate-300"
           >
             Cloudity
           </Link>
-          <h1 className="mt-3 text-lg font-medium text-gray-600">
+          <h1 className="mt-3 text-lg font-medium text-gray-600 dark:text-slate-400">
             Connexion
           </h1>
         </div>
 
         {/* Carte formulaire */}
-        <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm p-8">
+        <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200/80 dark:border-slate-600 shadow-sm p-8">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                 Email
               </label>
               <input
@@ -68,11 +68,11 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 placeholder="vous@exemple.com"
-                className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
+                className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                 Mot de passe
               </label>
               <input
@@ -83,28 +83,28 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 placeholder="••••••••"
-                className="block w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
+                className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
               />
             </div>
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 disabled:opacity-50 disabled:pointer-events-none"
             >
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="mt-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Pas de compte ?{' '}
-            <Link to="/register" className="font-medium text-blue-600 hover:text-blue-700">
+            <Link to="/register" className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
               Créer un compte
             </Link>
           </p>
         </div>
 
         <p className="mt-6 text-center">
-          <Link to="/" className="text-sm text-gray-500 hover:text-gray-700">
+          <Link to="/" className="text-sm text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300">
             ← Retour à l’accueil
           </Link>
         </p>
