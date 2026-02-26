@@ -186,7 +186,7 @@ describe('api', () => {
         expect.stringContaining('/auth/login'),
         expect.objectContaining({
           method: 'POST',
-          body: JSON.stringify({ email: 'a@b.com', password: 'p', tenant_id: 1 }),
+          body: JSON.stringify({ email: 'a@b.com', password: 'p', tenant_id: '1' }),
         })
       )
     })
@@ -200,7 +200,7 @@ describe('api', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
-          body: JSON.stringify({ email: 'a@b.com', password: 'p', tenant_id: 2 }),
+          body: JSON.stringify({ email: 'a@b.com', password: 'p', tenant_id: '2' }),
         })
       )
     })

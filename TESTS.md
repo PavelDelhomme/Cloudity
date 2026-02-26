@@ -18,7 +18,7 @@
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
-**En résumé** : **`make test-all`** = test (112) + E2E + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : `make up`, attendre 20-30 s, puis **`make test-all`** (ou **`make test-full`** pour inclure les tests dans les conteneurs).
+**En résumé** : **`make test-all`** = test (113+) + E2E + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : `make up`, attendre 20-30 s, puis **`make test-all`** (ou **`make test-full`** pour inclure les tests dans les conteneurs).
 
 ---
 
@@ -30,12 +30,13 @@
 | **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 7 |
 | **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 4 |
+| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 2 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
 | **admin-dashboard** | Frontend (Vitest) | `npm run test` | 14 fichiers (AppHub, CalendarPage, NotesPage, TasksPage, App, …) | 61 |
 
-**Total actuel** : 112 tests (tous lancés par `make test`).
+**Total actuel** : 113+ tests (tous lancés par `make test`).
 
-**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`./scripts/setup.sh`** puis **`make up`** pour que Pass et Domaines admin fonctionnent avec un token valide.
+**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
 
 ---
 
@@ -49,6 +50,7 @@
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide → 401. |
+| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
 
@@ -65,11 +67,11 @@
 |---------|-------------------|
 | **src/api.test.ts** | `apiUrl` ; `fetchTenants`, `fetchUsers`, `fetchDashboardStats`, `fetchVaults`, `createVault`, `fetchVaultItems`, **`fetchDomains`**, **`createDomain`**, `login` (appels fetch, erreurs). |
 | **src/authContext.test.tsx** | `isAuthenticated` sans storage ; bouton Logout ; restauration auth depuis `localStorage`. |
-| **src/App.test.tsx** | Rendu login si non authentifié ; logout → login + clear storage ; **hub /app** ; **routes /app/calendar, /app/notes, /app/tasks** (titres + messages « à venir »). |
-| **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; **6 cartes** (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
-| **src/pages/app/CalendarPage.test.tsx** | Titre Calendar, breadcrumb ; message « Agenda à venir ». |
-| **src/pages/app/NotesPage.test.tsx** | Titre Notes, breadcrumb ; message « Notes à venir ». |
-| **src/pages/app/TasksPage.test.tsx** | Titre Tasks, breadcrumb ; message « Tâches à venir ». |
+| **src/App.test.tsx** | Rendu login si non authentifié ; logout → login + clear storage ; hub /app ; routes /app/calendar, /app/notes, /app/tasks (titres **Agenda**, **Notes**, **Tâches** + sous-titres statiques). |
+| **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
+| **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
+| **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
+| **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
 | **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
 | **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
 | **src/pages/Tenants.test.tsx** | Chargement puis liste tenants ; non authentifié ; erreur fetch. |

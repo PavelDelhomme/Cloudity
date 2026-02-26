@@ -1,7 +1,10 @@
 const getBaseUrl = (): string => {
   const env = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env
-  const base = env?.VITE_API_URL ?? ''
-  return base ? `${base.replace(/\/$/, '')}` : ''
+  let base = env?.VITE_API_URL ?? ''
+  base = base ? `${base.replace(/\/$/, '')}` : ''
+  // Éviter le port 6000 (ERR_UNSAFE_PORT dans Chrome) : forcer URLs relatives
+  if (/:\/\/[^/]*:6000(\/|$)/.test(base)) return ''
+  return base
 }
 
 export function apiUrl(path: string): string {
@@ -205,7 +208,7 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, tenant_id: body.tenant_id ?? 1 }),
+    body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
   })
   if (!res.ok) {
     const t = await res.text()
@@ -234,4 +237,209 @@ export async function register(body: RegisterBody): Promise<RegisterResponse> {
     throw new Error(t || `Register: ${res.status}`)
   }
   return res.json() as Promise<RegisterResponse>
+}
+
+// Drive — dossiers et fichiers en cascade
+export type DriveNode = {
+  id: number
+  tenant_id: number
+  user_id: number
+  parent_id: number | null
+  name: string
+  is_folder: boolean
+  size: number
+  mime_type?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchDriveNodes(
+  token: string,
+  parentId: number | null
+): Promise<DriveNode[]> {
+  const base = apiUrl('/drive/nodes')
+  const url = parentId == null ? base : `${base}?parent_id=${parentId}`
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Drive: ${res.status}`)
+  return res.json() as Promise<DriveNode[]>
+}
+
+export async function createDriveFolder(
+  token: string,
+  parentId: number | null,
+  name: string
+): Promise<{ id: number; name: string; is_folder: boolean }> {
+  const res = await fetch(apiUrl('/drive/nodes'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ parent_id: parentId, name, is_folder: true }),
+  })
+  if (!res.ok) throw new Error(`Create folder: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string; is_folder: boolean }>
+}
+
+export async function renameDriveNode(
+  token: string,
+  id: number,
+  name: string
+): Promise<{ id: number; name: string }> {
+  const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error(`Rename: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string }>
+}
+
+export async function deleteDriveNode(token: string, id: number): Promise<void> {
+  const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete: ${res.status}`)
+}
+
+export async function downloadDriveFile(
+  token: string,
+  nodeId: number
+): Promise<Blob> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Download: ${res.status}`)
+  return res.blob()
+}
+
+export async function uploadDriveFile(
+  token: string,
+  parentId: number | null,
+  file: File
+): Promise<{ id: number; name: string; size: number }> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('name', file.name)
+  if (parentId != null) form.append('parent_id', String(parentId))
+  const res = await fetch(apiUrl('/drive/nodes/upload'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  })
+  if (!res.ok) throw new Error(`Upload: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string; size: number }>
+}
+
+// Calendar — événements
+export type CalendarEvent = {
+  id: number
+  tenant_id: number
+  user_id: number
+  title: string
+  start_at: string
+  end_at: string
+  all_day: boolean
+  location?: string | null
+  description?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchCalendarEvents(token: string): Promise<CalendarEvent[]> {
+  const res = await fetch(apiUrl('/calendar/events'), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Calendar: ${res.status}`)
+  return res.json() as Promise<CalendarEvent[]>
+}
+
+export async function createCalendarEvent(
+  token: string,
+  data: { title: string; start_at: string; end_at: string; all_day?: boolean; location?: string; description?: string }
+): Promise<{ id: number; title: string }> {
+  const res = await fetch(apiUrl('/calendar/events'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`Create event: ${res.status}`)
+  return res.json() as Promise<{ id: number; title: string }>
+}
+
+// Notes — bloc-notes
+export type Note = {
+  id: number
+  tenant_id: number
+  user_id: number
+  title: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchNotes(token: string): Promise<Note[]> {
+  const res = await fetch(apiUrl('/notes'), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Notes: ${res.status}`)
+  return res.json() as Promise<Note[]>
+}
+
+export async function createNote(token: string, title: string, content: string): Promise<{ id: number; title: string }> {
+  const res = await fetch(apiUrl('/notes'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, content }),
+  })
+  if (!res.ok) throw new Error(`Create note: ${res.status}`)
+  return res.json() as Promise<{ id: number; title: string }>
+}
+
+// Tasks — listes et tâches
+export type TaskList = { id: number; tenant_id: number; user_id: number; name: string; created_at: string; updated_at: string }
+export type Task = {
+  id: number
+  tenant_id: number
+  user_id: number
+  list_id?: number | null
+  title: string
+  completed: boolean
+  due_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchTaskLists(token: string): Promise<TaskList[]> {
+  const res = await fetch(apiUrl('/tasks/lists'), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Task lists: ${res.status}`)
+  return res.json() as Promise<TaskList[]>
+}
+
+export async function fetchTasks(token: string, listId?: number | null): Promise<Task[]> {
+  const url = listId != null ? `${apiUrl('/tasks')}?list_id=${listId}` : apiUrl('/tasks')
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Tasks: ${res.status}`)
+  return res.json() as Promise<Task[]>
+}
+
+export async function createTask(token: string, title: string, listId?: number | null): Promise<{ id: number; title: string }> {
+  const res = await fetch(apiUrl('/tasks'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, list_id: listId ?? undefined }),
+  })
+  if (!res.ok) throw new Error(`Create task: ${res.status}`)
+  return res.json() as Promise<{ id: number; title: string }>
+}
+
+export async function updateTaskCompleted(token: string, id: number, completed: boolean): Promise<void> {
+  const res = await fetch(apiUrl(`/tasks/${id}`), {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed }),
+  })
+  if (!res.ok) throw new Error(`Update task: ${res.status}`)
 }

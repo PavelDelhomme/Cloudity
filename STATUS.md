@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d’avancement et référence projet
 
-**Dernière mise à jour** : 2025-02-25  
+**Dernière mise à jour** : 2026-02-26  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
 **Document de référence** : ce fichier sert de **référence unique** pour l’avancement et les prochaines étapes.
 
@@ -14,11 +14,11 @@
 | **Arrêter la stack** | `make down` |
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
-| **Première fois** | `./scripts/setup.sh` puis `make up` |
+| **Première fois** | **`make setup`** puis **`make up-full`** |
 
 **URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6000 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
 
-**Connexion locale** : Il n’y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make seed-admin`** (après `make up`) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** fait `up` + attente services + seed + seed-admin en une commande (compte démo toujours créé).
+**Connexion locale** : Il n’y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
 ### Tests (à suivre absolument)
 
@@ -39,16 +39,17 @@
 - **api-gateway** (Go) : `go test ./...` → health, routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **CORS** → **7 tests**.
 - **password-manager** (Go) : `go test ./...` → health, auth requis pour `/pass/vaults` → **3 tests**.
 - **mail-directory-service** (Go) : `go test ./...` → health, `/mail/health`, `/mail/domains` sans X-Tenant-ID → 401, X-Tenant-ID invalide → 401 → **4 tests**.
+- **drive-service** (Go) : `go test ./...` → health, GET /drive/nodes sans X-User-ID → 401 → **2 tests**.
 - **admin-service** (Python) : `pytest tests/` → **21 tests**.
 - **admin-dashboard** (Vitest) : **14 fichiers**, **61 tests**.
 
-**Total : 112 tests** (make test).
+**Total : 114+ tests** (make test).
 
 **Détail des tests et liste des tests à faire** : voir **[TESTS.md](./TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État (2025-02-26)** : **112 tests** (make test). **make test-all** = test + test-e2e + test-security. **make test-full** = test-all + test-docker. Frontend unifié : landing, login/register (sans tenant visible), hub /app (Drive, Pass, Mail, **Calendar, Notes, Tasks** en squelettes), admin sous /admin. Gateway : clé publique JWT montée depuis auth-service (`/app/keys`) pour X-User-ID → fix 401 /pass/vaults. Favicon et `main` dans package.json (admin-dashboard) pour éviter 404 favicon et erreur Vite « package /app » en Docker.
+**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). 401 : déconnexion/reconnexion si token invalid.
 
 ---
 
@@ -76,6 +77,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [x] **Schéma DB mail** : `03-schema-mail.sql` (mail_domains, mail_mailboxes, mail_aliases).
 - [ ] **mail-client-api** : wrapper IMAP/SMTP en REST pour l’UI.
 - [ ] **Client mail Flutter** (web + Linux) : lecture/envoi, dossiers, étiquettes.
+- [ ] **Client mail web (admin-dashboard)** : envoi, brouillons, dossiers, déplacer des mails, récupération, gestion de plusieurs boîtes (à brancher sur mail-client-api).
 - [x] **Page Domaines** (admin-dashboard) : liste + création domaines mail, API /mail/domains.
 
 ### Phase 3 — Alias + intégration
@@ -87,13 +89,16 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 ### Phase 4 et après
 
 - [ ] **Mail E2E** (OpenPGP) pour mails Cloudity–Cloudity.
-- [ ] **Drive** : service + client (fichiers chiffrés côté client), **éditeur de documents** (interface complète type Nextcloud).
+- [x] **Drive (MVP)** : schéma DB `04-schema-drive.sql` (drive_nodes), **drive-service** (Go) avec CRUD dossiers/fichiers en cascade (list/create/rename/delete/upload/download), auth X-User-ID. Route gateway `/drive/*`. **Client web** : page Drive avec breadcrumb, création de dossiers en cascade, téléversement, renommer, supprimer, télécharger (type Google Drive / Nextcloud).
+- [x] **Calendar, Notes, Tasks (MVP)** : schémas DB `05-schema-calendar.sql`, `06-schema-notes.sql`, `07-schema-tasks.sql`. **calendar-service**, **notes-service**, **tasks-service** (Go) avec DB, auth X-User-ID, CRUD complet. Routes gateway `/calendar/*`, `/notes/*`, `/tasks/*`. **Client web** : pages Agenda, Notes, Tâches connectées aux API (liste, création, mise à jour).
+- [ ] **OnlyOffice** : intégration type Nextcloud pour édition de documents (DOCX, XLSX, etc.) depuis le Drive. À planifier (Document Server + connecteur frontend).
+- [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour gros fichiers.
 - [ ] **Apps mobiles** Mail + Pass (Flutter).
 - [ ] **Contacts** : app Contacts web + mobile (interconnectée Mail, Calendar, Tasks).
 - [ ] **Photos** : app Photos web + mobile (galerie, stockage).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
-**401 sur /pass/vaults ou /mail/domains** : la gateway pose `X-User-ID` / `X-Tenant-ID` seulement si le JWT est valide et qu’elle a la clé publique auth-service. Lancer **`./scripts/setup.sh`** (crée `public.pem`) puis **`make up`**.
+**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. Si vous voyez « token signature is invalid » (par ex. après redémarrage de l’auth-service), **se déconnecter puis se reconnecter** pour obtenir un nouveau token. Le frontend déconnecte automatiquement sur 401 sur la page Pass. Lancer **`make setup`** (crée `public.pem`) puis **`make up-full`** si la clé n’est pas encore générée.
 
 *Détail des phases et checklist complète : section 5 ci-dessous.*
 
@@ -234,7 +239,10 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 | mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias (CRUD + API). Port **6050**, route gateway `/mail/*`. Health + GET/POST /mail/domains. |
 | mail-client-api | — | ❌ À faire | Wrap IMAP/SMTP en REST/GraphQL pour l’UI (Phase 2). |
 | password-manager | (voir ci-dessus) | ✅ OK | Service 6051 déjà en place. |
-| drive-service | — | ❌ À faire | Phase 4. |
+| calendar-service | Go (Gin) | ✅ OK | Événements (calendar_events). Port **6052**, route gateway `/calendar/*`. DB + auth X-User-ID. CRUD events. |
+| notes-service | Go (Gin) | ✅ OK | Notes (table notes). Port **6053**, route gateway `/notes/*`. DB + auth X-User-ID. CRUD notes. |
+| tasks-service | Go (Gin) | ✅ OK | Tâches et listes (task_lists, tasks). Port **6054**, route gateway `/tasks/*`. DB + auth X-User-ID. CRUD lists/tasks. |
+| drive-service | Go (Gin) | ✅ OK | Fichiers et dossiers en cascade. Port **6055**, route gateway `/drive/*`. DB : `drive_nodes` (04-schema-drive.sql). CRUD nodes, upload/download. Auth via X-User-ID / X-Tenant-ID. |
 
 ### 4.5 Frontend & applications web (port 6001)
 
@@ -246,10 +254,10 @@ Une **seule app React** (frontend/admin-dashboard) sert à la fois l’accueil p
 | **/login** | Connexion (email + mot de passe uniquement ; pas de champ Tenant ID visible) | ✅ |
 | **/register** | Inscription (email + mot de passe) | ✅ |
 | **/app** | Hub : tableau de bord avec liens vers Drive, Pass, Mail | ✅ |
-| **/app/drive** | Interface Drive (placeholder : structure prête, contenu à brancher) | ✅ |
+| **/app/drive** | Drive : dossiers et fichiers en cascade (breadcrumb, nouveau dossier, téléverser, renommer, supprimer, télécharger) | ✅ |
 | **/app/pass** | Pass web : coffres et entrées (même API que admin, déchiffrement côté client à venir) | ✅ |
 | **/app/mail** | Interface Mail (placeholder : dossiers, liste, à brancher sur mail-client-api) | ✅ |
-| **/app/settings** | Paramètres utilisateur (session) | ✅ |
+| **/app/settings** | Paramètres utilisateur (session) ; à enrichir (profil, préférences, etc.) | ✅ |
 | **/admin** | Administration : tableau de bord, Tenants, Users, Vaults, Domaines mail, Settings | ✅ |
 
 **Connexion** : l’utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l’API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.

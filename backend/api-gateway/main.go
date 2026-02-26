@@ -28,44 +28,65 @@ var services = []Service{
 	{Name: "admin", URL: "http://admin-service:8082", Prefix: "/admin"},
 	{Name: "pass", URL: "http://password-manager:8051", Prefix: "/pass"},
 	{Name: "mail", URL: getEnv("MAIL_DIRECTORY_SERVICE_URL", "http://mail-directory-service:8050"), Prefix: "/mail"},
+	{Name: "calendar", URL: "http://calendar-service:8052", Prefix: "/calendar"},
+	{Name: "notes", URL: "http://notes-service:8053", Prefix: "/notes"},
+	{Name: "tasks", URL: "http://tasks-service:8054", Prefix: "/tasks"},
+	{Name: "drive", URL: "http://drive-service:8055", Prefix: "/drive"},
 }
 
 var limiter = rate.NewLimiter(10, 20) // 10 requests per second, burst of 20
 
 var (
-	publicKeyOnce sync.Once
-	publicKeyVal  interface{}
+	publicKeyMu  sync.RWMutex
+	publicKeyVal interface{}
 )
 
-// loadPublicKey charge la clé publique RSA du auth-service pour valider les JWT (une seule fois).
-// Fichier : JWT_PUBLIC_KEY_PATH, sinon /app/keys/public.pem (Docker), sinon ./public.pem (dev local).
+// invalidatePublicKey force le rechargement de la clé au prochain loadPublicKey (après redémarrage auth-service).
+func invalidatePublicKey() {
+	publicKeyMu.Lock()
+	defer publicKeyMu.Unlock()
+	publicKeyVal = nil
+	log.Println("[gateway] JWT public key cache invalidé. Reconnectez-vous (déconnexion puis connexion) pour obtenir un nouveau token.")
+}
+
+// loadPublicKey charge la clé publique RSA du auth-service. Recharge depuis le disque si le cache a été invalidé (ex. après erreur de signature).
 func loadPublicKey() interface{} {
-	publicKeyOnce.Do(func() {
-		paths := []string{
-			os.Getenv("JWT_PUBLIC_KEY_PATH"),
-			"/app/keys/public.pem",
-			"public.pem",
-			"../auth-service/public.pem",
+	publicKeyMu.RLock()
+	k := publicKeyVal
+	publicKeyMu.RUnlock()
+	if k != nil {
+		return k
+	}
+	publicKeyMu.Lock()
+	defer publicKeyMu.Unlock()
+	// Double-check after lock
+	if publicKeyVal != nil {
+		return publicKeyVal
+	}
+	paths := []string{
+		os.Getenv("JWT_PUBLIC_KEY_PATH"),
+		"/app/keys/public.pem",
+		"public.pem",
+		"../auth-service/public.pem",
+	}
+	for _, path := range paths {
+		if path == "" {
+			continue
 		}
-		for _, path := range paths {
-			if path == "" {
-				continue
-			}
-			bytes, err := os.ReadFile(path)
-			if err != nil {
-				continue
-			}
-			key, err := jwt.ParseRSAPublicKeyFromPEM(bytes)
-			if err != nil {
-				continue
-			}
-			publicKeyVal = key
-			log.Printf("[gateway] JWT public key loaded from %s", path)
-			return
+		bytes, err := os.ReadFile(path)
+		if err != nil {
+			continue
 		}
-		log.Println("[gateway] JWT public key not found. /pass and /mail will return 401 until auth-service public.pem is available. Run ./scripts/setup.sh then make up.")
-	})
-	return publicKeyVal
+		key, err := jwt.ParseRSAPublicKeyFromPEM(bytes)
+		if err != nil {
+			continue
+		}
+		publicKeyVal = key
+		log.Printf("[gateway] JWT public key loaded from %s", path)
+		return key
+	}
+	log.Println("[gateway] JWT public key not found. /pass and /mail will return 401. Run make setup then make up. Then log out and log in again.")
+	return nil
 }
 
 // NewHandler construit le handler HTTP (utilisé par main et par les tests).
@@ -174,6 +195,10 @@ func authMiddleware(next http.Handler) http.Handler {
 		if err != nil || token == nil || !token.Valid {
 			if err != nil {
 				log.Printf("[gateway] JWT invalid for %s: %v", r.URL.Path, err)
+				// Si la signature est invalide, la clé auth-service a peut-être été régénérée : invalider le cache pour recharger au prochain login.
+				if strings.Contains(err.Error(), "signature") || strings.Contains(err.Error(), "verification error") {
+					invalidatePublicKey()
+				}
 			}
 			next.ServeHTTP(w, r)
 			return

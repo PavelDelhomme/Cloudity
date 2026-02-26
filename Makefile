@@ -1,4 +1,4 @@
-.PHONY: help up down init dev prod build test tests clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup init dev prod build test tests clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -24,9 +24,12 @@ PORT_REDIS = 6079
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo '  make up          - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
-	@echo '  make up-full     - up + attente services + seed + seed-admin (compte démo toujours créé)'
-	@echo '  make down       - Arrête toute la stack'
+	@echo '  Première fois :  make setup   puis  make up-full   (stack + compte démo prêts à tester)'
+	@echo ''
+	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
+	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
+	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
+	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — 112 tests'
 	@echo '  make tests      - TOUT: unit/app + E2E + sécurité, avec rapport dans reports/test-YYYYMMDD-HHMMSS.log'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
@@ -52,13 +55,19 @@ up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Comman
 	@echo ""
 	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
 
-up-full: up wait-for-services seed seed-admin ## Démarre la stack + seed tenants + compte démo (admin@cloudity.local / Admin123!)
-	@echo "✅ Stack et compte de démo prêts."
+up-full: down up wait-for-services seed seed-admin test ## Tout-en-un : down, up, seed, compte démo, puis lance les tests pour vérifier
+	@echo "✅ Stack, compte démo et tests OK. Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down
 	@echo "✅ Stack arrêtée."
+
+setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis lancer make up-full.
+	@if [ ! -f scripts/setup.sh ]; then echo "❌ scripts/setup.sh introuvable."; exit 1; fi
+	@./scripts/setup.sh
+	@echo ""
+	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
 
 init: ## Initialisation complète du projet (première fois)
 	@echo "🚀 Initialisation de Cloudity..."
@@ -171,6 +180,14 @@ test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lan
 	@(cd backend/password-manager && go test -v -count=1 ./...) || exit 1
 	@echo "  [mail-directory-service]"
 	@(cd backend/mail-directory-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [calendar-service]"
+	@(cd backend/calendar-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [notes-service]"
+	@(cd backend/notes-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [tasks-service]"
+	@(cd backend/tasks-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [drive-service]"
+	@(cd backend/drive-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [admin-service]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
 	@echo "  [admin-dashboard]"
@@ -198,6 +215,10 @@ test-docker: ## Lance les tests dans les conteneurs (make up avant). Même batte
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T api-gateway go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T password-manager go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T mail-directory-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T calendar-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T notes-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T tasks-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T drive-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tests Docker terminés."
@@ -263,6 +284,11 @@ migrate-mail: ## Applique le schéma mail sur une base existante (make up avant)
 	@echo "📧 Application du schéma mail..."
 	@cat infrastructure/postgresql/migrations/20250225_mail_schema.sql | $(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1
 	@echo "✅ Schéma mail appliqué."
+
+migrate: ## Applique toutes les migrations non appliquées (exécuté automatiquement au make up via le service db-migrate)
+	@echo "📦 Application des migrations DB..."
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm db-migrate
+	@echo "✅ Migrations appliquées."
 
 health: ## Vérifie la santé des services (ports 60XX)
 	@echo "🏥 Vérification des services (ports 60XX)..."

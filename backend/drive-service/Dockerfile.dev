@@ -1,0 +1,9 @@
+FROM golang:1.21-alpine
+WORKDIR /app
+RUN apk add --no-cache git
+COPY go.mod ./
+RUN go mod download
+COPY . .
+EXPOSE 8055
+ENV PORT=8055
+CMD ["go", "run", "."]

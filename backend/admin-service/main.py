@@ -43,6 +43,23 @@ class Tenant(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(Integer, nullable=False, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    password_hash = Column(String(512), nullable=False)  # non exposé dans l'API
+    totp_secret = Column(String(255), nullable=True)     # non exposé
+    is_2fa_enabled = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+    role = Column(String(50), default="user")
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+
 Base.metadata.create_all(bind=engine)
 
 # Pydantic schemas
@@ -70,6 +87,28 @@ class TenantResponse(TenantBase):
     
     class Config:
         from_attributes = True
+
+
+# User schemas (sans password_hash / totp_secret)
+class UserResponse(BaseModel):
+    id: int
+    tenant_id: int
+    email: str
+    is_2fa_enabled: bool
+    is_active: bool
+    role: str
+    last_login: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class UserUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    role: Optional[str] = Field(None, min_length=1, max_length=50)
+
 
 # Dependencies
 def get_db():
@@ -151,6 +190,75 @@ async def delete_tenant(
     db.delete(tenant)
     db.commit()
     return {"message": "Tenant deleted successfully"}
+
+
+# --- Users CRUD (lecture + mise à jour rôle / is_active) ---
+
+@app.get("/admin/tenants/{tenant_id}/users", response_model=List[UserResponse])
+async def list_users(
+    tenant_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    users = db.query(User).filter(User.tenant_id == tenant_id).offset(skip).limit(limit).all()
+    return users
+
+
+@app.get("/admin/users/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@app.patch("/admin/users/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# --- Dashboard stats ---
+
+class DashboardStats(BaseModel):
+    active_tenants: int
+    total_users: int
+    api_calls_today: int
+
+
+@app.get("/admin/stats", response_model=DashboardStats)
+async def get_dashboard_stats(db: Session = Depends(get_db)):
+    active_tenants = db.query(Tenant).filter(Tenant.is_active == True).count()
+    total_users = db.query(User).count()
+    # api_calls_today: optional count from audit_logs; 0 if table/column not used
+    try:
+        from sqlalchemy import text
+        row = db.execute(
+            text("SELECT COUNT(*) AS n FROM audit_logs WHERE (created_at AT TIME ZONE 'UTC')::date = (NOW() AT TIME ZONE 'UTC')::date")
+        ).fetchone()
+        api_calls_today = row[0] if row else 0
+    except Exception:
+        api_calls_today = 0
+    return DashboardStats(
+        active_tenants=active_tenants,
+        total_users=total_users,
+        api_calls_today=api_calls_today,
+    )
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8082, reload=True)

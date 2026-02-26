@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup initial du projet Cloudity (structure, .env, clés, deps)
-# Après: make up pour démarrer la stack (ports 60XX)
+# Ensuite : make up-full pour démarrer la stack et créer le compte démo (prêt à tester)
 
 set -e
 
@@ -61,6 +61,10 @@ fi
 echo "📦 Go modules..."
 (cd backend/auth-service && go mod tidy 2>/dev/null) || true
 (cd backend/api-gateway && go mod tidy 2>/dev/null) || true
+(cd backend/calendar-service && go mod tidy 2>/dev/null) || true
+(cd backend/notes-service && go mod tidy 2>/dev/null) || true
+(cd backend/tasks-service && go mod tidy 2>/dev/null) || true
+(cd backend/drive-service && go mod tidy 2>/dev/null) || true
 
 # Node (frontend)
 if [ -f frontend/admin-dashboard/package.json ]; then
@@ -80,8 +84,9 @@ chmod +x scripts/*.sh 2>/dev/null || true
 echo ""
 echo "✅ Setup terminé."
 echo ""
-echo "Démarrer la stack:  make up"
-echo "Arrêter la stack:   make down"
-echo "Aide:               make help"
-echo "Suivi projet:       voir STATUS.md"
+echo "Démarrer tout (stack + compte démo) :  make up-full"
+echo "Ou seulement la stack :               make up"
+echo "Arrêter la stack :                    make down"
+echo "Aide :                                make help"
+echo "Suivi projet :                        voir STATUS.md"
 echo ""

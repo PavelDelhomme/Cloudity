@@ -42,6 +42,28 @@ services:
     networks:
       - cloudity-network
 
+  # Migrations DB : applique automatiquement les scripts dans infrastructure/postgresql/migrations/
+  # (ex. 04-schema-drive.sql, 20250225_mail_schema.sql). Les services qui utilisent la DB en dépendent.
+  db-migrate:
+    image: postgres:15-alpine
+    container_name: cloudity-db-migrate
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-cloudity_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cloudity_secure_password_2025}
+      POSTGRES_DB: ${POSTGRES_DB:-cloudity}
+    volumes:
+      - ./scripts:/scripts:ro
+      - ./infrastructure/postgresql/migrations:/migrations:ro
+    command: ["/bin/sh", "/scripts/migrate-db.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cloudity-network
+
   # Service d'authentification Go
   auth-service:
     build:
@@ -64,6 +86,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:
@@ -102,6 +126,8 @@ services:
         condition: service_healthy
       mail-directory-service:
         condition: service_healthy
+      drive-service:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
       interval: 30s
@@ -132,6 +158,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     healthcheck:
@@ -160,6 +188,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8051/health"]
       interval: 30s
@@ -186,8 +216,122 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
+  # Calendar (base) — événements, à développer
+  calendar-service:
+    build:
+      context: ./backend/calendar-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-calendar-service
+    restart: unless-stopped
+    ports:
+      - "6052:8052"
+    environment:
+      - PORT=8052
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/calendar-service:/app:cached
+      - go_mod_cache_calendar:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8052/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
+  # Notes (base) — bloc-notes, à développer
+  notes-service:
+    build:
+      context: ./backend/notes-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-notes-service
+    restart: unless-stopped
+    ports:
+      - "6053:8053"
+    environment:
+      - PORT=8053
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/notes-service:/app:cached
+      - go_mod_cache_notes:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8053/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
+  # Tasks (base) — tâches / to-do, à développer
+  tasks-service:
+    build:
+      context: ./backend/tasks-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-tasks-service
+    restart: unless-stopped
+    ports:
+      - "6054:8054"
+    environment:
+      - PORT=8054
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/tasks-service:/app:cached
+      - go_mod_cache_tasks:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8054/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
+  # Drive (base) — fichiers et dossiers en cascade (type Google Drive / Nextcloud)
+  drive-service:
+    build:
+      context: ./backend/drive-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-drive-service
+    restart: unless-stopped
+    ports:
+      - "6055:8055"
+    environment:
+      - PORT=8055
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/drive-service:/app:cached
+      - go_mod_cache_drive:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8055/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -284,3 +428,15 @@ volumes:
   go_mod_cache_mail:
     driver: local
     name: cloudity-go-mod-cache-mail
+  go_mod_cache_calendar:
+    driver: local
+    name: cloudity-go-mod-cache-calendar
+  go_mod_cache_notes:
+    driver: local
+    name: cloudity-go-mod-cache-notes
+  go_mod_cache_tasks:
+    driver: local
+    name: cloudity-go-mod-cache-tasks
+  go_mod_cache_drive:
+    driver: local
+    name: cloudity-go-mod-cache-drive

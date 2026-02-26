@@ -86,8 +86,8 @@ describe('App', () => {
         <AppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Calendar' })).toBeTruthy()
-    expect(screen.getByText(/Agenda à venir/)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy()
+    expect(screen.getByText('Événements et rendez-vous.')).toBeTruthy()
   })
 
   it('renders Notes page when authenticated at /app/notes', () => {
@@ -104,7 +104,7 @@ describe('App', () => {
       </TestWrapper>
     )
     expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
-    expect(screen.getByText(/Notes à venir/)).toBeTruthy()
+    expect(screen.getByText('Bloc-notes et idées.')).toBeTruthy()
   })
 
   it('renders Tasks page when authenticated at /app/tasks', () => {
@@ -120,7 +120,7 @@ describe('App', () => {
         <AppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Tasks' })).toBeTruthy()
-    expect(screen.getByText(/Tâches à venir/)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
+    expect(screen.getByText('To-do et listes.')).toBeTruthy()
   })
 })
