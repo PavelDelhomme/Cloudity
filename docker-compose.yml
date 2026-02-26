@@ -91,6 +91,7 @@ services:
       - GO_ENV=development
     volumes:
       - ./backend/api-gateway:/app:cached
+      - ./backend/auth-service:/app/keys:ro
       - go_mod_cache_gateway:/go/pkg/mod
     depends_on:
       auth-service:

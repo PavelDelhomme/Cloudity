@@ -35,20 +35,20 @@
 **Pourquoi attendre ?** Le **gateway** ne démarre qu’une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
 **Ce que `make test` exécute :**
-- **auth-service** (Go) : `go test ./...` → health, hash, JWT, register, login, validate, refresh, 2FA enable/verify (dont code invalide) → **14 tests**.
+- **auth-service** (Go) : `go test ./...` → health, hash, JWT, register, login, validate, refresh, 2FA enable/verify (dont code invalide), **écriture public.pem si clé générée** → **15 tests**.
 - **api-gateway** (Go) : `go test ./...` → health, routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **CORS** → **7 tests**.
 - **password-manager** (Go) : `go test ./...` → health, auth requis pour `/pass/vaults` → **3 tests**.
 - **mail-directory-service** (Go) : `go test ./...` → health, `/mail/health`, `/mail/domains` sans X-Tenant-ID → 401, X-Tenant-ID invalide → 401 → **4 tests**.
 - **admin-service** (Python) : `pytest tests/` → **21 tests**.
-- **admin-dashboard** (Vitest) : **10 fichiers**, **47 tests**.
+- **admin-dashboard** (Vitest) : **14 fichiers**, **61 tests**.
 
-**Total : 97 tests** (make test).
+**Total : 112 tests** (make test).
 
 **Détail des tests et liste des tests à faire** : voir **[TESTS.md](./TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État (2025-02-25)** : **98 tests** (make test). **make test-all** = test + test-e2e + test-security. **make test-full** = test-all + test-docker. Frontend unifié : landing, login/register (sans tenant visible), hub /app (Drive, Pass, Mail), admin sous /admin.
+**État (2025-02-26)** : **112 tests** (make test). **make test-all** = test + test-e2e + test-security. **make test-full** = test-all + test-docker. Frontend unifié : landing, login/register (sans tenant visible), hub /app (Drive, Pass, Mail, **Calendar, Notes, Tasks** en squelettes), admin sous /admin. Gateway : clé publique JWT montée depuis auth-service (`/app/keys`) pour X-User-ID → fix 401 /pass/vaults. Favicon et `main` dans package.json (admin-dashboard) pour éviter 404 favicon et erreur Vite « package /app » en Docker.
 
 ---
 
@@ -87,9 +87,13 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 ### Phase 4 et après
 
 - [ ] **Mail E2E** (OpenPGP) pour mails Cloudity–Cloudity.
-- [ ] **Drive** : service + client (fichiers chiffrés côté client).
+- [ ] **Drive** : service + client (fichiers chiffrés côté client), **éditeur de documents** (interface complète type Nextcloud).
 - [ ] **Apps mobiles** Mail + Pass (Flutter).
+- [ ] **Contacts** : app Contacts web + mobile (interconnectée Mail, Calendar, Tasks).
+- [ ] **Photos** : app Photos web + mobile (galerie, stockage).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
+
+**401 sur /pass/vaults ou /mail/domains** : la gateway pose `X-User-ID` / `X-Tenant-ID` seulement si le JWT est valide et qu’elle a la clé publique auth-service. Lancer **`./scripts/setup.sh`** (crée `public.pem`) puis **`make up`**.
 
 *Détail des phases et checklist complète : section 5 ci-dessous.*
 

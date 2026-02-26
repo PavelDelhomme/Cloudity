@@ -5,6 +5,25 @@
 
 ---
 
+## Vision produit (type Nextcloud / Proton, en mieux)
+
+Suite complète auto-hébergée avec applications web + mobiles, interconnections et éditeurs :
+
+| Domaine | Web | Mobile | Interconnexions |
+|--------|-----|--------|------------------|
+| **Drive** | Client + éditeur de documents (Word, tableur, présentation) | App mobile Drive | Drive ↔ Office, partage |
+| **Pass** | Gestionnaire mots de passe, extension navigateur | App mobile Pass | Intégration alias mail |
+| **Mail** | Client mail web / Linux | App mobile Mail | Mail ↔ Calendar, Contacts, alias |
+| **Calendar** | Agenda, événements | App mobile Calendar | Calendar ↔ Mail, Tasks, Contacts |
+| **Notes** | Bloc-notes, éditeur riche | App mobile Notes | Sync, partage |
+| **Tasks** | Tâches, to-do | App mobile Tasks | Tasks ↔ Calendar, Mail |
+| **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
+| **Photos** | Galerie, stockage photos | App mobile Photos | Sync, partage, albums |
+
+**À faire (référence)** : alias email (API + UI), API alias temp/permanent, extension Pass « Créer alias », éditeurs documents (TipTap, Luckysheet, etc.), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. Détail dans STATUS.md et TESTS.md.
+
+---
+
 ## Phase 0 – Infra commune (base actuelle)
 
 > - Docker Compose global (Postgres, Redis, auth, api-gateway, admin-service, admin-dashboard)

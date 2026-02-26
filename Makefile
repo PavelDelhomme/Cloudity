@@ -27,7 +27,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make up          - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
 	@echo '  make up-full     - up + attente services + seed + seed-admin (compte démo toujours créé)'
 	@echo '  make down       - Arrête toute la stack'
-	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — 97 tests'
+	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — 112 tests'
 	@echo '  make tests      - TOUT: unit/app + E2E + sécurité, avec rapport dans reports/test-YYYYMMDD-HHMMSS.log'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'

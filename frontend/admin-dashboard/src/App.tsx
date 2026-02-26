@@ -13,6 +13,9 @@ import AppHub from './pages/app/AppHub'
 import DrivePage from './pages/app/DrivePage'
 import PassPage from './pages/app/PassPage'
 import MailPage from './pages/app/MailPage'
+import CalendarPage from './pages/app/CalendarPage'
+import NotesPage from './pages/app/NotesPage'
+import TasksPage from './pages/app/TasksPage'
 import AppSettingsPage from './pages/app/AppSettingsPage'
 
 import AdminLayout from './layouts/AdminLayout'
@@ -78,6 +81,9 @@ export function AppRoutes() {
           <Route path="drive" element={<DrivePage />} />
           <Route path="pass" element={<PassPage />} />
           <Route path="mail" element={<MailPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
+          <Route path="notes" element={<NotesPage />} />
+          <Route path="tasks" element={<TasksPage />} />
           <Route path="settings" element={<AppSettingsPage />} />
         </Route>
 
