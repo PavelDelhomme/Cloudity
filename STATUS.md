@@ -49,7 +49,7 @@
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). 401 : déconnexion/reconnexion si token invalid.
+**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **401** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6000` pour que le navigateur envoie le token au gateway ; en cas de 401 persistant, faire **make setup** puis **make up**, puis **se déconnecter et se reconnecter** (nouveau token + clé publique rechargée).
 
 ---
 
@@ -158,7 +158,7 @@ Le tout **dockerisé**, derrière Nginx Proxy Manager (prod) ou Nginx/Traefik en
 | **JWT (signature)** | **RS256** ou **Ed25519** | Clé RSA 2048+ ou Ed25519. Ne pas utiliser HS256 avec secret partagé en multi-services. | auth-service (RSA). |
 | **Mail E2E** | **OpenPGP** (RFC 4880) | Chiffrement symétrique session key + clé publique destinataire. Libs : OpenPGP.js (web), Flutter packages, etc. | Phase 4. |
 | **Backups** | **AES-256** ou **ChaCha20** (restic/borg) | Restic : AES-256-GCM par défaut. Borg : ChaCha20 ou AES. Clé dérivée du mot de passe (Argon2/Scrypt). | Phase 5. |
-| **Secrets / env** | **Pas de chiffrement dans le repo** | `.env` en `.gitignore`, secrets en prod via variables d’environnement ou vault (e.g. Docker secrets, K8s secrets). | Déjà .env. |
+| **Secrets / env** | **Pas de chiffrement dans le repo** | `.env` est dans `.gitignore` ; utiliser `.env.example` comme modèle. Si `.env` était déjà suivi par Git, lancer **`git rm --cached .env`** une fois (ou **`make create-env`**). Secrets en prod via variables d’environnement ou vault. |
 
 **Résumé court**  
 - **Hashing mots de passe** : Argon2id (déjà en place).  

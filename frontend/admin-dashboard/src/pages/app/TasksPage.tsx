@@ -7,21 +7,25 @@ import { useAuth } from '../../authContext'
 import { fetchTaskLists, fetchTasks, createTask, updateTaskCompleted } from '../../api'
 
 export default function TasksPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, logout } = useAuth()
   const queryClient = useQueryClient()
   const [newTaskTitle, setNewTaskTitle] = useState('')
 
-  const { data: lists = [] } = useQuery({
+  const { data: listsData } = useQuery({
     queryKey: ['tasks', 'lists'],
     queryFn: () => fetchTaskLists(accessToken!),
     enabled: Boolean(accessToken),
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
   })
+  const lists = listsData ?? []
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasksData, isLoading, error } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => fetchTasks(accessToken!),
     enabled: Boolean(accessToken),
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
   })
+  const tasks = tasksData ?? []
 
   const createMutation = useMutation({
     mutationFn: () => createTask(accessToken!, newTaskTitle || 'Nouvelle tâche'),
@@ -40,13 +44,30 @@ export default function TasksPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  if (error && error instanceof Error && error.message.includes('401')) {
+    return (
+      <div className="space-y-6 p-6">
+        <p className="text-red-600">
+          Session expirée ou token invalide.
+          <button
+            type="button"
+            onClick={() => { logout(); toast.success('Reconnectez-vous.') }}
+            className="ml-2 text-brand-600 hover:underline"
+          >
+            Se reconnecter
+          </button>
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <nav className="flex items-center gap-2 text-sm text-slate-500">
           <Link to="/app" className="hover:text-slate-700">Tableau de bord</Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-slate-900 font-medium">Tasks</span>
+          <span className="text-slate-900 font-medium">Tâches</span>
         </nav>
         <h1 className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">Tâches</h1>
         <p className="mt-1 text-sm text-slate-500">To-do et listes.</p>
@@ -73,12 +94,18 @@ export default function TasksPage() {
         </div>
         <div className="p-4">
           {isLoading ? (
-            <p className="text-slate-500">Chargement…</p>
+            <div className="flex items-center justify-center py-12">
+              <div className="rounded-full bg-slate-100 p-4">
+                <ListTodo className="h-8 w-8 animate-pulse text-slate-400" />
+              </div>
+            </div>
           ) : tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <ListTodo className="h-12 w-12 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-slate-100 p-4">
+                <ListTodo className="h-10 w-10 text-slate-400" />
+              </div>
               <p className="mt-4 text-slate-600">Aucune tâche.</p>
-              <p className="mt-1 text-sm text-slate-500">Ajoutez une tâche ci-dessus.</p>
+              <p className="mt-1 text-sm text-slate-500">Ajoutez une tâche ci-dessus pour commencer.</p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">

@@ -98,7 +98,7 @@ func (h *Handler) listVaults(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Vault
+	list := make([]Vault, 0)
 	for rows.Next() {
 		var v Vault
 		var uat string

@@ -39,12 +39,13 @@ export default function DrivePage() {
 
   const currentParentId = breadcrumb.length > 1 ? (breadcrumb[breadcrumb.length - 1].id as number) : null
 
-  const { data: nodes = [], isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['drive', 'nodes', currentParentId],
     queryFn: () => fetchDriveNodes(accessToken!, currentParentId),
     enabled: Boolean(accessToken),
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
   })
+  const nodes = data ?? []
 
   const goTo = useCallback(
     (id: number | null, name: string) => {

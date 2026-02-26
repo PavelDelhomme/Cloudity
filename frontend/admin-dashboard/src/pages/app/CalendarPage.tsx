@@ -2,22 +2,24 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Calendar, ChevronRight, Plus } from 'lucide-react'
+import { Calendar, ChevronRight, Plus, Loader2 } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import { fetchCalendarEvents, createCalendarEvent } from '../../api'
 
 export default function CalendarPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, logout } = useAuth()
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
 
-  const { data: events = [], isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['calendar', 'events'],
     queryFn: () => fetchCalendarEvents(accessToken!),
     enabled: Boolean(accessToken),
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
   })
+  const events = data ?? []
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -37,13 +39,30 @@ export default function CalendarPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  if (error && error instanceof Error && error.message.includes('401')) {
+    return (
+      <div className="space-y-6 p-6">
+        <p className="text-red-600">
+          Session expirée ou token invalide.
+          <button
+            type="button"
+            onClick={() => { logout(); toast.success('Reconnectez-vous.') }}
+            className="ml-2 text-brand-600 hover:underline"
+          >
+            Se reconnecter
+          </button>
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <nav className="flex items-center gap-2 text-sm text-slate-500">
           <Link to="/app" className="hover:text-slate-700">Tableau de bord</Link>
           <ChevronRight className="h-4 w-4" />
-          <span className="text-slate-900 font-medium">Calendar</span>
+          <span className="text-slate-900 font-medium">Agenda</span>
         </nav>
         <h1 className="mt-1 text-2xl font-bold text-slate-900 tracking-tight">Agenda</h1>
         <p className="mt-1 text-sm text-slate-500">Événements et rendez-vous.</p>
@@ -74,12 +93,16 @@ export default function CalendarPage() {
         </div>
         <div className="p-4">
           {isLoading ? (
-            <p className="text-slate-500">Chargement…</p>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
           ) : events.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Calendar className="h-12 w-12 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-slate-100 p-4">
+                <Calendar className="h-10 w-10 text-slate-400" />
+              </div>
               <p className="mt-4 text-slate-600">Aucun événement.</p>
-              <p className="mt-1 text-sm text-slate-500">Ajoutez un événement ci-dessus.</p>
+              <p className="mt-1 text-sm text-slate-500">Ajoutez un événement ci-dessus pour commencer.</p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">

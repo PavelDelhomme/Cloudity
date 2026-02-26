@@ -7,16 +7,18 @@ import { useAuth } from '../../authContext'
 import { fetchNotes, createNote } from '../../api'
 
 export default function NotesPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, logout } = useAuth()
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
 
-  const { data: notes = [], isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['notes'],
     queryFn: () => fetchNotes(accessToken!),
     enabled: Boolean(accessToken),
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
   })
+  const notes = data ?? []
 
   const createMutation = useMutation({
     mutationFn: () => createNote(accessToken!, title || 'Sans titre', content),
@@ -28,6 +30,23 @@ export default function NotesPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  if (error && error instanceof Error && error.message.includes('401')) {
+    return (
+      <div className="space-y-6 p-6">
+        <p className="text-red-600">
+          Session expirée ou token invalide.
+          <button
+            type="button"
+            onClick={() => { logout(); toast.success('Reconnectez-vous.') }}
+            className="ml-2 text-brand-600 hover:underline"
+          >
+            Se reconnecter
+          </button>
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -68,12 +87,18 @@ export default function NotesPage() {
         </div>
         <div className="p-4">
           {isLoading ? (
-            <p className="text-slate-500">Chargement…</p>
+            <div className="flex items-center justify-center py-12">
+              <div className="rounded-full bg-slate-100 p-4">
+                <FileText className="h-8 w-8 animate-pulse text-slate-400" />
+              </div>
+            </div>
           ) : notes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <FileText className="h-12 w-12 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="rounded-full bg-slate-100 p-4">
+                <FileText className="h-10 w-10 text-slate-400" />
+              </div>
               <p className="mt-4 text-slate-600">Aucune note.</p>
-              <p className="mt-1 text-sm text-slate-500">Créez une note ci-dessus.</p>
+              <p className="mt-1 text-sm text-slate-500">Créez une note ci-dessus pour commencer.</p>
             </div>
           ) : (
             <ul className="divide-y divide-slate-100">

@@ -79,7 +79,7 @@ init: ## Initialisation complète du projet (première fois)
 	@make setup-infrastructure
 	@echo "✅ Initialisation terminée!"
 
-create-env: ## Crée le fichier .env
+create-env: ## Crée le fichier .env (ne pas committer : .env est dans .gitignore)
 	@echo "📝 Création du fichier .env..."
 	@if [ ! -f .env ]; then \
 		echo "# Cloudity Environment Configuration" > .env; \
@@ -95,6 +95,7 @@ create-env: ## Crée le fichier .env
 	else \
 		echo "⚠️  Fichier .env existe déjà"; \
 	fi
+	@(git rm --cached .env 2>/dev/null && echo "✅ .env retiré du suivi Git (fichier conservé).") || true
 
 create-go-projects: ## Initialise les projets Go
 	@echo "🔧 Initialisation des projets Go..."

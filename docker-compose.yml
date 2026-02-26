@@ -338,7 +338,6 @@ services:
     networks:
       - cloudity-network
 
-  # Dashboard d'administration React
   admin-dashboard:
     build:
       context: ./frontend/admin-dashboard
@@ -349,7 +348,8 @@ services:
       - "6001:3000"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=
+      # Appel direct au gateway depuis le navigateur pour que le token soit envoyé (évite 401 sur /drive, /pass, etc.)
+      - VITE_API_URL=http://localhost:6000
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
