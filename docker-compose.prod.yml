@@ -31,7 +31,7 @@ services:
       dockerfile: Dockerfile.dev
     restart: always
     ports:
-      - "6000:8000"
+      - "6080:8000"
     environment:
       - GO_ENV=production
 

@@ -5,3 +5,8 @@ reports/
 .env
 .env.local
 .env.*.local
+
+# Clés RSA auth-service (générées par make setup ; private ne doit pas être versionné)
+backend/auth-service/private.pem
+# Build / cache auth-service
+backend/auth-service/tmp/

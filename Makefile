@@ -14,7 +14,7 @@ COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
 # Ports 60XX (voir STATUS.md)
-PORT_GATEWAY = 6000
+PORT_GATEWAY = 6080
 PORT_DASHBOARD = 6001
 PORT_AUTH = 6081
 PORT_ADMIN = 6082
@@ -296,7 +296,7 @@ health: ## Vérifie la santé des services (ports 60XX)
 	@$(COMPOSE) $(COMPOSE_FILES) ps
 	@echo ""
 	@echo "Connectivité:"
-	@curl -s -f http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6000): OK" || echo "  ❌ API Gateway (6000): FAIL"
+	@curl -s -f http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6080): OK" || echo "  ❌ API Gateway (6080): FAIL"
 	@curl -s -f http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth Service (6081): OK" || echo "  ❌ Auth Service (6081): FAIL"
 	@curl -s -f http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin Service (6082): OK" || echo "  ❌ Admin Service (6082): FAIL"
 	@curl -s -f http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard (6001): FAIL"
@@ -374,7 +374,7 @@ quick-check: ## Test rapide de tous les services (ports 60XX). Lancer après: ma
 	@$(COMPOSE) $(COMPOSE_FILES) exec redis sh -c 'redis-cli -a "$$REDIS_PASSWORD" ping' 2>/dev/null | grep -q PONG && echo "  ✅ Redis (6079): OK" || echo "  ❌ Redis: FAIL"
 	@sleep 2
 	@curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth (6081): OK" || echo "  ❌ Auth: FAIL"
-	@curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6000): OK" || echo "  ❌ API Gateway: FAIL"
+	@curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6080): OK" || echo "  ❌ API Gateway: FAIL"
 	@curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin (6082): OK" || echo "  ❌ Admin: FAIL"
 	@curl -sf http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard: FAIL"
 	@curl -sf http://localhost:6084 >/dev/null && echo "  ✅ Redis Commander (6084): OK" || echo "  ⚠️  Redis Commander (6084): non démarré (make up avec profil dev)"

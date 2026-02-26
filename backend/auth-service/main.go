@@ -19,7 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -86,6 +86,7 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 	r.POST("/auth/register", authService.Register)
 	r.POST("/auth/login", authService.Login)
 	r.POST("/auth/refresh", authService.RefreshToken)
@@ -235,6 +236,10 @@ func (a *AuthService) Register(c *gin.Context) {
 
 	userID, err := a.userStore.CreateUser(req.Email, hashedPassword, req.TenantID)
 	if err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			c.JSON(http.StatusConflict, gin.H{"error": "email already registered for this tenant"})
+			return
+		}
 		c.JSON(500, gin.H{"error": "Failed to create user"})
 		return
 	}
@@ -438,11 +443,13 @@ func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 	log.Println("RSA keys not found, using in-memory key for dev")
 	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
 	pub := &priv.PublicKey
-	// Écrire la clé publique pour que l'api-gateway puisse valider les JWT
+	// Écrire les deux clés pour que, au redémarrage, les mêmes clés soient rechargées (JWT restent valides).
 	if der, err := x509.MarshalPKIXPublicKey(pub); err == nil {
 		block := &pem.Block{Type: "PUBLIC KEY", Bytes: der}
 		_ = os.WriteFile(pubPath, pem.EncodeToMemory(block), 0644)
 	}
+	privBlock := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}
+	_ = os.WriteFile(privPath, pem.EncodeToMemory(privBlock), 0600)
 	return priv, pub
 }
 

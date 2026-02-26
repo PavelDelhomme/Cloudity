@@ -86,7 +86,7 @@ Lancé par **`make test-e2e`** (stack up requise).
 
 | Vérification | URL / détail |
 |--------------|---------------|
-| API Gateway /health | `http://localhost:6000/health` |
+| **API Gateway /health** | `http://localhost:6080/health` |
 | Auth Service /health | `http://localhost:6081/health` |
 | Admin Service /health | `http://localhost:6082/health` |
 | **Password Manager /health** | `http://localhost:6051/health` |

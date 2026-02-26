@@ -2,8 +2,6 @@ const getBaseUrl = (): string => {
   const env = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env
   let base = env?.VITE_API_URL ?? ''
   base = base ? `${base.replace(/\/$/, '')}` : ''
-  // Éviter le port 6000 (ERR_UNSAFE_PORT dans Chrome) : forcer URLs relatives
-  if (/:\/\/[^/]*:6000(\/|$)/.test(base)) return ''
   return base
 }
 
@@ -298,6 +296,24 @@ export async function renameDriveNode(
   })
   if (!res.ok) throw new Error(`Rename: ${res.status}`)
   return res.json() as Promise<{ id: number; name: string }>
+}
+
+/** Déplace un nœud (dossier ou fichier) vers un autre dossier. parentId = 0 ou null pour la racine. */
+export async function moveDriveNode(
+  token: string,
+  nodeId: number,
+  parentId: number | null
+): Promise<{ id: number; name: string; parent_id: number | null }> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}`), {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ parent_id: parentId === null || parentId === 0 ? 0 : parentId }),
+  })
+  if (!res.ok) throw new Error(`Move: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string; parent_id: number | null }>
 }
 
 export async function deleteDriveNode(token: string, id: number): Promise<void> {

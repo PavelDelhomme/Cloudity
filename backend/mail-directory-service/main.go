@@ -29,8 +29,8 @@ func main() {
 	}
 
 	h := &Handler{db: db}
-
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
 	r.Use(h.requireTenantAndUser)
 

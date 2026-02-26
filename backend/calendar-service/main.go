@@ -17,6 +17,7 @@ const defaultPort = "8052"
 func setupRouter(db *sql.DB) *gin.Engine {
 	h := &Handler{db: db}
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "calendar"}) })
 	r.GET("/calendar/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "calendar"}) })
 	r.Use(h.requireUserID)

@@ -1,7 +1,7 @@
 # Plan d'implémentation CLOUDITY
 
 **Référence au quotidien** : [STATUS.md](./STATUS.md) (suivi détaillé, checklist, ports 60XX).  
-**Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6000 (API), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
+**Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6080 (API), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
 
 ---
 

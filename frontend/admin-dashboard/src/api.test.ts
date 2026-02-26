@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register } from './api'
+import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, moveDriveNode } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -14,6 +14,9 @@ describe('api', () => {
       const url = apiUrl('/admin/tenants')
       expect(url).toBe('/admin/tenants')
       expect(apiUrl('admin/tenants')).toBe('/admin/tenants')
+    })
+    it('returns path for /pass/vaults so request hits API host when base is set', () => {
+      expect(apiUrl('/pass/vaults')).toContain('/pass/vaults')
     })
   })
 
@@ -227,6 +230,39 @@ describe('api', () => {
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({ email: 'new@b.com', password: 'password123', tenant_id: '1' }),
+        })
+      )
+    })
+  })
+
+  describe('moveDriveNode', () => {
+    it('calls PUT /drive/nodes/:id with parent_id for move', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 10, name: 'Doc', parent_id: 5 }),
+      } as Response)
+      await moveDriveNode('tk', 10, 5)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/drive/nodes/10'),
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
+          body: JSON.stringify({ parent_id: 5 }),
+        })
+      )
+    })
+    it('sends parent_id 0 for move to root', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 10, name: 'Doc', parent_id: null }),
+      } as Response)
+      await moveDriveNode('tk', 10, null)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: JSON.stringify({ parent_id: 0 }),
         })
       )
     })

@@ -30,6 +30,7 @@ func main() {
 	h := &Handler{db: db}
 
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "password-manager"}) })
 	r.Use(h.requireUserID)
 

@@ -40,7 +40,7 @@ POSTGRES_DB=cloudity
 REDIS_PASSWORD=redis_secure_password_2025
 JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
 NODE_ENV=development
-VITE_API_URL=http://localhost:6000
+VITE_API_URL=http://localhost:6080
 CORS_ORIGINS=http://localhost:6001,http://localhost:5173
 EOF
     }

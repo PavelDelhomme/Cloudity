@@ -75,7 +75,7 @@ services:
     container_name: cloudity-api-gateway-only
     restart: unless-stopped
     ports:
-      - "6000:8000"
+      - "6080:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081

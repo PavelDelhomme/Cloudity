@@ -101,7 +101,7 @@ fi
 
 echo -e "\n📦 Vérification des ports (60XX):"
 echo "-----------------------------------"
-ports=(6042 6079 6000 6081 6082 6001 6083 6084)
+ports=(6042 6079 6080 6081 6082 6001 6083 6084)
 for port in "${ports[@]}"; do
     if netstat -tuln 2>/dev/null | grep -q ":$port "; then
         echo -e "${YELLOW}⚠️${NC} Port $port déjà utilisé"

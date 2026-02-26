@@ -16,7 +16,7 @@
 | **Aide Make** | `make help` |
 | **Première fois** | **`make setup`** puis **`make up-full`** |
 
-**URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6000 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
+**URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
 
 **Connexion locale** : Il n’y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
@@ -49,7 +49,7 @@
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **401** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6000` pour que le navigateur envoie le token au gateway ; en cas de 401 persistant, faire **make setup** puis **make up**, puis **se déconnecter et se reconnecter** (nouveau token + clé publique rechargée).
+**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
 ---
 
@@ -59,7 +59,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 
 ### Immédiat (base actuelle)
 
-- [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6000/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d’env soit bien utilisée.)
+- [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6080/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d’env soit bien utilisée.)
 - [x] **Consolider l’auth** : Argon2id pour les mots de passe, refresh tokens avec rotation, 2FA TOTP opérationnel (auth-service). Tests associés (main_test.go).
 - [x] **Renforcer admin** : admin-service (CRUD users, rôles, CRUD tenants) ; admin-dashboard (écrans Tenants, Users, Settings reliés à l’API, logout branché). Tests : pytest (health, tenants, users), vitest (App, Tenants, Users, Settings).
 
@@ -98,7 +98,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Photos** : app Photos web + mobile (galerie, stockage).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
-**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. Si vous voyez « token signature is invalid » (par ex. après redémarrage de l’auth-service), **se déconnecter puis se reconnecter** pour obtenir un nouveau token. Le frontend déconnecte automatiquement sur 401 sur la page Pass. Lancer **`make setup`** (crée `public.pem`) puis **`make up-full`** si la clé n’est pas encore générée.
+**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l’auth-service persiste désormais **private.pem** et **public.pem** lorsqu’il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l’email existe déjà pour le tenant, l’API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
 
 *Détail des phases et checklist complète : section 5 ci-dessous.*
 
@@ -173,7 +173,7 @@ En production, exposer les services via un reverse proxy (Nginx Proxy Manager, N
 
 | Sous-domaine | Service | Rôle |
 |--------------|---------|------|
-| **api.cloudity.example.com** | api-gateway (6000) | API unifiée (auth, admin, pass, mail). |
+| **api.cloudity.example.com** | api-gateway (6080) | API unifiée (auth, admin, pass, mail). |
 | **app.cloudity.example.com** | admin-dashboard (6001) | App web : landing, login, hub Drive/Pass/Mail, admin. |
 | **auth.cloudity.example.com** | (optionnel) auth-service direct | Si accès direct auth utile (sinon tout via api.). |
 | **mail.cloudity.example.com** | (Phase 2) Webmail / client | Client mail. |
@@ -213,7 +213,7 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 | PostgreSQL | 6042 | 5432 | Connexion DB (ex. `localhost:6042`) |
 | Redis | 6079 | 6379 | Connexion Redis (ex. `localhost:6079`) |
 | auth-service | 6081 | 8081 | Direct (débogage) ; en prod tout passe par la gateway. |
-| **api-gateway** | **6000** | 8000 | **API principale** : `http://localhost:6000` (à mettre dans `VITE_API_URL`) |
+| **api-gateway** | **6080** | 8000 | **API principale** : `http://localhost:6080` (à mettre dans `VITE_API_URL` ; Chrome bloque 6000, ERR_UNSAFE_PORT). |
 | admin-service | 6082 | 8082 | Direct (débogage) ; en prod via gateway `/admin/*`. |
 | password-manager | 6051 | 8051 | Direct (débogage) ; en prod via gateway `/pass/*`. |
 | **admin-dashboard** | **6001** | 3000 | **App web** : `http://localhost:6001` (/, /login, /register, /app, /admin). |
@@ -233,7 +233,7 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 | Service | Stack | Statut | Détail |
 |---------|--------|--------|--------|
 | auth-service | Go (Gin) | ✅ OK | Health, Register/Login/Refresh/Validate, 2FA TOTP ; Argon2id, refresh avec rotation, JWT ; tests unitaires (main_test.go). |
-| api-gateway | Go (Gorilla mux) | ✅ OK | Proxy vers auth et admin, CORS ; exposé host **6000**. |
+| api-gateway | Go (Gorilla mux) | ✅ OK | Proxy vers auth et admin, CORS ; exposé host **6080**. |
 | admin-service | Python (FastAPI) | ✅ OK | CRUD tenants, CRUD users, **GET /admin/stats** (dashboard), health ; exposé host **6082** ; tests pytest (health, **stats**, tenants, users) — 21 tests. |
 | **password-manager** | Go (Gin) | ✅ OK | Health, CRUD vaults, CRUD items (ciphertext uniquement) ; auth via X-User-ID / X-Tenant-ID (gateway) ; port **6051**, route gateway `/pass/*` ; tests Go (health, auth requis) — 3 tests. |
 | mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias (CRUD + API). Port **6050**, route gateway `/mail/*`. Health + GET/POST /mail/domains. |
@@ -263,6 +263,8 @@ Une **seule app React** (frontend/admin-dashboard) sert à la fois l’accueil p
 **Connexion** : l’utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l’API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.
 
 **Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l’admin.
+
+**Applications web comme modules** : Les fonctionnalités (Drive, Pass, Agenda, Notes, Tâches, Admin) sont conçues comme **modules intégrés** au projet principal Cloudity. Chaque module correspond à une ou plusieurs routes sous `/app/*` ou `/admin`, à un service backend dédié (drive-service, password-manager, calendar-service, etc.) et à une API sous le gateway (`/drive/*`, `/pass/*`, `/calendar/*`, etc.). Le shell commun (admin-dashboard) fournit l’auth, la navigation et le layout ; les pages de chaque module chargent leurs données via l’API unique (`VITE_API_URL`). Pour étendre Cloudity : ajouter une route, une page React (éventuellement lazy-loaded), et un backend + route gateway si besoin. Les futures apps Flutter ou PWA pourront réutiliser les mêmes APIs en tant que clients alternatifs.
 
 | App / cible | Stack | Statut | Détail |
 |-------------|--------|--------|--------|
@@ -349,7 +351,7 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 ## 6. Migrations et nettoyage à faire
 
 - [x] **Init PostgreSQL** : le schéma initial est dans `infrastructure/postgresql/init/01-schema.sql` ; le Compose monte ce dossier.
-- [x] **Ports 60XX** : tous les services exposés en 60XX (6042, 6079, 6081, 6000, 6082, 6001, 6083, 6084) ; `VITE_API_URL` et CORS mis à jour.
+- [x] **Ports 60XX** : tous les services exposés en 60XX (6042, 6079, 6081, **6080** (API), 6082, 6001, 6083, 6084) ; `VITE_API_URL=http://localhost:6080` et CORS mis à jour.
 - [ ] **Alignement schéma auth** : `users.tenant_id` (INTEGER vs UUID), retour de `uuid` vs `id` selon les services (auth-service utilise `id` dans l’INSERT).
 - [ ] **Migrations DB versionnées** : dossier `infrastructure/postgresql/migrations/` + README créés ; appliquer les migrations à la main ou via outil (golang-migrate, Flyway).
 - [ ] **Branches** : travailler depuis `main` ; merger `develop` / `feature/*` une fois validé.

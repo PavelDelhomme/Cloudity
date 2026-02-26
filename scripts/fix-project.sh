@@ -23,7 +23,7 @@ REDIS_PASSWORD=redis_secure_password_2025
 JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
 BUILD_TARGET=Dockerfile.dev
 NODE_ENV=development
-VITE_API_URL=http://localhost:6000
+VITE_API_URL=http://localhost:6080
 EOF
     echo "✅ Fichier .env créé"
 fi

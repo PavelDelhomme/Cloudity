@@ -11,9 +11,11 @@ make help  # Liste des commandes
 | Accès | URL |
 |-------|-----|
 | **Dashboard admin** | http://localhost:6001 |
-| **API** | http://localhost:6000 |
+| **API** | http://localhost:6080 |
 | Adminer (DB) | http://localhost:6083 |
 | Redis Commander | http://localhost:6084 |
+
+L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UNSAFE_PORT). En Docker, `VITE_API_URL=http://localhost:6080` est défini automatiquement. Si vous aviez une config avec 6000, mettez à jour votre `.env` vers `VITE_API_URL=http://localhost:6080`.
 
 Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
 **Suivi du projet et roadmap** : voir **[STATUS.md](./STATUS.md)**.

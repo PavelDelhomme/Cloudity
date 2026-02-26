@@ -18,6 +18,7 @@ const defaultPort = "8055"
 func setupRouter(db *sql.DB) *gin.Engine {
 	h := &Handler{db: db}
 	r := gin.Default()
+	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "drive"})
 	})
@@ -232,26 +233,98 @@ func (h *Handler) updateNode(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		ParentID *int   `json:"parent_id"`
 	}
-	if err := c.ShouldBindJSON(&body); err != nil || body.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	res, err := h.db.Exec(`
-		UPDATE drive_nodes SET name = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.Name, id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	if body.Name == "" && body.ParentID == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name or parent_id required"})
 		return
 	}
-	aff, _ := res.RowsAffected()
-	if aff == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	// Mise à jour name et/ou parent_id
+	if body.Name != "" && body.ParentID == nil {
+		res, err := h.db.Exec(`
+			UPDATE drive_nodes SET name = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		`, body.Name, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		aff, _ := res.RowsAffected()
+		if aff == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"id": id, "name": body.Name})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": id, "name": body.Name})
+	if body.ParentID != nil {
+		// Déplacer le nœud (éviter de déplacer dans un de ses descendants)
+		var currentParent *int
+		var isFolder bool
+		if err := h.db.QueryRow(`SELECT parent_id, is_folder FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id).Scan(&currentParent, &isFolder); err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		newParentVal := *body.ParentID
+		// 0 ou valeur négative = déplacer à la racine (NULL)
+		var newParentNullable *int
+		if newParentVal > 0 {
+			newParentNullable = &newParentVal
+		}
+		if newParentNullable != nil && *newParentNullable == id {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "cannot move into itself"})
+			return
+		}
+		// Vérifier que la cible n'est pas un descendant de id (éviter cycle)
+		if newParentNullable != nil {
+			check := *newParentNullable
+			for check > 0 {
+				var pid *int
+				if err := h.db.QueryRow(`SELECT parent_id FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, check).Scan(&pid); err != nil || pid == nil {
+					break
+				}
+				if *pid == id {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "cannot move into a descendant folder"})
+					return
+				}
+				check = *pid
+			}
+		}
+		res, err := h.db.Exec(`
+			UPDATE drive_nodes SET parent_id = $1, updated_at = CURRENT_TIMESTAMP
+			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		`, newParentNullable, id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		aff, _ := res.RowsAffected()
+		if aff == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		name := body.Name
+		if name == "" {
+			h.db.QueryRow(`SELECT name FROM drive_nodes WHERE id = $1`, id).Scan(&name)
+		}
+		out := gin.H{"id": id, "name": name}
+		if newParentNullable != nil {
+			out["parent_id"] = *newParentNullable
+		} else {
+			out["parent_id"] = nil
+		}
+		c.JSON(http.StatusOK, out)
+		return
+	}
+	c.JSON(http.StatusBadRequest, gin.H{"error": "name or parent_id required"})
 }
 
 func (h *Handler) deleteNode(c *gin.Context) {

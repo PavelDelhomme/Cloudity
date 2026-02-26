@@ -4,7 +4,7 @@
 
 set -e
 
-PORT_GATEWAY="${PORT_GATEWAY:-6000}"
+PORT_GATEWAY="${PORT_GATEWAY:-6080}"
 failed=0
 
 echo "🔒 Vérifications sécurité..."

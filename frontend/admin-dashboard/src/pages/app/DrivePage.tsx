@@ -22,6 +22,7 @@ import {
   deleteDriveNode,
   downloadDriveFile,
   uploadDriveFile,
+  moveDriveNode,
   type DriveNode,
 } from '../../api'
 
@@ -36,6 +37,9 @@ export default function DrivePage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
   const [uploading, setUploading] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [dropTargetFolderId, setDropTargetFolderId] = useState<number | null>(null)
+  const [draggedNode, setDraggedNode] = useState<DriveNode | null>(null)
 
   const currentParentId = breadcrumb.length > 1 ? (breadcrumb[breadcrumb.length - 1].id as number) : null
 
@@ -133,6 +137,34 @@ export default function DrivePage() {
     }
   }
 
+  const uploadFilesToParent = async (files: FileList | null, parentId: number | null) => {
+    if (!files?.length || !accessToken) return
+    setUploading(true)
+    try {
+      for (let i = 0; i < files.length; i++) {
+        await uploadDriveFile(accessToken, parentId, files[i])
+      }
+      toast.success(files.length > 1 ? `${files.length} fichiers téléversés` : 'Fichier téléversé')
+      queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', parentId ?? currentParentId] })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleMove = async (nodeId: number, targetParentId: number | null) => {
+    if (!accessToken) return
+    try {
+      await moveDriveNode(accessToken, nodeId, targetParentId)
+      toast.success('Élément déplacé')
+      queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+      queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', targetParentId] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
   const startEdit = (node: DriveNode) => {
     setEditingId(node.id)
     setEditingName(node.name)
@@ -217,7 +249,39 @@ export default function DrivePage() {
             {currentParentId == null ? 'Racine' : breadcrumb[breadcrumb.length - 1]?.name}
           </span>
         </div>
-        <div className="p-4">
+        <div
+          className={`p-4 transition-colors ${dragOver ? 'bg-brand-50 ring-2 ring-brand-300 ring-inset' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            setDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+              setDragOver(false)
+              setDropTargetFolderId(null)
+            }
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+            const files = e.dataTransfer?.files
+            if (files?.length) {
+              const targetFolderId = dropTargetFolderId ?? currentParentId
+              uploadFilesToParent(files, targetFolderId)
+              setDropTargetFolderId(null)
+              return
+            }
+            const nodeIdStr = e.dataTransfer?.getData('application/x-cloudity-drive-node')
+            if (nodeIdStr) {
+              const nodeId = parseInt(nodeIdStr, 10)
+              const moveToParent = dropTargetFolderId ?? currentParentId
+              if (!Number.isNaN(nodeId)) handleMove(nodeId, moveToParent)
+            }
+            setDropTargetFolderId(null)
+          }}
+        >
           {showNewFolder && (
             <div className="flex items-center gap-2 mb-4 p-3 bg-slate-50 rounded-lg">
               <input
@@ -265,7 +329,17 @@ export default function DrivePage() {
               {nodes.map((node) => (
                 <li
                   key={node.id}
-                  className="flex items-center gap-3 py-3 px-2 hover:bg-slate-50 rounded-lg group"
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedNode(node)
+                    e.dataTransfer?.setData('application/x-cloudity-drive-node', String(node.id))
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragEnd={() => {
+                    setDraggedNode(null)
+                    setDropTargetFolderId(null)
+                  }}
+                  className={`flex items-center gap-3 py-3 px-2 hover:bg-slate-50 rounded-lg group ${dropTargetFolderId === node.id && node.is_folder ? 'ring-2 ring-brand-400 bg-brand-50' : ''}`}
                 >
                   {editingId === node.id ? (
                     <>
@@ -301,6 +375,14 @@ export default function DrivePage() {
                         <button
                           type="button"
                           onClick={() => goTo(node.id, node.name)}
+                          onDragOver={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setDropTargetFolderId(node.id)
+                          }}
+                          onDragLeave={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTargetFolderId(null)
+                          }}
                           className="flex items-center gap-2 flex-1 min-w-0 text-left"
                         >
                           <Folder className="h-5 w-5 text-amber-500 flex-shrink-0" />

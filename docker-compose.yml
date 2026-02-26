@@ -75,6 +75,7 @@ services:
       - "6081:8081"
     environment:
       - PORT=8081
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
@@ -106,7 +107,7 @@ services:
     container_name: cloudity-api-gateway
     restart: unless-stopped
     ports:
-      - "6000:8000"
+      - "6080:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081
@@ -181,6 +182,7 @@ services:
       - "6051:8051"
     environment:
       - PORT=8051
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/password-manager:/app:cached
@@ -209,6 +211,7 @@ services:
       - "6050:8050"
     environment:
       - PORT=8050
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/mail-directory-service:/app:cached
@@ -237,6 +240,7 @@ services:
       - "6052:8052"
     environment:
       - PORT=8052
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/calendar-service:/app:cached
@@ -265,6 +269,7 @@ services:
       - "6053:8053"
     environment:
       - PORT=8053
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/notes-service:/app:cached
@@ -293,6 +298,7 @@ services:
       - "6054:8054"
     environment:
       - PORT=8054
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/tasks-service:/app:cached
@@ -321,6 +327,7 @@ services:
       - "6055:8055"
     environment:
       - PORT=8055
+      - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
       - ./backend/drive-service:/app:cached
@@ -348,8 +355,9 @@ services:
       - "6001:3000"
     environment:
       - NODE_ENV=development
-      # Appel direct au gateway depuis le navigateur pour que le token soit envoyé (évite 401 sur /drive, /pass, etc.)
-      - VITE_API_URL=http://localhost:6000
+      # Appel direct au gateway depuis le navigateur pour que le token soit envoyé (évite 401 sur /drive, /pass, etc.).
+      # Port 6080 : Chrome bloque le port 6000 (ERR_UNSAFE_PORT).
+      - VITE_API_URL=http://localhost:6080
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
