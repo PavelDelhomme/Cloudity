@@ -12,13 +12,15 @@
 |----------|------|
 | **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E). Lance : auth-service, api-gateway, password-manager (Go), admin-service (pytest), admin-dashboard (Vitest). À lancer avant chaque merge/feature. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make test-all`** | Lance **`make test`** puis **`make test-e2e`** (tout en une commande ; E2E échoue si la stack n'est pas up). |
+| **`make tests`** | **TOUT** : unit/app + E2E (health/proxy) + **E2E Playwright** (navigateur) + sécurité. Génère un rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, attendre 20-30 s. |
+| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
+| **`make test-all`** | Même enchaînement que **`make tests`** (test + test-e2e + test-e2e-playwright + test-security) mais sans rapport fichier. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Même batterie que `make test` mais exécutée dans les conteneurs (après `make up`). |
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
-**En résumé** : **`make test-all`** = test (113+) + E2E + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : `make up`, attendre 20-30 s, puis **`make test-all`** (ou **`make test-full`** pour inclure les tests dans les conteneurs).
+**En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
 
 ---
 
@@ -30,11 +32,13 @@
 | **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 7 |
 | **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 4 |
-| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 2 |
+| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 4 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | 14 fichiers (AppHub, CalendarPage, NotesPage, TasksPage, App, …) | 61 |
+| **admin-dashboard** | Frontend (Vitest) | `npm run test` | 15 fichiers (AppHub, CalendarPage, NotesPage, TasksPage, App, **DocumentEditorPage**, DrivePage, api, …) | 101 |
 
-**Total actuel** : 113+ tests (tous lancés par `make test`).
+**Total actuel** : 116+ tests (tous lancés par `make test`).
+
+**Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/admin-dashboard` ou **`make test-e2e-playwright`** depuis la racine.
 
 **401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
 
@@ -50,7 +54,7 @@
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide → 401. |
-| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401. |
+| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
 
@@ -65,7 +69,7 @@
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|
-| **src/api.test.ts** | `apiUrl` ; `fetchTenants`, `fetchUsers`, `fetchDashboardStats`, `fetchVaults`, `createVault`, `fetchVaultItems`, **`fetchDomains`**, **`createDomain`**, `login` (appels fetch, erreurs). |
+| **src/api.test.ts** | `apiUrl` ; `fetchTenants`, … ; **`createDriveFile`**, **`createDriveFileWithUniqueName`** (retry 409 et 500 duplicate → nom unique), **`getDriveNodeContentAsText`**, **`fetchDriveRecentFiles`**, **`putDriveNodeContent`**, … ; **`moveDriveNode`**. |
 | **src/authContext.test.tsx** | `isAuthenticated` sans storage ; bouton Logout ; restauration auth depuis `localStorage`. |
 | **src/App.test.tsx** | Rendu login si non authentifié ; logout → login + clear storage ; hub /app ; routes /app/calendar, /app/notes, /app/tasks (titres **Agenda**, **Notes**, **Tâches** + sous-titres statiques). |
 | **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
@@ -79,6 +83,9 @@
 | **src/pages/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
 | **src/pages/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
 | **src/pages/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
+| **src/pages/app/DrivePage.test.tsx** | Titre Drive, breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. |
+| **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide (0, NaN) → message + lien Retour ; chargement puis éditeur pour nodeId valide ; helpers EDITABLE_EXT, getExtension, isRich ; **sauvegarde automatique (interval 30 s quand dirty)**. |
+| **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
 ### 3.4 E2E — scripts/test-e2e.sh
 
@@ -97,14 +104,46 @@ Lancé par **`make test-e2e`** (stack up requise).
 | Gateway → /admin/stats | `GET /admin/stats` contient `"active_tenants"` |
 | Gateway → /pass/health | `GET /pass/health` contient `"status"` (avec retry) |
 | Gateway → /mail/health | `GET /mail/health` contient `"status"` (avec retry) |
+| **Gateway → /drive/health** | `GET /drive/health` contient `"status"` (avec retry) |
 | **Gateway → POST /auth/login (invalid)** | 401 ou 400 (check fonctionnel) |
 | **Gateway → GET /auth/validate (no token)** | 401 (check fonctionnel) |
 
----
+### 3.5 E2E — Playwright (navigateur)
+
+Lancé par **`make test-e2e-playwright`** ou **`cd frontend/admin-dashboard && BASE_URL=http://localhost:6001 npm run test:e2e`**. **Prérequis** : stack up (**`make up`**), compte démo créé (**`make seed-admin`**), attendre 20-30 s.
+
+Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion, navigation Hub → Drive / Office, création de fichier et de dossier, téléversement, ouverture d’un document dans l’éditeur.
+
+**Couvert actuellement** : login (succès / échec), Hub (liens Drive/Office, navigation), Drive (titre, menu Nouveau fichier, formulaire Nouveau dossier, Téléverser + overlay), **Office** (cartes colorées Nouveau document / Tableur / Présentation, Récemment modifiés), **Pass** (titre, Nouveau coffre, fil d’Ariane). Certains scénarios (création document/dossier depuis le navigateur, breadcrumb, suppression, sauvegarde éditeur) sont **skippés** en E2E quand l’API Drive n’est pas joignable depuis le navigateur (voir message de skip dans les specs).
+
+**À couvrir plus tard (idées)** : Mail (domaines), création coffre Pass, réactiver les tests skippés quand l’env E2E permet les appels API.
+
+| Fichier | Ce qui est testé |
+|---------|-------------------|
+| **e2e/auth.spec.ts** | Page login ; identifiants invalides → message d’erreur ; compte démo → redirection vers `/app` (tableau de bord). |
+| **e2e/hub.spec.ts** | Après login : liens Drive / Office ; clic Drive → `/app/drive` ; clic Office → `/app/office`. |
+| **e2e/drive.spec.ts** | Titre, boutons (Nouveau fichier, Nouveau dossier, Téléverser) ; menu « Nouveau fichier » ; formulaire Nouveau dossier ; Téléverser → overlay. Tests skippés : Nouveau fichier → Document (API), breadcrumb (API), suppression (API). |
+| **e2e/office.spec.ts** | Cartes colorées Nouveau document / Tableur / Présentation (data-testid office-card-*) ; section Récemment modifiés ou lien Drive. Test skippé : création document (API). |
+| **e2e/pass.spec.ts** | Titre Pass, bouton Nouveau coffre, fil d’Ariane (Tableau de bord, Pass). |
+| **e2e/editor.spec.ts** | Test skippé : sauvegarde manuelle (dépend création document). |
+
+Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/admin-dashboard/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
 
 ## 4. Tests à faire / à ajouter au fur et à mesure
 
-Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `make test-e2e` pour les E2E).
+Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `make test-e2e` pour les E2E).  
+**Voir aussi** : [STATUS.md § 1b](STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité.
+
+### 4.0 Drive, éditeur, corbeille (roadmap STATUS.md § 1b)
+
+- [ ] **Recherche Drive / globale** : unit (logique recherche, filtres) ; E2E (saisie → résultats Drive puis autres modules).
+- [ ] **Visualisation PDF** : unit (composant viewer) ; E2E (ouvrir un PDF depuis le Drive).
+- [ ] **Extracteur d’archives** : API Go (endpoint extract, structure dossiers) ; E2E (upload archive → extraction → structure).
+- [ ] **Éditeur : renommer document** : unit (renommage + sync nom) ; E2E (créer doc → ouvrir → renommer → vérifier Drive).
+- [ ] **Éditeur : export PDF** : unit (génération ou appel export) ; E2E (éditeur → Export PDF → téléchargement).
+- [ ] **Éditeur : supprimer document** : unit (action supprimer + redirection) ; E2E (ouvrir doc → supprimer → Drive / corbeille).
+- [ ] **Corbeille unifiée** : API (schéma DB, list trash, restore, purge) ; E2E (supprimer → corbeille → restaurer).
+- [ ] **Corbeille : vider / purge** : API + E2E.
 
 ### 4.1 API (backends)
 
@@ -125,8 +164,8 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 ### 4.3 E2E
 
 - [x] **test-e2e.sh** : check direct Password Manager (port 6051) ; retry sur /auth/health et /pass/health.
+- [x] **E2E Playwright** : suite navigateur documentée (**`make test-e2e-playwright`**) — auth, hub, drive, office (voir § 3.5).
 - [ ] **test-e2e.sh** : scénario login via gateway (POST /auth/login) puis GET /admin/tenants avec token (optionnel, plus lourd).
-- [ ] Documenter ou script E2E navigateur (Playwright/Cypress) si besoin plus tard.
 
 ### 4.4 Nouveaux services (quand ajoutés)
 
@@ -136,7 +175,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.5 Tests sécurité (`make test-security`)
 
-- [x] **scripts/test-security.sh** : npm audit (admin-dashboard), safety (admin-service si installé), govulncheck (Go si installé).
+- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, notes-service, tasks-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 
@@ -144,10 +183,11 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ## 5. Récap
 
-- **Lancer tous les tests** : `make test`.
-- **Lancer tout (unit + E2E + sécurité)** : `make up`, attendre 20-30 s, puis **`make test-all`**.
+- **Lancer tous les tests** : **`make test`** (unit/app uniquement).
+- **Lancer tout (unit + E2E + E2E Playwright + sécurité)** : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport dans `reports/`) ou **`make test-all`**.
 - **Lancer tout + tests dans les conteneurs** : **`make test-full`** (stack up requise).
 - **Lancer les E2E seuls** : `make up` puis `make test-e2e`.
+- **Lancer les E2E navigateur (Playwright)** : `make up`, `make seed-admin`, attendre 20-30 s, puis **`make test-e2e-playwright`**.
 - **Sécurité** : `make test-security`.
 - **Ajouter un test** : créer ou modifier le fichier de test du bon service, puis vérifier que `make test` le prend en compte.
 - **Nouveau backend** : ajouter une cible dans le Makefile (ex. `password-manager` déjà présent) et documenter ici.

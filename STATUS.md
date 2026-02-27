@@ -1,8 +1,10 @@
 # CLOUDITY — Suivi d’avancement et référence projet
 
-**Dernière mise à jour** : 2026-02-27  
+**Dernière mise à jour** : 2026-02-28  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
 **Document de référence** : ce fichier sert de **référence unique** pour l’avancement et les prochaines étapes.
+
+**Pourquoi mocker l’API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l’API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L’objectif est la pratique standard (tests isolés). L’avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes.
 
 ---
 
@@ -17,6 +19,8 @@
 | **Première fois** | **`make setup`** puis **`make up-full`** |
 
 **URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
+
+**Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
 
 **Connexion locale** : Il n’y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
@@ -51,7 +55,11 @@
 
 **Reprise (à faire)** : Tests Drive — les tests unitaires (Vitest) et la boucle 20 runs passent. E2E Playwright (`e2e/drive.spec.ts`) est en place contre l’app sur le port 6001. À vérifier en conditions réelles dans le navigateur : que les boutons **Téléverser**, **Dossier** et **Nouveau dossier** ouvrent bien le sélecteur de fichier / le formulaire (si blocage, vérifier les labels `htmlFor` et les inputs dans `AppLayout` ; lancer `BASE_URL=http://localhost:6001 npx playwright test e2e/drive.spec.ts` pour reproduire). Clarifier un éventuel doublon d’affichage « Nouveau dossier » (toolbar Drive vs autre zone).
 
-**État (2026-02-27)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
+**Prochaine étape (en cours)** : **Éditeur de documents maison** — édition de documents (texte, tableur, etc.) depuis le Drive avec **notre propre** front (ex. TipTap pour le texte, Luckysheet ou solution légère pour les tableurs), sans OnlyOffice ni service tiers. Voir `docs/editeur-docs.md`. **Roadmap détaillée (Drive, éditeur, corbeille, recherche, PDF, archives)** : **§ 1b** ci-dessus.
+
+**Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** (galerie type Google Photos) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
+
+**État (2026-02-27)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **Éditeur docs** : à faire (éditeur maison type TipTap / Luckysheet intégré au Drive). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
 ---
 
@@ -93,8 +101,12 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Mail E2E** (OpenPGP) pour mails Cloudity–Cloudity.
 - [x] **Drive (MVP)** : schéma DB `04-schema-drive.sql` (drive_nodes), **drive-service** (Go) avec CRUD dossiers/fichiers en cascade (list/create/rename/delete/upload/download), auth X-User-ID. Route gateway `/drive/*`. **Client web** : page Drive avec breadcrumb, création de dossiers en cascade, téléversement, renommer, supprimer, télécharger (type Google Drive / Nextcloud).
 - [x] **Calendar, Notes, Tasks (MVP)** : schémas DB `05-schema-calendar.sql`, `06-schema-notes.sql`, `07-schema-tasks.sql`. **calendar-service**, **notes-service**, **tasks-service** (Go) avec DB, auth X-User-ID, CRUD complet. Routes gateway `/calendar/*`, `/notes/*`, `/tasks/*`. **Client web** : pages Agenda, Notes, Tâches connectées aux API (liste, création, mise à jour).
-- [ ] **OnlyOffice** : intégration type Nextcloud pour édition de documents (DOCX, XLSX, etc.) depuis le Drive. À planifier (Document Server + connecteur frontend).
+- [ ] **Éditeur de documents maison** : édition de documents (texte riche, tableur) depuis le Drive avec **notre propre** front (TipTap, Luckysheet ou équivalent open source intégré), sans OnlyOffice. **En cours** — voir `docs/editeur-docs.md`.
 - [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour gros fichiers.
+- [ ] **Photos** : galerie type Google Photos (web + mobile, stockage, métadonnées). **Plus tard.**
+- [ ] **Notes (type Google Keep)** : cartes, couleurs, épinglage, rappels, amélioration de l’UI actuelle. **Plus tard.**
+- [ ] **Calendar** : vue agenda / semaine améliorée, rappels. **Plus tard.**
+- [ ] **Administration** : renforcer écrans, rôles, audit. **Plus tard.**
 - [ ] **Apps mobiles** Mail + Pass (Flutter).
 - [ ] **Contacts** : app Contacts web + mobile (interconnectée Mail, Calendar, Tasks).
 - [ ] **Photos** : app Photos web + mobile (galerie, stockage).
@@ -119,6 +131,49 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 | 6 | **Phase 2 — Mail** | ~~Schéma mail~~, ~~mail-directory-service (Go)~~, gateway `/mail`. | ✅ Schéma + service + 4 tests. Reste : Postfix/Dovecot, mail-client-api, client Flutter. |
 
 **Ensuite** : Phase 3 (alias), Phase 4 (Drive, E2E mail), Phase 5 (mobile, prod).
+
+---
+
+## 1b. Drive, éditeur de documents et corbeille (roadmap détaillée)
+
+Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec les fonctionnalités listées ci-dessous, **et** ajouter les tests nécessaires pour chaque ajout. Tout doit rester testable via **`make test`** (unit/app) et **`make test-e2e-playwright`** (parcours utilisateur).
+
+### Drive — à faire
+
+| # | Fonctionnalité | Détail | Tests à prévoir |
+|---|----------------|--------|------------------|
+| 1 | **Visualisation PDF intégrée** | Ouvrir un PDF dans l’app (iframe ou viewer type PDF.js) sans téléchargement obligatoire. | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
+| 2 | **Extracteur d’archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
+| 3 | **Recherche globale** | Recherche dans l’app : **Drive** (fichiers/dossiers), puis notes, tâches, calendrier, mail, pass, documents. Champ de recherche unifié + résultats groupés par type. | Unit : logique recherche / filtres ; E2E : saisie recherche → résultats Drive (et autres si implémentés). |
+
+### Éditeur de documents (Office) — à faire
+
+| # | Fonctionnalité | Détail | Tests à prévoir |
+|---|----------------|--------|------------------|
+| 4 | **Renommer le document depuis l’éditeur** | Depuis Tableau de bord → Drive → [Document] : dans l’éditeur, pouvoir **renommer le document** (titre reflété dans le Drive, sauvegarde auto). Appliquer le **format/nom de fichier** (ex. .html, .csv). | Unit : renommage + sync nom ; E2E : créer document → ouvrir → renommer → vérifier dans Drive. |
+| 5 | **Export PDF du document** | Depuis l’éditeur : bouton **Exporter en PDF** (génération côté client ou API). | Unit : génération PDF ou appel export ; E2E : éditeur → Export PDF → fichier téléchargé. |
+| 6 | **Supprimer le document depuis l’éditeur** | Option **Supprimer** dans l’éditeur (avec confirmation) : envoie en **corbeille** ou suppression définitive selon politique. | Unit : action supprimer + redirection ; E2E : ouvrir doc → supprimer → retour Drive / corbeille. |
+| 7 | **Approfondir l’éditeur** | Enrichir l’éditeur (formatage, styles, tableaux) selon la stack (TipTap, Luckysheet, etc.). Détail dans `docs/editeur-docs.md`. | Tests au fil de l’eau. |
+
+### Corbeille (recycle bin) — à faire
+
+| # | Fonctionnalité | Détail | Tests à prévoir |
+|---|----------------|--------|------------------|
+| 8 | **Corbeille unifiée** | Une **corbeille unique** groupant les éléments « supprimés » de : **Tasks**, **Contacts**, **Photos**, **Notes**, **Calendrier**, **Mail**, **Pass**, **Documents/Office**, **fichiers Drive**. Modèle : table `trash` ou `recycle_bin` avec `entity_type` + `entity_id` + métadonnées (nom, date suppression). | API : schéma DB + endpoints (list trash, restore, purge) ; tests backend ; E2E : supprimer → corbeille → restaurer. |
+| 9 | **Restaurer un élément** | Depuis la corbeille : action **Restaurer** qui remet l’élément à sa place d’origine. | Unit : logique restore ; E2E : corbeille → restaurer → vérifier dans le module concerné. |
+| 10 | **Vider la corbeille / purge** | Option pour vider la corbeille (suppression définitive) avec confirmation. | API + E2E. |
+
+### Ordre recommandé (implémentation)
+
+1. **Recherche Drive** (backend search + front) puis recherche globale.
+2. **Renommer document depuis l’éditeur** + **Supprimer depuis l’éditeur** (envoi vers corbeille si prête).
+3. **Schéma + API Corbeille** (drive, notes, tasks, calendar, etc.) puis **UI Corbeille** (liste, restaurer, vider).
+4. **Visualisation PDF** (viewer intégré).
+5. **Extracteur d’archives** (backend + appel depuis Drive).
+6. **Export PDF** de l’éditeur.
+7. **Éditeur** : approfondir (formatage, options).
+
+*Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir TESTS.md) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
 
 ---
 

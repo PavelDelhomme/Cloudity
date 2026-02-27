@@ -114,6 +114,8 @@ services:
       - ADMIN_SERVICE_URL=http://admin-service:8082
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - GO_ENV=development
+      # Autorise CORS depuis le réseau local (ex. smartphone : http://<TON_IP>:6001)
+      - CORS_ALLOW_LAN=${CORS_ALLOW_LAN:-true}
     volumes:
       - ./backend/api-gateway:/app:cached
       - ./backend/auth-service:/app/keys:ro
@@ -355,9 +357,10 @@ services:
       - "6001:3000"
     environment:
       - NODE_ENV=development
-      # Appel direct au gateway depuis le navigateur pour que le token soit envoyé (évite 401 sur /drive, /pass, etc.).
-      # Port 6080 : Chrome bloque le port 6000 (ERR_UNSAFE_PORT).
-      - VITE_API_URL=http://localhost:6080
+      # Appel direct au gateway depuis le navigateur (évite 401 sur /drive, /pass, etc.).
+      # Pour ouvrir sur smartphone : mets l’IP de ta machine (ex. VITE_API_URL=http://192.168.1.5:6080)
+      # et ouvre sur le téléphone http://<TON_IP>:6001
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:6080}
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
@@ -406,6 +409,26 @@ services:
     profiles:
       - dev
 
+  # OnlyOffice Document Server — édition de documents (DOCX, XLSX, etc.) depuis le Drive.
+  # Démarrer avec : docker compose --profile onlyoffice up -d
+  # Voir docs/onlyoffice.md pour l’intégration frontend (bouton Éditer).
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: cloudity-onlyoffice
+    restart: unless-stopped
+    ports:
+      - "6085:80"
+    environment:
+      - JWT_ENABLED=false
+      - JWT_HEADER=Authorization
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_log:/var/log/onlyoffice
+    networks:
+      - cloudity-network
+    profiles:
+      - onlyoffice
+
 networks:
   cloudity-network:
     driver: bridge
@@ -448,3 +471,9 @@ volumes:
   go_mod_cache_drive:
     driver: local
     name: cloudity-go-mod-cache-drive
+  onlyoffice_data:
+    driver: local
+    name: cloudity-onlyoffice-data
+  onlyoffice_log:
+    driver: local
+    name: cloudity-onlyoffice-log

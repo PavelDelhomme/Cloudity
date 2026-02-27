@@ -1,5 +1,10 @@
 # À faire (Cloudity)
 
+## Priorités actuelles
+
+- **En cours** : **OnlyOffice** — édition de documents (DOCX, XLSX, etc.) depuis le Drive. Document Server (Docker) + connecteur frontend (bouton « Éditer » sur les fichiers dans le Drive). Voir `docs/onlyoffice.md`.
+- **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), Calendar (vue améliorée), Mail client riche, Contacts, etc.
+
 ## Problème résolu : crash HMR + lenteur au clic Téléverser
 
 - **Crash "useUpload must be used within UploadProvider"** : l’overlay utilise `useContext(UploadContext)` et ne rend rien si le contexte est absent (HMR). `useUpload()` ne lance plus d’erreur (retourne une valeur par défaut si pas de provider).
