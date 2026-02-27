@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d’avancement et référence projet
 
-**Dernière mise à jour** : 2026-02-26  
+**Dernière mise à jour** : 2026-02-27  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
 **Document de référence** : ce fichier sert de **référence unique** pour l’avancement et les prochaines étapes.
 
@@ -49,7 +49,9 @@
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État (2026-02-26)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
+**Reprise (à faire)** : Tests Drive — les tests unitaires (Vitest) et la boucle 20 runs passent. E2E Playwright (`e2e/drive.spec.ts`) est en place contre l’app sur le port 6001. À vérifier en conditions réelles dans le navigateur : que les boutons **Téléverser**, **Dossier** et **Nouveau dossier** ouvrent bien le sélecteur de fichier / le formulaire (si blocage, vérifier les labels `htmlFor` et les inputs dans `AppLayout` ; lancer `BASE_URL=http://localhost:6001 npx playwright test e2e/drive.spec.ts` pour reproduire). Clarifier un éventuel doublon d’affichage « Nouveau dossier » (toolbar Drive vs autre zone).
+
+**État (2026-02-27)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **OnlyOffice** : à faire (édition de documents type Nextcloud). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
 ---
 

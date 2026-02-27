@@ -27,7 +27,7 @@ import (
 
 const (
 	accessTokenDuration  = 15 * time.Minute
-	refreshTokenDuration = 7 * 24 * time.Hour
+	refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
 )
 
 // UserStore abstrait l'accès aux utilisateurs (pour tests).

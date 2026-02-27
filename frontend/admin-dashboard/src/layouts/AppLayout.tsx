@@ -17,7 +17,7 @@ import {
   Image,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
-import { UploadProvider } from '../uploadContext'
+import { UploadProvider, DriveUploadInputs } from '../UploadProvider'
 import { UploadOverlay } from '../components/UploadOverlay'
 
 const appNav = [
@@ -42,6 +42,7 @@ export default function AppLayout() {
 
   return (
     <UploadProvider>
+      <DriveUploadInputs />
       <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
       <aside className="w-56 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0">
         <div className="p-4 border-b border-gray-100 dark:border-slate-700">

@@ -104,6 +104,15 @@ func NewHandler() http.Handler {
 	for _, svc := range services {
 		serviceURL, _ := url.Parse(svc.URL)
 		proxy := httputil.NewSingleHostReverseProxy(serviceURL)
+		// Supprimer tous les en-têtes CORS de la réponse du backend pour éviter doublon avec le middleware CORS du gateway.
+		proxy.ModifyResponse = func(resp *http.Response) error {
+			for k := range resp.Header {
+				if strings.HasPrefix(k, "Access-Control-") {
+					resp.Header.Del(k)
+				}
+			}
+			return nil
+		}
 		su, pr := serviceURL, proxy
 		svcName := svc.Name
 		r.PathPrefix(svc.Prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +172,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		// Skip auth for public endpoints
 		if strings.HasPrefix(r.URL.Path, "/auth/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/register") ||
+			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
 			r.URL.Path == "/health" {
 			next.ServeHTTP(w, r)
@@ -184,7 +194,9 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		pubKey := loadPublicKey()
 		if pubKey == nil {
-			next.ServeHTTP(w, r)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"auth key not ready"}`))
 			return
 		}
 
@@ -195,12 +207,14 @@ func authMiddleware(next http.Handler) http.Handler {
 		if err != nil || token == nil || !token.Valid {
 			if err != nil {
 				log.Printf("[gateway] JWT invalid for %s: %v", r.URL.Path, err)
-				// Si la signature est invalide, la clé auth-service a peut-être été régénérée : invalider le cache pour recharger au prochain login.
 				if strings.Contains(err.Error(), "signature") || strings.Contains(err.Error(), "verification error") {
 					invalidatePublicKey()
 				}
 			}
-			next.ServeHTTP(w, r)
+			// Requête avec Bearer mais token invalide ou expiré → 401 pour que le client se reconnecte
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"invalid or expired token"}`))
 			return
 		}
 

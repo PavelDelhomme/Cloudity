@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { refreshAuth } from './api'
 
 const STORAGE_KEY = 'cloudity_admin_auth'
 
@@ -57,10 +58,33 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(loadFromStorage)
   const navigate = useNavigate()
+  const refreshTokenRef = useRef<string | null>(null)
+  refreshTokenRef.current = state.refreshToken
 
   useEffect(() => {
     saveToStorage(state)
   }, [state])
+
+  // Rafraîchissement proactif : toutes les 10 min tant qu'on a un refresh token, pour garder la session sans déconnexion
+  useEffect(() => {
+    if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
+    const intervalMs = 10 * 60 * 1000 // 10 minutes
+    const id = setInterval(async () => {
+      const rt = refreshTokenRef.current
+      if (!rt) return
+      try {
+        const res = await refreshAuth(rt)
+        setState((prev) => ({
+          ...prev,
+          accessToken: res.access_token,
+          refreshToken: res.refresh_token,
+        }))
+      } catch {
+        // En cas d'échec (ex. refresh révoqué), on ne déconnecte pas tout de suite ; le prochain 401 fera logout
+      }
+    }, intervalMs)
+    return () => clearInterval(id)
+  }, [state.refreshToken, state.accessToken, state.tenantId])
 
   const login = useCallback(
     (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => {
@@ -93,10 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
-/** Déconnecte et redirige vers /login quand une requête API renvoie 401 (token invalide ou expiré). */
+/** Déconnecte et redirige vers /login quand une requête API renvoie 401 (token invalide ou expiré).
+ * Tente d'abord un refresh avec le refresh token pour garder la session. */
 export function Global401Handler() {
-  const { logout, isAuthenticated } = useAuth()
+  const { logout, isAuthenticated, refreshToken, login, tenantId, email } = useAuth()
   const queryClient = useQueryClient()
+  const triedRef = useRef(false)
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -104,13 +130,31 @@ export function Global401Handler() {
     const unsub = cache.subscribe((event) => {
       if (event?.type !== 'updated') return
       const q = event.query
-      if (q.state.status === 'error' && q.state.error instanceof Error && String(q.state.error.message).includes('401')) {
-        toast.error('Session expirée ou token invalide. Reconnectez-vous.')
-        logout()
+      if (q.state.status !== 'error' || !(q.state.error instanceof Error)) return
+      if (!String(q.state.error.message).includes('401')) return
+
+      const tryRefresh = async () => {
+        if (!refreshToken || triedRef.current) {
+          toast.error('Session expirée ou token invalide. Reconnectez-vous.')
+          logout()
+          return
+        }
+        triedRef.current = true
+        try {
+          const res = await refreshAuth(refreshToken)
+          login(res.access_token, res.refresh_token, tenantId!, email ?? '')
+          queryClient.invalidateQueries()
+          triedRef.current = false // permettre un nouveau refresh au prochain 401
+        } catch {
+          triedRef.current = false
+          toast.error('Session expirée. Reconnectez-vous.')
+          logout()
+        }
       }
+      tryRefresh()
     })
     return () => unsub()
-  }, [queryClient, logout, isAuthenticated])
+  }, [queryClient, logout, isAuthenticated, refreshToken, login, tenantId, email])
 
   return null
 }

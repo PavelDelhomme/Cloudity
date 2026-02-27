@@ -1,14 +1,20 @@
-import React from 'react'
+import React, { useContext } from 'react'
 import { Upload, Check, AlertCircle, Loader2, X } from 'lucide-react'
-import { useUpload } from '../uploadContext'
+import { UploadContext } from '../uploadContext'
 import { formatFileSize } from '../utils/formatFileSize'
 
+/** Ne lance jamais : si le contexte est absent (ex. HMR), on n'affiche rien. */
 export function UploadOverlay() {
-  const { items, removeItem, clearDone } = useUpload()
+  const ctx = useContext(UploadContext)
+  if (!ctx || !Array.isArray(ctx.items)) return null
+  const { items, removeItem, clearDone } = ctx
   if (items.length === 0) return null
 
   const doneOrError = items.filter((i) => i.status === 'done' || i.status === 'error')
   const hasDoneOrError = doneOrError.length > 0
+  const total = items.length
+  const inProgress = items.filter((i) => i.status === 'uploading' || i.status === 'pending').length
+  const currentUploading = items.find((i) => i.status === 'uploading')
 
   return (
     <div className="fixed top-0 right-0 z-50 w-80 max-w-[calc(100vw-1rem)] h-full pointer-events-none flex flex-col items-end justify-start pt-20 pb-4 pr-4">
@@ -17,6 +23,11 @@ export function UploadOverlay() {
           <span className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
             <Upload className="h-4 w-4" />
             Téléversements
+            {total > 0 && (
+              <span className="text-slate-500 dark:text-slate-400 font-normal">
+                ({total - inProgress}/{total})
+              </span>
+            )}
           </span>
           {hasDoneOrError && (
             <button
@@ -28,6 +39,14 @@ export function UploadOverlay() {
             </button>
           )}
         </div>
+        {currentUploading && (
+          <div className="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 truncate" title={currentUploading.name}>
+            En cours : {currentUploading.name}
+            {currentUploading.status === 'uploading' && currentUploading.progress != null && (
+              <span className="ml-1 font-medium text-brand-600 dark:text-brand-400"> — {currentUploading.progress} %</span>
+            )}
+          </div>
+        )}
         <ul className="overflow-y-auto p-2 space-y-1 min-h-0">
           {items.map((it) => (
             <li
@@ -46,8 +65,17 @@ export function UploadOverlay() {
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {it.size != null ? formatFileSize(it.size) : ''}
+                  {it.status === 'uploading' && it.progress != null ? ` — ${it.progress} %` : ''}
                   {it.status === 'error' && it.error ? ` — ${it.error}` : ''}
                 </p>
+                {it.status === 'uploading' && it.progress != null && (
+                  <div className="mt-1 h-1 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
+                    <div
+                      className="h-full bg-brand-500 dark:bg-brand-400 transition-all duration-150"
+                      style={{ width: `${it.progress}%` }}
+                    />
+                  </div>
+                )}
               </div>
               <button
                 type="button"

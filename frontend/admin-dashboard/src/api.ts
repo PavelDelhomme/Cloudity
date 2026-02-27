@@ -215,6 +215,27 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   return res.json() as Promise<LoginResponse>
 }
 
+export type RefreshResponse = {
+  access_token: string
+  refresh_token: string
+  expires_in?: number
+}
+
+/** Rafraîchit la session avec le refresh token (rotation côté serveur). À appeler avant expiration du access token. */
+export async function refreshAuth(refreshToken: string): Promise<RefreshResponse> {
+  const url = apiUrl('/auth/refresh')
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Refresh: ${res.status}`)
+  }
+  return res.json() as Promise<RefreshResponse>
+}
+
 export type RegisterBody = { email: string; password: string; tenant_id?: number }
 export type RegisterResponse = {
   access_token: string
@@ -340,27 +361,59 @@ export async function uploadDriveFile(
   parentId: number | null,
   file: File
 ): Promise<{ id: number; name: string; size: number }> {
-  const form = new FormData()
-  form.append('file', file)
-  form.append('name', file.name)
-  if (parentId != null) form.append('parent_id', String(parentId))
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 120_000)
-  try {
-    const res = await fetch(apiUrl('/drive/nodes/upload'), {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-      signal: controller.signal,
+  return uploadDriveFileWithProgress(token, parentId, file)
+}
+
+/** Upload avec rapport de progression (XHR) pour affichage pourcentage. */
+export function uploadDriveFileWithProgress(
+  token: string,
+  parentId: number | null,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ id: number; name: string; size: number }> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('name', file.name)
+    if (parentId != null) form.append('parent_id', String(parentId))
+
+    const xhr = new XMLHttpRequest()
+    const timeout = 120_000
+    const timeoutId = setTimeout(() => {
+      xhr.abort()
+    }, timeout)
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && e.total > 0 && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
     })
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(text ? `Upload: ${res.status} - ${text}` : `Upload: ${res.status}`)
-    }
-    return res.json() as Promise<{ id: number; name: string; size: number }>
-  } finally {
-    clearTimeout(timeoutId)
-  }
+    xhr.addEventListener('load', () => {
+      clearTimeout(timeoutId)
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText) as { id: number; name: string; size: number }
+          resolve(json)
+        } catch {
+          reject(new Error(`Upload: ${xhr.status}`))
+        }
+      } else {
+        reject(new Error(xhr.responseText ? `Upload: ${xhr.status} - ${xhr.responseText}` : `Upload: ${xhr.status}`))
+      }
+    })
+    xhr.addEventListener('error', () => {
+      clearTimeout(timeoutId)
+      reject(new Error('Upload: network error'))
+    })
+    xhr.addEventListener('abort', () => {
+      clearTimeout(timeoutId)
+      reject(new Error('Upload: aborted'))
+    })
+
+    xhr.open('POST', apiUrl('/drive/nodes/upload'))
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.send(form)
+  })
 }
 
 // Calendar — événements

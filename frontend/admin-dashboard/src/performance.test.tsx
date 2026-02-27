@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import DrivePage from './pages/app/DrivePage'
 import AppHub from './pages/app/AppHub'
 import { useAuth } from './authContext'
-import { UploadProvider } from './uploadContext'
+import { UploadProvider } from './UploadProvider'
 
 const PERF = {
   /** Temps max acceptable pour le premier rendu d'une page avec liste (ms). CI/jsdom peut être lent. */

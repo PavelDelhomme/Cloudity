@@ -1,7 +1,20 @@
 # Plan d'implémentation CLOUDITY
 
 **Référence au quotidien** : [STATUS.md](./STATUS.md) (suivi détaillé, checklist, ports 60XX).  
-**Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6080 (API), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
+**Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6080 (API Gateway), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
+
+---
+
+## État actuel (mise à jour récente)
+
+- **API** : Gateway sur port **6080** (évite ERR_UNSAFE_PORT 6000). CORS géré uniquement par le gateway ; les backends (admin-service, etc.) ne renvoient plus d’en-têtes CORS pour éviter la valeur en double `http://localhost:6001, *`.
+- **Auth** : JWT persistant après redémarrage, Register 409 si email déjà pris.
+- **Admin** : Tableau de bord, tenants, users, vaults, domaines. Stats `/admin/stats` utilisables depuis le dashboard après correction CORS.
+- **Drive** : Arborescence, création dossier, upload (POST `/drive/nodes/upload`), téléchargement, renommer, supprimer, déplacer. Timeout 120 s et gestion d’erreur côté front pour l’upload.
+- **Pass** : Coffre-fort, table `pass_vaults` créée via migration.
+- **Navigation app** : Tableau de bord, **Drive**, **Office** (placeholder), **Pass**, **Mail**, **Calendar**, **Notes**, **Tasks**, **Contacts** (placeholder), **Photos** (placeholder), Administration, Paramètres.
+
+**À faire (priorité)** : Suite Office (Word/Excel/Présentation type OnlyOffice–Nextcloud) depuis le Drive ; app **Contacts** ; app **Photos** ; **alias mail** (API + UI) ; application mobile (Drive, Office, etc.) ; téléversement Drive à valider en conditions réelles après correctifs CORS.
 
 ---
 
@@ -12,15 +25,16 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 | Domaine | Web | Mobile | Interconnexions |
 |--------|-----|--------|------------------|
 | **Drive** | Client + éditeur de documents (Word, tableur, présentation) | App mobile Drive | Drive ↔ Office, partage |
+| **Office** | Documents, tableurs, présentations (TipTap, Luckysheet, etc.) | App mobile Office | Création/édition depuis Drive |
 | **Pass** | Gestionnaire mots de passe, extension navigateur | App mobile Pass | Intégration alias mail |
-| **Mail** | Client mail web / Linux | App mobile Mail | Mail ↔ Calendar, Contacts, alias |
+| **Mail** | Client mail web / Linux | App mobile Mail | Mail ↔ Calendar, Contacts, **alias** |
 | **Calendar** | Agenda, événements | App mobile Calendar | Calendar ↔ Mail, Tasks, Contacts |
 | **Notes** | Bloc-notes, éditeur riche | App mobile Notes | Sync, partage |
 | **Tasks** | Tâches, to-do | App mobile Tasks | Tasks ↔ Calendar, Mail |
 | **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
 | **Photos** | Galerie, stockage photos | App mobile Photos | Sync, partage, albums |
 
-**À faire (référence)** : alias email (API + UI), API alias temp/permanent, extension Pass « Créer alias », éditeurs documents (TipTap, Luckysheet, etc.), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. Détail dans STATUS.md et TESTS.md.
+**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », éditeurs documents (TipTap, Luckysheet, OnlyOffice), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. Détail dans STATUS.md et TESTS.md.
 
 ---
 

@@ -1,5 +1,6 @@
 # Rapports de tests
 reports/
+**/test-results-drive-loop.json
 
 # Env local (secrets, ne pas committer)
 .env

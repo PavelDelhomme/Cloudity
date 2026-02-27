@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, moveDriveNode } from './api'
+import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -232,6 +232,26 @@ describe('api', () => {
           body: JSON.stringify({ email: 'new@b.com', password: 'password123', tenant_id: '1' }),
         })
       )
+    })
+  })
+
+  describe('refreshAuth', () => {
+    it('calls POST /auth/refresh with refresh_token and returns new tokens', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ access_token: 'new_at', refresh_token: 'new_rt', expires_in: 900 }),
+      } as Response)
+      const res = await refreshAuth('old_rt')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/auth/refresh'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: 'old_rt' }),
+        })
+      )
+      expect(res).toEqual({ access_token: 'new_at', refresh_token: 'new_rt', expires_in: 900 })
     })
   })
 

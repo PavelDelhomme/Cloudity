@@ -1,5 +1,4 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, status
-from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
@@ -21,14 +20,7 @@ app = FastAPI(
     description="Multi-tenant administration API",
     version="1.0.0"
 )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS géré par l'api-gateway uniquement (éviter doublon Access-Control-Allow-Origin)
 
 # Models
 class Tenant(Base):

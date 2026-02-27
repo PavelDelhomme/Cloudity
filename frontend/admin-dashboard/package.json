@@ -10,7 +10,11 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:drive": "vitest run src/pages/app/DrivePage.test.tsx",
+    "test:drive:loop": "node scripts/drive-test-loop.js",
+    "test:e2e": "playwright test",
+    "test:e2e:drive": "playwright test e2e/drive.spec.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -22,6 +26,7 @@
     "react-router-dom": "^6.8.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@testing-library/react": "^14.1.0",
     "@types/react": "^18.0.28",
     "@types/react-dom": "^18.0.11",
