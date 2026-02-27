@@ -1,4 +1,4 @@
-.PHONY: help up down setup init dev prod build test tests clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup init dev prod build test tests test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -28,13 +28,15 @@ help: ## Affiche ce message d'aide
 	@echo ''
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
+	@echo '  make rebuild   - Reconstruit tous les services Cloudity (build --no-cache) puis redémarre (stack peut être déjà up)'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
-	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — 112 tests'
-	@echo '  make tests      - TOUT: unit/app + E2E + sécurité, avec rapport dans reports/test-YYYYMMDD-HHMMSS.log'
+	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — sans E2E'
+	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité (make test, test-e2e, test-e2e-playwright, test-security), rapport dans reports/'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
+	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: login, Drive, Office). Prérequis: make up + make seed-admin'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
-	@echo '  make test-all   - TOUT: make test + test-e2e + test-security (stack up requise pour e2e)'
+	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security (stack up + make seed-admin)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais exécutée dans les conteneurs (make up avant)'
 	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
@@ -158,6 +160,13 @@ build: ## Build tous les services
 	@$(COMPOSE) $(COMPOSE_FILES) build --parallel --no-cache
 	@echo "✅ Build terminé!"
 
+rebuild: ## Reconstruit tous les services Cloudity puis redémarre (stack peut être déjà up)
+	@echo "🔨 Rebuild de tous les services Cloudity..."
+	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
+	@echo "🔄 Redémarrage des services avec les nouvelles images..."
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
+	@echo "✅ Rebuild terminé ! Services à jour."
+
 build-auth: ## Build uniquement le service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) build auth-service
 
@@ -196,15 +205,20 @@ test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lan
 	@echo "✅ Tous les tests sont passés."
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
-tests: ## Lance tous les tests (unit/app + E2E + sécurité) et génère un rapport (reports/test-YYYYMMDD-HHMMSS.log)
+tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité), sortie en direct + rapport dans reports/
 	@chmod +x scripts/run-tests-with-report.sh
 	@./scripts/run-tests-with-report.sh
 
-test-all: test test-e2e test-security ## TOUT: unit/app + E2E + sécurité (stack up + 20-30 s pour E2E)
+test-all: test test-e2e test-e2e-playwright test-security ## TOUT: unit/app + E2E + E2E Playwright + sécurité (stack up + make seed-admin + 20-30 s)
 
 test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
 	@chmod +x scripts/test-e2e.sh
 	@./scripts/test-e2e.sh
+
+test-e2e-playwright: ## Tests E2E navigateur (Playwright). Prérequis: make up, make seed-admin, attendre 20-30 s
+	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office)..."
+	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test
+	@echo "✅ E2E Playwright OK"
 
 test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@chmod +x scripts/test-security.sh
@@ -510,12 +524,14 @@ rebuild-service: ## Menu pour reconstruire un service spécifique
 	@echo "2) api-gateway"
 	@echo "3) admin-service"
 	@echo "4) admin-dashboard"
-	@read -p "Choisir un service (1-4): " choice; \
+	@echo "5) drive-service"
+	@read -p "Choisir un service (1-5): " choice; \
 	case $$choice in \
 		1) make rebuild-auth ;; \
 		2) make rebuild-gateway ;; \
 		3) make rebuild-admin ;; \
 		4) make rebuild-dashboard ;; \
+		5) make rebuild-drive ;; \
 		*) echo "Choix invalide" ;; \
 	esac
 
@@ -530,6 +546,9 @@ rebuild-admin: ## Reconstruit admin-service
 
 rebuild-dashboard: ## Reconstruit admin-dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) stop admin-dashboard 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache admin-dashboard && $(COMPOSE) $(COMPOSE_FILES) up -d admin-dashboard && echo "✅ admin-dashboard OK"
+
+rebuild-drive: ## Reconstruit drive-service
+	@$(COMPOSE) $(COMPOSE_FILES) stop drive-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache drive-service && $(COMPOSE) $(COMPOSE_FILES) up -d drive-service && echo "✅ drive-service OK"
 
 setup-infra-only: ## Démarre uniquement Postgres + Redis
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis

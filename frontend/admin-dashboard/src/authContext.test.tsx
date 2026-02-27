@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { TestRouter } from './test-utils'
 import { AuthProvider, useAuth } from './authContext'
 
 function Consumer() {
@@ -23,22 +23,22 @@ describe('authContext', () => {
 
   it('provides isAuthenticated false when no storage', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <AuthProvider>
           <Consumer />
         </AuthProvider>
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.getByTestId('authenticated').textContent).toBe('false')
   })
 
   it('provides login and logout functions', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <AuthProvider>
           <Consumer />
         </AuthProvider>
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.getByRole('button', { name: 'Logout' })).toBeTruthy()
   })
@@ -54,11 +54,11 @@ describe('authContext', () => {
       })
     )
     render(
-      <MemoryRouter>
+      <TestRouter>
         <AuthProvider>
           <Consumer />
         </AuthProvider>
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.getByTestId('authenticated').textContent).toBe('true')
     expect(screen.getByTestId('email').textContent).toBe('u@c.com')

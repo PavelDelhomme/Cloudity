@@ -112,6 +112,9 @@ check_json "Gateway → /admin/stats" "http://localhost:${PORT_GATEWAY}/admin/st
 check_json_retry "Gateway → /pass/health" "http://localhost:${PORT_GATEWAY}/pass/health" "status"
 check_json_retry "Gateway → /mail/health" "http://localhost:${PORT_GATEWAY}/mail/health" "status"
 
+# Drive (fichiers / dossiers)
+check_json_retry "Gateway → /drive/health" "http://localhost:${PORT_GATEWAY}/drive/health" "status"
+
 # Checks fonctionnels API (auth, validation)
 check_http_any "Gateway → POST /auth/login (invalid) → 401 ou 400" "POST" "http://localhost:${PORT_GATEWAY}/auth/login"
 check_http "Gateway → GET /auth/validate (no token) → 401" "GET" "http://localhost:${PORT_GATEWAY}/auth/validate" "401"

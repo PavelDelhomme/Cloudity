@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { TestRouter } from '../../test-utils'
 import PassPage from './PassPage'
 import { useAuth } from '../../authContext'
 import * as api from '../../api'
@@ -17,9 +17,9 @@ vi.mock('../../api', () => ({
 function wrap(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
-    <MemoryRouter>
+    <TestRouter>
       <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
-    </MemoryRouter>
+    </TestRouter>
   )
 }
 

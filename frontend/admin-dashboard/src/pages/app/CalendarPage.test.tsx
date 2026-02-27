@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CalendarPage from './CalendarPage'
 import { useAuth } from '../../authContext'
@@ -17,7 +17,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false 
 function wrap(ui: React.ReactElement) {
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>{ui}</MemoryRouter>
+      <TestRouter>{ui}</TestRouter>
     </QueryClientProvider>
   )
 }

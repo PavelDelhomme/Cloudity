@@ -4,11 +4,13 @@ export type UploadItem = {
   id: string
   name: string
   size?: number
-  status: 'pending' | 'uploading' | 'done' | 'error'
+  status: 'pending' | 'uploading' | 'done' | 'error' | 'conflict'
   error?: string
   parentId: number | null
   /** 0–100 pendant l'upload (optionnel). */
   progress?: number
+  /** Présent quand status === 'conflict' pour permettre « Remplacer ». */
+  file?: File
 }
 
 export type UploadContextValue = {
@@ -17,6 +19,10 @@ export type UploadContextValue = {
   addFolderUpload: (files: FileList, parentId: number | null) => void
   removeItem: (id: string) => void
   clearDone: () => void
+  /** Remplacer un fichier existant (après conflit). */
+  replaceUpload: (id: string) => void
+  /** Annuler un conflit (supprimer l’entrée sans remplacer). */
+  cancelConflict: (id: string) => void
   driveParentId: number | null
   setDriveParentId: (id: number | null) => void
 }
@@ -38,6 +44,8 @@ export const defaultUploadContextValue: UploadContextValue = {
   addFolderUpload: noop,
   removeItem: noop,
   clearDone: noop,
+  replaceUpload: noop,
+  cancelConflict: noop,
   driveParentId: null,
   setDriveParentId: noop,
 }

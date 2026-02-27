@@ -1,19 +1,24 @@
 import React, { useState, useCallback, useEffect, startTransition } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   HardDrive,
   Folder,
   File,
+  FileText,
   Upload,
   ChevronRight,
   FolderPlus,
   Trash2,
   Edit2,
+  Edit3,
   Download,
   Loader2,
   FolderUp,
+  Table,
+  Presentation,
+  FilePlus,
 } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../uploadContext'
@@ -21,12 +26,14 @@ import { formatFileSize } from '../../utils/formatFileSize'
 import {
   fetchDriveNodes,
   createDriveFolder,
+  createDriveFileWithUniqueName,
   renameDriveNode,
   deleteDriveNode,
   downloadDriveFile,
   moveDriveNode,
   type DriveNode,
 } from '../../api'
+import { EDITABLE_EXT, getExtension } from '../app/DocumentEditorPage'
 
 type BreadcrumbItem = { id: number | null; name: string }
 
@@ -85,13 +92,13 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
               if (e.key === 'Enter') onRename(node.id)
               if (e.key === 'Escape') onCancelEdit()
             }}
-            className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+            className="flex-1 rounded border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 px-2 py-1 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-brand-500 dark:focus:border-brand-400 focus:outline-none"
             autoFocus
           />
-          <button type="button" onClick={() => onRename(node.id)} className="text-sm text-brand-600 hover:underline">
+          <button type="button" onClick={() => onRename(node.id)} className="text-sm text-brand-600 dark:text-brand-400 hover:underline">
             OK
           </button>
-          <button type="button" onClick={onCancelEdit} className="text-sm text-slate-500 hover:underline">
+          <button type="button" onClick={onCancelEdit} className="text-sm text-slate-500 dark:text-slate-400 hover:underline">
             Annuler
           </button>
         </>
@@ -115,20 +122,40 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
           ) : (
             <span className="flex items-center gap-2 flex-1 min-w-0">
               <File className="h-5 w-5 text-slate-400 flex-shrink-0" />
-              <span className="text-slate-700 dark:text-slate-300 truncate">{node.name}</span>
+              {EDITABLE_EXT.includes(getExtension(node.name)) ? (
+                <Link
+                  to={`/app/office/editor/${node.id}`}
+                  className="text-slate-700 dark:text-slate-300 truncate hover:text-brand-600 dark:hover:text-brand-400 hover:underline"
+                >
+                  {node.name}
+                </Link>
+              ) : (
+                <span className="text-slate-700 dark:text-slate-300 truncate">{node.name}</span>
+              )}
               <span className="text-slate-400 text-sm flex-shrink-0">{formatFileSize(node.size)}</span>
             </span>
           )}
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
             {!node.is_folder && (
-              <button
-                type="button"
-                onClick={() => onDownload(node)}
-                className="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
-                title="Télécharger"
-              >
-                <Download className="h-4 w-4" />
-              </button>
+              <>
+                {EDITABLE_EXT.includes(getExtension(node.name)) && (
+                  <Link
+                    to={`/app/office/editor/${node.id}`}
+                    className="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
+                    title="Éditer"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDownload(node)}
+                  className="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-700 dark:hover:text-slate-200"
+                  title="Télécharger"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -181,11 +208,32 @@ const DriveToolbar = React.memo(function DriveToolbar({
   breadcrumb,
   onBreadcrumbClick,
   onNewFolder,
+  onNewDocument,
+  onNewTableur,
+  onNewPresentation,
+  creatingDocument,
+  showNewFileMenu,
+  onToggleNewFileMenu,
+  dropTargetIsRoot,
+  onDragOverBreadcrumbRoot,
+  onDragLeaveBreadcrumbRoot,
+  onDropOnBreadcrumbRoot,
 }: {
   breadcrumb: BreadcrumbItem[]
   onBreadcrumbClick: (id: number | null, name: string) => void
   onNewFolder: () => void
+  onNewDocument?: () => void
+  onNewTableur?: () => void
+  onNewPresentation?: () => void
+  creatingDocument?: boolean
+  showNewFileMenu?: boolean
+  onToggleNewFileMenu?: () => void
+  dropTargetIsRoot?: boolean
+  onDragOverBreadcrumbRoot?: (e: React.DragEvent) => void
+  onDragLeaveBreadcrumbRoot?: () => void
+  onDropOnBreadcrumbRoot?: (e: React.DragEvent) => void
 }) {
+  const showRootDropZone = breadcrumb.length > 1 && onDragOverBreadcrumbRoot && onDropOnBreadcrumbRoot
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
@@ -196,13 +244,32 @@ const DriveToolbar = React.memo(function DriveToolbar({
           {breadcrumb.map((b, i) => (
             <span key={i} className="flex items-center gap-2">
               <ChevronRight className="h-4 w-4 flex-shrink-0" />
-              <button
-                type="button"
-                onClick={() => onBreadcrumbClick(b.id, b.name)}
-                className="hover:text-slate-900 dark:hover:text-slate-100 font-medium"
-              >
-                {b.name}
-              </button>
+              {i === 0 && b.id === null && showRootDropZone ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onBreadcrumbClick(null, b.name)}
+                  onDragOver={onDragOverBreadcrumbRoot}
+                  onDragLeave={onDragLeaveBreadcrumbRoot}
+                  onDrop={onDropOnBreadcrumbRoot}
+                  className={`inline-flex items-center rounded px-2 py-0.5 font-medium cursor-pointer select-none ${
+                    dropTargetIsRoot
+                      ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-200 ring-2 ring-brand-400 dark:ring-brand-500'
+                      : 'hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700'
+                  }`}
+                  aria-label="Drive (racine) — déposer ici pour déplacer à la racine"
+                >
+                  {b.name}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onBreadcrumbClick(b.id, b.name)}
+                  className="hover:text-slate-900 dark:hover:text-slate-100 font-medium"
+                >
+                  {b.name}
+                </button>
+              )}
             </span>
           ))}
         </nav>
@@ -213,6 +280,60 @@ const DriveToolbar = React.memo(function DriveToolbar({
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         <UploadButton />
+        {(onNewDocument ?? onNewTableur ?? onNewPresentation) && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={onToggleNewFileMenu ?? onNewDocument}
+              disabled={creatingDocument}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50"
+            >
+              {creatingDocument ? <Loader2 className="h-4 w-4 animate-spin" /> : <FilePlus className="h-4 w-4" />}
+              Nouveau fichier
+            </button>
+            {showNewFileMenu && (onNewDocument ?? onNewTableur ?? onNewPresentation) && (
+              <div className="absolute left-0 mt-1 w-56 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-2 z-20">
+                <p className="px-3 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                  Type de fichier
+                </p>
+                {onNewDocument && (
+                  <button
+                    type="button"
+                    data-testid="drive-new-document"
+                    disabled={creatingDocument}
+                    onClick={onNewDocument}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    <FileText className="h-5 w-5 text-slate-500" />
+                    <span><strong>Document</strong></span>
+                  </button>
+                )}
+                {onNewTableur && (
+                  <button
+                    type="button"
+                    disabled={creatingDocument}
+                    onClick={onNewTableur}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    <Table className="h-5 w-5 text-slate-500" />
+                    <span><strong>Tableur</strong> (.csv)</span>
+                  </button>
+                )}
+                {onNewPresentation && (
+                  <button
+                    type="button"
+                    disabled={creatingDocument}
+                    onClick={onNewPresentation}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                  >
+                    <Presentation className="h-5 w-5 text-slate-500" />
+                    <span><strong>Présentation</strong></span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <button
           type="button"
           onClick={onNewFolder}
@@ -228,15 +349,19 @@ const DriveToolbar = React.memo(function DriveToolbar({
 
 export default function DrivePage() {
   const { accessToken, logout } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { addUpload, addFolderUpload, setDriveParentId } = useUpload()
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Drive' }])
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
+  const [creatingDocument, setCreatingDocument] = useState(false)
+  const [showNewFileMenu, setShowNewFileMenu] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [dropTargetFolderId, setDropTargetFolderId] = useState<number | null>(null)
+  const [dropTargetIsRoot, setDropTargetIsRoot] = useState(false)
   const [draggedNode, setDraggedNode] = useState<DriveNode | null>(null)
   const [visibleCount, setVisibleCount] = useState(20)
   const [listReady, setListReady] = useState(false)
@@ -390,6 +515,59 @@ export default function DrivePage() {
   const openNewFolderForm = useCallback(() => {
     setTimeout(() => setShowNewFolder(true), 0)
   }, [])
+  const handleNewDocument = useCallback(() => {
+    if (!accessToken) return
+    setShowNewFileMenu(false)
+    setCreatingDocument(true)
+    createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre.html')
+      .then(({ id, name }) => {
+        if (name !== 'Sans titre.html') {
+          toast.success(`Un document existait déjà à ce nom. Créé sous « ${name} ».`)
+        } else {
+          toast.success('Document créé')
+        }
+        queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+        navigate(`/app/office/editor/${id}`)
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur'))
+      .finally(() => setCreatingDocument(false))
+  }, [accessToken, currentParentId, queryClient, navigate])
+
+  const handleNewTableur = useCallback(() => {
+    if (!accessToken) return
+    setShowNewFileMenu(false)
+    setCreatingDocument(true)
+    createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre.csv')
+      .then(({ id, name }) => {
+        if (name !== 'Sans titre.csv') {
+          toast.success(`Un tableur existait déjà à ce nom. Créé sous « ${name} ».`)
+        } else {
+          toast.success('Tableur créé')
+        }
+        queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+        navigate(`/app/office/editor/${id}`)
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur'))
+      .finally(() => setCreatingDocument(false))
+  }, [accessToken, currentParentId, queryClient, navigate])
+
+  const handleNewPresentation = useCallback(() => {
+    if (!accessToken) return
+    setShowNewFileMenu(false)
+    setCreatingDocument(true)
+    createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre (présentation).html')
+      .then(({ id, name }) => {
+        if (name !== 'Sans titre (présentation).html') {
+          toast.success(`Une présentation existait déjà à ce nom. Créé sous « ${name} ».`)
+        } else {
+          toast.success('Présentation créée')
+        }
+        queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+        navigate(`/app/office/editor/${id}`)
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur'))
+      .finally(() => setCreatingDocument(false))
+  }, [accessToken, currentParentId, queryClient, navigate])
   /** Fermer le formulaire au prochain tick. */
   const closeNewFolderForm = useCallback(() => {
     setTimeout(() => {
@@ -401,8 +579,12 @@ export default function DrivePage() {
   const handleDragEndRow = useCallback(() => {
     setDraggedNode(null)
     setDropTargetFolderId(null)
+    setDropTargetIsRoot(false)
   }, [])
-  const handleDragOverFolder = useCallback((id: number) => setDropTargetFolderId(id), [])
+  const handleDragOverFolder = useCallback((id: number) => {
+    setDropTargetFolderId(id)
+    setDropTargetIsRoot(false)
+  }, [])
   const handleDragLeaveFolder = useCallback((e: React.DragEvent) => {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropTargetFolderId(null)
   }, [])
@@ -418,6 +600,7 @@ export default function DrivePage() {
     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOver(false)
       setDropTargetFolderId(null)
+      setDropTargetIsRoot(false)
     }
   }, [])
 
@@ -425,6 +608,7 @@ export default function DrivePage() {
     (e: React.DragEvent) => {
       e.preventDefault()
       setDragOver(false)
+      setDropTargetIsRoot(false)
       const files = e.dataTransfer?.files
       if (files?.length) {
         const targetFolderId = dropTargetFolderId ?? currentParentId
@@ -441,6 +625,33 @@ export default function DrivePage() {
       setDropTargetFolderId(null)
     },
     [dropTargetFolderId, currentParentId, uploadFilesToParent, handleMove]
+  )
+
+  const onDragOverBreadcrumbRoot = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.dataTransfer?.types.includes('application/x-cloudity-drive-node')) {
+      setDropTargetIsRoot(true)
+      setDropTargetFolderId(null)
+    }
+  }, [])
+
+  const onDragLeaveBreadcrumbRoot = useCallback(() => {
+    setDropTargetIsRoot(false)
+  }, [])
+
+  const onDropOnBreadcrumbRoot = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setDropTargetIsRoot(false)
+      const nodeIdStr = e.dataTransfer?.getData('application/x-cloudity-drive-node')
+      if (nodeIdStr) {
+        const nodeId = parseInt(nodeIdStr, 10)
+        if (!Number.isNaN(nodeId)) handleMove(nodeId, null)
+      }
+    },
+    [handleMove]
   )
 
   if (error && error instanceof Error && error.message.includes('401')) {
@@ -465,7 +676,21 @@ export default function DrivePage() {
 
   return (
     <div className="space-y-6">
-      <DriveToolbar breadcrumb={breadcrumb} onBreadcrumbClick={goTo} onNewFolder={openNewFolderForm} />
+      <DriveToolbar
+        breadcrumb={breadcrumb}
+        onBreadcrumbClick={goTo}
+        onNewFolder={openNewFolderForm}
+        onNewDocument={handleNewDocument}
+        onNewTableur={handleNewTableur}
+        onNewPresentation={handleNewPresentation}
+        creatingDocument={creatingDocument}
+        showNewFileMenu={showNewFileMenu}
+        onToggleNewFileMenu={() => setShowNewFileMenu((v) => !v)}
+        dropTargetIsRoot={dropTargetIsRoot}
+        onDragOverBreadcrumbRoot={onDragOverBreadcrumbRoot}
+        onDragLeaveBreadcrumbRoot={onDragLeaveBreadcrumbRoot}
+        onDropOnBreadcrumbRoot={onDropOnBreadcrumbRoot}
+      />
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2">
@@ -481,27 +706,27 @@ export default function DrivePage() {
           onDrop={onDrop}
         >
           {showNewFolder && (
-            <div className="flex items-center gap-2 mb-4 p-3 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-700/70 rounded-lg border border-slate-200 dark:border-slate-600">
               <input
                 type="text"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                 placeholder="Nom du dossier"
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-1 focus:ring-brand-500 dark:focus:ring-brand-400 focus:outline-none"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={handleCreateFolder}
-                className="rounded-lg bg-brand-600 px-3 py-2 text-sm text-white hover:bg-brand-700"
+                className="rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-2 text-sm text-white hover:bg-brand-700 dark:hover:bg-brand-600"
               >
                 Créer
               </button>
               <button
                 type="button"
                 onClick={closeNewFolderForm}
-                className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+                className="rounded-lg border border-slate-300 dark:border-slate-500 px-3 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600"
               >
                 Annuler
               </button>

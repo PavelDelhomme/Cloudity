@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, status
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean, JSON
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from sqlalchemy.sql import func
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict
 from datetime import datetime
 import os
@@ -76,9 +75,8 @@ class TenantResponse(TenantBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # User schemas (sans password_hash / totp_secret)
@@ -92,9 +90,8 @@ class UserResponse(BaseModel):
     last_login: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserUpdate(BaseModel):

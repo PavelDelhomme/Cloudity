@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { TestRouter } from '../test-utils'
 import LoginPage from './public/LoginPage'
 import { useAuth } from '../authContext'
 import * as api from '../api'
@@ -26,9 +26,9 @@ describe('LoginPage', () => {
 
   it('renders login form with title and fields (no tenant ID)', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <LoginPage />
-      </MemoryRouter>
+      </TestRouter>
     )
     expect(screen.getByRole('link', { name: 'Cloudity' })).toBeTruthy()
     expect(screen.getByText('Connexion')).toBeTruthy()
@@ -40,9 +40,9 @@ describe('LoginPage', () => {
 
   it('has email and password inputs', () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <LoginPage />
-      </MemoryRouter>
+      </TestRouter>
     )
     const email = screen.getByLabelText(/Email/i)
     const password = screen.getByLabelText(/Mot de passe/i)
@@ -56,9 +56,9 @@ describe('LoginPage', () => {
       refresh_token: 'rt',
     })
     render(
-      <MemoryRouter>
+      <TestRouter>
         <LoginPage />
-      </MemoryRouter>
+      </TestRouter>
     )
     fireEvent.change(screen.getByLabelText(/Email/i), { target: { value: 'admin@test.com' } })
     fireEvent.change(screen.getByLabelText(/Mot de passe/i), { target: { value: 'secret' } })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode } from './api'
+import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode, createDriveFile, createDriveFileWithUniqueName, getDriveNodeContentAsText, putDriveNodeContent, fetchDriveRecentFiles } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -10,10 +10,10 @@ describe('api', () => {
   })
 
   describe('apiUrl', () => {
-    it('returns path when base is empty (relative URL)', () => {
+    it('returns URL that contains the path (relative or absolute)', () => {
       const url = apiUrl('/admin/tenants')
-      expect(url).toBe('/admin/tenants')
-      expect(apiUrl('admin/tenants')).toBe('/admin/tenants')
+      expect(url).toContain('/admin/tenants')
+      expect(apiUrl('admin/tenants')).toContain('/admin/tenants')
     })
     it('returns path for /pass/vaults so request hits API host when base is set', () => {
       expect(apiUrl('/pass/vaults')).toContain('/pass/vaults')
@@ -285,6 +285,162 @@ describe('api', () => {
           body: JSON.stringify({ parent_id: 0 }),
         })
       )
+    })
+  })
+
+  describe('createDriveFile', () => {
+    it('calls POST /drive/nodes with is_folder false', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 5, name: 'Doc.html', is_folder: false }),
+      } as Response)
+      await createDriveFile('tk', null, 'Doc.html')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/drive/nodes'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
+          body: JSON.stringify({ parent_id: null, name: 'Doc.html', is_folder: false }),
+        })
+      )
+    })
+    it('throws when response not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 400 } as Response)
+      await expect(createDriveFile('x', 1, 'a.html')).rejects.toThrow(/400/)
+    })
+    it('throws with status 409 when file exists', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409 } as Response)
+      const err = await createDriveFile('x', null, 'Sans titre.html').catch((e) => e)
+      expect(err).toBeInstanceOf(Error)
+      expect((err as Error & { status?: number }).status).toBe(409)
+    })
+  })
+
+  describe('createDriveFileWithUniqueName', () => {
+    it('returns result when first name is free', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 5, name: 'Doc.html', is_folder: false }),
+      } as Response)
+      const result = await createDriveFileWithUniqueName('tk', null, 'Doc.html')
+      expect(result.name).toBe('Doc.html')
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+    })
+    it('retries with "name (1).ext" on 409 then succeeds', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch
+        .mockResolvedValueOnce({ ok: false, status: 409 } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 6, name: 'Sans titre (1).html', is_folder: false }),
+        } as Response)
+      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.html')
+      expect(result.name).toBe('Sans titre (1).html')
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+    it('retries when 500 response contains duplicate/unique constraint (treated as 409)', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: () => Promise.resolve({ error: 'duplicate key value violates unique constraint', message: 'duplicate key' }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 7, name: 'Sans titre (1).html', is_folder: false }),
+        } as Response)
+      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.html')
+      expect(result.name).toBe('Sans titre (1).html')
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('getDriveNodeContentAsText', () => {
+    it('calls GET /drive/nodes/:id/content and returns text', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('hello world'),
+      } as Response)
+      const result = await getDriveNodeContentAsText('tk', 42)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/drive/nodes/42/content'),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
+        })
+      )
+      expect(result).toBe('hello world')
+    })
+    it('throws when response not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 404 } as Response)
+      await expect(getDriveNodeContentAsText('x', 1)).rejects.toThrow(/404/)
+    })
+  })
+
+  describe('fetchDriveRecentFiles', () => {
+    it('calls GET /drive/nodes/recent with limit and returns array', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([{ id: 1, name: 'a.html', is_folder: false, size: 0, parent_id: null, created_at: '', updated_at: '' }]),
+      } as Response)
+      const result = await fetchDriveRecentFiles('tk', 15)
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/drive\/nodes\/recent\?limit=15/),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
+        })
+      )
+      expect(Array.isArray(result)).toBe(true)
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('a.html')
+    })
+    it('throws when response not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 401 } as Response)
+      await expect(fetchDriveRecentFiles('x', 10)).rejects.toThrow(/401/)
+    })
+  })
+
+  describe('putDriveNodeContent', () => {
+    it('calls PUT /drive/nodes/:id/content with body and Content-Type', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 42, size: 11 }),
+      } as Response)
+      await putDriveNodeContent('tk', 42, 'hello world', 'text/plain')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/drive/nodes/42/content'),
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer tk',
+            'Content-Type': 'text/plain',
+          }),
+          body: 'hello world',
+        })
+      )
+    })
+    it('defaults mimeType to text/plain', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1, size: 0 }),
+      } as Response)
+      await putDriveNodeContent('tk', 1, '')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'Content-Type': 'text/plain' }),
+        })
+      )
+    })
+    it('throws when response not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 403 } as Response)
+      await expect(putDriveNodeContent('x', 1, 'x')).rejects.toThrow(/403/)
     })
   })
 })

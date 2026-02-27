@@ -2,7 +2,7 @@
 
 ## Priorités actuelles
 
-- **En cours** : **OnlyOffice** — édition de documents (DOCX, XLSX, etc.) depuis le Drive. Document Server (Docker) + connecteur frontend (bouton « Éditer » sur les fichiers dans le Drive). Voir `docs/onlyoffice.md`.
+- **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
 - **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), Calendar (vue améliorée), Mail client riche, Contacts, etc.
 
 ## Problème résolu : crash HMR + lenteur au clic Téléverser

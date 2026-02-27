@@ -1,49 +1,70 @@
 #!/bin/bash
-# Vérifications sécurité : audits de dépendances + checks auth (optionnel si stack up)
+# Vérifications sécurité : audits de dépendances (npm, safety, govulncheck) dans Docker + checks auth
 # Usage: ./scripts/test-security.sh
+# Nécessite : docker compose (ou docker-compose). Les audits tournent dans les conteneurs.
 
 set -e
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+# Même logique que le Makefile pour docker compose vs docker-compose
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
+else
+  COMPOSE="docker-compose"
+fi
+
+COMPOSE_FILES="-f docker-compose.yml"
 PORT_GATEWAY="${PORT_GATEWAY:-6080}"
 failed=0
 
-echo "🔒 Vérifications sécurité..."
+echo "🔒 Vérifications sécurité (audits dans Docker)..."
 
-# --- Audits de dépendances ---
+# --- npm audit (admin-dashboard) dans le conteneur ---
 echo ""
-echo "  [npm audit] admin-dashboard..."
-if (cd frontend/admin-dashboard 2>/dev/null && npm audit --audit-level=high 2>/dev/null); then
+echo "  [npm audit] admin-dashboard (Docker)..."
+if $COMPOSE $COMPOSE_FILES run --rm admin-dashboard sh -c "npm install --no-audit --no-fund 2>/dev/null; npm audit --audit-level=high 2>/dev/null"; then
   echo "  ✅ npm audit (high) OK"
 else
-  echo "  ⚠️  npm audit : vulnérabilités high ou erreur (vérifiez avec npm audit)"
+  echo "  ⚠️  npm audit : vulnérabilités high ou erreur (vérifiez avec: cd frontend/admin-dashboard && npm audit)"
   # On ne fait pas failed=1 pour ne pas bloquer si des vulns existent déjà
 fi
 
-echo "  [pip] admin-service (safety si installé)..."
-if command -v safety >/dev/null 2>&1; then
-  if (cd backend/admin-service 2>/dev/null && safety check -r requirements.txt 2>/dev/null); then
-    echo "  ✅ safety OK"
-  else
-    echo "  ⚠️  safety : vulnérabilités ou erreur"
-  fi
+# --- safety (admin-service) dans le conteneur ---
+echo ""
+echo "  [safety] admin-service (Docker)..."
+if $COMPOSE $COMPOSE_FILES run --rm admin-service sh -c "pip install -q safety 2>/dev/null; safety check -r requirements.txt 2>/dev/null"; then
+  echo "  ✅ safety OK"
 else
-  echo "  ⏭️  safety non installé (pip install safety)"
+  echo "  ⚠️  safety : vulnérabilités ou erreur"
 fi
 
-echo "  [go] backends (govulncheck si dispo)..."
-if command -v govulncheck >/dev/null 2>&1; then
-  for dir in backend/auth-service backend/api-gateway backend/password-manager; do
-    if [ -d "$dir" ]; then
-      if (cd "$dir" && govulncheck ./... 2>/dev/null); then
-        echo "  ✅ govulncheck $dir OK"
-      else
-        echo "  ⚠️  govulncheck $dir : vulnérabilités ou erreur"
-      fi
-    fi
-  done
-else
-  echo "  ⏭️  govulncheck non installé (go install golang.org/x/vuln/cmd/govulncheck@latest)"
-fi
+# --- govulncheck (backends Go) dans les conteneurs ---
+echo ""
+echo "  [govulncheck] backends Go (Docker)..."
+for dir in backend/auth-service backend/api-gateway backend/password-manager backend/mail-directory-service backend/calendar-service backend/notes-service backend/tasks-service backend/drive-service; do
+  if [ ! -d "$dir" ]; then
+    continue
+  fi
+  name=$(basename "$dir")
+  case "$name" in
+    auth-service) svc="auth-service" ;;
+    api-gateway) svc="api-gateway" ;;
+    password-manager) svc="password-manager" ;;
+    mail-directory-service) svc="mail-directory-service" ;;
+    calendar-service) svc="calendar-service" ;;
+    notes-service) svc="notes-service" ;;
+    tasks-service) svc="tasks-service" ;;
+    drive-service) svc="drive-service" ;;
+    *) continue ;;
+  esac
+  if $COMPOSE $COMPOSE_FILES run --rm "$svc" sh -c "export PATH=\$PATH:/go/bin && go install golang.org/x/vuln/cmd/govulncheck@latest 2>/dev/null && govulncheck ./... 2>/dev/null"; then
+    echo "  ✅ govulncheck $name OK"
+  else
+    echo "  ⚠️  govulncheck $name : vulnérabilités ou erreur"
+  fi
+done
 
 # --- Checks auth (si la stack répond) ---
 echo ""

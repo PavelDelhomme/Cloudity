@@ -409,26 +409,6 @@ services:
     profiles:
       - dev
 
-  # OnlyOffice Document Server — édition de documents (DOCX, XLSX, etc.) depuis le Drive.
-  # Démarrer avec : docker compose --profile onlyoffice up -d
-  # Voir docs/onlyoffice.md pour l’intégration frontend (bouton Éditer).
-  onlyoffice:
-    image: onlyoffice/documentserver:latest
-    container_name: cloudity-onlyoffice
-    restart: unless-stopped
-    ports:
-      - "6085:80"
-    environment:
-      - JWT_ENABLED=false
-      - JWT_HEADER=Authorization
-    volumes:
-      - onlyoffice_data:/var/www/onlyoffice/Data
-      - onlyoffice_log:/var/log/onlyoffice
-    networks:
-      - cloudity-network
-    profiles:
-      - onlyoffice
-
 networks:
   cloudity-network:
     driver: bridge
@@ -471,9 +451,3 @@ volumes:
   go_mod_cache_drive:
     driver: local
     name: cloudity-go-mod-cache-drive
-  onlyoffice_data:
-    driver: local
-    name: cloudity-onlyoffice-data
-  onlyoffice_log:
-    driver: local
-    name: cloudity-onlyoffice-log

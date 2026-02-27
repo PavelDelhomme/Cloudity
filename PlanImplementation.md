@@ -14,7 +14,7 @@
 - **Pass** : Coffre-fort, table `pass_vaults` créée via migration.
 - **Navigation app** : Tableau de bord, **Drive**, **Office** (placeholder), **Pass**, **Mail**, **Calendar**, **Notes**, **Tasks**, **Contacts** (placeholder), **Photos** (placeholder), Administration, Paramètres.
 
-**À faire (priorité)** : Suite Office (Word/Excel/Présentation type OnlyOffice–Nextcloud) depuis le Drive ; app **Contacts** ; app **Photos** ; **alias mail** (API + UI) ; application mobile (Drive, Office, etc.) ; téléversement Drive à valider en conditions réelles après correctifs CORS.
+**À faire (priorité)** : Suite Office (éditeur de documents **maison** : TipTap, Luckysheet, intégrés au Drive) ; app **Contacts** ; app **Photos** ; **alias mail** (API + UI) ; application mobile (Drive, Office, etc.) ; téléversement Drive à valider en conditions réelles après correctifs CORS.
 
 ---
 
@@ -34,7 +34,7 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 | **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
 | **Photos** | Galerie, stockage photos | App mobile Photos | Sync, partage, albums |
 
-**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », éditeurs documents (TipTap, Luckysheet, OnlyOffice), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. Détail dans STATUS.md et TESTS.md.
+**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. Détail dans STATUS.md et TESTS.md.
 
 ---
 

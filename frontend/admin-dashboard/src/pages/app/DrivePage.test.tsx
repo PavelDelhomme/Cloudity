@@ -1,7 +1,8 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { Routes, Route } from 'react-router-dom'
+import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import DrivePage from './DrivePage'
 import AppLayout from '../../layouts/AppLayout'
@@ -13,6 +14,8 @@ vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   createDriveFolder: vi.fn().mockResolvedValue({ id: 1 }),
+  createDriveFile: vi.fn().mockResolvedValue({ id: 1, name: 'Sans titre.html', is_folder: false }),
+  createDriveFileWithUniqueName: vi.fn().mockResolvedValue({ id: 1, name: 'Sans titre.html', is_folder: false }),
   renameDriveNode: vi.fn(),
   deleteDriveNode: vi.fn(),
   downloadDriveFile: vi.fn(),
@@ -27,7 +30,7 @@ function wrap(ui: React.ReactElement) {
   return (
     <QueryClientProvider client={queryClient}>
       <UploadProvider>
-        <MemoryRouter>{ui}</MemoryRouter>
+        <TestRouter>{ui}</TestRouter>
       </UploadProvider>
     </QueryClientProvider>
   )
@@ -37,13 +40,13 @@ function wrap(ui: React.ReactElement) {
 function wrapWithLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/app/drive']}>
+      <TestRouter initialEntries={['/app/drive']}>
         <Routes>
           <Route path="/app" element={<AppLayout />}>
             <Route path="drive" element={<DrivePage />} />
           </Route>
         </Routes>
-      </MemoryRouter>
+      </TestRouter>
     </QueryClientProvider>
   )
 }
@@ -75,6 +78,35 @@ describe('DrivePage', () => {
     render(wrap(<DrivePage />))
     expect(screen.getByText('Téléverser')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Nouveau dossier' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Nouveau fichier' })).toBeTruthy()
+  })
+
+  it('clicking Nouveau fichier opens menu with Document, Tableur, Présentation', async () => {
+    render(wrap(<DrivePage />))
+    const newFileBtn = screen.getByRole('button', { name: 'Nouveau fichier' })
+    await act(async () => {
+      fireEvent.click(newFileBtn)
+    })
+    const menuLabel = await screen.findByText('Type de fichier', {}, { timeout: 2000 })
+    expect(menuLabel).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Document' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Tableur/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Présentation' })).toBeTruthy()
+  })
+
+  it('clicking Document in Nouveau fichier menu calls createDriveFileWithUniqueName', async () => {
+    const api = await import('../../api')
+    render(wrap(<DrivePage />))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Nouveau fichier' }))
+    })
+    await screen.findByText('Type de fichier', {}, { timeout: 2000 })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Document' }))
+    })
+    await waitFor(() => {
+      expect(vi.mocked(api.createDriveFileWithUniqueName)).toHaveBeenCalledWith('token', null, 'Sans titre.html')
+    })
   })
 
   it('clicking Téléverser (label) does not throw', () => {
@@ -160,10 +192,15 @@ describe('DrivePage', () => {
     it('inputs fichier et dossier existent quand on est sur la page Drive via AppLayout', async () => {
       render(wrapWithLayout())
       await screen.findByRole('heading', { name: 'Drive' })
+      await waitFor(
+        () => {
+          expect(document.getElementById(DRIVE_FILE_INPUT_ID)).toBeTruthy()
+          expect(document.getElementById(DRIVE_FOLDER_INPUT_ID)).toBeTruthy()
+        },
+        { timeout: 500 }
+      )
       const fileInput = document.getElementById(DRIVE_FILE_INPUT_ID)
       const folderInput = document.getElementById(DRIVE_FOLDER_INPUT_ID)
-      expect(fileInput).toBeTruthy()
-      expect(folderInput).toBeTruthy()
       expect((fileInput as HTMLInputElement).type).toBe('file')
       expect((folderInput as HTMLInputElement).type).toBe('file')
     })
@@ -171,8 +208,8 @@ describe('DrivePage', () => {
     it('clic sur label Téléverser puis simulation sélection fichier → fichier apparaît dans l’overlay (sans ouvrir le dialogue OS)', async () => {
       render(wrapWithLayout())
       await screen.findByRole('heading', { name: 'Drive' })
+      await waitFor(() => expect(document.getElementById(DRIVE_FILE_INPUT_ID)).toBeTruthy(), { timeout: 500 })
       const fileInput = document.getElementById(DRIVE_FILE_INPUT_ID) as HTMLInputElement
-      expect(fileInput).toBeTruthy()
       const label = screen.getByText('Téléverser').closest('label')
       expect(label?.getAttribute('for')).toBe(DRIVE_FILE_INPUT_ID)
       const file = new File(['contenu test'], 'fichier-a-televerser.txt', { type: 'text/plain' })
@@ -183,8 +220,8 @@ describe('DrivePage', () => {
     it('simulation sélection dossier (FileList avec webkitRelativePath) → entrées dans l’overlay', async () => {
       render(wrapWithLayout())
       await screen.findByRole('heading', { name: 'Drive' })
+      await waitFor(() => expect(document.getElementById(DRIVE_FOLDER_INPUT_ID)).toBeTruthy(), { timeout: 500 })
       const folderInput = document.getElementById(DRIVE_FOLDER_INPUT_ID) as HTMLInputElement
-      expect(folderInput).toBeTruthy()
       const file = new File(['x'], 'fichier-dans-dossier.txt', { type: 'text/plain' }) as File & { webkitRelativePath?: string }
       file.webkitRelativePath = 'MonDossier/fichier-dans-dossier.txt'
       const fileList = { length: 1, 0: file, item: (i: number) => (i === 0 ? file : null) } as FileList

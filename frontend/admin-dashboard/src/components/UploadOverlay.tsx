@@ -7,7 +7,7 @@ import { formatFileSize } from '../utils/formatFileSize'
 export function UploadOverlay() {
   const ctx = useContext(UploadContext)
   if (!ctx || !Array.isArray(ctx.items)) return null
-  const { items, removeItem, clearDone } = ctx
+  const { items, removeItem, clearDone, replaceUpload, cancelConflict } = ctx
   if (items.length === 0) return null
 
   const doneOrError = items.filter((i) => i.status === 'done' || i.status === 'error')
@@ -15,6 +15,7 @@ export function UploadOverlay() {
   const total = items.length
   const inProgress = items.filter((i) => i.status === 'uploading' || i.status === 'pending').length
   const currentUploading = items.find((i) => i.status === 'uploading')
+  const hasConflict = items.some((i) => i.status === 'conflict')
 
   return (
     <div className="fixed top-0 right-0 z-50 w-80 max-w-[calc(100vw-1rem)] h-full pointer-events-none flex flex-col items-end justify-start pt-20 pb-4 pr-4">
@@ -38,6 +39,9 @@ export function UploadOverlay() {
               Effacer terminés
             </button>
           )}
+          {hasConflict && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Fichier existant</span>
+          )}
         </div>
         {currentUploading && (
           <div className="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 truncate" title={currentUploading.name}>
@@ -58,6 +62,7 @@ export function UploadOverlay() {
                 {it.status === 'uploading' && <Loader2 className="h-4 w-4 animate-spin text-brand-500" />}
                 {it.status === 'done' && <Check className="h-4 w-4 text-green-500" />}
                 {it.status === 'error' && <AlertCircle className="h-4 w-4 text-red-500" />}
+                {it.status === 'conflict' && <AlertCircle className="h-4 w-4 text-amber-500" />}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate" title={it.name}>
@@ -67,7 +72,26 @@ export function UploadOverlay() {
                   {it.size != null ? formatFileSize(it.size) : ''}
                   {it.status === 'uploading' && it.progress != null ? ` — ${it.progress} %` : ''}
                   {it.status === 'error' && it.error ? ` — ${it.error}` : ''}
+                  {it.status === 'conflict' && ' — Un fichier avec ce nom existe déjà.'}
                 </p>
+                {it.status === 'conflict' && (
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => replaceUpload(it.id)}
+                      className="text-xs font-medium px-2 py-1 rounded bg-brand-500 text-white hover:bg-brand-600 dark:bg-brand-600 dark:hover:bg-brand-700"
+                    >
+                      Remplacer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cancelConflict(it.id)}
+                      className="text-xs font-medium px-2 py-1 rounded border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )}
                 {it.status === 'uploading' && it.progress != null && (
                   <div className="mt-1 h-1 rounded-full bg-slate-200 dark:bg-slate-600 overflow-hidden">
                     <div

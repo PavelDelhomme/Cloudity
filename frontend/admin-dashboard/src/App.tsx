@@ -12,6 +12,7 @@ import AppLayout from './layouts/AppLayout'
 import AppHub from './pages/app/AppHub'
 import DrivePage from './pages/app/DrivePage'
 import OfficePage from './pages/app/OfficePage'
+import DocumentEditorPage from './pages/app/DocumentEditorPage'
 import PassPage from './pages/app/PassPage'
 import MailPage from './pages/app/MailPage'
 import CalendarPage from './pages/app/CalendarPage'
@@ -84,6 +85,7 @@ export function AppRoutes() {
           <Route index element={<AppHub />} />
           <Route path="drive" element={<DrivePage />} />
           <Route path="office" element={<OfficePage />} />
+          <Route path="office/editor/:nodeId" element={<DocumentEditorPage />} />
           <Route path="pass" element={<PassPage />} />
           <Route path="mail" element={<MailPage />} />
           <Route path="calendar" element={<CalendarPage />} />

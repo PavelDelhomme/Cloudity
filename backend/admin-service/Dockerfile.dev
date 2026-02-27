@@ -21,6 +21,9 @@ RUN pip install uvicorn[standard] watchfiles
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# Outil d'audit des vulnérabilités Python (pour make test-security)
+RUN pip install safety
+
 # Copie du code
 COPY . .
 

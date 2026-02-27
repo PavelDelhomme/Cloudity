@@ -14,7 +14,7 @@ const apps = [
   },
   {
     name: 'Office',
-    description: 'Documents, tableurs et présentations (type OnlyOffice / Office 365). À venir.',
+    description: 'Documents, tableurs et présentations (éditeur maison intégré au Drive). À venir.',
     href: '/app/office',
     icon: FileSpreadsheet,
     color: 'bg-orange-500',

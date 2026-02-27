@@ -37,6 +37,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const parentIdRef = useRef<number | null>(null)
   const queueRef = useRef<QueueEntry[]>([])
   const runningRef = useRef(false)
+  const itemsRef = useRef<UploadItem[]>([])
+  itemsRef.current = items
   const triggerValueRef = useRef<{ addUploadToCurrentParent: (files: FileList | File[]) => void; addFolderToCurrentParent: (files: FileList) => void }>({ ...triggerNoops })
 
   const setDriveParentId = useCallback((id: number | null) => {
@@ -63,6 +65,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         queryClient.invalidateQueries({ queryKey: ['drive'] })
         toast.success(`« ${file.name} » téléversé`)
       } catch (err) {
+        const errWithCode = err as Error & { code?: string }
+        const isDuplicate =
+          errWithCode.code === 'FILE_EXISTS' ||
+          (err instanceof Error && err.message.includes('duplicate key'))
+        if (isDuplicate) {
+          updateItem(itemId, { status: 'conflict', file })
+          continue
+        }
         const msg = err instanceof Error ? err.message : 'Erreur'
         updateItem(itemId, { status: 'error', error: msg })
         toast.error(`« ${file.name } » : ${msg}`)
@@ -158,12 +168,39 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.filter((it) => it.status !== 'done' && it.status !== 'error'))
   }, [])
 
+  const cancelConflict = useCallback((id: string) => {
+    removeItem(id)
+  }, [removeItem])
+
+  const replaceUpload = useCallback(
+    (id: string) => {
+      const it = itemsRef.current.find((i) => i.id === id)
+      if (!it || it.status !== 'conflict' || !it.file) return
+      const file = it.file
+      updateItem(id, { status: 'uploading', progress: 0 })
+      uploadDriveFileWithProgress(accessToken!, it.parentId, file, (p) => updateItem(id, { progress: p }), true)
+        .then(() => {
+          updateItem(id, { status: 'done', progress: 100, file: undefined })
+          queryClient.invalidateQueries({ queryKey: ['drive'] })
+          toast.success(`« ${file.name} » téléversé`)
+          setTimeout(() => processQueue(), 0)
+        })
+        .catch((err: Error) => {
+          updateItem(id, { status: 'error', error: err.message, file: undefined })
+          toast.error(`« ${file.name} » : ${err.message}`)
+        })
+    },
+    [accessToken, updateItem, queryClient, processQueue]
+  )
+
   const value = {
     items,
     addUpload,
     addFolderUpload,
     removeItem,
     clearDone,
+    replaceUpload,
+    cancelConflict,
     driveParentId: driveParentIdState,
     setDriveParentId,
   }
@@ -184,41 +221,63 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Inputs fichier/dossier montés une seule fois ; n'utilise que le contexte trigger (ref stable) pour éviter re-renders sous Chromium. */
+/** Inputs fichier/dossier montés une seule fois. Listeners natifs (addEventListener) pour éviter
+ * le passage par le système d'événements React (dispatchEvent / DiscreteEventPriority) qui peut
+ * geler sous Brave à l'ouverture/fermeture du sélecteur de fichiers. */
 const DriveUploadInputsInner = React.memo(function DriveUploadInputsInner() {
   const trigger = React.useContext(UploadTriggerContext)
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
+  const triggerRef = useRef(trigger)
+  triggerRef.current = trigger
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const fileEl = fileInputRef.current
+    const folderEl = folderInputRef.current
+    if (!fileEl || !folderEl) return
+
+    const onFileChange = (e: Event) => {
+      const input = e.target as HTMLInputElement
+      const files = input.files
       if (!files?.length) return
-      trigger.addUploadToCurrentParent(files)
-      e.target.value = ''
-    },
-    [trigger]
-  )
-  const handleFolderChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
+      const list = Array.from(files)
+      input.value = ''
+      setTimeout(() => triggerRef.current.addUploadToCurrentParent(list), 0)
+    }
+    const onFolderChange = (e: Event) => {
+      const input = e.target as HTMLInputElement
+      const files = input.files
       if (!files?.length) return
-      trigger.addFolderToCurrentParent(files)
-      e.target.value = ''
-    },
-    [trigger]
-  )
+      const list = files
+      setTimeout(() => {
+        triggerRef.current.addFolderToCurrentParent(list)
+        input.value = ''
+      }, 0)
+    }
+
+    fileEl.addEventListener('change', onFileChange)
+    folderEl.addEventListener('change', onFolderChange)
+    return () => {
+      fileEl.removeEventListener('change', onFileChange)
+      folderEl.removeEventListener('change', onFolderChange)
+    }
+  }, [])
+
   return (
     <div aria-hidden className="hidden">
       <input
+        ref={fileInputRef}
         id={DRIVE_FILE_INPUT_ID}
         type="file"
         multiple
-        onChange={handleFileChange}
         tabIndex={-1}
       />
       <input
+        ref={folderInputRef}
         id={DRIVE_FOLDER_INPUT_ID}
         type="file"
         {...({ webkitdirectory: '', directory: '', multiple: true } as React.InputHTMLAttributes<HTMLInputElement>)}
-        onChange={handleFolderChange}
         tabIndex={-1}
       />
     </div>

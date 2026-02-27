@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 const defaultPort = "8055"
@@ -29,10 +30,12 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	drive := r.Group("/drive")
 	{
 		drive.GET("/nodes", h.listNodes)
+		drive.GET("/nodes/recent", h.listRecentNodes)
 		drive.POST("/nodes", h.createNode)
 		drive.PUT("/nodes/:id", h.updateNode)
 		drive.DELETE("/nodes/:id", h.deleteNode)
 		drive.GET("/nodes/:id/content", h.getNodeContent)
+		drive.PUT("/nodes/:id/content", h.putNodeContent)
 		drive.POST("/nodes/upload", h.uploadFile)
 	}
 	r.GET("/drive/files", func(c *gin.Context) {
@@ -171,6 +174,51 @@ func (h *Handler) listNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+func (h *Handler) listRecentNodes(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, []Node{})
+		return
+	}
+	limitStr := c.DefaultQuery("limit", "20")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 || limit > 100 {
+		limit = 20
+	}
+	rows, err := h.db.Query(`
+		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
+		FROM drive_nodes
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+		ORDER BY updated_at DESC NULLS LAST, id DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	var list []Node
+	for rows.Next() {
+		var n Node
+		var pid sql.NullInt64
+		var mime sql.NullString
+		var uat string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if pid.Valid {
+			p := int(pid.Int64)
+			n.ParentID = &p
+		}
+		if mime.Valid {
+			n.MimeType = &mime.String
+		}
+		n.UpdatedAt = uat
+		list = append(list, n)
+	}
+	c.JSON(http.StatusOK, list)
+}
+
 func (h *Handler) createNode(c *gin.Context) {
 	if h.db == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
@@ -205,7 +253,18 @@ func (h *Handler) createNode(c *gin.Context) {
 			RETURNING id
 		`, tid, uid, body.Name, body.IsFolder).Scan(&id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			var perr *pq.Error
+			if errors.As(err, &perr) && perr.Code == "23505" {
+				c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "message": "Un fichier ou dossier avec ce nom existe déjà"})
+				return
+			}
+			if errors.As(err, &perr) && perr.Code == "23503" {
+				log.Printf("[drive] createNode FK violation: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_tenant_or_user", "message": "Tenant ou utilisateur invalide. Reconnectez-vous."})
+				return
+			}
+			log.Printf("[drive] createNode root err: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "message": "Erreur lors de la création du fichier"})
 			return
 		}
 	} else {
@@ -214,7 +273,18 @@ func (h *Handler) createNode(c *gin.Context) {
 			RETURNING id
 		`, tid, uid, *body.ParentID, body.Name, body.IsFolder).Scan(&id)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			var perr *pq.Error
+			if errors.As(err, &perr) && perr.Code == "23505" {
+				c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "message": "Un fichier ou dossier avec ce nom existe déjà"})
+				return
+			}
+			if errors.As(err, &perr) && perr.Code == "23503" {
+				log.Printf("[drive] createNode FK violation: %v", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_tenant_or_user", "message": "Tenant ou utilisateur invalide. Reconnectez-vous."})
+				return
+			}
+			log.Printf("[drive] createNode child err: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "message": "Erreur lors de la création du fichier"})
 			return
 		}
 	}
@@ -368,15 +438,21 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	var content []byte
 	var mime sql.NullString
 	err = h.db.QueryRow(`
-		SELECT name, content, mime_type FROM drive_nodes
+		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
 	`, id).Scan(&name, &content, &mime)
-	if err == sql.ErrNoRows || content == nil {
+	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// Fichier sans contenu (ex. nouveau document) : retourner 200 avec corps vide
+	if len(content) == 0 {
+		c.Header("Content-Type", "text/plain")
+		c.Data(http.StatusOK, "text/plain", []byte{})
 		return
 	}
 	ct := "application/octet-stream"
@@ -385,6 +461,47 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", "attachment; filename=\""+name+"\"")
 	c.Data(http.StatusOK, ct, content)
+}
+
+func (h *Handler) putNodeContent(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read body"})
+		return
+	}
+	mimeType := c.GetHeader("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	// Limiter la taille du Content-Type (éviter en-tête malveillant)
+	if len(mimeType) > 255 {
+		mimeType = "application/octet-stream"
+	}
+	size := int64(len(body))
+	res, err := h.db.Exec(`
+		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+	`, body, size, mimeType, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"id": id, "size": size})
 }
 
 func (h *Handler) uploadFile(c *gin.Context) {
@@ -399,6 +516,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	}
 	parentIDStr := c.PostForm("parent_id")
 	name := c.PostForm("name")
+	overwrite := c.PostForm("overwrite") == "true" || c.PostForm("overwrite") == "1"
 	file, _, err := c.Request.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file required"})
@@ -411,7 +529,6 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		return
 	}
 	if name == "" {
-		// use filename from multipart
 		fh := form.File["file"]
 		if len(fh) > 0 {
 			name = fh[0].Filename
@@ -436,6 +553,42 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	}
 	size := int64(len(content))
 
+	if overwrite {
+		var existingID int
+		if parentIDStr == "" || parentIDStr == "null" {
+			err = h.db.QueryRow(`
+				SELECT id FROM drive_nodes
+				WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id IS NULL AND name = $1 AND is_folder = false
+			`, name).Scan(&existingID)
+		} else {
+			parentID, perr := strconv.Atoi(parentIDStr)
+			if perr != nil || parentID <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
+				return
+			}
+			err = h.db.QueryRow(`
+				SELECT id FROM drive_nodes
+				WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id = $1 AND name = $2 AND is_folder = false
+			`, parentID, name).Scan(&existingID)
+		}
+		if err == nil {
+			_, err = h.db.Exec(`
+				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+			`, content, size, mimeType, existingID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"id": existingID, "name": name, "size": size})
+			return
+		}
+		if err != sql.ErrNoRows {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	var id int
 	if parentIDStr == "" || parentIDStr == "null" {
 		err = h.db.QueryRow(`
@@ -454,6 +607,11 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		`, tid, uid, parentID, name, size, mimeType, content).Scan(&id)
 	}
 	if err != nil {
+		var perr *pq.Error
+		if errors.As(err, &perr) && perr.Code == "23505" {
+			c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "message": "Un fichier avec ce nom existe déjà"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

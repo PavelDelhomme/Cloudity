@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppRoutes } from './App'
@@ -36,7 +36,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
   })
 
-  it('after logout redirects to login and clears session', () => {
+  it('after logout redirects to login and clears session', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -52,7 +52,9 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
     const logoutBtn = screen.getByRole('button', { name: /déconnexion/i })
     fireEvent.click(logoutBtn)
-    expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
+    })
     expect(localStorage.getItem('cloudity_admin_auth')).toBeNull()
   })
 

@@ -285,6 +285,18 @@ export async function fetchDriveNodes(
   return res.json() as Promise<DriveNode[]>
 }
 
+/** Liste les fichiers récemment modifiés (tous dossiers confondus). */
+export async function fetchDriveRecentFiles(
+  token: string,
+  limit = 20
+): Promise<DriveNode[]> {
+  const res = await fetch(apiUrl(`/drive/nodes/recent?limit=${limit}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Drive recent: ${res.status}`)
+  return res.json() as Promise<DriveNode[]>
+}
+
 export async function createDriveFolder(
   token: string,
   parentId: number | null,
@@ -300,6 +312,68 @@ export async function createDriveFolder(
   })
   if (!res.ok) throw new Error(`Create folder: ${res.status}`)
   return res.json() as Promise<{ id: number; name: string; is_folder: boolean }>
+}
+
+/** Crée un fichier vide (nœud document) pour édition. En cas de nom déjà existant, le backend renvoie 409. */
+export async function createDriveFile(
+  token: string,
+  parentId: number | null,
+  name: string
+): Promise<{ id: number; name: string; is_folder: boolean }> {
+  const res = await fetch(apiUrl('/drive/nodes'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ parent_id: parentId, name, is_folder: false }),
+  })
+  if (res.status === 409) {
+    const err = new Error('FILE_EXISTS') as Error & { status?: number }
+    err.status = 409
+    throw err
+  }
+  if (!res.ok) {
+    let msg = `Création fichier: ${res.status}`
+    let isConflict = false
+    try {
+      const j = await res.json() as { error?: string; message?: string; code?: string }
+      if (j?.message) msg = j.message
+      else if (j?.error) msg = j.error
+      // Backend peut renvoyer 500 au lieu de 409 pour contrainte unique (ancienne image) : on traite comme 409 pour retry.
+      isConflict = res.status === 500 && (
+        j?.code === 'FILE_EXISTS' ||
+        /duplicate|unique constraint|already exists|déjà exist/i.test(msg)
+      )
+    } catch { /* ignore */ }
+    const err = new Error(msg) as Error & { status?: number }
+    if (isConflict) err.status = 409
+    throw err
+  }
+  return res.json() as Promise<{ id: number; name: string; is_folder: boolean }>
+}
+
+/** Crée un fichier avec un nom unique : si le nom existe déjà, essaie "nom (1).ext", "nom (2).ext", etc. */
+export async function createDriveFileWithUniqueName(
+  token: string,
+  parentId: number | null,
+  baseName: string,
+  maxAttempts = 100
+): Promise<{ id: number; name: string; is_folder: boolean }> {
+  const lastDot = baseName.lastIndexOf('.')
+  const nameBase = lastDot >= 0 ? baseName.slice(0, lastDot) : baseName
+  const ext = lastDot >= 0 ? baseName.slice(lastDot) : ''
+  for (let i = 0; i < maxAttempts; i++) {
+    const name = i === 0 ? baseName : `${nameBase} (${i})${ext}`
+    try {
+      return await createDriveFile(token, parentId, name)
+    } catch (e) {
+      const err = e as Error & { status?: number }
+      if (err.status === 409 || err.message === 'FILE_EXISTS') continue
+      throw e
+    }
+  }
+  throw new Error('Impossible de trouver un nom disponible')
 }
 
 export async function renameDriveNode(
@@ -356,6 +430,37 @@ export async function downloadDriveFile(
   return res.blob()
 }
 
+/** Récupère le contenu d'un nœud en texte (pour l'éditeur). */
+export async function getDriveNodeContentAsText(
+  token: string,
+  nodeId: number
+): Promise<string> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Content: ${res.status}`)
+  return res.text()
+}
+
+/** Met à jour le contenu d'un nœud fichier (éditeur maison). */
+export async function putDriveNodeContent(
+  token: string,
+  nodeId: number,
+  content: string,
+  mimeType = 'text/plain'
+): Promise<{ id: number; size: number }> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': mimeType,
+    },
+    body: content,
+  })
+  if (!res.ok) throw new Error(`Save content: ${res.status}`)
+  return res.json() as Promise<{ id: number; size: number }>
+}
+
 export async function uploadDriveFile(
   token: string,
   parentId: number | null,
@@ -364,18 +469,20 @@ export async function uploadDriveFile(
   return uploadDriveFileWithProgress(token, parentId, file)
 }
 
-/** Upload avec rapport de progression (XHR) pour affichage pourcentage. */
+/** Upload avec rapport de progression (XHR). Si overwrite est true, remplace un fichier existant de même nom. */
 export function uploadDriveFileWithProgress(
   token: string,
   parentId: number | null,
   file: File,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  overwrite?: boolean
 ): Promise<{ id: number; name: string; size: number }> {
   return new Promise((resolve, reject) => {
     const form = new FormData()
     form.append('file', file)
     form.append('name', file.name)
     if (parentId != null) form.append('parent_id', String(parentId))
+    if (overwrite) form.append('overwrite', 'true')
 
     const xhr = new XMLHttpRequest()
     const timeout = 120_000
@@ -397,9 +504,22 @@ export function uploadDriveFileWithProgress(
         } catch {
           reject(new Error(`Upload: ${xhr.status}`))
         }
-      } else {
-        reject(new Error(xhr.responseText ? `Upload: ${xhr.status} - ${xhr.responseText}` : `Upload: ${xhr.status}`))
+        return
       }
+      if (xhr.status === 409) {
+        try {
+          const json = JSON.parse(xhr.responseText) as { code?: string; message?: string }
+          if (json.code === 'FILE_EXISTS') {
+            const e = new Error(json.message || 'Un fichier avec ce nom existe déjà') as Error & { code: string }
+            e.code = 'FILE_EXISTS'
+            reject(e)
+            return
+          }
+        } catch {
+          // fallback
+        }
+      }
+      reject(new Error(xhr.responseText ? `Upload: ${xhr.status} - ${xhr.responseText}` : `Upload: ${xhr.status}`))
     })
     xhr.addEventListener('error', () => {
       clearTimeout(timeoutId)

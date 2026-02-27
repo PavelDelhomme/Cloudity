@@ -25,3 +25,34 @@ func TestDriveNodesRequiresAuth(t *testing.T) {
 		t.Errorf("GET /drive/nodes without X-User-ID: got %d", w.Code)
 	}
 }
+
+func TestDriveNodesRecentRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/recent", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/nodes/recent without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestGetNodeContentRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/1/content", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/nodes/1/content without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPutNodeContentRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPut, "/drive/nodes/1/content", nil)
+	req.Header.Set("Content-Type", "text/plain")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("PUT /drive/nodes/1/content without X-User-ID: got %d", w.Code)
+	}
+}

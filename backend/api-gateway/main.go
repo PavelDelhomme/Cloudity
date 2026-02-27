@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -138,13 +139,40 @@ func NewHandler() http.Handler {
 			origins[i] = strings.TrimSpace(s)
 		}
 	}
-	c := cors.New(cors.Options{
-		AllowedOrigins:   origins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-	})
-	return c.Handler(r)
+	var corsHandler http.Handler
+	if os.Getenv("CORS_ALLOW_LAN") == "true" || os.Getenv("CORS_ALLOW_LAN") == "1" {
+		// Autorise localhost + réseau local (smartphone / autre machine sur le LAN).
+		allowOriginFunc := func(origin string) bool {
+			u, err := url.Parse(origin)
+			if err != nil || u.Scheme != "http" {
+				return false
+			}
+			host := u.Hostname()
+			if host == "localhost" || host == "127.0.0.1" {
+				return true
+			}
+			ip := net.ParseIP(host)
+			if ip != nil && ip.IsPrivate() {
+				return true
+			}
+			return false
+		}
+		corsHandler = cors.New(cors.Options{
+			AllowOriginFunc:   allowOriginFunc,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"*"},
+			AllowCredentials: true,
+		}).Handler(r)
+	} else {
+		c := cors.New(cors.Options{
+			AllowedOrigins:   origins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"*"},
+			AllowCredentials: true,
+		})
+		corsHandler = c.Handler(r)
+	}
+	return corsHandler
 }
 
 func main() {

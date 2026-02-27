@@ -134,21 +134,23 @@ export function Global401Handler() {
       if (!String(q.state.error.message).includes('401')) return
 
       const tryRefresh = async () => {
-        if (!refreshToken || triedRef.current) {
+        if (!refreshToken) {
           toast.error('Session expirée ou token invalide. Reconnectez-vous.')
           logout()
           return
         }
+        // Si un refresh est déjà en cours (autre requête 401), ne rien faire : le premier refresh invalidera le cache.
+        if (triedRef.current) return
         triedRef.current = true
         try {
           const res = await refreshAuth(refreshToken)
           login(res.access_token, res.refresh_token, tenantId!, email ?? '')
           queryClient.invalidateQueries()
-          triedRef.current = false // permettre un nouveau refresh au prochain 401
         } catch {
-          triedRef.current = false
           toast.error('Session expirée. Reconnectez-vous.')
           logout()
+        } finally {
+          triedRef.current = false
         }
       }
       tryRefresh()

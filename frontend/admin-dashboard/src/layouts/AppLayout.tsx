@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import {
   HardDrive,
@@ -36,13 +36,24 @@ const appNav = [
 export default function AppLayout() {
   const location = useLocation()
   const { email, logout } = useAuth()
+  const isDrive = location.pathname.startsWith('/app/drive')
+  const [driveInputsReady, setDriveInputsReady] = useState(false)
+
+  useEffect(() => {
+    if (!isDrive) {
+      setDriveInputsReady(false)
+      return
+    }
+    const t = setTimeout(() => setDriveInputsReady(true), 150)
+    return () => clearTimeout(t)
+  }, [isDrive])
 
   const isActive = (href: string, end: boolean) =>
     end ? location.pathname === href : location.pathname.startsWith(href)
 
   return (
     <UploadProvider>
-      <DriveUploadInputs />
+      {isDrive && driveInputsReady && <DriveUploadInputs />}
       <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
       <aside className="w-56 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0">
         <div className="p-4 border-b border-gray-100 dark:border-slate-700">
