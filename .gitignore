@@ -2,6 +2,11 @@
 reports/
 **/test-results-drive-loop.json
 
+# Dépendances et artefacts de build (ne pas versionner)
+node_modules/
+backend/api-gateway/tmp/
+backend/drive-service/drive-service
+
 # Env local (secrets, ne pas committer)
 .env
 .env.local
