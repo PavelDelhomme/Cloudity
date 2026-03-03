@@ -60,12 +60,7 @@ export default function CalendarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <Link to="/app" className="hover:text-slate-700 dark:hover:text-slate-300">Tableau de bord</Link>
-          <ChevronRight className="h-4 w-4" />
-          <span className="text-slate-900 dark:text-slate-100 font-medium">Agenda</span>
-        </nav>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Agenda</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Agenda</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Événements et rendez-vous.</p>
       </div>
 

@@ -38,7 +38,7 @@ describe('CalendarPage', () => {
   it('renders Agenda title and breadcrumb', async () => {
     render(wrap(<CalendarPage />))
     expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toBeTruthy()
+    expect(screen.getByText(/Événements et rendez-vous/)).toBeTruthy()
   })
 
   it('shows empty state when no events', async () => {

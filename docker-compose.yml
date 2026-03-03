@@ -215,6 +215,8 @@ services:
       - PORT=8050
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+      # Clé 32 bytes (64 hex) pour chiffrer les mots de passe IMAP/SMTP stockés. En prod, définir MAIL_PASSWORD_ENCRYPTION_KEY.
+      - MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY:-a1b2c3d4e5f6789012345678a1b2c3d4e5f6789012345678a1b2c3d4e5f67890}
     volumes:
       - ./backend/mail-directory-service:/app:cached
       - go_mod_cache_mail:/go/pkg/mod

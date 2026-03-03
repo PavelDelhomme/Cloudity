@@ -1,7 +1,5 @@
 import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import { fetchVaults, createVault, fetchVaultItems } from '../../api'
 import toast from 'react-hot-toast'
@@ -51,12 +49,7 @@ export default function PassPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Link to="/app" className="hover:text-slate-700 dark:hover:text-slate-300">Tableau de bord</Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-slate-900 dark:text-slate-100 font-medium">Pass</span>
-          </nav>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Pass</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Pass</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Coffres et mots de passe sécurisés.</p>
         </div>
         <div className="flex items-center gap-2">

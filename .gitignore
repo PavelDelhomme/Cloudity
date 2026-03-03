@@ -4,8 +4,14 @@ reports/
 
 # Dépendances et artefacts de build (ne pas versionner)
 node_modules/
+dist/
+**/dist/
 backend/api-gateway/tmp/
 backend/drive-service/drive-service
+
+# Fichiers .html de test ou brouillons (création rapide de docs)
+test.html
+*.tmp.html
 
 # Env local (secrets, ne pas committer)
 .env
@@ -16,3 +22,6 @@ backend/drive-service/drive-service
 backend/auth-service/private.pem
 # Build / cache auth-service
 backend/auth-service/tmp/
+
+# Dossier storage local (scripts ne le créent plus ; volumes Docker pour postgres/redis)
+storage/

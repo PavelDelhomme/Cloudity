@@ -38,7 +38,7 @@ describe('NotesPage', () => {
   it('renders Notes title and breadcrumb', () => {
     render(wrap(<NotesPage />))
     expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toBeTruthy()
+    expect(screen.getByText(/Bloc-notes et idées/)).toBeTruthy()
   })
 
   it('shows empty state when no notes', async () => {

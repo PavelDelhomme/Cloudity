@@ -40,7 +40,7 @@ describe('TasksPage', () => {
   it('renders Tâches title and breadcrumb', () => {
     render(wrap(<TasksPage />))
     expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toBeTruthy()
+    expect(screen.getByText(/To-do et listes/)).toBeTruthy()
   })
 
   it('shows empty state when no tasks', async () => {

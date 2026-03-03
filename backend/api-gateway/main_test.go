@@ -98,3 +98,15 @@ func TestMailPrefixRouted(t *testing.T) {
 		t.Errorf("GET /mail/domains: got 404, route /mail/* should be registered")
 	}
 }
+
+func TestMailMeAccountsRouted(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)
+	req.Header.Set("Authorization", "Bearer fake-token")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	// Gateway doit transmettre : 401 (token invalide) ou 502/503 (mail service down), pas 404
+	if w.Code == http.StatusNotFound {
+		t.Errorf("GET /mail/me/accounts: got 404, route /mail/* must forward to mail service")
+	}
+}

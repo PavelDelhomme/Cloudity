@@ -26,7 +26,6 @@ mkdir -p backend/auth-service backend/api-gateway backend/admin-service
 mkdir -p frontend/admin-dashboard
 mkdir -p mobile/admin_app
 mkdir -p infrastructure/postgresql/init
-mkdir -p storage/postgres storage/redis storage/logs storage/backups
 mkdir -p scripts
 
 # .env
@@ -57,25 +56,20 @@ if [ ! -f backend/auth-service/private.pem ]; then
     echo "✅ Clés créées"
 fi
 
-# Go modules
-echo "📦 Go modules..."
-(cd backend/auth-service && go mod tidy 2>/dev/null) || true
-(cd backend/api-gateway && go mod tidy 2>/dev/null) || true
-(cd backend/calendar-service && go mod tidy 2>/dev/null) || true
-(cd backend/notes-service && go mod tidy 2>/dev/null) || true
-(cd backend/tasks-service && go mod tidy 2>/dev/null) || true
-(cd backend/drive-service && go mod tidy 2>/dev/null) || true
-
-# Node (frontend)
-if [ -f frontend/admin-dashboard/package.json ]; then
-    echo "📦 npm install (admin-dashboard)..."
-    (cd frontend/admin-dashboard && npm install 2>/dev/null) || true
-fi
-
-# Flutter
-if command -v flutter &>/dev/null && [ -d mobile/admin_app ]; then
-    echo "📦 Flutter pub get..."
-    (cd mobile/admin_app && flutter pub get 2>/dev/null) || true
+# Dépendances (Go, Python, Node, Flutter) — réutilise le script commun
+if [ -f scripts/install-deps.sh ]; then
+    chmod +x scripts/install-deps.sh 2>/dev/null || true
+    ./scripts/install-deps.sh
+else
+    echo "📦 Dépendances (fallback)..."
+    (cd backend/auth-service && go mod tidy 2>/dev/null) || true
+    (cd backend/api-gateway && go mod tidy 2>/dev/null) || true
+    (cd backend/calendar-service && go mod tidy 2>/dev/null) || true
+    (cd backend/notes-service && go mod tidy 2>/dev/null) || true
+    (cd backend/tasks-service && go mod tidy 2>/dev/null) || true
+    (cd backend/drive-service && go mod tidy 2>/dev/null) || true
+    [ -f frontend/admin-dashboard/package.json ] && (cd frontend/admin-dashboard && npm install 2>/dev/null) || true
+    command -v flutter &>/dev/null && [ -d mobile/admin_app ] && (cd mobile/admin_app && flutter pub get 2>/dev/null) || true
 fi
 
 # Permissions scripts

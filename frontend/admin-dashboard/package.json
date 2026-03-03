@@ -19,11 +19,14 @@
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.3.4",
+    "docx": "^9.6.0",
     "lucide-react": "^0.263.0",
+    "mammoth": "^1.8.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
-    "react-router-dom": "^6.8.1"
+    "react-router-dom": "^6.8.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

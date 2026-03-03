@@ -4,8 +4,27 @@ import { useQuery } from '@tanstack/react-query'
 import { ChevronRight, FileText, Table, Presentation, FolderPlus, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
-import { createDriveFileWithUniqueName, fetchDriveRecentFiles } from '../../api'
+import { createDriveFileWithUniqueName, fetchDriveRecentFiles, putDriveNodeContentBlob } from '../../api'
 import { EDITABLE_EXT, getExtension } from './DocumentEditorPage'
+import { formatRelativeDate } from '../../utils/formatDate'
+import { formatFileSize } from '../../utils/formatFileSize'
+import type { DriveNode } from '../../api'
+
+function getFileTypeLabel(name: string): string {
+  const ext = getExtension(name)
+  if (ext === '.docx' || ext === '.doc') return 'Document Word'
+  if (ext === '.xlsx' || ext === '.csv') return 'Tableur'
+  if (ext === '.html' && /présentation/i.test(name)) return 'Présentation'
+  if (ext === '.html') return 'Document'
+  return 'Fichier'
+}
+
+function RecentFileIcon({ node }: { node: DriveNode }) {
+  const ext = getExtension(node.name)
+  if (ext === '.xlsx' || ext === '.csv') return <Table className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+  if (ext === '.html' && /présentation/i.test(node.name)) return <Presentation className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+  return <FileText className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+}
 
 export default function OfficePage() {
   const [creating, setCreating] = useState(false)
@@ -25,8 +44,11 @@ export default function OfficePage() {
     }
     setCreating(true)
     try {
-      const { id, name } = await createDriveFileWithUniqueName(accessToken, null, 'Sans titre.html')
-      if (name !== 'Sans titre.html') {
+      const { id, name } = await createDriveFileWithUniqueName(accessToken, null, 'Sans titre.docx')
+      const { htmlToDocxBlob } = await import('../../utils/exportOffice')
+      const blob = await htmlToDocxBlob('<p></p>')
+      await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+      if (name !== 'Sans titre.docx') {
         toast.success(`Un document existait déjà à ce nom. Créé sous « ${name} ».`)
       } else {
         toast.success('Document créé')
@@ -46,8 +68,11 @@ export default function OfficePage() {
     }
     setCreating(true)
     try {
-      const { id, name } = await createDriveFileWithUniqueName(accessToken, null, 'Sans titre.csv')
-      if (name !== 'Sans titre.csv') {
+      const { id, name } = await createDriveFileWithUniqueName(accessToken, null, 'Sans titre.xlsx')
+      const { emptyXlsxBlob } = await import('../../utils/exportOffice')
+      const blob = emptyXlsxBlob()
+      await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      if (name !== 'Sans titre.xlsx') {
         toast.success(`Un tableur existait déjà à ce nom. Créé sous « ${name} ».`)
       } else {
         toast.success('Tableur créé')
@@ -85,14 +110,9 @@ export default function OfficePage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <nav className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-            <Link to="/app" className="hover:text-slate-700 dark:hover:text-slate-300">Tableau de bord</Link>
-            <ChevronRight className="h-4 w-4" />
-            <span className="text-slate-900 dark:text-slate-100 font-medium">Office</span>
-          </nav>
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Suite Office</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Documents &amp; Fichiers</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Documents, tableurs et présentations — éditeurs maison.
+            Créez et modifiez des documents, tableurs et présentations. Enregistrement direct en .docx, .xlsx et vue diapos.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -119,7 +139,7 @@ export default function OfficePage() {
             <FileText className="h-10 w-10" />
           </div>
           <span className="font-semibold text-slate-900 dark:text-slate-100">Nouveau document</span>
-          <span className="text-xs text-slate-600 dark:text-slate-400">Éditeur maison (texte riche)</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400">Document Word — enregistrement .docx</span>
         </button>
         <button
           type="button"
@@ -132,7 +152,7 @@ export default function OfficePage() {
             <Table className="h-10 w-10" />
           </div>
           <span className="font-semibold text-slate-900 dark:text-slate-100">Nouveau tableur</span>
-          <span className="text-xs text-slate-600 dark:text-slate-400">Éditeur maison (.csv)</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400">Grille type Excel — export .xlsx</span>
         </button>
         <button
           type="button"
@@ -145,7 +165,7 @@ export default function OfficePage() {
             <Presentation className="h-10 w-10" />
           </div>
           <span className="font-semibold text-slate-900 dark:text-slate-100">Nouvelle présentation</span>
-          <span className="text-xs text-slate-600 dark:text-slate-400">Éditeur maison</span>
+          <span className="text-xs text-slate-600 dark:text-slate-400">Diapos — vue présentation</span>
         </button>
       </div>
 
@@ -155,36 +175,42 @@ export default function OfficePage() {
             <Clock className="h-5 w-5 text-slate-500" />
             Récemment modifiés
           </h2>
-          <ul className="space-y-2">
-            {recentFiles.map((node) => (
-              <li key={node.id}>
-                {EDITABLE_EXT.includes(getExtension(node.name)) ? (
-                  <Link
-                    to={`/app/office/editor/${node.id}`}
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-                  >
-                    <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                    <span className="truncate">{node.name}</span>
-                  </Link>
-                ) : (
-                  <Link
-                    to="/app/drive"
-                    className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200"
-                  >
-                    <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
-                    <span className="truncate">{node.name}</span>
-                  </Link>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {recentFiles.map((node) => {
+              const isEditable = EDITABLE_EXT.includes(getExtension(node.name))
+              const href = isEditable ? `/app/office/editor/${node.id}` : '/app/drive'
+              return (
+                <Link
+                  key={node.id}
+                  to={href}
+                  className="flex gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
+                >
+                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                    <RecentFileIcon node={node} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-900 dark:text-slate-100 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400" title={node.name}>
+                      {node.name}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {getFileTypeLabel(node.name)}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1" title={node.updated_at}>
+                      Modifié {formatRelativeDate(node.updated_at)}
+                      {node.size > 0 && ` · ${formatFileSize(node.size)}`}
+                    </p>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-8">
-        <p className="text-slate-600 dark:text-slate-300 mb-2">Utilisez les cartes ci‑dessus pour créer un document, un tableur ou une présentation.</p>
+        <p className="text-slate-600 dark:text-slate-300 mb-2">Documents : enregistrement direct en .docx. Tableurs : grille éditable et export .xlsx. Présentations : éditeur riche et vue diapos (séparateurs par titre ou ligne horizontale).</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Ou ouvrir un fichier depuis le <Link to="/app/drive" className="text-brand-600 dark:text-brand-400 hover:underline">Drive</Link>.
+          Ouvrir un fichier depuis le <Link to="/app/drive" className="text-brand-600 dark:text-brand-400 hover:underline">Drive</Link>.
         </p>
       </div>
     </div>

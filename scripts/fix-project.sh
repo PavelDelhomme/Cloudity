@@ -173,8 +173,7 @@ EOF
     echo "✅ requirements.txt créé"
 fi
 
-# 8. Créer les répertoires manquants
-mkdir -p storage/postgres storage/redis storage/logs storage/backups
+# 8. Créer les répertoires manquants (postgres/redis utilisent les volumes Docker, pas storage/)
 mkdir -p infrastructure/postgresql/init
 
 # 9. Permissions sur les scripts

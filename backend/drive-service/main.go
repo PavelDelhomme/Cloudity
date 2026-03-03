@@ -1,13 +1,17 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"database/sql"
 	"errors"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -31,12 +35,17 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	{
 		drive.GET("/nodes", h.listNodes)
 		drive.GET("/nodes/recent", h.listRecentNodes)
+		drive.GET("/nodes/trash", h.listTrash)
 		drive.POST("/nodes", h.createNode)
 		drive.PUT("/nodes/:id", h.updateNode)
+		drive.POST("/nodes/:id/restore", h.restoreNode)
+		drive.DELETE("/nodes/trash/:id", h.purgeNode)
 		drive.DELETE("/nodes/:id", h.deleteNode)
 		drive.GET("/nodes/:id/content", h.getNodeContent)
+		drive.GET("/nodes/:id/zip", h.downloadFolderZip)
 		drive.PUT("/nodes/:id/content", h.putNodeContent)
 		drive.POST("/nodes/upload", h.uploadFile)
+		drive.POST("/nodes/archive", h.downloadArchiveZip)
 	}
 	r.GET("/drive/files", func(c *gin.Context) {
 		if h.db == nil {
@@ -110,16 +119,20 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Node struct {
-	ID        int     `json:"id"`
-	TenantID  int     `json:"tenant_id"`
-	UserID    int     `json:"user_id"`
-	ParentID  *int    `json:"parent_id"`
-	Name      string  `json:"name"`
-	IsFolder  bool    `json:"is_folder"`
-	Size      int64   `json:"size"`
-	MimeType  *string `json:"mime_type,omitempty"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	ID          int     `json:"id"`
+	TenantID    int     `json:"tenant_id"`
+	UserID      int     `json:"user_id"`
+	ParentID    *int    `json:"parent_id"`
+	Name        string  `json:"name"`
+	IsFolder    bool    `json:"is_folder"`
+	Size        int64   `json:"size"`
+	MimeType    *string `json:"mime_type,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
+	ChildCount   int     `json:"child_count,omitempty"`
+	ChildFolders int     `json:"child_folders,omitempty"`
+	ChildFiles   int     `json:"child_files,omitempty"`
+	DeletedAt    string  `json:"deleted_at,omitempty"` // pour la corbeille
 }
 
 func (h *Handler) listNodes(c *gin.Context) {
@@ -132,8 +145,11 @@ func (h *Handler) listNodes(c *gin.Context) {
 	var err error
 	if parentIDStr == "" || parentIDStr == "null" {
 		rows, err = h.db.Query(`
-			SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
-			FROM drive_nodes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id IS NULL ORDER BY is_folder DESC, name
+			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
+			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ORDER BY n.is_folder DESC, n.name
 		`)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
@@ -142,8 +158,11 @@ func (h *Handler) listNodes(c *gin.Context) {
 			return
 		}
 		rows, err = h.db.Query(`
-			SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
-			FROM drive_nodes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id = $1 ORDER BY is_folder DESC, name
+			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
+			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id = $1 AND n.deleted_at IS NULL ORDER BY n.is_folder DESC, n.name
 		`, parentID)
 	}
 	if err != nil {
@@ -157,7 +176,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 		var pid sql.NullInt64
 		var mime sql.NullString
 		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.ChildCount, &n.ChildFolders, &n.ChildFiles); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -187,7 +206,7 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 	rows, err := h.db.Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
-		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 		ORDER BY updated_at DESC NULLS LAST, id DESC
 		LIMIT $1
 	`, limit)
@@ -255,6 +274,13 @@ func (h *Handler) createNode(c *gin.Context) {
 		if err != nil {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
+				var existingID int
+				if selErr := h.db.QueryRow(`
+					SELECT id FROM drive_nodes WHERE tenant_id = $1 AND user_id = $2 AND parent_id IS NULL AND name = $3 AND is_folder = $4 LIMIT 1
+				`, tid, uid, body.Name, body.IsFolder).Scan(&existingID); selErr == nil {
+					c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "id": existingID, "name": body.Name, "is_folder": body.IsFolder, "message": "Un fichier ou dossier avec ce nom existe déjà"})
+					return
+				}
 				c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "message": "Un fichier ou dossier avec ce nom existe déjà"})
 				return
 			}
@@ -275,6 +301,13 @@ func (h *Handler) createNode(c *gin.Context) {
 		if err != nil {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
+				var existingID int
+				if selErr := h.db.QueryRow(`
+					SELECT id FROM drive_nodes WHERE tenant_id = $1 AND user_id = $2 AND parent_id = $3 AND name = $4 AND is_folder = $5 LIMIT 1
+				`, tid, uid, *body.ParentID, body.Name, body.IsFolder).Scan(&existingID); selErr == nil {
+					c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "id": existingID, "name": body.Name, "is_folder": body.IsFolder, "message": "Un fichier ou dossier avec ce nom existe déjà"})
+					return
+				}
 				c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "message": "Un fichier ou dossier avec ce nom existe déjà"})
 				return
 			}
@@ -318,7 +351,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 	if body.Name != "" && body.ParentID == nil {
 		res, err := h.db.Exec(`
 			UPDATE drive_nodes SET name = $1, updated_at = CURRENT_TIMESTAMP
-			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		`, body.Name, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -336,7 +369,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 		// Déplacer le nœud (éviter de déplacer dans un de ses descendants)
 		var currentParent *int
 		var isFolder bool
-		if err := h.db.QueryRow(`SELECT parent_id, is_folder FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id).Scan(&currentParent, &isFolder); err == sql.ErrNoRows {
+		if err := h.db.QueryRow(`SELECT parent_id, is_folder FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL`, id).Scan(&currentParent, &isFolder); err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		} else if err != nil {
@@ -370,7 +403,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 		}
 		res, err := h.db.Exec(`
 			UPDATE drive_nodes SET parent_id = $1, updated_at = CURRENT_TIMESTAMP
-			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		`, newParentNullable, id)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -409,7 +442,99 @@ func (h *Handler) deleteNode(c *gin.Context) {
 		return
 	}
 	res, err := h.db.Exec(`
-		DELETE FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		UPDATE drive_nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+	`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) listTrash(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, []Node{})
+		return
+	}
+	rows, err := h.db.Query(`
+		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, ''), deleted_at::text
+		FROM drive_nodes
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
+		ORDER BY deleted_at DESC NULLS LAST, id DESC
+	`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	var list []Node
+	for rows.Next() {
+		var n Node
+		var pid sql.NullInt64
+		var mime sql.NullString
+		var uat, deletedAt string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &deletedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if pid.Valid {
+			p := int(pid.Int64)
+			n.ParentID = &p
+		}
+		if mime.Valid {
+			n.MimeType = &mime.String
+		}
+		n.UpdatedAt = uat
+		n.DeletedAt = deletedAt
+		list = append(list, n)
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) restoreNode(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	res, err := h.db.Exec(`
+		UPDATE drive_nodes SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
+	`, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (h *Handler) purgeNode(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	res, err := h.db.Exec(`
+		DELETE FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
 	`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -439,7 +564,7 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	var mime sql.NullString
 	err = h.db.QueryRow(`
 		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 	`, id).Scan(&name, &content, &mime)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
@@ -461,6 +586,176 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", "attachment; filename=\""+name+"\"")
 	c.Data(http.StatusOK, ct, content)
+}
+
+// downloadFolderZip retourne un ZIP du dossier (récursif). Uniquement pour les dossiers.
+func (h *Handler) downloadFolderZip(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var name string
+	var isFolder bool
+	err = h.db.QueryRow(`
+		SELECT name, is_folder FROM drive_nodes
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+	`, id).Scan(&name, &isFolder)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !isFolder {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "not a folder"})
+		return
+	}
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	if err := h.addFolderToZip(w, id, name+"/"); err != nil {
+		w.Close()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if err := w.Close(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	zipName := name + ".zip"
+	if !strings.HasSuffix(strings.ToLower(zipName), ".zip") {
+		zipName = name + ".zip"
+	}
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Disposition", "attachment; filename=\""+zipName+"\"")
+	c.Data(http.StatusOK, "application/zip", buf.Bytes())
+}
+
+// addFolderToZip ajoute récursivement le contenu du dossier dans le zip (prefix = chemin dans l'archive).
+func (h *Handler) addFolderToZip(w *zip.Writer, folderID int, prefix string) error {
+	rows, err := h.db.Query(`
+		SELECT id, name, is_folder, content, COALESCE(mime_type, '')
+		FROM drive_nodes
+		WHERE parent_id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+	`, folderID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var nodeID int
+		var nodeName string
+		var isFolder bool
+		var content []byte
+		var mime string
+		if err := rows.Scan(&nodeID, &nodeName, &isFolder, &content, &mime); err != nil {
+			return err
+		}
+		safeName := path.Base(nodeName)
+		if safeName == "" || safeName == "." {
+			safeName = "file"
+		}
+		entryPath := prefix + safeName
+		if isFolder {
+			if err := h.addFolderToZip(w, nodeID, entryPath+"/"); err != nil {
+				return err
+			}
+		} else {
+			fh := &zip.FileHeader{Name: entryPath, Method: zip.Deflate}
+			fw, err := w.CreateHeader(fh)
+			if err != nil {
+				return err
+			}
+			if _, err := fw.Write(content); err != nil {
+				return err
+			}
+		}
+	}
+	return rows.Err()
+}
+
+// downloadArchiveZip reçoit {"node_ids": [1,2,3]} et retourne un ZIP contenant ces nœuds (dossiers récursifs, fichiers directs).
+func (h *Handler) downloadArchiveZip(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body struct {
+		NodeIDs []int `json:"node_ids"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.NodeIDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "node_ids array required"})
+		return
+	}
+	if len(body.NodeIDs) > 100 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "max 100 nodes"})
+		return
+	}
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	seen := make(map[int]bool)
+	for _, nodeID := range body.NodeIDs {
+		if seen[nodeID] {
+			continue
+		}
+		seen[nodeID] = true
+		var name string
+		var isFolder bool
+		err := h.db.QueryRow(`
+			SELECT name, is_folder FROM drive_nodes
+			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+		`, nodeID).Scan(&name, &isFolder)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			w.Close()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		safeName := path.Base(name)
+		if safeName == "" || safeName == "." {
+			safeName = "file"
+		}
+		if isFolder {
+			if err := h.addFolderToZip(w, nodeID, safeName+"/"); err != nil {
+				w.Close()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		} else {
+			var content []byte
+			if err := h.db.QueryRow(`
+				SELECT COALESCE(content, ''::bytea) FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+			`, nodeID).Scan(&content); err != nil {
+				w.Close()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			fh := &zip.FileHeader{Name: safeName, Method: zip.Deflate}
+			fw, err := w.CreateHeader(fh)
+			if err != nil {
+				w.Close()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			fw.Write(content)
+		}
+	}
+	if err := w.Close(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Disposition", "attachment; filename=\"archive.zip\"")
+	c.Data(http.StatusOK, "application/zip", buf.Bytes())
 }
 
 func (h *Handler) putNodeContent(c *gin.Context) {
@@ -490,7 +785,7 @@ func (h *Handler) putNodeContent(c *gin.Context) {
 	size := int64(len(body))
 	res, err := h.db.Exec(`
 		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 	`, body, size, mimeType, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

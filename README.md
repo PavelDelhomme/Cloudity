@@ -20,6 +20,10 @@ L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UN
 Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
 **Suivi du projet et roadmap** : voir **[STATUS.md](./STATUS.md)**.
 
+**Dépannage** : Si la page **Mail** reste sur « Chargement des comptes » et que l’API renvoie **404** sur `GET /mail/me/accounts`, exécutez `make rebuild-mail` puis rechargez l’app. Vérifier ensuite : `make verify-mail-api`. **Gmail** : avec double authentification, utilisez un [mot de passe d’application](https://myaccount.google.com/apppasswords) (Paramètres Google > Sécurité).
+
+**Tests E2E** : `make test-e2e-playwright` (après `make up` et `make seed-admin`) lance 22 tests Playwright ; 4 sont ignorés (création document → éditeur, mock cross-origin non fiable). Pour tout lancer : `make rebuild-mail && make verify-mail-api && make test-e2e-playwright`.
+
 ---
 
 # Vue d'ensemble du projet

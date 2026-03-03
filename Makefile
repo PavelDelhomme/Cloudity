@@ -1,4 +1,4 @@
-.PHONY: help up down setup init dev prod build test tests test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup install init dev prod build test tests test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -26,6 +26,7 @@ help: ## Affiche ce message d'aide
 	@echo ''
 	@echo '  Première fois :  make setup   puis  make up-full   (stack + compte démo prêts à tester)'
 	@echo ''
+	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
 	@echo '  make rebuild   - Reconstruit tous les services Cloudity (build --no-cache) puis redémarre (stack peut être déjà up)'
@@ -42,7 +43,8 @@ help: ## Affiche ce message d'aide
 	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
 	@echo '  make logs       - Logs de tous les services en temps réel'
 	@echo ''
-	@echo 'Targets disponibles:'
+	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
+	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
@@ -64,6 +66,10 @@ down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down
 	@echo "✅ Stack arrêtée."
+
+install: ## Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets (ex. docx, xlsx).
+	@chmod +x scripts/install-deps.sh 2>/dev/null || true
+	@./scripts/install-deps.sh
 
 setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis lancer make up-full.
 	@if [ ! -f scripts/setup.sh ]; then echo "❌ scripts/setup.sh introuvable."; exit 1; fi
@@ -415,16 +421,8 @@ rebuild-force: ## Rebuild complet sans cache
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@echo "✅ Rebuild terminé!"
 
-status: ## Affiche l'état détaillé de tous les services
-	@echo "📊 État des services Cloudity:"
-	@echo "=============================="
-	@$(COMPOSE) $(COMPOSE_FILES) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
-	@echo ""
-	@echo "Volumes:"
-	@docker volume ls --filter name=cloudity --format "table {{.Name}}\t{{.Size}}"
-	@echo ""
-	@echo "Réseaux:"
-	@docker network ls --filter name=cloudity --format "table {{.Name}}\t{{.Driver}}"
+status: ## Affiche services, port, URL et état (Up vert / Down rouge)
+	@[ -x scripts/status.sh ] && ./scripts/status.sh || ($(COMPOSE) $(COMPOSE_FILES) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null; echo ""; echo "Pour le tableau détaillé (nom, port, URL, état): ./scripts/status.sh")
 
 wait-for-services: ## Attend que les services soient prêts (ports 60XX)
 	@echo "⏳ Attente des services (60XX)..."
@@ -549,6 +547,26 @@ rebuild-dashboard: ## Reconstruit admin-dashboard
 
 rebuild-drive: ## Reconstruit drive-service
 	@$(COMPOSE) $(COMPOSE_FILES) stop drive-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache drive-service && $(COMPOSE) $(COMPOSE_FILES) up -d drive-service && echo "✅ drive-service OK"
+
+rebuild-mail: ## Reconstruit mail-directory-service (fix 404 sur /mail/me/accounts) et relance le gateway
+	@$(COMPOSE) $(COMPOSE_FILES) stop mail-directory-service 2>/dev/null; \
+	$(COMPOSE) $(COMPOSE_FILES) build --no-cache mail-directory-service && \
+	$(COMPOSE) $(COMPOSE_FILES) up -d mail-directory-service && \
+	echo "Attente que mail-directory-service soit healthy (healthcheck toutes les 30 s, max 40 s)..." && \
+	i=0; while [ $$i -lt 20 ]; do \
+	  docker inspect --format='{{.State.Health.Status}}' cloudity-mail-directory-service 2>/dev/null | grep -q healthy && break; \
+	  sleep 2; i=$$((i+1)); \
+	done && \
+	(docker inspect --format='{{.State.Health.Status}}' cloudity-mail-directory-service 2>/dev/null | grep -q healthy) || (echo "❌ mail-directory-service pas healthy après 40 s. Vérifiez: docker compose logs mail-directory-service"; exit 1) && \
+	$(COMPOSE) $(COMPOSE_FILES) up -d api-gateway && \
+	echo "✅ mail-directory-service OK. Si la page Mail affichait 404, rechargez l'app."
+
+verify-mail-api: ## Vérifie que le gateway transmet bien /mail/* (après make up ou make rebuild-mail). Attend 5s puis GET /mail/health.
+	@echo "Vérification API Mail (gateway -> mail-directory-service)..."
+	@echo "  Attente 5 s que les services soient prêts..."
+	@sleep 5
+	@curl -sf http://localhost:$(PORT_GATEWAY)/mail/health >/dev/null && echo "  ✅ GET /mail/health: OK" || (echo "  ❌ GET /mail/health: FAIL. Lancez: make up puis make rebuild-mail"; exit 1)
+	@echo "  Pour tester /mail/me/accounts: connectez-vous sur http://localhost:$(PORT_DASHBOARD) puis ouvrez Mail."
 
 setup-infra-only: ## Démarre uniquement Postgres + Redis
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis

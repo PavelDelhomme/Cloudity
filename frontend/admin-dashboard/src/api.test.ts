@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode, createDriveFile, createDriveFileWithUniqueName, getDriveNodeContentAsText, putDriveNodeContent, fetchDriveRecentFiles } from './api'
+import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode, createDriveFile, createDriveFileWithUniqueName, getDriveNodeContentAsText, putDriveNodeContent, fetchDriveRecentFiles, fetchMailAccounts, syncMailAccount, sendMailMessage } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -293,67 +293,76 @@ describe('api', () => {
       const mockFetch = vi.mocked(fetch)
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ id: 5, name: 'Doc.html', is_folder: false }),
+        json: () => Promise.resolve({ id: 5, name: 'Doc.docx', is_folder: false }),
       } as Response)
-      await createDriveFile('tk', null, 'Doc.html')
+      await createDriveFile('tk', null, 'Doc.docx')
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('/drive/nodes'),
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
-          body: JSON.stringify({ parent_id: null, name: 'Doc.html', is_folder: false }),
+          body: JSON.stringify({ parent_id: null, name: 'Doc.docx', is_folder: false }),
         })
       )
     })
     it('throws when response not ok', async () => {
       vi.mocked(fetch).mockResolvedValue({ ok: false, status: 400 } as Response)
-      await expect(createDriveFile('x', 1, 'a.html')).rejects.toThrow(/400/)
+      await expect(createDriveFile('x', 1, 'a.docx')).rejects.toThrow(/400/)
     })
     it('throws with status 409 when file exists', async () => {
       vi.mocked(fetch).mockResolvedValue({ ok: false, status: 409 } as Response)
-      const err = await createDriveFile('x', null, 'Sans titre.html').catch((e) => e)
+      const err = await createDriveFile('x', null, 'Sans titre.docx').catch((e) => e)
       expect(err).toBeInstanceOf(Error)
       expect((err as Error & { status?: number }).status).toBe(409)
     })
   })
 
   describe('createDriveFileWithUniqueName', () => {
-    it('returns result when first name is free', async () => {
-      const mockFetch = vi.mocked(fetch)
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ id: 5, name: 'Doc.html', is_folder: false }),
-      } as Response)
-      const result = await createDriveFileWithUniqueName('tk', null, 'Doc.html')
-      expect(result.name).toBe('Doc.html')
-      expect(mockFetch).toHaveBeenCalledTimes(1)
-    })
-    it('retries with "name (1).ext" on 409 then succeeds', async () => {
+    it('returns result when first name is free (GET list then POST create)', async () => {
       const mockFetch = vi.mocked(fetch)
       mockFetch
-        .mockResolvedValueOnce({ ok: false, status: 409 } as Response)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 6, name: 'Sans titre (1).html', is_folder: false }),
+          json: () => Promise.resolve({ id: 5, name: 'Doc.docx', is_folder: false }),
         } as Response)
-      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.html')
-      expect(result.name).toBe('Sans titre (1).html')
+      const result = await createDriveFileWithUniqueName('tk', null, 'Doc.docx')
+      expect(result.name).toBe('Doc.docx')
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
-    it('retries when 500 response contains duplicate/unique constraint (treated as 409)', async () => {
+    it('uses "name (1).ext" when base name exists in list', async () => {
       const mockFetch = vi.mocked(fetch)
       mockFetch
         .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          json: () => Promise.resolve({ error: 'duplicate key value violates unique constraint', message: 'duplicate key' }),
+          ok: true,
+          json: () =>
+            Promise.resolve([{ id: 1, name: 'Sans titre.docx', is_folder: false, parent_id: null, size: 0, tenant_id: 1, user_id: 1, created_at: '', updated_at: '', mime_type: null }]),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
-          json: () => Promise.resolve({ id: 7, name: 'Sans titre (1).html', is_folder: false }),
+          json: () => Promise.resolve({ id: 6, name: 'Sans titre (1).docx', is_folder: false }),
         } as Response)
-      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.html')
-      expect(result.name).toBe('Sans titre (1).html')
+      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.docx')
+      expect(result.name).toBe('Sans titre (1).docx')
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+    })
+    it('uses next free index when several numbered names exist', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () =>
+            Promise.resolve([
+              { id: 1, name: 'Sans titre.docx', is_folder: false, parent_id: null, size: 0, tenant_id: 1, user_id: 1, created_at: '', updated_at: '', mime_type: null },
+              { id: 2, name: 'Sans titre (1).docx', is_folder: false, parent_id: null, size: 0, tenant_id: 1, user_id: 1, created_at: '', updated_at: '', mime_type: null },
+            ]),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 7, name: 'Sans titre (2).docx', is_folder: false }),
+        } as Response)
+      const result = await createDriveFileWithUniqueName('tk', null, 'Sans titre.docx')
+      expect(result.name).toBe('Sans titre (2).docx')
       expect(mockFetch).toHaveBeenCalledTimes(2)
     })
   })
@@ -385,7 +394,7 @@ describe('api', () => {
       const mockFetch = vi.mocked(fetch)
       mockFetch.mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve([{ id: 1, name: 'a.html', is_folder: false, size: 0, parent_id: null, created_at: '', updated_at: '' }]),
+        json: () => Promise.resolve([{ id: 1, name: 'a.docx', is_folder: false, size: 0, parent_id: null, created_at: '', updated_at: '' }]),
       } as Response)
       const result = await fetchDriveRecentFiles('tk', 15)
       expect(mockFetch).toHaveBeenCalledWith(
@@ -396,7 +405,7 @@ describe('api', () => {
       )
       expect(Array.isArray(result)).toBe(true)
       expect(result).toHaveLength(1)
-      expect(result[0].name).toBe('a.html')
+      expect(result[0].name).toBe('a.docx')
     })
     it('throws when response not ok', async () => {
       vi.mocked(fetch).mockResolvedValue({ ok: false, status: 401 } as Response)
@@ -441,6 +450,75 @@ describe('api', () => {
     it('throws when response not ok', async () => {
       vi.mocked(fetch).mockResolvedValue({ ok: false, status: 403 } as Response)
       await expect(putDriveNodeContent('x', 1, 'x')).rejects.toThrow(/403/)
+    })
+  })
+
+  describe('fetchMailAccounts', () => {
+    it('calls GET /mail/me/accounts with Bearer token', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([{ id: 1, email: 'u@example.com', user_id: 1, tenant_id: 1, created_at: '', updated_at: '' }]),
+      } as Response)
+      await fetchMailAccounts('tk')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/mail/me/accounts'),
+        expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer tk' }) })
+      )
+    })
+  })
+
+  describe('syncMailAccount', () => {
+    it('calls POST /mail/me/accounts/:id/sync with password', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ synced: 5, message: 'synchronisation terminée' }),
+      } as Response)
+      await syncMailAccount('tk', 1, 'secret')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/mail/me/accounts/1/sync'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({ Authorization: 'Bearer tk', 'Content-Type': 'application/json' }),
+        })
+      )
+      const callBody = JSON.parse((mockFetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body)
+      expect(callBody.password).toBe('secret')
+    })
+    it('throws with error message when not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, text: () => Promise.resolve(JSON.stringify({ error: 'identifiants invalides' })) } as Response)
+      await expect(syncMailAccount('x', 1, 'p')).rejects.toThrow(/identifiants invalides/)
+    })
+  })
+
+  describe('sendMailMessage', () => {
+    it('calls POST /mail/me/send with account_id, password, to, subject, body', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ message: 'message envoyé' }),
+      } as Response)
+      await sendMailMessage('tk', {
+        account_id: 1,
+        password: 'pass',
+        to: 'dest@example.com',
+        subject: 'Test',
+        body: 'Hello',
+      })
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/mail/me/send'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            account_id: 1,
+            password: 'pass',
+            to: 'dest@example.com',
+            subject: 'Test',
+            body: 'Hello',
+          }),
+        })
+      )
     })
   })
 })

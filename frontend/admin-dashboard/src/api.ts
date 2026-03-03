@@ -194,6 +194,143 @@ export async function createDomain(token: string, domain: string): Promise<{ id:
   return res.json() as Promise<{ id: number; domain: string }>
 }
 
+// Comptes mail reliés par l'utilisateur (user_email_accounts)
+export type MailAccountResponse = {
+  id: number
+  user_id: number
+  tenant_id: number
+  email: string
+  label?: string
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchMailAccounts(token: string): Promise<MailAccountResponse[]> {
+  const res = await fetch(apiUrl('/mail/me/accounts'), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail accounts: ${res.status}`)
+  return res.json() as Promise<MailAccountResponse[]>
+}
+
+export async function createMailAccount(
+  token: string,
+  email: string,
+  options?: { label?: string; password?: string }
+): Promise<{ id: number; email: string; label?: string }> {
+  const body: { email: string; label?: string; password?: string } = {
+    email: email.trim().toLowerCase(),
+    label: options?.label?.trim() || '',
+  }
+  if (options?.password != null && options.password.trim() !== '') {
+    body.password = options.password.trim()
+  }
+  const res = await fetch(apiUrl('/mail/me/accounts'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 409) throw new Error('Cette adresse est déjà reliée')
+  if (!res.ok) throw new Error(`Create mail account: ${res.status}`)
+  return res.json() as Promise<{ id: number; email: string; label?: string }>
+}
+
+export async function deleteMailAccount(token: string, accountId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete mail account: ${res.status}`)
+}
+
+export type MailMessageResponse = {
+  id: number
+  account_id: number
+  folder: string
+  from: string
+  to: string
+  subject: string
+  date_at?: string
+  created_at: string
+}
+
+export async function fetchMailMessages(
+  token: string,
+  accountId: number,
+  folder = 'inbox'
+): Promise<MailMessageResponse[]> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?folder=${encodeURIComponent(folder)}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail messages: ${res.status}`)
+  return res.json() as Promise<MailMessageResponse[]>
+}
+
+export async function syncMailAccount(
+  token: string,
+  accountId: number,
+  password?: string,
+  options?: { imap_host?: string; imap_port?: number }
+): Promise<{ synced: number; message: string }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/sync`), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      password: password ?? '',
+      imap_host: options?.imap_host,
+      imap_port: options?.imap_port,
+    }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      throw new Error(j.error || t)
+    } catch {
+      throw new Error(t || `Sync: ${res.status}`)
+    }
+  }
+  return res.json() as Promise<{ synced: number; message: string }>
+}
+
+export async function sendMailMessage(
+  token: string,
+  payload: {
+    account_id: number
+    password: string
+    to: string
+    subject: string
+    body: string
+    smtp_host?: string
+    smtp_port?: number
+  }
+): Promise<{ message: string }> {
+  const res = await fetch(apiUrl('/mail/me/send'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      throw new Error(j.error || t)
+    } catch {
+      throw new Error(t || `Send: ${res.status}`)
+    }
+  }
+  return res.json() as Promise<{ message: string }>
+}
+
 export type LoginBody = { email: string; password: string; tenant_id?: number }
 export type LoginResponse = {
   access_token: string
@@ -270,6 +407,12 @@ export type DriveNode = {
   mime_type?: string | null
   created_at: string
   updated_at: string
+  /** Nombre d'éléments au 1er niveau (dossiers uniquement, renvoyé par l'API). */
+  child_count?: number
+  child_folders?: number
+  child_files?: number
+  /** Date de suppression (corbeille). */
+  deleted_at?: string | null
 }
 
 export async function fetchDriveNodes(
@@ -310,6 +453,17 @@ export async function createDriveFolder(
     },
     body: JSON.stringify({ parent_id: parentId, name, is_folder: true }),
   })
+  if (res.status === 409) {
+    try {
+      const j = (await res.json()) as { id?: number; name?: string; is_folder?: boolean }
+      if (typeof j?.id === 'number') {
+        return { id: j.id, name: j.name ?? name, is_folder: true }
+      }
+    } catch {
+      /* ignore */
+    }
+    throw new Error('Un dossier avec ce nom existe déjà')
+  }
   if (!res.ok) throw new Error(`Create folder: ${res.status}`)
   return res.json() as Promise<{ id: number; name: string; is_folder: boolean }>
 }
@@ -353,27 +507,38 @@ export async function createDriveFile(
   return res.json() as Promise<{ id: number; name: string; is_folder: boolean }>
 }
 
-/** Crée un fichier avec un nom unique : si le nom existe déjà, essaie "nom (1).ext", "nom (2).ext", etc. */
+/** Regex pour extraire le numéro d'un nom "nom (n).ext" (n = 0 pour "nom.ext"). */
+function parseNumberedName(name: string, nameBase: string, ext: string): number | null {
+  if (name === nameBase + ext) return 0
+  const re = new RegExp(`^${escapeRe(nameBase)} \\((\\d+)\\)${escapeRe(ext)}$`)
+  const m = name.match(re)
+  return m ? parseInt(m[1], 10) : null
+}
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Crée un fichier avec un nom unique : récupère d'abord les noms existants, calcule le prochain libre, puis un seul POST. */
 export async function createDriveFileWithUniqueName(
   token: string,
   parentId: number | null,
   baseName: string,
-  maxAttempts = 100
+  _maxAttempts = 100
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
   const lastDot = baseName.lastIndexOf('.')
   const nameBase = lastDot >= 0 ? baseName.slice(0, lastDot) : baseName
   const ext = lastDot >= 0 ? baseName.slice(lastDot) : ''
-  for (let i = 0; i < maxAttempts; i++) {
-    const name = i === 0 ? baseName : `${nameBase} (${i})${ext}`
-    try {
-      return await createDriveFile(token, parentId, name)
-    } catch (e) {
-      const err = e as Error & { status?: number }
-      if (err.status === 409 || err.message === 'FILE_EXISTS') continue
-      throw e
-    }
+  const existing = await fetchDriveNodes(token, parentId)
+  const used = new Set<number>()
+  for (const n of existing) {
+    if (n.is_folder) continue
+    const num = parseNumberedName(n.name, nameBase, ext)
+    if (num !== null) used.add(num)
   }
-  throw new Error('Impossible de trouver un nom disponible')
+  let i = 0
+  while (used.has(i)) i++
+  const name = i === 0 ? baseName : `${nameBase} (${i})${ext}`
+  return createDriveFile(token, parentId, name)
 }
 
 export async function renameDriveNode(
@@ -411,12 +576,40 @@ export async function moveDriveNode(
   return res.json() as Promise<{ id: number; name: string; parent_id: number | null }>
 }
 
+/** Suppression (soft delete) : déplace en corbeille. */
 export async function deleteDriveNode(token: string, id: number): Promise<void> {
   const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Delete: ${res.status}`)
+}
+
+/** Liste les nœuds en corbeille. */
+export async function fetchDriveTrash(token: string): Promise<DriveNode[]> {
+  const res = await fetch(apiUrl('/drive/nodes/trash'), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Trash: ${res.status}`)
+  return res.json() as Promise<DriveNode[]>
+}
+
+/** Restaure un nœud depuis la corbeille. */
+export async function restoreDriveNode(token: string, id: number): Promise<void> {
+  const res = await fetch(apiUrl(`/drive/nodes/${id}/restore`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Restore: ${res.status}`)
+}
+
+/** Supprime définitivement un nœud (corbeille uniquement). */
+export async function purgeDriveNode(token: string, id: number): Promise<void> {
+  const res = await fetch(apiUrl(`/drive/nodes/trash/${id}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Purge: ${res.status}`)
 }
 
 export async function downloadDriveFile(
@@ -427,6 +620,35 @@ export async function downloadDriveFile(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Download: ${res.status}`)
+  return res.blob()
+}
+
+/** Télécharge un dossier entier en ZIP (pas de .zip dans l’UI, juste « Télécharger »). */
+export async function downloadDriveFolderAsZip(
+  token: string,
+  folderId: number
+): Promise<Blob> {
+  const res = await fetch(apiUrl(`/drive/nodes/${folderId}/zip`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Download folder: ${res.status}`)
+  return res.blob()
+}
+
+/** Crée une archive ZIP à partir des nœuds sélectionnés (fichiers + dossiers). */
+export async function downloadDriveArchive(
+  token: string,
+  nodeIds: number[]
+): Promise<Blob> {
+  const res = await fetch(apiUrl('/drive/nodes/archive'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ node_ids: nodeIds }),
+  })
+  if (!res.ok) throw new Error(`Archive: ${res.status}`)
   return res.blob()
 }
 
@@ -456,6 +678,25 @@ export async function putDriveNodeContent(
       'Content-Type': mimeType,
     },
     body: content,
+  })
+  if (!res.ok) throw new Error(`Save content: ${res.status}`)
+  return res.json() as Promise<{ id: number; size: number }>
+}
+
+/** Enregistre le contenu binaire d'un nœud (ex. .docx, .xlsx). */
+export async function putDriveNodeContentBlob(
+  token: string,
+  nodeId: number,
+  blob: Blob,
+  mimeType: string
+): Promise<{ id: number; size: number }> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': mimeType,
+    },
+    body: blob,
   })
   if (!res.ok) throw new Error(`Save content: ${res.status}`)
   return res.json() as Promise<{ id: number; size: number }>

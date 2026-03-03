@@ -3,13 +3,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Routes, Route } from 'react-router-dom'
 import { TestRouter } from '../../test-utils'
-import DocumentEditorPage, { EDITABLE_EXT, getExtension, isRich } from './DocumentEditorPage'
+import DocumentEditorPage, { EDITABLE_EXT, getExtension, isRich, isWordDocument } from './DocumentEditorPage'
 import { useAuth } from '../../authContext'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../api', () => ({
   getDriveNodeContentAsText: vi.fn().mockResolvedValue(''),
   putDriveNodeContent: vi.fn().mockResolvedValue({ id: 1, size: 0 }),
+  putDriveNodeContentBlob: vi.fn().mockResolvedValue({ id: 1, size: 0 }),
+  renameDriveNode: vi.fn().mockResolvedValue({ id: 1, name: 'x.docx' }),
+  moveDriveNode: vi.fn().mockResolvedValue({ id: 1, name: 'x.docx', parent_id: null }),
+  downloadDriveFile: vi.fn().mockResolvedValue(new Blob()),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
 }))
 
@@ -57,16 +61,19 @@ describe('DocumentEditorPage', () => {
     render(wrap(<DocumentEditorPage />, '1'))
     const saveBtn = await screen.findByRole('button', { name: /Enregistrer/ }, { timeout: 3000 })
     expect(saveBtn).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Tableau de bord' })).toBeTruthy()
     expect(screen.getByRole('link', { name: 'Drive' })).toBeTruthy()
   })
 })
 
 describe('DocumentEditorPage helpers', () => {
-  it('EDITABLE_EXT contains .txt, .md, .html', () => {
+  it('EDITABLE_EXT contains .txt, .md, .html, .csv, .xlsx, .doc, .docx', () => {
     expect(EDITABLE_EXT).toContain('.txt')
     expect(EDITABLE_EXT).toContain('.md')
     expect(EDITABLE_EXT).toContain('.html')
+    expect(EDITABLE_EXT).toContain('.csv')
+    expect(EDITABLE_EXT).toContain('.xlsx')
+    expect(EDITABLE_EXT).toContain('.doc')
+    expect(EDITABLE_EXT).toContain('.docx')
   })
 
   it('getExtension returns extension in lowercase', () => {
@@ -75,9 +82,17 @@ describe('DocumentEditorPage helpers', () => {
     expect(getExtension('noext')).toBe('')
   })
 
-  it('isRich returns true only for .html', () => {
+  it('isRich returns true for .html, .docx, .doc', () => {
     expect(isRich('a.html')).toBe(true)
+    expect(isRich('a.docx')).toBe(true)
+    expect(isRich('a.doc')).toBe(true)
     expect(isRich('a.txt')).toBe(false)
     expect(isRich('a.md')).toBe(false)
+  })
+
+  it('isWordDocument returns true for .doc and .docx', () => {
+    expect(isWordDocument('a.docx')).toBe(true)
+    expect(isWordDocument('a.doc')).toBe(true)
+    expect(isWordDocument('a.html')).toBe(false)
   })
 })

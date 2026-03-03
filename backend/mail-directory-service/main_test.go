@@ -79,7 +79,30 @@ func TestMailDomainsAliasesInvalidID(t *testing.T) {
 	}
 }
 
+func TestMailMeAccountsRequiresTenantID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /mail/me/accounts without X-Tenant-ID: got %d", w.Code)
+	}
+}
+
+func TestMailMeAccountsRequiresUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)
+	req.Header.Set("X-Tenant-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /mail/me/accounts without X-User-ID: got %d", w.Code)
+	}
+}
+
 // setupRouter construit un router de test (sans DB pour health/domains sans liste).
+// Doit refléter les routes de main.go pour que les tests vérifient l'enregistrement.
 func setupRouter(db *sql.DB) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -89,6 +112,10 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	mail := r.Group("/mail")
 	{
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
+		mail.GET("/me/accounts", h.listUserAccounts)
+		mail.POST("/me/accounts", h.createUserAccount)
+		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
+		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/domains", h.listDomains)
 		mail.POST("/domains", h.createDomain)
 		mail.GET("/domains/:id/mailboxes", h.listMailboxes)
