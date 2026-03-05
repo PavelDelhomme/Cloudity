@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -12,6 +13,7 @@ import {
   fetchMailMessages,
   syncMailAccount,
   sendMailMessage,
+  getMailGoogleOAuthRedirectUrl,
   type DriveNode,
 } from '../../api'
 
@@ -69,6 +71,8 @@ export default function MailPage() {
   const [syncPassword, setSyncPassword] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [composePassword, setComposePassword] = useState('')
+  const [googleConnecting, setGoogleConnecting] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -99,6 +103,40 @@ export default function MailPage() {
   })
 
   const recentRecipients = getRecentRecipients()
+
+  useEffect(() => {
+    const oauth = searchParams.get('oauth')
+    const status = searchParams.get('status')
+    if (oauth !== 'google') return
+    const reason = searchParams.get('reason')
+    setSearchParams({}, { replace: true })
+    queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+    queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+    if (status === 'ok') {
+      toast.success('Compte Gmail connecté. Vous pouvez synchroniser la boîte.')
+    } else {
+      toast.error(reason === 'config' ? 'Connexion Google non configurée sur ce serveur.' : 'Connexion Google annulée ou erreur.')
+    }
+  }, [searchParams, setSearchParams, queryClient])
+
+  const handleConnectGoogle = useCallback(async () => {
+    if (!accessToken) return
+    setGoogleConnecting(true)
+    try {
+      const { redirect_url } = await getMailGoogleOAuthRedirectUrl(accessToken)
+      window.location.href = redirect_url
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('non configuré') || msg.includes('503')) {
+        toast.error('La connexion Google n’est pas encore activée sur ce serveur. Utilisez « Ajouter une boîte » avec un mot de passe d’application Gmail (voir aide).', { duration: 6000 })
+        setShowConnectEmail(true)
+      } else {
+        toast.error(msg || 'Erreur')
+      }
+    } finally {
+      setGoogleConnecting(false)
+    }
+  }, [accessToken])
 
   const handleConnectEmail = useCallback(async () => {
     const email = connectEmailValue.trim().toLowerCase()
@@ -184,10 +222,6 @@ export default function MailPage() {
       toast.error('Aucun compte mail sélectionné')
       return
     }
-    if (!composePassword.trim()) {
-      toast.error('Indiquez le mot de passe du compte (SMTP) pour envoyer')
-      return
-    }
     setSending(true)
     try {
       addRecentRecipient(composeTo.trim())
@@ -264,13 +298,24 @@ export default function MailPage() {
       {!accountsLoading && !is404 && accounts.length === 0 && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-amber-800 dark:text-amber-200 font-medium">Aucune boîte mail reliée à ce compte.</p>
-          <button
-            type="button"
-            onClick={() => setShowConnectEmail(true)}
-            className="rounded-lg bg-amber-600 dark:bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:hover:bg-amber-600"
-          >
-            Ajouter une boîte mail
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleConnectGoogle}
+              disabled={googleConnecting}
+              className="rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 flex items-center gap-2 disabled:opacity-50"
+            >
+              {googleConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Se connecter avec Google
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowConnectEmail(true)}
+              className="rounded-lg bg-amber-600 dark:bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:hover:bg-amber-600"
+            >
+              + Ajouter une boîte
+            </button>
+          </div>
         </div>
       )}
 
@@ -279,19 +324,31 @@ export default function MailPage() {
           <span className="text-sm text-slate-600 dark:text-slate-400">
             Sélectionnez une boîte dans la barre latérale pour afficher ses dossiers et messages.
           </span>
-          <button
-            type="button"
-            onClick={() => setShowConnectEmail(true)}
-            className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
-          >
-            + Ajouter une boîte mail
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleConnectGoogle}
+              disabled={googleConnecting}
+              className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:underline disabled:opacity-50 flex items-center gap-1"
+            >
+              {googleConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Se connecter avec Google
+            </button>
+            <span className="text-slate-300 dark:text-slate-500">|</span>
+            <button
+              type="button"
+              onClick={() => setShowConnectEmail(true)}
+              className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
+            >
+              + Ajouter une boîte mail
+            </button>
+          </div>
         </div>
       )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[480px]">
-        <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0">
-          <aside className="md:col-span-3 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 p-3 flex flex-col gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0 min-w-0">
+          <aside className="md:col-span-3 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 p-3 flex flex-col gap-2 min-h-0 min-w-0 overflow-y-auto">
             <button
               type="button"
               onClick={() => setShowCompose(true)}
@@ -302,6 +359,20 @@ export default function MailPage() {
             </button>
             <div className="border-t border-slate-200 dark:border-slate-600 pt-2">
               <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Boîtes mail</p>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleConnectGoogle}
+                  disabled={googleConnecting}
+                  className="w-full rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-left flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {googleConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Se connecter avec Google
+                </button>
+                <button type="button" onClick={() => setShowConnectEmail(true)} className="w-full rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 text-left flex items-center justify-center gap-2">
+                  + Ajouter une boîte
+                </button>
+              </div>
               {accounts.map((acc) => (
                 <div key={acc.id} className="flex items-center gap-1 rounded-lg group">
                   <button
@@ -334,9 +405,6 @@ export default function MailPage() {
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={() => setShowConnectEmail(true)} className="w-full mt-1 rounded-lg px-3 py-2 text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-brand-600 dark:hover:text-brand-400 text-left">
-                + Ajouter une boîte
-              </button>
             </div>
             <div className="border-t border-slate-200 dark:border-slate-600 pt-2">
               <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dossiers</p>
@@ -396,12 +464,28 @@ export default function MailPage() {
       </div>
 
       {showConnectEmail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Ajouter une boîte mail</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP). Gmail avec 2FA : utilisez un mot de passe d’application.
+              Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP).
             </p>
+            {/^[^@]*@gmail\.com$/i.test(connectEmailValue.trim()) && (
+              <div className="mb-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">Gmail : comme Thunderbird ou BlueMail</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">
+                  Utilisez un <strong>mot de passe d'application</strong> (pas votre mot de passe Gmail). Un clic dans votre compte Google, aucune config technique :
+                </p>
+                <a
+                  href="https://myaccount.google.com/apppasswords"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-brand-600 dark:text-brand-400 underline hover:no-underline"
+                >
+                  Créer un mot de passe d'application →
+                </a>
+              </div>
+            )}
             <div className="space-y-3 mb-4">
               <input
                 type="email"
@@ -544,6 +628,15 @@ export default function MailPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               Si un mot de passe a été enregistré à l’ajout de la boîte, laissez vide. Sinon, saisissez le mot de passe (ou mot de passe d’application Gmail) pour cette synchro.
             </p>
+            {syncAccountId != null && /@gmail\.com$/i.test(accounts.find((a) => a.id === syncAccountId)?.email ?? '') && (
+              <p className="mb-4 text-xs text-amber-700 dark:text-amber-300">
+                Gmail avec 2FA : utilisez un{' '}
+                <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                  mot de passe d'application
+                </a>
+                .
+              </p>
+            )}
             <input
               type="password"
               value={syncPassword}

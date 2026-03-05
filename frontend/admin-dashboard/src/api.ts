@@ -269,6 +269,23 @@ export async function fetchMailMessages(
   return res.json() as Promise<MailMessageResponse[]>
 }
 
+/** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */
+export async function getMailGoogleOAuthRedirectUrl(token: string): Promise<{ redirect_url: string }> {
+  const res = await fetch(apiUrl('/mail/me/oauth/google/authorize'), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      throw new Error(j.error || t)
+    } catch {
+      throw new Error(t || `OAuth: ${res.status}`)
+    }
+  }
+  return res.json() as Promise<{ redirect_url: string }>
+}
+
 export async function syncMailAccount(
   token: string,
   accountId: number,
@@ -303,7 +320,7 @@ export async function sendMailMessage(
   token: string,
   payload: {
     account_id: number
-    password: string
+    password?: string
     to: string
     subject: string
     body: string

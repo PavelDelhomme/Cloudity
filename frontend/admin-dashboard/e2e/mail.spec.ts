@@ -11,9 +11,9 @@ test.describe('Mail (E2E)', () => {
     await expect(page).toHaveURL(/\/app\/mail/)
     // Titre Mail visible = page chargée (pas 404)
     await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
-    // Contenu attendu : liste/comptes ou message "aucune adresse" ou erreur service
+    // Contenu attendu : section Boîtes mail, bouton ajouter, ou chargement / erreur
     await expect(
-      page.getByText(/adresses? reliées?|aucune adresse mail reliée|connecter une adresse mail|service Mail ne répond pas/i).first()
+      page.getByText(/Boîtes mail|Ajouter une boîte|Chargement des comptes|service Mail ne répond pas/i).first()
     ).toBeVisible({ timeout: 5000 })
   })
 

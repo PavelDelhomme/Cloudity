@@ -12,7 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const returnTo = (location.state as { returnTo?: string })?.returnTo ?? '/app'
+  const nextParam = new URLSearchParams(location.search).get('next')
+  const stateReturnTo = (location.state as { returnTo?: string })?.returnTo
+  const rawReturn = nextParam ?? stateReturnTo ?? '/app'
+  const returnTo = rawReturn.startsWith('/app') || rawReturn.startsWith('/admin') ? rawReturn : '/app'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

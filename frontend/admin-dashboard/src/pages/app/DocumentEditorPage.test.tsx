@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Routes, Route } from 'react-router-dom'
 import { TestRouter } from '../../test-utils'
 import DocumentEditorPage, { EDITABLE_EXT, getExtension, isRich, isWordDocument } from './DocumentEditorPage'
@@ -17,13 +18,17 @@ vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
 }))
 
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
 function wrap(ui: React.ReactElement, nodeId = '1') {
   return (
-    <TestRouter initialEntries={[`/app/office/editor/${nodeId}`]}>
-      <Routes>
-        <Route path="/app/office/editor/:nodeId" element={ui} />
-      </Routes>
-    </TestRouter>
+    <QueryClientProvider client={queryClient}>
+      <TestRouter initialEntries={[`/app/office/editor/${nodeId}`]}>
+        <Routes>
+          <Route path="/app/office/editor/:nodeId" element={ui} />
+        </Routes>
+      </TestRouter>
+    </QueryClientProvider>
   )
 }
 

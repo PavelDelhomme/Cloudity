@@ -16,6 +16,8 @@ import {
   Users,
   Image,
   Bell,
+  Menu,
+  X,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { UploadProvider, DriveUploadInputs } from '../UploadProvider'
@@ -134,6 +136,7 @@ export default function AppLayout() {
   const { email, logout } = useAuth()
   const isDrive = location.pathname.startsWith('/app/drive')
   const [driveInputsReady, setDriveInputsReady] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!isDrive) {
@@ -151,14 +154,30 @@ export default function AppLayout() {
     <UploadProvider>
       {isDrive && driveInputsReady && <DriveUploadInputs />}
       <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
-      <aside className="w-56 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-100 dark:border-slate-700">
+      {/* Overlay mobile quand la sidebar est ouverte */}
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <aside
+        className={`
+          w-56 min-w-0 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 max-h-screen overflow-hidden
+          fixed md:relative inset-y-0 left-0 z-50 md:z-auto
+          transform transition-transform duration-200 ease-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+      >
+        <div className="p-4 border-b border-gray-100 dark:border-slate-700 shrink-0">
           <Link to="/app" className="flex items-center gap-2">
             <span className="text-base font-semibold text-gray-900 dark:text-slate-100">Cloudity</span>
           </Link>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Espace personnel</p>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="flex-1 min-h-0 p-2 space-y-0.5 overflow-y-auto">
           {appNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href, item.end)
@@ -166,6 +185,7 @@ export default function AppLayout() {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
                   active
                     ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
@@ -180,6 +200,7 @@ export default function AppLayout() {
           <div className="pt-2 mt-2 border-t border-gray-100 dark:border-slate-700">
             <a
               href="/admin"
+              onClick={() => setSidebarOpen(false)}
               className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
             >
               <Shield className="w-4 h-4 shrink-0" />
@@ -188,12 +209,14 @@ export default function AppLayout() {
             </a>
           </div>
         </nav>
-        <div className="p-2 border-t border-gray-100 dark:border-slate-700 space-y-0.5">
-          <div className="px-3 py-1.5 text-xs text-gray-500 dark:text-slate-400 truncate" title={email ?? ''}>
+        <div className="p-2 border-t border-gray-100 dark:border-slate-700 space-y-0.5 shrink-0 bg-gray-50/50 dark:bg-slate-800/80">
+          <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">Connecté</p>
+          <div className="px-3 py-1 text-sm font-medium text-gray-800 dark:text-slate-200 truncate" title={email ?? ''}>
             {email ?? '—'}
           </div>
           <Link
             to="/app/settings"
+            onClick={() => setSidebarOpen(false)}
             className="flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
           >
             <Settings className="w-4 h-4" />
@@ -201,7 +224,7 @@ export default function AppLayout() {
           </Link>
             <button
             type="button"
-            onClick={logout}
+            onClick={() => { setSidebarOpen(false); logout() }}
             className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
           >
             <LogOut className="w-4 h-4" />
@@ -212,7 +235,16 @@ export default function AppLayout() {
       <main className="flex-1 min-w-0 flex flex-col">
         <NotificationsProvider>
           <div className="shrink-0 flex items-center justify-between gap-4 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            <nav className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400 flex-wrap" aria-label="Fil d'Ariane">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen((v) => !v)}
+                className="md:hidden p-2 rounded-lg text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"
+                aria-label={sidebarOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              >
+                {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+              <nav className="flex items-center gap-2 text-sm text-gray-600 dark:text-slate-400 flex-wrap" aria-label="Fil d'Ariane">
               {getAppBreadcrumb(location.pathname).map((seg, i) => (
                 <span key={i} className="flex items-center gap-2">
                   {i > 0 && <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 dark:text-slate-500" />}
@@ -225,7 +257,8 @@ export default function AppLayout() {
                   )}
                 </span>
               ))}
-            </nav>
+              </nav>
+            </div>
             <NotificationBell />
           </div>
           <div className="flex-1 min-w-0 p-6">
