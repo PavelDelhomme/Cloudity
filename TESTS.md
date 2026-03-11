@@ -22,6 +22,15 @@
 
 **En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
 
+**Ce que `make tests` couvre** : (1) **Phase 1** — tests unitaires et applicatifs (Go, pytest, Vitest) ; (2) **Phase 2** — E2E health/proxy (stack up) ; (3) **Phase 3** — E2E Playwright (navigateur : auth, Hub, Drive, Office, Pass, Mail, éditeur) ; (4) **Phase 4** — sécurité (npm audit, safety, govulncheck, checks auth).
+
+**Résumé en console** : À la fin de **`make tests`**, le script affiche le **RÉSUMÉ** (Unit/App, E2E, E2E Playwright, Sécurité) et le **RÉSULTAT FINAL** (SUCCÈS ou ÉCHEC). En cas d’avertissements sécurité, la ligne indique « vulnérabilités signalées » et précise que les détails sont dans le rapport. Le chemin du rapport détaillé est indiqué (ex. `reports/test-YYYYMMDD-HHMMSS.log`).
+
+**Drive et fichiers « 0 octet » / nettoyage** :  
+- **Tests unitaires (Vitest)** : toutes les appels API Drive sont **mockés** ; aucun fichier ni dossier n’est créé en base. Les réponses mockées utilisent `size: 0` pour les nœuds fichier (documents vides à la création), ce qui reflète le comportement réel de l’API.  
+- **E2E Playwright** : les scénarios Drive qui créent des dossiers ou téléversent des fichiers **mockent l’API** (route `**/drive/nodes**`) pour ne pas créer de ressources réelles. Le test « Téléverser : file chooser » envoie un fichier vers l’API ; **si l’API est réelle, un fichier peut être créé**. Pour éviter tout fichier résiduel en CI, mocker dans ce test les requêtes POST (création nœud) et PUT (contenu) vers `/drive/nodes` (voir exemples dans les autres tests du fichier).  
+- Si vous lancez des E2E contre l’API réelle (sans mocks), des dossiers/fichiers peuvent être créés ; dans ce cas, un nettoyage manuel ou un script post-test peut être nécessaire (non fourni par défaut).
+
 ---
 
 ## 2. Ce que `make test` exécute (référence)
@@ -34,9 +43,9 @@
 | **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 4 |
 | **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 4 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | 15 fichiers (AppHub, CalendarPage, NotesPage, TasksPage, App, **DocumentEditorPage**, DrivePage, api, …) | 101 |
+| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **19 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage (17 tests), DrivePage, api, …) | **79+** |
 
-**Total actuel** : 116+ tests (tous lancés par `make test`).
+**Total actuel** : **133 tests** (tous lancés par `make test`).
 
 **Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/admin-dashboard` ou **`make test-e2e-playwright`** depuis la racine.
 
@@ -83,8 +92,9 @@
 | **src/pages/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
 | **src/pages/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
 | **src/pages/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
-| **src/pages/app/DrivePage.test.tsx** | Titre Drive, breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. |
-| **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide (0, NaN) → message + lien Retour ; chargement puis éditeur pour nodeId valide ; helpers EDITABLE_EXT, getExtension, isRich ; **sauvegarde automatique (interval 30 s quand dirty)**. |
+| **src/pages/app/DrivePage.test.tsx** | Titre Drive, breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). |
+| **src/layouts/AppLayout.test.tsx** | **getAppBreadcrumb** : sur l’éditeur renvoie « Tableau de bord > Drive » (pas Office ni Éditeur) ; sur /app/drive et /app. |
+| **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
 ### 3.4 E2E — scripts/test-e2e.sh
@@ -122,10 +132,10 @@ Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion,
 |---------|-------------------|
 | **e2e/auth.spec.ts** | Page login ; identifiants invalides → message d’erreur ; compte démo → redirection vers `/app` (tableau de bord). |
 | **e2e/hub.spec.ts** | Après login : liens Drive / Office ; clic Drive → `/app/drive` ; clic Office → `/app/office`. |
-| **e2e/drive.spec.ts** | Titre, boutons (Nouveau fichier, Nouveau dossier, Téléverser) ; menu « Nouveau fichier » ; formulaire Nouveau dossier ; Téléverser → overlay. Tests skippés : Nouveau fichier → Document (API), breadcrumb (API), suppression (API). |
+| **e2e/drive.spec.ts** | Titre, boutons ; menu Nouveau fichier ; formulaire Nouveau dossier ; **Téléverser puis nettoyage (sélection + suppression)** ; **breadcrumb + nettoyage (suppression dossier mocké)**. Tests skippés : Nouveau fichier → Document, suppression (API). |
 | **e2e/office.spec.ts** | Cartes colorées Nouveau document / Tableur / Présentation (data-testid office-card-*) ; section Récemment modifiés ou lien Drive. Test skippé : création document (API). |
 | **e2e/pass.spec.ts** | Titre Pass, bouton Nouveau coffre, fil d’Ariane (Tableau de bord, Pass). |
-| **e2e/editor.spec.ts** | Test skippé : sauvegarde manuelle (dépend création document). |
+| **e2e/editor.spec.ts** | **Ouverture éditeur par URL (mock)** : modale **Lien** (popup custom), modale **Tableau** ; **modale Quitter** (Annuler reste, Quitter redirige). Test skippé : sauvegarde manuelle. |
 
 Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/admin-dashboard/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
 

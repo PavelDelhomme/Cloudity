@@ -37,12 +37,13 @@ describe('AppHub', () => {
     expect(screen.getByText('Choisissez une application pour continuer.')).toBeTruthy()
   })
 
-  it('renders all 9 app cards: Drive, Office, Pass, Mail, Calendar, Notes, Tasks, Contacts, Photos', () => {
+  it('renders all 10 app cards: Drive, Office, Pass, Mail, Corbeille, Calendar, Notes, Tasks, Contacts, Photos', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Office' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Pass' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Mail' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Corbeille' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Calendar' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
     expect(screen.getByRole('heading', { name: 'Tasks' })).toBeTruthy()
@@ -58,6 +59,7 @@ describe('AppHub', () => {
     expect(officeLink.getAttribute('href')).toBe('/app/office')
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/pass' }).getAttribute('href')).toBe('/app/pass')
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/mail' }).getAttribute('href')).toBe('/app/mail')
+    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/corbeille' }).getAttribute('href')).toBe('/app/corbeille')
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/calendar' }).getAttribute('href')).toBe('/app/calendar')
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/notes' }).getAttribute('href')).toBe('/app/notes')
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/tasks' }).getAttribute('href')).toBe('/app/tasks')

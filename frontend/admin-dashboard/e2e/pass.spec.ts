@@ -18,4 +18,8 @@ test.describe('Pass (E2E)', () => {
     await expect(page.getByRole('link', { name: 'Tableau de bord' }).first()).toBeVisible()
     await expect(page.getByText('Pass', { exact: true }).first()).toBeVisible()
   })
+
+  test('page Pass contient un lien vers le tableau de bord', async ({ page }) => {
+    await expect(page.getByRole('link', { name: 'Tableau de bord' }).first()).toBeVisible()
+  })
 })

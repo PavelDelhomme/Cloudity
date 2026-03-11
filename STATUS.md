@@ -1,10 +1,10 @@
-# CLOUDITY — Suivi d’avancement et référence projet
+# CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-02-28  
+**Dernière mise à jour** : 2026-03-05  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
-**Document de référence** : ce fichier sert de **référence unique** pour l’avancement et les prochaines étapes.
+**Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes.
 
-**Pourquoi mocker l’API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l’API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L’objectif est la pratique standard (tests isolés). L’avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes.
+**Pourquoi mocker l'API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l'API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L'objectif est la pratique standard (tests isolés). L'avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes.
 
 ---
 
@@ -22,7 +22,7 @@
 
 **Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
 
-**Connexion locale** : Il n’y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
+**Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
 ### Tests (à suivre absolument)
 
@@ -30,13 +30,13 @@
 |----------|------|
 | **`make test`** | Lance **uniquement** les tests unitaires + applicatifs (Go, pytest, Vitest). **Ne lance pas les E2E.** À exécuter avant chaque merge/feature. |
 | **`make test-e2e`** | **Tests E2E à part** : vérifie que les services répondent (health, gateway proxy). **Prérequis : `make up`** avant, puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make test-all`** | Lance **`make test`** puis **`make test-e2e`** (tout en une commande ; E2E échouera si la stack n’est pas up). |
+| **`make test-all`** | Lance **`make test`** puis **`make test-e2e`** (tout en une commande ; E2E échouera si la stack n'est pas up). |
 | **`make test-security`** | Audits de dépendances (npm, pip safety, govulncheck) + checks auth (401 sans token / token invalide sur `/auth/validate`). |
 | **`make test-docker`** | Même batterie que make test mais **dans** les conteneurs (make up avant). |
 | **`make test-full`** | test-all + test-docker (tout, stack up requise). |
 
 **Important** : Pour **tout** vérifier (unit/app + E2E + sécurité) : **`make up`**, attendre 20-30 s, puis **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
-**Pourquoi attendre ?** Le **gateway** ne démarre qu’une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
+**Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
 **Ce que `make test` exécute :**
 - **auth-service** (Go) : `go test ./...` → health, hash, JWT, register, login, validate, refresh, 2FA enable/verify (dont code invalide), **écriture public.pem si clé générée** → **15 tests**.
@@ -45,21 +45,23 @@
 - **mail-directory-service** (Go) : `go test ./...` → health, `/mail/health`, `/mail/domains` sans X-Tenant-ID → 401, X-Tenant-ID invalide → 401 → **4 tests**.
 - **drive-service** (Go) : `go test ./...` → health, GET /drive/nodes sans X-User-ID → 401 → **2 tests**.
 - **admin-service** (Python) : `pytest tests/` → **21 tests**.
-- **admin-dashboard** (Vitest) : **14 fichiers**, **61 tests**.
+- **admin-dashboard** (Vitest) : **19 fichiers**, **133 tests** (dont DrivePage 27, DocumentEditorPage 13, AppLayout 3, App 8, Login 3, api 38, etc.).
 
-**Total : 114+ tests** (make test).
+**Total : 133 tests** (make test) — tous passent au 2026-03-05.
 
 **Détail des tests et liste des tests à faire** : voir **[TESTS.md](./TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**Reprise (à faire)** : Tests Drive — les tests unitaires (Vitest) et la boucle 20 runs passent. E2E Playwright (`e2e/drive.spec.ts`) est en place contre l’app sur le port 6001. À vérifier en conditions réelles dans le navigateur : que les boutons **Téléverser**, **Dossier** et **Nouveau dossier** ouvrent bien le sélecteur de fichier / le formulaire (si blocage, vérifier les labels `htmlFor` et les inputs dans `AppLayout` ; lancer `BASE_URL=http://localhost:6001 npx playwright test e2e/drive.spec.ts` pour reproduire). Clarifier un éventuel doublon d’affichage « Nouveau dossier » (toolbar Drive vs autre zone).
+**État des tests (mars 2026)** : **Tous les tests passent** (`make test` → 133 tests, 19 fichiers frontend). Éditeur : modales **maison** pour Lien, Tableau et « Quitter sans enregistrer » (plus de popup natives) ; tests unitaires DocumentEditorPage (modales Lien/Tableau/Quitter). E2E Playwright : **nettoyage** après création (Drive : suppression fichier téléversé, suppression dossier créé en test breadcrumb) ; **nouveaux scénarios** éditeur (ouverture par URL mockée, modales Lien/Tableau/Quitter). `make up` + `make seed-admin` puis **`make test-e2e-playwright`**.
 
-**Prochaine étape (en cours)** : **Éditeur de documents maison** — édition de documents (texte, tableur, etc.) depuis le Drive avec **notre propre** front (ex. TipTap pour le texte, Luckysheet ou solution légère pour les tableurs), sans OnlyOffice ni service tiers. Voir `docs/editeur-docs.md`. **Roadmap détaillée (Drive, éditeur, corbeille, recherche, PDF, archives)** : **§ 1b** ci-dessus.
+**Ordre des applications (roadmap globale)** : 1) **Office/Éditeur** (Document complet → Excel → PowerPoint, notre propre Word/Excel/PowerPoint, au moins au niveau de Google Docs / Word) ; 2) **Pass** ; 3) **Calendar** ; 4) **Notes** ; 5) **Tasks** ; 6) **Contacts** ; 7) **Photos** ; 8) **Mail** (retravaillé plus tard). Détail § 1b.
+
+**Prochaine étape (en cours)** : **Office/Éditeur document complet** — éditeur avec **fil d'Ariane** (Drive > nom du doc), **renommer à côté du titre**, **barre de menus** (Fichier, Édition, Affichage, Insertion, Format type Word/Google Docs), **barre de formatage** en dessous (gras, titres, listes, tableau, lien, etc.), mode Markdown, renommer/supprimer (menu Fichier), export PDF, présentation .pptx. **Drawer** : barre de navigation gauche masquable sur tous les écrans (localStorage). Voir `docs/editeur-docs.md` et **§ 1b**.
 
 **Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** (galerie type Google Photos) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
 
-**État (2026-02-27)** : **Migrations DB automatiques** au `make up` (service db-migrate). **Calendar, Notes, Tasks** : schémas 05/06/07, services avec DB et CRUD, pages web connectées. **Drive** : opérationnel. **Éditeur docs** : à faire (éditeur maison type TipTap / Luckysheet intégré au Drive). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l’invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
+**État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
 ---
 
@@ -69,9 +71,9 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 
 ### Immédiat (base actuelle)
 
-- [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6080/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d’env soit bien utilisée.)
-- [x] **Consolider l’auth** : Argon2id pour les mots de passe, refresh tokens avec rotation, 2FA TOTP opérationnel (auth-service). Tests associés (main_test.go).
-- [x] **Renforcer admin** : admin-service (CRUD users, rôles, CRUD tenants) ; admin-dashboard (écrans Tenants, Users, Settings reliés à l’API, logout branché). Tests : pytest (health, tenants, users), vitest (App, Tenants, Users, Settings).
+- [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6080/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d'env soit bien utilisée.)
+- [x] **Consolider l'auth** : Argon2id pour les mots de passe, refresh tokens avec rotation, 2FA TOTP opérationnel (auth-service). Tests associés (main_test.go).
+- [x] **Renforcer admin** : admin-service (CRUD users, rôles, CRUD tenants) ; admin-dashboard (écrans Tenants, Users, Settings reliés à l'API, logout branché). Tests : pytest (health, tenants, users), vitest (App, Tenants, Users, Settings).
 
 ### Phase 1 — Password Manager MVP
 
@@ -85,7 +87,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Stack mail** : Postfix + Dovecot + Rspamd + Redis dans le Compose.
 - [x] **mail-directory-service** (Go) : domaines, comptes, alias (CRUD + API). Port 6050, route gateway `/mail/*`.
 - [x] **Schéma DB mail** : `03-schema-mail.sql` (mail_domains, mail_mailboxes, mail_aliases).
-- [ ] **mail-client-api** : wrapper IMAP/SMTP en REST pour l’UI.
+- [ ] **mail-client-api** : wrapper IMAP/SMTP en REST pour l'UI.
 - [ ] **Client mail Flutter** (web + Linux) : lecture/envoi, dossiers, étiquettes.
 - [ ] **Client mail web (admin-dashboard)** : envoi, brouillons, dossiers, déplacer des mails, récupération, gestion de plusieurs boîtes (à brancher sur mail-client-api).
 - [x] **Page Domaines** (admin-dashboard) : liste + création domaines mail, API /mail/domains.
@@ -104,7 +106,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Éditeur de documents maison** : édition de documents (texte riche, tableur) depuis le Drive avec **notre propre** front (TipTap, Luckysheet ou équivalent open source intégré), sans OnlyOffice. **En cours** — voir `docs/editeur-docs.md`.
 - [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour gros fichiers.
 - [ ] **Photos** : galerie type Google Photos (web + mobile, stockage, métadonnées). **Plus tard.**
-- [ ] **Notes (type Google Keep)** : cartes, couleurs, épinglage, rappels, amélioration de l’UI actuelle. **Plus tard.**
+- [ ] **Notes (type Google Keep)** : cartes, couleurs, épinglage, rappels, amélioration de l'UI actuelle. **Plus tard.**
 - [ ] **Calendar** : vue agenda / semaine améliorée, rappels. **Plus tard.**
 - [ ] **Administration** : renforcer écrans, rôles, audit. **Plus tard.**
 - [ ] **Apps mobiles** Mail + Pass (Flutter).
@@ -112,13 +114,13 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Photos** : app Photos web + mobile (galerie, stockage).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
-**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l’auth-service persiste désormais **private.pem** et **public.pem** lorsqu’il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l’email existe déjà pour le tenant, l’API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
+**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
 
 *Détail des phases et checklist complète : section 5 ci-dessous.*
 
 ### Prochaines étapes (ordre recommandé)
 
-À faire dans l’ordre pour avancer sans blocage :
+À faire dans l'ordre pour avancer sans blocage :
 
 | # | Tâche | Livrable | Tests |
 |---|--------|-----------|--------|
@@ -143,35 +145,40 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 | # | Fonctionnalité | Détail | Tests à prévoir |
 |---|----------------|--------|------------------|
 | 1 | **Visualisation PDF intégrée** | Ouvrir un PDF dans l’app (iframe ou viewer type PDF.js) sans téléchargement obligatoire. | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
-| 2 | **Extracteur d’archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
+| 2 | **Extracteur d'archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
 | 3 | **Recherche globale** | Recherche dans l’app : **Drive** (fichiers/dossiers), puis notes, tâches, calendrier, mail, pass, documents. Champ de recherche unifié + résultats groupés par type. | Unit : logique recherche / filtres ; E2E : saisie recherche → résultats Drive (et autres si implémentés). |
 
 ### Éditeur de documents (Office) — à faire
 
 | # | Fonctionnalité | Détail | Tests à prévoir |
 |---|----------------|--------|------------------|
-| 4 | **Renommer le document depuis l’éditeur** | Depuis Tableau de bord → Drive → [Document] : dans l’éditeur, pouvoir **renommer le document** (titre reflété dans le Drive, sauvegarde auto). Appliquer le **format/nom de fichier** (ex. .html, .csv). | Unit : renommage + sync nom ; E2E : créer document → ouvrir → renommer → vérifier dans Drive. |
-| 5 | **Export PDF du document** | Depuis l’éditeur : bouton **Exporter en PDF** (génération côté client ou API). | Unit : génération PDF ou appel export ; E2E : éditeur → Export PDF → fichier téléchargé. |
-| 6 | **Supprimer le document depuis l’éditeur** | Option **Supprimer** dans l’éditeur (avec confirmation) : envoie en **corbeille** ou suppression définitive selon politique. | Unit : action supprimer + redirection ; E2E : ouvrir doc → supprimer → retour Drive / corbeille. |
-| 7 | **Approfondir l’éditeur** | Enrichir l’éditeur (formatage, styles, tableaux) selon la stack (TipTap, Luckysheet, etc.). Détail dans `docs/editeur-docs.md`. | Tests au fil de l’eau. |
+| 4 | **Renommer le document depuis l'éditeur** | Depuis Tableau de bord → Drive → [Document] : dans l'éditeur, pouvoir **renommer le document** (titre reflété dans le Drive, sauvegarde auto). Appliquer le **format/nom de fichier** (ex. .html, .csv). | Unit : renommage + sync nom ; E2E : créer document → ouvrir → renommer → vérifier dans Drive. |
+| 5 | **Export PDF du document** | Depuis l'éditeur : bouton **Exporter en PDF** (génération côté client ou API). | Unit : génération PDF ou appel export ; E2E : éditeur → Export PDF → fichier téléchargé. |
+| 6 | **Supprimer le document depuis l'éditeur** | Option **Supprimer** dans l'éditeur (avec confirmation) : envoie en **corbeille** ou suppression définitive selon politique. | Unit : action supprimer + redirection ; E2E : ouvrir doc → supprimer → retour Drive / corbeille. |
+| 7 | **Présentation : enregistrement .pptx** | Comme document (.docx) et tableur (.xlsx) : pouvoir **enregistrer** une présentation en **.pptx** dans le Drive (création « Nouvelle présentation » en .pptx ou « Enregistrer en .pptx »). Téléchargement .pptx. Conversion vers d'autres formats plus tard. | Unit : html/diapos → blob pptx ; E2E : créer présentation → éditer → enregistrer .pptx. |
+| 8 | **Approfondir l'éditeur** | Enrichir l'éditeur (formatage, styles, tableaux) selon la stack (TipTap, Luckysheet, etc.). Détail dans `docs/editeur-docs.md`. | Tests au fil de l'eau. |
 
 ### Corbeille (recycle bin) — à faire
 
 | # | Fonctionnalité | Détail | Tests à prévoir |
 |---|----------------|--------|------------------|
-| 8 | **Corbeille unifiée** | Une **corbeille unique** groupant les éléments « supprimés » de : **Tasks**, **Contacts**, **Photos**, **Notes**, **Calendrier**, **Mail**, **Pass**, **Documents/Office**, **fichiers Drive**. Modèle : table `trash` ou `recycle_bin` avec `entity_type` + `entity_id` + métadonnées (nom, date suppression). | API : schéma DB + endpoints (list trash, restore, purge) ; tests backend ; E2E : supprimer → corbeille → restaurer. |
-| 9 | **Restaurer un élément** | Depuis la corbeille : action **Restaurer** qui remet l’élément à sa place d’origine. | Unit : logique restore ; E2E : corbeille → restaurer → vérifier dans le module concerné. |
-| 10 | **Vider la corbeille / purge** | Option pour vider la corbeille (suppression définitive) avec confirmation. | API + E2E. |
+| 9 | **Corbeille unifiée** | Une **corbeille unique** groupant les éléments « supprimés » de : **Tasks**, **Contacts**, **Photos**, **Notes**, **Calendrier**, **Mail**, **Pass**, **Documents/Office**, **fichiers Drive**. Modèle : table `trash` ou `recycle_bin` avec `entity_type` + `entity_id` + métadonnées (nom, date suppression). | API : schéma DB + endpoints (list trash, restore, purge) ; tests backend ; E2E : supprimer → corbeille → restaurer. |
+| 10 | **Restaurer un élément** | Depuis la corbeille : action **Restaurer** qui remet l'élément à sa place d'origine. | Unit : logique restore ; E2E : corbeille → restaurer → vérifier dans le module concerné. |
+| 11 | **Vider la corbeille / purge** | Option pour vider la corbeille (suppression définitive) avec confirmation. | API + E2E. |
 
 ### Ordre recommandé (implémentation)
 
-1. **Recherche Drive** (backend search + front) puis recherche globale.
-2. **Renommer document depuis l’éditeur** + **Supprimer depuis l’éditeur** (envoi vers corbeille si prête).
-3. **Schéma + API Corbeille** (drive, notes, tasks, calendar, etc.) puis **UI Corbeille** (liste, restaurer, vider).
-4. **Visualisation PDF** (viewer intégré).
-5. **Extracteur d’archives** (backend + appel depuis Drive).
-6. **Export PDF** de l’éditeur.
-7. **Éditeur** : approfondir (formatage, options).
+**Bloc Office/Éditeur (notre propre Word, Excel, PowerPoint — niveau Google Docs et au-delà)** — détail dans `docs/editeur-docs.md` :
+
+- [x] **Drawer** : barre de navigation gauche masquable/affichable sur **tous les écrans** (état en localStorage).
+- [x] **Éditeur document** : barre d'outils (formatage), **mode Markdown** (basculable, conversion HTML ↔ MD).
+- [x] **Renommer depuis l'éditeur** : champ ou modal pour renommer (sync Drive).
+- [x] **Supprimer depuis l'éditeur** : bouton Supprimer → corbeille, redirection.
+- [ ] **Export PDF** : bouton Exporter en PDF (document, tableur, présentation).
+- [ ] **Éditeur Excel** : pousser le tableur (grille riche, formules, .xlsx).
+- [ ] **Éditeur PowerPoint** : présentations complètes, enregistrement .pptx + PDF.
+
+**Ensuite (ordre des apps)** : **Pass** → **Calendar** → **Notes** → **Tasks** → **Contacts** → **Photos** → **Mail** (retravaillé plus tard). Puis : Corbeille unifiée, Recherche, Visualisation PDF, Extracteur d'archives.
 
 *Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir TESTS.md) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
 
@@ -215,7 +222,7 @@ Le tout **dockerisé**, derrière Nginx Proxy Manager (prod) ou Nginx/Traefik en
 | **JWT (signature)** | **RS256** ou **Ed25519** | Clé RSA 2048+ ou Ed25519. Ne pas utiliser HS256 avec secret partagé en multi-services. | auth-service (RSA). |
 | **Mail E2E** | **OpenPGP** (RFC 4880) | Chiffrement symétrique session key + clé publique destinataire. Libs : OpenPGP.js (web), Flutter packages, etc. | Phase 4. |
 | **Backups** | **AES-256** ou **ChaCha20** (restic/borg) | Restic : AES-256-GCM par défaut. Borg : ChaCha20 ou AES. Clé dérivée du mot de passe (Argon2/Scrypt). | Phase 5. |
-| **Secrets / env** | **Pas de chiffrement dans le repo** | `.env` est dans `.gitignore` ; utiliser `.env.example` comme modèle. Si `.env` était déjà suivi par Git, lancer **`git rm --cached .env`** une fois (ou **`make create-env`**). Secrets en prod via variables d’environnement ou vault. |
+| **Secrets / env** | **Pas de chiffrement dans le repo** | `.env` est dans `.gitignore` ; utiliser `.env.example` comme modèle. Si `.env` était déjà suivi par Git, lancer **`git rm --cached .env`** une fois (ou **`make create-env`**). Secrets en prod via variables d'environnement ou vault. |
 
 **Résumé court**  
 - **Hashing mots de passe** : Argon2id (déjà en place).  
@@ -236,7 +243,7 @@ En production, exposer les services via un reverse proxy (Nginx Proxy Manager, N
 | **mail.cloudity.example.com** | (Phase 2) Webmail / client | Client mail. |
 | **pass.cloudity.example.com** | (optionnel) App Pass web | App Pass Flutter web. |
 
-**À faire** : configurer les enregistrements A/AAAA (ou CNAME) vers le serveur hébergeant Docker ; configurer le proxy avec TLS 1.3 et HSTS ; en Phase 5 documenter les certificats (Let’s Encrypt) et la résolution DNS réelle.
+**À faire** : configurer les enregistrements A/AAAA (ou CNAME) vers le serveur hébergeant Docker ; configurer le proxy avec TLS 1.3 et HSTS ; en Phase 5 documenter les certificats (Let's Encrypt) et la résolution DNS réelle.
 
 ---
 
@@ -257,13 +264,13 @@ En production, exposer les services via un reverse proxy (Nginx Proxy Manager, N
 | Docker Compose global | ✅ Présent | `docker-compose.yml` + `docker-compose.services.yml` |
 | PostgreSQL 15 | ✅ Présent | Volume, healthcheck ; schéma dans `infrastructure/postgresql/init.sql` |
 | Dossier `infrastructure/postgresql/init/` | ✅ En place | `init/01-schema.sql` contient le schéma ; le Compose monte ce dossier. `init.sql` à la racine postgresql conservé pour référence. |
-| `postgresql.conf` / `redis.conf` | ✅ Résolu | Mounts retirés du Compose ; Postgres/Redis utilisent la config par défaut → plus d’erreur au démarrage. |
+| `postgresql.conf` / `redis.conf` | ✅ Résolu | Mounts retirés du Compose ; Postgres/Redis utilisent la config par défaut → plus d'erreur au démarrage. |
 | Redis 7 | ✅ Présent | Mot de passe (command + healthcheck via shell pour expansion `REDIS_PASSWORD`), volume, healthcheck |
 | Réseau Docker | ✅ Présent | `cloudity-network` |
 
 ### 4.2 Ports (60XX) — exposition host
 
-Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conflits et garder une convention claire. À utiliser dans le navigateur / clients :
+Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les conflits et garder une convention claire. À utiliser dans le navigateur / clients :
 
 | Service | Port host (60XX) | Port conteneur | Accès navigateur / usage |
 |---------|------------------|----------------|---------------------------|
@@ -277,7 +284,7 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 | Adminer (profil dev) | 6083 | 8080 | `http://localhost:6083` |
 | Redis Commander (profil dev) | 6084 | 8081 | `http://localhost:6084` |
 
-- **CORS** : l’api-gateway autorise `http://localhost:6001` et `http://localhost:5173` (ou `CORS_ORIGINS` dans l’env).
+- **CORS** : l'api-gateway autorise `http://localhost:6001` et `http://localhost:5173` (ou `CORS_ORIGINS` dans l'env).
 - **Nouveaux services** : exposer en 60XX (ex. mail-directory 6050, pass-manager 6051, mail-client-api 6052, etc.).
 
 ### 4.3 Schéma PostgreSQL actuel
@@ -294,7 +301,7 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 | admin-service | Python (FastAPI) | ✅ OK | CRUD tenants, CRUD users, **GET /admin/stats** (dashboard), health ; exposé host **6082** ; tests pytest (health, **stats**, tenants, users) — 21 tests. |
 | **password-manager** | Go (Gin) | ✅ OK | Health, CRUD vaults, CRUD items (ciphertext uniquement) ; auth via X-User-ID / X-Tenant-ID (gateway) ; port **6051**, route gateway `/pass/*` ; tests Go (health, auth requis) — 3 tests. |
 | mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias (CRUD + API). Port **6050**, route gateway `/mail/*`. Health + GET/POST /mail/domains. |
-| mail-client-api | — | ❌ À faire | Wrap IMAP/SMTP en REST/GraphQL pour l’UI (Phase 2). |
+| mail-client-api | — | ❌ À faire | Wrap IMAP/SMTP en REST/GraphQL pour l'UI (Phase 2). |
 | password-manager | (voir ci-dessus) | ✅ OK | Service 6051 déjà en place. |
 | calendar-service | Go (Gin) | ✅ OK | Événements (calendar_events). Port **6052**, route gateway `/calendar/*`. DB + auth X-User-ID. CRUD events. |
 | notes-service | Go (Gin) | ✅ OK | Notes (table notes). Port **6053**, route gateway `/notes/*`. DB + auth X-User-ID. CRUD notes. |
@@ -303,7 +310,7 @@ Tous les **ports exposés sur l’hôte** sont en **60XX** pour éviter les conf
 
 ### 4.5 Frontend & applications web (port 6001)
 
-Une **seule app React** (frontend/admin-dashboard) sert à la fois l’accueil public, l’espace utilisateur et l’admin :
+Une **seule app React** (frontend/admin-dashboard) sert à la fois l'accueil public, l'espace utilisateur et l'admin :
 
 | Route / page | Rôle | Statut |
 |--------------|------|--------|
@@ -317,11 +324,11 @@ Une **seule app React** (frontend/admin-dashboard) sert à la fois l’accueil p
 | **/app/settings** | Paramètres utilisateur (session) ; à enrichir (profil, préférences, etc.) | ✅ |
 | **/admin** | Administration : tableau de bord, Tenants, Users, Vaults, Domaines mail, Settings | ✅ |
 
-**Connexion** : l’utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l’API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.
+**Connexion** : l'utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l'API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.
 
-**Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l’admin.
+**Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l'admin.
 
-**Applications web comme modules** : Les fonctionnalités (Drive, Pass, Agenda, Notes, Tâches, Admin) sont conçues comme **modules intégrés** au projet principal Cloudity. Chaque module correspond à une ou plusieurs routes sous `/app/*` ou `/admin`, à un service backend dédié (drive-service, password-manager, calendar-service, etc.) et à une API sous le gateway (`/drive/*`, `/pass/*`, `/calendar/*`, etc.). Le shell commun (admin-dashboard) fournit l’auth, la navigation et le layout ; les pages de chaque module chargent leurs données via l’API unique (`VITE_API_URL`). Pour étendre Cloudity : ajouter une route, une page React (éventuellement lazy-loaded), et un backend + route gateway si besoin. Les futures apps Flutter ou PWA pourront réutiliser les mêmes APIs en tant que clients alternatifs.
+**Applications web comme modules** : Les fonctionnalités (Drive, Pass, Agenda, Notes, Tâches, Admin) sont conçues comme **modules intégrés** au projet principal Cloudity. Chaque module correspond à une ou plusieurs routes sous `/app/*` ou `/admin`, à un service backend dédié (drive-service, password-manager, calendar-service, etc.) et à une API sous le gateway (`/drive/*`, `/pass/*`, `/calendar/*`, etc.). Le shell commun (admin-dashboard) fournit l'auth, la navigation et le layout ; les pages de chaque module chargent leurs données via l'API unique (`VITE_API_URL`). Pour étendre Cloudity : ajouter une route, une page React (éventuellement lazy-loaded), et un backend + route gateway si besoin. Les futures apps Flutter ou PWA pourront réutiliser les mêmes APIs en tant que clients alternatifs.
 
 | App / cible | Stack | Statut | Détail |
 |-------------|--------|--------|--------|
@@ -357,7 +364,7 @@ Voir checklist Phase 1 et Phase 2 ci-dessous.
 
 ## 5. Roadmap par phases (checklist détaillée)
 
-Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmail + Drive” et le plan d’implémentation détaillé. **Cocher au fur et à mesure** pour suivre l’avancement.
+Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmail + Drive” et le plan d'implémentation détaillé. **Cocher au fur et à mesure** pour suivre l'avancement.
 
 ### Phase 0 — Infra commune
 
@@ -373,7 +380,7 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [x] **Password Manager backend** (Go) : CRUD vaults/items, auth via gateway, stockage blobs chiffrés côté client.
 - [x] **DB** : schéma `pass` (pass_vaults, pass_items) dans 02-schema-pass.sql.
 - [ ] **Front Flutter** : Web + Desktop Linux (liste, CRUD mots de passe, déchiffrement côté client).
-- [ ] **Extension navigateur** (Brave/Chrome) : lecture/ajout d’entrées, auto-fill simple.
+- [ ] **Extension navigateur** (Brave/Chrome) : lecture/ajout d'entrées, auto-fill simple.
 
 ### Phase 2 — Mail Core + Client
 
@@ -409,10 +416,10 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 
 - [x] **Init PostgreSQL** : le schéma initial est dans `infrastructure/postgresql/init/01-schema.sql` ; le Compose monte ce dossier.
 - [x] **Ports 60XX** : tous les services exposés en 60XX (6042, 6079, 6081, **6080** (API), 6082, 6001, 6083, 6084) ; `VITE_API_URL=http://localhost:6080` et CORS mis à jour.
-- [ ] **Alignement schéma auth** : `users.tenant_id` (INTEGER vs UUID), retour de `uuid` vs `id` selon les services (auth-service utilise `id` dans l’INSERT).
+- [ ] **Alignement schéma auth** : `users.tenant_id` (INTEGER vs UUID), retour de `uuid` vs `id` selon les services (auth-service utilise `id` dans l'INSERT).
 - [ ] **Migrations DB versionnées** : dossier `infrastructure/postgresql/migrations/` + README créés ; appliquer les migrations à la main ou via outil (golang-migrate, Flyway).
 - [ ] **Branches** : travailler depuis `main` ; merger `develop` / `feature/*` une fois validé.
-- [ ] **Login par email seul (sans tenant)** : côté backend, optionnel — résolution du tenant par domaine email ou endpoint (ex. GET /auth/tenants?email=…) pour que l’utilisateur n’ait jamais à saisir d’organisation. Actuellement le frontend envoie `tenant_id: 1` par défaut.
+- [ ] **Login par email seul (sans tenant)** : côté backend, optionnel — résolution du tenant par domaine email ou endpoint (ex. GET /auth/tenants?email=…) pour que l'utilisateur n'ait jamais à saisir d'organisation. Actuellement le frontend envoie `tenant_id: 1` par défaut.
 - [ ] **Documentation** : garder `PlanImplementation.md` pour la vision long terme ; **STATUS.md** = référence quotidienne de suivi.
 
 ---
@@ -426,4 +433,4 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 
 ---
 
-*Ce fichier sert de **référence unique** pour l’avancement du projet CLOUDITY. Mettre à jour les cases et la date à chaque avancée significative.*
+*Ce fichier sert de **référence unique** pour l'avancement du projet CLOUDITY. Mettre à jour les cases et la date à chaque avancée significative.*

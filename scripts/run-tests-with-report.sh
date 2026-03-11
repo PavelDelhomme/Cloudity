@@ -42,9 +42,17 @@ run_phase() {
 
 echo "========================================"
 echo "  CLOUDITY — make tests"
-echo "  Rapport: $LOG"
-echo "  (toutes les phases sont exécutées, résumé en fin)"
+echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security"
+echo "  Rapport détaillé : $LOG"
+echo "  Dossier rapports : $ROOT/reports/"
 echo "========================================"
+echo ""
+echo "Résumé des phases :"
+echo "  1. make test           — Tests unitaires/applicatifs (Go, pytest, Vitest)"
+echo "  2. make test-e2e       — E2E health/proxy (stack démarrée)"
+echo "  3. make test-e2e-playwright — E2E navigateur Playwright (stack + seed-admin)"
+echo "  4. make test-security  — Audits de dépendances + auth"
+echo ""
 
 # ----- Phase 1 -----
 echo ""
@@ -92,13 +100,19 @@ fi
 echo ""
 echo ">>> Phase 4/4 : Vérifications sécurité (make test-security)"
 if run_phase "Phase 4: make test-security" "make test-security"; then
-  SEC_STATUS="OK"
-  echo ""
-  echo "  Phase 4 (Sécurité)  : OK"
+  if [ -f reports/.security-avertissements ]; then
+    SEC_STATUS="OK (avertissements)"
+    echo ""
+    echo "  Phase 4 (Sécurité)  : OK (avertissements vulnérabilités — voir rapport)"
+  else
+    SEC_STATUS="OK"
+    echo ""
+    echo "  Phase 4 (Sécurité)  : OK"
+  fi
 else
   SEC_STATUS="FAIL"
   echo ""
-  echo "  Phase 4 (Sécurité)  : ÉCHEC ou avertissements"
+  echo "  Phase 4 (Sécurité)  : ÉCHEC"
   show_tail "$LOG" 35
 fi
 
@@ -113,14 +127,27 @@ fi
   echo "  E2E Playwright: $E2E_PW_STATUS"
   echo "  Sécurité:       $SEC_STATUS"
   echo "  Rapport:        $LOG"
+  echo "  Répertoire:     $ROOT (racine du dépôt)"
   echo "========================================"
 } | tee -a "$LOG"
 
 if [ "$UNIT_STATUS" = "FAIL" ] || [ "$E2E_STATUS" = "FAIL" ] || [ "$E2E_PW_STATUS" = "FAIL" ] || [ "$SEC_STATUS" = "FAIL" ]; then
   echo ""
-  echo "❌ Au moins une phase a échoué. Rapport complet: $LOG"
+  echo "❌ RÉSULTAT FINAL : ÉCHEC (au moins une phase a échoué)"
+  echo "   Rapport complet : $LOG"
+  echo "   Vous êtes toujours dans la racine du dépôt."
   exit 1
 fi
-echo ""
-echo "✅ Tous les tests sont passés. Rapport: $LOG"
+if [ "$SEC_STATUS" = "OK (avertissements)" ]; then
+  echo ""
+  echo "✅ RÉSULTAT FINAL : SUCCÈS (avec avertissements sécurité — vulnérabilités signalées)"
+  echo "   Vulnérabilités : npm audit (admin-dashboard), govulncheck (services Go). Détails dans le rapport."
+  echo "   Rapport : $LOG"
+  echo "   Vous êtes toujours dans la racine du dépôt."
+else
+  echo ""
+  echo "✅ RÉSULTAT FINAL : SUCCÈS (tous les tests sont passés)"
+  echo "   Rapport : $LOG"
+  echo "   Vous êtes toujours dans la racine du dépôt."
+fi
 exit 0

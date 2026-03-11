@@ -2,11 +2,14 @@
 # Vérifications sécurité : audits de dépendances (npm, safety, govulncheck) dans Docker + checks auth
 # Usage: ./scripts/test-security.sh
 # Nécessite : docker compose (ou docker-compose). Les audits tournent dans les conteneurs.
+# Si des vulnérabilités ou avertissements sont détectés, crée reports/.security-avertissements
+# pour que le résumé make tests affiche "OK (avertissements)" au lieu de "OK".
 
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+rm -f reports/.security-avertissements
 
 # Même logique que le Makefile pour docker compose vs docker-compose
 if docker compose version >/dev/null 2>&1; then
@@ -18,6 +21,7 @@ fi
 COMPOSE_FILES="-f docker-compose.yml"
 PORT_GATEWAY="${PORT_GATEWAY:-6080}"
 failed=0
+warnings=0
 
 echo "🔒 Vérifications sécurité (audits dans Docker)..."
 
@@ -28,7 +32,7 @@ if $COMPOSE $COMPOSE_FILES run --rm admin-dashboard sh -c "npm install --no-audi
   echo "  ✅ npm audit (high) OK"
 else
   echo "  ⚠️  npm audit : vulnérabilités high ou erreur (vérifiez avec: cd frontend/admin-dashboard && npm audit)"
-  # On ne fait pas failed=1 pour ne pas bloquer si des vulns existent déjà
+  warnings=1
 fi
 
 # --- safety (admin-service) dans le conteneur ---
@@ -38,6 +42,7 @@ if $COMPOSE $COMPOSE_FILES run --rm admin-service sh -c "pip install -q safety 2
   echo "  ✅ safety OK"
 else
   echo "  ⚠️  safety : vulnérabilités ou erreur"
+  warnings=1
 fi
 
 # --- govulncheck (backends Go) dans les conteneurs ---
@@ -63,6 +68,7 @@ for dir in backend/auth-service backend/api-gateway backend/password-manager bac
     echo "  ✅ govulncheck $name OK"
   else
     echo "  ⚠️  govulncheck $name : vulnérabilités ou erreur"
+    warnings=1
   fi
 done
 
@@ -94,10 +100,20 @@ else
   fi
 fi
 
+# Marquer les avertissements pour le résumé make tests
+if [ "$warnings" = "1" ]; then
+  mkdir -p reports
+  touch reports/.security-avertissements
+fi
+
 echo ""
 if [ $failed -eq 1 ]; then
   echo "❌ Au moins un check sécurité a échoué."
   exit 1
 fi
-echo "✅ Vérifications sécurité terminées."
+if [ "$warnings" = "1" ]; then
+  echo "✅ Vérifications sécurité terminées (avec avertissements / vulnérabilités signalées)."
+else
+  echo "✅ Vérifications sécurité terminées."
+fi
 exit 0

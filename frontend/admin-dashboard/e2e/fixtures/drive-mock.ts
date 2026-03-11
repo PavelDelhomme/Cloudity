@@ -85,3 +85,44 @@ export async function mockDriveForDocumentTests(page: Page): Promise<void> {
     await route.continue()
   })
 }
+
+/** Mock minimal pour ouvrir l’éditeur par navigation directe (ex. /app/office/editor/1). */
+export async function mockEditorPage(page: Page, nodeId = 1): Promise<void> {
+  const node = {
+    id: nodeId,
+    tenant_id: 1,
+    user_id: 1,
+    parent_id: null as number | null,
+    name: 'Doc E2E.html',
+    is_folder: false,
+    size: 0,
+    mime_type: 'text/html',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+  // Content en premier pour que cette route soit prioritaire sur **/drive/nodes**
+  await page.route(`**/drive/nodes/${nodeId}/content**`, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: 200, body: '<p>Contenu E2E</p>', contentType: 'text/html' })
+      return
+    }
+    await route.continue()
+  })
+  await page.route('**/drive/nodes**', async (route) => {
+    const req = route.request()
+    const url = req.url()
+    if (url.includes('/content')) {
+      await route.continue()
+      return
+    }
+    if (req.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([node]),
+      })
+      return
+    }
+    await route.continue()
+  })
+}

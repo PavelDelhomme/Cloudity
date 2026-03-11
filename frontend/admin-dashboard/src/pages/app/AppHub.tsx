@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { HardDrive, Lock, Mail, Calendar, FileText, ListTodo, ArrowRight, FileSpreadsheet, Users, Image } from 'lucide-react'
+import { HardDrive, Lock, Mail, Calendar, FileText, ListTodo, ArrowRight, FileSpreadsheet, Users, Image, Trash2 } from 'lucide-react'
 
 const apps = [
   {
@@ -38,6 +38,15 @@ const apps = [
     color: 'bg-violet-500',
     bgLight: 'bg-violet-50',
     textColor: 'text-violet-700',
+  },
+  {
+    name: 'Corbeille',
+    description: 'Fichiers et dossiers supprimés (Drive). Restauration ou suppression définitive.',
+    href: '/app/corbeille',
+    icon: Trash2,
+    color: 'bg-slate-500',
+    bgLight: 'bg-slate-100',
+    textColor: 'text-slate-700',
   },
   {
     name: 'Calendar',

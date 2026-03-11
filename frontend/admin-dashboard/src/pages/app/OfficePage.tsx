@@ -53,7 +53,7 @@ export default function OfficePage() {
       } else {
         toast.success('Document créé')
       }
-      navigate(`/app/office/editor/${id}`)
+      navigate(`/app/office/editor/${id}`, { state: { from: 'office' } })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur lors de la création')
     } finally {
@@ -77,7 +77,7 @@ export default function OfficePage() {
       } else {
         toast.success('Tableur créé')
       }
-      navigate(`/app/office/editor/${id}`)
+      navigate(`/app/office/editor/${id}`, { state: { from: 'office' } })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur lors de la création')
     } finally {
@@ -98,7 +98,7 @@ export default function OfficePage() {
       } else {
         toast.success('Présentation créée')
       }
-      navigate(`/app/office/editor/${id}`)
+      navigate(`/app/office/editor/${id}`, { state: { from: 'office' } })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur lors de la création')
     } finally {
@@ -183,6 +183,7 @@ export default function OfficePage() {
                 <Link
                   key={node.id}
                   to={href}
+                  state={isEditable ? { from: 'office' } : undefined}
                   className="flex gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
                 >
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">

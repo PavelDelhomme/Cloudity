@@ -23,4 +23,22 @@ test.describe('Hub (E2E)', () => {
     await expect(page).toHaveURL(/\/app\/office/)
     await expect(page.getByRole('heading', { name: /suite office|office/i })).toBeVisible()
   })
+
+  test('hub affiche les liens Pass, Mail et Corbeille', async ({ page }) => {
+    await expect(page.getByRole('link', { name: 'Pass' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Mail' }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Corbeille' }).first()).toBeVisible()
+  })
+
+  test('clic sur Pass ouvre la page Pass', async ({ page }) => {
+    await page.getByRole('link', { name: 'Pass' }).first().click()
+    await expect(page).toHaveURL(/\/app\/pass/)
+    await expect(page.getByRole('heading', { name: 'Pass' })).toBeVisible()
+  })
+
+  test('clic sur Mail ouvre la page Mail', async ({ page }) => {
+    await page.getByRole('link', { name: 'Mail' }).first().click()
+    await expect(page).toHaveURL(/\/app\/mail/)
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible()
+  })
 })

@@ -84,6 +84,7 @@ export function AppRoutes() {
         >
           <Route index element={<AppHub />} />
           <Route path="drive" element={<DrivePage />} />
+          <Route path="corbeille" element={<Navigate to="/app/drive?view=trash" replace />} />
           <Route path="office" element={<OfficePage />} />
           <Route path="office/editor/:nodeId" element={<DocumentEditorPage />} />
           <Route path="pass" element={<PassPage />} />

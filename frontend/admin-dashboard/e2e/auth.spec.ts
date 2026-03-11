@@ -28,4 +28,9 @@ test.describe('Connexion (E2E)', () => {
     await expect(page).toHaveURL(/\/(app|app\/)/, { timeout: 15000 })
     await expect(page.getByRole('heading', { name: /tableau de bord|hub|cloudity/i })).toBeVisible({ timeout: 5000 })
   })
+
+  test('page login propose un lien vers inscription si présent', async ({ page }) => {
+    await page.goto('/login')
+    await expect(page.getByRole('link', { name: /créer un compte/i })).toBeVisible()
+  })
 })

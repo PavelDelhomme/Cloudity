@@ -42,6 +42,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.DELETE("/nodes/trash/:id", h.purgeNode)
 		drive.DELETE("/nodes/:id", h.deleteNode)
 		drive.GET("/nodes/:id/content", h.getNodeContent)
+		drive.GET("/nodes/:id/archive/entries", h.getZipEntries)
 		drive.GET("/nodes/:id/zip", h.downloadFolderZip)
 		drive.PUT("/nodes/:id/content", h.putNodeContent)
 		drive.POST("/nodes/upload", h.uploadFile)
@@ -586,6 +587,67 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", "attachment; filename=\""+name+"\"")
 	c.Data(http.StatusOK, ct, content)
+}
+
+// getZipEntries retourne la liste des entrées d'un fichier ZIP (nœud fichier) sans extraire. GET /drive/nodes/:id/archive/entries
+func (h *Handler) getZipEntries(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var content []byte
+	err = h.db.QueryRow(`
+		SELECT COALESCE(content, ''::bytea) FROM drive_nodes
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+	`, id).Scan(&content)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if len(content) == 0 {
+		c.JSON(http.StatusOK, gin.H{"entries": []interface{}{}})
+		return
+	}
+	zr, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid zip", "detail": err.Error()})
+		return
+	}
+	type entry struct {
+		Path  string `json:"path"`
+		Name  string `json:"name"`
+		Size  int64  `json:"size"`
+		IsDir bool   `json:"is_dir"`
+	}
+	var entries []entry
+	for _, f := range zr.File {
+		path := f.Name
+		isDir := strings.HasSuffix(path, "/")
+		name := path
+		if isDir && len(name) > 0 {
+			name = strings.TrimSuffix(name, "/")
+		}
+		if idx := strings.LastIndex(name, "/"); idx >= 0 {
+			name = name[idx+1:]
+		}
+		entries = append(entries, entry{
+			Path:  path,
+			Name:  name,
+			Size:  int64(f.UncompressedSize64),
+			IsDir: isDir,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"entries": entries})
 }
 
 // downloadFolderZip retourne un ZIP du dossier (récursif). Uniquement pour les dossiers.

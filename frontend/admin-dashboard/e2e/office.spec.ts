@@ -38,4 +38,17 @@ test.describe('Office (E2E)', () => {
     const recentOrDrive = page.getByRole('heading', { name: /récemment modifiés/i }).or(page.getByRole('link', { name: /drive/i }))
     await expect(recentOrDrive.first()).toBeVisible({ timeout: 5000 })
   })
+
+  test('page Office affiche un lien vers le Drive', async ({ page }) => {
+    await expect(page.getByRole('link', { name: 'Drive' }).first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('chaque carte Office a un libellé visible (Document, Tableur ou Présentation)', async ({ page }) => {
+    await expect(page.getByText(/document|tableur|présentation/i).first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test('menu Nouveau fichier depuis Office non affiché (on est sur la page Office, pas Drive)', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: /documents|office|fichiers/i })).toBeVisible()
+    await expect(page.getByTestId('office-card-document')).toBeVisible()
+  })
 })

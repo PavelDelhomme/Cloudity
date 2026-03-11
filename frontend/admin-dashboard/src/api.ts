@@ -652,6 +652,21 @@ export async function downloadDriveFolderAsZip(
   return res.blob()
 }
 
+export type DriveZipEntry = { path: string; name: string; size: number; is_dir: boolean }
+
+/** Liste les entrées d'un fichier ZIP (sans extraire). */
+export async function fetchDriveZipEntries(
+  token: string,
+  nodeId: number
+): Promise<DriveZipEntry[]> {
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/archive/entries`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Zip entries: ${res.status}`)
+  const data = await res.json()
+  return Array.isArray(data.entries) ? data.entries : []
+}
+
 /** Crée une archive ZIP à partir des nœuds sélectionnés (fichiers + dossiers). */
 export async function downloadDriveArchive(
   token: string,

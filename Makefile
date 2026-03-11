@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup install init dev prod build test tests test-dashboard test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -34,6 +34,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — sans E2E'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité (make test, test-e2e, test-e2e-playwright, test-security), rapport dans reports/'
+	@echo '  make test-dashboard - Tests Vitest du dashboard uniquement (sans Docker, rapide). Pour tout: make test.'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: login, Drive, Office). Prérequis: make up + make seed-admin'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
@@ -186,6 +187,8 @@ build-dashboard: ## Build uniquement le dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) build admin-dashboard
 
 # make test = unitaires + applicatifs uniquement (PAS les E2E). E2E = make test-e2e (après make up).
+# Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
+# et vous laissent dans la racine à la fin, avec code de sortie 0 (succès) ou 1 (échec).
 test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lance pas les E2E.
 	@echo "🧪 Tests unitaires / applicatifs..."
 	@echo "  [auth-service]"
@@ -209,6 +212,12 @@ test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lan
 	@echo "  [admin-dashboard]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tous les tests sont passés."
+
+# Tests Vitest du dashboard uniquement (sans Docker). Utile pour itérer rapidement. Pour tout lancer: make test.
+test-dashboard: ## Lance les tests unitaires du dashboard (Vitest). Prérequis: cd frontend/admin-dashboard && npm install
+	@echo "🧪 Tests dashboard (Vitest)..."
+	@(cd frontend/admin-dashboard && npm run test) || exit 1
+	@echo "✅ Tests dashboard OK."
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
 tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité), sortie en direct + rapport dans reports/
