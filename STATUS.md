@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-03-05  
+**Dernière mise à jour** : 2026-03-10  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes.
 
@@ -181,6 +181,36 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 **Ensuite (ordre des apps)** : **Pass** → **Calendar** → **Notes** → **Tasks** → **Contacts** → **Photos** → **Mail** (retravaillé plus tard). Puis : Corbeille unifiée, Recherche, Visualisation PDF, Extracteur d'archives.
 
 *Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir TESTS.md) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
+
+---
+
+## 1c. À faire (reprise demain)
+
+**À reprendre demain** — tout ce bloc est à implémenter et à couvrir par les tests.
+
+### ZIP — ouverture en live (sans extraction définitive)
+
+| # | Tâche | Détail | Tests |
+|---|--------|--------|--------|
+| Z1 | **Ouvrir un fichier .zip dans l’interface** | Voir le **contenu** du ZIP en live (liste des fichiers/dossiers dans l’archive) **sans** extraire définitivement sur le Drive. Affichage type explorateur : arborescence des entrées dans l’archive. | Unit : composant liste contenu ZIP ; E2E : clic sur .zip → vue contenu. |
+| Z2 | **Backend : lister le contenu d’une archive** | Endpoint (ex. GET /drive/nodes/:id/archive/entries ou équivalent) qui retourne la liste des entrées d’un nœud de type fichier .zip (noms, tailles, chemin dans l’archive). Pas d’extraction côté serveur pour la lecture seule. | API Go : test endpoint list zip entries. |
+| Z3 | **Compresser / décompresser dans le Drive** | **Compresser** : sélection de fichiers/dossiers → « Télécharger en ZIP » (déjà en place) ou « Créer une archive .zip » dans le Drive. **Décompresser** : upload d’un .zip → option « Extraire ici » (création des dossiers/fichiers dans le répertoire courant). | API : extract (POST) ; E2E : upload zip → extraire → vérifier structure. |
+
+### Éditeur de document — style Office, barre et breadcrumb
+
+| # | Tâche | Détail | Tests |
+|---|--------|--------|--------|
+| E1 | **Couleurs et rendu type Word/Office** | Améliorer l’éditeur : **couleurs** (texte, surlignage), styles plus riches, rendu proche d’un éditeur Office (Word-like). Options d’édition complètes (polices, tailles, couleurs, listes, etc.). | Unit : barre de formatage (couleurs, etc.) ; E2E : appliquer couleur → sauvegarder → rouvrir. |
+| E2 | **Boutons Enregistrer et Télécharger à côté de Markdown** | Déplacer les boutons **Enregistrer** et **Télécharger** **en haut**, à côté du bouton **Markdown** (pas en bas ou ailleurs). Une seule barre d’outils en haut : Tableau de bord > Drive, renommer, Fermer, Markdown, Enregistrer, Télécharger. | Unit : présence des boutons en haut ; E2E : clic Enregistrer / Télécharger depuis la barre du haut. |
+| E3 | **Breadcrumb en haut : Tableau de bord > Drive** | En haut de l’éditeur : afficher le **chemin** **Tableau de bord > Drive** (et éventuellement le nom du document cliquable pour renommer), **pas** « Drive > Sans titre.docx » comme chemin principal. Le titre du document reste éditable (renommer) à côté. | Unit : fil d’Ariane contient Tableau de bord et Drive ; E2E : breadcrumb cliquable. |
+| E4 | **Bouton Fermer et Markdown en haut** | **Fermer le fichier** (retour au Drive ou au tableau de bord) et **basculer en mode Markdown** : les deux boutons doivent être **en haut**, visibles dès l’ouverture d’un fichier. Comportement type Office : barre unique avec navigation, renommer, Fermer, mode Markdown, Enregistrer, Télécharger. | Unit : boutons Fermer et Markdown en haut ; E2E : Fermer redirige, Markdown bascule l’affichage. |
+| E5 | **Éditeur complet type Office** | Enrichir toutes les options d’édition (menus Fichier, Édition, Insertion, Format, Affichage) et la barre de formatage pour ressembler à un vrai Word/Office : plus d’options, couleurs, tableaux avancés, etc. | Tests au fil de l’eau (unit + E2E sur les actions principales). |
+
+### Tests à ajouter / à améliorer
+
+- **ZIP** : tests unitaires (liste contenu ZIP, appel API) ; E2E (ouvrir .zip → voir contenu ; extraire ici).
+- **Éditeur** : tests pour la nouvelle barre (Enregistrer, Télécharger, Markdown, Fermer en haut) ; breadcrumb Tableau de bord > Drive ; couleurs et options édition.
+- **Rapport** : s’assurer que `make tests` et le rapport en console restent clairs (résumé, vulnérabilités, chemin du log).
 
 ---
 

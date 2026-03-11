@@ -142,7 +142,7 @@ Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIG
 ## 4. Tests à faire / à ajouter au fur et à mesure
 
 Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `make test-e2e` pour les E2E).  
-**Voir aussi** : [STATUS.md § 1b](STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité.
+**Voir aussi** : [STATUS.md § 1b](STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité. Pour **ZIP (ouverture en live, extraction)** et **éditeur (barre type Office, breadcrumb, boutons en haut)**, voir **§ 4.6** et [STATUS.md § 1c](STATUS.md).
 
 ### 4.0 Drive, éditeur, corbeille (roadmap STATUS.md § 1b)
 
@@ -188,6 +188,29 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, notes-service, tasks-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
+
+### 4.6 À faire (reprise demain) — ZIP et éditeur (STATUS.md § 1c)
+
+À ajouter / adapter quand les fonctionnalités § 1c seront implémentées.
+
+**ZIP — ouverture en live et compression/décompression**
+
+- [ ] **API drive-service** : endpoint list zip entries (ex. GET /drive/nodes/:id/archive/entries) — test unitaire Go (nœud .zip → liste entrées, pas d’extraction).
+- [ ] **API drive-service** : endpoint extract (ex. POST /drive/nodes/:id/archive/extract) — test unitaire (extraction → structure dossiers/fichiers).
+- [ ] **Frontend** : composant liste contenu ZIP (arborescence) — test unitaire Vitest (rendu, clic sur entrée).
+- [ ] **E2E Playwright** : clic sur un fichier .zip dans le Drive → ouverture vue contenu (sans extraction définitive).
+- [ ] **E2E Playwright** : upload d’un .zip → option « Extraire ici » → vérifier structure dans le Drive (ou mock API).
+
+**Éditeur — barre type Office, breadcrumb, boutons en haut**
+
+- [ ] **Barre en haut** : Enregistrer et Télécharger à côté de Markdown — test unitaire (DocumentEditorPage) : présence des boutons, clic Enregistrer / Télécharger.
+- [ ] **Breadcrumb** : affichage « Tableau de bord > Drive » en haut (pas « Drive > Sans titre.docx ») — unit (getAppBreadcrumb / rendu) ; E2E (vérifier texte breadcrumb dans l’éditeur).
+- [ ] **Boutons Fermer et Markdown** en haut quand fichier ouvert — unit (visibilité, Fermer redirige, Markdown bascule affichage) ; E2E (Fermer → retour Drive ; Markdown → mode Markdown).
+- [ ] **Couleurs / options édition type Office** : unit (barre de formatage : couleurs, polices, etc.) ; E2E (appliquer couleur → sauvegarder → rouvrir → vérifier).
+
+**Rapport et résumé**
+
+- [ ] S’assurer que **`make tests`** affiche bien le résumé (Unit/App, E2E, E2E Playwright, Sécurité) et le chemin du rapport ; en cas de vulnérabilités, message clair en console.
 
 ---
 
