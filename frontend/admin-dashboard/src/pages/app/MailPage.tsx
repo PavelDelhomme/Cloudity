@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, Edit2, MailOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -18,6 +18,7 @@ import {
   sendMailMessage,
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
+  updateMailAccount,
   type DriveNode,
   type MailMessageResponse,
   type MailFolderId,
@@ -164,6 +165,17 @@ export default function MailPage() {
   const [mailSignature, setMailSignature] = useState(getMailSignature())
   const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null)
   const [contextMenuMessage, setContextMenuMessage] = useState<{ id: number; x: number; y: number } | null>(null)
+  const [selectedMessageIds, setSelectedMessageIds] = useState<number[]>([])
+  const [bulkWorking, setBulkWorking] = useState(false)
+  const [showEditAccountModal, setShowEditAccountModal] = useState(false)
+  const [editAccountId, setEditAccountId] = useState<number | null>(null)
+  const [editAccLabel, setEditAccLabel] = useState('')
+  const [editAccPassword, setEditAccPassword] = useState('')
+  const [editAccImapHost, setEditAccImapHost] = useState('')
+  const [editAccImapPort, setEditAccImapPort] = useState('')
+  const [editAccSmtpHost, setEditAccSmtpHost] = useState('')
+  const [editAccSmtpPort, setEditAccSmtpPort] = useState('')
+  const [savingAccount, setSavingAccount] = useState(false)
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -186,7 +198,11 @@ export default function MailPage() {
     enabled: !!accessToken && effectiveAccountId != null,
     refetchOnWindowFocus: true,
   })
-  const messages = Array.isArray(messagesData) ? messagesData : (messagesData ?? [])
+  const messages = messagesData?.messages ?? []
+  const messagesTotal = messagesData?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
+  const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
+  const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
   const [refreshingFromServer, setRefreshingFromServer] = useState(false)
   const lastSyncAtRef = useRef<number>(0)
   const MAIL_SYNC_THROTTLE_MS = 30_000
@@ -220,6 +236,10 @@ export default function MailPage() {
     setSelectedMessageId(null)
     setMessagePage(0)
   }, [effectiveAccountId, activeFolder])
+
+  useEffect(() => {
+    setSelectedMessageIds([])
+  }, [effectiveAccountId, activeFolder, messagePage])
 
   /** À l'ouverture de la boîte mail (ou au changement de compte), sync IMAP puis rafraîchir la liste. */
   useEffect(() => {
@@ -504,6 +524,151 @@ export default function MailPage() {
     [effectiveAccountId, accessToken, queryClient, selectedMessageId]
   )
 
+  const toggleMessageSelected = useCallback((id: number) => {
+    setSelectedMessageIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }, [])
+
+  const selectAllMessagesOnPage = useCallback(() => {
+    setSelectedMessageIds(messages.map((m) => m.id))
+  }, [messages])
+
+  const clearMessageSelection = useCallback(() => setSelectedMessageIds([]), [])
+
+  const handleToggleSelectAllOnPage = useCallback(() => {
+    if (allMessagesSelectedOnPage) clearMessageSelection()
+    else selectAllMessagesOnPage()
+  }, [allMessagesSelectedOnPage, clearMessageSelection, selectAllMessagesOnPage])
+
+  const handleBulkMove = useCallback(
+    async (folder: MailFolderId) => {
+      if (!effectiveAccountId || !accessToken || selectedMessageIds.length === 0) return
+      const n = selectedMessageIds.length
+      setBulkWorking(true)
+      try {
+        await Promise.all(
+          selectedMessageIds.map((id) => moveMailMessageToFolder(accessToken, effectiveAccountId, id, folder))
+        )
+        queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        setSelectedMessageIds([])
+        setSelectedMessageId(null)
+        const label = FOLDERS.find((f) => f.id === folder)?.label ?? folder
+        toast.success(`${n} message(s) déplacé(s) vers ${label}`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur')
+      } finally {
+        setBulkWorking(false)
+      }
+    },
+    [effectiveAccountId, accessToken, selectedMessageIds, queryClient]
+  )
+
+  const handleBulkMarkRead = useCallback(
+    async (read: boolean) => {
+      if (!effectiveAccountId || !accessToken || selectedMessageIds.length === 0) return
+      setBulkWorking(true)
+      try {
+        await Promise.all(
+          selectedMessageIds.map((id) => markMailMessageRead(accessToken, effectiveAccountId, id, read))
+        )
+        queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        toast.success(read ? 'Marqué comme lu' : 'Marqué comme non lu')
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur')
+      } finally {
+        setBulkWorking(false)
+      }
+    },
+    [effectiveAccountId, accessToken, selectedMessageIds, queryClient]
+  )
+
+  const openEditAccountModal = useCallback(
+    (accountId: number) => {
+      const acc = accounts.find((a) => a.id === accountId)
+      setEditAccountId(accountId)
+      setEditAccLabel(acc?.label || '')
+      setEditAccPassword('')
+      setEditAccImapHost(acc?.imap_host ?? '')
+      setEditAccImapPort(acc?.imap_port != null ? String(acc.imap_port) : '')
+      setEditAccSmtpHost(acc?.smtp_host ?? '')
+      setEditAccSmtpPort(acc?.smtp_port != null ? String(acc.smtp_port) : '')
+      setShowEditAccountModal(true)
+    },
+    [accounts]
+  )
+
+  const handleSaveAccountSettings = useCallback(async () => {
+    if (!accessToken || editAccountId == null) return
+    setSavingAccount(true)
+    try {
+      const patch: Parameters<typeof updateMailAccount>[2] = {}
+      const acc = accounts.find((a) => a.id === editAccountId)
+      if (editAccLabel.trim() !== (acc?.label || '').trim()) patch.label = editAccLabel.trim()
+      if (editAccPassword.trim()) patch.password = editAccPassword.trim()
+      const imapH = editAccImapHost.trim()
+      const imapP = editAccImapPort.trim()
+      if (imapH) {
+        patch.imap_host = imapH
+        const ip = parseInt(imapP, 10)
+        patch.imap_port = Number.isFinite(ip) && ip > 0 ? ip : 993
+      }
+      const smtpH = editAccSmtpHost.trim()
+      const smtpP = editAccSmtpPort.trim()
+      if (smtpH) {
+        patch.smtp_host = smtpH
+        const sp = parseInt(smtpP, 10)
+        patch.smtp_port = Number.isFinite(sp) && sp > 0 ? sp : 587
+      }
+      if (Object.keys(patch).length === 0) {
+        toast.error('Modifiez au moins le libellé, le mot de passe ou les serveurs IMAP/SMTP.')
+        setSavingAccount(false)
+        return
+      }
+      await updateMailAccount(accessToken, editAccountId, patch)
+      queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+      toast.success('Paramètres enregistrés. Lancez « Synchroniser » pour tester la connexion.')
+      setShowEditAccountModal(false)
+      setEditAccountId(null)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setSavingAccount(false)
+    }
+  }, [
+    accessToken,
+    editAccountId,
+    editAccLabel,
+    editAccPassword,
+    editAccImapHost,
+    editAccImapPort,
+    editAccSmtpHost,
+    editAccSmtpPort,
+    accounts,
+    queryClient,
+  ])
+
+  const handleResetAccountServersAuto = useCallback(async () => {
+    if (!accessToken || editAccountId == null) return
+    setSavingAccount(true)
+    try {
+      await updateMailAccount(accessToken, editAccountId, {
+        imap_host: '',
+        imap_port: 0,
+        smtp_host: '',
+        smtp_port: 0,
+      })
+      queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+      toast.success('Serveurs remis sur détection automatique.')
+      setEditAccImapHost('')
+      setEditAccImapPort('')
+      setEditAccSmtpHost('')
+      setEditAccSmtpPort('')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setSavingAccount(false)
+    }
+  }, [accessToken, editAccountId, queryClient])
+
   const handleSelectMessage = useCallback(
     (msg: MailMessageResponse) => {
       setSelectedMessageId(msg.id)
@@ -729,6 +894,15 @@ export default function MailPage() {
                     <>
                       <button
                         type="button"
+                        onClick={() => openEditAccountModal(acc.id)}
+                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 shrink-0"
+                        title="Modifier la boîte (mot de passe, serveurs IMAP/SMTP)"
+                        aria-label="Modifier la boîte mail"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => { setSyncAccountId(acc.id); setSyncPassword(''); setShowSyncModal(true) }}
                         className="p-2 rounded-lg text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-600 shrink-0"
                         title="Synchroniser"
@@ -811,6 +985,98 @@ export default function MailPage() {
               <div className={`flex flex-col min-w-0 flex-1 ${selectedMessageId != null ? 'md:max-w-[50%] border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600' : ''}`}>
                 {messages.length > 0 ? (
                   <>
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={handleToggleSelectAllOnPage}
+                        disabled={bulkWorking}
+                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                        aria-label="Tout sélectionner (page)"
+                      >
+                        {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
+                        {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
+                      </button>
+
+                      {selectedMessageIds.length > 0 && (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {selectedMessageIds.length} message(s) sélectionné(s)
+                        </span>
+                      )}
+                    </div>
+
+                    {selectedMessageIds.length > 0 && (
+                      <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleBulkMarkRead(true)}
+                            disabled={bulkWorking}
+                            aria-label="Marquer comme lu en masse"
+                            className="rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
+                          >
+                            Marquer comme lu
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkMarkRead(false)}
+                            disabled={bulkWorking}
+                            aria-label="Marquer comme non lu en masse"
+                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                          >
+                            Marquer comme non lu
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkMove('trash')}
+                            disabled={bulkWorking}
+                            aria-label="Corbeille en masse"
+                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" /> Corbeille
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleBulkMove('spam')}
+                            disabled={bulkWorking}
+                            aria-label="Spam en masse"
+                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <AlertTriangle className="h-4 w-4 text-red-600" /> Spam
+                          </button>
+                          {activeFolder !== 'sent' && (
+                            <button
+                              type="button"
+                              onClick={() => handleBulkMove('sent')}
+                              disabled={bulkWorking}
+                              aria-label="Archiver en masse"
+                              className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                            >
+                              <Send className="h-4 w-4" /> Archiver
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleBulkMove('inbox')}
+                            disabled={bulkWorking}
+                            aria-label="Boîte de réception en masse"
+                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                          >
+                            <Inbox className="h-4 w-4" /> Boîte de réception
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => clearMessageSelection()}
+                            disabled={bulkWorking}
+                            aria-label="Effacer la sélection"
+                            className="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                          >
+                            Effacer la sélection
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <ul className="divide-y divide-slate-200 dark:divide-slate-600 overflow-auto flex-1">
                       {messages.map((msg) => (
                         <li
@@ -827,9 +1093,19 @@ export default function MailPage() {
                           className={`relative px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-2 min-w-0">
-                            <p className={`truncate flex-1 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
-                              {msg.subject || '(Sans objet)'}
-                            </p>
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              <input
+                                type="checkbox"
+                                aria-label={`Sélectionner le message ${msg.subject || '(Sans objet)'}`}
+                                checked={selectedMessageIds.includes(msg.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={() => toggleMessageSelected(msg.id)}
+                                className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+                              />
+                              <p className={`truncate ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'} flex-1`}>
+                                {msg.subject || '(Sans objet)'}
+                              </p>
+                            </div>
                             <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">{formatMessageDate(msg.date_at)}</span>
                           </div>
                           <div className="flex items-center justify-between gap-2 min-w-0">
@@ -921,11 +1197,13 @@ export default function MailPage() {
                       >
                         Précédent
                       </button>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Page {messagePage + 1}</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s)
+                      </span>
                       <button
                         type="button"
                         onClick={() => setMessagePage((p) => p + 1)}
-                        disabled={messages.length < MESSAGES_PAGE_SIZE}
+                        disabled={!hasNextPage}
                         className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline"
                       >
                         Suivant
@@ -1239,6 +1517,133 @@ export default function MailPage() {
               <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
             </button>
           )}
+        </div>
+      )}
+
+      {showEditAccountModal && editAccountId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Modifier la boîte mail</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Les paramètres IMAP/SMTP (et le mot de passe) sont enregistrés pour la synchronisation et l’envoi. Pensez à relancer « Synchroniser » après modification.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="mail-edit-label" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Libellé</label>
+                <input
+                  id="mail-edit-label"
+                  type="text"
+                  value={editAccLabel}
+                  onChange={(e) => setEditAccLabel(e.target.value)}
+                  placeholder="Ex. : Paul OVH"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="mail-edit-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Mot de passe <span className="text-xs text-slate-500 dark:text-slate-400">(optionnel)</span>
+                </label>
+                <input
+                  id="mail-edit-password"
+                  type="password"
+                  value={editAccPassword}
+                  onChange={(e) => setEditAccPassword(e.target.value)}
+                  placeholder="Laisser vide pour ne pas changer"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Serveur IMAP</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="mail-edit-imap-host" className="sr-only">IMAP host</label>
+                    <input
+                      id="mail-edit-imap-host"
+                      type="text"
+                      value={editAccImapHost}
+                      onChange={(e) => setEditAccImapHost(e.target.value)}
+                      placeholder="(détection automatique)"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="mail-edit-imap-port" className="sr-only">IMAP port</label>
+                    <input
+                      id="mail-edit-imap-port"
+                      type="text"
+                      value={editAccImapPort}
+                      onChange={(e) => setEditAccImapPort(e.target.value)}
+                      placeholder="993"
+                      inputMode="numeric"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">Serveur SMTP</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="mail-edit-smtp-host" className="sr-only">SMTP host</label>
+                    <input
+                      id="mail-edit-smtp-host"
+                      type="text"
+                      value={editAccSmtpHost}
+                      onChange={(e) => setEditAccSmtpHost(e.target.value)}
+                      placeholder="(détection automatique)"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="mail-edit-smtp-port" className="sr-only">SMTP port</label>
+                    <input
+                      id="mail-edit-smtp-port"
+                      type="text"
+                      value={editAccSmtpPort}
+                      onChange={(e) => setEditAccSmtpPort(e.target.value)}
+                      placeholder="587"
+                      inputMode="numeric"
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleResetAccountServersAuto}
+                disabled={savingAccount}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+              >
+                Serveurs auto (détection)
+              </button>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditAccountModal(false); setEditAccountId(null) }}
+                  disabled={savingAccount}
+                  className="rounded-lg bg-slate-200 dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAccountSettings}
+                  disabled={savingAccount}
+                  className="rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
+                >
+                  {savingAccount ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -101,6 +102,18 @@ func TestMailMeAccountsRequiresUserID(t *testing.T) {
 	}
 }
 
+func TestMailPatchAccountRequiresUserID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/me/accounts/1", strings.NewReader(`{"label":"x"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("PATCH /mail/me/accounts/1 without X-User-ID: got %d", w.Code)
+	}
+}
+
 // setupRouter construit un router de test (sans DB pour health/domains sans liste).
 // Doit refléter les routes de main.go pour que les tests vérifient l'enregistrement.
 func setupRouter(db *sql.DB) *gin.Engine {
@@ -114,6 +127,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
 		mail.GET("/me/accounts", h.listUserAccounts)
 		mail.POST("/me/accounts", h.createUserAccount)
+		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/domains", h.listDomains)

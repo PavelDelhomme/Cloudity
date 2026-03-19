@@ -82,7 +82,8 @@ describe('Performance', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const start = performance.now()
     render(wrap(<DrivePage />, client))
-    await screen.findByText('Item 1', { exact: true, timeout: 10_000 })
+    // Les noms peuvent être rendus via différents nœuds (badges/troncature) : on cherche exactement "Item 1".
+    await screen.findByText((content) => content.trim() === 'Item 1', { timeout: 10_000 })
     const elapsed = performance.now() - start
 
     expect(elapsed).toBeLessThan(PERF.PAGE_RENDER_MS)

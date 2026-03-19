@@ -61,6 +61,7 @@ func main() {
 		// Routes /me/* en premier pour ne pas être capturées par /domains/:id
 		mail.GET("/me/accounts", h.listUserAccounts)
 		mail.POST("/me/accounts", h.createUserAccount)
+		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
@@ -342,13 +343,19 @@ type UserEmailAccount struct {
 	TenantID  int    `json:"tenant_id"`
 	Email     string `json:"email"`
 	Label     string `json:"label,omitempty"`
+	// IMAP/SMTP options override des valeurs déduites du domaine.
+	// Valeurs null => détection automatique côté backend.
+	ImapHost *string `json:"imap_host,omitempty"`
+	ImapPort *int    `json:"imap_port,omitempty"`
+	SmtpHost *string `json:"smtp_host,omitempty"`
+	SmtpPort *int    `json:"smtp_port,omitempty"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
 	rows, err := h.db.Query(`
-		SELECT id, user_id, tenant_id, email, label, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, user_id, tenant_id, email, label, imap_host, imap_port, smtp_host, smtp_port, created_at::text, COALESCE(updated_at::text, '')
 		FROM user_email_accounts ORDER BY created_at DESC
 	`)
 	if err != nil {
@@ -360,13 +367,37 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 	for rows.Next() {
 		var a UserEmailAccount
 		var label sql.NullString
+		var imapHost sql.NullString
+		var smtpHost sql.NullString
+		var imapPort sql.NullInt32
+		var smtpPort sql.NullInt32
 		var uat string
-		if err := rows.Scan(&a.ID, &a.UserID, &a.TenantID, &a.Email, &label, &a.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(
+			&a.ID, &a.UserID, &a.TenantID, &a.Email, &label,
+			&imapHost, &imapPort, &smtpHost, &smtpPort,
+			&a.CreatedAt, &uat,
+		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		if label.Valid {
 			a.Label = label.String
+		}
+		if imapHost.Valid {
+			s := imapHost.String
+			a.ImapHost = &s
+		}
+		if imapPort.Valid {
+			p := int(imapPort.Int32)
+			a.ImapPort = &p
+		}
+		if smtpHost.Valid {
+			s := smtpHost.String
+			a.SmtpHost = &s
+		}
+		if smtpPort.Valid {
+			p := int(smtpPort.Int32)
+			a.SmtpPort = &p
 		}
 		a.UpdatedAt = uat
 		accList = append(accList, a)
@@ -582,6 +613,121 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// patchUserAccount met à jour libellé, mot de passe chiffré, hôtes IMAP/SMTP (synchronisation et envoi).
+func (h *Handler) patchUserAccount(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	var body struct {
+		Label    *string `json:"label"`
+		Password *string `json:"password"`
+		ImapHost *string `json:"imap_host"`
+		ImapPort *int    `json:"imap_port"`
+		SmtpHost *string `json:"smtp_host"`
+		SmtpPort *int    `json:"smtp_port"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "JSON invalide"})
+		return
+	}
+	if body.Label == nil && body.Password == nil && body.ImapHost == nil && body.ImapPort == nil && body.SmtpHost == nil && body.SmtpPort == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "aucun champ à mettre à jour"})
+		return
+	}
+	var exists int
+	checkErr := h.db.QueryRow(`
+		SELECT 1 FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, accountID).Scan(&exists)
+	if checkErr == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
+		return
+	}
+	if checkErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": checkErr.Error()})
+		return
+	}
+	sets := []string{}
+	args := []interface{}{}
+	i := 1
+	if body.Label != nil {
+		sets = append(sets, fmt.Sprintf("label = NULLIF(TRIM($%d), '')", i))
+		args = append(args, *body.Label)
+		i++
+	}
+	if body.Password != nil {
+		pw := strings.TrimSpace(*body.Password)
+		if pw != "" {
+			encStr, encErr := encryptPassword(pw)
+			if encErr != nil || encStr == "" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "impossible de chiffrer le mot de passe (clé MAIL_PASSWORD_ENCRYPTION_KEY ?)"})
+				return
+			}
+			sets = append(sets, fmt.Sprintf("password_encrypted = $%d", i))
+			args = append(args, encStr)
+			i++
+		}
+	}
+	if body.ImapHost != nil {
+		hh := strings.TrimSpace(*body.ImapHost)
+		if hh == "" {
+			sets = append(sets, "imap_host = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("imap_host = $%d", i))
+			args = append(args, hh)
+			i++
+		}
+	}
+	if body.ImapPort != nil {
+		if *body.ImapPort <= 0 {
+			sets = append(sets, "imap_port = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("imap_port = $%d", i))
+			args = append(args, *body.ImapPort)
+			i++
+		}
+	}
+	if body.SmtpHost != nil {
+		sh := strings.TrimSpace(*body.SmtpHost)
+		if sh == "" {
+			sets = append(sets, "smtp_host = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("smtp_host = $%d", i))
+			args = append(args, sh)
+			i++
+		}
+	}
+	if body.SmtpPort != nil {
+		if *body.SmtpPort <= 0 {
+			sets = append(sets, "smtp_port = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("smtp_port = $%d", i))
+			args = append(args, *body.SmtpPort)
+			i++
+		}
+	}
+	if len(sets) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "aucune modification applicable"})
+		return
+	}
+	args = append(args, accountID)
+	q := "UPDATE user_email_accounts SET " + strings.Join(sets, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = current_setting('app.current_user_id', true)::INTEGER", i)
+	res, execErr := h.db.Exec(q, args...)
+	if execErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 type MailMessage struct {
 	ID        int    `json:"id"`
 	AccountID int    `json:"account_id"`
@@ -620,6 +766,13 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 			offset = n
 		}
 	}
+	var total int
+	if err := h.db.QueryRow(`
+		SELECT COUNT(*) FROM mail_messages WHERE account_id = $1 AND folder = $2
+	`, accountID, folder).Scan(&total); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	rows, err := h.db.Query(`
 		SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
 		FROM mail_messages
@@ -648,7 +801,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	if msgList == nil {
 		msgList = []MailMessage{}
 	}
-	c.JSON(http.StatusOK, msgList)
+	c.JSON(http.StatusOK, gin.H{"messages": msgList, "total": total})
 }
 
 func (h *Handler) getAccountMessage(c *gin.Context) {
@@ -728,10 +881,13 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 	}
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
+	var dbImapHost sql.NullString
+	var dbImapPort sql.NullInt32
 	if err := h.db.QueryRow(`
-		SELECT email, password_encrypted, oauth_refresh_token_encrypted FROM user_email_accounts
+		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
+		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&email, &enc, &oauthRefreshEnc); err == sql.ErrNoRows || err != nil {
+	`, accountID).Scan(&email, &enc, &oauthRefreshEnc, &dbImapHost, &dbImapPort); err == sql.ErrNoRows || err != nil {
 		return "", "", err
 	}
 	password := ""
@@ -745,6 +901,12 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 		}
 	}
 	host, port, _ := imapHostPort(email)
+	if dbImapHost.Valid && strings.TrimSpace(dbImapHost.String) != "" {
+		host = strings.TrimSpace(dbImapHost.String)
+	}
+	if dbImapPort.Valid && dbImapPort.Int32 > 0 {
+		port = int(dbImapPort.Int32)
+	}
 	addr := host + ":" + strconv.Itoa(port)
 	var imapClient *client.Client
 	if port == 993 {
@@ -1000,10 +1162,13 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	password := strings.TrimSpace(body.Password)
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
+	var dbImapHost sql.NullString
+	var dbImapPort sql.NullInt32
 	err = h.db.QueryRow(`
-		SELECT email, password_encrypted, oauth_refresh_token_encrypted FROM user_email_accounts
+		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
+		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&email, &enc, &oauthRefreshEnc)
+	`, accountID).Scan(&email, &enc, &oauthRefreshEnc, &dbImapHost, &dbImapPort)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
 		return
@@ -1027,6 +1192,12 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	}
 	host := strings.TrimSpace(body.ImapHost)
 	port := body.ImapPort
+	if host == "" && dbImapHost.Valid && strings.TrimSpace(dbImapHost.String) != "" {
+		host = strings.TrimSpace(dbImapHost.String)
+	}
+	if port <= 0 && dbImapPort.Valid && dbImapPort.Int32 > 0 {
+		port = int(dbImapPort.Int32)
+	}
 	if host == "" || port <= 0 {
 		host, port, _ = imapHostPort(email)
 	}
@@ -1221,10 +1392,13 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 	}
 	var email string
 	var passwordEnc, oauthRefreshEnc sql.NullString
+	var dbSmtpHost sql.NullString
+	var dbSmtpPort sql.NullInt32
 	err := h.db.QueryRow(`
-		SELECT email, password_encrypted, oauth_refresh_token_encrypted FROM user_email_accounts
+		SELECT email, password_encrypted, oauth_refresh_token_encrypted, smtp_host, smtp_port
+		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.AccountID).Scan(&email, &passwordEnc, &oauthRefreshEnc)
+	`, body.AccountID).Scan(&email, &passwordEnc, &oauthRefreshEnc, &dbSmtpHost, &dbSmtpPort)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "compte non trouvé"})
 		return
@@ -1235,6 +1409,12 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 	}
 	host := strings.TrimSpace(body.SmtpHost)
 	port := body.SmtpPort
+	if host == "" && dbSmtpHost.Valid && strings.TrimSpace(dbSmtpHost.String) != "" {
+		host = strings.TrimSpace(dbSmtpHost.String)
+	}
+	if port <= 0 && dbSmtpPort.Valid && dbSmtpPort.Int32 > 0 {
+		port = int(dbSmtpPort.Int32)
+	}
 	if host == "" || port <= 0 {
 		host, port = smtpHostPort(email)
 	}

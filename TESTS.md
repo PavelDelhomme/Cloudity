@@ -89,7 +89,7 @@
 | **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
 | **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
 | **src/pages/app/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
-| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N). |
+| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage). |
 | **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
 | **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
 | **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
@@ -224,6 +224,11 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 - [ ] **API mail-directory-service** : test (ou scénario manuel) sync IMAP avec un fournisseur type OVH (ssl0.ovh.net) ; message d’erreur clair si identifiants invalides.
 - [ ] **Frontend MailPage** : tests unitaires (liste comptes, liste messages, bouton sync, formulaire envoi) ; E2E : ajouter une boîte (mock ou compte test), sync, affichage messages.
+- [ ] **Frontend MailPage** : tests unitaires actions de masse complètes (spam, non lu, remettre en boîte) sur sélection multiple.
+- [ ] **Mail dossiers hiérarchiques** : tests API + E2E création dossier/sous-dossier/sous-sous-dossier et déplacement de mails.
+- [ ] **Règles automatiques Mail** : tests API (conditions combinées date/heure/expéditeur/destinataire/sujet/contenu) + E2E application immédiate et rétroactive.
+- [ ] **Recherche avancée Mail** : tests unitaires filtres combinés + E2E recherche par période, expéditeur, sujet, texte.
+- [ ] **Édition compte mail relié** : tests unitaires + E2E (modification mot de passe, IMAP/SMTP, reset auto, resynchronisation).
 
 ---
 

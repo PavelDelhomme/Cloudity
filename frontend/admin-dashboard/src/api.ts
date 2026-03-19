@@ -201,6 +201,11 @@ export type MailAccountResponse = {
   tenant_id: number
   email: string
   label?: string
+  // IMAP/SMTP (override) : null/undefined => détection automatique.
+  imap_host?: string | null
+  imap_port?: number | null
+  smtp_host?: string | null
+  smtp_port?: number | null
   created_at: string
   updated_at: string
 }
@@ -263,12 +268,17 @@ export type MailMessageDetailResponse = MailMessageResponse & {
   body_html?: string
 }
 
+export type MailMessagesPageResponse = {
+  messages: MailMessageResponse[]
+  total: number
+}
+
 export async function fetchMailMessages(
   token: string,
   accountId: number,
   folder = 'inbox',
   options?: { limit?: number; offset?: number }
-): Promise<MailMessageResponse[]> {
+): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams({ folder })
   if (options?.limit != null) params.set('limit', String(options.limit))
   if (options?.offset != null) params.set('offset', String(options.offset))
@@ -276,7 +286,43 @@ export async function fetchMailMessages(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Mail messages: ${res.status}`)
-  return res.json() as Promise<MailMessageResponse[]>
+  const data = (await res.json()) as MailMessageResponse[] | MailMessagesPageResponse
+  if (Array.isArray(data)) {
+    return { messages: data, total: data.length }
+  }
+  const messages = Array.isArray(data.messages) ? data.messages : []
+  const total = typeof data.total === 'number' ? data.total : messages.length
+  return { messages, total }
+}
+
+export type MailAccountUpdatePayload = {
+  label?: string
+  password?: string
+  imap_host?: string
+  imap_port?: number
+  smtp_host?: string
+  smtp_port?: number
+}
+
+/** Met à jour libellé, mot de passe, serveurs IMAP/SMTP (sauvegardés en base pour sync et envoi). */
+export async function updateMailAccount(
+  token: string,
+  accountId: number,
+  patch: MailAccountUpdatePayload
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Update mail account: ${res.status}`)
+  }
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 export async function fetchMailMessage(

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MailPage from './MailPage'
@@ -25,9 +25,8 @@ vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
 }))
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
 function wrap(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={queryClient}>
       <TestRouter initialEntries={['/app/mail']}>{ui}</TestRouter>
@@ -57,6 +56,7 @@ describe('MailPage', () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([])
     vi.mocked(api.fetchMailMessages).mockResolvedValue([])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
+    vi.mocked(api.moveMailMessageToFolder).mockClear()
     mockAddNotification.mockClear()
   })
 
@@ -116,6 +116,126 @@ describe('MailPage', () => {
           type: 'info',
         })
       )
+    })
+  })
+
+  it('affiche la pagination avec total (Page 1 / 2)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 1,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Sujet 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 26,
+    } as any)
+
+    render(wrap(<MailPage />))
+    expect(await screen.findByText(/Page 1 \/ 2/)).toBeTruthy()
+  })
+
+  it('permet la sélection multiple et le déplacement en corbeille', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 1,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Sujet 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 2,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Sujet 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+
+    const cb1 = await screen.findByRole('checkbox', { name: /Sujet 1/ })
+    const cb2 = await screen.findByRole('checkbox', { name: /Sujet 2/ })
+
+    // Utilise le bouton "Tout sélectionner (page)" pour éviter la fragilité
+    // des events checkbox en jsdom.
+    const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
+    fireEvent.click(toggleAllBtn)
+
+    const bulkTrashBtn = await screen.findByRole('button', { name: 'Corbeille en masse' })
+    fireEvent.click(bulkTrashBtn)
+
+    await waitFor(() => {
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledTimes(2)
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 1, 'trash')
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 2, 'trash')
+    })
+  })
+
+  it('permet l’archivage en masse (déplacement vers Envoyés)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 10,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Archive 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 11,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Archive 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+
+    const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
+    fireEvent.click(toggleAllBtn)
+
+    const bulkArchiveBtn = await screen.findByRole('button', { name: 'Archiver en masse' })
+    fireEvent.click(bulkArchiveBtn)
+
+    await waitFor(() => {
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 10, 'sent')
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 11, 'sent')
     })
   })
 })

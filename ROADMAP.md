@@ -71,11 +71,16 @@
 
 - **Objectif** : finaliser l’expérience mail (affichage Envoyés/Brouillons/Spam/Corbeille déjà en BDD), puis éditeur riche et envoi programmé.
 - **Fait** : Dossiers dont Corbeille ; **menu d’actions** par message (bouton « Plus » + **clic droit**) : Déplacer vers la corbeille, Signaler comme spam, Remettre en boîte de réception selon le dossier ; **expéditeurs des mails reçus** : à l’ouverture d’un message, l’expéditeur est ajouté aux destinataires récents et sera proposé dans le champ À du compose.
+- **Fait** : **sélection multiple** des mails (checkbox), **Tout sélectionner (page)**, actions en masse (lu / non lu / corbeille / spam / boîte de réception / **archiver**), pagination avec affichage `Page X / Y` et total (`N message(s)`).
 - **Pistes** :
   - **Notifications push** : à prévoir (notifications navigateur ou PWA quand un nouveau mail arrive).
   - **Éditeur riche** pour le corps du message (formatage type Gmail).
   - **Envoi programmé** (date/heure d’envoi).
   - Partage de fichiers Drive depuis le compose (liens ou pièces jointes), en cohérence avec la liaison Contacts / Événements.
+  - **Dossiers personnalisés et hiérarchiques** : création dossier / sous-dossier / sous-sous-dossier, renommage, suppression, déplacement.
+  - **Règles automatiques avancées** : conditions (expéditeur, destinataire, sujet, contenu, date, heure, tranche horaire, etc.) + actions (déplacer, marquer lu/non lu, spam, archive), avec application rétroactive sur la boîte existante.
+  - **Recherche et filtres avancés** : combinatoires (AND/OR), période, pièces jointes, texte intégral.
+  - **Édition complète d’un compte mail relié** : libellé, mot de passe, IMAP/SMTP, détection auto.
 - **Tests** : unitaires MailPage (dossiers, compose), E2E « envoyer un mail, vérifier Envoyés ».
 
 ### 7. Office — édition collaborative (plus tard)
