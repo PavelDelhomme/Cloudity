@@ -255,18 +255,78 @@ export type MailMessageResponse = {
   subject: string
   date_at?: string
   created_at: string
+  is_read?: boolean
+}
+
+export type MailMessageDetailResponse = MailMessageResponse & {
+  body_plain?: string
+  body_html?: string
 }
 
 export async function fetchMailMessages(
   token: string,
   accountId: number,
-  folder = 'inbox'
+  folder = 'inbox',
+  options?: { limit?: number; offset?: number }
 ): Promise<MailMessageResponse[]> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?folder=${encodeURIComponent(folder)}`), {
+  const params = new URLSearchParams({ folder })
+  if (options?.limit != null) params.set('limit', String(options.limit))
+  if (options?.offset != null) params.set('offset', String(options.offset))
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Mail messages: ${res.status}`)
   return res.json() as Promise<MailMessageResponse[]>
+}
+
+export async function fetchMailMessage(
+  token: string,
+  accountId: number,
+  messageId: number
+): Promise<MailMessageDetailResponse> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail message: ${res.status}`)
+  return res.json() as Promise<MailMessageDetailResponse>
+}
+
+export async function markMailMessageRead(
+  token: string,
+  accountId: number,
+  messageId: number,
+  read: boolean
+): Promise<{ ok: boolean; read: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/read`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ read }),
+  })
+  if (!res.ok) throw new Error(`Mark read: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; read: boolean }>
+}
+
+export type MailFolderId = 'inbox' | 'sent' | 'drafts' | 'spam' | 'trash'
+
+export async function moveMailMessageToFolder(
+  token: string,
+  accountId: number,
+  messageId: number,
+  folder: MailFolderId
+): Promise<{ ok: boolean; folder: string }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/folder`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ folder }),
+  })
+  if (!res.ok) throw new Error(`Move message: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; folder: string }>
 }
 
 /** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */
@@ -905,6 +965,68 @@ export async function createTask(token: string, title: string, listId?: number |
   })
   if (!res.ok) throw new Error(`Create task: ${res.status}`)
   return res.json() as Promise<{ id: number; title: string }>
+}
+
+// Contacts — carnet d'adresses (suggestions Mail, etc.)
+export type ContactResponse = {
+  id: number
+  tenant_id: number
+  user_id: number
+  name: string
+  email: string
+  phone?: string
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchContacts(token: string): Promise<ContactResponse[]> {
+  const res = await fetch(apiUrl('/contacts'), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Contacts: ${res.status}`)
+  return res.json() as Promise<ContactResponse[]>
+}
+
+export async function createContact(
+  token: string,
+  payload: { name?: string; email: string; phone?: string }
+): Promise<{ id: number; name: string; email: string }> {
+  const res = await fetch(apiUrl('/contacts'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      throw new Error(j.error || t)
+    } catch {
+      throw new Error(t || `Create contact: ${res.status}`)
+    }
+  }
+  return res.json() as Promise<{ id: number; name: string; email: string }>
+}
+
+export async function updateContact(
+  token: string,
+  id: number,
+  payload: { name?: string; email?: string; phone?: string }
+): Promise<{ id: number }> {
+  const res = await fetch(apiUrl(`/contacts/${id}`), {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Update contact: ${res.status}`)
+  return res.json() as Promise<{ id: number }>
+}
+
+export async function deleteContact(token: string, id: number): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/contacts/${id}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete contact: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 export async function updateTaskCompleted(token: string, id: number, completed: boolean): Promise<void> {

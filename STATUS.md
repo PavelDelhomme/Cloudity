@@ -24,6 +24,8 @@
 
 **Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
+**Authentification et interconnexion centralisées** : Oui. **Un seul** service d’auth (**auth-service**), **une seule** entrée API (**api-gateway** sur le port 6080). Toutes les apps (Dashboard, Drive, Mail, Pass, Agenda, Notes, Tâches) utilisent le **même JWT** : le frontend stocke le token dans le localStorage (`cloudity_admin_auth`) et envoie `Authorization: Bearer <token>` sur chaque requête. Le gateway valide le JWT, extrait `user_id` et `tenant_id`, et les transmet aux backends via les en-têtes **X-User-ID** et **X-Tenant-ID**. Aucun backend ne fait de login lui-même : Pass, Mail, Drive, Calendar, Notes, Tasks et Admin s’appuient tous sur ce mécanisme. Les futures apps (Flutter, PWA) pourront réutiliser la même API et le même token.
+
 ### Tests (à suivre absolument)
 
 | Commande | Rôle |
@@ -206,10 +208,29 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 | E4 | **Bouton Fermer et Markdown en haut** | **Fermer le fichier** (retour au Drive ou au tableau de bord) et **basculer en mode Markdown** : les deux boutons doivent être **en haut**, visibles dès l’ouverture d’un fichier. Comportement type Office : barre unique avec navigation, renommer, Fermer, mode Markdown, Enregistrer, Télécharger. | Unit : boutons Fermer et Markdown en haut ; E2E : Fermer redirige, Markdown bascule l’affichage. |
 | E5 | **Éditeur complet type Office** | Enrichir toutes les options d’édition (menus Fichier, Édition, Insertion, Format, Affichage) et la barre de formatage pour ressembler à un vrai Word/Office : plus d’options, couleurs, tableaux avancés, etc. | Tests au fil de l’eau (unit + E2E sur les actions principales). |
 
+### Mail — récupération, frontend et base
+
+La détection IMAP/SMTP est **entièrement automatique** à partir de l’adresse : aucun domaine n’est codé en dur. Règles : fournisseurs connus (Gmail, Outlook, Yahoo, iCloud, OVH) via leur host dédié ; **toute autre adresse** → `imap.<domaine>` et `smtp.<domaine>` déduits du domaine (partie après @).
+
+**Pour retester l’attachement d’une boîte mail** : dans l’app **Mail**, déconnecter l’adresse (menu ou bouton « Déconnecter »), puis la rajouter. En dev : **`make mail-clean-dev`** (après **`make up`**) supprime tous les comptes mail du compte démo en base ; vous restez connecté (le JWT est en localStorage), rechargez la page Mail puis ajoutez la boîte à nouveau.
+
+| # | Tâche | Détail | Tests |
+|---|--------|--------|--------|
+| M1 | **Récupération des mails (sync IMAP)** | Déjà en place : POST /mail/me/accounts/:id/sync, connexion IMAP. **Toute adresse** gérée par détection automatique (voir ci-dessus). Stockage en-têtes dans `mail_messages`. À améliorer : autres dossiers (Sent, Drafts, Trash), corps, pièces jointes. | API : sync avec un fournisseur quelconque ; E2E : ajouter boîte → sync → voir messages. |
+| M2 | **Frontend Mail** | Liste des messages, **bouton Actualiser** uniquement (pas de polling 60 s). **Actualiser** : le backend ne compte que les **nouveaux** messages insérés (synced = RowsAffected), plus de « 200+ nouveaux » à tort. **Panneau gauche** (boîtes + dossiers) **réductible** (icônes seules, préférence dans localStorage). **Répondre / Répondre à tous / Transférer** sur le détail du message. **Nouveau message** : **panneau en bas** (style Gmail/Proton), réductible/agrandissable, pas de modale centrée. **Signature** : paramètres Mail (textarea) stockée en localStorage, ajoutée en bas à l’envoi. Envoi sans ressaisir le mot de passe. | Unit : MailPage ; E2E : ajout boîte, sync, actualiser, envoi sans mot de passe. |
+| M3 | **Dossiers personnalisés** | Créer ses propres dossiers et sous-dossiers (indépendamment de Gmail/OVH), gérer la hiérarchie, déplacer les messages. Backend : IMAP LIST/CREATE/MOVE ou structure propre en base. Corbeille mail, Brouillons, zone Envois programmés. | API : list/create/move folders ; E2E : créer dossier, déplacer message. |
+| M4 | **Lecture, recherche, filtres** | Marquer lu / non lu dans la liste ; recherche full-text dans les messages ; filtres et tri (date, expéditeur, objet) ; « À lire plus tard » / liste en attente ; gestion de la file d’envoi (messages en attente). | API : flags read/unread, search endpoint ; E2E : marquer lu, recherche. |
+| M5 | **Envoi programmé** | Programmer l’envoi d’un mail (date/heure). Backend : file d’envoi + worker ou cron. Interface : date/heure dans la fenêtre de rédaction. | API : scheduled_send ; E2E : programmer envoi. |
+| M6 | **Dossiers et règles** | Dossiers personnalisés, sous-dossiers, déplacer messages, règles de tri auto. Sync à la demande ou planifiée. | API : folders, rules. |
+| M7 | **Spam** | Dossier Spam dans l'UI ; détection (scoring / Rspamd) ; marquer spam / non spam. | API : folder spam, flag. |
+| M8 | **Paramètres et conversations** | Paramètres Mail : **signature** (déjà en place). À venir : par boîte, règles. Conversations : grouper mails d'un même fil (thread). **Corps du message** : récupération à l’ouverture (fetch IMAP BODY.PEEK[] si non en base) à faire côté backend. **Notifications mail en arrière-plan** (sans onglet ouvert) : PWA / Service Worker ou polling léger à définir. **Brouillons** : récupération et envoi à gérer (côté app mail). | Unit : paramètres, thread. |
+| M9 | **Interconnexion Mail ↔ Drive / Calendar / Notes / Tasks / Contacts** | Drive (pièces jointes). À faire : Calendar, Notes, Tasks, Contacts (suggestions, expéditeur → fiche). | E2E : Mail → Drive, Contacts. |
+
 ### Tests à ajouter / à améliorer
 
 - **ZIP** : tests unitaires (liste contenu ZIP, appel API) ; E2E (ouvrir .zip → voir contenu ; extraire ici).
 - **Éditeur** : tests pour la nouvelle barre (Enregistrer, Télécharger, Markdown, Fermer en haut) ; breadcrumb Tableau de bord > Drive ; couleurs et options édition.
+- **Mail** : tests sync IMAP (dont OVH), frontend liste/lecture/envoi ; E2E ajout boîte + sync.
 - **Rapport** : s’assurer que `make tests` et le rapport en console restent clairs (résumé, vulnérabilités, chemin du log).
 
 ---

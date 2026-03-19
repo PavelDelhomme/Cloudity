@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
+	"github.com/emersion/go-message/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -61,6 +63,9 @@ func main() {
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
+		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
+		mail.PATCH("/me/accounts/:id/messages/:msgId/read", h.markMessageRead)
+		mail.PATCH("/me/accounts/:id/messages/:msgId/folder", h.moveMessageToFolder)
 		mail.POST("/me/accounts/:id/sync", h.syncAccountIMAP)
 		mail.POST("/me/send", h.sendMessageSMTP)
 		mail.GET("/domains", h.listDomains)
@@ -586,6 +591,13 @@ type MailMessage struct {
 	Subject   string `json:"subject"`
 	DateAt    string `json:"date_at,omitempty"`
 	CreatedAt string `json:"created_at"`
+	IsRead    bool   `json:"is_read"`
+}
+
+type MailMessageDetail struct {
+	MailMessage
+	BodyPlain string `json:"body_plain,omitempty"`
+	BodyHTML  string `json:"body_html,omitempty"`
 }
 
 func (h *Handler) listAccountMessages(c *gin.Context) {
@@ -596,13 +608,25 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		return
 	}
 	folder := c.DefaultQuery("folder", "inbox")
+	limit := 25
+	if l := c.Query("limit"); l != "" {
+		if n, _ := strconv.Atoi(l); n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+	offset := 0
+	if o := c.Query("offset"); o != "" {
+		if n, _ := strconv.Atoi(o); n >= 0 {
+			offset = n
+		}
+	}
 	rows, err := h.db.Query(`
-		SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text
+		SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
 		FROM mail_messages
 		WHERE account_id = $1 AND folder = $2
 		ORDER BY date_at DESC NULLS LAST, id DESC
-		LIMIT 100
-	`, accountID, folder)
+		LIMIT $3 OFFSET $4
+	`, accountID, folder, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -612,7 +636,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	for rows.Next() {
 		var m MailMessage
 		var dateAt sql.NullString
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt); err != nil {
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -625,6 +649,272 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		msgList = []MailMessage{}
 	}
 	c.JSON(http.StatusOK, msgList)
+}
+
+func (h *Handler) getAccountMessage(c *gin.Context) {
+	idStr := c.Param("id")
+	msgIdStr := c.Param("msgId")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	msgID, err := strconv.Atoi(msgIdStr)
+	if err != nil || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
+		return
+	}
+	var m MailMessageDetail
+	var dateAt sql.NullString
+	var bodyPlain, bodyHTML sql.NullString
+	var isRead bool
+	var messageUID int64
+	err = h.db.QueryRow(`
+		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html
+		FROM mail_messages
+		WHERE id = $1 AND account_id = $2
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if dateAt.Valid {
+		m.DateAt = dateAt.String
+	}
+	m.IsRead = isRead
+	if bodyPlain.Valid {
+		m.BodyPlain = bodyPlain.String
+	}
+	if bodyHTML.Valid {
+		m.BodyHTML = bodyHTML.String
+	}
+	// Si le corps n'est pas en base, le récupérer depuis IMAP et le stocker
+	if !bodyPlain.Valid && !bodyHTML.Valid {
+		if plain, html, fetchErr := h.fetchMessageBodyFromIMAP(c, accountID, messageUID, m.Folder); fetchErr == nil {
+			if plain != "" || html != "" {
+				_, _ = h.db.Exec(`
+					UPDATE mail_messages SET body_plain = $1, body_html = $2
+					WHERE id = $3 AND account_id = $4
+					AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+				`, nullStr(plain), nullStr(html), msgID, accountID)
+				m.BodyPlain = plain
+				m.BodyHTML = html
+			}
+		}
+	}
+	c.JSON(http.StatusOK, m)
+}
+
+func nullStr(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// fetchMessageBodyFromIMAP récupère le corps (plain + html) d'un message depuis IMAP et le retourne. Utilisé quand le corps n'est pas en base.
+func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messageUID int64, folder string) (plain, html string, err error) {
+	userID := c.GetHeader("X-User-ID")
+	if userID == "" {
+		return "", "", fmt.Errorf("X-User-ID required")
+	}
+	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+		return "", "", err
+	}
+	var email string
+	var enc, oauthRefreshEnc sql.NullString
+	if err := h.db.QueryRow(`
+		SELECT email, password_encrypted, oauth_refresh_token_encrypted FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, accountID).Scan(&email, &enc, &oauthRefreshEnc); err == sql.ErrNoRows || err != nil {
+		return "", "", err
+	}
+	password := ""
+	useOAuth := oauthRefreshEnc.Valid && oauthRefreshEnc.String != ""
+	if !useOAuth {
+		if enc.Valid && enc.String != "" {
+			password, _ = decryptPassword(enc.String)
+		}
+		if password == "" {
+			return "", "", fmt.Errorf("mot de passe non disponible pour récupérer le corps du message")
+		}
+	}
+	host, port, _ := imapHostPort(email)
+	addr := host + ":" + strconv.Itoa(port)
+	var imapClient *client.Client
+	if port == 993 {
+		imapClient, err = client.DialTLS(addr, nil)
+	} else {
+		imapClient, err = client.Dial(addr)
+	}
+	if err != nil {
+		return "", "", err
+	}
+	defer imapClient.Logout()
+	if useOAuth {
+		refreshTok, _ := decryptPassword(oauthRefreshEnc.String)
+		if refreshTok == "" {
+			return "", "", fmt.Errorf("OAuth refresh token non disponible")
+		}
+		accessToken, tokErr := getGoogleAccessToken(refreshTok)
+		if tokErr != nil {
+			return "", "", tokErr
+		}
+		ir := xoauth2InitialResponse(email, accessToken)
+		if err := imapClient.Authenticate(&xoauth2SASL{ir: ir}); err != nil {
+			return "", "", err
+		}
+	} else {
+		if err := imapClient.Login(email, password); err != nil {
+			return "", "", err
+		}
+	}
+	mailbox := "INBOX"
+	if folder != "inbox" {
+		switch folder {
+		case "sent":
+			mailbox = "Sent"
+		case "drafts":
+			mailbox = "Drafts"
+		case "spam":
+			mailbox = "Spam"
+		default:
+			mailbox = "INBOX"
+		}
+	}
+	if _, err := imapClient.Select(mailbox, false); err != nil {
+		return "", "", err
+	}
+	seqset := new(imap.SeqSet)
+	seqset.AddNum(uint32(messageUID))
+	ch := make(chan *imap.Message, 1)
+	if err := imapClient.UidFetch(seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, ch); err != nil {
+		return "", "", err
+	}
+	msg := <-ch
+	close(ch)
+	if msg == nil {
+		return "", "", nil
+	}
+	var raw []byte
+	for _, lit := range msg.Body {
+		if lit != nil {
+			raw, _ = io.ReadAll(lit)
+			break
+		}
+	}
+	if len(raw) == 0 {
+		return "", "", nil
+	}
+	// Parser le MIME avec go-message
+	mr, err := mail.CreateReader(bytes.NewReader(raw))
+	if err != nil {
+		return "", "", err
+	}
+	for {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			break
+		}
+		ct := strings.ToLower(strings.TrimSpace(p.Header.Get("Content-Type")))
+		if strings.HasPrefix(ct, "text/plain") && plain == "" {
+			b, _ := io.ReadAll(p.Body)
+			plain = strings.TrimSpace(string(b))
+		} else if strings.HasPrefix(ct, "text/html") && html == "" {
+			b, _ := io.ReadAll(p.Body)
+			html = strings.TrimSpace(string(b))
+		}
+	}
+	return plain, html, nil
+}
+
+func (h *Handler) markMessageRead(c *gin.Context) {
+	idStr := c.Param("id")
+	msgIdStr := c.Param("msgId")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	msgID, err := strconv.Atoi(msgIdStr)
+	if err != nil || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
+		return
+	}
+	var body struct {
+		Read *bool `json:"read"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Read == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"read\": true|false"})
+		return
+	}
+	res, err := h.db.Exec(`
+		UPDATE mail_messages SET is_read = $1
+		WHERE id = $2 AND account_id = $3
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, *body.Read, msgID, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "read": *body.Read})
+}
+
+var allowedFolders = map[string]bool{"inbox": true, "sent": true, "drafts": true, "spam": true, "trash": true}
+
+func (h *Handler) moveMessageToFolder(c *gin.Context) {
+	idStr := c.Param("id")
+	msgIdStr := c.Param("msgId")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	msgID, err := strconv.Atoi(msgIdStr)
+	if err != nil || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
+		return
+	}
+	var body struct {
+		Folder *string `json:"folder"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Folder == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"folder\": \"inbox\"|\"sent\"|\"drafts\"|\"spam\"|\"trash\""})
+		return
+	}
+	folder := strings.TrimSpace(strings.ToLower(*body.Folder))
+	if !allowedFolders[folder] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "folder must be one of: inbox, sent, drafts, spam, trash"})
+		return
+	}
+	res, err := h.db.Exec(`
+		UPDATE mail_messages SET folder = $1
+		WHERE id = $2 AND account_id = $3
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, folder, msgID, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "folder": folder})
 }
 
 // xoauth2RawBytes contenu brut XOAUTH2 (sans base64). SMTP fera le base64.
@@ -660,23 +950,35 @@ func getGoogleAccessToken(refreshToken string) (string, error) {
 	return newTok.AccessToken, nil
 }
 
-// imapHostPort returns (host, port) for common providers; default imap.gmail.com:993 for Gmail.
+// imapHostPort returns (host, port) for known providers; otherwise derives imap.<domain> from the email.
 func imapHostPort(email string) (host string, port int, useTLS bool) {
-	host = "imap.gmail.com"
 	port = 993
 	useTLS = true
-	lower := strings.ToLower(email)
+	lower := strings.TrimSpace(strings.ToLower(email))
+	// Fournisseurs connus (hosts spécifiques)
 	if strings.Contains(lower, "@outlook.") || strings.Contains(lower, "@hotmail.") || strings.Contains(lower, "@live.") {
-		host = "outlook.office365.com"
-		port = 993
-	} else if strings.Contains(lower, "@yahoo.") || strings.Contains(lower, "@ymail.") {
-		host = "imap.mail.yahoo.com"
-		port = 993
-	} else if strings.Contains(lower, "@icloud.") {
-		host = "imap.mail.me.com"
-		port = 993
+		return "outlook.office365.com", port, useTLS
 	}
-	return host, port, useTLS
+	if strings.Contains(lower, "@yahoo.") || strings.Contains(lower, "@ymail.") {
+		return "imap.mail.yahoo.com", port, useTLS
+	}
+	if strings.Contains(lower, "@icloud.") {
+		return "imap.mail.me.com", port, useTLS
+	}
+	if strings.Contains(lower, "@ovh.") || strings.Contains(lower, ".ovh") {
+		return "ssl0.ovh.net", port, useTLS
+	}
+	if strings.Contains(lower, "@gmail.") || strings.Contains(lower, "@googlemail.") {
+		return "imap.gmail.com", port, useTLS
+	}
+	// Toute autre adresse : déduction automatique à partir du domaine (imap.<domaine>)
+	if at := strings.LastIndex(lower, "@"); at >= 0 && at < len(lower)-1 {
+		domain := strings.TrimSpace(lower[at+1:])
+		if domain != "" && strings.Contains(domain, ".") && !strings.ContainsAny(domain, " \t") {
+			return "imap." + domain, port, useTLS
+		}
+	}
+	return "imap.gmail.com", port, useTLS
 }
 
 func (h *Handler) syncAccountIMAP(c *gin.Context) {
@@ -766,71 +1068,93 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 			return
 		}
 	} else {
+		log.Printf("[mail] IMAP connexion %s → %s", email, addr)
 		if err := imapClient.Login(email, password); err != nil {
 			log.Printf("[mail] IMAP login %s: %v", email, err)
-			msg := "identifiants invalides ou accès refusé"
+			msg := "Identifiants refusés par le serveur mail. Vérifiez le mot de passe (attention aux caractères spéciaux : &, @, etc.) et que l'accès IMAP est activé pour cette boîte dans les paramètres de votre hébergeur."
 			if strings.Contains(strings.ToLower(email), "@gmail.") || strings.Contains(strings.ToLower(email), "@googlemail.") {
 				msg = "Comme Thunderbird ou BlueMail : utilisez un mot de passe d'application Gmail (Paramètres Google > Sécurité > Mots de passe des applications)."
+			} else if strings.Contains(strings.ToLower(email), ".ovh") || strings.Contains(strings.ToLower(email), "@ovh.") {
+				msg = "Identifiants refusés par OVH. Vérifiez le mot de passe dans l'espace client OVH (Manager > Emails) et que l'accès IMAP est autorisé pour cette boîte."
 			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
 			return
 		}
 	}
-	mbox, err := imapClient.Select("INBOX", false)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "sélection INBOX: " + err.Error()})
-		return
+	// Dossiers à synchroniser : (nom IMAP à essayer, nom en base). Pour Gmail vs autres fournisseurs.
+	type folderTry struct {
+		imapNames []string
+		dbFolder  string
 	}
-	if mbox.Messages == 0 {
-		c.JSON(http.StatusOK, gin.H{"synced": 0, "message": "aucun message"})
-		return
+	foldersToSync := []folderTry{
+		{[]string{"INBOX"}, "inbox"},
+		{[]string{"Sent", "[Gmail]/Sent Mail", "INBOX.Sent"}, "sent"},
+		{[]string{"Drafts", "[Gmail]/Drafts", "INBOX.Drafts"}, "drafts"},
+		{[]string{"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam"}, "spam"},
 	}
-	seqset := new(imap.SeqSet)
-	from := uint32(1)
-	to := mbox.Messages
-	if mbox.Messages > 200 {
-		from = mbox.Messages - 199
-	}
-	seqset.AddRange(from, to)
-	messages := make(chan *imap.Message, 20)
-	go func() {
-		if err := imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}, messages); err != nil {
-			log.Printf("[mail] Fetch: %v", err)
-		}
-	}()
-	var synced int
-	for msg := range messages {
-		if msg.Envelope == nil {
-			continue
-		}
-		fromAddr := ""
-		if len(msg.Envelope.From) > 0 {
-			fromAddr = msg.Envelope.From[0].Address()
-		}
-		toAddrs := ""
-		for i, a := range msg.Envelope.To {
-			if i > 0 {
-				toAddrs += ", "
+	var totalSynced int
+	for _, ft := range foldersToSync {
+		var mbox *imap.MailboxStatus
+		var selected bool
+		for _, imapName := range ft.imapNames {
+			m, err := imapClient.Select(imapName, false)
+			if err != nil {
+				continue
 			}
-			toAddrs += a.Address()
+			mbox = m
+			selected = true
+			break
 		}
-		subject := msg.Envelope.Subject
-		dateAt := msg.Envelope.Date
-		if dateAt.IsZero() {
-			dateAt = time.Now()
-		}
-		_, err := h.db.Exec(`
-			INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at)
-			VALUES ($1, 'inbox', $2, $3, $4, $5, $6)
-			ON CONFLICT (account_id, folder, message_uid) DO NOTHING
-		`, accountID, msg.Uid, fromAddr, toAddrs, subject, dateAt)
-		if err != nil {
-			log.Printf("[mail] insert message: %v", err)
+		if !selected || mbox == nil || mbox.Messages == 0 {
 			continue
 		}
-		synced++
+		seqset := new(imap.SeqSet)
+		from := uint32(1)
+		to := mbox.Messages
+		if mbox.Messages > 300 {
+			from = mbox.Messages - 299
+		}
+		seqset.AddRange(from, to)
+		messages := make(chan *imap.Message, 20)
+		go func() {
+			if err := imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}, messages); err != nil {
+				log.Printf("[mail] Fetch %s: %v", ft.dbFolder, err)
+			}
+		}()
+		for msg := range messages {
+			if msg.Envelope == nil {
+				continue
+			}
+			fromAddr := ""
+			if len(msg.Envelope.From) > 0 {
+				fromAddr = msg.Envelope.From[0].Address()
+			}
+			toAddrs := ""
+			for i, a := range msg.Envelope.To {
+				if i > 0 {
+					toAddrs += ", "
+				}
+				toAddrs += a.Address()
+			}
+			subject := msg.Envelope.Subject
+			dateAt := msg.Envelope.Date
+			if dateAt.IsZero() {
+				dateAt = time.Now()
+			}
+			res, err := h.db.Exec(`
+				INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
+				ON CONFLICT (account_id, folder, message_uid) DO NOTHING
+			`, accountID, ft.dbFolder, msg.Uid, fromAddr, toAddrs, subject, dateAt)
+			if err != nil {
+				log.Printf("[mail] insert message: %v", err)
+				continue
+			}
+			n, _ := res.RowsAffected()
+			totalSynced += int(n)
+		}
 	}
-	c.JSON(http.StatusOK, gin.H{"synced": synced, "message": "synchronisation terminée"})
+	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})
 }
 
 // smtpXOAUTH2Auth implémente smtp.Auth pour Gmail SMTP avec OAuth2.
@@ -849,20 +1173,31 @@ func (a *smtpXOAUTH2Auth) Next(fromServer []byte, more bool) ([]byte, error) {
 }
 
 func smtpHostPort(email string) (host string, port int) {
-	host = "smtp.gmail.com"
 	port = 587
-	lower := strings.ToLower(email)
+	lower := strings.TrimSpace(strings.ToLower(email))
 	if strings.Contains(lower, "@outlook.") || strings.Contains(lower, "@hotmail.") || strings.Contains(lower, "@live.") {
-		host = "smtp.office365.com"
-		port = 587
-	} else if strings.Contains(lower, "@yahoo.") || strings.Contains(lower, "@ymail.") {
-		host = "smtp.mail.yahoo.com"
-		port = 587
-	} else if strings.Contains(lower, "@icloud.") {
-		host = "smtp.mail.me.com"
-		port = 587
+		return "smtp.office365.com", port
 	}
-	return host, port
+	if strings.Contains(lower, "@yahoo.") || strings.Contains(lower, "@ymail.") {
+		return "smtp.mail.yahoo.com", port
+	}
+	if strings.Contains(lower, "@icloud.") {
+		return "smtp.mail.me.com", port
+	}
+	if strings.Contains(lower, "@ovh.") || strings.Contains(lower, ".ovh") {
+		return "ssl0.ovh.net", port
+	}
+	if strings.Contains(lower, "@gmail.") || strings.Contains(lower, "@googlemail.") {
+		return "smtp.gmail.com", port
+	}
+	// Toute autre adresse : déduction automatique smtp.<domaine>
+	if at := strings.LastIndex(lower, "@"); at >= 0 && at < len(lower)-1 {
+		domain := strings.TrimSpace(lower[at+1:])
+		if domain != "" && strings.Contains(domain, ".") && !strings.ContainsAny(domain, " \t") {
+			return "smtp." + domain, port
+		}
+	}
+	return "smtp.gmail.com", port
 }
 
 func (h *Handler) sendMessageSMTP(c *gin.Context) {
@@ -885,11 +1220,11 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		return
 	}
 	var email string
-	var oauthRefreshEnc sql.NullString
+	var passwordEnc, oauthRefreshEnc sql.NullString
 	err := h.db.QueryRow(`
-		SELECT email, oauth_refresh_token_encrypted FROM user_email_accounts
+		SELECT email, password_encrypted, oauth_refresh_token_encrypted FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.AccountID).Scan(&email, &oauthRefreshEnc)
+	`, body.AccountID).Scan(&email, &passwordEnc, &oauthRefreshEnc)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "compte non trouvé"})
 		return
@@ -920,8 +1255,11 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		auth = &smtpXOAUTH2Auth{email: email, accessToken: accessToken}
 	} else {
 		password := strings.TrimSpace(body.Password)
+		if password == "" && passwordEnc.Valid && passwordEnc.String != "" {
+			password, _ = decryptPassword(passwordEnc.String)
+		}
 		if password == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "mot de passe requis pour l'envoi (ou connectez la boîte avec Google)"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "mot de passe requis pour l'envoi (saisissez-le dans le formulaire ou reconnectez la boîte en le renseignant)"})
 			return
 		}
 		auth = smtp.PlainAuth("", email, password, host)

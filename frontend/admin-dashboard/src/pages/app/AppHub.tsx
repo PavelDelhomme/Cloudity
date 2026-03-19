@@ -1,97 +1,55 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { HardDrive, Lock, Mail, Calendar, FileText, ListTodo, ArrowRight, FileSpreadsheet, Users, Image, Trash2 } from 'lucide-react'
+import { HardDrive, Lock, Mail, Calendar, FileText, ListTodo, FileSpreadsheet, Users, Image, Trash2, FolderOpen } from 'lucide-react'
 
-const apps = [
+type AppItem = { name: string; href: string; icon: React.ComponentType<{ className?: string }>; color: string }
+
+const categories: { label: string; icon: React.ComponentType<{ className?: string }>; apps: AppItem[] }[] = [
   {
-    name: 'Drive',
-    description: 'Fichiers et dossiers, synchronisation et partage sécurisé.',
-    href: '/app/drive',
-    icon: HardDrive,
-    color: 'bg-blue-500',
-    bgLight: 'bg-blue-50',
-    textColor: 'text-blue-700',
+    label: 'Fichiers',
+    icon: FolderOpen,
+    apps: [
+      { name: 'Drive', href: '/app/drive', icon: HardDrive, color: 'text-blue-600 dark:text-blue-400' },
+      { name: 'Office', href: '/app/office', icon: FileSpreadsheet, color: 'text-orange-600 dark:text-orange-400' },
+      { name: 'Corbeille', href: '/app/corbeille', icon: Trash2, color: 'text-slate-600 dark:text-slate-400' },
+    ],
   },
   {
-    name: 'Office',
-    description: 'Documents, tableurs et présentations (éditeur maison intégré au Drive). À venir.',
-    href: '/app/office',
-    icon: FileSpreadsheet,
-    color: 'bg-orange-500',
-    bgLight: 'bg-orange-50',
-    textColor: 'text-orange-700',
-  },
-  {
-    name: 'Pass',
-    description: 'Coffre-fort et gestionnaire de mots de passe.',
-    href: '/app/pass',
-    icon: Lock,
-    color: 'bg-emerald-500',
-    bgLight: 'bg-emerald-50',
-    textColor: 'text-emerald-700',
-  },
-  {
-    name: 'Mail',
-    description: 'Boîte mail, dossiers et envoi de messages.',
-    href: '/app/mail',
+    label: 'Communication',
     icon: Mail,
-    color: 'bg-violet-500',
-    bgLight: 'bg-violet-50',
-    textColor: 'text-violet-700',
+    apps: [
+      { name: 'Mail', href: '/app/mail', icon: Mail, color: 'text-violet-600 dark:text-violet-400' },
+    ],
   },
   {
-    name: 'Corbeille',
-    description: 'Fichiers et dossiers supprimés (Drive). Restauration ou suppression définitive.',
-    href: '/app/corbeille',
-    icon: Trash2,
-    color: 'bg-slate-500',
-    bgLight: 'bg-slate-100',
-    textColor: 'text-slate-700',
+    label: 'Sécurité',
+    icon: Lock,
+    apps: [
+      { name: 'Pass', href: '/app/pass', icon: Lock, color: 'text-emerald-600 dark:text-emerald-400' },
+    ],
   },
   {
-    name: 'Calendar',
-    description: 'Agenda et événements.',
-    href: '/app/calendar',
+    label: 'Productivité',
     icon: Calendar,
-    color: 'bg-amber-500',
-    bgLight: 'bg-amber-50',
-    textColor: 'text-amber-700',
+    apps: [
+      { name: 'Calendar', href: '/app/calendar', icon: Calendar, color: 'text-amber-600 dark:text-amber-400' },
+      { name: 'Notes', href: '/app/notes', icon: FileText, color: 'text-slate-700 dark:text-slate-300' },
+      { name: 'Tasks', href: '/app/tasks', icon: ListTodo, color: 'text-teal-600 dark:text-teal-400' },
+    ],
   },
   {
-    name: 'Notes',
-    description: 'Notes et bloc-notes.',
-    href: '/app/notes',
-    icon: FileText,
-    color: 'bg-slate-600',
-    bgLight: 'bg-slate-50',
-    textColor: 'text-slate-700',
-  },
-  {
-    name: 'Tasks',
-    description: 'Tâches et to-do.',
-    href: '/app/tasks',
-    icon: ListTodo,
-    color: 'bg-teal-500',
-    bgLight: 'bg-teal-50',
-    textColor: 'text-teal-700',
-  },
-  {
-    name: 'Contacts',
-    description: 'Carnet d’adresses (à venir).',
-    href: '/app/contacts',
+    label: 'Personnes',
     icon: Users,
-    color: 'bg-indigo-500',
-    bgLight: 'bg-indigo-50',
-    textColor: 'text-indigo-700',
+    apps: [
+      { name: 'Contacts', href: '/app/contacts', icon: Users, color: 'text-indigo-600 dark:text-indigo-400' },
+    ],
   },
   {
-    name: 'Photos',
-    description: 'Galerie et stockage photos (à venir).',
-    href: '/app/photos',
+    label: 'Médias',
     icon: Image,
-    color: 'bg-pink-500',
-    bgLight: 'bg-pink-50',
-    textColor: 'text-pink-700',
+    apps: [
+      { name: 'Photos', href: '/app/photos', icon: Image, color: 'text-pink-600 dark:text-pink-400' },
+    ],
   },
 ]
 
@@ -100,27 +58,28 @@ export default function AppHub() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Tableau de bord</h1>
-        <p className="mt-1 text-slate-600 dark:text-slate-400">Choisissez une application pour continuer.</p>
+        <p className="mt-1 text-slate-600 dark:text-slate-400">Choisissez une application par catégorie.</p>
       </div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {apps.map((app) => (
-          <Link
-            key={app.name}
-            to={app.href}
-            className="group flex flex-col rounded-2xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 shadow-sm transition hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-md"
-          >
-            <div className={`inline-flex rounded-xl p-3 ${app.bgLight} ${app.textColor} dark:bg-slate-700 dark:text-slate-200`}>
-              <app.icon className="h-7 w-7" />
-            </div>
-            <h2 className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-100 group-hover:text-brand-600 dark:group-hover:text-brand-400">
-              {app.name}
+      <div className="space-y-6">
+        {categories.map((cat) => (
+          <section key={cat.label}>
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">
+              <cat.icon className="h-4 w-4" />
+              {cat.label}
             </h2>
-            <p className="mt-2 flex-1 text-sm text-slate-600 dark:text-slate-400">{app.description}</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
-              Ouvrir
-              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </span>
-          </Link>
+            <div className="flex flex-wrap gap-3">
+              {cat.apps.map((app) => (
+                <Link
+                  key={app.name}
+                  to={app.href}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm transition hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-md hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                >
+                  <app.icon className={`h-5 w-5 shrink-0 ${app.color}`} />
+                  <span className="font-medium text-slate-800 dark:text-slate-200">{app.name}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </div>

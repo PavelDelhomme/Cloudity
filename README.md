@@ -298,8 +298,8 @@ app = FastAPI()
 
 class EmailAliasHandler:
     async def handle_alias(self, recipient: str, message: EmailMessage):
-        # Résolution d'alias pour delhomme.ovh
-        if recipient.endswith('@delhomme.ovh'):
+        # Résolution d'alias pour votre domaine (ex. example.com)
+        if recipient.endswith('@example.com'):
             alias_parts = recipient.split('@')[0].split('+')
             base_email = alias_parts[0]
             tags = alias_parts[1:] if len(alias_parts) > 1 else []

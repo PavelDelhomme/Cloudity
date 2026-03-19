@@ -29,7 +29,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
-	@echo '  make rebuild   - Reconstruit tous les services Cloudity (build --no-cache) puis redémarre (stack peut être déjà up)'
+	@echo '  make rebuild   - Reconstruit tous les services, redémarre et applique les migrations (tout-en-un)'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — sans E2E'
@@ -46,6 +46,7 @@ help: ## Affiche ce message d'aide
 	@echo ''
 	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
+	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
@@ -167,12 +168,14 @@ build: ## Build tous les services
 	@$(COMPOSE) $(COMPOSE_FILES) build --parallel --no-cache
 	@echo "✅ Build terminé!"
 
-rebuild: ## Reconstruit tous les services Cloudity puis redémarre (stack peut être déjà up)
+rebuild: ## Reconstruit tous les services Cloudity, redémarre et applique les migrations (tout-en-un)
 	@echo "🔨 Rebuild de tous les services Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@echo "🔄 Redémarrage des services avec les nouvelles images..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
-	@echo "✅ Rebuild terminé ! Services à jour."
+	@echo "📦 Application des migrations DB (nouvelles ou en attente)..."
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm db-migrate
+	@echo "✅ Rebuild terminé ! Services à jour, migrations appliquées."
 
 build-auth: ## Build uniquement le service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) build auth-service
@@ -576,6 +579,11 @@ verify-mail-api: ## Vérifie que le gateway transmet bien /mail/* (après make u
 	@sleep 5
 	@curl -sf http://localhost:$(PORT_GATEWAY)/mail/health >/dev/null && echo "  ✅ GET /mail/health: OK" || (echo "  ❌ GET /mail/health: FAIL. Lancez: make up puis make rebuild-mail"; exit 1)
 	@echo "  Pour tester /mail/me/accounts: connectez-vous sur http://localhost:$(PORT_DASHBOARD) puis ouvrez Mail."
+
+mail-clean-dev: ## Supprime tous les comptes mail (et messages) du compte démo (user_id=1). Pour retester l'attachement d'une boîte. Prérequis: make up
+	@echo "🧹 Nettoyage des comptes mail du compte démo (user_id=1)..."
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -c "DELETE FROM user_email_accounts WHERE user_id = 1;" 2>/dev/null || true
+	@echo "✅ Comptes mail supprimés. Vous restez connecté ; rechargez la page Mail (ou l'app) puis ajoutez votre boîte à nouveau."
 
 setup-infra-only: ## Démarre uniquement Postgres + Redis
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis

@@ -40,16 +40,20 @@
 | **auth-service** | API (Go) | `go test ./...` | `backend/auth-service/main_test.go` | 15 |
 | **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 7 |
 | **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
-| **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 4 |
+| **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 8 |
 | **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 4 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
 | **admin-dashboard** | Frontend (Vitest) | `npm run test` | **19 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage (17 tests), DrivePage, api, …) | **79+** |
 
-**Total actuel** : **133 tests** (tous lancés par `make test`).
+**Total actuel** : **137+ tests** (tous lancés par `make test` ; mail-directory-service : 8 tests).
 
 **Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/admin-dashboard` ou **`make test-e2e-playwright`** depuis la racine.
 
 **401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
+
+**« [no test files] »** : Lors de **`go test ./...`**, les sous-packages qui n’ont **aucun** fichier `*_test.go` (ex. `.../cmd`) affichent une ligne du type **`?   github.com/pavel/cloudity/api-gateway/cmd   [no test files]`**. C’est **normal** : Go indique simplement qu’il n’y a pas de tests dans ce package. Ces packages ne sont pas comptés dans le nombre de tests ; seuls les packages contenant des `*_test.go` exécutent des tests. Aucune action requise.
+
+**Erreurs proxy lors de `make test` ou `make up-full`** : Les tests de l’**api-gateway** (TestAuthPrefixRouted, TestAdminPrefixRouted, TestPassPrefixRouted, TestMailPrefixRouted) lancent un **vrai** serveur gateway qui **proxye** les requêtes vers auth-service, admin-service, password-manager, mail-directory-service. Ces tests s’exécutent **sur la machine hôte** (pas dans Docker). Les noms d’hôte `auth-service`, `admin-service`, `password-manager`, `mail-directory-service` n’existent que dans le **réseau Docker**, donc le gateway obtient par exemple **`http: proxy error: dial tcp: lookup auth-service: no such host`**. Les tests **passent quand même** (PASS) car ils vérifient que le gateway **route** correctement et répond (routage, CORS, méthode), pas que le backend distant soit joignable. Pour éviter ces messages en local, on peut lancer les tests **dans** les conteneurs : **`make test-docker`** (après **`make up`**).
 
 ---
 
@@ -62,7 +66,7 @@
 | **auth-service/main_test.go** | Health ; hash mot de passe (Argon2id/bcrypt) ; JWT generate/parse ; register ; login succès/échec ; validate token ; refresh ; 2FA enable/verify (**verify avec code invalide → 401**) ; **loadRSAKeys écrit public.pem quand clé générée en dev**. |
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
-| **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide → 401. |
+| **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401. |
 | **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
@@ -84,6 +88,8 @@
 | **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
 | **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
 | **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
+| **src/pages/app/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
+| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N). |
 | **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
 | **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
 | **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
@@ -96,6 +102,8 @@
 | **src/layouts/AppLayout.test.tsx** | **getAppBreadcrumb** : sur l’éditeur renvoie « Tableau de bord > Drive » (pas Office ni Éditeur) ; sur /app/drive et /app. |
 | **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
+
+**Comportement Mail (actualisation et notifications)** : à chaque ouverture de la boîte mail (ou changement de compte), un **sync IMAP** est lancé puis la liste des messages est rafraîchie ; un **polling** toutes les 60 s refait un sync et affiche une notification en cas de nouveaux messages ; au **retour sur l’onglet** (visibility), un sync est lancé (throttle 30 s) avec notification si nouveaux messages. Les tests unitaires **MailPage.test.tsx** vérifient le sync à l’ouverture et l’appel à la notification.
 
 ### 3.4 E2E — scripts/test-e2e.sh
 
@@ -211,6 +219,11 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 **Rapport et résumé**
 
 - [ ] S’assurer que **`make tests`** affiche bien le résumé (Unit/App, E2E, E2E Playwright, Sécurité) et le chemin du rapport ; en cas de vulnérabilités, message clair en console.
+
+**Mail — récupération et frontend (STATUS.md § 1c)**
+
+- [ ] **API mail-directory-service** : test (ou scénario manuel) sync IMAP avec un fournisseur type OVH (ssl0.ovh.net) ; message d’erreur clair si identifiants invalides.
+- [ ] **Frontend MailPage** : tests unitaires (liste comptes, liste messages, bouton sync, formulaire envoi) ; E2E : ajouter une boîte (mock ou compte test), sync, affichage messages.
 
 ---
 

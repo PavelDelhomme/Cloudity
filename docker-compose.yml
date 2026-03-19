@@ -354,6 +354,35 @@ services:
     networks:
       - cloudity-network
 
+  # Contacts — carnet d'adresses (type Google Contacts), liaison Mail
+  contacts-service:
+    build:
+      context: ./backend/contacts-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-contacts-service
+    restart: unless-stopped
+    ports:
+      - "6056:8056"
+    environment:
+      - PORT=8056
+      - GIN_MODE=release
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/contacts-service:/app:cached
+      - go_mod_cache_contacts:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8056/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - cloudity-network
+
   admin-dashboard:
     build:
       context: ./frontend/admin-dashboard
@@ -458,3 +487,6 @@ volumes:
   go_mod_cache_drive:
     driver: local
     name: cloudity-go-mod-cache-drive
+  go_mod_cache_contacts:
+    driver: local
+    name: cloudity-go-mod-cache-contacts

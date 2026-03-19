@@ -21,7 +21,7 @@ test.describe('Hub (E2E)', () => {
   test('clic sur Office ouvre la page Office', async ({ page }) => {
     await page.getByRole('link', { name: 'Office' }).first().click()
     await expect(page).toHaveURL(/\/app\/office/)
-    await expect(page.getByRole('heading', { name: /suite office|office/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Documents.*Fichiers|Office/i })).toBeVisible()
   })
 
   test('hub affiche les liens Pass, Mail et Corbeille', async ({ page }) => {

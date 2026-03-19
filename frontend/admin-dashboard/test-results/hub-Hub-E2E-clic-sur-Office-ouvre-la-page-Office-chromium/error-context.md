@@ -1,0 +1,161 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - button "Afficher le menu de navigation" [ref=e6] [cursor=pointer]:
+      - img [ref=e7]
+  - main [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - button "Afficher le menu" [ref=e11] [cursor=pointer]:
+          - img [ref=e12]
+        - navigation "Fil d'Ariane" [ref=e13]:
+          - link "Tableau de bord" [ref=e15] [cursor=pointer]:
+            - /url: /app
+          - generic [ref=e16]:
+            - img [ref=e17]
+            - link "Office" [ref=e19] [cursor=pointer]:
+              - /url: /app/office
+      - button "Notifications" [ref=e21] [cursor=pointer]:
+        - img [ref=e22]
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - heading "Documents & Fichiers" [level=1] [ref=e29]
+          - paragraph [ref=e30]: Créez et modifiez des documents, tableurs et présentations. Enregistrement direct en .docx, .xlsx et vue diapos.
+        - link "Nouveau dossier" [ref=e32] [cursor=pointer]:
+          - /url: /app/drive
+          - img [ref=e33]
+          - text: Nouveau dossier
+      - generic [ref=e35]:
+        - button "Nouveau document Document Word — enregistrement .docx" [ref=e36] [cursor=pointer]:
+          - img [ref=e38]
+          - generic [ref=e41]: Nouveau document
+          - generic [ref=e42]: Document Word — enregistrement .docx
+        - button "Nouveau tableur Grille type Excel — export .xlsx" [ref=e43] [cursor=pointer]:
+          - img [ref=e45]
+          - generic [ref=e47]: Nouveau tableur
+          - generic [ref=e48]: Grille type Excel — export .xlsx
+        - button "Nouvelle présentation Diapos — vue présentation" [ref=e49] [cursor=pointer]:
+          - img [ref=e51]
+          - generic [ref=e54]: Nouvelle présentation
+          - generic [ref=e55]: Diapos — vue présentation
+      - generic [ref=e56]:
+        - heading "Récemment modifiés" [level=2] [ref=e57]:
+          - img [ref=e58]
+          - text: Récemment modifiés
+        - generic [ref=e61]:
+          - link "Sans titre.docx Document Word Modifié 10 mars · 8,3 Ko" [ref=e62] [cursor=pointer]:
+            - /url: /app/office/editor/779
+            - img [ref=e64]
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: Sans titre.docx
+              - paragraph [ref=e69]: Document Word
+              - paragraph [ref=e70]: Modifié 10 mars · 8,3 Ko
+          - link "Sans titre (1).html Document Modifié 2 mars" [ref=e71] [cursor=pointer]:
+            - /url: /app/office/editor/717
+            - img [ref=e73]
+            - generic [ref=e76]:
+              - paragraph [ref=e77]: Sans titre (1).html
+              - paragraph [ref=e78]: Document
+              - paragraph [ref=e79]: Modifié 2 mars
+          - link "Sans titre.html Document Modifié 27 févr. · 10,0 o" [ref=e80] [cursor=pointer]:
+            - /url: /app/office/editor/674
+            - img [ref=e82]
+            - generic [ref=e85]:
+              - paragraph [ref=e86]: Sans titre.html
+              - paragraph [ref=e87]: Document
+              - paragraph [ref=e88]: Modifié 27 févr. · 10,0 o
+          - link "Sans titre (9).html Document Modifié 27 févr." [ref=e89] [cursor=pointer]:
+            - /url: /app/office/editor/77
+            - img [ref=e91]
+            - generic [ref=e94]:
+              - paragraph [ref=e95]: Sans titre (9).html
+              - paragraph [ref=e96]: Document
+              - paragraph [ref=e97]: Modifié 27 févr.
+          - link "Sans titre (8).html Document Modifié 27 févr." [ref=e98] [cursor=pointer]:
+            - /url: /app/office/editor/64
+            - img [ref=e100]
+            - generic [ref=e103]:
+              - paragraph [ref=e104]: Sans titre (8).html
+              - paragraph [ref=e105]: Document
+              - paragraph [ref=e106]: Modifié 27 févr.
+          - link "Sans titre (7).html Document Modifié 27 févr." [ref=e107] [cursor=pointer]:
+            - /url: /app/office/editor/55
+            - img [ref=e109]
+            - generic [ref=e112]:
+              - paragraph [ref=e113]: Sans titre (7).html
+              - paragraph [ref=e114]: Document
+              - paragraph [ref=e115]: Modifié 27 févr.
+          - link "test-file.txt Fichier Modifié 27 févr. · 22,0 o" [ref=e116] [cursor=pointer]:
+            - /url: /app/office/editor/47
+            - img [ref=e118]
+            - generic [ref=e121]:
+              - paragraph [ref=e122]: test-file.txt
+              - paragraph [ref=e123]: Fichier
+              - paragraph [ref=e124]: Modifié 27 févr. · 22,0 o
+          - link "Sans titre (6).html Document Modifié 27 févr." [ref=e125] [cursor=pointer]:
+            - /url: /app/office/editor/46
+            - img [ref=e127]
+            - generic [ref=e130]:
+              - paragraph [ref=e131]: Sans titre (6).html
+              - paragraph [ref=e132]: Document
+              - paragraph [ref=e133]: Modifié 27 févr.
+          - link "Sans titre (5).html Document Modifié 27 févr." [ref=e134] [cursor=pointer]:
+            - /url: /app/office/editor/39
+            - img [ref=e136]
+            - generic [ref=e139]:
+              - paragraph [ref=e140]: Sans titre (5).html
+              - paragraph [ref=e141]: Document
+              - paragraph [ref=e142]: Modifié 27 févr.
+          - link "Sans titre (4).html Document Modifié 27 févr." [ref=e143] [cursor=pointer]:
+            - /url: /app/office/editor/33
+            - img [ref=e145]
+            - generic [ref=e148]:
+              - paragraph [ref=e149]: Sans titre (4).html
+              - paragraph [ref=e150]: Document
+              - paragraph [ref=e151]: Modifié 27 févr.
+          - link "Sans titre (3).html Document Modifié 27 févr." [ref=e152] [cursor=pointer]:
+            - /url: /app/office/editor/28
+            - img [ref=e154]
+            - generic [ref=e157]:
+              - paragraph [ref=e158]: Sans titre (3).html
+              - paragraph [ref=e159]: Document
+              - paragraph [ref=e160]: Modifié 27 févr.
+          - link "Cursor-2.5.22-x86_64.AppImage Fichier Modifié 27 févr. · 282,4 Mo" [ref=e161] [cursor=pointer]:
+            - /url: /app/drive
+            - img [ref=e163]
+            - generic [ref=e166]:
+              - paragraph [ref=e167]: Cursor-2.5.22-x86_64.AppImage
+              - paragraph [ref=e168]: Fichier
+              - paragraph [ref=e169]: Modifié 27 févr. · 282,4 Mo
+          - link "Buy Any Building.zip Fichier Modifié 27 févr. · 40,5 Ko" [ref=e170] [cursor=pointer]:
+            - /url: /app/drive
+            - img [ref=e172]
+            - generic [ref=e175]:
+              - paragraph [ref=e176]: Buy Any Building.zip
+              - paragraph [ref=e177]: Fichier
+              - paragraph [ref=e178]: Modifié 27 févr. · 40,5 Ko
+          - link "60fc0779-abf5-4310-ab0e-f36346a3dd64.webp Fichier Modifié 27 févr. · 66,8 Ko" [ref=e179] [cursor=pointer]:
+            - /url: /app/drive
+            - img [ref=e181]
+            - generic [ref=e184]:
+              - paragraph [ref=e185]: 60fc0779-abf5-4310-ab0e-f36346a3dd64.webp
+              - paragraph [ref=e186]: Fichier
+              - paragraph [ref=e187]: Modifié 27 févr. · 66,8 Ko
+          - link "3290232938.zip Fichier Modifié 27 févr. · 74,9 Ko" [ref=e188] [cursor=pointer]:
+            - /url: /app/drive
+            - img [ref=e190]
+            - generic [ref=e193]:
+              - paragraph [ref=e194]: 3290232938.zip
+              - paragraph [ref=e195]: Fichier
+              - paragraph [ref=e196]: Modifié 27 févr. · 74,9 Ko
+      - generic [ref=e197]:
+        - paragraph [ref=e198]: "Documents : enregistrement direct en .docx. Tableurs : grille éditable et export .xlsx. Présentations : éditeur riche et vue diapos (séparateurs par titre ou ligne horizontale)."
+        - paragraph [ref=e199]:
+          - text: Ouvrir un fichier depuis le
+          - link "Drive" [ref=e200] [cursor=pointer]:
+            - /url: /app/drive
+          - text: .
+```

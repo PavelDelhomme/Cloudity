@@ -34,21 +34,27 @@ describe('AppHub', () => {
   it('renders hub title and subtitle', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
-    expect(screen.getByText('Choisissez une application pour continuer.')).toBeTruthy()
+    expect(screen.getByText('Choisissez une application par catégorie.')).toBeTruthy()
   })
 
-  it('renders all 10 app cards: Drive, Office, Pass, Mail, Corbeille, Calendar, Notes, Tasks, Contacts, Photos', () => {
+  it('renders category sections and all 10 app links', () => {
     render(wrap(<AppHub />))
-    expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Office' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Pass' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Mail' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Corbeille' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Calendar' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Tasks' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Contacts' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: 'Photos' })).toBeTruthy()
+    expect(screen.getByText('Fichiers')).toBeTruthy()
+    expect(screen.getByText('Communication')).toBeTruthy()
+  })
+
+  it('renders all 10 app buttons: Drive, Office, Pass, Mail, Corbeille, Calendar, Notes, Tasks, Contacts, Photos', () => {
+    render(wrap(<AppHub />))
+    expect(screen.getByRole('link', { name: /Drive/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Office/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Pass/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Mail/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Corbeille/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Calendar/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Notes/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Tasks/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Contacts/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Photos/ })).toBeTruthy()
   })
 
   it('links each app to correct route', () => {
@@ -67,10 +73,4 @@ describe('AppHub', () => {
     expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/photos' }).getAttribute('href')).toBe('/app/photos')
   })
 
-  it('shows coming soon for Office, Contacts, Photos', () => {
-    render(wrap(<AppHub />))
-    expect(screen.getByText(/Documents, tableurs et présentations/)).toBeTruthy()
-    expect(screen.getByText(/Carnet d.adresses.*à venir/i)).toBeTruthy()
-    expect(screen.getByText(/Galerie et stockage photos.*à venir/)).toBeTruthy()
-  })
 })

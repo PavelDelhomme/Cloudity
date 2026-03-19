@@ -72,7 +72,7 @@ describe('App', () => {
       </TestWrapper>
     )
     expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
-    expect(screen.getByText('Choisissez une application pour continuer.')).toBeTruthy()
+    expect(screen.getByText('Choisissez une application par catégorie.')).toBeTruthy()
   })
 
   it('renders Drive page when authenticated at /app/drive', () => {
