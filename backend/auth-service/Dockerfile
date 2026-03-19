@@ -1,5 +1,5 @@
 # Development stage
-FROM golang:1.21-alpine AS dev
+FROM golang:1.24-alpine AS dev
 WORKDIR /app
 RUN apk add --no-cache git
 COPY go.mod go.sum ./
@@ -9,7 +9,7 @@ RUN go install github.com/cosmtrek/air@latest
 CMD ["air", "-c", ".air.toml"]
 
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download

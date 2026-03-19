@@ -511,11 +511,11 @@ check-dockerfiles: ## Vérifie la présence et le contenu des Dockerfiles
 fix-dockerfiles: ## Répare ou crée les Dockerfiles manquants
 	@echo "🔧 Réparation des Dockerfiles..."
 	@if [ ! -s backend/auth-service/Dockerfile.dev ]; then \
-		echo "FROM golang:1.21-alpine\n\nWORKDIR /app\n\nRUN apk add --no-cache git\n\nRUN go install github.com/cosmtrek/air@v1.42.0\n\nCOPY go.mod go.sum ./\nRUN go mod download\n\nCOPY . .\n\nEXPOSE 8081\n\nCMD [\"air\", \"-c\", \".air.toml\"]" > backend/auth-service/Dockerfile.dev; \
+		echo "FROM golang:1.24-alpine\n\nWORKDIR /app\n\nRUN apk add --no-cache git\n\nRUN go install github.com/cosmtrek/air@v1.42.0\n\nCOPY go.mod go.sum ./\nRUN go mod download\n\nCOPY . .\n\nEXPOSE 8081\n\nCMD [\"air\", \"-c\", \".air.toml\"]" > backend/auth-service/Dockerfile.dev; \
 		echo "✅ backend/auth-service/Dockerfile.dev créé"; \
 	fi
 	@if [ ! -s backend/api-gateway/Dockerfile.dev ]; then \
-		echo "FROM golang:1.21-alpine\n\nWORKDIR /app\n\nRUN apk add --no-cache git\n\nRUN go install github.com/cosmtrek/air@v1.42.0\n\nCOPY go.mod go.sum ./\nRUN go mod download\n\nCOPY . .\n\nEXPOSE 8000\n\nCMD [\"air\", \"-c\", \".air.toml\"]" > backend/api-gateway/Dockerfile.dev; \
+		echo "FROM golang:1.24-alpine\n\nWORKDIR /app\n\nRUN apk add --no-cache git\n\nRUN go install github.com/cosmtrek/air@v1.42.0\n\nCOPY go.mod go.sum ./\nRUN go mod download\n\nCOPY . .\n\nEXPOSE 8000\n\nCMD [\"air\", \"-c\", \".air.toml\"]" > backend/api-gateway/Dockerfile.dev; \
 		echo "✅ backend/api-gateway/Dockerfile.dev créé"; \
 	fi
 	@if [ ! -s backend/admin-service/Dockerfile.dev ]; then \

@@ -69,9 +69,10 @@
 
 ### 6. Mail — suite
 
-- **Objectif** : finaliser l’expérience mail (affichage Envoyés/Brouillons/Spam déjà en BDD), puis éditeur riche et envoi programmé.
+- **Objectif** : finaliser l’expérience mail (affichage Envoyés/Brouillons/Spam/Corbeille déjà en BDD), puis éditeur riche et envoi programmé.
+- **Fait** : Dossiers dont Corbeille ; **menu d’actions** par message (bouton « Plus » + **clic droit**) : Déplacer vers la corbeille, Signaler comme spam, Remettre en boîte de réception selon le dossier ; **expéditeurs des mails reçus** : à l’ouverture d’un message, l’expéditeur est ajouté aux destinataires récents et sera proposé dans le champ À du compose.
 - **Pistes** :
-  - Affichage des dossiers Envoyés, Brouillons, Spam (données déjà synchronisées en BDD).
+  - **Notifications push** : à prévoir (notifications navigateur ou PWA quand un nouveau mail arrive).
   - **Éditeur riche** pour le corps du message (formatage type Gmail).
   - **Envoi programmé** (date/heure d’envoi).
   - Partage de fichiers Drive depuis le compose (liens ou pièces jointes), en cohérence avec la liaison Contacts / Événements.

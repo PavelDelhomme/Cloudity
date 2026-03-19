@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2 } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -103,9 +103,19 @@ function getRecentRecipients(): string[] {
 }
 
 function addRecentRecipient(email: string) {
-  const recent = getRecentRecipients().filter((e) => e.toLowerCase() !== email.toLowerCase())
-  recent.unshift(email)
+  const e = email.trim()
+  if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return
+  const recent = getRecentRecipients().filter((r) => r.toLowerCase() !== e.toLowerCase())
+  recent.unshift(e)
   localStorage.setItem(STORAGE_RECENT_RECIPIENTS, JSON.stringify(recent.slice(0, 20)))
+}
+
+/** Extrait l'adresse email depuis "Name <email>" ou renvoie la chaîne si déjà une adresse. */
+function extractEmailFromSender(from: string | undefined): string | null {
+  if (!from?.trim()) return null
+  const m = /<([^>]+)>/.exec(from)
+  const email = m ? m[1].trim() : from.trim()
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null
 }
 
 function formatMessageDate(dateAt: string | undefined): string {
@@ -152,6 +162,8 @@ export default function MailPage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getSidebarCollapsed)
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
   const [mailSignature, setMailSignature] = useState(getMailSignature())
+  const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null)
+  const [contextMenuMessage, setContextMenuMessage] = useState<{ id: number; x: number; y: number } | null>(null)
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -275,6 +287,22 @@ export default function MailPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [effectiveAccountId, accessToken, queryClient, refetchMessages, notifications])
+
+  useEffect(() => {
+    if (!messageMenuOpenId && !contextMenuMessage) return
+    const close = () => {
+      setMessageMenuOpenId(null)
+      setContextMenuMessage(null)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    document.addEventListener('keydown', onKey)
+    const t = window.setTimeout(() => document.addEventListener('click', close, true), 0)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      clearTimeout(t)
+      document.removeEventListener('click', close, true)
+    }
+  }, [messageMenuOpenId, contextMenuMessage])
 
   const activeSlot = composeSlots.find((s) => s.id === activeComposeId) ?? composeSlots[composeSlots.length - 1] ?? null
 
@@ -479,6 +507,8 @@ export default function MailPage() {
   const handleSelectMessage = useCallback(
     (msg: MailMessageResponse) => {
       setSelectedMessageId(msg.id)
+      const senderEmail = extractEmailFromSender(msg.from)
+      if (senderEmail) addRecentRecipient(senderEmail)
       if (!msg.is_read && accessToken && effectiveAccountId) {
         markMailMessageRead(accessToken, effectiveAccountId, msg.id, true)
           .then(() => queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] }))
@@ -789,7 +819,12 @@ export default function MailPage() {
                           tabIndex={0}
                           onClick={() => handleSelectMessage(msg)}
                           onKeyDown={(e) => e.key === 'Enter' && handleSelectMessage(msg)}
-                          className={`px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            setMessageMenuOpenId(null)
+                            setContextMenuMessage({ id: msg.id, x: e.clientX, y: e.clientY })
+                          }}
+                          className={`relative px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-2 min-w-0">
                             <p className={`truncate flex-1 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
@@ -803,6 +838,37 @@ export default function MailPage() {
                               De : {msg.from || '(inconnu)'}
                             </p>
                             <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setMessageMenuOpenId((prev) => (prev === msg.id ? null : msg.id)) }}
+                                className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-600"
+                                title="Actions"
+                                aria-label="Actions sur le message"
+                                aria-expanded={messageMenuOpenId === msg.id}
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </button>
+                              {messageMenuOpenId === msg.id && (
+                                <div className="absolute right-2 mt-1 z-50 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg py-1 min-w-[200px]" role="menu">
+                                  {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
+                                    <>
+                                      <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'trash'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+                                        <Trash2 className="h-4 w-4 shrink-0" /> Déplacer vers la corbeille
+                                      </button>
+                                      {activeFolder === 'inbox' && (
+                                        <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'spam'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+                                          <AlertTriangle className="h-4 w-4 shrink-0" /> Signaler comme spam
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                  {(activeFolder === 'spam' || activeFolder === 'trash') && (
+                                    <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'inbox'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+                                      <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                               {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
                                 <>
                                   <button
@@ -1148,6 +1214,33 @@ export default function MailPage() {
           )}
         </div>
       ))}
+
+      {contextMenuMessage && (
+        <div
+          className="fixed z-[100] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1 min-w-[200px]"
+          style={{ left: contextMenuMessage.x, top: contextMenuMessage.y }}
+          role="menu"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
+            <>
+              <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'trash'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+                <Trash2 className="h-4 w-4 shrink-0" /> Déplacer vers la corbeille
+              </button>
+              {activeFolder === 'inbox' && (
+                <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'spam'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+                  <AlertTriangle className="h-4 w-4 shrink-0" /> Signaler comme spam
+                </button>
+              )}
+            </>
+          )}
+          {(activeFolder === 'spam' || activeFolder === 'trash') && (
+            <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'inbox'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
+              <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
+            </button>
+          )}
+        </div>
+      )}
 
       {showSyncModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
