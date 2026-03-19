@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, Edit2, MailOpen } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -27,6 +27,12 @@ import {
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
 const STORAGE_SIDEBAR_COLLAPSED = 'cloudity_mail_sidebar_collapsed'
+const STORAGE_SIDEBAR_WIDTH_PX = 'cloudity_mail_sidebar_width_px'
+const STORAGE_LIST_SPLIT_PCT = 'cloudity_mail_list_split_pct'
+const MAIL_SIDEBAR_MIN_PX = 200
+const MAIL_SIDEBAR_MAX_PX = 560
+const MAIL_LIST_PREVIEW_MIN_PCT = 12
+const MAIL_LIST_PREVIEW_MAX_PCT = 88
 const STORAGE_DRAFT_PREFIX = 'cloudity_mail_draft_'
 const MESSAGES_PAGE_SIZE = 25
 
@@ -49,6 +55,48 @@ function getSidebarCollapsed(): boolean {
     return localStorage.getItem(STORAGE_SIDEBAR_COLLAPSED) === '1'
   } catch {
     return false
+  }
+}
+
+function getListSplitPct(): number {
+  try {
+    const n = parseFloat(localStorage.getItem(STORAGE_LIST_SPLIT_PCT) || '')
+    if (!Number.isFinite(n)) return 42
+    return Math.min(MAIL_LIST_PREVIEW_MAX_PCT, Math.max(MAIL_LIST_PREVIEW_MIN_PCT, n))
+  } catch {
+    return 42
+  }
+}
+
+function saveListSplitPct(pct: number): void {
+  try {
+    localStorage.setItem(
+      STORAGE_LIST_SPLIT_PCT,
+      String(Math.round(Math.min(MAIL_LIST_PREVIEW_MAX_PCT, Math.max(MAIL_LIST_PREVIEW_MIN_PCT, pct))))
+    )
+  } catch {
+    /* ignore */
+  }
+}
+
+function getSidebarWidthPx(): number {
+  try {
+    const n = parseInt(localStorage.getItem(STORAGE_SIDEBAR_WIDTH_PX) || '', 10)
+    if (!Number.isFinite(n)) return 268
+    return Math.min(MAIL_SIDEBAR_MAX_PX, Math.max(MAIL_SIDEBAR_MIN_PX, n))
+  } catch {
+    return 268
+  }
+}
+
+function saveSidebarWidthPx(w: number): void {
+  try {
+    localStorage.setItem(
+      STORAGE_SIDEBAR_WIDTH_PX,
+      String(Math.round(Math.min(MAIL_SIDEBAR_MAX_PX, Math.max(MAIL_SIDEBAR_MIN_PX, w))))
+    )
+  } catch {
+    /* ignore */
   }
 }
 
@@ -161,6 +209,17 @@ export default function MailPage() {
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null)
   const [showMailSettings, setShowMailSettings] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getSidebarCollapsed)
+  const [sidebarWidthPx, setSidebarWidthPx] = useState(getSidebarWidthPx)
+  const [listSplitPct, setListSplitPct] = useState(getListSplitPct)
+  const listPreviewSplitRef = useRef<HTMLDivElement | null>(null)
+  const listSplitPctRef = useRef(listSplitPct)
+  const sidebarWidthPxRef = useRef(sidebarWidthPx)
+  useEffect(() => {
+    listSplitPctRef.current = listSplitPct
+  }, [listSplitPct])
+  useEffect(() => {
+    sidebarWidthPxRef.current = sidebarWidthPx
+  }, [sidebarWidthPx])
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
   const [mailSignature, setMailSignature] = useState(getMailSignature())
   const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null)
@@ -207,10 +266,19 @@ export default function MailPage() {
   const lastSyncAtRef = useRef<number>(0)
   const MAIL_SYNC_THROTTLE_MS = 30_000
 
-  const { data: selectedMessageDetail, isLoading: selectedMessageLoading } = useQuery({
+  const {
+    data: selectedMessageDetail,
+    isPending: selectedMessagePending,
+    isFetching: selectedMessageFetching,
+    isError: selectedMessageError,
+    error: selectedMessageErrorDetail,
+    refetch: refetchSelectedMessageDetail,
+  } = useQuery({
     queryKey: ['mail', 'message', effectiveAccountId, selectedMessageId],
     queryFn: () => fetchMailMessage(accessToken!, effectiveAccountId!, selectedMessageId!),
     enabled: !!accessToken && effectiveAccountId != null && selectedMessageId != null,
+    retry: 8,
+    retryDelay: (attempt) => Math.min(12_000, 400 * 2 ** attempt),
   })
 
   const { data: driveNodes = [], isLoading: driveNodesLoading } = useQuery({
@@ -539,6 +607,15 @@ export default function MailPage() {
     else selectAllMessagesOnPage()
   }, [allMessagesSelectedOnPage, clearMessageSelection, selectAllMessagesOnPage])
 
+  const handleInvertSelectionOnPage = useCallback(() => {
+    if (messages.length === 0) return
+    const pageIds = messages.map((m) => m.id)
+    setSelectedMessageIds((prev) => {
+      const prevSet = new Set(prev)
+      return pageIds.filter((id) => !prevSet.has(id))
+    })
+  }, [messages])
+
   const handleBulkMove = useCallback(
     async (folder: MailFolderId) => {
       if (!effectiveAccountId || !accessToken || selectedMessageIds.length === 0) return
@@ -692,6 +769,65 @@ export default function MailPage() {
       return next
     })
   }, [])
+
+  const handleListPreviewResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 && e.pointerType !== 'touch') return
+    e.preventDefault()
+    const el = e.currentTarget
+    const container = listPreviewSplitRef.current
+    if (!container) return
+    el.setPointerCapture(e.pointerId)
+    const rect = container.getBoundingClientRect()
+    const startX = e.clientX
+    const startPct = listSplitPctRef.current
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      const dx = ev.clientX - startX
+      const deltaPct = rect.width > 0 ? (dx / rect.width) * 100 : 0
+      const next = Math.min(MAIL_LIST_PREVIEW_MAX_PCT, Math.max(MAIL_LIST_PREVIEW_MIN_PCT, startPct + deltaPct))
+      setListSplitPct(next)
+      listSplitPctRef.current = next
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      el.releasePointerCapture(e.pointerId)
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      el.removeEventListener('pointercancel', onUp)
+      saveListSplitPct(listSplitPctRef.current)
+    }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+    el.addEventListener('pointercancel', onUp)
+  }, [])
+
+  const handleSidebarResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (sidebarCollapsed) return
+    if (e.button !== 0 && e.pointerType !== 'touch') return
+    e.preventDefault()
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const startW = sidebarWidthPxRef.current
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      const dx = ev.clientX - startX
+      const next = Math.min(MAIL_SIDEBAR_MAX_PX, Math.max(MAIL_SIDEBAR_MIN_PX, startW + dx))
+      setSidebarWidthPx(next)
+      sidebarWidthPxRef.current = next
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      el.releasePointerCapture(e.pointerId)
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      el.removeEventListener('pointercancel', onUp)
+      saveSidebarWidthPx(sidebarWidthPxRef.current)
+    }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+    el.addEventListener('pointercancel', onUp)
+  }, [sidebarCollapsed])
 
   const handleReply = useCallback(() => {
     if (!selectedMessageDetail) return
@@ -871,17 +1007,30 @@ export default function MailPage() {
       )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[480px]">
-        <div className="grid grid-cols-1 md:grid-cols-12 flex-1 min-h-0 min-w-0">
-          <aside className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 min-w-0 overflow-y-auto transition-all duration-200 ${sidebarCollapsed ? 'md:col-span-1 p-2' : 'md:col-span-3 p-3'} gap-2`}>
+        <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
+          <aside
+            className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 overflow-y-auto transition-[width] duration-150 ease-out gap-2 shrink-0 ${
+              sidebarCollapsed ? 'md:w-14 md:min-w-14 md:max-w-14 p-2' : 'p-3'
+            }`}
+            style={
+              sidebarCollapsed
+                ? undefined
+                : {
+                    width: sidebarWidthPx,
+                    minWidth: MAIL_SIDEBAR_MIN_PX,
+                    maxWidth: MAIL_SIDEBAR_MAX_PX,
+                  }
+            }
+          >
             <div className={sidebarCollapsed ? 'flex flex-col items-center gap-1' : ''}>
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Boîtes mail</p>}
               <div className={`flex flex-col gap-1.5 ${sidebarCollapsed ? 'items-center' : ''}`}>
               {accounts.map((acc) => (
-                <div key={acc.id} className={`flex items-center rounded-lg group ${sidebarCollapsed ? 'flex-col w-full' : 'gap-1'}`}>
+                <div key={acc.id} className={`flex items-center rounded-lg ${sidebarCollapsed ? 'flex-col w-full' : ''}`}>
                   <button
                     type="button"
                     onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox') }}
-                    className={`rounded-lg text-sm font-medium truncate transition-colors ${sidebarCollapsed ? 'p-2 w-full flex justify-center' : 'flex-1 min-w-0 text-left px-3 py-2'} ${
+                    className={`rounded-lg text-sm font-medium truncate transition-colors w-full ${sidebarCollapsed ? 'p-2 flex justify-center' : 'text-left px-3 py-2'} ${
                       effectiveAccountId === acc.id
                         ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
@@ -890,35 +1039,6 @@ export default function MailPage() {
                   >
                     {sidebarCollapsed ? <Mail className="h-5 w-5 mx-auto" /> : (acc.label || acc.email)}
                   </button>
-                  {!sidebarCollapsed && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => openEditAccountModal(acc.id)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 shrink-0"
-                        title="Modifier la boîte (mot de passe, serveurs IMAP/SMTP)"
-                        aria-label="Modifier la boîte mail"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => { setSyncAccountId(acc.id); setSyncPassword(''); setShowSyncModal(true) }}
-                        className="p-2 rounded-lg text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-600 shrink-0"
-                        title="Synchroniser"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDisconnectAccount(acc.id, acc.email)}
-                        className="p-2 rounded-lg text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-600 shrink-0"
-                        title="Déconnecter"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
                 </div>
               ))}
               </div>
@@ -941,7 +1061,7 @@ export default function MailPage() {
               ))}
               {!sidebarCollapsed && (
                 <p className="px-2 mt-2 text-[10px] text-slate-400 dark:text-slate-500">
-                  Dossiers de la boîte sélectionnée. Déplacement à venir.
+                  Libellé, synchro avancée et retrait d’une boîte : icône Paramètres en haut.
                 </p>
               )}
             </div>
@@ -955,7 +1075,19 @@ export default function MailPage() {
               {sidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </button>
           </aside>
-          <div className={`flex flex-col min-h-0 ${sidebarCollapsed ? 'md:col-span-11' : 'md:col-span-9'}`}>
+          {!sidebarCollapsed && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Redimensionner le panneau des boîtes et dossiers"
+              className="hidden md:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
+              onPointerDown={handleSidebarResizePointerDown}
+              title="Glisser pour élargir ou réduire la colonne des dossiers"
+            >
+              <span className="w-px self-stretch bg-slate-300 dark:bg-slate-600" aria-hidden />
+            </div>
+          )}
+          <div className="flex flex-col min-h-0 min-w-0 flex-1 overflow-hidden">
             <div className="border-b border-slate-200 dark:border-slate-600 px-4 py-3 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -981,8 +1113,19 @@ export default function MailPage() {
             <p className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50">
               Cliquez sur « Actualiser » pour récupérer les nouveaux messages du serveur.
             </p>
-            <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
-              <div className={`flex flex-col min-w-0 flex-1 ${selectedMessageId != null ? 'md:max-w-[50%] border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600' : ''}`}>
+            <div ref={listPreviewSplitRef} className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+              <div
+                className={`flex flex-col min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
+                  selectedMessageId != null
+                    ? 'md:w-[var(--mail-list-split-pct)] md:max-w-[92%] md:min-w-[8rem] md:shrink-0 md:flex-none md:border-r'
+                    : 'flex-1'
+                }`}
+                style={
+                  selectedMessageId != null
+                    ? ({ ['--mail-list-split-pct' as string]: `${listSplitPct}%` } as React.CSSProperties)
+                    : undefined
+                }
+              >
                 {messages.length > 0 ? (
                   <>
                     <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20 flex items-center justify-between gap-3">
@@ -996,6 +1139,18 @@ export default function MailPage() {
                         {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
                         {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
                       </button>
+
+                      {selectedMessageIds.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleInvertSelectionOnPage}
+                          disabled={bulkWorking}
+                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                          aria-label="Inverser la sélection (page)"
+                        >
+                          Inverser la sélection
+                        </button>
+                      )}
 
                       {selectedMessageIds.length > 0 && (
                         <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -1231,52 +1386,146 @@ export default function MailPage() {
                 )}
               </div>
               {selectedMessageId != null && (
-                <div className="flex-1 flex flex-col min-w-0 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
-                  {selectedMessageLoading ? (
-                    <div className="flex items-center justify-center flex-1">
-                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-                    </div>
-                  ) : selectedMessageDetail ? (
-                    <>
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-600 shrink-0">
-                        <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate flex-1 pr-2">{selectedMessageDetail.subject || '(Sans objet)'}</h3>
-                        <button type="button" onClick={() => setSelectedMessageId(null)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer">
+                <>
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-valuenow={Math.round(listSplitPct)}
+                    aria-valuemin={MAIL_LIST_PREVIEW_MIN_PCT}
+                    aria-valuemax={MAIL_LIST_PREVIEW_MAX_PCT}
+                    aria-label="Redimensionner la liste des messages et l’aperçu"
+                    className="hidden md:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
+                    onPointerDown={handleListPreviewResizePointerDown}
+                    title="Glisser pour redimensionner la liste et l’aperçu (souris ou doigt)"
+                  >
+                    <span className="w-px self-stretch bg-slate-300 dark:bg-slate-600" aria-hidden />
+                  </div>
+                  <div className="flex-1 flex flex-col min-w-0 border-t md:border-t-0 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                  {selectedMessageError && !selectedMessageDetail ? (
+                    <div className="flex flex-col flex-1 min-h-0 p-4">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate">Impossible d’ouvrir le message</h3>
+                          <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                            Le serveur n’a pas pu charger le corps du message (souvent temporaire). Des réessais automatiques ont lieu — ou clique sur « Réessayer ».
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => setSelectedMessageId(null)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0" aria-label="Fermer">
                           <X className="h-5 w-5" />
                         </button>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shrink-0">
-                        <button type="button" onClick={handleReply} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 shadow-sm" title="Répondre">
-                          <Reply className="h-4 w-4" />
-                          Répondre
+                      <div className="flex-1 overflow-auto min-h-0">
+                        <div className="text-xs text-slate-500 dark:text-slate-400 whitespace-pre-wrap break-words">
+                          {selectedMessageErrorDetail instanceof Error ? selectedMessageErrorDetail.message : String(selectedMessageErrorDetail)}
+                        </div>
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void refetchSelectedMessageDetail()}
+                          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Réessayer
                         </button>
-                        <button type="button" onClick={handleReplyAll} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" title="Répondre à tous">
-                          <Reply className="h-4 w-4" />
-                          Répondre à tous
-                        </button>
-                        <button type="button" onClick={handleForward} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" title="Transférer">
-                          <Forward className="h-4 w-4" />
-                          Transférer
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMessageId(null)}
+                          className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Fermer
                         </button>
                       </div>
-                      <div className="px-4 py-2 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 space-y-0.5">
-                        <p>De : {selectedMessageDetail.from || '(inconnu)'}</p>
-                        <p>À : {selectedMessageDetail.to || '—'}</p>
-                        <p>{selectedMessageDetail.date_at ? new Date(selectedMessageDetail.date_at).toLocaleString('fr-FR') : ''}</p>
+                    </div>
+                  ) : !selectedMessageDetail && (selectedMessagePending || selectedMessageFetching) ? (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-3 p-6 text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {selectedMessageFetching && !selectedMessagePending ? 'Nouvelle tentative de chargement…' : 'Chargement du message…'}
+                      </p>
+                    </div>
+                  ) : selectedMessageDetail ? (
+                    <>
+                      <div className="shrink-0 border-b border-slate-200 dark:border-slate-600 bg-gradient-to-b from-slate-50 to-white dark:from-slate-800/90 dark:to-slate-800">
+                        <div className="flex items-start justify-between gap-3 px-4 py-3 md:px-5">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50 leading-snug">
+                              {selectedMessageDetail.subject || '(Sans objet)'}
+                            </h3>
+                            <div className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+                              <p>
+                                <span className="text-slate-400 dark:text-slate-500 font-medium">De</span>{' '}
+                                <span className="text-slate-800 dark:text-slate-100">{selectedMessageDetail.from || '(inconnu)'}</span>
+                              </p>
+                              <p>
+                                <span className="text-slate-400 dark:text-slate-500 font-medium">À</span>{' '}
+                                <span>{selectedMessageDetail.to || '—'}</span>
+                              </p>
+                              {selectedMessageDetail.date_at ? (
+                                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                                  <MailOpen className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+                                  {new Date(selectedMessageDetail.date_at).toLocaleString('fr-FR', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedMessageId(null)}
+                            className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+                            aria-label="Fermer l’aperçu"
+                          >
+                            Fermer
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 px-4 pb-3 md:px-5">
+                          <button type="button" onClick={handleReply} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 shadow-sm" title="Répondre">
+                            <Reply className="h-4 w-4" />
+                            Répondre
+                          </button>
+                          <button type="button" onClick={handleReplyAll} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" title="Répondre à tous">
+                            <Reply className="h-4 w-4" />
+                            Répondre à tous
+                          </button>
+                          <button type="button" onClick={handleForward} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" title="Transférer">
+                            <Forward className="h-4 w-4" />
+                            Transférer
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex-1 overflow-auto px-4 py-3 text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                        {selectedMessageDetail.body_plain || selectedMessageDetail.body_html ? (
-                          selectedMessageDetail.body_html ? (
-                            <div dangerouslySetInnerHTML={{ __html: selectedMessageDetail.body_html }} />
-                          ) : (
-                            selectedMessageDetail.body_plain
-                          )
-                        ) : (
-                          <p className="text-slate-500 dark:text-slate-400 italic">Corps du message non récupéré. La synchronisation du corps sera disponible dans une prochaine version.</p>
-                        )}
+                      <div className="flex-1 overflow-auto min-h-0 bg-slate-100/60 dark:bg-slate-900/40">
+                        <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-6">
+                          <article className="rounded-xl border border-slate-200/90 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
+                            {selectedMessageDetail.body_plain || selectedMessageDetail.body_html ? (
+                              selectedMessageDetail.body_html ? (
+                                <div
+                                  className="mail-html-body px-5 py-6 md:px-8 md:py-8"
+                                  dangerouslySetInnerHTML={{ __html: selectedMessageDetail.body_html }}
+                                />
+                              ) : (
+                                <div className="px-5 py-6 md:px-8 md:py-8 text-[0.9375rem] leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans">
+                                  {selectedMessageDetail.body_plain}
+                                </div>
+                              )
+                            ) : (
+                              <div className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400 italic">
+                                Corps du message vide pour l’instant. Utilisez « Actualiser » en haut de la liste ou rouvrez le message après synchronisation.
+                              </div>
+                            )}
+                          </article>
+                        </div>
                       </div>
                     </>
                   ) : null}
                 </div>
+                </>
               )}
             </div>
           </div>
@@ -1285,11 +1534,16 @@ export default function MailPage() {
 
       {showMailSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Paramètres Mail</h2>
-            <div className="space-y-4 mb-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col">
+            <div className="px-5 pt-5 pb-3 border-b border-slate-200 dark:border-slate-600 shrink-0">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Paramètres Mail</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Signature, boîtes reliées (renommer, synchro, retirer).</p>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
               <div>
-                <label htmlFor="mail-signature" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Signature (ajoutée en bas de chaque envoi)</label>
+                <label htmlFor="mail-signature" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Signature (ajoutée en bas de chaque envoi)
+                </label>
                 <textarea
                   id="mail-signature"
                   value={mailSignature}
@@ -1302,16 +1556,88 @@ export default function MailPage() {
                   }}
                   placeholder="Ex. : --&#10;Votre nom"
                   rows={3}
-                  className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500 text-sm"
                 />
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Règles, dossiers personnalisés et notifications en arrière-plan à venir.
-              </p>
+
+              <div>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Mes boîtes mail</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                  Renommer, modifier les serveurs / mot de passe, forcer une synchro ou retirer une adresse (action définitive).
+                </p>
+                {accounts.length === 0 ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Aucune boîte reliée.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {accounts.map((acc) => (
+                      <li
+                        key={acc.id}
+                        className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 p-3"
+                      >
+                        <div className="mb-2 min-w-0">
+                          <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{acc.label?.trim() || acc.email}</p>
+                          {acc.label?.trim() ? (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
+                          ) : null}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMailSettings(false)
+                              openEditAccountModal(acc.id)
+                            }}
+                            className="rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
+                          >
+                            Libellé &amp; serveurs…
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMailSettings(false)
+                              setSyncAccountId(acc.id)
+                              setSyncPassword('')
+                              setShowSyncModal(true)
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Synchroniser…
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Retirer la boîte « ${acc.email} » de Cloudity ?\n\nLes messages déjà synchronisés ne seront plus accessibles ici. Cette action est définitive.`
+                                )
+                              ) {
+                                handleDisconnectAccount(acc.id, acc.email)
+                                setShowMailSettings(false)
+                              }
+                            }}
+                            className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/30 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/50"
+                          >
+                            Retirer la boîte
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400">Règles et dossiers personnalisés : à venir.</p>
             </div>
-            <button type="button" onClick={() => setShowMailSettings(false)} className="rounded-lg bg-slate-200 dark:bg-slate-600 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-              Fermer
-            </button>
+            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-600 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowMailSettings(false)}
+                className="rounded-lg bg-slate-200 dark:bg-slate-600 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-500 w-full sm:w-auto"
+              >
+                Fermer
+              </button>
+            </div>
           </div>
         </div>
       )}

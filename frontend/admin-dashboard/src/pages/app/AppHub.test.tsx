@@ -7,10 +7,21 @@ import AppHub from './AppHub'
 import { useAuth } from '../../authContext'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
-
-const queryClient = new QueryClient()
+vi.mock('../../api', () => ({
+  fetchDriveRecentFiles: vi.fn().mockResolvedValue([]),
+  fetchDriveTrash: vi.fn().mockResolvedValue([]),
+  fetchMailAccounts: vi.fn().mockResolvedValue([]),
+  fetchMailMessages: vi.fn().mockResolvedValue({ messages: [], total: 0 }),
+  fetchCalendarEvents: vi.fn().mockResolvedValue([]),
+  fetchNotes: vi.fn().mockResolvedValue([]),
+  fetchTasks: vi.fn().mockResolvedValue([]),
+  fetchContacts: vi.fn().mockResolvedValue([]),
+}))
 
 function wrap(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return (
     <QueryClientProvider client={queryClient}>
       <TestRouter>{ui}</TestRouter>
@@ -34,43 +45,40 @@ describe('AppHub', () => {
   it('renders hub title and subtitle', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
-    expect(screen.getByText('Choisissez une application par catégorie.')).toBeTruthy()
+    expect(screen.getByText(/aperçus des derniers contenus/i)).toBeTruthy()
   })
 
-  it('renders category sections and all 10 app links', () => {
+  it('renders category sections', () => {
     render(wrap(<AppHub />))
     expect(screen.getByText('Fichiers')).toBeTruthy()
     expect(screen.getByText('Communication')).toBeTruthy()
   })
 
-  it('renders all 10 app buttons: Drive, Office, Pass, Mail, Corbeille, Calendar, Notes, Tasks, Contacts, Photos', () => {
+  it('renders all 10 main app links with aria-label', () => {
     render(wrap(<AppHub />))
-    expect(screen.getByRole('link', { name: /Drive/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Office/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Pass/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Mail/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Corbeille/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Calendar/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Notes/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Tasks/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Contacts/ })).toBeTruthy()
-    expect(screen.getByRole('link', { name: /Photos/ })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Drive' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Office' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Pass' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Mail' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Corbeille' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Calendar' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Notes' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Tasks' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Contacts' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Ouvrir Photos' })).toBeTruthy()
   })
 
-  it('links each app to correct route', () => {
+  it('links each main app to correct route', () => {
     render(wrap(<AppHub />))
-    const driveLink = screen.getByRole('link', { name: (content, el) => el.getAttribute('href') === '/app/drive' })
-    const officeLink = screen.getByRole('link', { name: (content, el) => el.getAttribute('href') === '/app/office' })
-    expect(driveLink.getAttribute('href')).toBe('/app/drive')
-    expect(officeLink.getAttribute('href')).toBe('/app/office')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/pass' }).getAttribute('href')).toBe('/app/pass')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/mail' }).getAttribute('href')).toBe('/app/mail')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/corbeille' }).getAttribute('href')).toBe('/app/corbeille')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/calendar' }).getAttribute('href')).toBe('/app/calendar')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/notes' }).getAttribute('href')).toBe('/app/notes')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/tasks' }).getAttribute('href')).toBe('/app/tasks')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/contacts' }).getAttribute('href')).toBe('/app/contacts')
-    expect(screen.getByRole('link', { name: (_, el) => el.getAttribute('href') === '/app/photos' }).getAttribute('href')).toBe('/app/photos')
+    expect(screen.getByRole('link', { name: 'Ouvrir Drive' }).getAttribute('href')).toBe('/app/drive')
+    expect(screen.getByRole('link', { name: 'Ouvrir Office' }).getAttribute('href')).toBe('/app/office')
+    expect(screen.getByRole('link', { name: 'Ouvrir Pass' }).getAttribute('href')).toBe('/app/pass')
+    expect(screen.getByRole('link', { name: 'Ouvrir Mail' }).getAttribute('href')).toBe('/app/mail')
+    expect(screen.getByRole('link', { name: 'Ouvrir Corbeille' }).getAttribute('href')).toBe('/app/corbeille')
+    expect(screen.getByRole('link', { name: 'Ouvrir Calendar' }).getAttribute('href')).toBe('/app/calendar')
+    expect(screen.getByRole('link', { name: 'Ouvrir Notes' }).getAttribute('href')).toBe('/app/notes')
+    expect(screen.getByRole('link', { name: 'Ouvrir Tasks' }).getAttribute('href')).toBe('/app/tasks')
+    expect(screen.getByRole('link', { name: 'Ouvrir Contacts' }).getAttribute('href')).toBe('/app/contacts')
+    expect(screen.getByRole('link', { name: 'Ouvrir Photos' }).getAttribute('href')).toBe('/app/photos')
   })
-
 })

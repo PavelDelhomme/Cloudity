@@ -25,3 +25,82 @@
     text-decoration: underline;
   }
 }
+
+/*
+ * Aperçu des e-mails HTML (contenu injecté).
+ * Les newsletters utilisent surtout des <table> sans bordure pour la mise en page :
+ * ne pas ajouter de grille sur td/th — ça faussait complètement le rendu.
+ */
+@layer components {
+  .mail-html-body {
+    @apply text-[0.9375rem] leading-relaxed text-slate-800 dark:text-slate-200;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  .mail-html-body img,
+  .mail-html-body svg {
+    max-width: 100%;
+    height: auto;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  /* Tableaux layout (majorité des mails) : pas de lignes visibles par défaut */
+  .mail-html-body table {
+    max-width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    mso-table-lspace: 0pt;
+    mso-table-rspace: 0pt;
+  }
+  .mail-html-body td,
+  .mail-html-body th {
+    border: none;
+    vertical-align: top;
+    /* padding/polices viennent souvent des styles inline de l’expéditeur */
+  }
+  /* Tableaux explicitement bordés (border="1" ou >0) */
+  .mail-html-body table[border]:not([border="0"]):not([border=""]) td,
+  .mail-html-body table[border]:not([border="0"]):not([border=""]) th {
+    @apply border border-slate-300 dark:border-slate-500 px-2 py-1.5 text-sm;
+  }
+  .mail-html-body a {
+    @apply text-brand-600 dark:text-brand-400 underline decoration-brand-500/40 underline-offset-2;
+  }
+  .mail-html-body blockquote {
+    @apply border-l-4 border-slate-300 dark:border-slate-600 pl-4 my-3 text-slate-600 dark:text-slate-300 italic;
+  }
+  .mail-html-body pre {
+    @apply whitespace-pre-wrap break-words text-sm bg-slate-100 dark:bg-slate-800/80 rounded-lg p-3 overflow-x-auto my-3;
+  }
+  .mail-html-body h1,
+  .mail-html-body h2,
+  .mail-html-body h3 {
+    @apply font-semibold text-slate-900 dark:text-slate-100 mt-4 mb-2 first:mt-0;
+  }
+  .mail-html-body h1 {
+    @apply text-xl;
+  }
+  .mail-html-body h2 {
+    @apply text-lg;
+  }
+  .mail-html-body h3 {
+    @apply text-base;
+  }
+  .mail-html-body ul,
+  .mail-html-body ol {
+    @apply my-2 pl-6;
+  }
+  /* Paragraphes : éviter les gros trous dans les cellules de tableaux */
+  .mail-html-body > p,
+  .mail-html-body > div > p {
+    @apply my-2 first:mt-0 last:mb-0;
+  }
+  .mail-html-body td p,
+  .mail-html-body th p {
+    margin: 0;
+  }
+  .mail-html-body td p + p,
+  .mail-html-body th p + p {
+    margin-top: 0.5em;
+  }
+}

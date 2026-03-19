@@ -933,7 +933,8 @@ export type CalendarEvent = {
 export async function fetchCalendarEvents(token: string): Promise<CalendarEvent[]> {
   const res = await fetch(apiUrl('/calendar/events'), { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Calendar: ${res.status}`)
-  return res.json() as Promise<CalendarEvent[]>
+  const data: unknown = await res.json()
+  return Array.isArray(data) ? (data as CalendarEvent[]) : []
 }
 
 export async function createCalendarEvent(

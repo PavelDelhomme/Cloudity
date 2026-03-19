@@ -10,6 +10,7 @@ import {
   deleteContact,
   type ContactResponse,
 } from '../../api'
+import { recordContactVisit } from '../../lib/hubVisits'
 
 export default function ContactsPage() {
   const { accessToken } = useAuth()
@@ -82,6 +83,7 @@ export default function ContactsPage() {
   }
 
   const startEdit = (c: ContactResponse) => {
+    recordContactVisit(c.id)
     setEditingId(c.id)
     setFormName(c.name)
     setFormEmail(c.email)

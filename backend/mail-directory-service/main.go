@@ -846,18 +846,21 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	if bodyHTML.Valid {
 		m.BodyHTML = bodyHTML.String
 	}
-	// Si le corps n'est pas en base, le récupérer depuis IMAP et le stocker
+	// Si le corps n'est pas en base, le récupérer depuis IMAP et le stocker (échec → 200 avec en-têtes seuls, pas 500)
 	if !bodyPlain.Valid && !bodyHTML.Valid {
-		if plain, html, fetchErr := h.fetchMessageBodyFromIMAP(c, accountID, messageUID, m.Folder); fetchErr == nil {
-			if plain != "" || html != "" {
-				_, _ = h.db.Exec(`
-					UPDATE mail_messages SET body_plain = $1, body_html = $2
-					WHERE id = $3 AND account_id = $4
-					AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-				`, nullStr(plain), nullStr(html), msgID, accountID)
-				m.BodyPlain = plain
-				m.BodyHTML = html
+		plain, html, fetchErr := h.fetchMessageBodyFromIMAP(c, accountID, messageUID, m.Folder)
+		if fetchErr != nil {
+			log.Printf("[mail] corps IMAP message id=%d uid=%d: %v", msgID, messageUID, fetchErr)
+		} else if plain != "" || html != "" {
+			if _, upErr := h.db.Exec(`
+				UPDATE mail_messages SET body_plain = $1, body_html = $2
+				WHERE id = $3 AND account_id = $4
+				AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+			`, nullStr(plain), nullStr(html), msgID, accountID); upErr != nil {
+				log.Printf("[mail] sauvegarde corps message id=%d: %v", msgID, upErr)
 			}
+			m.BodyPlain = plain
+			m.BodyHTML = html
 		}
 	}
 	c.JSON(http.StatusOK, m)
@@ -872,6 +875,11 @@ func nullStr(s string) interface{} {
 
 // fetchMessageBodyFromIMAP récupère le corps (plain + html) d'un message depuis IMAP et le retourne. Utilisé quand le corps n'est pas en base.
 func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messageUID int64, folder string) (plain, html string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("IMAP (corps message): %v", r)
+		}
+	}()
 	userID := c.GetHeader("X-User-ID")
 	if userID == "" {
 		return "", "", fmt.Errorf("X-User-ID required")
@@ -954,12 +962,20 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 	}
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(uint32(messageUID))
-	ch := make(chan *imap.Message, 1)
-	if err := imapClient.UidFetch(seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, ch); err != nil {
-		return "", "", err
+	messages := make(chan *imap.Message, 24)
+	done := make(chan error, 1)
+	go func() {
+		done <- imapClient.UidFetch(seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, messages)
+	}()
+	var msg *imap.Message
+	for m := range messages {
+		if msg == nil && m != nil {
+			msg = m
+		}
 	}
-	msg := <-ch
-	close(ch)
+	if fetchErr := <-done; fetchErr != nil {
+		return "", "", fetchErr
+	}
 	if msg == nil {
 		return "", "", nil
 	}

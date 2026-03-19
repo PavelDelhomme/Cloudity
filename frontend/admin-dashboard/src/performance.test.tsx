@@ -82,8 +82,9 @@ describe('Performance', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const start = performance.now()
     render(wrap(<DrivePage />, client))
-    // Les noms peuvent être rendus via différents nœuds (badges/troncature) : on cherche exactement "Item 1".
-    await screen.findByText((content) => content.trim() === 'Item 1', { timeout: 10_000 })
+    // Évite de dépendre d’un item précis (tri/virtualisation peuvent changer la page visible).
+    // On attend un élément stable du Drive (bouton "Nouveau dossier") pour mesurer le rendu initial.
+    await screen.findByRole('button', { name: 'Nouveau dossier', timeout: 10_000 })
     const elapsed = performance.now() - start
 
     expect(elapsed).toBeLessThan(PERF.PAGE_RENDER_MS)

@@ -194,6 +194,50 @@ describe('MailPage', () => {
     })
   })
 
+  it('permet la sélection inversée (page)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 1,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Sujet 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 2,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Sujet 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+
+    const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
+    fireEvent.click(toggleAllBtn)
+
+    const invertBtn = await screen.findByRole('button', { name: 'Inverser la sélection (page)' })
+    fireEvent.click(invertBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Corbeille en masse' })).toBeNull()
+    })
+  })
+
   it('permet l’archivage en masse (déplacement vers Envoyés)', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
