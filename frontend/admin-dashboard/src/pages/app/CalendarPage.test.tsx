@@ -47,7 +47,7 @@ describe('CalendarPage', () => {
 
   it('en vue Agenda affiche le message vide lorsqu’il n’y a pas d’événements', async () => {
     render(wrap(<CalendarPage />))
-    fireEvent.click(screen.getByRole('button', { name: /Agenda/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Vue agenda (liste)' }))
     await waitFor(() => {
       expect(screen.getByText(/Aucun événement sur la période filtrée/)).toBeTruthy()
     })

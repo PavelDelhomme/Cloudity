@@ -38,4 +38,16 @@ describe('getAppBreadcrumb', () => {
     expect(segments).toHaveLength(1)
     expect(segments[0].label).toBe('Tableau de bord')
   })
+
+  it('sur /app/mail renvoie Tableau de bord > Mail', () => {
+    const segments = getAppBreadcrumb('/app/mail')
+    expect(segments).toHaveLength(2)
+    expect(segments[1]).toEqual({ label: 'Mail', href: '/app/mail' })
+  })
+
+  it('sur /app/calendar renvoie Tableau de bord > Calendar', () => {
+    const segments = getAppBreadcrumb('/app/calendar')
+    expect(segments).toHaveLength(2)
+    expect(segments[1]).toEqual({ label: 'Calendar', href: '/app/calendar' })
+  })
 })

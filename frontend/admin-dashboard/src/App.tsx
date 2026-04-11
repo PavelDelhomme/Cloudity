@@ -100,7 +100,7 @@ export function AppRoutes() {
         <Route
           path="/admin"
           element={
-            <RequireAuth to="/admin">
+            <RequireAuth>
               <AdminLayout />
             </RequireAuth>
           }
@@ -129,8 +129,8 @@ function App() {
         position="top-right"
         toastOptions={{
           className: '!bg-slate-800 !text-white !rounded-xl',
-          success: { iconTheme: { primary: '#34d399' } },
-          error: { iconTheme: { primary: '#f87171' } },
+          success: { iconTheme: { primary: '#34d399', secondary: '#0f172a' } },
+          error: { iconTheme: { primary: '#f87171', secondary: '#0f172a' } },
         }}
       />
     </QueryClientProvider>

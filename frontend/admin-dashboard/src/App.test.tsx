@@ -2,24 +2,26 @@ import React from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { routerFuture } from './test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AppRoutes } from './App'
 
-const queryClient = new QueryClient()
-
-function TestWrapper({ children, initialEntries = ['/'] }: { children: React.ReactNode; initialEntries?: string[] }) {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={initialEntries}>
-        {children}
-      </MemoryRouter>
-    </QueryClientProvider>
-  )
-}
-
 describe('App', () => {
+  let queryClient: QueryClient
+
+  function TestWrapper({ children, initialEntries = ['/'] }: { children: React.ReactNode; initialEntries?: string[] }) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={initialEntries} future={routerFuture}>
+          {children}
+        </MemoryRouter>
+      </QueryClientProvider>
+    )
+  }
+
   beforeEach(() => {
     localStorage.removeItem('cloudity_admin_auth')
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   })
 
   it('smoke test', () => {
@@ -58,7 +60,7 @@ describe('App', () => {
     expect(localStorage.getItem('cloudity_admin_auth')).toBeNull()
   })
 
-  it('renders app hub when authenticated at /app', () => {
+  it('renders app hub when authenticated at /app', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -72,7 +74,11 @@ describe('App', () => {
       </TestWrapper>
     )
     expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
-    expect(screen.getByText('Choisissez une application par catégorie.')).toBeTruthy()
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Choisissez une application par catégorie — aperçus des derniers contenus lorsque c’est possible/)
+      ).toBeTruthy()
+    })
   })
 
   it('renders Drive page when authenticated at /app/drive', () => {
@@ -92,7 +98,7 @@ describe('App', () => {
     expect(screen.getByText('Téléverser')).toBeTruthy()
   })
 
-  it('renders Calendar page when authenticated at /app/calendar', () => {
+  it('renders Calendar page when authenticated at /app/calendar', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -105,8 +111,10 @@ describe('App', () => {
         <AppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy()
-    expect(screen.getByText('Événements et rendez-vous.')).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
+    })
+    expect(screen.getByText(/Vue mois type Google Agenda/)).toBeTruthy()
   })
 
   it('renders Notes page when authenticated at /app/notes', () => {

@@ -1,8 +1,27 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 
+/** Évite le 404 navigateur sur /favicon.ico (réponse identique à nginx en production). */
+function faviconIcoRedirect() {
+  return {
+    name: 'favicon-ico-redirect',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const u = req.url || ''
+        if (u === '/favicon.ico' || u.startsWith('/favicon.ico?')) {
+          res.statusCode = 302
+          res.setHeader('Location', '/favicon.svg')
+          res.end()
+          return
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), faviconIcoRedirect()],
   test: {
     globals: true,
     environment: 'jsdom',

@@ -130,11 +130,7 @@ func (h *Handler) ensureDefaultCalendar(userID, tenantID int) (int, error) {
 	return id, err
 }
 
-func (h *Handler) listCalendars(c *gin.Context) {
-	if h.db == nil {
-		c.JSON(http.StatusOK, []UserCalendar{})
-		return
-	}
+func (h *Handler) loadUserCalendarsList() ([]UserCalendar, error) {
 	rows, err := h.db.Query(`
 		SELECT id, tenant_id, user_id, name, color_hex, sort_order, created_at::text, COALESCE(updated_at::text, '')
 		FROM user_calendars
@@ -142,8 +138,7 @@ func (h *Handler) listCalendars(c *gin.Context) {
 		ORDER BY sort_order ASC, id ASC
 	`)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil, err
 	}
 	defer rows.Close()
 	var list []UserCalendar
@@ -151,14 +146,44 @@ func (h *Handler) listCalendars(c *gin.Context) {
 		var x UserCalendar
 		var uat string
 		if err := rows.Scan(&x.ID, &x.TenantID, &x.UserID, &x.Name, &x.ColorHex, &x.SortOrder, &x.CreatedAt, &uat); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return nil, err
 		}
 		x.UpdatedAt = uat
 		list = append(list, x)
 	}
 	if list == nil {
 		list = []UserCalendar{}
+	}
+	return list, nil
+}
+
+func (h *Handler) listCalendars(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, []UserCalendar{})
+		return
+	}
+	list, err := h.loadUserCalendarsList()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if len(list) == 0 {
+		userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
+		tenantID := 1
+		if t := c.GetHeader("X-Tenant-ID"); t != "" {
+			if tid, err := strconv.Atoi(t); err == nil && tid > 0 {
+				tenantID = tid
+			}
+		}
+		if _, err := h.ensureDefaultCalendar(userID, tenantID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		list, err = h.loadUserCalendarsList()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, list)
 }

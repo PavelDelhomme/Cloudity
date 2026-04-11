@@ -4,7 +4,8 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production
+# Vite, TypeScript et le build sont en devDependencies : il faut installer toutes les deps pour compiler.
+RUN npm ci
 
 COPY . .
 RUN npm run build

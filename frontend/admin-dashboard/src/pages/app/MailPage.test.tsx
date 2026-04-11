@@ -23,6 +23,10 @@ vi.mock('../../api', () => ({
   createMailAccount: vi.fn(),
   deleteMailAccount: vi.fn(),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
+  fetchMailAliases: vi.fn().mockResolvedValue([]),
+  createMailAlias: vi.fn(),
+  deleteMailAlias: vi.fn(),
+  updateMailAccount: vi.fn(),
 }))
 
 function wrap(ui: React.ReactElement) {
@@ -55,6 +59,7 @@ describe('MailPage', () => {
     })
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([])
     vi.mocked(api.fetchMailMessages).mockResolvedValue([])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
     vi.mocked(api.moveMailMessageToFolder).mockClear()
     mockAddNotification.mockClear()
@@ -141,6 +146,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
     expect(await screen.findByText(/Page 1 \/ 2/)).toBeTruthy()
+    expect(screen.getByText(/25 par page/)).toBeTruthy()
   })
 
   it('permet la sélection multiple et le déplacement en corbeille', async () => {
@@ -281,5 +287,87 @@ describe('MailPage', () => {
       expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 10, 'sent')
       expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 11, 'sent')
     })
+  })
+
+  it('affiche les alias sous la boîte sélectionnée et appelle fetchMailAliases', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([
+      { id: 10, account_id: 1, alias_email: 'alias@exemple.fr', label: 'Travail', created_at: new Date().toISOString() },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+
+    render(wrap(<MailPage />))
+
+    await waitFor(() => {
+      expect(api.fetchMailAliases).toHaveBeenCalledWith('token', 1)
+    })
+    expect(await screen.findByRole('button', { name: /alias@exemple\.fr/i })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Toutes les adresses/i })).toBeTruthy()
+  })
+
+  it('affiche l’icône indésirable probable quand spam_score ≥ 52 en boîte de réception', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 1,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'spammer@test.com',
+          to: 'user@test.com',
+          subject: 'Promo',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          spam_score: 60,
+        },
+      ],
+      total: 1,
+    } as any)
+
+    render(wrap(<MailPage />))
+
+    const warn = await screen.findByTitle(/Indésirable probable \(score 60\/100\)/i)
+    expect(warn).toBeTruthy()
+  })
+
+  it('passe à la page suivante des messages et relance fetchMailMessages avec offset', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    const msgs = (offset: number) =>
+      Array.from({ length: 25 }, (_, i) => ({
+        id: offset + i + 1,
+        account_id: 1,
+        folder: 'inbox',
+        from: 'a@test.com',
+        to: 'b@test.com',
+        subject: `Sujet ${offset + i + 1}`,
+        created_at: new Date().toISOString(),
+        is_read: true,
+      }))
+    vi.mocked(api.fetchMailMessages).mockImplementation(async (_t, _a, _f, opts: { offset?: number }) => {
+      const offset = opts?.offset ?? 0
+      return { messages: msgs(offset), total: 30 } as any
+    })
+
+    render(wrap(<MailPage />))
+
+    await screen.findByText(/Page 1 \/ 2/)
+    const next = screen.getByRole('button', { name: 'Suivant' })
+    fireEvent.click(next)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Page 2 \/ 2/)).toBeTruthy()
+    })
+    expect(api.fetchMailMessages).toHaveBeenCalledWith(
+      'token',
+      1,
+      'inbox',
+      expect.objectContaining({ offset: 25, limit: 25 })
+    )
   })
 })

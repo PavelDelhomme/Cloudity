@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -36,6 +36,13 @@ export default function CalendarPage() {
     enabled: Boolean(accessToken),
     staleTime: 30_000,
   })
+
+  /** Un seul agenda (ex. « Mon agenda » créé côté API) : le sélectionner pour filtrer les événements par défaut. */
+  useEffect(() => {
+    if (!calLoading && calendars.length === 1 && selectedCalendarId === null) {
+      setSelectedCalendarId(calendars[0].id)
+    }
+  }, [calLoading, calendars, selectedCalendarId])
 
   const { data: events = [], isLoading: evLoading, error } = useQuery({
     queryKey: ['calendar', 'events', selectedCalendarId],
@@ -190,16 +197,18 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={() => setView('month')}
+              aria-label="Vue mois (grille)"
               className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm ${view === 'month' ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/30 text-brand-800 dark:text-brand-200' : 'border-slate-300 dark:border-slate-600'}`}
             >
-              <LayoutGrid className="h-4 w-4" /> Mois
+              <LayoutGrid className="h-4 w-4" aria-hidden /> Mois
             </button>
             <button
               type="button"
               onClick={() => setView('agenda')}
+              aria-label="Vue agenda (liste)"
               className={`inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-sm ${view === 'agenda' ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/30' : 'border-slate-300 dark:border-slate-600'}`}
             >
-              <List className="h-4 w-4" /> Agenda
+              <List className="h-4 w-4" aria-hidden /> Agenda
             </button>
           </div>
         </div>
