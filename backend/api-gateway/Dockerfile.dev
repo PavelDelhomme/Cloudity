@@ -1,8 +1,9 @@
 FROM golang:1.24-alpine
 
 WORKDIR /app
+ENV GOTOOLCHAIN=auto
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git wget
 
 # Installation de Air pour le hot reload avec une version spécifique compatible
 RUN go install github.com/cosmtrek/air@v1.42.0

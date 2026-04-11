@@ -75,6 +75,7 @@ services:
       - "6081:8081"
     environment:
       - PORT=8081
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       - REDIS_URL=redis:6379
@@ -92,10 +93,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 8
+      start_period: 120s
     networks:
       - cloudity-network
 
@@ -116,6 +118,7 @@ services:
       - GO_ENV=development
       # Autorise CORS depuis le réseau local (ex. smartphone : http://<TON_IP>:6001)
       - CORS_ALLOW_LAN=${CORS_ALLOW_LAN:-true}
+      - GOTOOLCHAIN=auto
     volumes:
       - ./backend/api-gateway:/app:cached
       - ./backend/auth-service:/app/keys:ro
@@ -132,10 +135,11 @@ services:
       drive-service:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8000/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 8
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -166,10 +170,11 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8082/health"]
-      interval: 30s
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8082/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 8
+      start_period: 120s
     networks:
       - cloudity-network
 
@@ -184,6 +189,7 @@ services:
       - "6051:8051"
     environment:
       - PORT=8051
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -195,10 +201,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8051/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8051/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -213,6 +220,7 @@ services:
       - "6050:8050"
     environment:
       - PORT=8050
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
       # Clé 32 bytes (64 hex) pour chiffrer les mots de passe IMAP/SMTP stockés. En prod, définir MAIL_PASSWORD_ENCRYPTION_KEY.
@@ -231,10 +239,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8050/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8050/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -249,6 +258,7 @@ services:
       - "6052:8052"
     environment:
       - PORT=8052
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -260,10 +270,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8052/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8052/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -278,6 +289,7 @@ services:
       - "6053:8053"
     environment:
       - PORT=8053
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -289,10 +301,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8053/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8053/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -307,6 +320,7 @@ services:
       - "6054:8054"
     environment:
       - PORT=8054
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -318,10 +332,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8054/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8054/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -336,6 +351,7 @@ services:
       - "6055:8055"
     environment:
       - PORT=8055
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -347,10 +363,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8055/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8055/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -365,6 +382,7 @@ services:
       - "6056:8056"
     environment:
       - PORT=8056
+      - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
@@ -376,10 +394,11 @@ services:
       db-migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8056/health"]
-      interval: 30s
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8056/health"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 10
+      start_period: 180s
     networks:
       - cloudity-network
 
@@ -387,7 +406,7 @@ services:
     build:
       context: ./frontend/admin-dashboard
       dockerfile: Dockerfile.dev
-    container_name: cloudity-admin-dashboard
+    container_name: cloudity-main-frontend
     restart: unless-stopped
     ports:
       - "6001:3000"

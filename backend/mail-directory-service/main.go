@@ -33,6 +33,92 @@ import (
 
 const defaultPort = "8050"
 
+// from_addr est VARCHAR(512) : on tronque pour éviter une erreur SQL sur les noms très longs.
+const maxFromAddrLen = 508
+
+// formatImapAddress produit une chaîne type RFC5322 « Nom affiché » <email@domaine>
+// (comme les clients type BlueMail), au lieu de l’adresse seule via Address().
+func formatImapAddress(a *imap.Address) string {
+	if a == nil {
+		return ""
+	}
+	addr := strings.TrimSpace(a.Address())
+	if addr == "" || addr == "@" {
+		return ""
+	}
+	name := strings.TrimSpace(a.PersonalName)
+	if name == "" {
+		return truncateMailField(addr, maxFromAddrLen)
+	}
+	needQuote := strings.ContainsAny(name, `",;<>()`) || strings.Contains(name, "\n") || strings.Contains(name, "\\")
+	if needQuote {
+		name = strings.ReplaceAll(name, `\`, `\\`)
+		name = strings.ReplaceAll(name, `"`, `\"`)
+		name = `"` + name + `"`
+	}
+	s := name + " <" + addr + ">"
+	return truncateMailField(s, maxFromAddrLen)
+}
+
+func formatImapAddressList(addrs []*imap.Address) string {
+	var parts []string
+	for _, a := range addrs {
+		if s := formatImapAddress(a); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func truncateMailField(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
+}
+
+// spamHeuristicScore score 0–100 (heuristique locale, sans ML) pour signaler le spam probable.
+func spamHeuristicScore(subject, fromAddr string) int {
+	sl := strings.ToLower(strings.TrimSpace(subject))
+	fl := strings.ToLower(fromAddr)
+	s := sl + " " + fl
+	score := 0
+	for _, w := range []string{
+		"viagra", "cialis", "crypto", "bitcoin", "lottery", "you won", "winner",
+		"click here", "click now", "act now", "limited time", "congratulations",
+		"urgent:", "invoice attached", "wire transfer", "verify your account",
+		"account suspended", "free gift", "100% free", "no obligation",
+	} {
+		if strings.Contains(s, w) {
+			score += 14
+		}
+	}
+	if len(subject) > 14 && subject == strings.ToUpper(subject) && strings.ContainsAny(subject, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		score += 18
+	}
+	if strings.Count(sl, "!") >= 3 {
+		score += 10
+	}
+	if strings.Contains(fl, "mailer-daemon@") || strings.Contains(fl, "postmaster@") {
+		score += 8
+	}
+	if score > 100 {
+		return 100
+	}
+	return score
+}
+
+func safeLikeContains(s string) string {
+	s = strings.TrimSpace(strings.ToLower(s))
+	s = strings.ReplaceAll(s, "%", "")
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, "\\", "")
+	if s == "" {
+		return ""
+	}
+	return "%" + s + "%"
+}
+
 func main() {
 	godotenv.Load()
 
@@ -63,6 +149,9 @@ func main() {
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
+		mail.GET("/me/accounts/:id/aliases", h.listAccountAliases)
+		mail.POST("/me/accounts/:id/aliases", h.createAccountAlias)
+		mail.DELETE("/me/accounts/:id/aliases/:aliasId", h.deleteAccountAlias)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/read", h.markMessageRead)
@@ -728,16 +817,135 @@ func (h *Handler) patchUserAccount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+type MailAlias struct {
+	ID         int     `json:"id"`
+	AccountID  int     `json:"account_id"`
+	AliasEmail string  `json:"alias_email"`
+	Label      *string `json:"label,omitempty"`
+	CreatedAt  string  `json:"created_at"`
+}
+
+func (h *Handler) listAccountAliases(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	rows, err := h.db.Query(`
+		SELECT a.id, a.account_id, a.alias_email, a.label, a.created_at::text
+		FROM user_email_aliases a
+		INNER JOIN user_email_accounts u ON u.id = a.account_id
+		WHERE a.account_id = $1 AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
+		ORDER BY a.alias_email
+	`, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	var list []MailAlias
+	for rows.Next() {
+		var x MailAlias
+		var lab sql.NullString
+		if err := rows.Scan(&x.ID, &x.AccountID, &x.AliasEmail, &lab, &x.CreatedAt); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if lab.Valid && strings.TrimSpace(lab.String) != "" {
+			s := lab.String
+			x.Label = &s
+		}
+		list = append(list, x)
+	}
+	if list == nil {
+		list = []MailAlias{}
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) createAccountAlias(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	var body struct {
+		AliasEmail string `json:"alias_email"`
+		Label      string `json:"label"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	em := strings.TrimSpace(strings.ToLower(body.AliasEmail))
+	if em == "" || !strings.Contains(em, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "alias_email invalide"})
+		return
+	}
+	var n int
+	if err := h.db.QueryRow(`
+		SELECT COUNT(*) FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, accountID).Scan(&n); err != nil || n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
+		return
+	}
+	var newID int
+	err = h.db.QueryRow(`
+		INSERT INTO user_email_aliases (account_id, alias_email, label)
+		VALUES ($1, $2, NULLIF(TRIM($3), ''))
+		ON CONFLICT (account_id, alias_email) DO UPDATE SET label = COALESCE(NULLIF(EXCLUDED.label, ''), user_email_aliases.label)
+		RETURNING id
+	`, accountID, em, body.Label).Scan(&newID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": newID, "alias_email": em})
+}
+
+func (h *Handler) deleteAccountAlias(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	aliasID, err := strconv.Atoi(c.Param("aliasId"))
+	if err != nil || aliasID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		return
+	}
+	res, err := h.db.Exec(`
+		DELETE FROM user_email_aliases a USING user_email_accounts u
+		WHERE a.id = $1 AND a.account_id = $2 AND u.id = a.account_id
+		AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, aliasID, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "alias introuvable"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 type MailMessage struct {
-	ID        int    `json:"id"`
-	AccountID int    `json:"account_id"`
-	Folder    string `json:"folder"`
-	FromAddr  string `json:"from"`
-	ToAddrs   string `json:"to"`
-	Subject   string `json:"subject"`
-	DateAt    string `json:"date_at,omitempty"`
-	CreatedAt string `json:"created_at"`
-	IsRead    bool   `json:"is_read"`
+	ID         int    `json:"id"`
+	AccountID  int    `json:"account_id"`
+	Folder     string `json:"folder"`
+	FromAddr   string `json:"from"`
+	ToAddrs    string `json:"to"`
+	Subject    string `json:"subject"`
+	DateAt     string `json:"date_at,omitempty"`
+	CreatedAt  string `json:"created_at"`
+	IsRead     bool   `json:"is_read"`
+	SpamScore  int    `json:"spam_score"`
 }
 
 type MailMessageDetail struct {
@@ -766,20 +974,43 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 			offset = n
 		}
 	}
+	rcp := safeLikeContains(c.Query("recipient"))
 	var total int
-	if err := h.db.QueryRow(`
-		SELECT COUNT(*) FROM mail_messages WHERE account_id = $1 AND folder = $2
-	`, accountID, folder).Scan(&total); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	var countErr error
+	if rcp != "" {
+		countErr = h.db.QueryRow(`
+			SELECT COUNT(*) FROM mail_messages
+			WHERE account_id = $1 AND folder = $2
+			AND (LOWER(to_addrs) LIKE $3 OR LOWER(from_addr) LIKE $3 OR LOWER(subject) LIKE $3)
+		`, accountID, folder, rcp).Scan(&total)
+	} else {
+		countErr = h.db.QueryRow(`
+			SELECT COUNT(*) FROM mail_messages WHERE account_id = $1 AND folder = $2
+		`, accountID, folder).Scan(&total)
+	}
+	if countErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
 		return
 	}
-	rows, err := h.db.Query(`
-		SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
-		FROM mail_messages
-		WHERE account_id = $1 AND folder = $2
-		ORDER BY date_at DESC NULLS LAST, id DESC
-		LIMIT $3 OFFSET $4
-	`, accountID, folder, limit, offset)
+	var rows *sql.Rows
+	if rcp != "" {
+		rows, err = h.db.Query(`
+			SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
+			FROM mail_messages
+			WHERE account_id = $1 AND folder = $2
+			AND (LOWER(to_addrs) LIKE $3 OR LOWER(from_addr) LIKE $3 OR LOWER(subject) LIKE $3)
+			ORDER BY date_at DESC NULLS LAST, id DESC
+			LIMIT $4 OFFSET $5
+		`, accountID, folder, rcp, limit, offset)
+	} else {
+		rows, err = h.db.Query(`
+			SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
+			FROM mail_messages
+			WHERE account_id = $1 AND folder = $2
+			ORDER BY date_at DESC NULLS LAST, id DESC
+			LIMIT $3 OFFSET $4
+		`, accountID, folder, limit, offset)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -796,6 +1027,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		if dateAt.Valid {
 			m.DateAt = dateAt.String
 		}
+		m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 		msgList = append(msgList, m)
 	}
 	if msgList == nil {
@@ -863,6 +1095,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 			m.BodyHTML = html
 		}
 	}
+	m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 	c.JSON(http.StatusOK, m)
 }
 
@@ -1314,31 +1547,33 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 			}
 			fromAddr := ""
 			if len(msg.Envelope.From) > 0 {
-				fromAddr = msg.Envelope.From[0].Address()
+				fromAddr = formatImapAddress(msg.Envelope.From[0])
 			}
-			toAddrs := ""
-			for i, a := range msg.Envelope.To {
-				if i > 0 {
-					toAddrs += ", "
-				}
-				toAddrs += a.Address()
-			}
+			toAddrs := formatImapAddressList(msg.Envelope.To)
 			subject := msg.Envelope.Subject
 			dateAt := msg.Envelope.Date
 			if dateAt.IsZero() {
 				dateAt = time.Now()
 			}
-			res, err := h.db.Exec(`
+			// xmax = 0 : ligne insérée ; sinon mise à jour (ex. rafraîchissement des en-têtes From/To).
+			var xmax int64
+			upsertErr := h.db.QueryRow(`
 				INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at)
 				VALUES ($1, $2, $3, $4, $5, $6, $7)
-				ON CONFLICT (account_id, folder, message_uid) DO NOTHING
-			`, accountID, ft.dbFolder, msg.Uid, fromAddr, toAddrs, subject, dateAt)
-			if err != nil {
-				log.Printf("[mail] insert message: %v", err)
+				ON CONFLICT (account_id, folder, message_uid) DO UPDATE SET
+					from_addr = EXCLUDED.from_addr,
+					to_addrs = EXCLUDED.to_addrs,
+					subject = EXCLUDED.subject,
+					date_at = EXCLUDED.date_at
+				RETURNING xmax
+			`, accountID, ft.dbFolder, msg.Uid, fromAddr, toAddrs, subject, dateAt).Scan(&xmax)
+			if upsertErr != nil {
+				log.Printf("[mail] upsert message: %v", upsertErr)
 				continue
 			}
-			n, _ := res.RowsAffected()
-			totalSynced += int(n)
+			if xmax == 0 {
+				totalSynced++
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})

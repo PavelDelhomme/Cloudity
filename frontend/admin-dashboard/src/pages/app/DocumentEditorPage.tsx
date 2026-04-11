@@ -350,7 +350,35 @@ export default function DocumentEditorPage() {
     setShowTableModal(false)
   }
 
-  const insertHorizontalRule = () => execCommand('insertHorizontalRule')
+  /** Ligne de séparation : insertHorizontalRule seul laisse souvent un <hr> sans bloc éditable après, ce qui bloque le curseur (saisie au-dessous / en dessous). */
+  const insertHorizontalRule = () => {
+    const ed = editorRef.current
+    if (!ed) return
+    ed.focus()
+    const hrBlock =
+      '<hr class="my-6 border-0 border-t-2 border-slate-200 dark:border-slate-600 clear-both" data-cloudity-hr="1" />' +
+      '<p><br></p>'
+    document.execCommand('insertHTML', false, hrBlock)
+    if (editorRef.current) setContent(editorRef.current.innerHTML)
+    setDirty(true)
+    setTimeout(() => {
+      const ed2 = editorRef.current
+      if (!ed2) return
+      const hrs = ed2.querySelectorAll('hr[data-cloudity-hr="1"]')
+      const lastHr = hrs.length ? hrs[hrs.length - 1] : null
+      lastHr?.removeAttribute('data-cloudity-hr')
+      if (lastHr?.nextElementSibling instanceof HTMLElement) {
+        const p = lastHr.nextElementSibling
+        const r = document.createRange()
+        r.setStart(p, 0)
+        r.collapse(true)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(r)
+      }
+      ed2.focus()
+    }, 0)
+  }
 
   useEffect(() => {
     if (!openMenu) return
@@ -1153,7 +1181,7 @@ export default function DocumentEditorPage() {
             ref={editorRef}
             contentEditable
             onInput={handleInput}
-            className="min-h-[300px] max-w-3xl mx-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 prose dark:prose-invert prose-headings:font-semibold prose-blockquote:border-l-brand-500 prose-blockquote:italic prose-blockquote:pl-4 prose-hr:border-slate-200 dark:prose-hr:border-slate-600"
+            className="min-h-[300px] max-w-3xl mx-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 prose dark:prose-invert prose-headings:font-semibold prose-blockquote:border-l-brand-500 prose-blockquote:italic prose-blockquote:pl-4 prose-hr:my-6 prose-hr:border-slate-200 dark:prose-hr:border-slate-600 [&_hr]:block [&_hr]:w-full [&_hr]:min-h-[1px]"
             data-placeholder="Saisissez votre texte…"
             style={{ outline: 'none' }}
           />

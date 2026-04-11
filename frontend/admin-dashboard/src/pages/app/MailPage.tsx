@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -18,10 +18,14 @@ import {
   sendMailMessage,
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
+  fetchMailAliases,
+  createMailAlias,
+  deleteMailAlias,
   updateMailAccount,
   type DriveNode,
   type MailMessageResponse,
   type MailFolderId,
+  type ContactResponse,
 } from '../../api'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
@@ -167,6 +171,39 @@ function extractEmailFromSender(from: string | undefined): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null
 }
 
+/** Découpe l’en-tête From (« Nom » <email>) pour affichage type client mail. */
+function parseFromHeader(from: string | undefined): { displayName: string; email: string | null } {
+  if (!from?.trim()) return { displayName: '', email: null }
+  const trimmed = from.trim()
+  const angle = /<([^>\s]+@[^>\s]+)>/.exec(trimmed)
+  if (angle) {
+    const emailRaw = angle[1].trim().replace(/^mailto:/i, '')
+    let displayName = trimmed.slice(0, angle.index).trim().replace(/,$/, '')
+    if ((displayName.startsWith('"') && displayName.endsWith('"')) || (displayName.startsWith("'") && displayName.endsWith("'")))
+      displayName = displayName.slice(1, -1)
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw) ? emailRaw : extractEmailFromSender(trimmed)
+    return { displayName, email }
+  }
+  return { displayName: '', email: extractEmailFromSender(trimmed) }
+}
+
+/** Libellé liste / détail : nom d’affichage (en-tête ou carnet Contacts), plus email en secondaire si utile. */
+function getSenderListLines(from: string | undefined, contacts: ContactResponse[]): { primary: string; secondary: string | null } {
+  const { displayName, email } = parseFromHeader(from)
+  if (displayName && email) return { primary: displayName, secondary: email }
+  if (email) {
+    const c = contacts.find((x) => x.email.toLowerCase() === email.toLowerCase())
+    if (c?.name?.trim()) return { primary: c.name.trim(), secondary: email }
+    return { primary: email, secondary: null }
+  }
+  return { primary: from?.trim() || '(inconnu)', secondary: null }
+}
+
+function formatSenderOneLine(from: string | undefined, contacts: ContactResponse[]): string {
+  const { primary, secondary } = getSenderListLines(from, contacts)
+  return secondary ? `${primary} · ${secondary}` : primary
+}
+
 function formatMessageDate(dateAt: string | undefined): string {
   if (!dateAt) return ''
   const d = new Date(dateAt)
@@ -235,6 +272,9 @@ export default function MailPage() {
   const [editAccSmtpHost, setEditAccSmtpHost] = useState('')
   const [editAccSmtpPort, setEditAccSmtpPort] = useState('')
   const [savingAccount, setSavingAccount] = useState(false)
+  const [recipientAliasFilter, setRecipientAliasFilter] = useState<string | null>(null)
+  const [newAliasEmail, setNewAliasEmail] = useState('')
+  const [newAliasLabel, setNewAliasLabel] = useState('')
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -251,9 +291,51 @@ export default function MailPage() {
   const firstAccountId = accounts[0]?.id ?? null
   const effectiveAccountId = selectedAccountId ?? firstAccountId
 
+  const { data: accountAliases = [] } = useQuery({
+    queryKey: ['mail', 'aliases', effectiveAccountId],
+    queryFn: () => fetchMailAliases(accessToken!, effectiveAccountId!),
+    enabled: !!accessToken && effectiveAccountId != null,
+  })
+
+  useEffect(() => {
+    setRecipientAliasFilter(null)
+  }, [effectiveAccountId])
+
+  useEffect(() => {
+    setMessagePage(0)
+  }, [recipientAliasFilter])
+
+  const aliasMutation = useMutation({
+    mutationFn: async (mode: { type: 'add' } | { type: 'del'; id: number }) => {
+      if (!accessToken || effectiveAccountId == null) return
+      if (mode.type === 'add') {
+        const em = newAliasEmail.trim().toLowerCase()
+        if (!em) throw new Error('Adresse alias requise')
+        await createMailAlias(accessToken, effectiveAccountId, { alias_email: em, label: newAliasLabel.trim() || undefined })
+        return
+      }
+      await deleteMailAlias(accessToken, effectiveAccountId, mode.id)
+    },
+    onSuccess: (_, mode) => {
+      queryClient.invalidateQueries({ queryKey: ['mail', 'aliases', effectiveAccountId] })
+      queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      if (mode.type === 'add') {
+        setNewAliasEmail('')
+        setNewAliasLabel('')
+        toast.success('Alias enregistré')
+      } else toast.success('Alias supprimé')
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur alias'),
+  })
+
   const { data: messagesData, refetch: refetchMessages } = useQuery({
-    queryKey: ['mail', 'messages', effectiveAccountId, activeFolder, messagePage],
-    queryFn: () => fetchMailMessages(accessToken!, effectiveAccountId!, activeFolder, { limit: MESSAGES_PAGE_SIZE, offset: messagePage * MESSAGES_PAGE_SIZE }),
+    queryKey: ['mail', 'messages', effectiveAccountId, activeFolder, messagePage, recipientAliasFilter],
+    queryFn: () =>
+      fetchMailMessages(accessToken!, effectiveAccountId!, activeFolder, {
+        limit: MESSAGES_PAGE_SIZE,
+        offset: messagePage * MESSAGES_PAGE_SIZE,
+        recipient: recipientAliasFilter ?? undefined,
+      }),
     enabled: !!accessToken && effectiveAccountId != null,
     refetchOnWindowFocus: true,
   })
@@ -290,7 +372,7 @@ export default function MailPage() {
   const { data: contacts = [] } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => fetchContacts(accessToken!),
-    enabled: !!accessToken && composeSlots.length > 0,
+    enabled: !!accessToken,
   })
 
   const recentRecipients = getRecentRecipients()
@@ -462,6 +544,20 @@ export default function MailPage() {
       toast.error(reason === 'config' ? 'Connexion Google non configurée sur ce serveur.' : 'Connexion Google annulée ou erreur.')
     }
   }, [searchParams, setSearchParams, queryClient])
+
+  useEffect(() => {
+    const to = searchParams.get('compose')?.trim()
+    if (!to) return
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('compose')
+        return n
+      },
+      { replace: true }
+    )
+    openNewCompose({ to })
+  }, [searchParams, setSearchParams, openNewCompose])
 
   const handleConnectGoogle = useCallback(async () => {
     if (!accessToken) return
@@ -848,7 +944,12 @@ export default function MailPage() {
     const toAddrs = (selectedMessageDetail.to || '').split(/,|;/).map((s) => s.trim()).filter(Boolean)
     const from = (selectedMessageDetail.from || '').trim()
     const me = accounts.find((a) => a.id === effectiveAccountId)?.email
-    const others = [from, ...toAddrs].filter((a) => a && a.toLowerCase() !== me?.toLowerCase())
+    const meLower = me?.toLowerCase()
+    const isSelf = (addr: string) => {
+      const em = extractEmailFromSender(addr)
+      return (em || addr.trim()).toLowerCase() === meLower
+    }
+    const others = [from, ...toAddrs].filter((a) => a && !isSelf(a))
     const subj = selectedMessageDetail.subject || ''
     const body = selectedMessageDetail.body_plain || selectedMessageDetail.body_html || ''
     const quoted = body
@@ -934,7 +1035,7 @@ export default function MailPage() {
   }, [])
 
   return (
-    <div className="space-y-4 pb-20">
+    <div className="flex flex-col gap-4 min-h-0 pb-6">
       <div className="flex flex-row items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Mail</h1>
         <div className="flex items-center gap-2">
@@ -1006,10 +1107,10 @@ export default function MailPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[480px]">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[260px] max-h-[calc(100dvh-10.5rem)]">
         <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
           <aside
-            className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 overflow-y-auto transition-[width] duration-150 ease-out gap-2 shrink-0 ${
+            className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 max-h-full overflow-y-auto overscroll-contain transition-[width] duration-150 ease-out gap-2 shrink-0 ${
               sidebarCollapsed ? 'md:w-14 md:min-w-14 md:max-w-14 p-2' : 'p-3'
             }`}
             style={
@@ -1026,10 +1127,10 @@ export default function MailPage() {
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Boîtes mail</p>}
               <div className={`flex flex-col gap-1.5 ${sidebarCollapsed ? 'items-center' : ''}`}>
               {accounts.map((acc) => (
-                <div key={acc.id} className={`flex items-center rounded-lg ${sidebarCollapsed ? 'flex-col w-full' : ''}`}>
+                <div key={acc.id} className={`flex flex-col rounded-lg ${sidebarCollapsed ? 'w-full' : ''}`}>
                   <button
                     type="button"
-                    onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox') }}
+                    onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox'); setRecipientAliasFilter(null) }}
                     className={`rounded-lg text-sm font-medium truncate transition-colors w-full ${sidebarCollapsed ? 'p-2 flex justify-center' : 'text-left px-3 py-2'} ${
                       effectiveAccountId === acc.id
                         ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
@@ -1039,6 +1140,31 @@ export default function MailPage() {
                   >
                     {sidebarCollapsed ? <Mail className="h-5 w-5 mx-auto" /> : (acc.label || acc.email)}
                   </button>
+                  {!sidebarCollapsed && effectiveAccountId === acc.id && (
+                    <div className="mt-1 ml-1 pl-2 border-l-2 border-slate-200 dark:border-slate-600 space-y-0.5 pb-1">
+                      <button
+                        type="button"
+                        onClick={() => setRecipientAliasFilter(null)}
+                        className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-slate-200/80 dark:bg-slate-600 text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                      >
+                        Toutes les adresses
+                      </button>
+                      {accountAliases.map((al) => (
+                        <button
+                          key={al.id}
+                          type="button"
+                          onClick={() => setRecipientAliasFilter(al.alias_email)}
+                          className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/80 dark:bg-brand-900/50 text-brand-900 dark:text-brand-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                          title={al.alias_email}
+                        >
+                          {al.label?.trim() ? `${al.label} · ${al.alias_email}` : al.alias_email}
+                        </button>
+                      ))}
+                      {accountAliases.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 px-1.5">Alias : Paramètres Mail</p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               ))}
               </div>
@@ -1115,10 +1241,10 @@ export default function MailPage() {
             </p>
             <div ref={listPreviewSplitRef} className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
               <div
-                className={`flex flex-col min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
+                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
                   selectedMessageId != null
                     ? 'md:w-[var(--mail-list-split-pct)] md:max-w-[92%] md:min-w-[8rem] md:shrink-0 md:flex-none md:border-r'
-                    : 'flex-1'
+                    : ''
                 }`}
                 style={
                   selectedMessageId != null
@@ -1232,7 +1358,7 @@ export default function MailPage() {
                       </div>
                     )}
 
-                    <ul className="divide-y divide-slate-200 dark:divide-slate-600 overflow-auto flex-1">
+                    <ul className="divide-y divide-slate-200 dark:divide-slate-600 min-h-0 overflow-y-auto flex-1 overscroll-contain">
                       {messages.map((msg) => (
                         <li
                           key={msg.id}
@@ -1257,16 +1383,21 @@ export default function MailPage() {
                                 onChange={() => toggleMessageSelected(msg.id)}
                                 className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
                               />
-                              <p className={`truncate ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'} flex-1`}>
-                                {msg.subject || '(Sans objet)'}
+                              <p className={`truncate flex-1 flex items-center gap-1.5 min-w-0 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
+                                {activeFolder === 'inbox' && (msg.spam_score ?? 0) >= 52 ? (
+                                  <span title={`Indésirable probable (score ${msg.spam_score ?? 0}/100) — vérifiez avant d’ouvrir les pièces jointes.`} className="shrink-0 text-amber-600 dark:text-amber-400">
+                                    <ShieldAlert className="h-4 w-4" aria-hidden />
+                                  </span>
+                                ) : null}
+                                <span className="truncate">{msg.subject || '(Sans objet)'}</span>
                               </p>
                             </div>
                             <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">{formatMessageDate(msg.date_at)}</span>
                           </div>
                           <div className="flex items-center justify-between gap-2 min-w-0">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 flex-1">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 flex-1 min-w-0" title={msg.from || undefined}>
                               {!msg.is_read ? <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" aria-hidden /> : null}
-                              De : {msg.from || '(inconnu)'}
+                              <span className="truncate min-w-0">De : {formatSenderOneLine(msg.from, contacts)}</span>
                             </p>
                             <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                               <button
@@ -1343,7 +1474,7 @@ export default function MailPage() {
                         </li>
                       ))}
                     </ul>
-                    <div className="flex items-center justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50">
+                    <div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50">
                       <button
                         type="button"
                         onClick={() => setMessagePage((p) => Math.max(0, p - 1))}
@@ -1352,14 +1483,14 @@ export default function MailPage() {
                       >
                         Précédent
                       </button>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s)
+                      <span className="text-xs text-slate-500 dark:text-slate-400 text-center sm:px-2">
+                        Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s) · {MESSAGES_PAGE_SIZE} par page
                       </span>
                       <button
                         type="button"
                         onClick={() => setMessagePage((p) => p + 1)}
                         disabled={!hasNextPage}
-                        className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                        className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline sm:text-right"
                       >
                         Suivant
                       </button>
@@ -1453,10 +1584,20 @@ export default function MailPage() {
                               {selectedMessageDetail.subject || '(Sans objet)'}
                             </h3>
                             <div className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
-                              <p>
-                                <span className="text-slate-400 dark:text-slate-500 font-medium">De</span>{' '}
-                                <span className="text-slate-800 dark:text-slate-100">{selectedMessageDetail.from || '(inconnu)'}</span>
-                              </p>
+                              {(() => {
+                                const sl = getSenderListLines(selectedMessageDetail.from, contacts)
+                                return (
+                                  <p title={selectedMessageDetail.from || undefined}>
+                                    <span className="text-slate-400 dark:text-slate-500 font-medium">De</span>{' '}
+                                    <span className="text-slate-800 dark:text-slate-100 inline-flex flex-col gap-0.5 align-top">
+                                      <span className="font-medium">{sl.primary}</span>
+                                      {sl.secondary ? (
+                                        <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{sl.secondary}</span>
+                                      ) : null}
+                                    </span>
+                                  </p>
+                                )
+                              })()}
                               <p>
                                 <span className="text-slate-400 dark:text-slate-500 font-medium">À</span>{' '}
                                 <span>{selectedMessageDetail.to || '—'}</span>
@@ -1626,6 +1767,73 @@ export default function MailPage() {
                   </ul>
                 )}
               </div>
+
+              <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-2">
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" /> Sécurité & Coffre-fort
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400">
+                  Les mots de passe IMAP/SMTP sont chiffrés en base (clé <code className="text-[10px]">MAIL_PASSWORD_ENCRYPTION_KEY</code>). Centralisez les secrets liés au mail dans le coffre Pass.
+                </p>
+                <Link
+                  to="/app/pass"
+                  onClick={() => setShowMailSettings(false)}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white text-xs font-medium px-3 py-2 hover:bg-brand-700 dark:hover:bg-brand-600"
+                >
+                  Ouvrir Coffre (Pass)
+                </Link>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <strong>Anti-spam :</strong> score heuristique (0–100) sur chaque message en boîte de réception ; pastille orange si suspect. Chiffrement « de bout en bout » des corps stockés et détection ML : voir roadmap projet.
+                </p>
+              </div>
+
+              {effectiveAccountId != null && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Alias (adresses supplémentaires)</h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
+                    Filtrez la liste des messages contenant cette adresse (champs À / De / Objet). Utile pour les alias Gmail / OVH.
+                  </p>
+                  <ul className="space-y-1 mb-3 max-h-32 overflow-y-auto">
+                    {accountAliases.map((al) => (
+                      <li key={al.id} className="flex items-center justify-between gap-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-2 py-1">
+                        <span className="truncate">{al.alias_email}</span>
+                        <button
+                          type="button"
+                          className="text-red-600 dark:text-red-400 shrink-0"
+                          onClick={() => aliasMutation.mutate({ type: 'del', id: al.id })}
+                          disabled={aliasMutation.isPending}
+                        >
+                          Retirer
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="email"
+                      value={newAliasEmail}
+                      onChange={(e) => setNewAliasEmail(e.target.value)}
+                      placeholder="alias@domaine.com"
+                      className="flex-1 min-w-[160px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={newAliasLabel}
+                      onChange={(e) => setNewAliasLabel(e.target.value)}
+                      placeholder="Libellé (optionnel)"
+                      className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <button
+                      type="button"
+                      disabled={aliasMutation.isPending || !newAliasEmail.trim()}
+                      onClick={() => aliasMutation.mutate({ type: 'add' })}
+                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                    >
+                      Ajouter l’alias
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <p className="text-xs text-slate-500 dark:text-slate-400">Règles et dossiers personnalisés : à venir.</p>
             </div>

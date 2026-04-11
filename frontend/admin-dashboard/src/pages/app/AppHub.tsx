@@ -467,14 +467,14 @@ export default function AppHub() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8 min-h-0">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Tableau de bord</h1>
         <p className="mt-1 text-slate-600 dark:text-slate-400">
           Choisissez une application par catégorie — aperçus des derniers contenus lorsque c’est possible.
         </p>
       </div>
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6 min-h-0">
         {categories.map((cat) => (
           <section key={cat.label}>
             <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3">

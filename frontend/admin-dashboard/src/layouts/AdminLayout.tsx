@@ -29,13 +29,13 @@ export default function AdminLayout() {
     end ? location.pathname === href : location.pathname.startsWith(href)
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
-      <aside className="w-56 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-200 dark:border-slate-700">
+    <div className="h-dvh min-h-0 max-h-dvh overflow-hidden bg-gray-100 dark:bg-slate-900 flex">
+      <aside className="w-56 min-h-0 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 overflow-hidden">
+        <div className="p-4 border-b border-gray-200 dark:border-slate-700 shrink-0">
           <Link to="/admin" className="text-base font-semibold text-gray-900 dark:text-slate-100">Cloudity</Link>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Administration</p>
         </div>
-        <nav className="flex-1 p-2 space-y-0.5">
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
           {adminNav.map((item) => {
             const Icon = item.icon
             const active = isActive(item.href, item.end)
@@ -55,7 +55,7 @@ export default function AdminLayout() {
             )
           })}
         </nav>
-        <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-0.5">
+        <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-0.5 shrink-0">
           <Link
             to="/app"
             className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
@@ -73,7 +73,7 @@ export default function AdminLayout() {
           </button>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 p-6">
+      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-y-contain p-6">
         <Outlet />
       </main>
     </div>

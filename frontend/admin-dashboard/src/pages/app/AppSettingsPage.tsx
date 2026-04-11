@@ -6,7 +6,7 @@ export default function AppSettingsPage() {
   const { email, tenantId } = useAuth()
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 min-h-0">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Paramètres</h1>
         <p className="mt-1 text-sm text-slate-500">Votre compte et préférences.</p>

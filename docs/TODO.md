@@ -3,7 +3,10 @@
 ## Priorités actuelles
 
 - **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
-- **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), Calendar (vue améliorée), Mail client riche, Contacts, etc.
+- **Calendrier** : vue mois type Google + plusieurs agendas (`user_calendars`) — fait (base + UI). Reste : semaine/jour, invitations, lien Drive.
+- **Contacts** : liste + fiche + recherche + lien Mail — fait. Reste : groupes, import/export.
+- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Reste : règles auto, ML/chiffrement corps, synchro temps réel poussée.
+- **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), etc.
 
 ## Problème résolu : crash HMR + lenteur au clic Téléverser
 

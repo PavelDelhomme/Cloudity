@@ -42,8 +42,8 @@ describe('ContactsPage', () => {
   it('renders Contacts title and description', async () => {
     render(wrap(<ContactsPage />))
     expect(screen.getByRole('heading', { name: 'Contacts' })).toBeTruthy()
-    expect(screen.getByText(/Carnet d'adresses/)).toBeTruthy()
-    expect(screen.getByText(/destinataires dans Mail/)).toBeTruthy()
+    expect(screen.getByText(/Google Contacts/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: /Ouvrir Mail/ })).toBeTruthy()
   })
 
   it('shows Nouveau contact button', () => {

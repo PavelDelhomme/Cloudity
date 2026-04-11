@@ -1559,7 +1559,7 @@ export default function DrivePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6 min-h-0">
       {/* Modal de confirmation : déplacer en corbeille */}
       {deleteModalTarget != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
@@ -1690,15 +1690,15 @@ export default function DrivePage() {
         onDisplayModeChange={setDisplayMode}
       />
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden">
-        <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[200px] max-h-[calc(100dvh-11rem)]">
+        <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2 shrink-0">
           <HardDrive className="h-5 w-5 text-slate-400" />
           <span className="font-medium text-slate-700 dark:text-slate-300">
             {currentParentId == null ? 'Racine' : breadcrumb[breadcrumb.length - 1]?.name}
           </span>
         </div>
         <div
-          className={`relative p-4 transition-colors ${dragOver ? 'bg-brand-50 dark:bg-brand-900/30 ring-2 ring-brand-300 dark:ring-brand-600 ring-inset' : ''}`}
+          className={`relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 transition-colors ${dragOver ? 'bg-brand-50 dark:bg-brand-900/30 ring-2 ring-brand-300 dark:ring-brand-600 ring-inset' : ''}`}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
           onDrop={onDrop}

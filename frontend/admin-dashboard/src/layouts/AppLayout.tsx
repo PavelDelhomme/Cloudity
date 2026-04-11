@@ -188,7 +188,7 @@ export default function AppLayout() {
   return (
     <UploadProvider>
       {isDrive && driveInputsReady && <DriveUploadInputs />}
-      <div className="min-h-screen bg-gray-100 dark:bg-slate-900 flex">
+      <div className="h-dvh min-h-0 max-h-dvh overflow-hidden bg-gray-100 dark:bg-slate-900 flex">
       {/* Overlay mobile quand la sidebar est ouverte */}
       {sidebarVisible && (
         <button
@@ -201,7 +201,7 @@ export default function AppLayout() {
       {/* Barre latérale : drawer repliable sur tous les écrans (état persisté en localStorage) */}
       <aside
         className={`
-          bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 max-h-screen overflow-hidden
+          bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 h-dvh md:h-auto md:min-h-0 md:self-stretch overflow-hidden
           fixed md:relative inset-y-0 left-0 z-50 md:z-auto
           transform transition-all duration-200 ease-out
           ${sidebarVisible ? 'w-56 translate-x-0' : 'w-0 md:w-14 -translate-x-full md:translate-x-0 overflow-hidden md:overflow-visible'}
@@ -310,7 +310,7 @@ export default function AppLayout() {
           </div>
         )}
       </aside>
-      <main className="flex-1 min-w-0 flex flex-col">
+      <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
         <NotificationsProvider>
           <div className="shrink-0 flex items-center justify-between gap-4 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
             <div className="flex items-center gap-2 min-w-0">
@@ -340,7 +340,7 @@ export default function AppLayout() {
             </div>
             <NotificationBell />
           </div>
-          <div className="flex-1 min-w-0 p-6">
+          <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
             <Outlet />
           </div>
         </NotificationsProvider>

@@ -30,24 +30,25 @@ echo "  ────────────────────────
 # Récupérer la sortie de docker compose ps (tabs pour parsing)
 raw=$($COMPOSE -f docker-compose.yml ps --format "{{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true)
 
-# Noms courts pour l’affichage
+# Noms d'affichage : correspond au nom logique du service (sans préfixe cloudity-),
+# avec quelques alias plus courts quand c'est plus lisible.
 short_name() {
-  case "$1" in
-    cloudity-admin-dashboard) echo "admin-dashboard" ;;
-    cloudity-admin-service) echo "admin-service" ;;
-    cloudity-adminer) echo "adminer" ;;
-    cloudity-api-gateway) echo "api-gateway" ;;
-    cloudity-auth-service) echo "auth-service" ;;
-    cloudity-calendar-service) echo "calendar-service" ;;
-    cloudity-drive-service) echo "drive-service" ;;
+  local n="$1"
+  case "$n" in
+    cloudity-main-frontend) echo "main-frontend" ;;
     cloudity-mail-directory-service) echo "mail-directory" ;;
-    cloudity-notes-service) echo "notes-service" ;;
-    cloudity-password-manager) echo "password-manager" ;;
-    cloudity-postgres) echo "postgres" ;;
-    cloudity-redis) echo "redis" ;;
+    cloudity-db-migrate) echo "db-migrate" ;;
     cloudity-redis-commander) echo "redis-commander" ;;
-    cloudity-tasks-service) echo "tasks-service" ;;
-    *) echo "$1" ;;
+    "")
+      echo "—"
+      ;;
+    *)
+      if [[ "$n" == cloudity-* ]]; then
+        echo "${n#cloudity-}"
+      else
+        echo "$n"
+      fi
+      ;;
   esac
 }
 

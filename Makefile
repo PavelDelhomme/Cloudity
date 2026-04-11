@@ -414,6 +414,15 @@ quick-check: ## Test rapide de tous les services (ports 60XX). Lancer après: ma
 
 debug-logs: ## Affiche les logs des services qui posent problème
 	@echo "🐛 Debug des services..."
+	@echo "=== Password Manager (souvent bloquant pour le gateway) ==="
+	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=40 password-manager 2>/dev/null || echo "password-manager non démarré"
+	@echo ""
+	@echo "=== Drive Service ==="
+	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=40 drive-service 2>/dev/null || echo "drive-service non démarré"
+	@echo ""
+	@echo "=== Mail Directory ==="
+	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=30 mail-directory-service 2>/dev/null || echo "mail-directory-service non démarré"
+	@echo ""
 	@echo "=== Auth Service Logs ==="
 	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=20 auth-service 2>/dev/null || echo "Auth service non démarré"
 	@echo ""
@@ -438,7 +447,7 @@ status: ## Affiche services, port, URL et état (Up vert / Down rouge)
 
 wait-for-services: ## Attend que les services soient prêts (ports 60XX)
 	@echo "⏳ Attente des services (60XX)..."
-	@timeout=60; \
+	@timeout=120; \
 	while [ $$timeout -gt 0 ]; do \
 		if curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && \
 		   curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && \

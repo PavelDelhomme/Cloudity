@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import CalendarPage from './CalendarPage'
@@ -10,11 +10,13 @@ vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../api', () => ({
   fetchCalendarEvents: vi.fn().mockResolvedValue([]),
   createCalendarEvent: vi.fn(),
+  fetchUserCalendars: vi.fn().mockResolvedValue([]),
+  createUserCalendar: vi.fn(),
+  deleteCalendarEvent: vi.fn(),
 }))
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
 function wrap(ui: React.ReactElement) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={queryClient}>
       <TestRouter>{ui}</TestRouter>
@@ -35,15 +37,25 @@ describe('CalendarPage', () => {
     } as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('renders Agenda title and breadcrumb', async () => {
+  it('affiche le titre Calendrier et la vue mois (jours lun.–dim.)', async () => {
     render(wrap(<CalendarPage />))
-    expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy()
-    expect(screen.getByText(/Événements et rendez-vous/)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
+    expect(screen.getByText(/Vue mois type Google Agenda/)).toBeTruthy()
+    expect(screen.getByText('lun.')).toBeTruthy()
+    expect(screen.getByText('dim.')).toBeTruthy()
   })
 
-  it('shows empty state when no events', async () => {
+  it('en vue Agenda affiche le message vide lorsqu’il n’y a pas d’événements', async () => {
     render(wrap(<CalendarPage />))
-    await screen.findByText(/Aucun événement/)
-    expect(screen.getByText(/Ajoutez un événement/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Agenda/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/Aucun événement sur la période filtrée/)).toBeTruthy()
+    })
+  })
+
+  it('affiche les libellés Mes agendas et Tous les agendas', async () => {
+    render(wrap(<CalendarPage />))
+    expect(screen.getByText('Mes agendas')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Tous les agendas/i })).toBeTruthy()
   })
 })

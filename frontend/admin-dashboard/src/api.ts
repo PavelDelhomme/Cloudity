@@ -261,6 +261,8 @@ export type MailMessageResponse = {
   date_at?: string
   created_at: string
   is_read?: boolean
+  /** 0–100 : heuristique anti-spam (backend). */
+  spam_score?: number
 }
 
 export type MailMessageDetailResponse = MailMessageResponse & {
@@ -277,11 +279,12 @@ export async function fetchMailMessages(
   token: string,
   accountId: number,
   folder = 'inbox',
-  options?: { limit?: number; offset?: number }
+  options?: { limit?: number; offset?: number; recipient?: string }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams({ folder })
   if (options?.limit != null) params.set('limit', String(options.limit))
   if (options?.offset != null) params.set('offset', String(options.offset))
+  if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -323,6 +326,48 @@ export async function updateMailAccount(
     throw new Error(t || `Update mail account: ${res.status}`)
   }
   return res.json() as Promise<{ ok: boolean }>
+}
+
+export type MailAliasResponse = {
+  id: number
+  account_id: number
+  alias_email: string
+  label?: string | null
+  created_at: string
+}
+
+export async function fetchMailAliases(token: string, accountId: number): Promise<MailAliasResponse[]> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail aliases: ${res.status}`)
+  const data = (await res.json()) as unknown
+  return Array.isArray(data) ? (data as MailAliasResponse[]) : []
+}
+
+export async function createMailAlias(
+  token: string,
+  accountId: number,
+  payload: { alias_email: string; label?: string }
+): Promise<{ id: number; alias_email: string }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Create alias: ${res.status}`)
+  }
+  return res.json() as Promise<{ id: number; alias_email: string }>
+}
+
+export async function deleteMailAlias(token: string, accountId: number, aliasId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete alias: ${res.status}`)
 }
 
 export async function fetchMailMessage(
@@ -915,11 +960,43 @@ export function uploadDriveFileWithProgress(
   })
 }
 
-// Calendar — événements
+// Calendar — agendas + événements (style Google)
+export type UserCalendar = {
+  id: number
+  tenant_id: number
+  user_id: number
+  name: string
+  color_hex: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchUserCalendars(token: string): Promise<UserCalendar[]> {
+  const res = await fetch(apiUrl('/calendar/calendars'), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Calendars: ${res.status}`)
+  const data: unknown = await res.json()
+  return Array.isArray(data) ? (data as UserCalendar[]) : []
+}
+
+export async function createUserCalendar(
+  token: string,
+  payload: { name: string; color_hex?: string }
+): Promise<{ id: number; name: string; color_hex: string }> {
+  const res = await fetch(apiUrl('/calendar/calendars'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Create calendar: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string; color_hex: string }>
+}
+
 export type CalendarEvent = {
   id: number
   tenant_id: number
   user_id: number
+  calendar_id?: number | null
   title: string
   start_at: string
   end_at: string
@@ -930,8 +1007,9 @@ export type CalendarEvent = {
   updated_at: string
 }
 
-export async function fetchCalendarEvents(token: string): Promise<CalendarEvent[]> {
-  const res = await fetch(apiUrl('/calendar/events'), { headers: { Authorization: `Bearer ${token}` } })
+export async function fetchCalendarEvents(token: string, calendarId?: number | null): Promise<CalendarEvent[]> {
+  const q = calendarId != null && calendarId > 0 ? `?calendar_id=${calendarId}` : ''
+  const res = await fetch(apiUrl(`/calendar/events${q}`), { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Calendar: ${res.status}`)
   const data: unknown = await res.json()
   return Array.isArray(data) ? (data as CalendarEvent[]) : []
@@ -939,15 +1017,53 @@ export async function fetchCalendarEvents(token: string): Promise<CalendarEvent[
 
 export async function createCalendarEvent(
   token: string,
-  data: { title: string; start_at: string; end_at: string; all_day?: boolean; location?: string; description?: string }
-): Promise<{ id: number; title: string }> {
+  data: {
+    title: string
+    start_at: string
+    end_at: string
+    all_day?: boolean
+    location?: string
+    description?: string
+    calendar_id?: number
+  }
+): Promise<{ id: number; title: string; calendar_id?: number }> {
   const res = await fetch(apiUrl('/calendar/events'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`Create event: ${res.status}`)
-  return res.json() as Promise<{ id: number; title: string }>
+  return res.json() as Promise<{ id: number; title: string; calendar_id?: number }>
+}
+
+export async function updateCalendarEvent(
+  token: string,
+  eventId: number,
+  patch: Partial<{
+    title: string
+    start_at: string
+    end_at: string
+    all_day: boolean
+    location: string | null
+    description: string | null
+    calendar_id: number
+  }>
+): Promise<{ id: number }> {
+  const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`Update event: ${res.status}`)
+  return res.json() as Promise<{ id: number }>
+}
+
+export async function deleteCalendarEvent(token: string, eventId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok && res.status !== 404) throw new Error(`Delete event: ${res.status}`)
 }
 
 // Notes — bloc-notes
