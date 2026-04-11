@@ -116,13 +116,14 @@ export default function OfficePage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Link
-            to="/app/drive"
+          <button
+            type="button"
+            onClick={() => navigate('/app/drive')}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
           >
             <FolderPlus className="h-4 w-4" />
             Nouveau dossier
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -178,14 +179,10 @@ export default function OfficePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {recentFiles.map((node) => {
               const isEditable = EDITABLE_EXT.includes(getExtension(node.name))
-              const href = isEditable ? `/app/office/editor/${node.id}` : '/app/drive'
-              return (
-                <Link
-                  key={node.id}
-                  to={href}
-                  state={isEditable ? { from: 'office' } : undefined}
-                  className="flex gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group"
-                >
+              const cardClass =
+                'flex gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-600 hover:border-brand-400 dark:hover:border-brand-500 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group text-left w-full'
+              const inner = (
+                <>
                   <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
                     <RecentFileIcon node={node} />
                   </div>
@@ -201,7 +198,29 @@ export default function OfficePage() {
                       {node.size > 0 && ` · ${formatFileSize(node.size)}`}
                     </p>
                   </div>
-                </Link>
+                </>
+              )
+              if (isEditable) {
+                return (
+                  <Link
+                    key={node.id}
+                    to={`/app/office/editor/${node.id}`}
+                    state={{ from: 'office' }}
+                    className={cardClass}
+                  >
+                    {inner}
+                  </Link>
+                )
+              }
+              return (
+                <button
+                  key={node.id}
+                  type="button"
+                  onClick={() => navigate('/app/drive')}
+                  className={cardClass}
+                >
+                  {inner}
+                </button>
               )
             })}
           </div>
@@ -211,7 +230,7 @@ export default function OfficePage() {
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-8">
         <p className="text-slate-600 dark:text-slate-300 mb-2">Documents : enregistrement direct en .docx. Tableurs : grille éditable et export .xlsx. Présentations : éditeur riche et vue diapos (séparateurs par titre ou ligne horizontale).</p>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Ouvrir un fichier depuis le <Link to="/app/drive" className="text-brand-600 dark:text-brand-400 hover:underline">Drive</Link>.
+          Pour parcourir tous les fichiers et dossiers, ouvrez l’application Drive depuis le menu Applications (barre latérale).
         </p>
       </div>
     </div>

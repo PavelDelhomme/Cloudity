@@ -1095,6 +1095,8 @@ export async function createNote(token: string, title: string, content: string):
 
 // Tasks — listes et tâches
 export type TaskList = { id: number; tenant_id: number; user_id: number; name: string; created_at: string; updated_at: string }
+export type TaskRepeatRule = 'daily' | 'weekly' | 'weekdays' | 'monthly'
+
 export type Task = {
   id: number
   tenant_id: number
@@ -1103,6 +1105,7 @@ export type Task = {
   title: string
   completed: boolean
   due_at?: string | null
+  repeat_rule?: TaskRepeatRule | string | null
   created_at: string
   updated_at: string
 }
@@ -1117,14 +1120,33 @@ export async function fetchTasks(token: string, listId?: number | null): Promise
   const url = listId != null ? `${apiUrl('/tasks')}?list_id=${listId}` : apiUrl('/tasks')
   const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
   if (!res.ok) throw new Error(`Tasks: ${res.status}`)
-  return res.json() as Promise<Task[]>
+  const data: unknown = await res.json()
+  return Array.isArray(data) ? (data as Task[]) : []
 }
 
-export async function createTask(token: string, title: string, listId?: number | null): Promise<{ id: number; title: string }> {
+export async function createTaskList(token: string, name: string): Promise<{ id: number; name: string }> {
+  const res = await fetch(apiUrl('/tasks/lists'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error(`Create task list: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string }>
+}
+
+export async function createTask(
+  token: string,
+  payload: { title: string; list_id?: number | null; due_at?: string | null; repeat_rule?: string | null }
+): Promise<{ id: number; title: string }> {
   const res = await fetch(apiUrl('/tasks'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, list_id: listId ?? undefined }),
+    body: JSON.stringify({
+      title: payload.title,
+      list_id: payload.list_id ?? undefined,
+      due_at: payload.due_at ?? undefined,
+      repeat_rule: payload.repeat_rule ?? undefined,
+    }),
   })
   if (!res.ok) throw new Error(`Create task: ${res.status}`)
   return res.json() as Promise<{ id: number; title: string }>
@@ -1192,11 +1214,32 @@ export async function deleteContact(token: string, id: number): Promise<{ ok: bo
   return res.json() as Promise<{ ok: boolean }>
 }
 
-export async function updateTaskCompleted(token: string, id: number, completed: boolean): Promise<void> {
+export async function updateTask(
+  token: string,
+  id: number,
+  patch: Partial<{ title: string; completed: boolean; due_at: string | null; repeat_rule: string | null }>
+): Promise<void> {
+  const body: Record<string, unknown> = {}
+  if (patch.title !== undefined) body.title = patch.title
+  if (patch.completed !== undefined) body.completed = patch.completed
+  if (patch.due_at !== undefined) body.due_at = patch.due_at === null ? '' : patch.due_at
+  if (patch.repeat_rule !== undefined) body.repeat_rule = patch.repeat_rule === null ? '' : patch.repeat_rule
   const res = await fetch(apiUrl(`/tasks/${id}`), {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ completed }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`Update task: ${res.status}`)
+}
+
+export async function updateTaskCompleted(token: string, id: number, completed: boolean): Promise<void> {
+  await updateTask(token, id, { completed })
+}
+
+export async function deleteTask(token: string, id: number): Promise<void> {
+  const res = await fetch(apiUrl(`/tasks/${id}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok && res.status !== 204) throw new Error(`Delete task: ${res.status}`)
 }

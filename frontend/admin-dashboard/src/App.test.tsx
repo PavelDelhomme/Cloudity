@@ -114,7 +114,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
     })
-    expect(screen.getByText(/Vue mois type Google Agenda/)).toBeTruthy()
+      expect(screen.getByText(/Google Agenda/)).toBeTruthy()
   })
 
   it('renders Notes page when authenticated at /app/notes', () => {
@@ -148,6 +148,6 @@ describe('App', () => {
       </TestWrapper>
     )
     expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
-    expect(screen.getByText('To-do et listes.')).toBeTruthy()
+    expect(screen.getByText(/productivité/)).toBeTruthy()
   })
 })

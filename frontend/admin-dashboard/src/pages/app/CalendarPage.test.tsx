@@ -9,6 +9,7 @@ import { useAuth } from '../../authContext'
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../api', () => ({
   fetchCalendarEvents: vi.fn().mockResolvedValue([]),
+  fetchTasks: vi.fn().mockResolvedValue([]),
   createCalendarEvent: vi.fn(),
   fetchUserCalendars: vi.fn().mockResolvedValue([]),
   createUserCalendar: vi.fn(),
@@ -37,17 +38,20 @@ describe('CalendarPage', () => {
     } as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('affiche le titre Calendrier et la vue mois (jours lun.–dim.)', async () => {
-    render(wrap(<CalendarPage />))
+  it('affiche le titre Calendrier et la vue semaine par défaut', async () => {
+    const { container } = render(wrap(<CalendarPage />))
     expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
-    expect(screen.getByText(/Vue mois type Google Agenda/)).toBeTruthy()
-    expect(screen.getByText('lun.')).toBeTruthy()
-    expect(screen.getByText('dim.')).toBeTruthy()
+    expect(screen.getByText(/Google Agenda/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Vue : Semaine' })).toBeTruthy()
+    // Libellés de jours : dépendent de la locale runtime (ex. lun. / dim. en fr-FR)
+    expect(container.textContent).toMatch(/lun/i)
+    expect(container.textContent).toMatch(/dim/i)
   })
 
   it('en vue Agenda affiche le message vide lorsqu’il n’y a pas d’événements', async () => {
     render(wrap(<CalendarPage />))
-    fireEvent.click(screen.getByRole('button', { name: 'Vue agenda (liste)' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Vue : Semaine' }))
+    fireEvent.click(screen.getByRole('option', { name: 'Agenda' }))
     await waitFor(() => {
       expect(screen.getByText(/Aucun événement sur la période filtrée/)).toBeTruthy()
     })
@@ -57,5 +61,15 @@ describe('CalendarPage', () => {
     render(wrap(<CalendarPage />))
     expect(screen.getByText('Mes agendas')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Tous les agendas/i })).toBeTruthy()
+  })
+
+  it('affiche le mini-calendrier et le menu Créer (FAB)', async () => {
+    render(wrap(<CalendarPage />))
+    expect(screen.getByRole('button', { name: 'Mois précédent' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Mois suivant' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /ouvrir le menu/i })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /ouvrir le menu/i }))
+    expect(screen.getByRole('menuitem', { name: 'Événement' })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: 'Tâche' })).toBeTruthy()
   })
 })

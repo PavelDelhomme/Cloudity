@@ -1,5 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { addMonths, eventTouchesDay, getMonthGridCells, isSameMonth, sameDay, startOfMonth } from './calendarGrid'
+import {
+  addDays,
+  addMonths,
+  addYears,
+  eventTouchesDay,
+  getFiveWorkdays,
+  getMonthGridCells,
+  getThreeDays,
+  getTwelveWeeksGrid,
+  getWeekDays,
+  getYearMonthStarts,
+  isSameMonth,
+  sameDay,
+  startOfMonth,
+  startOfWeekMonday,
+} from './calendarGrid'
 
 describe('calendarGrid', () => {
   it('getMonthGridCells renvoie exactement 42 jours', () => {
@@ -42,5 +57,55 @@ describe('calendarGrid', () => {
     const start = new Date(2026, 5, 8, 10, 0, 0, 0).toISOString()
     const end = new Date(2026, 5, 8, 11, 0, 0, 0).toISOString()
     expect(eventTouchesDay(start, end, day)).toBe(false)
+  })
+
+  it('startOfWeekMonday : mercredi 8 avril 2026 → lundi 6 avril', () => {
+    const wed = new Date(2026, 3, 8, 15, 0, 0, 0)
+    const mon = startOfWeekMonday(wed)
+    expect(mon.getDay()).toBe(1)
+    expect(mon.getDate()).toBe(6)
+    expect(mon.getMonth()).toBe(3)
+  })
+
+  it('getThreeDays : trois jours civils à partir de l’ancre', () => {
+    const anchor = new Date(2026, 3, 10, 8, 0, 0, 0)
+    const three = getThreeDays(anchor)
+    expect(three).toHaveLength(3)
+    expect(three[0].getDate()).toBe(10)
+    expect(three[1].getDate()).toBe(11)
+    expect(three[2].getDate()).toBe(12)
+  })
+
+  it('getFiveWorkdays et getWeekDays : 5 puis 7 jours consécutifs à partir du lundi', () => {
+    const anchor = new Date(2026, 3, 10, 12, 0, 0, 0) // vendredi
+    const five = getFiveWorkdays(anchor)
+    const seven = getWeekDays(anchor)
+    expect(five).toHaveLength(5)
+    expect(seven).toHaveLength(7)
+    expect(five[0].getTime()).toBe(seven[0].getTime())
+    expect(five[4].getTime()).toBe(seven[4].getTime())
+    expect(seven[0].getDay()).toBe(1)
+    expect(seven[6].getDay()).toBe(0)
+  })
+
+  it('getTwelveWeeksGrid : 12 lignes de 7 jours', () => {
+    const grid = getTwelveWeeksGrid(new Date(2026, 3, 11, 12, 0, 0, 0))
+    expect(grid).toHaveLength(12)
+    expect(grid.every((row) => row.length === 7)).toBe(true)
+    expect(grid[0][0].getTime()).toBe(startOfWeekMonday(new Date(2026, 3, 11, 12, 0, 0, 0)).getTime())
+  })
+
+  it('addDays et addYears', () => {
+    const d = new Date(2026, 3, 15, 12, 0, 0, 0)
+    expect(addDays(d, 1).getDate()).toBe(16)
+    expect(addYears(d, 1).getFullYear()).toBe(2027)
+  })
+
+  it('getYearMonthStarts : 12 mois de l’année', () => {
+    const starts = getYearMonthStarts(2026)
+    expect(starts).toHaveLength(12)
+    expect(starts[0].getMonth()).toBe(0)
+    expect(starts[11].getMonth()).toBe(11)
+    expect(starts.every((x) => x.getFullYear() === 2026)).toBe(true)
   })
 })

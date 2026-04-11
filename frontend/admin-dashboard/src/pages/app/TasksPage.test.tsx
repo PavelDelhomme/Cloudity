@@ -11,7 +11,10 @@ vi.mock('../../api', () => ({
   fetchTaskLists: vi.fn().mockResolvedValue([]),
   fetchTasks: vi.fn().mockResolvedValue([]),
   createTask: vi.fn(),
+  createTaskList: vi.fn(),
+  updateTask: vi.fn(),
   updateTaskCompleted: vi.fn(),
+  deleteTask: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -40,7 +43,7 @@ describe('TasksPage', () => {
   it('renders Tâches title and breadcrumb', () => {
     render(wrap(<TasksPage />))
     expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
-    expect(screen.getByText(/To-do et listes/)).toBeTruthy()
+    expect(screen.getByText(/productivité/)).toBeTruthy()
   })
 
   it('shows empty state when no tasks', async () => {

@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -89,15 +91,16 @@ type TaskList struct {
 }
 
 type Task struct {
-	ID        int     `json:"id"`
-	TenantID  int     `json:"tenant_id"`
-	UserID    int     `json:"user_id"`
-	ListID    *int    `json:"list_id,omitempty"`
-	Title     string  `json:"title"`
-	Completed bool    `json:"completed"`
-	DueAt     *string `json:"due_at,omitempty"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	ID          int     `json:"id"`
+	TenantID    int     `json:"tenant_id"`
+	UserID      int     `json:"user_id"`
+	ListID      *int    `json:"list_id,omitempty"`
+	Title       string  `json:"title"`
+	Completed   bool    `json:"completed"`
+	DueAt       *string `json:"due_at,omitempty"`
+	RepeatRule  *string `json:"repeat_rule,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
 }
 
 func (h *Handler) listLists(c *gin.Context) {
@@ -162,13 +165,13 @@ func (h *Handler) listTasks(c *gin.Context) {
 	var err error
 	if listID == "" {
 		rows, err = h.db.Query(`
-			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, created_at::text, COALESCE(updated_at::text, '')
+			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
 			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY completed, due_at NULLS LAST, created_at
 		`)
 	} else {
 		lid, _ := strconv.Atoi(listID)
 		rows, err = h.db.Query(`
-			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, created_at::text, COALESCE(updated_at::text, '')
+			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
 			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND list_id = $1 ORDER BY completed, due_at NULLS LAST, created_at
 		`, lid)
 	}
@@ -182,8 +185,9 @@ func (h *Handler) listTasks(c *gin.Context) {
 		var t Task
 		var lid sql.NullInt64
 		var due sql.NullString
+		var rr sql.NullString
 		var uat string
-		if err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &t.Title, &t.Completed, &due, &t.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &t.Title, &t.Completed, &due, &rr, &t.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -193,6 +197,10 @@ func (h *Handler) listTasks(c *gin.Context) {
 		}
 		if due.Valid {
 			t.DueAt = &due.String
+		}
+		if rr.Valid && rr.String != "" {
+			s := rr.String
+			t.RepeatRule = &s
 		}
 		t.UpdatedAt = uat
 		list = append(list, t)
@@ -206,9 +214,10 @@ func (h *Handler) createTask(c *gin.Context) {
 		return
 	}
 	var body struct {
-		ListID *int    `json:"list_id"`
-		Title  string  `json:"title"`
-		DueAt  *string `json:"due_at"`
+		ListID     *int    `json:"list_id"`
+		Title      string  `json:"title"`
+		DueAt      *string `json:"due_at"`
+		RepeatRule *string `json:"repeat_rule"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Title == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
@@ -221,9 +230,15 @@ func (h *Handler) createTask(c *gin.Context) {
 			tenantID = tid
 		}
 	}
+	var rr interface{}
+	if body.RepeatRule != nil && *body.RepeatRule != "" {
+		rr = *body.RepeatRule
+	} else {
+		rr = nil
+	}
 	var id int
-	err := h.db.QueryRow(`INSERT INTO tasks (tenant_id, user_id, list_id, title, due_at) VALUES ($1, $2, $3, $4, $5::timestamptz) RETURNING id`,
-		tenantID, userID, body.ListID, body.Title, body.DueAt).Scan(&id)
+	err := h.db.QueryRow(`INSERT INTO tasks (tenant_id, user_id, list_id, title, due_at, repeat_rule) VALUES ($1, $2, $3, $4, $5::timestamptz, $6) RETURNING id`,
+		tenantID, userID, body.ListID, body.Title, body.DueAt, rr).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -242,18 +257,58 @@ func (h *Handler) updateTask(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title     *string `json:"title"`
-		Completed *bool   `json:"completed"`
-		DueAt     *string `json:"due_at"`
+		Title      *string `json:"title"`
+		Completed  *bool   `json:"completed"`
+		DueAt      *string `json:"due_at"`
+		RepeatRule *string `json:"repeat_rule"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	res, err := h.db.Exec(`
-		UPDATE tasks SET title = COALESCE($1, title), completed = COALESCE($2, completed), due_at = $3::timestamptz, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.Title, body.Completed, body.DueAt, id)
+	var parts []string
+	var args []interface{}
+	argN := 1
+	if body.Title != nil {
+		parts = append(parts, fmt.Sprintf("title = $%d", argN))
+		args = append(args, *body.Title)
+		argN++
+	}
+	if body.Completed != nil {
+		parts = append(parts, fmt.Sprintf("completed = $%d", argN))
+		args = append(args, *body.Completed)
+		argN++
+	}
+	if body.DueAt != nil {
+		if *body.DueAt == "" {
+			parts = append(parts, "due_at = NULL")
+		} else {
+			parts = append(parts, fmt.Sprintf("due_at = $%d::timestamptz", argN))
+			args = append(args, *body.DueAt)
+			argN++
+		}
+	}
+	if body.RepeatRule != nil {
+		if *body.RepeatRule == "" {
+			parts = append(parts, "repeat_rule = NULL")
+		} else {
+			parts = append(parts, fmt.Sprintf("repeat_rule = $%d", argN))
+			args = append(args, *body.RepeatRule)
+			argN++
+		}
+	}
+	if len(parts) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+	parts = append(parts, "updated_at = CURRENT_TIMESTAMP")
+	args = append(args, id)
+	q := fmt.Sprintf(
+		"UPDATE tasks SET %s WHERE id = $%d AND user_id = current_setting('app.current_user_id', true)::INTEGER",
+		strings.Join(parts, ", "),
+		argN,
+	)
+	res, err := h.db.Exec(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
