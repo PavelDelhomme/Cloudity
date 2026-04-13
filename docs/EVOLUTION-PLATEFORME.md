@@ -2,6 +2,8 @@
 
 Document court pour **faire grandir** le projet (API, services, web, mobile) sans tout casser.
 
+> **Liens** : fiches produits et transversal → **[ROADMAP.md](./ROADMAP.md)** ; suivi quotidien → **[STATUS.md](../STATUS.md)** ; applications mobiles → **[MOBILES.md](./MOBILES.md)** ; tests → **[TESTS.md](./TESTS.md)** ; index → **[README.md](./README.md)**.
+
 ## Structure actuelle (mono-dépôt)
 
 | Zone | Rôle |

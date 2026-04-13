@@ -263,11 +263,24 @@ export type MailMessageResponse = {
   is_read?: boolean
   /** 0–100 : heuristique anti-spam (backend). */
   spam_score?: number
+  /** Clé de regroupement conversation (Message-ID racine / References). */
+  thread_key?: string
+  attachment_count?: number
+}
+
+export type MailAttachmentDTO = {
+  id: number
+  filename: string
+  content_type: string
+  size_bytes: number
+  /** Contenu présent en base (sinon téléchargement relit l’IMAP). */
+  stored_inline: boolean
 }
 
 export type MailMessageDetailResponse = MailMessageResponse & {
   body_plain?: string
   body_html?: string
+  attachments?: MailAttachmentDTO[]
 }
 
 export type MailMessagesPageResponse = {
@@ -279,12 +292,24 @@ export async function fetchMailMessages(
   token: string,
   accountId: number,
   folder = 'inbox',
-  options?: { limit?: number; offset?: number; recipient?: string }
+  options?: {
+    limit?: number
+    offset?: number
+    recipient?: string
+    delivered_to?: string
+    /** Filtre messages portant cette étiquette (compte courant). */
+    tag_id?: number
+    /** Ne garder que les messages de cette conversation (même clé thread côté serveur). */
+    thread_key?: string
+  }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams({ folder })
   if (options?.limit != null) params.set('limit', String(options.limit))
   if (options?.offset != null) params.set('offset', String(options.offset))
-  if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
+  if (options?.delivered_to?.trim()) params.set('delivered_to', options.delivered_to.trim())
+  else if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
+  if (options?.tag_id != null && options.tag_id > 0) params.set('tag_id', String(options.tag_id))
+  if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -333,6 +358,8 @@ export type MailAliasResponse = {
   account_id: number
   alias_email: string
   label?: string | null
+  /** Cible de livraison / routage documenté (Pass, transfert — non appliqué seul sans config DNS / fournisseur). */
+  deliver_target_email?: string | null
   created_at: string
 }
 
@@ -348,7 +375,7 @@ export async function fetchMailAliases(token: string, accountId: number): Promis
 export async function createMailAlias(
   token: string,
   accountId: number,
-  payload: { alias_email: string; label?: string }
+  payload: { alias_email: string; label?: string; deliver_target_email?: string }
 ): Promise<{ id: number; alias_email: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
     method: 'POST',
@@ -360,6 +387,28 @@ export async function createMailAlias(
     throw new Error(t || `Create alias: ${res.status}`)
   }
   return res.json() as Promise<{ id: number; alias_email: string }>
+}
+
+/** Met à jour libellé et/ou la cible de livraison documentée d’un alias. */
+export async function patchMailAlias(
+  token: string,
+  accountId: number,
+  aliasId: number,
+  patch: { label?: string; deliver_target_email?: string }
+): Promise<{ ok: boolean }> {
+  const body: Record<string, string> = {}
+  if (patch.label !== undefined) body.label = patch.label
+  if (patch.deliver_target_email !== undefined) body.deliver_target_email = patch.deliver_target_email
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Patch alias: ${res.status}`)
+  }
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 export async function deleteMailAlias(token: string, accountId: number, aliasId: number): Promise<void> {
@@ -382,6 +431,24 @@ export async function fetchMailMessage(
   return res.json() as Promise<MailMessageDetailResponse>
 }
 
+/** Télécharge le fichier d’une pièce jointe (Bearer requis — ouvrir via blob côté UI). */
+export async function downloadMailAttachment(
+  token: string,
+  accountId: number,
+  messageId: number,
+  attachmentId: number
+): Promise<Blob> {
+  const res = await fetch(
+    apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/attachments/${attachmentId}`),
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Pièce jointe: ${res.status}`)
+  }
+  return res.blob()
+}
+
 export async function markMailMessageRead(
   token: string,
   accountId: number,
@@ -400,13 +467,15 @@ export async function markMailMessageRead(
   return res.json() as Promise<{ ok: boolean; read: boolean }>
 }
 
-export type MailFolderId = 'inbox' | 'sent' | 'drafts' | 'spam' | 'trash'
+export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'spam' | 'trash'
+/** Dossier standard ou chemin IMAP synchronisé (même valeur qu’en base). */
+export type MailFolderId = MailStandardFolderId | (string & {})
 
 export async function moveMailMessageToFolder(
   token: string,
   accountId: number,
   messageId: number,
-  folder: MailFolderId
+  folder: string
 ): Promise<{ ok: boolean; folder: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/folder`), {
     method: 'PATCH',
@@ -441,19 +510,23 @@ export async function syncMailAccount(
   token: string,
   accountId: number,
   password?: string,
-  options?: { imap_host?: string; imap_port?: number }
+  options?: { imap_host?: string; imap_port?: number; extra_imap_folders?: string[] }
 ): Promise<{ synced: number; message: string }> {
+  const body: Record<string, unknown> = {
+    password: password ?? '',
+    imap_host: options?.imap_host,
+    imap_port: options?.imap_port,
+  }
+  if (options?.extra_imap_folders != null && options.extra_imap_folders.length > 0) {
+    body.extra_imap_folders = options.extra_imap_folders
+  }
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/sync`), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      password: password ?? '',
-      imap_host: options?.imap_host,
-      imap_port: options?.imap_port,
-    }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const t = await res.text()
@@ -467,6 +540,121 @@ export async function syncMailAccount(
   return res.json() as Promise<{ synced: number; message: string }>
 }
 
+export type MailFolderFolderStat = { total: number; unread: number }
+
+export type MailFolderExtraStat = { folder: string; total: number; unread: number }
+
+export type MailFolderSummaryResponse = {
+  inbox: MailFolderFolderStat
+  sent: MailFolderFolderStat
+  drafts: MailFolderFolderStat
+  spam: MailFolderFolderStat
+  trash: MailFolderFolderStat
+  /** Dossiers IMAP hors lot standard (clé = chemin IMAP en base). */
+  extra: MailFolderExtraStat[]
+}
+
+/** Totaux / non-lus par dossier ; `extra` = dossiers IMAP personnalisés ayant des messages. */
+export async function fetchMailFolderSummary(
+  token: string,
+  accountId: number
+): Promise<MailFolderSummaryResponse> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/folders/summary`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail folder summary: ${res.status}`)
+  const raw = (await res.json()) as Record<string, unknown>
+  const stat = (k: string): MailFolderFolderStat => {
+    const v = raw[k]
+    if (v && typeof v === 'object' && 'total' in v && 'unread' in v) {
+      return v as MailFolderFolderStat
+    }
+    return { total: 0, unread: 0 }
+  }
+  let extra: MailFolderExtraStat[] = []
+  if (Array.isArray(raw.extra)) {
+    extra = raw.extra.filter(
+      (x): x is MailFolderExtraStat =>
+        x != null &&
+        typeof x === 'object' &&
+        typeof (x as MailFolderExtraStat).folder === 'string' &&
+        typeof (x as MailFolderExtraStat).total === 'number' &&
+        typeof (x as MailFolderExtraStat).unread === 'number'
+    )
+  }
+  return {
+    inbox: stat('inbox'),
+    sent: stat('sent'),
+    drafts: stat('drafts'),
+    spam: stat('spam'),
+    trash: stat('trash'),
+    extra,
+  }
+}
+
+export type MailImapFolderRow = {
+  imap_path: string
+  parent_imap_path: string
+  label: string
+  delimiter: string
+}
+
+/** Arborescence dossiers telle que renvoyée par IMAP LIST (après sync). */
+export async function fetchMailImapFolders(token: string, accountId: number): Promise<MailImapFolderRow[]> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail IMAP folders: ${res.status}`)
+  const data = (await res.json()) as unknown
+  return Array.isArray(data) ? (data as MailImapFolderRow[]) : []
+}
+
+export type MailTagResponse = {
+  id: number
+  account_id: number
+  name: string
+  color: string
+  created_at: string
+}
+
+export async function fetchMailTags(token: string, accountId: number): Promise<MailTagResponse[]> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail tags: ${res.status}`)
+  const data = (await res.json()) as unknown
+  return Array.isArray(data) ? (data as MailTagResponse[]) : []
+}
+
+export async function createMailTag(
+  token: string,
+  accountId: number,
+  payload: { name: string; color?: string }
+): Promise<{ id: number; name: string; existed?: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Create mail tag: ${res.status}`)
+  return res.json() as Promise<{ id: number; name: string; existed?: boolean }>
+}
+
+export async function putMailMessageTags(
+  token: string,
+  accountId: number,
+  messageId: number,
+  tagIds: number[]
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/tags`), {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tag_ids: tagIds }),
+  })
+  if (!res.ok) throw new Error(`Put message tags: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
+}
+
 export async function sendMailMessage(
   token: string,
   payload: {
@@ -477,6 +665,8 @@ export async function sendMailMessage(
     body: string
     smtp_host?: string
     smtp_port?: number
+    /** Adresse « De » : boîte principale ou alias enregistré pour ce compte. */
+    from_email?: string
   }
 ): Promise<{ message: string }> {
   const res = await fetch(apiUrl('/mail/me/send'), {
@@ -1212,6 +1402,38 @@ export async function deleteContact(token: string, id: number): Promise<{ ok: bo
   })
   if (!res.ok) throw new Error(`Delete contact: ${res.status}`)
   return res.json() as Promise<{ ok: boolean }>
+}
+
+export type ContactImportResult = {
+  imported: number
+  updated: number
+  skipped: number
+  invalid: number
+}
+
+/** Import en masse (fichier CSV / JSON / HTML parsé côté client). */
+export async function importContacts(
+  token: string,
+  contacts: { name: string; email: string; phone?: string }[],
+  onDuplicate: 'skip' | 'update'
+): Promise<ContactImportResult> {
+  const res = await fetch(apiUrl('/contacts/import'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contacts, on_duplicate: onDuplicate }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    let msg = t || `Import contacts: ${res.status}`
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      if (j.error) msg = j.error
+    } catch {
+      /* texte brut */
+    }
+    throw new Error(msg)
+  }
+  return res.json() as Promise<ContactImportResult>
 }
 
 export async function updateTask(

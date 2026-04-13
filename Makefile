@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup install init dev prod build test tests test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -53,7 +53,12 @@ help: ## Affiche ce message d'aide
 	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
+	@echo '  make run-mobile APP=Admin|Drive|Mail|Calendar|Contacts|Photos|Pass - Flutter (seul Admin existe ; autres → docs/SYNC-BACKLOG.md)'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+run-mobile: ## Lance une app Flutter : make run-mobile APP=Admin (prérequis : flutter). Autres APP → scaffold futur ; voir docs/SYNC-BACKLOG.md et docs/MOBILES.md
+	@chmod +x scripts/run-mobile.sh 2>/dev/null || true
+	@APP="$(APP)" ./scripts/run-mobile.sh
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."
@@ -725,7 +730,7 @@ logs-service: ## Affiche les logs d'un service spécifique
 init-mobile: ## Initialise toutes les applications mobiles
 	@echo "📱 Initialisation des applications mobiles..."
 	@if command -v flutter >/dev/null 2>&1; then \
-		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
+		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes mobile/contacts mobile/photos mobile/pass; do \
 			if [ -d "$$app" ]; then \
 				echo "Initialisation de $$app"; \
 				cd $$app && flutter pub get; \
@@ -739,7 +744,7 @@ init-mobile: ## Initialise toutes les applications mobiles
 build-mobile: ## Build toutes les applications mobiles
 	@echo "🔨 Build des applications mobiles..."
 	@if command -v flutter >/dev/null 2>&1; then \
-		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
+		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes mobile/contacts mobile/photos mobile/pass; do \
 			if [ -d "$$app" ]; then \
 				echo "Build de $$app"; \
 				cd $$app && flutter build apk --debug; \
@@ -750,28 +755,7 @@ build-mobile: ## Build toutes les applications mobiles
 		echo "⚠️  Flutter non installé, applications mobiles ignorées"; \
 	fi
 
-run-mobile: ## Exécute une application mobile en mode développement
-	@echo "📱 Exécuter une application mobile"
-	@if command -v flutter >/dev/null 2>&1; then \
-		echo "Choisissez une application mobile:"; \
-		apps=(); \
-		i=1; \
-		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes; do \
-			if [ -d "$$app" ]; then \
-				apps[$$i]=$$app; \
-				echo "$$i) $${app#mobile/}"; \
-				i=$$((i+1)); \
-			fi; \
-		done; \
-		read -p "Choisir une application (1-$$((i-1))): " choice; \
-		if [ -n "$${apps[$$choice]}" ]; then \
-			cd $${apps[$$choice]} && flutter run; \
-		else \
-			echo "Choix invalide"; \
-		fi; \
-	else \
-		echo "⚠️  Flutter non installé"; \
-	fi
+# run-mobile : voir en tête du Makefile (scripts/run-mobile.sh + APP=…). Ancienne recette interactive retirée car elle écrasait cette cible.
 
 # Gestion de l'infrastructure
 create-volume: ## Crée un volume Docker

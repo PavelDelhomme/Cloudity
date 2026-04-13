@@ -65,7 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     saveToStorage(state)
   }, [state])
 
-  // Rafraîchissement proactif : toutes les 10 min tant qu'on a un refresh token, pour garder la session sans déconnexion
+  // Rafraîchissement proactif : toutes les 10 min (JWT d’accès souvent 60 min côté serveur ; refresh token 30 j + rotation).
+  // L’activité utilisateur et le retour sur l’onglet renouvellent aussi le JWT (voir effets suivants).
   useEffect(() => {
     if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
     const intervalMs = 10 * 60 * 1000 // 10 minutes
@@ -84,6 +85,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }, intervalMs)
     return () => clearInterval(id)
+  }, [state.refreshToken, state.accessToken, state.tenantId])
+
+  const lastFocusRefreshAtRef = useRef(0)
+
+  // Onglet visible ou fenêtre au premier plan : renouveler le JWT (Chrome ralentit setInterval en arrière-plan)
+  useEffect(() => {
+    if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
+    const doRefresh = () => {
+      const rt = refreshTokenRef.current
+      if (!rt) return
+      const now = Date.now()
+      if (now - lastFocusRefreshAtRef.current < 5000) return // anti double appel visibility + focus + activité
+      lastFocusRefreshAtRef.current = now
+      void refreshAuth(rt)
+        .then((res) => {
+          setState((prev) => ({
+            ...prev,
+            accessToken: res.access_token,
+            refreshToken: res.refresh_token,
+          }))
+        })
+        .catch(() => {})
+    }
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      doRefresh()
+    }
+    const onFocus = () => doRefresh()
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [state.refreshToken, state.accessToken, state.tenantId])
+
+  // Activité (clic, touche) : renouveler le JWT tant que l’utilisateur est actif sur l’onglet visible (évite de « perdre » la session en longue session de travail).
+  const lastActivityRefreshAtRef = useRef(0)
+  useEffect(() => {
+    if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
+    const minGapMs = 4 * 60 * 1000 // au plus un refresh déclenché par l’activité toutes les 4 min
+    const onActivity = () => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastActivityRefreshAtRef.current < minGapMs) return
+      if (now - lastFocusRefreshAtRef.current < 5000) return
+      lastActivityRefreshAtRef.current = now
+      lastFocusRefreshAtRef.current = now
+      const rt = refreshTokenRef.current
+      if (!rt) return
+      void refreshAuth(rt)
+        .then((res) => {
+          setState((prev) => ({
+            ...prev,
+            accessToken: res.access_token,
+            refreshToken: res.refresh_token,
+          }))
+        })
+        .catch(() => {})
+    }
+    document.addEventListener('pointerdown', onActivity, { passive: true })
+    document.addEventListener('keydown', onActivity)
+    return () => {
+      document.removeEventListener('pointerdown', onActivity)
+      document.removeEventListener('keydown', onActivity)
+    }
   }, [state.refreshToken, state.accessToken, state.tenantId])
 
   const login = useCallback(

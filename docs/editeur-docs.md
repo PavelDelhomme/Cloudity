@@ -1,5 +1,7 @@
 # Éditeur de documents maison (Drive)
 
+> Fiche produit **Office** : **[ROADMAP.md](./ROADMAP.md)** (APP-03). Suivi court : **[STATUS.md](../STATUS.md)** (§ 1b). Index : **[README.md](./README.md)**.
+
 Objectif : permettre d’ouvrir et d’éditer des documents (texte riche, tableur) depuis le Drive Cloudity avec **notre propre** front, sans OnlyOffice ni service tiers.
 
 ## Comportement actuel (implémenté)

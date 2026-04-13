@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -25,10 +26,27 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-const (
-	accessTokenDuration  = 15 * time.Minute
-	refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
-)
+// accessTokenDuration est fixé au démarrage (voir init) : défaut 60 min, surcharge ACCESS_TOKEN_DURATION_MINUTES (5–1440).
+var accessTokenDuration time.Duration
+
+const refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
+
+func init() {
+	accessTokenDuration = parseAccessTokenDurationMinutes()
+}
+
+func parseAccessTokenDurationMinutes() time.Duration {
+	v := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_DURATION_MINUTES"))
+	if v == "" {
+		return 60 * time.Minute
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 5 || n > 24*60 {
+		log.Printf("auth-service: ACCESS_TOKEN_DURATION_MINUTES=%q invalide (entier 5–1440), utilisation de 60 min", v)
+		return 60 * time.Minute
+	}
+	return time.Duration(n) * time.Minute
+}
 
 // UserStore abstrait l'accès aux utilisateurs (pour tests).
 type UserStore interface {

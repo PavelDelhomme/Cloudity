@@ -1,8 +1,12 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-03-10  
+**Dernière mise à jour** : 2026-04-13 (convention doc : racine **README** + **STATUS** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
 **Branche de référence** : `main` (travail basé sur `origin/main`)  
-**Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes.
+**Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
+
+**Emplacement des docs** : à la racine, **`README.md`** + **`STATUS.md`** uniquement pour l’essentiel ; **ROADMAP**, **TESTS**, **MOBILES**, **PlanImplementation**, **MAIL-GMAIL-OAUTH** et les guides → dossier **`docs/`** (index **[docs/README.md](./docs/README.md)**).
+
+**Catalogue produit & mobile** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/MOBILES.md](./docs/MOBILES.md)** — matrice **web / mobile** + **admin mobile** (ADM-02). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**.
 
 **Pourquoi mocker l'API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l'API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L'objectif est la pratique standard (tests isolés). L'avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes.
 
@@ -17,14 +21,19 @@
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
 | **Première fois** | **`make setup`** puis **`make up-full`** |
+| **App mobile (Flutter)** | **`make run-mobile APP=Admin`** (prérequis : Flutter) ; Drive/Mail/Calendar/… → message + **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 tant que non scaffold |
 
 **URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
+
+**Session web** : JWT d’accès **60 min** par défaut (`ACCESS_TOKEN_DURATION_MINUTES` sur **auth-service** dans `docker-compose`) ; refresh **30 j** avec rotation ; le front **rafraîchit** le token toutes les **10 min** et **au retour sur l’onglet** pour éviter les déconnexions quand le navigateur ralentit les timers en arrière-plan.
 
 **Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
 
 **Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo **admin@cloudity.local** / **Admin123!** (tenant 1). **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
 
 **Authentification et interconnexion centralisées** : Oui. **Un seul** service d’auth (**auth-service**), **une seule** entrée API (**api-gateway** sur le port 6080). Toutes les apps (Dashboard, Drive, Mail, Pass, Agenda, Notes, Tâches) utilisent le **même JWT** : le frontend stocke le token dans le localStorage (`cloudity_admin_auth`) et envoie `Authorization: Bearer <token>` sur chaque requête. Le gateway valide le JWT, extrait `user_id` et `tenant_id`, et les transmet aux backends via les en-têtes **X-User-ID** et **X-Tenant-ID**. Aucun backend ne fait de login lui-même : Pass, Mail, Drive, Calendar, Notes, Tasks et Admin s’appuient tous sur ce mécanisme. Les futures apps (Flutter, PWA) pourront réutiliser la même API et le même token.
+
+**Évolution en cours** : structurer le front en **plusieurs produits** (même repo, URLs / builds séparés, packages partagés, admin isolé) — détail et checklist complète en **§ 0b** (après les commandes de test ci-dessous).
 
 ### Tests (à suivre absolument)
 
@@ -51,7 +60,7 @@
 
 **Total : 133 tests** (make test) — tous passent au 2026-03-05.
 
-**Détail des tests et liste des tests à faire** : voir **[TESTS.md](./TESTS.md)**.
+**Détail des tests et liste des tests à faire** : voir **[docs/TESTS.md](./docs/TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
@@ -59,11 +68,55 @@
 
 **Ordre des applications (roadmap globale)** : 1) **Office/Éditeur** (Document complet → Excel → PowerPoint, notre propre Word/Excel/PowerPoint, au moins au niveau de Google Docs / Word) ; 2) **Pass** ; 3) **Calendar** ; 4) **Notes** ; 5) **Tasks** ; 6) **Contacts** ; 7) **Photos** ; 8) **Mail** (retravaillé plus tard). Détail § 1b.
 
-**Prochaine étape (en cours)** : **Office/Éditeur document complet** — éditeur avec **fil d'Ariane** (Drive > nom du doc), **renommer à côté du titre**, **barre de menus** (Fichier, Édition, Affichage, Insertion, Format type Word/Google Docs), **barre de formatage** en dessous (gras, titres, listes, tableau, lien, etc.), mode Markdown, renommer/supprimer (menu Fichier), export PDF, présentation .pptx. **Drawer** : barre de navigation gauche masquable sur tous les écrans (localStorage). Voir `docs/editeur-docs.md` et **§ 1b**.
+**Prochaine étape (en cours)** :  
+1. **Architecture multi-produits (§ 0b)** — monorepo front, packages partagés, apps utilisateur vs **admin-console** séparée, URLs distinctes ; avancer **étape par étape** (A1 → A2/A3 → …) sans casser l’app actuelle.  
+2. **Office/Éditeur document complet** (en parallèle ou après stabilisation 0b) — fil d’Ariane, menus, formatage, export PDF, .pptx, drawer ; voir `docs/editeur-docs.md` et **§ 1b**.
 
 **Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** (galerie type Google Photos) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
 
 **État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
+
+---
+
+## 0b. Architecture multi-produits (EN COURS — avril 2026)
+
+**But** : garder **un seul dépôt** Cloudity tout en préparant **plusieurs applications front** (chacune son entrée Vite ou son domaine), des **bibliothèques communes** réutilisables, la **même couche compte** (JWT, gateway), et un **back-office administrateur clairement séparé** des apps **utilisateur** (suite type Google). Côté backend, on **conserve** le principe actuel : **un service par domaine** (mail-directory, drive-service, etc.) derrière la **même gateway** ; cette initiative concerne surtout l’**organisation du frontend** et le **découpage des déploiements**, sans tout fusionner dans une seule SPA « fourre-tout ».
+
+**Principes** :
+- **Suite utilisateur** : hub, Mail, Drive, Pass, Agenda, etc. — une ou plusieurs apps front selon le découpage (lazy routes d’abord, builds séparés ensuite si besoin).
+- **Admin** : écrans Tenants, Users, Domaines, stats — **app ou base URL dédiée**, pas mélangée aux parcours `/app/*` grand public.
+- **Partagé** : auth (token, contexte ou hooks), client HTTP + types API, design system / composants si utile — **une seule source de vérité** par concern.
+
+### Checklist globale (tout ce qu’il faut pour arriver à la cible)
+
+Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **progressive**, sans big-bang).
+
+| ID | Tâche | Détail / livrable | Statut |
+|----|--------|-------------------|--------|
+| **A0** | **Documentation & alignement** | Ce fichier (§ 0b), noms des apps/packages figés en équipe | 🟡 En cours |
+| **A1** | **Workspaces frontend** | `package.json` workspaces (`apps/*`, `packages/*`) sous `frontend/` (ou racine si tout le JS est regroupé) ; une commande pour installer tout le monorepo | ⬜ |
+| **A2** | **Package auth partagé** | Contrat token (clé `localStorage`, format), helpers `Authorization` / `X-Tenant-ID` ; extraction depuis l’app actuelle ; version « core » sans React possible + couche `react` optionnelle | ⬜ |
+| **A3** | **Package client API partagé** | `apiUrl`, fetch centralisé, types communs — migration **incrémentale** depuis `frontend/admin-dashboard/src/api.ts` (pas tout d’un coup) | ⬜ |
+| **A4** | **Package UI optionnel** | Composants réutilisables (boutons, layout partiel) si duplication constatée entre apps | ⬜ |
+| **A5** | **App suite utilisateur** | Projet Vite dédié : hub + produits ; **aucune** route admin métier ; consomme A2/A3 | ⬜ |
+| **A6** | **App admin-console** | Projet Vite dédié : login (même JWT), Tenants, Users, Domaines, Settings admin uniquement | ⬜ |
+| **A7** | **URLs & ports dev** | Ex. `localhost:6001` = suite, `localhost:6002` = admin — ou sous-domaines locaux (`app.cloudity.test` / `admin.cloudity.test`) + proxy | ⬜ |
+| **A8** | **Docker / Make** | Services `docker-compose` ou cibles `Makefile` pour builder/servir chaque app ; `VITE_API_URL` par app | ⬜ |
+| **A9** | **CORS gateway** | Liste d’origines autorisées incluant **toutes** les URLs des apps front (dev + prod) | ⬜ |
+| **A10** | **CI / `make test`** | Installation workspaces + tests Vitest (et E2E) par app ou globaux sans régression | ⬜ |
+| **A11** | **Migration du code existant** | Déplacer routes/pages par blocs ; garder l’app historique **verte** à chaque merge ; renommage du dossier `admin-dashboard` seulement quand stable | ⬜ |
+| **A12** | **Playwright** | Projects ou profils séparés (suite utilisateur vs admin) si deux apps | ⬜ |
+| **A13** | **Prod / reverse proxy** | Nginx ou Traefik : `app.*` vs `admin.*` (ou chemins distincts) vers les bons conteneurs | ⬜ |
+
+### Étape technique immédiate (après A0)
+
+1. **A1** — Poser les **workspaces** sans déplacer encore tout le code : l’app actuelle reste dans `frontend/admin-dashboard` comme package workspace `apps/legacy` ou équivalent jusqu’à bascule.  
+2. **A2 + A3 (minimal)** — Extraire un **premier** module partagé (ex. constantes API + `getAuthHeaders`) importé par l’app existante ; **`make test`** et la stack Docker inchangés fonctionnellement.  
+3. Ensuite seulement **A6** (nouvelle app admin) ou **A5** (scission suite), selon priorité produit.
+
+**Rappel** : les backends et routes gateway (`/mail/*`, `/drive/*`, …) **restent** tels quels au début ; on ajoute surtout de la **structure front** et du **partage de code**.
+
+**Périmètre fonctionnel des apps** (Mail domaines perso, transferts, alias, Drive, Office, mobile, etc.) : **[docs/ROADMAP.md](./docs/ROADMAP.md)** ; **mobile** : **[docs/MOBILES.md](./docs/MOBILES.md)**.
 
 ---
 
@@ -118,7 +171,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 
 **Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
 
-*Détail des phases et checklist complète : section 5 ci-dessous.*
+*Détail des phases et checklist complète : section 5 ci-dessous ; vision long terme et métriques : **[docs/PlanImplementation.md](./docs/PlanImplementation.md)**.*
 
 ### Prochaines étapes (ordre recommandé)
 
@@ -182,7 +235,7 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 
 **Ensuite (ordre des apps)** : **Pass** → **Calendar** → **Notes** → **Tasks** → **Contacts** → **Photos** → **Mail** (retravaillé plus tard). Puis : Corbeille unifiée, Recherche, Visualisation PDF, Extracteur d'archives.
 
-*Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir TESTS.md) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
+*Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir [docs/TESTS.md](./docs/TESTS.md)) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
 
 ---
 
@@ -361,7 +414,9 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 
 ### 4.5 Frontend & applications web (port 6001)
 
-Une **seule app React** (frontend/admin-dashboard) sert à la fois l'accueil public, l'espace utilisateur et l'admin :
+**Transition** : aujourd’hui une **seule app React** (`frontend/admin-dashboard`) sert l’accueil public, l’espace utilisateur et l’admin ; la cible est décrite en **§ 0b** (plusieurs apps + packages partagés, admin séparé).
+
+Actuellement, cette app unique couvre :
 
 | Route / page | Rôle | Statut |
 |--------------|------|--------|
@@ -471,15 +526,22 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [ ] **Migrations DB versionnées** : dossier `infrastructure/postgresql/migrations/` + README créés ; appliquer les migrations à la main ou via outil (golang-migrate, Flyway).
 - [ ] **Branches** : travailler depuis `main` ; merger `develop` / `feature/*` une fois validé.
 - [ ] **Login par email seul (sans tenant)** : côté backend, optionnel — résolution du tenant par domaine email ou endpoint (ex. GET /auth/tenants?email=…) pour que l'utilisateur n'ait jamais à saisir d'organisation. Actuellement le frontend envoie `tenant_id: 1` par défaut.
-- [ ] **Documentation** : garder `PlanImplementation.md` pour la vision long terme ; **STATUS.md** = référence quotidienne de suivi.
+- [ ] **Documentation** : **STATUS.md** (racine) = suivi quotidien ; **docs/ROADMAP.md**, **docs/MOBILES.md**, **docs/PlanImplementation.md**, **docs/TESTS.md**, **docs/MAIL-GMAIL-OAUTH.md** ; index **docs/README.md**.
 
 ---
 
 ## 7. Références croisées
 
-- **Vision détaillée** : décrite dans la demande (Mail Core, Mail App, Password Manager, Core Cloudity, stack, roadmap).
-- **Plan global** : `PlanImplementation.md` (phases 1–6, métriques, ressources).
-- **Architecture technique** : `README.md` (schémas, exemples de code, stack cible).
+- **Roadmap produits & transversal** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** (applications, sécurité, infra, API, template nouvelle app).
+- **Mobile (web vs app, admin mobile)** : **[docs/MOBILES.md](./docs/MOBILES.md)**.
+- **Tests** : **[docs/TESTS.md](./docs/TESTS.md)** (référence unique des commandes et de la couverture).
+- **Plan long terme** : **[docs/PlanImplementation.md](./docs/PlanImplementation.md)** (phases 1–6, métriques, ressources).
+- **Index du dossier documentation** : **[docs/README.md](./docs/README.md)** (éditeur, architecture front, évolution plateforme, sécurité, TODO dev).
+- **Sync & mobile & session** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** (priorités parallèles : mail archivé PG, corbeille IMAP, calendar, contacts, drive, apps Flutter).
+- **Sync données + mobile + session + mail serveur** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** (priorités de travail ; détail ROADMAP **TR-07**).
+- **Mail — OAuth Google (Gmail)** : **[docs/MAIL-GMAIL-OAUTH.md](./docs/MAIL-GMAIL-OAUTH.md)**.
+- **Vision détaillée** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** et **[docs/PlanImplementation.md](./docs/PlanImplementation.md)** ; historique de demande / contexte produit dans les échanges du projet.
+- **Architecture technique** : `README.md` (vue d’ensemble) ; approfondissements **docs/** (ex. **[docs/ARCHITECTURE-FRONTENDS.md](./docs/ARCHITECTURE-FRONTENDS.md)**, **[docs/EVOLUTION-PLATEFORME.md](./docs/EVOLUTION-PLATEFORME.md)**).
 - **Docker** : `docker-compose.yml` (dev complet), `docker-compose.services.yml` (services seuls).
 
 ---

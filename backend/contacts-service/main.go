@@ -24,6 +24,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	r.Use(h.requireUserID)
 	r.GET("/contacts", h.listContacts)
 	r.POST("/contacts", h.createContact)
+	r.POST("/contacts/import", h.importContacts)
 	r.GET("/contacts/:id", h.getContact)
 	r.PATCH("/contacts/:id", h.updateContact)
 	r.DELETE("/contacts/:id", h.deleteContact)
@@ -202,6 +203,126 @@ func (h *Handler) createContact(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"id": id, "name": name, "email": email})
+}
+
+// importContacts : import en masse (export Google CSV, JSON, autre outil).
+// Body : { "contacts": [{ "name", "email", "phone" }], "on_duplicate": "skip" | "update" }
+func (h *Handler) importContacts(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body struct {
+		Contacts []struct {
+			Name  string `json:"name"`
+			Email string `json:"email"`
+			Phone string `json:"phone"`
+		} `json:"contacts"`
+		OnDuplicate string `json:"on_duplicate"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if len(body.Contacts) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "liste vide"})
+		return
+	}
+	if len(body.Contacts) > 5000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "maximum 5000 contacts par import"})
+		return
+	}
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
+	tenantID := 1
+	if t := c.GetHeader("X-Tenant-ID"); t != "" {
+		if tid, err := strconv.Atoi(t); err == nil && tid > 0 {
+			tenantID = tid
+		}
+	}
+	mode := strings.ToLower(strings.TrimSpace(body.OnDuplicate))
+	if mode != "update" {
+		mode = "skip"
+	}
+
+	rows, err := h.db.Query(`SELECT id, email FROM contacts WHERE user_id = $1`, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	emailToID := make(map[string]int)
+	for rows.Next() {
+		var id int
+		var em string
+		if err := rows.Scan(&id, &em); err != nil {
+			rows.Close()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		emailToID[strings.ToLower(strings.TrimSpace(em))] = id
+	}
+	rows.Close()
+
+	imported := 0
+	updated := 0
+	skipped := 0
+	invalid := 0
+	batchSeen := make(map[string]bool)
+
+	for _, row := range body.Contacts {
+		email := strings.TrimSpace(strings.ToLower(row.Email))
+		if email == "" || !strings.Contains(email, "@") {
+			invalid++
+			continue
+		}
+		if batchSeen[email] {
+			skipped++
+			continue
+		}
+		batchSeen[email] = true
+
+		name := strings.TrimSpace(row.Name)
+		if name == "" {
+			name = email
+		}
+		phone := strings.TrimSpace(row.Phone)
+
+		if id, ok := emailToID[email]; ok {
+			if mode == "update" {
+				_, err := h.db.Exec(`
+					UPDATE contacts SET name = $1, phone = NULLIF($2, ''), updated_at = CURRENT_TIMESTAMP
+					WHERE id = $3 AND user_id = $4
+				`, name, phone, id, userID)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				updated++
+			} else {
+				skipped++
+			}
+			continue
+		}
+
+		var newID int
+		err := h.db.QueryRow(`
+			INSERT INTO contacts (tenant_id, user_id, name, email, phone)
+			VALUES ($1, $2, $3, $4, NULLIF($5, ''))
+			RETURNING id
+		`, tenantID, userID, name, email, phone).Scan(&newID)
+		if err != nil {
+			skipped++
+			continue
+		}
+		imported++
+		emailToID[email] = newID
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"imported": imported,
+		"updated":  updated,
+		"skipped":  skipped,
+		"invalid":  invalid,
+	})
 }
 
 func (h *Handler) updateContact(c *gin.Context) {

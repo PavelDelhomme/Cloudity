@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
@@ -17,11 +16,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
-	"github.com/emersion/go-message/mail"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -151,8 +148,15 @@ func main() {
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
 		mail.GET("/me/accounts/:id/aliases", h.listAccountAliases)
 		mail.POST("/me/accounts/:id/aliases", h.createAccountAlias)
+		mail.PATCH("/me/accounts/:id/aliases/:aliasId", h.patchAccountAlias)
 		mail.DELETE("/me/accounts/:id/aliases/:aliasId", h.deleteAccountAlias)
+		mail.GET("/me/accounts/:id/folders/summary", h.accountFolderSummary)
+		mail.GET("/me/accounts/:id/imap-folders", h.listImapFoldersHTTP)
+		mail.GET("/me/accounts/:id/tags", h.listMailTagsHTTP)
+		mail.POST("/me/accounts/:id/tags", h.createMailTagHTTP)
+		mail.PUT("/me/accounts/:id/messages/:msgId/tags", h.putMessageTagsHTTP)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
+		mail.GET("/me/accounts/:id/messages/:msgId/attachments/:attId", h.downloadMailAttachmentHTTP)
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/read", h.markMessageRead)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/folder", h.moveMessageToFolder)
@@ -818,11 +822,12 @@ func (h *Handler) patchUserAccount(c *gin.Context) {
 }
 
 type MailAlias struct {
-	ID         int     `json:"id"`
-	AccountID  int     `json:"account_id"`
-	AliasEmail string  `json:"alias_email"`
-	Label      *string `json:"label,omitempty"`
-	CreatedAt  string  `json:"created_at"`
+	ID                 int     `json:"id"`
+	AccountID          int     `json:"account_id"`
+	AliasEmail         string  `json:"alias_email"`
+	Label              *string `json:"label,omitempty"`
+	DeliverTargetEmail *string `json:"deliver_target_email,omitempty"`
+	CreatedAt          string  `json:"created_at"`
 }
 
 func (h *Handler) listAccountAliases(c *gin.Context) {
@@ -833,7 +838,7 @@ func (h *Handler) listAccountAliases(c *gin.Context) {
 		return
 	}
 	rows, err := h.db.Query(`
-		SELECT a.id, a.account_id, a.alias_email, a.label, a.created_at::text
+		SELECT a.id, a.account_id, a.alias_email, a.label, a.deliver_target_email, a.created_at::text
 		FROM user_email_aliases a
 		INNER JOIN user_email_accounts u ON u.id = a.account_id
 		WHERE a.account_id = $1 AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -847,14 +852,18 @@ func (h *Handler) listAccountAliases(c *gin.Context) {
 	var list []MailAlias
 	for rows.Next() {
 		var x MailAlias
-		var lab sql.NullString
-		if err := rows.Scan(&x.ID, &x.AccountID, &x.AliasEmail, &lab, &x.CreatedAt); err != nil {
+		var lab, dte sql.NullString
+		if err := rows.Scan(&x.ID, &x.AccountID, &x.AliasEmail, &lab, &dte, &x.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		if lab.Valid && strings.TrimSpace(lab.String) != "" {
 			s := lab.String
 			x.Label = &s
+		}
+		if dte.Valid && strings.TrimSpace(dte.String) != "" {
+			s := strings.TrimSpace(dte.String)
+			x.DeliverTargetEmail = &s
 		}
 		list = append(list, x)
 	}
@@ -872,8 +881,9 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		return
 	}
 	var body struct {
-		AliasEmail string `json:"alias_email"`
-		Label      string `json:"label"`
+		AliasEmail         string `json:"alias_email"`
+		Label              string `json:"label"`
+		DeliverTargetEmail string `json:"deliver_target_email"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -883,6 +893,13 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 	if em == "" || !strings.Contains(em, "@") {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "alias_email invalide"})
 		return
+	}
+	dt := strings.TrimSpace(body.DeliverTargetEmail)
+	var dtArg interface{}
+	if dt != "" {
+		dtArg = dt
+	} else {
+		dtArg = nil
 	}
 	var n int
 	if err := h.db.QueryRow(`
@@ -894,11 +911,13 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 	}
 	var newID int
 	err = h.db.QueryRow(`
-		INSERT INTO user_email_aliases (account_id, alias_email, label)
-		VALUES ($1, $2, NULLIF(TRIM($3), ''))
-		ON CONFLICT (account_id, alias_email) DO UPDATE SET label = COALESCE(NULLIF(EXCLUDED.label, ''), user_email_aliases.label)
+		INSERT INTO user_email_aliases (account_id, alias_email, label, deliver_target_email)
+		VALUES ($1, $2, NULLIF(TRIM($3), ''), $4)
+		ON CONFLICT (account_id, alias_email) DO UPDATE SET
+			label = COALESCE(NULLIF(EXCLUDED.label, ''), user_email_aliases.label),
+			deliver_target_email = COALESCE(EXCLUDED.deliver_target_email, user_email_aliases.deliver_target_email)
 		RETURNING id
-	`, accountID, em, body.Label).Scan(&newID)
+	`, accountID, em, body.Label, dtArg).Scan(&newID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -935,23 +954,194 @@ func (h *Handler) deleteAccountAlias(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
+func (h *Handler) patchAccountAlias(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	aliasID, err := strconv.Atoi(c.Param("aliasId"))
+	if err != nil || aliasID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		return
+	}
+	var body struct {
+		Label              *string `json:"label"`
+		DeliverTargetEmail *string `json:"deliver_target_email"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if body.Label == nil && body.DeliverTargetEmail == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "aucun champ à modifier (label ou deliver_target_email)"})
+		return
+	}
+	var sets []string
+	var args []interface{}
+	p := 1
+	if body.Label != nil {
+		t := strings.TrimSpace(*body.Label)
+		if t == "" {
+			sets = append(sets, "label = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("label = $%d", p))
+			args = append(args, t)
+			p++
+		}
+	}
+	if body.DeliverTargetEmail != nil {
+		t := strings.TrimSpace(*body.DeliverTargetEmail)
+		if t == "" {
+			sets = append(sets, "deliver_target_email = NULL")
+		} else {
+			sets = append(sets, fmt.Sprintf("deliver_target_email = $%d", p))
+			args = append(args, t)
+			p++
+		}
+	}
+	args = append(args, aliasID, accountID)
+	q := fmt.Sprintf(`
+		UPDATE user_email_aliases a SET %s
+		FROM user_email_accounts u
+		WHERE a.id = $%d AND a.account_id = $%d AND a.account_id = u.id
+		AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, strings.Join(sets, ", "), p, p+1)
+	res, execErr := h.db.Exec(q, args...)
+	if execErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
+		return
+	}
+	naff, _ := res.RowsAffected()
+	if naff == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "alias introuvable"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// GET /mail/me/accounts/:id/folders/summary — totaux et non-lus par dossier (badges UI).
+func (h *Handler) accountFolderSummary(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	var dummy int
+	err = h.db.QueryRow(`
+		SELECT 1 FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, accountID).Scan(&dummy)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	type folderStat struct {
+		Total  int `json:"total"`
+		Unread int `json:"unread"`
+	}
+	type extraFolderStat struct {
+		Folder string `json:"folder"`
+		Total  int    `json:"total"`
+		Unread int    `json:"unread"`
+	}
+	out := gin.H{
+		"inbox":   folderStat{},
+		"sent":    folderStat{},
+		"drafts":  folderStat{},
+		"archive": folderStat{},
+		"spam":    folderStat{},
+		"trash":   folderStat{},
+		"extra":   []extraFolderStat{},
+	}
+	rows, qerr := h.db.Query(`
+		SELECT folder,
+			COUNT(*)::int,
+			COALESCE(SUM(CASE WHEN NOT COALESCE(is_read, false) THEN 1 ELSE 0 END), 0)::int
+		FROM mail_messages
+		WHERE account_id = $1
+		GROUP BY folder
+	`, accountID)
+	if qerr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": qerr.Error()})
+		return
+	}
+	defer rows.Close()
+	var extra []extraFolderStat
+	for rows.Next() {
+		var f string
+		var total, unread int
+		if err := rows.Scan(&f, &total, &unread); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if isStandardMailFolder(f) {
+			out[strings.ToLower(strings.TrimSpace(f))] = folderStat{Total: total, Unread: unread}
+		} else {
+			extra = append(extra, extraFolderStat{Folder: f, Total: total, Unread: unread})
+		}
+	}
+	if extra == nil {
+		extra = []extraFolderStat{}
+	}
+	out["extra"] = extra
+	c.JSON(http.StatusOK, out)
+}
+
 type MailMessage struct {
-	ID         int    `json:"id"`
-	AccountID  int    `json:"account_id"`
-	Folder     string `json:"folder"`
-	FromAddr   string `json:"from"`
-	ToAddrs    string `json:"to"`
-	Subject    string `json:"subject"`
-	DateAt     string `json:"date_at,omitempty"`
-	CreatedAt  string `json:"created_at"`
-	IsRead     bool   `json:"is_read"`
-	SpamScore  int    `json:"spam_score"`
+	ID              int    `json:"id"`
+	AccountID       int    `json:"account_id"`
+	Folder          string `json:"folder"`
+	FromAddr        string `json:"from"`
+	ToAddrs         string `json:"to"`
+	Subject         string `json:"subject"`
+	DateAt          string `json:"date_at,omitempty"`
+	CreatedAt       string `json:"created_at"`
+	IsRead          bool   `json:"is_read"`
+	SpamScore       int    `json:"spam_score"`
+	ThreadKey       string `json:"thread_key,omitempty"`
+	AttachmentCount int    `json:"attachment_count"`
+	TagIDs          []int  `json:"tag_ids,omitempty"`
+}
+
+type MailAttachmentInfo struct {
+	ID           int    `json:"id"`
+	Filename     string `json:"filename"`
+	ContentType  string `json:"content_type"`
+	SizeBytes    int    `json:"size_bytes"`
+	StoredInline bool   `json:"stored_inline"`
 }
 
 type MailMessageDetail struct {
 	MailMessage
-	BodyPlain string `json:"body_plain,omitempty"`
-	BodyHTML  string `json:"body_html,omitempty"`
+	BodyPlain   string               `json:"body_plain,omitempty"`
+	BodyHTML    string               `json:"body_html,omitempty"`
+	Attachments []MailAttachmentInfo `json:"attachments,omitempty"`
+}
+
+func parseMessageTagCSV(s string) []int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Split(s, ",")
+	var out []int
+	for _, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err == nil && n > 0 {
+			out = append(out, n)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func (h *Handler) listAccountMessages(c *gin.Context) {
@@ -961,7 +1151,13 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	folder := c.DefaultQuery("folder", "inbox")
+	folder := normalizeMailFolderQuery(c.DefaultQuery("folder", "inbox"))
+	tagID, _ := strconv.Atoi(c.Query("tag_id"))
+	threadKey := strings.TrimSpace(c.Query("thread_key"))
+	if !h.folderAllowed(accountID, folder) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé"})
+		return
+	}
 	limit := 25
 	if l := c.Query("limit"); l != "" {
 		if n, _ := strconv.Atoi(l); n > 0 && n <= 100 {
@@ -975,42 +1171,47 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		}
 	}
 	rcp := safeLikeContains(c.Query("recipient"))
-	var total int
-	var countErr error
-	if rcp != "" {
-		countErr = h.db.QueryRow(`
-			SELECT COUNT(*) FROM mail_messages
-			WHERE account_id = $1 AND folder = $2
-			AND (LOWER(to_addrs) LIKE $3 OR LOWER(from_addr) LIKE $3 OR LOWER(subject) LIKE $3)
-		`, accountID, folder, rcp).Scan(&total)
-	} else {
-		countErr = h.db.QueryRow(`
-			SELECT COUNT(*) FROM mail_messages WHERE account_id = $1 AND folder = $2
-		`, accountID, folder).Scan(&total)
+	dlv := safeLikeContains(c.Query("delivered_to"))
+	tagJoin := ""
+	if tagID > 0 {
+		tagJoin = fmt.Sprintf(" INNER JOIN mail_message_tags mt ON mt.message_id = m.id AND mt.tag_id = %d", tagID)
 	}
-	if countErr != nil {
+	args := []interface{}{accountID, folder}
+	p := 3
+	extraWhere := ""
+	if threadKey != "" {
+		extraWhere += fmt.Sprintf(" AND m.thread_key = $%d", p)
+		args = append(args, threadKey)
+		p++
+	}
+	if dlv != "" {
+		extraWhere += fmt.Sprintf(" AND LOWER(m.to_addrs) LIKE $%d", p)
+		args = append(args, dlv)
+		p++
+	} else if rcp != "" {
+		extraWhere += fmt.Sprintf(" AND (LOWER(m.to_addrs) LIKE $%d OR LOWER(m.from_addr) LIKE $%d OR LOWER(m.subject) LIKE $%d)", p, p, p)
+		args = append(args, rcp)
+		p++
+	}
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1 AND m.folder = $2%s`, tagJoin, extraWhere)
+	var total int
+	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
 		return
 	}
-	var rows *sql.Rows
-	if rcp != "" {
-		rows, err = h.db.Query(`
-			SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
-			FROM mail_messages
-			WHERE account_id = $1 AND folder = $2
-			AND (LOWER(to_addrs) LIKE $3 OR LOWER(from_addr) LIKE $3 OR LOWER(subject) LIKE $3)
-			ORDER BY date_at DESC NULLS LAST, id DESC
-			LIMIT $4 OFFSET $5
-		`, accountID, folder, rcp, limit, offset)
-	} else {
-		rows, err = h.db.Query(`
-			SELECT id, account_id, folder, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false)
-			FROM mail_messages
-			WHERE account_id = $1 AND folder = $2
-			ORDER BY date_at DESC NULLS LAST, id DESC
-			LIMIT $3 OFFSET $4
-		`, accountID, folder, limit, offset)
-	}
+	limitPh := fmt.Sprintf("$%d", p)
+	offsetPh := fmt.Sprintf("$%d", p+1)
+	argsSel := append(args, limit, offset)
+	selectSQL := fmt.Sprintf(`
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
+				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
+				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
+			FROM mail_messages m%s
+			WHERE m.account_id = $1 AND m.folder = $2%s
+			ORDER BY m.date_at DESC NULLS LAST, m.id DESC
+			LIMIT %s OFFSET %s
+		`, tagJoin, extraWhere, limitPh, offsetPh)
+	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1020,13 +1221,15 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	for rows.Next() {
 		var m MailMessage
 		var dateAt sql.NullString
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead); err != nil {
+		var tagCSV string
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		if dateAt.Valid {
 			m.DateAt = dateAt.String
 		}
+		m.TagIDs = parseMessageTagCSV(tagCSV)
 		m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 		msgList = append(msgList, m)
 	}
@@ -1055,11 +1258,12 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	var isRead bool
 	var messageUID int64
 	err = h.db.QueryRow(`
-		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html
+		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
+			COALESCE(thread_key, ''), COALESCE(attachment_count, 0)
 		FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML)
+	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML, &m.ThreadKey, &m.AttachmentCount)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 		return
@@ -1078,23 +1282,29 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	if bodyHTML.Valid {
 		m.BodyHTML = bodyHTML.String
 	}
-	// Si le corps n'est pas en base, le récupérer depuis IMAP et le stocker (échec → 200 avec en-têtes seuls, pas 500)
+	// Si le corps n'est pas en base, récupérer le RFC822 depuis IMAP : corps + pièces jointes + fil de discussion.
 	if !bodyPlain.Valid && !bodyHTML.Valid {
-		plain, html, fetchErr := h.fetchMessageBodyFromIMAP(c, accountID, messageUID, m.Folder)
+		raw, fetchErr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, m.Folder)
 		if fetchErr != nil {
 			log.Printf("[mail] corps IMAP message id=%d uid=%d: %v", msgID, messageUID, fetchErr)
-		} else if plain != "" || html != "" {
-			if _, upErr := h.db.Exec(`
-				UPDATE mail_messages SET body_plain = $1, body_html = $2
-				WHERE id = $3 AND account_id = $4
-				AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-			`, nullStr(plain), nullStr(html), msgID, accountID); upErr != nil {
-				log.Printf("[mail] sauvegarde corps message id=%d: %v", msgID, upErr)
+		} else if len(raw) > 0 {
+			parsed, perr := parseRFC822Mail(raw)
+			if perr != nil {
+				log.Printf("[mail] parse MIME id=%d: %v", msgID, perr)
+			} else {
+				if saveErr := h.persistParsedMail(c, accountID, msgID, parsed); saveErr != nil {
+					log.Printf("[mail] persistance parse id=%d: %v", msgID, saveErr)
+				}
+				m.BodyPlain = parsed.Plain
+				m.BodyHTML = parsed.HTML
+				if parsed.Meta.ThreadKey != "" {
+					m.ThreadKey = parsed.Meta.ThreadKey
+				}
+				m.AttachmentCount = parsed.Meta.AttachmentCount
 			}
-			m.BodyPlain = plain
-			m.BodyHTML = html
 		}
 	}
+	m.Attachments = h.loadMessageAttachmentInfo(msgID)
 	m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 	c.JSON(http.StatusOK, m)
 }
@@ -1106,19 +1316,88 @@ func nullStr(s string) interface{} {
 	return s
 }
 
-// fetchMessageBodyFromIMAP récupère le corps (plain + html) d'un message depuis IMAP et le retourne. Utilisé quand le corps n'est pas en base.
-func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messageUID int64, folder string) (plain, html string, err error) {
+func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed *mailParsedResult) error {
+	userID := c.GetHeader("X-User-ID")
+	if userID == "" {
+		return fmt.Errorf("X-User-ID required")
+	}
+	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+		return err
+	}
+	tx, err := h.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	ref := sql.NullString{String: parsed.Meta.ReferencesHeader, Valid: parsed.Meta.ReferencesHeader != ""}
+	_, err = tx.Exec(`
+		UPDATE mail_messages SET
+			body_plain = $1, body_html = $2,
+			internet_msg_id = CASE WHEN $3 <> '' THEN $3 ELSE internet_msg_id END,
+			in_reply_to = CASE WHEN $4 <> '' THEN $4 ELSE in_reply_to END,
+			references_header = COALESCE($5, references_header),
+			thread_key = CASE WHEN $6 <> '' THEN $6 ELSE thread_key END,
+			attachment_count = $7
+		WHERE id = $8 AND account_id = $9
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, nullStr(parsed.Plain), nullStr(parsed.HTML), nullStr(parsed.Meta.InternetMsgID), nullStr(parsed.Meta.InReplyTo), ref, nullStr(parsed.Meta.ThreadKey), parsed.Meta.AttachmentCount, msgID, accountID)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM mail_message_attachments WHERE message_id = $1`, msgID); err != nil {
+		return err
+	}
+	for _, a := range parsed.Attachments {
+		if _, err := tx.Exec(`
+			INSERT INTO mail_message_attachments (message_id, part_ordinal, filename, content_type, size_bytes, content)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, msgID, a.Ordinal, a.Filename, a.ContentType, a.SizeBytes, nullBytes(a.Content)); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func nullBytes(b []byte) interface{} {
+	if len(b) == 0 {
+		return nil
+	}
+	return b
+}
+
+func (h *Handler) loadMessageAttachmentInfo(msgID int) []MailAttachmentInfo {
+	rows, err := h.db.Query(`
+		SELECT id, filename, content_type, size_bytes, (content IS NOT NULL)
+		FROM mail_message_attachments WHERE message_id = $1 ORDER BY part_ordinal
+	`, msgID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var list []MailAttachmentInfo
+	for rows.Next() {
+		var a MailAttachmentInfo
+		if err := rows.Scan(&a.ID, &a.Filename, &a.ContentType, &a.SizeBytes, &a.StoredInline); err != nil {
+			return list
+		}
+		list = append(list, a)
+	}
+	return list
+}
+
+// fetchRawRFC822FromIMAP télécharge le message complet (BODY.PEEK[]) depuis IMAP.
+func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageUID int64, folder string) (raw []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("IMAP (corps message): %v", r)
+			err = fmt.Errorf("IMAP (RFC822): %v", r)
 		}
 	}()
 	userID := c.GetHeader("X-User-ID")
 	if userID == "" {
-		return "", "", fmt.Errorf("X-User-ID required")
+		return nil, fmt.Errorf("X-User-ID required")
 	}
 	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
-		return "", "", err
+		return nil, err
 	}
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
@@ -1129,7 +1408,7 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, accountID).Scan(&email, &enc, &oauthRefreshEnc, &dbImapHost, &dbImapPort); err == sql.ErrNoRows || err != nil {
-		return "", "", err
+		return nil, err
 	}
 	password := ""
 	useOAuth := oauthRefreshEnc.Valid && oauthRefreshEnc.String != ""
@@ -1138,7 +1417,7 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 			password, _ = decryptPassword(enc.String)
 		}
 		if password == "" {
-			return "", "", fmt.Errorf("mot de passe non disponible pour récupérer le corps du message")
+			return nil, fmt.Errorf("mot de passe non disponible pour récupérer le corps du message")
 		}
 	}
 	host, port, _ := imapHostPort(email)
@@ -1156,42 +1435,43 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 		imapClient, err = client.Dial(addr)
 	}
 	if err != nil {
-		return "", "", err
+		return nil, err
 	}
 	defer imapClient.Logout()
 	if useOAuth {
 		refreshTok, _ := decryptPassword(oauthRefreshEnc.String)
 		if refreshTok == "" {
-			return "", "", fmt.Errorf("OAuth refresh token non disponible")
+			return nil, fmt.Errorf("OAuth refresh token non disponible")
 		}
 		accessToken, tokErr := getGoogleAccessToken(refreshTok)
 		if tokErr != nil {
-			return "", "", tokErr
+			return nil, tokErr
 		}
 		ir := xoauth2InitialResponse(email, accessToken)
 		if err := imapClient.Authenticate(&xoauth2SASL{ir: ir}); err != nil {
-			return "", "", err
+			return nil, err
 		}
 	} else {
 		if err := imapClient.Login(email, password); err != nil {
-			return "", "", err
+			return nil, err
 		}
 	}
-	mailbox := "INBOX"
-	if folder != "inbox" {
-		switch folder {
-		case "sent":
-			mailbox = "Sent"
-		case "drafts":
-			mailbox = "Drafts"
-		case "spam":
-			mailbox = "Spam"
-		default:
-			mailbox = "INBOX"
+	var lastSelectErr error
+	var selected bool
+	for _, mailbox := range imapMailboxCandidatesForDbFolder(folder) {
+		_, err := imapClient.Select(mailbox, false)
+		if err != nil {
+			lastSelectErr = err
+			continue
 		}
+		selected = true
+		break
 	}
-	if _, err := imapClient.Select(mailbox, false); err != nil {
-		return "", "", err
+	if !selected {
+		if lastSelectErr != nil {
+			return nil, lastSelectErr
+		}
+		return nil, fmt.Errorf("dossier IMAP introuvable pour %q", folder)
 	}
 	seqset := new(imap.SeqSet)
 	seqset.AddNum(uint32(messageUID))
@@ -1207,44 +1487,84 @@ func (h *Handler) fetchMessageBodyFromIMAP(c *gin.Context, accountID int, messag
 		}
 	}
 	if fetchErr := <-done; fetchErr != nil {
-		return "", "", fetchErr
+		return nil, fetchErr
 	}
 	if msg == nil {
-		return "", "", nil
+		return nil, nil
 	}
-	var raw []byte
 	for _, lit := range msg.Body {
 		if lit != nil {
 			raw, _ = io.ReadAll(lit)
 			break
 		}
 	}
-	if len(raw) == 0 {
-		return "", "", nil
+	return raw, nil
+}
+
+func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
+	accStr, msgStr, attStr := c.Param("id"), c.Param("msgId"), c.Param("attId")
+	accountID, _ := strconv.Atoi(accStr)
+	msgID, _ := strconv.Atoi(msgStr)
+	attID, _ := strconv.Atoi(attStr)
+	if accountID <= 0 || msgID <= 0 || attID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
 	}
-	// Parser le MIME avec go-message
-	mr, err := mail.CreateReader(bytes.NewReader(raw))
+	userID := c.GetHeader("X-User-ID")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-User-ID required"})
+		return
+	}
+	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var partOrd int
+	var fn, ct string
+	var content []byte
+	var messageUID int64
+	var folder string
+	err := h.db.QueryRow(`
+		SELECT a.part_ordinal, a.filename, a.content_type, a.content, m.message_uid, m.folder
+		FROM mail_message_attachments a
+		INNER JOIN mail_messages m ON m.id = a.message_id
+		WHERE a.id = $1 AND m.id = $2 AND m.account_id = $3
+		AND m.account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, attID, msgID, accountID).Scan(&partOrd, &fn, &ct, &content, &messageUID, &folder)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "pièce jointe introuvable"})
+		return
+	}
 	if err != nil {
-		return "", "", err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	for {
-		p, err := mr.NextPart()
-		if err == io.EOF {
-			break
+	if len(content) == 0 {
+		raw, ferr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, folder)
+		if ferr != nil || len(raw) == 0 {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "impossible de récupérer la pièce jointe depuis le serveur mail"})
+			return
 		}
-		if err != nil {
-			break
+		var xerr error
+		fn2, ct2, data, xerr := extractAttachmentOrdinal(raw, partOrd)
+		if xerr != nil || len(data) == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "contenu de pièce jointe introuvable"})
+			return
 		}
-		ct := strings.ToLower(strings.TrimSpace(p.Header.Get("Content-Type")))
-		if strings.HasPrefix(ct, "text/plain") && plain == "" {
-			b, _ := io.ReadAll(p.Body)
-			plain = strings.TrimSpace(string(b))
-		} else if strings.HasPrefix(ct, "text/html") && html == "" {
-			b, _ := io.ReadAll(p.Body)
-			html = strings.TrimSpace(string(b))
+		if fn2 != "" {
+			fn = fn2
 		}
+		if ct2 != "" {
+			ct = ct2
+		}
+		content = data
 	}
-	return plain, html, nil
+	if ct == "" {
+		ct = "application/octet-stream"
+	}
+	c.Header("Content-Type", ct)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, fn))
+	c.Data(http.StatusOK, ct, content)
 }
 
 func (h *Handler) markMessageRead(c *gin.Context) {
@@ -1284,8 +1604,6 @@ func (h *Handler) markMessageRead(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "read": *body.Read})
 }
 
-var allowedFolders = map[string]bool{"inbox": true, "sent": true, "drafts": true, "spam": true, "trash": true}
-
 func (h *Handler) moveMessageToFolder(c *gin.Context) {
 	idStr := c.Param("id")
 	msgIdStr := c.Param("msgId")
@@ -1303,12 +1621,20 @@ func (h *Handler) moveMessageToFolder(c *gin.Context) {
 		Folder *string `json:"folder"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Folder == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"folder\": \"inbox\"|\"sent\"|\"drafts\"|\"spam\"|\"trash\""})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"folder\" (dossier standard ou chemin IMAP connu)"})
 		return
 	}
-	folder := strings.TrimSpace(strings.ToLower(*body.Folder))
-	if !allowedFolders[folder] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "folder must be one of: inbox, sent, drafts, spam, trash"})
+	raw := strings.TrimSpace(*body.Folder)
+	if raw == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "folder vide"})
+		return
+	}
+	folder := raw
+	if isStandardMailFolder(raw) {
+		folder = strings.ToLower(raw)
+	}
+	if !h.folderAllowed(accountID, folder) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé pour cette boîte"})
 		return
 	}
 	res, err := h.db.Exec(`
@@ -1400,9 +1726,10 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Password  string `json:"password"`
-		ImapHost  string `json:"imap_host"`
-		ImapPort  int    `json:"imap_port"`
+		Password         string   `json:"password"`
+		ImapHost         string   `json:"imap_host"`
+		ImapPort         int      `json:"imap_port"`
+		ExtraImapFolders []string `json:"extra_imap_folders"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON invalide"})
@@ -1510,71 +1837,28 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		{[]string{"INBOX"}, "inbox"},
 		{[]string{"Sent", "[Gmail]/Sent Mail", "INBOX.Sent"}, "sent"},
 		{[]string{"Drafts", "[Gmail]/Drafts", "INBOX.Drafts"}, "drafts"},
+		{[]string{"Archive", "[Gmail]/Archive", "INBOX.Archive", "Archives"}, "archive"},
 		{[]string{"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam"}, "spam"},
+		{[]string{"Trash", "[Gmail]/Trash", "Deleted Messages", "Bin", "INBOX.Trash"}, "trash"},
 	}
 	var totalSynced int
 	for _, ft := range foldersToSync {
-		var mbox *imap.MailboxStatus
-		var selected bool
 		for _, imapName := range ft.imapNames {
-			m, err := imapClient.Select(imapName, false)
-			if err != nil {
-				continue
+			n, ok := h.syncImapMailboxMessages(accountID, imapClient, imapName, ft.dbFolder)
+			if ok {
+				totalSynced += n
+				break
 			}
-			mbox = m
-			selected = true
-			break
 		}
-		if !selected || mbox == nil || mbox.Messages == 0 {
+	}
+	h.refreshImapFolderList(accountID, imapClient)
+	for _, p := range body.ExtraImapFolders {
+		path := strings.TrimSpace(p)
+		if path == "" {
 			continue
 		}
-		seqset := new(imap.SeqSet)
-		from := uint32(1)
-		to := mbox.Messages
-		if mbox.Messages > 300 {
-			from = mbox.Messages - 299
-		}
-		seqset.AddRange(from, to)
-		messages := make(chan *imap.Message, 20)
-		go func() {
-			if err := imapClient.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}, messages); err != nil {
-				log.Printf("[mail] Fetch %s: %v", ft.dbFolder, err)
-			}
-		}()
-		for msg := range messages {
-			if msg.Envelope == nil {
-				continue
-			}
-			fromAddr := ""
-			if len(msg.Envelope.From) > 0 {
-				fromAddr = formatImapAddress(msg.Envelope.From[0])
-			}
-			toAddrs := formatImapAddressList(msg.Envelope.To)
-			subject := msg.Envelope.Subject
-			dateAt := msg.Envelope.Date
-			if dateAt.IsZero() {
-				dateAt = time.Now()
-			}
-			// xmax = 0 : ligne insérée ; sinon mise à jour (ex. rafraîchissement des en-têtes From/To).
-			var xmax int64
-			upsertErr := h.db.QueryRow(`
-				INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7)
-				ON CONFLICT (account_id, folder, message_uid) DO UPDATE SET
-					from_addr = EXCLUDED.from_addr,
-					to_addrs = EXCLUDED.to_addrs,
-					subject = EXCLUDED.subject,
-					date_at = EXCLUDED.date_at
-				RETURNING xmax
-			`, accountID, ft.dbFolder, msg.Uid, fromAddr, toAddrs, subject, dateAt).Scan(&xmax)
-			if upsertErr != nil {
-				log.Printf("[mail] upsert message: %v", upsertErr)
-				continue
-			}
-			if xmax == 0 {
-				totalSynced++
-			}
-		}
+		n, _ := h.syncImapMailboxMessages(accountID, imapClient, path, path)
+		totalSynced += n
 	}
 	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})
 }
@@ -1631,6 +1915,8 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		Body      string `json:"body"`
 		SmtpHost  string `json:"smtp_host"`
 		SmtpPort  int    `json:"smtp_port"`
+		// Adresse d’affichage « De » : compte principal ou alias enregistré pour ce compte.
+		FromEmail string `json:"from_email"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id et to requis"})
@@ -1695,15 +1981,42 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		}
 		auth = smtp.PlainAuth("", email, password, host)
 	}
+	displayFrom := strings.TrimSpace(body.FromEmail)
+	if displayFrom == "" {
+		displayFrom = email
+	} else {
+		dfLower := strings.ToLower(displayFrom)
+		if dfLower != strings.ToLower(strings.TrimSpace(email)) {
+			var canon string
+			aerr := h.db.QueryRow(`
+				SELECT a.alias_email FROM user_email_aliases a
+				INNER JOIN user_email_accounts u ON u.id = a.account_id
+				WHERE a.account_id = $1 AND LOWER(a.alias_email) = $2
+				AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
+			`, body.AccountID, dfLower).Scan(&canon)
+			if aerr == sql.ErrNoRows || strings.TrimSpace(canon) == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "from_email doit être l’adresse du compte ou un alias enregistré pour cette boîte"})
+				return
+			}
+			if aerr != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": aerr.Error()})
+				return
+			}
+			displayFrom = strings.TrimSpace(canon)
+		} else {
+			displayFrom = email
+		}
+	}
 	subject := body.Subject
 	if subject == "" {
 		subject = "(sans objet)"
 	}
-	msg := []byte("From: " + email + "\r\n" +
+	msg := []byte("From: " + displayFrom + "\r\n" +
 		"To: " + to + "\r\n" +
 		"Subject: " + subject + "\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
 		"\r\n" + body.Body)
+	// Enveloppe SMTP : compte authentifié (évite les rejets si l’alias n’est pas autorisé comme MAIL FROM).
 	if err := smtp.SendMail(addr, auth, email, []string{to}, msg); err != nil {
 		log.Printf("[mail] SMTP send: %v", err)
 		c.JSON(http.StatusBadGateway, gin.H{"error": "envoi SMTP échoué: " + err.Error()})

@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, Mail, Phone, X } from 'lucide-react'
+import { Users, Plus, Mail, X, Upload, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import {
@@ -9,13 +9,16 @@ import {
   createContact,
   updateContact,
   deleteContact,
+  importContacts,
   type ContactResponse,
 } from '../../api'
+import { detectAndParseContacts, type ParsedImportContact } from '../../lib/contactImport'
 import { recordContactVisit } from '../../lib/hubVisits'
 
 export default function ContactsPage() {
   const { accessToken } = useAuth()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [formName, setFormName] = useState('')
@@ -23,6 +26,19 @@ export default function ContactsPage() {
   const [formPhone, setFormPhone] = useState('')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
+  const [importPreview, setImportPreview] = useState<{
+    fileName: string
+    format: string
+    contacts: ParsedImportContact[]
+  } | null>(null)
+  const [importDuplicateMode, setImportDuplicateMode] = useState<'skip' | 'update'>('skip')
+  const [importBusy, setImportBusy] = useState(false)
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q != null && q !== '') setSearch(q)
+  }, [searchParams])
 
   const { data: contacts = [], isLoading, isError, error } = useQuery({
     queryKey: ['contacts'],
@@ -122,6 +138,46 @@ export default function ContactsPage() {
     setFormPhone('')
   }
 
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      const { format, contacts } = detectAndParseContacts(file.name, text)
+      if (contacts.length === 0) {
+        toast.error(
+          format === 'unknown'
+            ? 'Aucun contact valide trouvé. Utilisez un CSV type Google (colonnes E-mail / Email), un JSON [{ "name", "email" }], ou un tableau HTML avec colonne email.'
+            : 'Aucun e-mail valide dans ce fichier.'
+        )
+        setImportPreview(null)
+        return
+      }
+      setImportPreview({ fileName: file.name, format, contacts })
+    } catch {
+      toast.error('Impossible de lire le fichier')
+      setImportPreview(null)
+    }
+  }
+
+  const runImport = async () => {
+    if (!accessToken || !importPreview?.contacts.length) return
+    setImportBusy(true)
+    try {
+      const r = await importContacts(accessToken, importPreview.contacts, importDuplicateMode)
+      await queryClient.invalidateQueries({ queryKey: ['contacts'] })
+      toast.success(
+        `Import terminé : ${r.imported} ajouté(s), ${r.updated} mis à jour, ${r.skipped} ignoré(s)${r.invalid ? `, ${r.invalid} ligne(s) invalide(s)` : ''}.`
+      )
+      setImportPreview(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Import impossible')
+    } finally {
+      setImportBusy(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 min-h-0">
       <div className="flex flex-row items-center justify-between gap-4">
@@ -146,15 +202,97 @@ export default function ContactsPage() {
             </Link>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => { cancelForm(); setShowForm(true) }}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
-        >
-          <Plus className="h-5 w-5" />
-          Nouveau contact
-        </button>
+        <div className="flex flex-wrap gap-2 justify-end">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,.json,.html,.htm,text/csv,application/json,text/html"
+            className="hidden"
+            onChange={onImportFile}
+          />
+          <button
+            type="button"
+            onClick={() => importInputRef.current?.click()}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+          >
+            <Upload className="h-5 w-5" />
+            Importer (CSV, JSON, HTML)
+          </button>
+          <button
+            type="button"
+            onClick={() => { cancelForm(); setShowForm(true) }}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+          >
+            <Plus className="h-5 w-5" />
+            Nouveau contact
+          </button>
+        </div>
       </div>
+
+      {importPreview && (
+        <div className="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/50 dark:bg-brand-950/20 p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Importer des contacts</h2>
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                Fichier : <span className="font-medium">{importPreview.fileName}</span> — format détecté :{' '}
+                <span className="font-mono">{importPreview.format}</span> —{' '}
+                <span className="font-medium">{importPreview.contacts.length}</span> contact(s) avec e-mail valide.
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                Export Google : Contacts → Exporter → « Google CSV » ou JSON (Takeout). Les doublons sont détectés par e-mail.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setImportPreview(null)}
+              className="p-1 rounded text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
+              aria-label="Fermer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="dup"
+                checked={importDuplicateMode === 'skip'}
+                onChange={() => setImportDuplicateMode('skip')}
+              />
+              Ignorer les e-mails déjà présents
+            </label>
+            <label className="inline-flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="dup"
+                checked={importDuplicateMode === 'update'}
+                onChange={() => setImportDuplicateMode('update')}
+              />
+              Mettre à jour nom / téléphone si l’e-mail existe déjà
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={importBusy}
+              onClick={() => void runImport()}
+              className="inline-flex items-center gap-2 rounded-lg bg-brand-600 text-white px-4 py-2 text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+            >
+              {importBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Lancer l’import
+            </button>
+            <button
+              type="button"
+              disabled={importBusy}
+              onClick={() => setImportPreview(null)}
+              className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm text-slate-700 dark:text-slate-200"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4">

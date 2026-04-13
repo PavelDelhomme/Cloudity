@@ -18,13 +18,16 @@ make help  # Liste des commandes
 L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UNSAFE_PORT). En Docker, `VITE_API_URL=http://localhost:6080` est défini automatiquement. Si vous aviez une config avec 6000, mettez à jour votre `.env` vers `VITE_API_URL=http://localhost:6080`.
 
 Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
-**Suivi du projet et roadmap** : voir **[STATUS.md](./STATUS.md)**.
+
+**Convention documentation** : à la **racine** du dépôt, seuls **`README.md`** (cette page) et **`STATUS.md`** (suivi quotidien) restent comme fichiers Markdown « principaux ». Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
+
+**Suivi du projet** : **[STATUS.md](./STATUS.md)**. **Détail** : [docs/ROADMAP.md](./docs/ROADMAP.md), [docs/MOBILES.md](./docs/MOBILES.md), [docs/TESTS.md](./docs/TESTS.md), [docs/PlanImplementation.md](./docs/PlanImplementation.md), [docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md) (sync, mobile, session). **Flutter** : `make run-mobile APP=Admin` (autres noms → message tant que le scaffold n’existe pas ; voir [docs/MOBILES.md](./docs/MOBILES.md) § 5).
 
 **Dépannage** : Si la page **Mail** reste sur « Chargement des comptes » et que l’API renvoie **404** sur `GET /mail/me/accounts`, exécutez `make rebuild-mail` puis rechargez l’app. Vérifier ensuite : `make verify-mail-api`. **Gmail** : comme Thunderbird ou BlueMail, utilisez un [mot de passe d’application](https://myaccount.google.com/apppasswords) (Paramètres Google > Sécurité).
 
 **Tests E2E** : `make test-e2e-playwright` (après `make up` et `make seed-admin`) lance 22 tests Playwright ; 4 sont ignorés (création document → éditeur, mock cross-origin non fiable). Pour tout lancer : `make rebuild-mail && make verify-mail-api && make test-e2e-playwright`.
 
-**Mail OAuth Google** (optionnel, pour admins) : pour une connexion Gmail **en un clic** comme BlueMail, l’admin configure une fois l’OAuth Google. Voir le guide reproductible **[MAIL-GMAIL-OAUTH.md](./MAIL-GMAIL-OAUTH.md)**. Sinon, Gmail = email + [mot de passe d’application](https://myaccount.google.com/apppasswords) (comme Thunderbird), sans config.
+**Mail OAuth Google** (optionnel, pour admins) : pour une connexion Gmail **en un clic** comme BlueMail, l’admin configure une fois l’OAuth Google. Voir le guide reproductible **[docs/MAIL-GMAIL-OAUTH.md](./docs/MAIL-GMAIL-OAUTH.md)**. Sinon, Gmail = email + [mot de passe d’application](https://myaccount.google.com/apppasswords) (comme Thunderbird), sans config.
 
 ---
 

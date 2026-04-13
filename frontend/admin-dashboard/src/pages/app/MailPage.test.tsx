@@ -14,6 +14,7 @@ vi.mock('../../api', () => ({
   fetchMailAccounts: vi.fn(),
   fetchMailMessages: vi.fn(),
   fetchMailMessage: vi.fn(),
+  downloadMailAttachment: vi.fn(),
   markMailMessageRead: vi.fn(),
   moveMailMessageToFolder: vi.fn().mockResolvedValue({ ok: true, folder: 'trash' }),
   syncMailAccount: vi.fn(),
@@ -24,9 +25,22 @@ vi.mock('../../api', () => ({
   deleteMailAccount: vi.fn(),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   fetchMailAliases: vi.fn().mockResolvedValue([]),
+  fetchMailImapFolders: vi.fn().mockResolvedValue([]),
+  fetchMailTags: vi.fn().mockResolvedValue([]),
+  createMailTag: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
+  fetchMailFolderSummary: vi.fn().mockResolvedValue({
+    inbox: { total: 0, unread: 0 },
+    sent: { total: 0, unread: 0 },
+    drafts: { total: 0, unread: 0 },
+    spam: { total: 0, unread: 0 },
+    trash: { total: 0, unread: 0 },
+    extra: [],
+  }),
   createMailAlias: vi.fn(),
+  patchMailAlias: vi.fn().mockResolvedValue({ ok: true }),
   deleteMailAlias: vi.fn(),
   updateMailAccount: vi.fn(),
+  createContact: vi.fn().mockResolvedValue({ id: 1, email: 'x@test.com', name: '' }),
 }))
 
 function wrap(ui: React.ReactElement) {
@@ -86,7 +100,7 @@ describe('MailPage', () => {
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
     render(wrap(<MailPage />))
     await waitFor(() => {
-      expect(api.syncMailAccount).toHaveBeenCalledWith('token', 1, undefined)
+      expect(api.syncMailAccount).toHaveBeenCalledWith('token', 1, undefined, undefined)
     })
   })
 
@@ -182,6 +196,8 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
+
     const cb1 = await screen.findByRole('checkbox', { name: /Sujet 1/ })
     const cb2 = await screen.findByRole('checkbox', { name: /Sujet 2/ })
 
@@ -233,6 +249,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
     const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
     fireEvent.click(toggleAllBtn)
 
@@ -277,6 +294,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
     const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
     fireEvent.click(toggleAllBtn)
 

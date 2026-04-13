@@ -82,6 +82,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - GO_ENV=development
+      # Durée du JWT d’accès (minutes). Refresh token 30 j + rotation ; le front rafraîchit aussi au retour sur l’onglet.
+      - ACCESS_TOKEN_DURATION_MINUTES=${ACCESS_TOKEN_DURATION_MINUTES:-60}
     volumes:
       - ./backend/auth-service:/app:cached
       - go_mod_cache_auth:/go/pkg/mod

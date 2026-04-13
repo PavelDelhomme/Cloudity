@@ -1,5 +1,7 @@
 # Sécurité et chiffrement des données — Cloudity
 
+> **Référence produit** : chantier transversal détaillé dans **[ROADMAP.md](./ROADMAP.md)** (TR-01). Tableau algorithmes dans **[STATUS.md](../STATUS.md)** (§ 2.3). Tests sécurité → **[TESTS.md](./TESTS.md)** (`make test-security`). Index → **[README.md](./README.md)**.
+
 ## Déjà en place (rappel)
 
 - **Transport** : HTTPS en production (terminaison TLS au reverse-proxy ou au load balancer).  
@@ -31,4 +33,4 @@
 - **E2E** (Playwright) : parcours critiques contre une stack réelle (`BASE_URL=http://localhost:6001`).  
 - **Sécurité** : dépendances (`npm audit`, `govulncheck`), scans SAST/DAST en CI quand le dépôt est branché sur une forge.
 
-Ce document complète `docs/TODO.md` et `docs/EVOLUTION-PLATEFORME.md` sans remplacer les décisions produit détaillées là-bas.
+Ce document complète **[TODO.md](./TODO.md)** (notes dev) et **[EVOLUTION-PLATEFORME.md](./EVOLUTION-PLATEFORME.md)** (infra). Les **décisions produit** et le périmètre sécurité par app sont dans **[ROADMAP.md](./ROADMAP.md)** (TR-01).

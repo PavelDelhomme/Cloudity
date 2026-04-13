@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -12,6 +12,7 @@ import {
   deleteMailAccount,
   fetchMailMessages,
   fetchMailMessage,
+  downloadMailAttachment,
   markMailMessageRead,
   moveMailMessageToFolder,
   syncMailAccount,
@@ -19,13 +20,21 @@ import {
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
   fetchMailAliases,
+  fetchMailFolderSummary,
+  fetchMailImapFolders,
+  fetchMailTags,
+  createMailTag,
   createMailAlias,
+  patchMailAlias,
   deleteMailAlias,
   updateMailAccount,
+  createContact,
   type DriveNode,
   type MailMessageResponse,
   type MailAccountResponse,
   type MailFolderId,
+  type MailStandardFolderId,
+  type MailFolderSummaryResponse,
   type ContactResponse,
 } from '../../api'
 
@@ -40,12 +49,14 @@ const MAIL_LIST_PREVIEW_MIN_PCT = 12
 const MAIL_LIST_PREVIEW_MAX_PCT = 88
 const STORAGE_DRAFT_PREFIX = 'cloudity_mail_draft_'
 const MESSAGES_PAGE_SIZE = 25
+/** Aligné sur le backend : pièces jointes au-delà ne sont pas mises en cache en base. */
+const MAIL_INLINE_ATTACHMENT_MAX_BYTES = 512 * 1024
 /** Sync IMAP en arrière-plan : toutes les boîtes reliées. */
 const MAIL_BACKGROUND_SYNC_INTERVAL_MS = 25_000
 /** Évite de relancer une sync complète au retour sur l’onglet juste après un tick de fond. */
 const MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
 
-type DraftLocal = { to: string; subject: string; body: string; updatedAt: string }
+type DraftLocal = { to: string; subject: string; body: string; fromAddress?: string; updatedAt: string }
 
 function notifyNewMailForAccount(
   ctx: ReturnType<typeof useNotifications>,
@@ -145,7 +156,10 @@ function loadDraftLocal(accountId: number | null): DraftLocal | null {
   }
 }
 
-function saveDraftLocal(accountId: number | null, draft: { to: string; subject: string; body: string } | null): void {
+function saveDraftLocal(
+  accountId: number | null,
+  draft: { to: string; subject: string; body: string; fromAddress?: string } | null
+): void {
   try {
     const key = getDraftKey(accountId)
     if (!draft || (!draft.to.trim() && !draft.subject.trim() && !draft.body.trim())) {
@@ -156,7 +170,7 @@ function saveDraftLocal(accountId: number | null, draft: { to: string; subject: 
   } catch { /* ignore */ }
 }
 
-const FOLDERS: { id: MailFolderId; label: string; icon: typeof Inbox }[] = [
+const FOLDERS: { id: MailStandardFolderId; label: string; icon: typeof Inbox }[] = [
   { id: 'inbox', label: 'Boîte de réception', icon: Inbox },
   { id: 'sent', label: 'Envoyés', icon: Send },
   { id: 'drafts', label: 'Brouillons', icon: FileText },
@@ -164,10 +178,70 @@ const FOLDERS: { id: MailFolderId; label: string; icon: typeof Inbox }[] = [
   { id: 'trash', label: 'Corbeille', icon: Trash2 },
 ]
 
+const STANDARD_FOLDER_IDS = new Set<string>(['inbox', 'sent', 'drafts', 'spam', 'trash'])
+
+function isStandardMailFolderId(f: string): boolean {
+  return STANDARD_FOLDER_IDS.has(f)
+}
+
+/** Dossiers déjà couverts par la sync standard : ne pas dupliquer dans la liste IMAP. */
+const RESERVED_IMAP_PATHS = new Set([
+  'INBOX',
+  'Sent',
+  '[Gmail]/Sent Mail',
+  'INBOX.Sent',
+  'Drafts',
+  '[Gmail]/Drafts',
+  'INBOX.Drafts',
+  'Spam',
+  'Junk',
+  '[Gmail]/Spam',
+  'INBOX.Spam',
+  'Trash',
+  '[Gmail]/Trash',
+  'Deleted Messages',
+  'Bin',
+  'INBOX.Trash',
+])
+
+function isReservedImapPathForSidebar(path: string): boolean {
+  return RESERVED_IMAP_PATHS.has(path.trim())
+}
+
+function folderSidebarBadge(id: MailStandardFolderId, summary: MailFolderSummaryResponse | undefined): string | null {
+  const s = summary?.[id]
+  if (!s) return null
+  if (id === 'inbox' || id === 'spam') return s.unread > 0 ? String(s.unread) : null
+  if (id === 'drafts' || id === 'trash') return s.total > 0 ? String(s.total) : null
+  if (id === 'sent') return s.total > 0 ? String(s.total) : null
+  return null
+}
+
+function extraFolderSidebarBadge(imapPath: string, summary: MailFolderSummaryResponse | undefined): string | null {
+  const row = summary?.extra?.find((e) => e.folder === imapPath)
+  if (!row) return null
+  const u = row.unread ?? 0
+  const t = row.total ?? 0
+  if (u > 0) return String(u)
+  if (t > 0) return String(t)
+  return null
+}
+
+function activeFolderTitle(
+  activeFolder: string,
+  imapLabels: Map<string, string>
+): string {
+  const std = FOLDERS.find((f) => f.id === activeFolder)
+  if (std) return std.label
+  return imapLabels.get(activeFolder) ?? activeFolder
+}
+
 type AttachmentFromDrive = { nodeId: number; name: string; size: number }
 
 export type ComposeSlot = {
   id: string
+  /** Adresse d’affichage « De » (boîte principale ou alias enregistré). */
+  fromAddress: string
   to: string
   subject: string
   body: string
@@ -250,7 +324,61 @@ function formatMessageDate(dateAt: string | undefined): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
+/** Favicon du domaine de l’expéditeur (aperçu type client mail). */
+function mailFaviconUrl(senderEmail: string | null): string | null {
+  if (!senderEmail) return null
+  const at = senderEmail.lastIndexOf('@')
+  if (at < 0 || at >= senderEmail.length - 1) return null
+  const domain = senderEmail.slice(at + 1).trim().toLowerCase()
+  if (!domain) return null
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+}
+
+function senderAvatarInitials(from: string | undefined, contactName?: string | null): string {
+  const { displayName } = parseFromHeader(from)
+  const base = (contactName?.trim() || displayName.trim() || extractEmailFromSender(from) || '?').trim()
+  const parts = base.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase().slice(0, 2)
+  return base.slice(0, 2).toUpperCase()
+}
+
+function formatReceivedDetail(dateAt: string | undefined): string {
+  if (!dateAt) return ''
+  try {
+    return new Date(dateAt).toLocaleString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return dateAt
+  }
+}
+
+function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResponse | null }) {
+  const [faviconFailed, setFaviconFailed] = useState(false)
+  const email = extractEmailFromSender(from)
+  const fav = email ? mailFaviconUrl(email) : null
+  const initials = senderAvatarInitials(from, contact?.name)
+  return (
+    <div
+      className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 dark:from-indigo-600 dark:to-violet-700 flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
+      title={contact?.name ? `${contact.name} (${email || ''})` : email || undefined}
+    >
+      {fav && !faviconFailed ? (
+        <img src={fav} alt="" className="h-full w-full object-cover bg-white dark:bg-slate-800" onError={() => setFaviconFailed(true)} />
+      ) : (
+        <span aria-hidden>{initials}</span>
+      )}
+    </div>
+  )
+}
+
 export default function MailPage() {
+  const navigate = useNavigate()
   const { accessToken } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
@@ -260,6 +388,9 @@ export default function MailPage() {
   const [connectLabel, setConnectLabel] = useState('')
   const [connectingAndSyncing, setConnectingAndSyncing] = useState(false)
   const [activeFolder, setActiveFolder] = useState<MailFolderId>('inbox')
+  const [filterTagId, setFilterTagId] = useState<number | null>(null)
+  /** Filtre liste : même `thread_key` que le serveur (conversation). */
+  const [conversationThreadKey, setConversationThreadKey] = useState<string | null>(null)
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
@@ -291,7 +422,13 @@ export default function MailPage() {
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
   const [mailSignature, setMailSignature] = useState(getMailSignature())
   const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null)
-  const [contextMenuMessage, setContextMenuMessage] = useState<{ id: number; x: number; y: number } | null>(null)
+  const [contextMenuMessage, setContextMenuMessage] = useState<{ id: number; x: number; y: number; from?: string } | null>(null)
+  /** Faux : pas de cases à cocher ; appui long ou menu → sélection (style client mail). */
+  const [mailSelectionMode, setMailSelectionMode] = useState(false)
+  const longPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({
+    timer: null,
+    fired: false,
+  })
   const [selectedMessageIds, setSelectedMessageIds] = useState<number[]>([])
   const [bulkWorking, setBulkWorking] = useState(false)
   const [showEditAccountModal, setShowEditAccountModal] = useState(false)
@@ -306,6 +443,11 @@ export default function MailPage() {
   const [recipientAliasFilter, setRecipientAliasFilter] = useState<string | null>(null)
   const [newAliasEmail, setNewAliasEmail] = useState('')
   const [newAliasLabel, setNewAliasLabel] = useState('')
+  /** Cible de livraison documentée (Pass / transfert) — n’active pas le routage sans DNS / fournisseur. */
+  const [newAliasDeliverTarget, setNewAliasDeliverTarget] = useState('')
+  const [editingAliasCibleId, setEditingAliasCibleId] = useState<number | null>(null)
+  const [aliasCibleDraft, setAliasCibleDraft] = useState('')
+  const [newMailTagName, setNewMailTagName] = useState('')
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -332,10 +474,64 @@ export default function MailPage() {
   const firstAccountId = accounts[0]?.id ?? null
   const effectiveAccountId = selectedAccountId ?? firstAccountId
 
+  const activeFolderRef = useRef(activeFolder)
+  const effectiveAccountIdRef = useRef(effectiveAccountId)
+  useEffect(() => {
+    activeFolderRef.current = activeFolder
+  }, [activeFolder])
+  useEffect(() => {
+    effectiveAccountIdRef.current = effectiveAccountId
+  }, [effectiveAccountId])
+
+  const syncExtraImapOptions = useCallback((accountId: number) => {
+    if (effectiveAccountIdRef.current !== accountId) return undefined
+    const f = activeFolderRef.current
+    if (isStandardMailFolderId(f)) return undefined
+    return { extra_imap_folders: [f] }
+  }, [])
+
   const { data: accountAliases = [] } = useQuery({
     queryKey: ['mail', 'aliases', effectiveAccountId],
     queryFn: () => fetchMailAliases(accessToken!, effectiveAccountId!),
     enabled: !!accessToken && effectiveAccountId != null,
+  })
+
+  const { data: folderSummary } = useQuery({
+    queryKey: ['mail', 'folder-summary', effectiveAccountId],
+    queryFn: () => fetchMailFolderSummary(accessToken!, effectiveAccountId!),
+    enabled: !!accessToken && effectiveAccountId != null,
+    staleTime: 15_000,
+  })
+
+  const { data: imapFolders = [] } = useQuery({
+    queryKey: ['mail', 'imap-folders', effectiveAccountId],
+    queryFn: () => fetchMailImapFolders(accessToken!, effectiveAccountId!),
+    enabled: !!accessToken && effectiveAccountId != null,
+    staleTime: 60_000,
+  })
+
+  const imapLabelByPath = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of imapFolders) {
+      const lab = r.label?.trim() || r.imap_path
+      m.set(r.imap_path, lab)
+    }
+    return m
+  }, [imapFolders])
+
+  const customImapSidebarRows = useMemo(
+    () =>
+      [...imapFolders]
+        .filter((r) => !isReservedImapPathForSidebar(r.imap_path))
+        .sort((a, b) => a.imap_path.localeCompare(b.imap_path)),
+    [imapFolders]
+  )
+
+  const { data: mailTags = [] } = useQuery({
+    queryKey: ['mail', 'tags', effectiveAccountId],
+    queryFn: () => fetchMailTags(accessToken!, effectiveAccountId!),
+    enabled: !!accessToken && effectiveAccountId != null,
+    staleTime: 30_000,
   })
 
   useEffect(() => {
@@ -343,16 +539,35 @@ export default function MailPage() {
   }, [effectiveAccountId])
 
   useEffect(() => {
+    setFilterTagId(null)
+    setConversationThreadKey(null)
+  }, [effectiveAccountId, activeFolder])
+
+  useEffect(() => {
+    setMessagePage(0)
+  }, [conversationThreadKey])
+
+  useEffect(() => {
     setMessagePage(0)
   }, [recipientAliasFilter])
 
   const aliasMutation = useMutation({
-    mutationFn: async (mode: { type: 'add' } | { type: 'del'; id: number }) => {
+    mutationFn: async (
+      mode: { type: 'add' } | { type: 'del'; id: number } | { type: 'patch'; id: number; deliver_target_email: string }
+    ) => {
       if (!accessToken || effectiveAccountId == null) return
       if (mode.type === 'add') {
         const em = newAliasEmail.trim().toLowerCase()
         if (!em) throw new Error('Adresse alias requise')
-        await createMailAlias(accessToken, effectiveAccountId, { alias_email: em, label: newAliasLabel.trim() || undefined })
+        await createMailAlias(accessToken, effectiveAccountId, {
+          alias_email: em,
+          label: newAliasLabel.trim() || undefined,
+          deliver_target_email: newAliasDeliverTarget.trim() || undefined,
+        })
+        return
+      }
+      if (mode.type === 'patch') {
+        await patchMailAlias(accessToken, effectiveAccountId, mode.id, { deliver_target_email: mode.deliver_target_email })
         return
       }
       await deleteMailAlias(accessToken, effectiveAccountId, mode.id)
@@ -360,22 +575,47 @@ export default function MailPage() {
     onSuccess: (_, mode) => {
       queryClient.invalidateQueries({ queryKey: ['mail', 'aliases', effectiveAccountId] })
       queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
       if (mode.type === 'add') {
         setNewAliasEmail('')
         setNewAliasLabel('')
+        setNewAliasDeliverTarget('')
         toast.success('Alias enregistré')
+      } else if (mode.type === 'patch') {
+        setEditingAliasCibleId(null)
+        setAliasCibleDraft('')
+        toast.success('Cible de livraison mise à jour')
       } else toast.success('Alias supprimé')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur alias'),
   })
 
+  const mailTagMutation = useMutation({
+    mutationFn: async () => {
+      if (!accessToken || effectiveAccountId == null) return
+      const n = newMailTagName.trim()
+      if (!n) throw new Error('Nom d’étiquette requis')
+      await createMailTag(accessToken, effectiveAccountId, { name: n })
+    },
+    onSuccess: () => {
+      setNewMailTagName('')
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'tags', effectiveAccountId] })
+      toast.success('Étiquette créée')
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur étiquette'),
+  })
+
   const { data: messagesData, refetch: refetchMessages } = useQuery({
-    queryKey: ['mail', 'messages', effectiveAccountId, activeFolder, messagePage, recipientAliasFilter],
+    queryKey: ['mail', 'messages', effectiveAccountId, activeFolder, messagePage, recipientAliasFilter, filterTagId, conversationThreadKey],
     queryFn: () =>
       fetchMailMessages(accessToken!, effectiveAccountId!, activeFolder, {
         limit: MESSAGES_PAGE_SIZE,
         offset: messagePage * MESSAGES_PAGE_SIZE,
-        recipient: recipientAliasFilter ?? undefined,
+        ...(recipientAliasFilter
+          ? { delivered_to: recipientAliasFilter }
+          : {}),
+        ...(filterTagId != null && filterTagId > 0 ? { tag_id: filterTagId } : {}),
+        ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
       }),
     enabled: !!accessToken && effectiveAccountId != null,
     refetchOnWindowFocus: true,
@@ -426,40 +666,76 @@ export default function MailPage() {
   )
   const recipientSuggestions = Array.from(new Set([...recentRecipients, ...contacts.map((c) => c.email), ...sendersFromMessages]))
 
+  const composeFromOptions = useMemo(() => {
+    const p = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
+    if (!p) return [] as string[]
+    return [p, ...accountAliases.map((a) => a.alias_email)]
+  }, [accounts, effectiveAccountId, accountAliases])
+
+  const handleDownloadAttachment = useCallback(
+    async (messageId: number, attachmentId: number, filename: string) => {
+      if (!accessToken || effectiveAccountId == null) return
+      try {
+        const blob = await downloadMailAttachment(accessToken, effectiveAccountId, messageId, attachmentId)
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename || 'piece-jointe'
+        a.rel = 'noopener'
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Téléchargement impossible')
+      }
+    },
+    [accessToken, effectiveAccountId]
+  )
+
   useEffect(() => {
     setSelectedMessageId(null)
     setMessagePage(0)
+    setMailSelectionMode(false)
+    setSelectedMessageIds([])
   }, [effectiveAccountId, activeFolder])
 
   useEffect(() => {
     setSelectedMessageIds([])
+    setMailSelectionMode(false)
   }, [effectiveAccountId, activeFolder, messagePage])
 
   /** À l'ouverture de la boîte mail (ou au changement de compte), sync IMAP puis rafraîchir la liste. */
   useEffect(() => {
     if (!accessToken || effectiveAccountId == null) return
     let cancelled = false
-    syncMailAccount(accessToken, effectiveAccountId, undefined)
+    syncMailAccount(accessToken, effectiveAccountId, undefined, syncExtraImapOptions(effectiveAccountId))
       .then((r) => {
         if (cancelled) return
         lastSyncAtRef.current = Date.now()
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
         refetchMessagesRef.current()
         const acc = accountsRef.current.find((a) => a.id === effectiveAccountId)
         if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [effectiveAccountId, accessToken, queryClient])
+  }, [effectiveAccountId, accessToken, queryClient, syncExtraImapOptions])
 
-  /** Polling : toutes les boîtes, sync IMAP régulière puis rafraîchissement de la liste et notifications. */
+  /**
+   * Polling IMAP : le backend synchronise **inbox, sent, drafts, spam, trash** (dont corbeille IMAP Gmail/OVH/etc.).
+   * Les messages mis en corbeille uniquement depuis l’app restent en `folder=trash` en base ; la sync fusionne avec le dossier Trash IMAP (UID).
+   * invalidateQueries(['mail','messages']) invalide toutes les listes React Query ; refetchMessages() met à jour le dossier ouvert.
+   */
   useEffect(() => {
     if (!accessToken || accountIdsFingerprint === '') return
     const tick = async () => {
       const list = accountsRef.current
       for (const acc of list) {
         try {
-          const r = await syncMailAccount(accessToken, acc.id, undefined)
+          const r = await syncMailAccount(accessToken, acc.id, undefined, syncExtraImapOptions(acc.id))
           notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
         } catch {
           /* erreur réseau / IMAP : on continue les autres comptes */
@@ -467,6 +743,8 @@ export default function MailPage() {
       }
       lastSyncAtRef.current = Date.now()
       await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
       try {
         await refetchMessagesRef.current()
       } catch {
@@ -475,7 +753,7 @@ export default function MailPage() {
     }
     const id = window.setInterval(tick, MAIL_BACKGROUND_SYNC_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [accessToken, accountIdsFingerprint, queryClient])
+  }, [accessToken, accountIdsFingerprint, queryClient, syncExtraImapOptions])
 
   /** Au retour sur l'onglet : sync toutes les boîtes si le dernier sync date un peu. */
   useEffect(() => {
@@ -487,7 +765,7 @@ export default function MailPage() {
       void (async () => {
         for (const acc of list) {
           try {
-            const r = await syncMailAccount(accessToken, acc.id, undefined)
+            const r = await syncMailAccount(accessToken, acc.id, undefined, syncExtraImapOptions(acc.id))
             notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
           } catch {
             /* ignorer */
@@ -495,6 +773,8 @@ export default function MailPage() {
         }
         lastSyncAtRef.current = Date.now()
         await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
         try {
           await refetchMessagesRef.current()
         } catch {
@@ -504,7 +784,7 @@ export default function MailPage() {
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [accessToken, queryClient])
+  }, [accessToken, queryClient, syncExtraImapOptions])
 
   useEffect(() => {
     if (!messageMenuOpenId && !contextMenuMessage) return
@@ -525,13 +805,21 @@ export default function MailPage() {
   const activeSlot = composeSlots.find((s) => s.id === activeComposeId) ?? composeSlots[composeSlots.length - 1] ?? null
 
   const openNewCompose = useCallback(
-    (initial?: { to?: string; subject?: string; body?: string }) => {
+    (initial?: { to?: string; subject?: string; body?: string; fromAddress?: string }) => {
+      const primary = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
+      const allowedFrom = new Set(
+        [primary.toLowerCase(), ...accountAliases.map((a) => a.alias_email.toLowerCase())].filter(Boolean)
+      )
       setComposeSlots((prev) => {
         const wasEmpty = prev.length === 0
         const draft = wasEmpty && effectiveAccountId != null ? loadDraftLocal(effectiveAccountId) : null
+        let fromAddress = primary
+        if (initial?.fromAddress && allowedFrom.has(initial.fromAddress.toLowerCase())) fromAddress = initial.fromAddress
+        else if (draft?.fromAddress && allowedFrom.has(draft.fromAddress.toLowerCase())) fromAddress = draft.fromAddress
         const id = `compose-${Date.now()}-${Math.random().toString(36).slice(2)}`
         const slot: ComposeSlot = {
           id,
+          fromAddress,
           to: initial?.to ?? draft?.to ?? '',
           subject: initial?.subject ?? draft?.subject ?? '',
           body: initial?.body ?? draft?.body ?? '',
@@ -542,13 +830,19 @@ export default function MailPage() {
         return [...prev, slot]
       })
     },
-    [effectiveAccountId]
+    [effectiveAccountId, accounts, accountAliases]
   )
 
   const closeSlot = useCallback(
     (id: string) => {
       const slot = composeSlots.find((s) => s.id === id)
-      if (slot && effectiveAccountId != null) saveDraftLocal(effectiveAccountId, { to: slot.to, subject: slot.subject, body: slot.body })
+      if (slot && effectiveAccountId != null)
+        saveDraftLocal(effectiveAccountId, {
+          to: slot.to,
+          subject: slot.subject,
+          body: slot.body,
+          fromAddress: slot.fromAddress,
+        })
       setComposeSlots((prev) => {
         const next = prev.filter((s) => s.id !== id)
         setActiveComposeId((cur) => (cur === id ? (next[next.length - 1]?.id ?? null) : cur))
@@ -560,9 +854,12 @@ export default function MailPage() {
     [composeSlots, effectiveAccountId, drivePickerForComposeId]
   )
 
-  const updateSlot = useCallback((id: string, patch: Partial<Pick<ComposeSlot, 'to' | 'subject' | 'body' | 'minimized'>>) => {
-    setComposeSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-  }, [])
+  const updateSlot = useCallback(
+    (id: string, patch: Partial<Pick<ComposeSlot, 'fromAddress' | 'to' | 'subject' | 'body' | 'minimized'>>) => {
+      setComposeSlots((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+    },
+    []
+  )
 
   const setActiveAndExpand = useCallback((id: string) => {
     setActiveComposeId(id)
@@ -573,10 +870,28 @@ export default function MailPage() {
   useEffect(() => {
     if (!activeSlot || effectiveAccountId == null) return
     const t = setInterval(() => {
-      saveDraftLocal(effectiveAccountId, { to: activeSlot.to, subject: activeSlot.subject, body: activeSlot.body })
+      saveDraftLocal(effectiveAccountId, {
+        to: activeSlot.to,
+        subject: activeSlot.subject,
+        body: activeSlot.body,
+        fromAddress: activeSlot.fromAddress,
+      })
     }, 3000)
     return () => clearInterval(t)
-  }, [activeSlot?.id, effectiveAccountId, activeSlot?.to, activeSlot?.subject, activeSlot?.body])
+  }, [activeSlot?.id, effectiveAccountId, activeSlot?.to, activeSlot?.subject, activeSlot?.body, activeSlot?.fromAddress])
+
+  /** Si la boîte ou les alias changent, corriger un « De » devenu invalide. */
+  useEffect(() => {
+    const primary = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
+    if (!primary) return
+    const allowed = new Set([primary.toLowerCase(), ...accountAliases.map((a) => a.alias_email.toLowerCase())])
+    setComposeSlots((prev) =>
+      prev.map((s) => {
+        if (allowed.has(s.fromAddress.toLowerCase())) return s
+        return { ...s, fromAddress: primary }
+      })
+    )
+  }, [effectiveAccountId, accounts, accountAliases])
 
   useEffect(() => {
     const oauth = searchParams.get('oauth')
@@ -586,6 +901,7 @@ export default function MailPage() {
     setSearchParams({}, { replace: true })
     queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
     queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+    void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
     if (status === 'ok') {
       toast.success('Compte Gmail connecté. Vous pouvez synchroniser la boîte.')
     } else {
@@ -659,6 +975,7 @@ export default function MailPage() {
       // Utiliser le même mot de passe que à la création pour la 1ère sync (évite un round-trip chiffrement/déchiffrement)
       const syncRes = await syncMailAccount(accessToken, created.id, password)
       queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
       toast.success(syncRes.synced > 0 ? `${syncRes.synced} message(s) récupéré(s)` : syncRes.message)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -674,6 +991,7 @@ export default function MailPage() {
         .then(() => {
           queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
           queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
           if (selectedAccountId === accountId) setSelectedAccountId(null)
           toast.success('Adresse déconnectée')
           notifications?.addNotification({
@@ -690,9 +1008,11 @@ export default function MailPage() {
   const handleSyncAccount = useCallback(() => {
     if (!syncAccountId || !accessToken) return
     setSyncing(true)
-    syncMailAccount(accessToken, syncAccountId, syncPassword.trim() || undefined)
+    syncMailAccount(accessToken, syncAccountId, syncPassword.trim() || undefined, syncExtraImapOptions(syncAccountId))
       .then((r) => {
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
         toast.success(r.synced > 0 ? `${r.synced} message(s) synchronisé(s)` : r.message)
         setShowSyncModal(false)
         setSyncAccountId(null)
@@ -700,21 +1020,23 @@ export default function MailPage() {
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur de synchronisation'))
       .finally(() => setSyncing(false))
-  }, [syncAccountId, syncPassword, accessToken, queryClient])
+  }, [syncAccountId, syncPassword, accessToken, queryClient, syncExtraImapOptions])
 
   /** Récupère les nouveaux messages depuis le serveur IMAP puis rafraîchit la liste (sans ouvrir la modale). */
   const handleRefreshFromServer = useCallback(() => {
     if (!effectiveAccountId || !accessToken) return
     setRefreshingFromServer(true)
-    syncMailAccount(accessToken, effectiveAccountId, undefined)
+    syncMailAccount(accessToken, effectiveAccountId, undefined, syncExtraImapOptions(effectiveAccountId))
       .then((r) => {
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
         refetchMessages()
         toast.success(r.synced > 0 ? `${r.synced} nouveau(x) message(s) récupéré(s)` : r.message || 'Liste à jour')
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur lors de l’actualisation'))
       .finally(() => setRefreshingFromServer(false))
-  }, [effectiveAccountId, accessToken, queryClient, refetchMessages])
+  }, [effectiveAccountId, accessToken, queryClient, refetchMessages, syncExtraImapOptions])
 
   const [movingMessageId, setMovingMessageId] = useState<number | null>(null)
   const handleMoveToFolder = useCallback(
@@ -724,8 +1046,10 @@ export default function MailPage() {
       try {
         await moveMailMessageToFolder(accessToken, effectiveAccountId, messageId, folder)
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         if (selectedMessageId === messageId) setSelectedMessageId(null)
         const label = FOLDERS.find((f) => f.id === folder)?.label ?? folder
+
         toast.success(`Message déplacé vers ${label}`)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -744,7 +1068,56 @@ export default function MailPage() {
     setSelectedMessageIds(messages.map((m) => m.id))
   }, [messages])
 
-  const clearMessageSelection = useCallback(() => setSelectedMessageIds([]), [])
+  const clearMessageSelection = useCallback(() => {
+    setSelectedMessageIds([])
+    setMailSelectionMode(false)
+  }, [])
+
+  const contactsByEmail = useMemo(() => {
+    const m = new Map<string, ContactResponse>()
+    for (const c of contacts) {
+      m.set(c.email.trim().toLowerCase(), c)
+    }
+    return m
+  }, [contacts])
+
+  const handleOpenContactFromMail = useCallback(
+    (fromHeader: string | undefined) => {
+      const email = extractEmailFromSender(fromHeader)
+      if (!email) {
+        toast.error('Adresse introuvable dans l’en-tête')
+        return
+      }
+      navigate(`/app/contacts?q=${encodeURIComponent(email)}`)
+    },
+    [navigate]
+  )
+
+  const handleQuickAddContactFromMail = useCallback(
+    async (fromHeader: string | undefined) => {
+      const email = extractEmailFromSender(fromHeader)
+      if (!email || !accessToken) {
+        toast.error('Adresse e-mail introuvable')
+        return
+      }
+      const key = email.toLowerCase()
+      if (contactsByEmail.has(key)) {
+        toast.success('Déjà dans vos contacts')
+        navigate(`/app/contacts?q=${encodeURIComponent(email)}`)
+        return
+      }
+      const { displayName } = parseFromHeader(fromHeader)
+      try {
+        await createContact(accessToken, { email, name: displayName || undefined })
+        await queryClient.invalidateQueries({ queryKey: ['contacts'] })
+        toast.success('Contact ajouté')
+        navigate(`/app/contacts?q=${encodeURIComponent(email)}`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Impossible d’ajouter le contact')
+      }
+    },
+    [accessToken, contactsByEmail, navigate, queryClient]
+  )
 
   const handleToggleSelectAllOnPage = useCallback(() => {
     if (allMessagesSelectedOnPage) clearMessageSelection()
@@ -770,6 +1143,7 @@ export default function MailPage() {
           selectedMessageIds.map((id) => moveMailMessageToFolder(accessToken, effectiveAccountId, id, folder))
         )
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         setSelectedMessageIds([])
         setSelectedMessageId(null)
         const label = FOLDERS.find((f) => f.id === folder)?.label ?? folder
@@ -792,6 +1166,7 @@ export default function MailPage() {
           selectedMessageIds.map((id) => markMailMessageRead(accessToken, effectiveAccountId, id, read))
         )
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         toast.success(read ? 'Marqué comme lu' : 'Marqué comme non lu')
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -890,18 +1265,54 @@ export default function MailPage() {
     }
   }, [accessToken, editAccountId, queryClient])
 
+  const clearMessageLongPressTimer = useCallback(() => {
+    const t = longPressRef.current.timer
+    if (t != null) window.clearTimeout(t)
+    longPressRef.current.timer = null
+  }, [])
+
+  const onMessageListPointerDown = useCallback(
+    (msg: MailMessageResponse, e: React.PointerEvent) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return
+      clearMessageLongPressTimer()
+      longPressRef.current.fired = false
+      longPressRef.current.timer = window.setTimeout(() => {
+        longPressRef.current.timer = null
+        longPressRef.current.fired = true
+        setMailSelectionMode(true)
+        setSelectedMessageIds((prev) => (prev.includes(msg.id) ? prev : [...prev, msg.id]))
+      }, 550)
+    },
+    [clearMessageLongPressTimer]
+  )
+
+  const onMessageListPointerEnd = useCallback(() => {
+    clearMessageLongPressTimer()
+  }, [clearMessageLongPressTimer])
+
   const handleSelectMessage = useCallback(
     (msg: MailMessageResponse) => {
+      if (longPressRef.current.fired) {
+        longPressRef.current.fired = false
+        return
+      }
+      if (mailSelectionMode) {
+        toggleMessageSelected(msg.id)
+        return
+      }
       setSelectedMessageId(msg.id)
       const senderEmail = extractEmailFromSender(msg.from)
       if (senderEmail) addRecentRecipient(senderEmail)
       if (!msg.is_read && accessToken && effectiveAccountId) {
         markMailMessageRead(accessToken, effectiveAccountId, msg.id, true)
-          .then(() => queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] }))
+          .then(() => {
+            queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+            void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+          })
           .catch(() => {})
       }
     },
-    [accessToken, effectiveAccountId, queryClient]
+    [accessToken, effectiveAccountId, mailSelectionMode, queryClient, toggleMessageSelected]
   )
 
   const toggleSidebar = useCallback(() => {
@@ -1055,15 +1466,19 @@ export default function MailPage() {
           to: slot.to.trim(),
           subject: slot.subject,
           body,
+          from_email: slot.fromAddress.trim() || undefined,
         })
         toast.success('Message envoyé')
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         closeSlot(slot.id)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur d’envoi')
-    } finally {
-      setSending(false)
-    }
-  }, [activeSlot, composeSlots, effectiveAccountId, accessToken, closeSlot])
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur d’envoi')
+      } finally {
+        setSending(false)
+      }
+    },
+    [activeSlot, composeSlots, effectiveAccountId, accessToken, closeSlot, queryClient]
+  )
 
   const addAttachmentToSlot = useCallback((slotId: string, node: DriveNode) => {
     if (node.is_folder) return
@@ -1184,15 +1599,27 @@ export default function MailPage() {
                         ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
                     }`}
-                    title={acc.email}
+                    title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
                   >
-                    {sidebarCollapsed ? <Mail className="h-5 w-5 mx-auto" /> : (acc.label || acc.email)}
+                    {sidebarCollapsed ? (
+                      <Mail className="h-5 w-5 mx-auto" />
+                    ) : (
+                      <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
+                        <span className="truncate w-full">{acc.label || acc.email}</span>
+                        {acc.label ? (
+                          <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                            {acc.email}
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
                   </button>
                   {!sidebarCollapsed && effectiveAccountId === acc.id && (
                     <div className="mt-1 ml-1 pl-2 border-l-2 border-slate-200 dark:border-slate-600 space-y-0.5 pb-1">
                       <button
                         type="button"
                         onClick={() => setRecipientAliasFilter(null)}
+                        title="Tous les messages du dossier : adresse principale de la boîte et tous les alias enregistrés (reçus en To)."
                         className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-slate-200/80 dark:bg-slate-600 text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                       >
                         Toutes les adresses
@@ -1203,7 +1630,7 @@ export default function MailPage() {
                           type="button"
                           onClick={() => setRecipientAliasFilter(al.alias_email)}
                           className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/80 dark:bg-brand-900/50 text-brand-900 dark:text-brand-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                          title={al.alias_email}
+                          title={`Messages dont le champ À contient ${al.alias_email}`}
                         >
                           {al.label?.trim() ? `${al.label} · ${al.alias_email}` : al.alias_email}
                         </button>
@@ -1219,20 +1646,69 @@ export default function MailPage() {
             </div>
             <div className={`border-t border-slate-200 dark:border-slate-600 pt-2 ${sidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dossiers</p>}
-              {FOLDERS.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveFolder(id)}
-                  className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
-                    activeFolder === id ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
-                  }`}
-                  title={sidebarCollapsed ? label : undefined}
-                >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  {!sidebarCollapsed && label}
-                </button>
-              ))}
+              {FOLDERS.map(({ id, label, icon: Icon }) => {
+                const badge = folderSidebarBadge(id, folderSummary)
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveFolder(id)}
+                    className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
+                      activeFolder === id ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                    }`}
+                    title={
+                      sidebarCollapsed
+                        ? `${label}${badge ? ` (${badge})` : ''} — réception/spam : non lus ; brouillons/corbeille : total`
+                        : undefined
+                    }
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span className="flex-1 text-left truncate">{label}</span>}
+                    {!sidebarCollapsed && badge ? (
+                      <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
+              {!sidebarCollapsed && customImapSidebarRows.length > 0 ? (
+                <p className="px-2 mt-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  Autres dossiers (IMAP)
+                </p>
+              ) : null}
+              {customImapSidebarRows.map((row) => {
+                const badge = extraFolderSidebarBadge(row.imap_path, folderSummary)
+                const depth = row.parent_imap_path ? 1 : 0
+                return (
+                  <button
+                    key={row.imap_path}
+                    type="button"
+                    onClick={() => setActiveFolder(row.imap_path)}
+                    className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'} ${
+                      activeFolder === row.imap_path
+                        ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                    }`}
+                    title={sidebarCollapsed ? row.imap_path : undefined}
+                  >
+                    <FolderOpen className="h-4 w-4 flex-shrink-0 opacity-80" />
+                    {!sidebarCollapsed && (
+                      <span
+                        className="flex-1 text-left truncate text-[13px]"
+                        style={{ paddingLeft: depth ? 10 : 0 }}
+                      >
+                        {row.label?.trim() || row.imap_path}
+                      </span>
+                    )}
+                    {!sidebarCollapsed && badge ? (
+                      <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })}
               {!sidebarCollapsed && (
                 <p className="px-2 mt-2 text-[10px] text-slate-400 dark:text-slate-500">
                   Libellé, synchro avancée et retrait d’une boîte : icône Paramètres en haut.
@@ -1265,7 +1741,7 @@ export default function MailPage() {
             <div className="border-b border-slate-200 dark:border-slate-600 px-4 py-3 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex flex-col gap-0.5 min-w-0">
                 <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {FOLDERS.find((f) => f.id === activeFolder)?.label ?? 'Messages'}
+                  {activeFolderTitle(activeFolder, imapLabelByPath)}
                 </span>
                 {effectiveAccountId != null && (
                   <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -1286,7 +1762,76 @@ export default function MailPage() {
             </div>
             <p className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50">
               Cliquez sur « Actualiser » pour récupérer les nouveaux messages du serveur.
+              {filterTagId != null ? ' — filtre par étiquette actif (dossier courant).' : ''}
+              {conversationThreadKey ? ' — seuls les messages de cette conversation sont listés.' : ''}
             </p>
+            {conversationThreadKey ? (
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-amber-50/50 dark:bg-amber-900/10">
+                <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
+                  <MessagesSquare className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden />
+                  Filtre conversation actif
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setConversationThreadKey(null)}
+                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  Afficher tout le dossier
+                </button>
+              </div>
+            ) : null}
+            {effectiveAccountId != null && (
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">Étiquettes</span>
+                <button
+                  type="button"
+                  onClick={() => setFilterTagId(null)}
+                  className={`text-xs rounded-full px-2.5 py-1 font-medium ${
+                    filterTagId == null
+                      ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  Toutes
+                </button>
+                {mailTags.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
+                    className={`text-xs rounded-full px-2.5 py-1 font-medium ${
+                      filterTagId === t.id
+                        ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+                <span className="hidden sm:inline w-px h-4 bg-slate-200 dark:bg-slate-600 mx-0.5" aria-hidden />
+                <input
+                  type="text"
+                  value={newMailTagName}
+                  onChange={(e) => setNewMailTagName(e.target.value)}
+                  placeholder="Nouvelle étiquette"
+                  className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 min-w-[7rem] max-w-[11rem]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      mailTagMutation.mutate()
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={mailTagMutation.isPending || !newMailTagName.trim()}
+                  onClick={() => mailTagMutation.mutate()}
+                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40"
+                >
+                  Créer
+                </button>
+              </div>
+            )}
             <div ref={listPreviewSplitRef} className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
               <div
                 className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
@@ -1302,34 +1847,58 @@ export default function MailPage() {
               >
                 {messages.length > 0 ? (
                   <>
-                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20 flex items-center justify-between gap-3">
-                      <button
-                        type="button"
-                        onClick={handleToggleSelectAllOnPage}
-                        disabled={bulkWorking}
-                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
-                        aria-label="Tout sélectionner (page)"
-                      >
-                        {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
-                        {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
-                      </button>
-
-                      {selectedMessageIds.length > 0 && (
+                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20 flex flex-wrap items-center justify-between gap-3">
+                      {!mailSelectionMode && selectedMessageIds.length === 0 ? (
                         <button
                           type="button"
-                          onClick={handleInvertSelectionOnPage}
-                          disabled={bulkWorking}
-                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
-                          aria-label="Inverser la sélection (page)"
+                          onClick={() => setMailSelectionMode(true)}
+                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-600"
+                          aria-label="Sélectionner des messages"
                         >
-                          Inverser la sélection
+                          <CheckSquare className="h-4 w-4 text-slate-500" aria-hidden />
+                          Sélectionner des messages
                         </button>
-                      )}
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleToggleSelectAllOnPage}
+                            disabled={bulkWorking}
+                            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                            aria-label="Tout sélectionner (page)"
+                          >
+                            {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
+                            {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
+                          </button>
 
-                      {selectedMessageIds.length > 0 && (
-                        <span className="text-xs text-slate-500 dark:text-slate-400">
-                          {selectedMessageIds.length} message(s) sélectionné(s)
-                        </span>
+                          {selectedMessageIds.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleInvertSelectionOnPage}
+                              disabled={bulkWorking}
+                              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                              aria-label="Inverser la sélection (page)"
+                            >
+                              Inverser la sélection
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => clearMessageSelection()}
+                            className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                          >
+                            Terminer
+                          </button>
+
+                          {selectedMessageIds.length > 0 ? (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {selectedMessageIds.length} message(s) sélectionné(s)
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-500 dark:text-slate-400">Appui long sur un message pour en ajouter à la sélection</span>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -1407,47 +1976,83 @@ export default function MailPage() {
                     )}
 
                     <ul className="divide-y divide-slate-200 dark:divide-slate-600 min-h-0 overflow-y-auto flex-1 overscroll-contain">
-                      {messages.map((msg) => (
+                      {messages.map((msg) => {
+                        const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
+                        const rowContact = senderKey ? contactsByEmail.get(senderKey) ?? null : null
+                        return (
                         <li
                           key={msg.id}
                           role="button"
                           tabIndex={0}
+                          onPointerDown={(e) => onMessageListPointerDown(msg, e)}
+                          onPointerUp={onMessageListPointerEnd}
+                          onPointerCancel={onMessageListPointerEnd}
+                          onPointerLeave={(e) => {
+                            if (e.pointerType === 'mouse') onMessageListPointerEnd()
+                          }}
                           onClick={() => handleSelectMessage(msg)}
                           onKeyDown={(e) => e.key === 'Enter' && handleSelectMessage(msg)}
                           onContextMenu={(e) => {
                             e.preventDefault()
                             setMessageMenuOpenId(null)
-                            setContextMenuMessage({ id: msg.id, x: e.clientX, y: e.clientY })
+                            setContextMenuMessage({ id: msg.id, x: e.clientX, y: e.clientY, from: msg.from })
                           }}
                           className={`relative px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
                         >
-                          <div className="flex items-start justify-between gap-2 min-w-0">
-                            <div className="flex items-start gap-2 min-w-0 flex-1">
-                              <input
-                                type="checkbox"
-                                aria-label={`Sélectionner le message ${msg.subject || '(Sans objet)'}`}
-                                checked={selectedMessageIds.includes(msg.id)}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={() => toggleMessageSelected(msg.id)}
-                                className="mt-1 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
-                              />
-                              <p className={`truncate flex-1 flex items-center gap-1.5 min-w-0 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
-                                {activeFolder === 'inbox' && (msg.spam_score ?? 0) >= 52 ? (
-                                  <span title={`Indésirable probable (score ${msg.spam_score ?? 0}/100) — vérifiez avant d’ouvrir les pièces jointes.`} className="shrink-0 text-amber-600 dark:text-amber-400">
-                                    <ShieldAlert className="h-4 w-4" aria-hidden />
-                                  </span>
-                                ) : null}
-                                <span className="truncate">{msg.subject || '(Sans objet)'}</span>
-                              </p>
+                          <div className="flex items-start gap-2 min-w-0">
+                            <div
+                              className="shrink-0 pt-0.5"
+                              onPointerDown={(e) => {
+                                if (mailSelectionMode) e.stopPropagation()
+                              }}
+                            >
+                              {mailSelectionMode ? (
+                                <input
+                                  type="checkbox"
+                                  aria-label={`Sélectionner le message ${msg.subject || '(Sans objet)'}`}
+                                  checked={selectedMessageIds.includes(msg.id)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={() => toggleMessageSelected(msg.id)}
+                                  className="mt-0.5 h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-brand-600 focus:ring-brand-500"
+                                />
+                              ) : (
+                                <MailRowAvatar from={msg.from} contact={rowContact} />
+                              )}
                             </div>
-                            <span className="text-xs text-slate-500 dark:text-slate-400 shrink-0">{formatMessageDate(msg.date_at)}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-2 min-w-0">
-                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1 flex-1 min-w-0" title={msg.from || undefined}>
-                              {!msg.is_read ? <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" aria-hidden /> : null}
-                              <span className="truncate min-w-0">De : {formatSenderOneLine(msg.from, contacts)}</span>
-                            </p>
-                            <div className="flex items-center gap-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                              <div className="flex items-start justify-between gap-2 min-w-0">
+                                <p className={`truncate flex-1 flex items-center gap-1.5 min-w-0 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
+                                  {activeFolder === 'inbox' && (msg.spam_score ?? 0) >= 52 ? (
+                                    <span title={`Indésirable probable (score ${msg.spam_score ?? 0}/100) — vérifiez avant d’ouvrir les pièces jointes.`} className="shrink-0 text-amber-600 dark:text-amber-400">
+                                      <ShieldAlert className="h-4 w-4" aria-hidden />
+                                    </span>
+                                  ) : null}
+                                  <span className="truncate">{msg.subject || '(Sans objet)'}</span>
+                                </p>
+                                <span className="flex items-center gap-2 shrink-0">
+                                  {(msg.attachment_count ?? 0) > 0 ? (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-xs text-slate-500 dark:text-slate-400"
+                                      title={`${msg.attachment_count} pièce(s) jointe(s)`}
+                                    >
+                                      <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                                      {msg.attachment_count}
+                                    </span>
+                                  ) : null}
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">{formatMessageDate(msg.date_at ?? msg.created_at)}</span>
+                                </span>
+                              </div>
+                              <div className="flex items-start justify-between gap-2 min-w-0">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1" title={msg.from || undefined}>
+                                    {!msg.is_read ? <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" aria-hidden /> : null}
+                                    <span className="truncate min-w-0">De : {formatSenderOneLine(msg.from, contacts)}</span>
+                                  </p>
+                                  <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                                    Reçu : {formatReceivedDetail(msg.date_at ?? msg.created_at)}
+                                  </p>
+                                </div>
+                            <div className="flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setMessageMenuOpenId((prev) => (prev === msg.id ? null : msg.id)) }}
@@ -1460,6 +2065,54 @@ export default function MailPage() {
                               </button>
                               {messageMenuOpenId === msg.id && (
                                 <div className="absolute right-2 mt-1 z-50 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg py-1 min-w-[200px]" role="menu">
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      setMailSelectionMode(true)
+                                      setSelectedMessageIds((prev) => (prev.includes(msg.id) ? prev : [...prev, msg.id]))
+                                      setMessageMenuOpenId(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                  >
+                                    <CheckSquare className="h-4 w-4 shrink-0" /> Sélectionner
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      handleOpenContactFromMail(msg.from)
+                                      setMessageMenuOpenId(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                  >
+                                    <Users className="h-4 w-4 shrink-0" /> Ouvrir dans Contacts
+                                  </button>
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => {
+                                      void handleQuickAddContactFromMail(msg.from)
+                                      setMessageMenuOpenId(null)
+                                    }}
+                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                  >
+                                    <UserPlus className="h-4 w-4 shrink-0" /> Ajouter aux contacts
+                                  </button>
+                                  {msg.thread_key ? (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setConversationThreadKey(msg.thread_key!)
+                                        setMessageMenuOpenId(null)
+                                        setMessagePage(0)
+                                      }}
+                                      className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                    >
+                                      <MessagesSquare className="h-4 w-4 shrink-0" /> Voir le fil de conversation
+                                    </button>
+                                  ) : null}
                                   {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
                                     <>
                                       <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'trash'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
@@ -1518,9 +2171,12 @@ export default function MailPage() {
                                 </button>
                               )}
                             </div>
+                              </div>
+                            </div>
                           </div>
                         </li>
-                      ))}
+                        )
+                      })}
                     </ul>
                     <div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50">
                       <button
@@ -1687,7 +2343,48 @@ export default function MailPage() {
                             <Forward className="h-4 w-4" />
                             Transférer
                           </button>
+                          {selectedMessageDetail.thread_key ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConversationThreadKey(selectedMessageDetail.thread_key!)
+                                setMessagePage(0)
+                              }}
+                              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                              title="Limiter la liste aux messages de cette conversation"
+                            >
+                              <MessagesSquare className="h-4 w-4" />
+                              Fil de conversation
+                            </button>
+                          ) : null}
                         </div>
+                        {(selectedMessageDetail.attachments?.length ?? 0) > 0 ? (
+                          <div className="px-4 pb-3 md:px-5 border-b border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                              <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                              Pièces jointes
+                            </p>
+                            <ul className="flex flex-col gap-1.5">
+                              {selectedMessageDetail.attachments!.map((att) => (
+                                <li key={att.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDownloadAttachment(selectedMessageDetail.id, att.id, att.filename)}
+                                    className="w-full text-left flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-600 hover:bg-brand-50/50 dark:hover:bg-brand-900/20"
+                                  >
+                                    <Download className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                                    <span className="flex-1 min-w-0 truncate font-medium text-slate-800 dark:text-slate-100">{att.filename}</span>
+                                    <span className="text-xs text-slate-500 shrink-0 tabular-nums">
+                                      {att.size_bytes > MAIL_INLINE_ATTACHMENT_MAX_BYTES
+                                        ? '≥ 512 Ko'
+                                        : `${Math.max(1, Math.round(att.size_bytes / 1024))} Ko`}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                       <div className="flex-1 overflow-auto min-h-0 bg-slate-100/60 dark:bg-slate-900/40">
                         <div className="mx-auto max-w-3xl px-3 py-4 md:px-6 md:py-6">
@@ -1839,43 +2536,105 @@ export default function MailPage() {
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Alias (adresses supplémentaires)</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                    Filtrez la liste des messages contenant cette adresse (champs À / De / Objet). Utile pour les alias Gmail / OVH.
+                    Déclarez les adresses qui <strong>reçoivent</strong> dans cette boîte (fournisseur / DNS déjà configurés). Dans la barre latérale, « Toutes les adresses » affiche tout le dossier ; un alias ne montre que les messages dont le champ <strong>À</strong> contient cette adresse.
+                    La <strong>cible de livraison</strong> est une note pour vous (et plus tard Pass) : vers quelle boîte réelle le mail doit arriver — Cloudity ne configure pas seul le DNS MX.
                   </p>
-                  <ul className="space-y-1 mb-3 max-h-32 overflow-y-auto">
+                  <ul className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                     {accountAliases.map((al) => (
-                      <li key={al.id} className="flex items-center justify-between gap-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-2 py-1">
-                        <span className="truncate">{al.alias_email}</span>
-                        <button
-                          type="button"
-                          className="text-red-600 dark:text-red-400 shrink-0"
-                          onClick={() => aliasMutation.mutate({ type: 'del', id: al.id })}
-                          disabled={aliasMutation.isPending}
-                        >
-                          Retirer
-                        </button>
+                      <li
+                        key={al.id}
+                        className="flex flex-col gap-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-2 py-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate font-medium">{al.alias_email}</span>
+                          <button
+                            type="button"
+                            className="text-red-600 dark:text-red-400 shrink-0"
+                            onClick={() => aliasMutation.mutate({ type: 'del', id: al.id })}
+                            disabled={aliasMutation.isPending}
+                          >
+                            Retirer
+                          </button>
+                        </div>
+                        {al.deliver_target_email ? (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={al.deliver_target_email}>
+                            → {al.deliver_target_email}
+                          </p>
+                        ) : null}
+                        {editingAliasCibleId === al.id ? (
+                          <div className="flex flex-wrap gap-1 items-center">
+                            <input
+                              type="text"
+                              value={aliasCibleDraft}
+                              onChange={(e) => setAliasCibleDraft(e.target.value)}
+                              placeholder="ex. ma-boite-reelle@domaine.com"
+                              className="flex-1 min-w-[140px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-0.5 text-[11px]"
+                            />
+                            <button
+                              type="button"
+                              className="text-[11px] text-brand-600 dark:text-brand-400 font-medium"
+                              disabled={aliasMutation.isPending}
+                              onClick={() =>
+                                aliasMutation.mutate({ type: 'patch', id: al.id, deliver_target_email: aliasCibleDraft.trim() })
+                              }
+                            >
+                              Enregistrer
+                            </button>
+                            <button
+                              type="button"
+                              className="text-[11px] text-slate-500"
+                              onClick={() => {
+                                setEditingAliasCibleId(null)
+                                setAliasCibleDraft('')
+                              }}
+                            >
+                              Annuler
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-[11px] text-left text-brand-600 dark:text-brand-400 hover:underline w-fit"
+                            onClick={() => {
+                              setEditingAliasCibleId(al.id)
+                              setAliasCibleDraft(al.deliver_target_email ?? '')
+                            }}
+                          >
+                            {al.deliver_target_email ? 'Modifier la cible' : 'Définir la cible (Pass / transfert)'}
+                          </button>
+                        )}
                       </li>
                     ))}
                   </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      type="email"
-                      value={newAliasEmail}
-                      onChange={(e) => setNewAliasEmail(e.target.value)}
-                      placeholder="alias@domaine.com"
-                      className="flex-1 min-w-[160px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        type="email"
+                        value={newAliasEmail}
+                        onChange={(e) => setNewAliasEmail(e.target.value)}
+                        placeholder="alias@domaine.com"
+                        className="flex-1 min-w-[160px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={newAliasLabel}
+                        onChange={(e) => setNewAliasLabel(e.target.value)}
+                        placeholder="Libellé (optionnel)"
+                        className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </div>
                     <input
                       type="text"
-                      value={newAliasLabel}
-                      onChange={(e) => setNewAliasLabel(e.target.value)}
-                      placeholder="Libellé (optionnel)"
-                      className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      value={newAliasDeliverTarget}
+                      onChange={(e) => setNewAliasDeliverTarget(e.target.value)}
+                      placeholder="Cible de livraison (optionnel) — ex. boîte réelle ou note Pass"
+                      className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
                     />
                     <button
                       type="button"
                       disabled={aliasMutation.isPending || !newAliasEmail.trim()}
                       onClick={() => aliasMutation.mutate({ type: 'add' })}
-                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50 w-fit"
                     >
                       Ajouter l’alias
                     </button>
@@ -1902,8 +2661,11 @@ export default function MailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Ajouter une boîte mail</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
               Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP).
+            </p>
+            <p className="text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-lg px-3 py-2 mb-4">
+              <strong>Gmail sans mot de passe d’application :</strong> fermez cette fenêtre et utilisez « Se connecter avec Google » sur la page Mail (OAuth). Ce formulaire sert aux boîtes IMAP/SMTP classiques.
             </p>
             {/^[^@]*@gmail\.com$/i.test(connectEmailValue.trim()) && (
               <div className="mb-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
@@ -1982,6 +2744,28 @@ export default function MailPage() {
           {!slot.minimized && (
             <>
               <div className="flex-1 overflow-auto p-4 space-y-4 min-h-0">
+                {effectiveAccountId != null && composeFromOptions.length > 0 ? (
+                  <div>
+                    <label htmlFor={`mail-from-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      De
+                    </label>
+                    <select
+                      id={`mail-from-${slot.id}`}
+                      value={slot.fromAddress}
+                      onChange={(e) => updateSlot(slot.id, { fromAddress: e.target.value })}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    >
+                      {composeFromOptions.map((em) => (
+                        <option key={em} value={em}>
+                          {em}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                      Boîte principale ou alias enregistré (Paramètres Mail). Le serveur doit autoriser l’envoi pour cette adresse.
+                    </p>
+                  </div>
+                ) : null}
                 <div>
                   <label htmlFor={`mail-to-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Destinataire</label>
                   <input
@@ -2082,6 +2866,40 @@ export default function MailPage() {
           role="menu"
           onClick={(e) => e.stopPropagation()}
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMailSelectionMode(true)
+              setSelectedMessageIds((prev) => (prev.includes(contextMenuMessage.id) ? prev : [...prev, contextMenuMessage.id]))
+              setContextMenuMessage(null)
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <CheckSquare className="h-4 w-4 shrink-0" /> Sélectionner
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              handleOpenContactFromMail(contextMenuMessage.from)
+              setContextMenuMessage(null)
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <Users className="h-4 w-4 shrink-0" /> Ouvrir dans Contacts
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              void handleQuickAddContactFromMail(contextMenuMessage.from)
+              setContextMenuMessage(null)
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <UserPlus className="h-4 w-4 shrink-0" /> Ajouter aux contacts
+          </button>
           {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
             <>
               <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'trash'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">

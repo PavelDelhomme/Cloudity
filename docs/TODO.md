@@ -1,11 +1,14 @@
-# À faire (Cloudity)
+# À faire (Cloudity) — notes de développement
+
+> **Priorités produit** et liste des apps : **[ROADMAP.md](./ROADMAP.md)** et **[STATUS.md](../STATUS.md)**. Ce fichier garde surtout des **notes techniques** (incidents résolus, perf Drive, pistes). Index : **[README.md](./README.md)**.
 
 ## Priorités actuelles
 
 - **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
 - **Calendrier** : vue mois type Google + plusieurs agendas (`user_calendars`) — fait (base + UI). Reste : semaine/jour, invitations, lien Drive.
 - **Contacts** : liste + fiche + recherche + lien Mail — fait. Reste : groupes, import/export.
-- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Reste : règles auto, ML/chiffrement corps, synchro temps réel poussée.
+- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Sync IMAP **corbeille** (Trash) côté `mail-directory-service` — fait. Reste : archivage étendu PostgreSQL (corps, rétention), règles auto, push/WebSocket (voir SYNC-BACKLOG).
+- **Mobile** : `make run-mobile APP=…` utilise uniquement `scripts/run-mobile.sh` (la cible Makefile dupliquée « menu interactif » a été retirée pour ne plus masquer `APP=`).
 - **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), etc.
 
 ## Problème résolu : crash HMR + lenteur au clic Téléverser
@@ -47,6 +50,6 @@
 
 ## Session / sécurité (fait)
 
-- Refresh token automatique toutes les 10 min côté frontend.
+- Refresh token automatique côté frontend : intervalle **10 min** + renouvellement au **retour onglet / focus** + sur **activité** (clic/touche, max toutes les **4 min** si l’onglet est visible). Détail : `docs/SYNC-BACKLOG.md` § 4.
 - En cas de 401, tentative de refresh avant déconnexion.
 - Refresh token backend : 30 jours, rotation à chaque refresh.
