@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users, Archive, ArrowUp, ArrowDown, Tag } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -24,6 +24,7 @@ import {
   fetchMailImapFolders,
   fetchMailTags,
   createMailTag,
+  putMailMessageTags,
   createMailAlias,
   patchMailAlias,
   deleteMailAlias,
@@ -174,11 +175,12 @@ const FOLDERS: { id: MailStandardFolderId; label: string; icon: typeof Inbox }[]
   { id: 'inbox', label: 'Boîte de réception', icon: Inbox },
   { id: 'sent', label: 'Envoyés', icon: Send },
   { id: 'drafts', label: 'Brouillons', icon: FileText },
+  { id: 'archive', label: 'Archives', icon: Archive },
   { id: 'spam', label: 'Spam', icon: AlertTriangle },
   { id: 'trash', label: 'Corbeille', icon: Trash2 },
 ]
 
-const STANDARD_FOLDER_IDS = new Set<string>(['inbox', 'sent', 'drafts', 'spam', 'trash'])
+const STANDARD_FOLDER_IDS = new Set<string>(['inbox', 'sent', 'drafts', 'archive', 'spam', 'trash'])
 
 function isStandardMailFolderId(f: string): boolean {
   return STANDARD_FOLDER_IDS.has(f)
@@ -193,6 +195,10 @@ const RESERVED_IMAP_PATHS = new Set([
   'Drafts',
   '[Gmail]/Drafts',
   'INBOX.Drafts',
+  'Archive',
+  '[Gmail]/Archive',
+  'INBOX.Archive',
+  'Archives',
   'Spam',
   'Junk',
   '[Gmail]/Spam',
@@ -213,7 +219,7 @@ function folderSidebarBadge(id: MailStandardFolderId, summary: MailFolderSummary
   if (!s) return null
   if (id === 'inbox' || id === 'spam') return s.unread > 0 ? String(s.unread) : null
   if (id === 'drafts' || id === 'trash') return s.total > 0 ? String(s.total) : null
-  if (id === 'sent') return s.total > 0 ? String(s.total) : null
+  if (id === 'sent' || id === 'archive') return s.total > 0 ? String(s.total) : null
   return null
 }
 
@@ -324,14 +330,39 @@ function formatMessageDate(dateAt: string | undefined): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
-/** Favicon du domaine de l’expéditeur (aperçu type client mail). */
-function mailFaviconUrl(senderEmail: string | null): string | null {
-  if (!senderEmail) return null
+/** URLs favicon à essayer dans l’ordre : sous-domaines remontés + Google puis DuckDuckGo par domaine. */
+function mailFaviconCandidateUrlsFromEmail(senderEmail: string | null): string[] {
+  if (!senderEmail) return []
   const at = senderEmail.lastIndexOf('@')
-  if (at < 0 || at >= senderEmail.length - 1) return null
-  const domain = senderEmail.slice(at + 1).trim().toLowerCase()
-  if (!domain) return null
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`
+  if (at < 0 || at >= senderEmail.length - 1) return []
+  let host = senderEmail.slice(at + 1).trim().toLowerCase()
+  if (!host) return []
+  const domains: string[] = []
+  const seenD = new Set<string>()
+  for (let depth = 0; depth < 8 && host.includes('.'); depth++) {
+    if (!seenD.has(host)) {
+      seenD.add(host)
+      domains.push(host)
+    }
+    const dot = host.indexOf('.')
+    if (dot < 0) break
+    const rest = host.slice(dot + 1)
+    if (rest.split('.').length < 2) break
+    host = rest
+  }
+  const urls: string[] = []
+  const seenU = new Set<string>()
+  for (const d of domains) {
+    const g = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`
+    const duck = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(d)}.ico`
+    for (const u of [g, duck]) {
+      if (!seenU.has(u)) {
+        seenU.add(u)
+        urls.push(u)
+      }
+    }
+  }
+  return urls
 }
 
 function senderAvatarInitials(from: string | undefined, contactName?: string | null): string {

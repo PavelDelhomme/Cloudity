@@ -266,6 +266,8 @@ export type MailMessageResponse = {
   /** Clé de regroupement conversation (Message-ID racine / References). */
   thread_key?: string
   attachment_count?: number
+  /** Identifiants d’étiquettes (compte courant). */
+  tag_ids?: number[]
 }
 
 export type MailAttachmentDTO = {
@@ -467,7 +469,7 @@ export async function markMailMessageRead(
   return res.json() as Promise<{ ok: boolean; read: boolean }>
 }
 
-export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'spam' | 'trash'
+export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'archive' | 'spam' | 'trash'
 /** Dossier standard ou chemin IMAP synchronisé (même valeur qu’en base). */
 export type MailFolderId = MailStandardFolderId | (string & {})
 
@@ -548,6 +550,7 @@ export type MailFolderSummaryResponse = {
   inbox: MailFolderFolderStat
   sent: MailFolderFolderStat
   drafts: MailFolderFolderStat
+  archive: MailFolderFolderStat
   spam: MailFolderFolderStat
   trash: MailFolderFolderStat
   /** Dossiers IMAP hors lot standard (clé = chemin IMAP en base). */
@@ -586,6 +589,7 @@ export async function fetchMailFolderSummary(
     inbox: stat('inbox'),
     sent: stat('sent'),
     drafts: stat('drafts'),
+    archive: stat('archive'),
     spam: stat('spam'),
     trash: stat('trash'),
     extra,
