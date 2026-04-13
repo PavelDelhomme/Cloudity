@@ -30,6 +30,7 @@ import {
   sameDay,
   dayKey,
 } from '../../lib/calendarGrid'
+import { TIME_GUTTER_PX } from '../../lib/calendarTimeGrid'
 
 const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
 const MINI_WEEK_HEADERS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
@@ -48,21 +49,27 @@ function viewNavLabel(calView: CalView, anchor: Date): string {
       const days = getFiveWorkdays(anchor)
       const a = days[0]
       const b = days[4]
-      return `Du ${a.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} au ${b.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      return `${a.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} – ${b.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
     }
     case 'week': {
       const days = getWeekDays(anchor)
       const a = days[0]
       const b = days[6]
-      return `Semaine du ${a.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} au ${b.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      const sameMy = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()
+      if (sameMy) {
+        return `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}`
+      }
+      return `${a.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} – ${b.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`
     }
     case '12weeks': {
       const mon = getTwelveWeeksGrid(anchor)[0][0]
       const end = getTwelveWeeksGrid(anchor)[11][6]
       return `${mon.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} → ${end.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })} (12 sem.)`
     }
-    case 'month':
-      return anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    case 'month': {
+      const t = anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+      return t.charAt(0).toUpperCase() + t.slice(1)
+    }
     case 'year':
       return String(anchor.getFullYear())
     case 'agenda':
@@ -437,8 +444,11 @@ export default function CalendarPage() {
           <Calendar className="h-4 w-4 text-[#5f6368] dark:text-slate-400" />
           Mes agendas
         </div>
-        <div className="mt-3 rounded-lg border border-[#dadce0] bg-[#fafafa] p-2 dark:border-slate-600 dark:bg-slate-800/50">
-          <div className="mb-1.5 flex items-center justify-between gap-1">
+        <div
+          className="mt-3 rounded-lg border border-[#dadce0] bg-[#fafafa] p-2 dark:border-slate-600 dark:bg-slate-800/50"
+          aria-label={`Mini-calendrier, ${anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}
+        >
+          <div className="mb-1 flex items-center justify-between gap-0.5 border-b border-[#e8eaed] pb-1 dark:border-slate-600/80">
             <button
               type="button"
               onClick={miniCalendarPrevMonth}
@@ -447,8 +457,8 @@ export default function CalendarPage() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-center text-xs font-medium capitalize text-[#3c4043] dark:text-slate-100">
-              {anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}
+            <span className="min-w-0 flex-1 truncate text-center text-[10px] font-semibold tabular-nums text-[#70757a] dark:text-slate-500">
+              {anchor.toLocaleDateString('fr-FR', { month: 'numeric', year: 'numeric' })}
             </span>
             <button
               type="button"
@@ -543,40 +553,40 @@ export default function CalendarPage() {
         </div>
       </aside>
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pb-3 pt-2 lg:pr-4">
-        <div className="shrink-0 border-b border-transparent pb-2">
-          <h1 className="text-[22px] font-normal leading-8 tracking-tight text-[#3c4043] dark:text-slate-100" style={{ fontFamily: 'Google Sans, system-ui, sans-serif' }}>
-            Calendrier
-          </h1>
-          <p className="mt-0.5 max-w-3xl text-xs leading-relaxed text-[#5f6368] dark:text-slate-400">
-            Présentation proche d&apos;Google Agenda : mini-calendrier dans la barre latérale, grille pleine hauteur, vues dans un menu, événements et tâches ; création via le bouton flottant (menu Événement / Tâche).
-          </p>
-        </div>
-
-        <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 border-b border-[#e8eaed] pb-2 dark:border-slate-700/80">
-          <button
-            type="button"
-            onClick={goToday}
-            className="rounded border border-[#dadce0] bg-white px-3 py-1.5 text-sm font-medium text-[#3c4043] hover:bg-[#f1f3f4] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-          >
-            Aujourd&apos;hui
-          </button>
-          <div className="flex min-w-0 flex-1 items-center justify-center sm:justify-start">
-            <div className="flex max-w-full items-center overflow-hidden rounded border border-[#dadce0] bg-white dark:border-slate-600 dark:bg-slate-800">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pb-2 pt-1 sm:px-3 sm:pb-3 lg:pr-4">
+        <div className="mb-1 flex min-h-[2.75rem] shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-[#e8eaed] pb-2 dark:border-slate-700/80">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5 sm:flex-nowrap sm:items-center sm:gap-3">
+            <h1
+              className="shrink-0 text-[1.35rem] font-normal leading-none tracking-tight text-[#3c4043] dark:text-slate-100"
+              style={{ fontFamily: 'Google Sans, system-ui, sans-serif' }}
+            >
+              Calendrier
+            </h1>
+            <button
+              type="button"
+              onClick={goToday}
+              className="shrink-0 rounded-full border border-[#dadce0] bg-white px-3 py-1.5 text-sm font-medium text-[#3c4043] hover:bg-[#f1f3f4] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+            >
+              Aujourd&apos;hui
+            </button>
+            <div className="flex min-w-0 max-w-full flex-1 items-center justify-center gap-0 sm:justify-start sm:gap-0.5">
               <button
                 type="button"
-                className="p-1.5 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
+                className="shrink-0 rounded-full p-2 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={navPrev}
                 aria-label="Période précédente"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
-              <span className="min-w-0 max-w-[min(100vw-12rem,28rem)] truncate px-2 py-1 text-center text-sm font-medium text-[#3c4043] dark:text-slate-100">
+              <p
+                className="min-w-0 max-w-[min(72vw,20rem)] truncate px-1 text-center text-sm font-medium text-[#3c4043] dark:text-slate-100 sm:max-w-[min(28rem,40vw)] sm:text-left sm:text-base"
+                aria-live="polite"
+              >
                 {navTitle}
-              </span>
+              </p>
               <button
                 type="button"
-                className="p-1.5 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
+                className="shrink-0 rounded-full p-2 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={navNext}
                 aria-label="Période suivante"
               >
@@ -584,7 +594,8 @@ export default function CalendarPage() {
               </button>
             </div>
           </div>
-          <div className="relative ml-auto shrink-0" ref={viewMenuRef}>
+          <div className="flex w-full shrink-0 justify-end sm:ml-auto sm:w-auto">
+            <div className="relative shrink-0" ref={viewMenuRef}>
             <button
               type="button"
               aria-label={`Vue : ${currentViewShortLabel(calView)}`}
@@ -628,10 +639,11 @@ export default function CalendarPage() {
                 ))}
               </ul>
             ) : null}
+            </div>
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#dadce0] bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#dadce0] bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
           {loading ? (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/80 dark:bg-slate-900/70">
               <Loader2 className="h-10 w-10 animate-spin text-[#1a73e8]" />
@@ -686,12 +698,24 @@ export default function CalendarPage() {
                 <div
                   className="grid shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] text-center text-[11px] font-medium text-[#5f6368] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300 sm:text-xs"
                   style={{
-                    gridTemplateColumns: `repeat(${headerDaysRow().length}, minmax(0, 1fr))`,
+                    gridTemplateColumns: `${TIME_GUTTER_PX}px repeat(${headerDaysRow().length}, minmax(0, 1fr))`,
                   }}
                 >
+                  <div
+                    className="border-r border-[#dadce0] bg-[#f8f9fa] dark:border-slate-600 dark:bg-slate-800/80"
+                    aria-hidden
+                  />
                   {headerDaysRow().map((d) => (
-                    <div key={dayKey(d)} className="truncate border-r border-[#dadce0] px-0.5 py-2 last:border-r-0 dark:border-slate-600">
-                      {d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: calView === 'day' ? 'long' : 'short' })}
+                    <div
+                      key={dayKey(d)}
+                      className="flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 truncate border-r border-[#dadce0] px-1 py-1.5 last:border-r-0 dark:border-slate-600 sm:min-h-[3rem] sm:py-2"
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#70757a] dark:text-slate-500 sm:text-[11px]">
+                        {d.toLocaleDateString('fr-FR', { weekday: 'short' })}
+                      </span>
+                      <span className="text-xs font-medium text-[#3c4043] dark:text-slate-100 sm:text-sm">
+                        {d.toLocaleDateString('fr-FR', { day: 'numeric', month: calView === 'day' ? 'long' : 'short' })}
+                      </span>
                     </div>
                   ))}
                 </div>

@@ -112,9 +112,8 @@ describe('App', () => {
       </TestWrapper>
     )
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
+      expect(screen.getByRole('heading', { name: /Calendrier/ })).toBeTruthy()
     })
-      expect(screen.getByText(/Google Agenda/)).toBeTruthy()
   })
 
   it('renders Notes page when authenticated at /app/notes', () => {

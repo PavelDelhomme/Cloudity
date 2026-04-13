@@ -50,7 +50,7 @@ echo ""
 echo "Résumé des phases :"
 echo "  1. make test           — Tests unitaires/applicatifs (Go, pytest, Vitest)"
 echo "  2. make test-e2e       — E2E health/proxy (stack démarrée)"
-echo "  3. make test-e2e-playwright — E2E navigateur Playwright (stack + seed-admin)"
+echo "  3. make test-e2e-playwright — E2E navigateur Playwright (Hub, Drive, Calendrier, Mail… stack + seed-admin)"
 echo "  4. make test-security  — Audits de dépendances + auth"
 echo ""
 

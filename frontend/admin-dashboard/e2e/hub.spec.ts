@@ -31,6 +31,13 @@ test.describe('Hub (E2E)', () => {
     await expect(page.getByRole('link', { name: 'Corbeille' }).first()).toBeVisible()
   })
 
+  test('Corbeille : depuis le hub ouvre la vue corbeille du Drive', async ({ page }) => {
+    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible({ timeout: 10000 })
+    await page.getByRole('link', { name: /Corbeille/i }).first().click()
+    await expect(page).toHaveURL(/view=trash/)
+    await expect(page.getByRole('heading', { name: 'Corbeille' })).toBeVisible({ timeout: 10000 })
+  })
+
   test('clic sur Pass ouvre la page Pass', async ({ page }) => {
     await page.getByRole('link', { name: 'Pass' }).first().click()
     await expect(page).toHaveURL(/\/app\/pass/)

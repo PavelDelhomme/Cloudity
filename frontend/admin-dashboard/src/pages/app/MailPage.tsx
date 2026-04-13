@@ -24,6 +24,7 @@ import {
   updateMailAccount,
   type DriveNode,
   type MailMessageResponse,
+  type MailAccountResponse,
   type MailFolderId,
   type ContactResponse,
 } from '../../api'
@@ -39,8 +40,38 @@ const MAIL_LIST_PREVIEW_MIN_PCT = 12
 const MAIL_LIST_PREVIEW_MAX_PCT = 88
 const STORAGE_DRAFT_PREFIX = 'cloudity_mail_draft_'
 const MESSAGES_PAGE_SIZE = 25
+/** Sync IMAP en arrière-plan : toutes les boîtes reliées. */
+const MAIL_BACKGROUND_SYNC_INTERVAL_MS = 25_000
+/** Évite de relancer une sync complète au retour sur l’onglet juste après un tick de fond. */
+const MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
 
 type DraftLocal = { to: string; subject: string; body: string; updatedAt: string }
+
+function notifyNewMailForAccount(
+  ctx: ReturnType<typeof useNotifications>,
+  account: MailAccountResponse,
+  synced: number
+): void {
+  if (!ctx || synced <= 0) return
+  const name = (account.label && account.label.trim()) || account.email
+  ctx.addNotification({
+    title: 'Nouveau courrier',
+    message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
+    type: 'info',
+  })
+  if (typeof globalThis.Notification !== 'undefined' && globalThis.Notification.permission === 'granted') {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      try {
+        new globalThis.Notification('Cloudity — Courrier', {
+          body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
+          tag: `cloudity-mail-${account.id}`,
+        })
+      } catch {
+        /* navigateur peut refuser même avec permission */
+      }
+    }
+  }
+}
 
 function getDraftKey(accountId: number | null): string {
   return `${STORAGE_DRAFT_PREFIX}${accountId ?? 0}`
@@ -286,6 +317,16 @@ export default function MailPage() {
     },
   })
   const accounts = Array.isArray(accountsData) ? accountsData : (accountsData ?? [])
+  const accountsRef = useRef(accounts)
+  accountsRef.current = accounts
+  const accountIdsFingerprint = useMemo(
+    () =>
+      accounts
+        .map((a) => a.id)
+        .sort((a, b) => a - b)
+        .join(','),
+    [accounts]
+  )
   const is404 = accountsError && accountsErrorDetail instanceof Error && accountsErrorDetail.message.includes('404')
 
   const firstAccountId = accounts[0]?.id ?? null
@@ -346,7 +387,10 @@ export default function MailPage() {
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
   const [refreshingFromServer, setRefreshingFromServer] = useState(false)
   const lastSyncAtRef = useRef<number>(0)
-  const MAIL_SYNC_THROTTLE_MS = 30_000
+  const notificationsRef = useRef(notifications)
+  notificationsRef.current = notifications
+  const refetchMessagesRef = useRef(refetchMessages)
+  refetchMessagesRef.current = refetchMessages
 
   const {
     data: selectedMessageDetail,
@@ -400,63 +444,67 @@ export default function MailPage() {
         if (cancelled) return
         lastSyncAtRef.current = Date.now()
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-        refetchMessages()
-        if (r.synced > 0 && notifications) {
-          notifications.addNotification({
-            title: 'Boîte mail',
-            message: r.synced === 1 ? '1 nouveau message' : `${r.synced} nouveaux messages`,
-            type: 'info',
-          })
-        }
+        refetchMessagesRef.current()
+        const acc = accountsRef.current.find((a) => a.id === effectiveAccountId)
+        if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
       })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [effectiveAccountId, accessToken, queryClient, refetchMessages, notifications])
+  }, [effectiveAccountId, accessToken, queryClient])
 
-  /** Polling : toutes les 60 s, sync IMAP puis notifier si nouveaux messages. */
+  /** Polling : toutes les boîtes, sync IMAP régulière puis rafraîchissement de la liste et notifications. */
   useEffect(() => {
-    if (!accessToken || effectiveAccountId == null) return
-    const interval = setInterval(() => {
-      syncMailAccount(accessToken, effectiveAccountId!, undefined)
-        .then((r) => {
-          queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-          refetchMessages()
-          if (r.synced > 0 && notifications) {
-            notifications.addNotification({
-              title: 'Boîte mail',
-              message: r.synced === 1 ? '1 nouveau message' : `${r.synced} nouveaux messages`,
-              type: 'info',
-            })
-          }
-        })
-        .catch(() => {})
-    }, 60_000)
-    return () => clearInterval(interval)
-  }, [effectiveAccountId, accessToken, queryClient, refetchMessages, notifications])
+    if (!accessToken || accountIdsFingerprint === '') return
+    const tick = async () => {
+      const list = accountsRef.current
+      for (const acc of list) {
+        try {
+          const r = await syncMailAccount(accessToken, acc.id, undefined)
+          notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
+        } catch {
+          /* erreur réseau / IMAP : on continue les autres comptes */
+        }
+      }
+      lastSyncAtRef.current = Date.now()
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      try {
+        await refetchMessagesRef.current()
+      } catch {
+        /* refetch peut échouer si la requête est désactivée */
+      }
+    }
+    const id = window.setInterval(tick, MAIL_BACKGROUND_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [accessToken, accountIdsFingerprint, queryClient])
 
-  /** Au retour sur l'onglet (visibility), sync si dernier sync > 30 s, puis notifier si nouveaux messages. */
+  /** Au retour sur l'onglet : sync toutes les boîtes si le dernier sync date un peu. */
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState !== 'visible' || !accessToken || effectiveAccountId == null) return
-      if (Date.now() - lastSyncAtRef.current < MAIL_SYNC_THROTTLE_MS) return
-      syncMailAccount(accessToken, effectiveAccountId, undefined)
-        .then((r) => {
-          lastSyncAtRef.current = Date.now()
-          queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-          refetchMessages()
-          if (r.synced > 0 && notifications) {
-            notifications.addNotification({
-              title: 'Boîte mail',
-              message: r.synced === 1 ? '1 nouveau message' : `${r.synced} nouveaux messages`,
-              type: 'info',
-            })
+      if (document.visibilityState !== 'visible' || !accessToken) return
+      if (Date.now() - lastSyncAtRef.current < MAIL_VISIBILITY_SYNC_MIN_GAP_MS) return
+      const list = accountsRef.current
+      if (list.length === 0) return
+      void (async () => {
+        for (const acc of list) {
+          try {
+            const r = await syncMailAccount(accessToken, acc.id, undefined)
+            notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
+          } catch {
+            /* ignorer */
           }
-        })
-        .catch(() => {})
+        }
+        lastSyncAtRef.current = Date.now()
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        try {
+          await refetchMessagesRef.current()
+        } catch {
+          /* ignorer */
+        }
+      })()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [effectiveAccountId, accessToken, queryClient, refetchMessages, notifications])
+  }, [accessToken, queryClient])
 
   useEffect(() => {
     if (!messageMenuOpenId && !contextMenuMessage) return

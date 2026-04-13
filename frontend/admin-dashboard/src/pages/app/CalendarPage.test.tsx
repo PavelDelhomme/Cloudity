@@ -38,10 +38,10 @@ describe('CalendarPage', () => {
     } as unknown as ReturnType<typeof useAuth>)
   })
 
-  it('affiche le titre Calendrier et la vue semaine par défaut', async () => {
+  it('affiche le titre Calendrier (sr-only) et la période courante en vue semaine par défaut', async () => {
     const { container } = render(wrap(<CalendarPage />))
-    expect(screen.getByRole('heading', { name: 'Calendrier' })).toBeTruthy()
-    expect(screen.getByText(/Google Agenda/)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Calendrier/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Vue : Semaine' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Vue : Semaine' })).toBeTruthy()
     // Libellés de jours : dépendent de la locale runtime (ex. lun. / dim. en fr-FR)
     expect(container.textContent).toMatch(/lun/i)

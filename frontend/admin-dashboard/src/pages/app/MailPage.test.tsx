@@ -99,8 +99,8 @@ describe('MailPage', () => {
     await waitFor(() => {
       expect(mockAddNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Boîte mail',
-          message: '2 nouveaux messages',
+          title: 'Nouveau courrier',
+          message: 'user@test.com — 2 nouveaux messages',
           type: 'info',
         })
       )
@@ -116,8 +116,8 @@ describe('MailPage', () => {
     await waitFor(() => {
       expect(mockAddNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: 'Boîte mail',
-          message: '1 nouveau message',
+          title: 'Nouveau courrier',
+          message: 'user@test.com — 1 nouveau message',
           type: 'info',
         })
       )

@@ -348,14 +348,6 @@ test.describe('Drive (E2E)', () => {
     await expect(page.getByRole('button', { name: 'Fermer' }).first()).toBeVisible({ timeout: 2000 })
   })
 
-  test('Corbeille : lien hub ouvre la vue corbeille du Drive', async ({ page }) => {
-    await page.goto('/app')
-    await expect(page.getByRole('heading', { name: 'Tableau de bord' })).toBeVisible({ timeout: 10000 })
-    await page.getByRole('link', { name: /Corbeille/ }).first().click()
-    await expect(page).toHaveURL(/view=trash/)
-    await expect(page.getByRole('heading', { name: 'Corbeille' })).toBeVisible({ timeout: 5000 })
-  })
-
   test.skip('suppression : créer un document, retour Drive, supprimer le fichier', async ({ page }) => {
     // Skip: dépend du flux création document → éditeur (mock non fiable).
     let listReturnEmpty = false

@@ -1,7 +1,13 @@
 /** Grille horaire type Google Agenda : minutes locales 0–1440, hauteur proportionnelle. */
 
 export const MINUTES_PER_DAY = 24 * 60
-export const DEFAULT_PX_PER_HOUR = 48
+/** Largeur de la colonne des heures (doit correspondre à l’en-tête des jours dans CalendarPage). */
+export const TIME_GUTTER_PX = 52
+/** Hauteur d’une heure (style grille proche Google Agenda, lisible sans zoom manuel). */
+export const DEFAULT_PX_PER_HOUR = 56
+export const MIN_PX_PER_HOUR = 28
+export const MAX_PX_PER_HOUR = 120
+export const ZOOM_STEP_PX_PER_HOUR = 8
 
 export function localDayStartMs(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0).getTime()

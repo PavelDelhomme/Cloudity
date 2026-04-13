@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-dashboard test-e2e test-e2e-playwright clean logs backup restore services-only infrastructure-only
+.PHONY: help up down setup install init dev prod build test tests test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -36,8 +36,14 @@ help: ## Affiche ce message d'aide
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité (make test, test-e2e, test-e2e-playwright, test-security), rapport dans reports/'
 	@echo '  make test-dashboard - Tests Vitest du dashboard uniquement (sans Docker, rapide). Pour tout: make test.'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
-	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: login, Drive, Office). Prérequis: make up + make seed-admin'
+	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
+	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
+	@echo '  make dashboard-npm-ci - npm ci dans frontend/admin-dashboard (valide le lockfile, comme le Dockerfile)'
+	@echo '  make dashboard-npm-install - npm install dashboard (après changement de package.json)'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
+	@echo '  make status       - Tableau services (port, URL, Up/Down)'
+	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
+	@echo '  make status-watch - Rafraîchit le statut toutes les 10 s (commande watch)'
 	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security (stack up + make seed-admin)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais exécutée dans les conteneurs (make up avant)'
@@ -234,9 +240,24 @@ test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s q
 	@./scripts/test-e2e.sh
 
 test-e2e-playwright: ## Tests E2E navigateur (Playwright). Prérequis: make up, make seed-admin, attendre 20-30 s
-	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office)..."
+	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office, Mail, Pass, Calendrier)..."
 	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test
 	@echo "✅ E2E Playwright OK"
+
+test-e2e-playwright-calendar: ## E2E Playwright — calendrier uniquement (e2e/calendar.spec.ts). Prérequis: make up, make seed-admin
+	@echo "🎭 Tests E2E Playwright — Calendrier..."
+	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/calendar.spec.ts
+	@echo "✅ E2E Calendrier OK"
+
+dashboard-npm-ci: ## npm ci dans frontend/admin-dashboard (reproductible, comme l’étape Docker du build)
+	@echo "📦 npm ci — frontend/admin-dashboard..."
+	@(cd frontend/admin-dashboard && npm ci)
+	@echo "✅ dashboard-npm-ci OK"
+
+dashboard-npm-install: ## npm install dans le dashboard (met à jour node_modules / lock après ajout de paquets)
+	@echo "📦 npm install — frontend/admin-dashboard..."
+	@(cd frontend/admin-dashboard && npm install)
+	@echo "✅ dashboard-npm-install OK"
 
 test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@chmod +x scripts/test-security.sh
@@ -442,8 +463,22 @@ rebuild-force: ## Rebuild complet sans cache
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@echo "✅ Rebuild terminé!"
 
-status: ## Affiche services, port, URL et état (Up vert / Down rouge)
-	@[ -x scripts/status.sh ] && ./scripts/status.sh || ($(COMPOSE) $(COMPOSE_FILES) ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null; echo ""; echo "Pour le tableau détaillé (nom, port, URL, état): ./scripts/status.sh")
+status: ## Affiche services, port, URL et état (Up vert / Down rouge), ordre logique
+	@chmod +x scripts/status.sh 2>/dev/null || true
+	@./scripts/status.sh
+
+# Recettes explicites : évite les pièges de « cible sans recette » et des fichiers locaux nommés statys/stats.
+statys stats stat: ## Alias de make status (ex. faute « statys » ou raccourci « stat »)
+	@$(MAKE) --no-print-directory status
+
+status-watch: ## Rafraîchit make status toutes les 10 s (nécessite `watch` : pacman -S procps-ng / apt install procps)
+	@chmod +x scripts/status.sh 2>/dev/null || true
+	@if command -v watch >/dev/null 2>&1; then \
+		watch -n 10 -c 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+	else \
+		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou lancez : while sleep 10; do clear; make status; done"; \
+		exit 1; \
+	fi
 
 wait-for-services: ## Attend que les services soient prêts (ports 60XX)
 	@echo "⏳ Attente des services (60XX)..."

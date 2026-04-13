@@ -9,6 +9,7 @@ import {
   localDayStartMs,
   minutesToY,
   MINUTES_PER_DAY,
+  TIME_GUTTER_PX,
   taskSegmentOnDay,
   timedEventSegmentOnDay,
 } from '../lib/calendarTimeGrid'
@@ -103,10 +104,10 @@ export default function CalendarTimeGrid({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
         className="grid shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] dark:border-slate-600 dark:bg-slate-800/90"
-        style={{ gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))` }}
+        style={{ gridTemplateColumns: `${TIME_GUTTER_PX}px repeat(${days.length}, minmax(0, 1fr))` }}
       >
-        <div className="flex items-center justify-end pr-1 py-1 text-[10px] font-medium uppercase tracking-wide text-[#5f6368] dark:text-slate-500">
-          Journée
+        <div className="flex items-center justify-end border-r border-[#dadce0] bg-[#f8f9fa] px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-[#5f6368] dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-500">
+          Toute la journée
         </div>
         {days.map((day) => {
           const ads = allDayEventsForDay(events, day)
@@ -135,16 +136,16 @@ export default function CalendarTimeGrid({
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="flex" style={{ minHeight: totalH }}>
           <div
-            className="sticky left-0 z-10 w-[52px] shrink-0 border-r border-[#dadce0] bg-white dark:border-slate-600 dark:bg-slate-900"
-            style={{ height: totalH }}
+            className="sticky left-0 z-10 shrink-0 border-r border-[#dadce0] bg-white dark:border-slate-600 dark:bg-slate-900"
+            style={{ width: TIME_GUTTER_PX, height: totalH }}
           >
             {hours.map((h) => (
               <div
                 key={h}
-                className="box-border flex justify-end border-t border-transparent pr-1 pt-0 text-[10px] leading-none text-[#70757a] dark:text-slate-500"
+                className="box-border flex justify-end border-t border-transparent pr-1.5 pt-0.5 text-[11px] tabular-nums leading-none text-[#70757a] dark:text-slate-500"
                 style={{ height: pxPerHour }}
               >
-                {h === 0 ? '0:00' : `${h} h`}
+                {`${String(h).padStart(2, '0')}:00`}
               </div>
             ))}
           </div>
@@ -174,10 +175,22 @@ export default function CalendarTimeGrid({
                   role="presentation"
                 >
                   {hours.map((h) => (
+                    <React.Fragment key={h}>
+                      <div
+                        className="pointer-events-none absolute left-0 right-0 border-t border-[#e8eaed] dark:border-slate-700"
+                        style={{ top: h * pxPerHour }}
+                      />
+                      <div
+                        className="pointer-events-none absolute left-0 right-0 border-t border-[#f1f3f4] dark:border-slate-800/90"
+                        style={{ top: h * pxPerHour + pxPerHour / 2 }}
+                      />
+                    </React.Fragment>
+                  ))}
+                  {hours.map((h) => (
                     <div
-                      key={h}
-                      className="pointer-events-none absolute left-0 right-0 border-t border-[#e8eaed] dark:border-slate-700"
-                      style={{ top: h * pxPerHour }}
+                      key={`half-${h}`}
+                      className="pointer-events-none absolute left-0 right-0 border-t border-[#f1f3f4] dark:border-slate-800"
+                      style={{ top: h * pxPerHour + pxPerHour / 2 }}
                     />
                   ))}
                   {isToday && nowY != null && nowY >= 0 && nowY <= totalH && (

@@ -2,6 +2,7 @@
 # Vérifications sécurité : audits de dépendances (npm, safety, govulncheck) dans Docker + checks auth
 # Usage: ./scripts/test-security.sh
 # Nécessite : docker compose (ou docker-compose). Les audits tournent dans les conteneurs.
+# Rapports : reports/security-npm-audit.txt, reports/govulncheck-<service>.txt
 # Si des vulnérabilités ou avertissements sont détectés, crée reports/.security-avertissements
 # pour que le résumé make tests affiche "OK (avertissements)" au lieu de "OK".
 
@@ -9,7 +10,9 @@ set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+mkdir -p reports
 rm -f reports/.security-avertissements
+REMEDIATION_FILE="$ROOT/reports/security-remediation-hints.txt"
 
 # Même logique que le Makefile pour docker compose vs docker-compose
 if docker compose version >/dev/null 2>&1; then
@@ -24,16 +27,20 @@ failed=0
 warnings=0
 
 echo "🔒 Vérifications sécurité (audits dans Docker)..."
+echo "   Rapports détaillés : $ROOT/reports/security-*.txt"
 
 # --- npm audit (admin-dashboard) dans le conteneur ---
 echo ""
 echo "  [npm audit] admin-dashboard (Docker)..."
-if $COMPOSE $COMPOSE_FILES run --rm admin-dashboard sh -c "npm install --no-audit --no-fund 2>/dev/null; npm audit --audit-level=high 2>/dev/null"; then
+NPM_AUDIT_LOG="$ROOT/reports/security-npm-audit.txt"
+if $COMPOSE $COMPOSE_FILES run --rm admin-dashboard sh -c "npm install --no-audit --no-fund 2>/dev/null; npm audit --audit-level=high" >"$NPM_AUDIT_LOG" 2>&1; then
   echo "  ✅ npm audit (high) OK"
 else
-  echo "  ⚠️  npm audit : vulnérabilités high ou erreur (vérifiez avec: cd frontend/admin-dashboard && npm audit)"
+  echo "  ⚠️  npm audit : vulnérabilités high ou erreur — détail : $NPM_AUDIT_LOG"
   warnings=1
 fi
+# Toujours enregistrer l’audit complet (même si --audit-level=high passe)
+$COMPOSE $COMPOSE_FILES run --rm admin-dashboard sh -c "npm install --no-audit --no-fund 2>/dev/null; npm audit" >"$ROOT/reports/security-npm-audit-full.txt" 2>&1 || true
 
 # --- safety (admin-service) dans le conteneur ---
 echo ""
@@ -48,6 +55,16 @@ fi
 # --- govulncheck (backends Go) dans les conteneurs ---
 echo ""
 echo "  [govulncheck] backends Go (Docker)..."
+{
+  echo "Cloudity — pistes de remédiation (automatique, à valider manuellement)"
+  echo ""
+  echo "- Go stdlib : govulncheck signale souvent des correctifs livrés dans une version ultérieure du toolchain (ex. Go 1.25.x). Planifier la montée de version des images Docker Go quand elle est disponible et testée."
+  echo "- Modules directs : mettre à jour jwt/v5, go-redis, etc. dans les go.mod concernés (go get -u=patch ou version fix indiquée par pkg.go.dev/vuln)."
+  echo "- Frontend : xlsx (SheetJS) peut rester sans correctif npm ; isoler l’usage (fichiers de confiance uniquement) ou envisager un fork/mainteneur alternatif à moyen terme."
+  echo "- esbuild/vite : souvent lié à l’outil de dev ; une montée majeure de Vite peut être nécessaire — évaluer séparément du runtime production."
+  echo ""
+} >"$REMEDIATION_FILE"
+
 for dir in backend/auth-service backend/api-gateway backend/password-manager backend/mail-directory-service backend/calendar-service backend/notes-service backend/tasks-service backend/drive-service; do
   if [ ! -d "$dir" ]; then
     continue
@@ -64,10 +81,11 @@ for dir in backend/auth-service backend/api-gateway backend/password-manager bac
     drive-service) svc="drive-service" ;;
     *) continue ;;
   esac
-  if $COMPOSE $COMPOSE_FILES run --rm "$svc" sh -c "export PATH=\$PATH:/go/bin && go install golang.org/x/vuln/cmd/govulncheck@latest 2>/dev/null && govulncheck ./... 2>/dev/null"; then
+  logf="$ROOT/reports/govulncheck-${name}.txt"
+  if $COMPOSE $COMPOSE_FILES run --rm "$svc" sh -c "export PATH=\$PATH:/go/bin && go install golang.org/x/vuln/cmd/govulncheck@latest 2>/dev/null && govulncheck ./..." >"$logf" 2>&1; then
     echo "  ✅ govulncheck $name OK"
   else
-    echo "  ⚠️  govulncheck $name : vulnérabilités ou erreur"
+    echo "  ⚠️  govulncheck $name : signalétique — détail : $logf"
     warnings=1
   fi
 done
@@ -113,6 +131,7 @@ if [ $failed -eq 1 ]; then
 fi
 if [ "$warnings" = "1" ]; then
   echo "✅ Vérifications sécurité terminées (avec avertissements / vulnérabilités signalées)."
+  echo "   Fichiers utiles : reports/security-npm-audit.txt, reports/security-npm-audit-full.txt, reports/govulncheck-*.txt, reports/security-remediation-hints.txt"
 else
   echo "✅ Vérifications sécurité terminées."
 fi
