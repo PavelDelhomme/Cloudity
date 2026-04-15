@@ -322,7 +322,7 @@ function activeFolderTitle(
   activeFolder: string,
   imapLabels: Map<string, string>
 ): string {
-  if (activeFolder === 'all') return 'Tous les messages'
+  if (activeFolder === 'all') return 'Tous les dossiers (boîte sélectionnée)'
   const std = FOLDERS.find((f) => f.id === activeFolder)
   if (std) return std.label
   return imapLabels.get(activeFolder) ?? activeFolder
@@ -788,7 +788,8 @@ export default function MailPage() {
     error: selectedMessageErrorDetail,
     refetch: refetchSelectedMessageDetail,
   } = useQuery({
-    queryKey: ['mail', 'message', effectiveAccountId, selectedMessageId],
+    // Inclure showFullMailHeaders pour relancer un GET quand on active les en-têtes (backfill IMAP côté serveur).
+    queryKey: ['mail', 'message', effectiveAccountId, selectedMessageId, showFullMailHeaders],
     queryFn: () => fetchMailMessage(accessToken!, effectiveAccountId!, selectedMessageId!),
     enabled: !!accessToken && effectiveAccountId != null && selectedMessageId != null,
     retry: 8,
@@ -1840,12 +1841,19 @@ export default function MailPage() {
                 }`}
                 title={
                   sidebarCollapsed
-                    ? `Tous les messages${allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? ` (${allMessagesBadgeTotal})` : ''}`
-                    : undefined
+                    ? `Tous les dossiers — boîte sélectionnée uniquement (inbox, envoyés, spam, dossiers IMAP, etc.)${allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? ` · ${allMessagesBadgeTotal}` : ''}`
+                    : 'Tous les dossiers de la boîte actuellement sélectionnée (pas un seul dossier) : réception, envoyés, brouillons, spam, corbeille et dossiers IMAP personnalisés.'
                 }
               >
                 <Layers className="h-4 w-4 flex-shrink-0" />
-                {!sidebarCollapsed && <span className="flex-1 text-left truncate">Tous les messages</span>}
+                {!sidebarCollapsed && (
+                  <span className="flex-1 text-left truncate">
+                    Tous les dossiers
+                    <span className="block text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal">
+                      Boîte sélectionnée
+                    </span>
+                  </span>
+                )}
                 {!sidebarCollapsed && allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? (
                   <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
                     {allMessagesBadgeTotal > 999 ? '999+' : String(allMessagesBadgeTotal)}
@@ -2581,14 +2589,29 @@ export default function MailPage() {
                             <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
                               En-têtes bruts (RFC822)
                             </p>
-                            {selectedMessageDetail.raw_headers?.trim() ? (
+                            {selectedMessageFetching && !selectedMessageDetail.raw_headers?.trim() ? (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                                Récupération des en-têtes depuis le serveur…
+                              </p>
+                            ) : selectedMessageDetail.raw_headers?.trim() ? (
                               <pre className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-[11px] leading-snug font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
                                 {selectedMessageDetail.raw_headers}
                               </pre>
                             ) : (
-                              <p className="text-xs text-slate-500 dark:text-slate-400 italic">
-                                Non disponible pour ce message (réessayez après synchro IMAP ou rouvrez le message une fois le corps chargé).
-                              </p>
+                              <div className="space-y-2">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                                  Toujours indisponible ? Vérifiez la migration SQL <code className="text-[10px] not-italic">22-mail-raw-headers.sql</code>, la synchro IMAP et que le message a bien un corps chargé. Réessayez ci-dessous.
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => void refetchSelectedMessageDetail()}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                                  Recharger les en-têtes
+                                </button>
+                              </div>
                             )}
                           </div>
                         ) : null}

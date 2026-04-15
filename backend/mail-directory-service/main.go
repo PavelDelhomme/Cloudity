@@ -1346,7 +1346,9 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	// Anciens messages : corps en base mais pas encore d’en-têtes bruts — compléter une fois depuis l’IMAP.
 	if strings.TrimSpace(m.RawHeaders) == "" && messageUID > 0 && (bodyPlain.Valid || bodyHTML.Valid) {
 		rawBackfill, fetchErr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, m.Folder)
-		if fetchErr == nil && len(rawBackfill) > 0 {
+		if fetchErr != nil {
+			log.Printf("[mail] backfill raw_headers id=%d uid=%d folder=%q: %v", msgID, messageUID, m.Folder, fetchErr)
+		} else if len(rawBackfill) > 0 {
 			hdr := extractRawMIMEHeaders(rawBackfill)
 			if strings.TrimSpace(hdr) != "" {
 				if len(hdr) > maxRawHeadersBytes {
@@ -1358,6 +1360,8 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 					AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
 				`, nullStr(hdr), msgID, accountID); updErr == nil {
 					m.RawHeaders = hdr
+				} else {
+					log.Printf("[mail] backfill UPDATE raw_headers id=%d: %v", msgID, updErr)
 				}
 			}
 		}
@@ -1542,49 +1546,54 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 			return nil, err
 		}
 	}
-	var lastSelectErr error
-	var selected bool
-	for _, mailbox := range imapMailboxCandidatesForDbFolder(folder) {
-		_, err := imapClient.Select(mailbox, false)
-		if err != nil {
-			lastSelectErr = err
-			continue
-		}
-		selected = true
-		break
-	}
-	if !selected {
-		if lastSelectErr != nil {
-			return nil, lastSelectErr
-		}
+	candidates := imapMailboxCandidatesForDbFolder(folder)
+	if len(candidates) == 0 {
 		return nil, fmt.Errorf("dossier IMAP introuvable pour %q", folder)
 	}
-	seqset := new(imap.SeqSet)
-	seqset.AddNum(uint32(messageUID))
-	messages := make(chan *imap.Message, 24)
-	done := make(chan error, 1)
-	go func() {
-		done <- imapClient.UidFetch(seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, messages)
-	}()
-	var msg *imap.Message
-	for m := range messages {
-		if msg == nil && m != nil {
-			msg = m
+	var lastErr error
+	for _, mailbox := range candidates {
+		if _, selErr := imapClient.Select(mailbox, false); selErr != nil {
+			lastErr = selErr
+			continue
+		}
+		seqset := new(imap.SeqSet)
+		seqset.AddNum(uint32(messageUID))
+		messages := make(chan *imap.Message, 24)
+		done := make(chan error, 1)
+		go func() {
+			done <- imapClient.UidFetch(seqset, []imap.FetchItem{imap.FetchItem("BODY.PEEK[]")}, messages)
+		}()
+		var msg *imap.Message
+		for m := range messages {
+			if msg == nil && m != nil {
+				msg = m
+			}
+		}
+		if fetchErr := <-done; fetchErr != nil {
+			lastErr = fetchErr
+			continue
+		}
+		if msg == nil {
+			continue
+		}
+		for _, lit := range msg.Body {
+			if lit == nil {
+				continue
+			}
+			b, readErr := io.ReadAll(lit)
+			if readErr != nil {
+				lastErr = readErr
+				continue
+			}
+			if len(b) > 0 {
+				return b, nil
+			}
 		}
 	}
-	if fetchErr := <-done; fetchErr != nil {
-		return nil, fetchErr
+	if lastErr != nil {
+		return nil, lastErr
 	}
-	if msg == nil {
-		return nil, nil
-	}
-	for _, lit := range msg.Body {
-		if lit != nil {
-			raw, _ = io.ReadAll(lit)
-			break
-		}
-	}
-	return raw, nil
+	return nil, fmt.Errorf("message UID %d introuvable (BODY[]) pour le dossier %q sur les boîtes IMAP essayées", messageUID, folder)
 }
 
 func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
