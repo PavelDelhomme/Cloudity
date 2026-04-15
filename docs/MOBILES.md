@@ -63,10 +63,15 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 
 ## 5. Lancer une app en local (`make run-mobile`)
 
-Commande unique à la racine du repo (Flutter requis sur la machine) :
+Commande unique à la racine du repo (Flutter requis sur la machine). **`APP=`** est **insensible à la casse** ; les guillemets sont optionnels (`APP=Mail` ou `APP="Mail"`).
 
 ```bash
 make run-mobile APP=Admin
+make run-mobile APP="Drive"
+make run-mobile APP="Mail"
+make run-mobile APP="Calendar"
+make run-mobile APP="Contacts"
+make run-mobile APP="Photos"
 ```
 
 | `APP=` | Dossiers reconnus (le premier qui existe est utilisé) |

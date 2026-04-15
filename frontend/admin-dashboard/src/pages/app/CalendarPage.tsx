@@ -137,6 +137,9 @@ export default function CalendarPage() {
     queryFn: () => fetchUserCalendars(accessToken!),
     enabled: Boolean(accessToken),
     staleTime: 30_000,
+    /** Même idée que Mail : mise à jour sans recharger l’onglet (autre appareil / autre onglet). */
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 
   useEffect(() => {
@@ -150,6 +153,8 @@ export default function CalendarPage() {
     queryFn: () => fetchCalendarEvents(accessToken!, selectedCalendarId),
     enabled: Boolean(accessToken),
     staleTime: 15_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 
   const { data: tasksData, isLoading: tasksLoading } = useQuery({
@@ -157,6 +162,8 @@ export default function CalendarPage() {
     queryFn: () => fetchTasks(accessToken!),
     enabled: Boolean(accessToken),
     staleTime: 30_000,
+    refetchInterval: 90_000,
+    refetchIntervalInBackground: false,
   })
   const tasks = tasksData ?? []
 

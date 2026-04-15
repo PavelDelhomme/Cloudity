@@ -282,6 +282,8 @@ export type MailAttachmentDTO = {
 export type MailMessageDetailResponse = MailMessageResponse & {
   body_plain?: string
   body_html?: string
+  /** Bloc d’en-têtes MIME (RFC822) tel que stocké côté serveur ; optionnel selon version / synchro. */
+  raw_headers?: string
   attachments?: MailAttachmentDTO[]
 }
 

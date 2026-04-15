@@ -92,9 +92,9 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Stratégie unifiée : quand et comment Drive, Mail, Calendar, Contacts, Photos, Pass se mettent à jour côté client et serveur, sans rechargement manuel si possible. |
 | **Objectif** | UX proche des suites grand public : liste à jour, conflits maîtrisés, mobile aligné sur la même API. |
-| **Mail (web actuel)** | Polling IMAP + `invalidateQueries` : la **liste du dossier ouvert** (réception, envoyés, brouillons, spam) se met à jour sans F5. **Corbeille** : messages passés en `trash` via l’app ; sync IMAP **Trash** pas encore dans `syncAccountIMAP` (à ajouter pour aligner avec Gmail). **Pas** de WebSocket mail pour l’instant. |
-| **Mail (serveur — gros chantier)** | **Archivage Cloudity** : étendre la sync pour stocker en base (corps + pièces jointes métadonnées) au-delà de la fenêtre IMAP courante, politique de rétention, recherche locale — voir APP-01. |
-| **Calendar / Contacts / Drive / Photos** | Web : polling / `refetchOnWindowFocus` / mutations TanStack Query selon pages ; **à faire** : intervalles harmonisés, push mobile (FCM/APNs), export CalDAV/CardDAV (option). |
+| **Mail (web actuel)** | Polling IMAP (~25 s, toutes les boîtes) + `invalidateQueries` : la **liste du dossier affiché** (réception, envoyés, brouillons, spam, corbeille, dossiers IMAP) se met à jour **sans F5**. **Brouillons** : pas d’instantané IMAP ; apparition après la prochaine sync qui lit **Drafts**. **Pas** de WebSocket mail pour l’instant. |
+| **Mail (serveur — gros chantier)** | **Archivage Cloudity** : étendre la sync pour stocker en base (corps + PJ) au-delà de la fenêtre IMAP courante, politique de rétention, recherche — voir APP-01 + [SYNC-BACKLOG.md](./SYNC-BACKLOG.md) §1. |
+| **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Drive / Photos** : Drive = focus produit (ROADMAP APP-02) ; Photos = placeholder. |
 | **Pass** | E2E client ; sync coffres via API existante ; alias mail depuis Pass → lien APP-01 + API alias. |
 | **Statut** | Partiel (Mail web avancé ; reste documenté ici pour implémentation progressive). |
 | **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](./SYNC-BACKLOG.md), [MOBILES.md](./MOBILES.md) § 5–6. |

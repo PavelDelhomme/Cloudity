@@ -11,7 +11,8 @@ import (
 
 const (
 	maxAttachmentBytesPerPart = 512 * 1024
-	maxAttachmentsPerMessage = 24
+	maxAttachmentsPerMessage  = 24
+	maxRawHeadersBytes        = 512 * 1024
 )
 
 type mailParsedMeta struct {
@@ -32,8 +33,28 @@ type mailAttachmentParsed struct {
 
 type mailParsedResult struct {
 	Plain, HTML string
+	RawHeaders  string
 	Meta        mailParsedMeta
 	Attachments []mailAttachmentParsed
+}
+
+// extractRawMIMEHeaders renvoie le bloc d’en-têtes (avant la première ligne vide), tronqué pour la base.
+func extractRawMIMEHeaders(raw []byte) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var hdr []byte
+	if i := bytes.Index(raw, []byte("\r\n\r\n")); i >= 0 {
+		hdr = raw[:i]
+	} else if i := bytes.Index(raw, []byte("\n\n")); i >= 0 {
+		hdr = raw[:i]
+	} else {
+		hdr = raw
+	}
+	if len(hdr) > maxRawHeadersBytes {
+		return string(hdr[:maxRawHeadersBytes])
+	}
+	return string(hdr)
 }
 
 func normalizeMessageID(s string) string {
@@ -138,6 +159,7 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 		}
 	}
 	res.Meta.AttachmentCount = len(res.Attachments)
+	res.RawHeaders = extractRawMIMEHeaders(raw)
 	return res, nil
 }
 

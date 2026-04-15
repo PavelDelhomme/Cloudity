@@ -1169,6 +1169,7 @@ type MailMessageDetail struct {
 	MailMessage
 	BodyPlain   string               `json:"body_plain,omitempty"`
 	BodyHTML    string               `json:"body_html,omitempty"`
+	RawHeaders  string               `json:"raw_headers,omitempty"`
 	Attachments []MailAttachmentInfo `json:"attachments,omitempty"`
 }
 
@@ -1310,16 +1311,17 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	}
 	var m MailMessageDetail
 	var dateAt sql.NullString
-	var bodyPlain, bodyHTML sql.NullString
+	var bodyPlain, bodyHTML, rawHeadersDB sql.NullString
 	var isRead bool
 	var messageUID int64
 	err = h.db.QueryRow(`
 		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
+			raw_headers,
 			COALESCE(thread_key, ''), COALESCE(attachment_count, 0)
 		FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML, &m.ThreadKey, &m.AttachmentCount)
+	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML, &rawHeadersDB, &m.ThreadKey, &m.AttachmentCount)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 		return
@@ -1338,6 +1340,28 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	if bodyHTML.Valid {
 		m.BodyHTML = bodyHTML.String
 	}
+	if rawHeadersDB.Valid {
+		m.RawHeaders = rawHeadersDB.String
+	}
+	// Anciens messages : corps en base mais pas encore d’en-têtes bruts — compléter une fois depuis l’IMAP.
+	if strings.TrimSpace(m.RawHeaders) == "" && messageUID > 0 && (bodyPlain.Valid || bodyHTML.Valid) {
+		rawBackfill, fetchErr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, m.Folder)
+		if fetchErr == nil && len(rawBackfill) > 0 {
+			hdr := extractRawMIMEHeaders(rawBackfill)
+			if strings.TrimSpace(hdr) != "" {
+				if len(hdr) > maxRawHeadersBytes {
+					hdr = hdr[:maxRawHeadersBytes]
+				}
+				if _, updErr := h.db.Exec(`
+					UPDATE mail_messages SET raw_headers = $1
+					WHERE id = $2 AND account_id = $3
+					AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+				`, nullStr(hdr), msgID, accountID); updErr == nil {
+					m.RawHeaders = hdr
+				}
+			}
+		}
+	}
 	// Si le corps n'est pas en base, récupérer le RFC822 depuis IMAP : corps + pièces jointes + fil de discussion.
 	if !bodyPlain.Valid && !bodyHTML.Valid {
 		raw, fetchErr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, m.Folder)
@@ -1353,6 +1377,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 				}
 				m.BodyPlain = parsed.Plain
 				m.BodyHTML = parsed.HTML
+				m.RawHeaders = parsed.RawHeaders
 				if parsed.Meta.ThreadKey != "" {
 					m.ThreadKey = parsed.Meta.ThreadKey
 				}
@@ -1386,6 +1411,10 @@ func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed
 	}
 	defer tx.Rollback()
 	ref := sql.NullString{String: parsed.Meta.ReferencesHeader, Valid: parsed.Meta.ReferencesHeader != ""}
+	rh := parsed.RawHeaders
+	if len(rh) > maxRawHeadersBytes {
+		rh = rh[:maxRawHeadersBytes]
+	}
 	_, err = tx.Exec(`
 		UPDATE mail_messages SET
 			body_plain = $1, body_html = $2,
@@ -1393,10 +1422,11 @@ func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed
 			in_reply_to = CASE WHEN $4 <> '' THEN $4 ELSE in_reply_to END,
 			references_header = COALESCE($5, references_header),
 			thread_key = CASE WHEN $6 <> '' THEN $6 ELSE thread_key END,
-			attachment_count = $7
-		WHERE id = $8 AND account_id = $9
+			attachment_count = $7,
+			raw_headers = COALESCE(NULLIF(BTRIM($8::text), ''), raw_headers)
+		WHERE id = $9 AND account_id = $10
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, nullStr(parsed.Plain), nullStr(parsed.HTML), nullStr(parsed.Meta.InternetMsgID), nullStr(parsed.Meta.InReplyTo), ref, nullStr(parsed.Meta.ThreadKey), parsed.Meta.AttachmentCount, msgID, accountID)
+	`, nullStr(parsed.Plain), nullStr(parsed.HTML), nullStr(parsed.Meta.InternetMsgID), nullStr(parsed.Meta.InReplyTo), ref, nullStr(parsed.Meta.ThreadKey), parsed.Meta.AttachmentCount, nullStr(rh), msgID, accountID)
 	if err != nil {
 		return err
 	}

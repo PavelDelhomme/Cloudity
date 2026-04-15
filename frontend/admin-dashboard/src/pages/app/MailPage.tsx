@@ -44,6 +44,7 @@ const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
 const STORAGE_SIDEBAR_COLLAPSED = 'cloudity_mail_sidebar_collapsed'
 const STORAGE_SIDEBAR_WIDTH_PX = 'cloudity_mail_sidebar_width_px'
 const STORAGE_LIST_SPLIT_PCT = 'cloudity_mail_list_split_pct'
+const STORAGE_MAIL_SHOW_FULL_HEADERS = 'cloudity_mail_show_full_headers'
 const MAIL_SIDEBAR_MIN_PX = 200
 const MAIL_SIDEBAR_MAX_PX = 560
 const MAIL_LIST_PREVIEW_MIN_PCT = 12
@@ -112,6 +113,22 @@ function getListSplitPct(): number {
     return Math.min(MAIL_LIST_PREVIEW_MAX_PCT, Math.max(MAIL_LIST_PREVIEW_MIN_PCT, n))
   } catch {
     return 42
+  }
+}
+
+function getMailShowFullHeaders(): boolean {
+  try {
+    return localStorage.getItem(STORAGE_MAIL_SHOW_FULL_HEADERS) === '1'
+  } catch {
+    return false
+  }
+}
+
+function saveMailShowFullHeaders(on: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_MAIL_SHOW_FULL_HEADERS, on ? '1' : '0')
+  } catch {
+    /* ignore */
   }
 }
 
@@ -565,6 +582,7 @@ export default function MailPage() {
   const [editingAliasCibleId, setEditingAliasCibleId] = useState<number | null>(null)
   const [aliasCibleDraft, setAliasCibleDraft] = useState('')
   const [newMailTagName, setNewMailTagName] = useState('')
+  const [showFullMailHeaders, setShowFullMailHeaders] = useState(getMailShowFullHeaders)
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -2532,6 +2550,21 @@ export default function MailPage() {
                                   })}
                                 </p>
                               ) : null}
+                              <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300 dark:border-slate-500 text-brand-600 focus:ring-brand-500"
+                                  checked={showFullMailHeaders}
+                                  onChange={(e) => {
+                                    const on = e.target.checked
+                                    setShowFullMailHeaders(on)
+                                    saveMailShowFullHeaders(on)
+                                  }}
+                                />
+                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  Afficher les en-têtes MIME complets
+                                </span>
+                              </label>
                             </div>
                           </div>
                           <button
@@ -2543,6 +2576,22 @@ export default function MailPage() {
                             Fermer
                           </button>
                         </div>
+                        {showFullMailHeaders ? (
+                          <div className="px-4 pb-3 md:px-5 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50">
+                            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                              En-têtes bruts (RFC822)
+                            </p>
+                            {selectedMessageDetail.raw_headers?.trim() ? (
+                              <pre className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-[11px] leading-snug font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
+                                {selectedMessageDetail.raw_headers}
+                              </pre>
+                            ) : (
+                              <p className="text-xs text-slate-500 dark:text-slate-400 italic">
+                                Non disponible pour ce message (réessayez après synchro IMAP ou rouvrez le message une fois le corps chargé).
+                              </p>
+                            )}
+                          </div>
+                        ) : null}
                         <div className="flex flex-wrap items-center gap-2 px-4 pb-3 md:px-5">
                           <button type="button" onClick={handleReply} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 shadow-sm" title="Répondre">
                             <Reply className="h-4 w-4" />

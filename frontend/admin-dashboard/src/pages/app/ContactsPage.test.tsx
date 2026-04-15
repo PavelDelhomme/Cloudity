@@ -27,6 +27,7 @@ function wrap(ui: React.ReactElement) {
 
 describe('ContactsPage', () => {
   beforeEach(() => {
+    queryClient.clear()
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,

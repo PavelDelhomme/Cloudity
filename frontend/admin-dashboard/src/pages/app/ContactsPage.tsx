@@ -44,6 +44,10 @@ export default function ContactsPage() {
     queryKey: ['contacts'],
     queryFn: () => fetchContacts(accessToken!),
     enabled: !!accessToken,
+    staleTime: 20_000,
+    /** Liste à jour sans F5 (autre client ou import côté serveur). */
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 
   const filtered = useMemo(() => {
