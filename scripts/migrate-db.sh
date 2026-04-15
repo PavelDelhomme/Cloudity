@@ -12,6 +12,18 @@ export PGPASSWORD
 
 echo "[migrate] Connexion à $PGHOST:$PGPORT/$PGDATABASE..."
 
+attempt=0
+max_attempts=30
+until psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null 2>&1; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge "$max_attempts" ]; then
+    echo "[migrate] ERREUR: PostgreSQL injoignable après ${max_attempts}s ($PGHOST:$PGPORT)."
+    exit 1
+  fi
+  echo "[migrate] PostgreSQL indisponible, nouvel essai dans 1s ($attempt/$max_attempts)..."
+  sleep 1
+done
+
 # Créer la table de suivi des migrations si besoin
 psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -c "
   CREATE TABLE IF NOT EXISTS schema_migrations (

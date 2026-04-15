@@ -28,10 +28,12 @@ vi.mock('../../api', () => ({
   fetchMailImapFolders: vi.fn().mockResolvedValue([]),
   fetchMailTags: vi.fn().mockResolvedValue([]),
   createMailTag: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
+  putMailMessageTags: vi.fn().mockResolvedValue({ ok: true }),
   fetchMailFolderSummary: vi.fn().mockResolvedValue({
     inbox: { total: 0, unread: 0 },
     sent: { total: 0, unread: 0 },
     drafts: { total: 0, unread: 0 },
+    archive: { total: 0, unread: 0 },
     spam: { total: 0, unread: 0 },
     trash: { total: 0, unread: 0 },
     extra: [],
@@ -161,6 +163,43 @@ describe('MailPage', () => {
     render(wrap(<MailPage />))
     expect(await screen.findByText(/Page 1 \/ 2/)).toBeTruthy()
     expect(screen.getByText(/25 par page/)).toBeTruthy()
+  })
+
+  it('affiche un seul menu actions message (bouton … ou clic droit)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 42,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Sujet menu unique',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 1,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Sujet menu unique')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Menu actions message' }))
+    expect(await screen.findAllByRole('menu')).toHaveLength(1)
+    expect(screen.getByRole('menuitem', { name: /Sélectionner/i })).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Menu actions message' }))
+    await waitFor(() => {
+      expect(screen.queryAllByRole('menu')).toHaveLength(0)
+    })
+
+    const row = screen.getByText('Sujet menu unique').closest('li') as HTMLElement
+    fireEvent.contextMenu(row, { clientX: 80, clientY: 120 })
+    expect(await screen.findAllByRole('menu')).toHaveLength(1)
   })
 
   it('permet la sélection multiple et le déplacement en corbeille', async () => {
@@ -298,12 +337,12 @@ describe('MailPage', () => {
     const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
     fireEvent.click(toggleAllBtn)
 
-    const bulkArchiveBtn = await screen.findByRole('button', { name: 'Archiver en masse' })
+    const bulkArchiveBtn = await screen.findByRole('button', { name: 'Archives en masse' })
     fireEvent.click(bulkArchiveBtn)
 
     await waitFor(() => {
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 10, 'sent')
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 11, 'sent')
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 10, 'archive')
+      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 11, 'archive')
     })
   })
 
@@ -375,7 +414,7 @@ describe('MailPage', () => {
     render(wrap(<MailPage />))
 
     await screen.findByText(/Page 1 \/ 2/)
-    const next = screen.getByRole('button', { name: 'Suivant' })
+    const next = screen.getByRole('button', { name: 'Page suivante' })
     fireEvent.click(next)
 
     await waitFor(() => {

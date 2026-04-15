@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users, Archive, ArrowUp, ArrowDown, Tag } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users, Archive, ArrowUp, ArrowDown, Tag, Layers } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
@@ -186,6 +186,74 @@ function isStandardMailFolderId(f: string): boolean {
   return STANDARD_FOLDER_IDS.has(f)
 }
 
+/** En vue « tout », les actions (archiver, spam…) se basent sur le dossier réel du message. */
+function effectiveMsgFolderForActions(activeFolder: string, msgFolder: string | undefined): string {
+  if (activeFolder === 'all') return (msgFolder ?? 'inbox').toLowerCase()
+  return activeFolder
+}
+
+function showMailArchiveAction(activeFolder: string, msgFolder: string | undefined): boolean {
+  const ef = effectiveMsgFolderForActions(activeFolder, msgFolder)
+  return ef !== 'archive' && ef !== 'trash'
+}
+
+function showMailTrashAction(activeFolder: string, msgFolder: string | undefined): boolean {
+  return effectiveMsgFolderForActions(activeFolder, msgFolder) !== 'trash'
+}
+
+function showMailSpamAction(activeFolder: string, msgFolder: string | undefined): boolean {
+  return effectiveMsgFolderForActions(activeFolder, msgFolder) === 'inbox'
+}
+
+function showMailRestoreInboxAction(activeFolder: string, msgFolder: string | undefined): boolean {
+  const ef = effectiveMsgFolderForActions(activeFolder, msgFolder)
+  return ef === 'spam' || ef === 'trash' || ef === 'archive'
+}
+
+function folderDisplayLabel(folder: string | undefined, imapLabels: Map<string, string>): string {
+  const f = (folder ?? '').toLowerCase().trim()
+  switch (f) {
+    case 'inbox':
+      return 'Réception'
+    case 'sent':
+      return 'Envoyés'
+    case 'drafts':
+      return 'Brouillons'
+    case 'archive':
+      return 'Archives'
+    case 'spam':
+      return 'Spam'
+    case 'trash':
+      return 'Corbeille'
+    default:
+      return (folder && imapLabels.get(folder)) || folder || '—'
+  }
+}
+
+/** Taille approximative du menu actions message (fixed) pour le calage à l’écran. */
+const MAIL_ACTION_MENU_W = 240
+const MAIL_ACTION_MENU_H = 380
+const MAIL_ACTION_MENU_MARGIN = 8
+
+function clampMailActionMenuPosition(x: number, y: number): { x: number; y: number } {
+  if (typeof window === 'undefined') return { x, y }
+  const m = MAIL_ACTION_MENU_MARGIN
+  const w = MAIL_ACTION_MENU_W
+  const h = MAIL_ACTION_MENU_H
+  const cx = Math.max(m, Math.min(x, window.innerWidth - w - m))
+  const cy = Math.max(m, Math.min(y, window.innerHeight - h - m))
+  return { x: cx, y: cy }
+}
+
+/** Position sous le bouton « … », puis bornée dans la fenêtre. */
+function mailActionMenuPositionBelowButton(rect: DOMRect): { x: number; y: number } {
+  const w = MAIL_ACTION_MENU_W
+  const m = MAIL_ACTION_MENU_MARGIN
+  const x = rect.right - w
+  const y = rect.bottom + 6
+  return clampMailActionMenuPosition(x, y)
+}
+
 /** Dossiers déjà couverts par la sync standard : ne pas dupliquer dans la liste IMAP. */
 const RESERVED_IMAP_PATHS = new Set([
   'INBOX',
@@ -237,6 +305,7 @@ function activeFolderTitle(
   activeFolder: string,
   imapLabels: Map<string, string>
 ): string {
+  if (activeFolder === 'all') return 'Tous les messages'
   const std = FOLDERS.find((f) => f.id === activeFolder)
   if (std) return std.label
   return imapLabels.get(activeFolder) ?? activeFolder
@@ -390,17 +459,27 @@ function formatReceivedDetail(dateAt: string | undefined): string {
 }
 
 function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResponse | null }) {
-  const [faviconFailed, setFaviconFailed] = useState(false)
   const email = extractEmailFromSender(from)
-  const fav = email ? mailFaviconUrl(email) : null
+  const urls = useMemo(() => mailFaviconCandidateUrlsFromEmail(email), [email])
+  const [urlIdx, setUrlIdx] = useState(0)
+  useEffect(() => {
+    setUrlIdx(0)
+  }, [email])
   const initials = senderAvatarInitials(from, contact?.name)
+  const src = urls[urlIdx] ?? null
+  const showImg = src != null && urlIdx < urls.length
   return (
     <div
       className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 dark:from-indigo-600 dark:to-violet-700 flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
       title={contact?.name ? `${contact.name} (${email || ''})` : email || undefined}
     >
-      {fav && !faviconFailed ? (
-        <img src={fav} alt="" className="h-full w-full object-cover bg-white dark:bg-slate-800" onError={() => setFaviconFailed(true)} />
+      {showImg ? (
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover bg-white dark:bg-slate-800"
+          onError={() => setUrlIdx((i) => i + 1)}
+        />
       ) : (
         <span aria-hidden>{initials}</span>
       )}
@@ -452,11 +531,18 @@ export default function MailPage() {
   }, [sidebarWidthPx])
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
   const [mailSignature, setMailSignature] = useState(getMailSignature())
-  const [messageMenuOpenId, setMessageMenuOpenId] = useState<number | null>(null)
-  const [contextMenuMessage, setContextMenuMessage] = useState<{ id: number; x: number; y: number; from?: string } | null>(null)
+  const [contextMenuMessage, setContextMenuMessage] = useState<{
+    id: number
+    x: number
+    y: number
+    from?: string
+    folder?: string
+    tag_ids?: number[]
+    thread_key?: string | null
+  } | null>(null)
   /** Faux : pas de cases à cocher ; appui long ou menu → sélection (style client mail). */
   const [mailSelectionMode, setMailSelectionMode] = useState(false)
-  const longPressRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({
+  const longPressRef = useRef<{ timer: number | null; fired: boolean }>({
     timer: null,
     fired: false,
   })
@@ -517,7 +603,7 @@ export default function MailPage() {
   const syncExtraImapOptions = useCallback((accountId: number) => {
     if (effectiveAccountIdRef.current !== accountId) return undefined
     const f = activeFolderRef.current
-    if (isStandardMailFolderId(f)) return undefined
+    if (isStandardMailFolderId(f) || f === 'all') return undefined
     return { extra_imap_folders: [f] }
   }, [])
 
@@ -533,6 +619,19 @@ export default function MailPage() {
     enabled: !!accessToken && effectiveAccountId != null,
     staleTime: 15_000,
   })
+
+  const allMessagesBadgeTotal = useMemo(() => {
+    if (!folderSummary) return null
+    let n = 0
+    const std: MailStandardFolderId[] = ['inbox', 'sent', 'drafts', 'archive', 'spam', 'trash']
+    for (const id of std) {
+      n += folderSummary[id]?.total ?? 0
+    }
+    for (const e of folderSummary.extra ?? []) {
+      n += e.total ?? 0
+    }
+    return n
+  }, [folderSummary])
 
   const { data: imapFolders = [] } = useQuery({
     queryKey: ['mail', 'imap-folders', effectiveAccountId],
@@ -818,20 +917,20 @@ export default function MailPage() {
   }, [accessToken, queryClient, syncExtraImapOptions])
 
   useEffect(() => {
-    if (!messageMenuOpenId && !contextMenuMessage) return
+    if (!contextMenuMessage) return
     const close = () => {
-      setMessageMenuOpenId(null)
       setContextMenuMessage(null)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     document.addEventListener('keydown', onKey)
-    const t = window.setTimeout(() => document.addEventListener('click', close, true), 0)
+    // Bubble (pas capture) : sinon le 2e clic sur « … » ferme puis rouvre le menu avant le handler du bouton.
+    const t = window.setTimeout(() => document.addEventListener('click', close, false), 0)
     return () => {
       document.removeEventListener('keydown', onKey)
       clearTimeout(t)
-      document.removeEventListener('click', close, true)
+      document.removeEventListener('click', close, false)
     }
-  }, [messageMenuOpenId, contextMenuMessage])
+  }, [contextMenuMessage])
 
   const activeSlot = composeSlots.find((s) => s.id === activeComposeId) ?? composeSlots[composeSlots.length - 1] ?? null
 
@@ -1346,6 +1445,42 @@ export default function MailPage() {
     [accessToken, effectiveAccountId, mailSelectionMode, queryClient, toggleMessageSelected]
   )
 
+  const selectAdjacentMessageInList = useCallback(
+    (delta: number) => {
+      if (messages.length === 0) return
+      const idx = messages.findIndex((m) => m.id === selectedMessageId)
+      if (idx < 0) {
+        if (delta > 0) handleSelectMessage(messages[0])
+        else handleSelectMessage(messages[messages.length - 1])
+        return
+      }
+      const next = Math.min(messages.length - 1, Math.max(0, idx + delta))
+      if (next !== idx) handleSelectMessage(messages[next])
+    },
+    [messages, selectedMessageId, handleSelectMessage]
+  )
+
+  const messageListNavIdx = messages.findIndex((m) => m.id === selectedMessageId)
+  const canSelectPrevMessageInList = messages.length > 0 && (messageListNavIdx > 0 || messageListNavIdx < 0)
+  const canSelectNextMessageInList = messages.length > 0 && (messageListNavIdx < 0 || messageListNavIdx < messages.length - 1)
+
+  const toggleTagOnMessage = useCallback(
+    async (messageId: number, tagId: number, currentIds: number[] | undefined) => {
+      if (!accessToken || effectiveAccountId == null) return
+      const nextSet = new Set(currentIds ?? [])
+      if (nextSet.has(tagId)) nextSet.delete(tagId)
+      else nextSet.add(tagId)
+      const next = Array.from(nextSet).sort((a, b) => a - b)
+      try {
+        await putMailMessageTags(accessToken, effectiveAccountId, messageId, next)
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Étiquettes')
+      }
+    },
+    [accessToken, effectiveAccountId, queryClient]
+  )
+
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => {
       const next = !prev
@@ -1677,6 +1812,28 @@ export default function MailPage() {
             </div>
             <div className={`border-t border-slate-200 dark:border-slate-600 pt-2 ${sidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dossiers</p>}
+              <button
+                type="button"
+                onClick={() => setActiveFolder('all')}
+                className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
+                  activeFolder === 'all'
+                    ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                }`}
+                title={
+                  sidebarCollapsed
+                    ? `Tous les messages${allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? ` (${allMessagesBadgeTotal})` : ''}`
+                    : undefined
+                }
+              >
+                <Layers className="h-4 w-4 flex-shrink-0" />
+                {!sidebarCollapsed && <span className="flex-1 text-left truncate">Tous les messages</span>}
+                {!sidebarCollapsed && allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? (
+                  <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
+                    {allMessagesBadgeTotal > 999 ? '999+' : String(allMessagesBadgeTotal)}
+                  </span>
+                ) : null}
+              </button>
               {FOLDERS.map(({ id, label, icon: Icon }) => {
                 const badge = folderSidebarBadge(id, folderSummary)
                 return (
@@ -1972,15 +2129,15 @@ export default function MailPage() {
                           >
                             <AlertTriangle className="h-4 w-4 text-red-600" /> Spam
                           </button>
-                          {activeFolder !== 'sent' && (
+                          {(activeFolder === 'all' || (activeFolder !== 'archive' && activeFolder !== 'trash')) && (
                             <button
                               type="button"
-                              onClick={() => handleBulkMove('sent')}
+                              onClick={() => handleBulkMove('archive')}
                               disabled={bulkWorking}
-                              aria-label="Archiver en masse"
+                              aria-label="Archives en masse"
                               className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
                             >
-                              <Send className="h-4 w-4" /> Archiver
+                              <Archive className="h-4 w-4" /> Archives
                             </button>
                           )}
                           <button
@@ -2025,8 +2182,16 @@ export default function MailPage() {
                           onKeyDown={(e) => e.key === 'Enter' && handleSelectMessage(msg)}
                           onContextMenu={(e) => {
                             e.preventDefault()
-                            setMessageMenuOpenId(null)
-                            setContextMenuMessage({ id: msg.id, x: e.clientX, y: e.clientY, from: msg.from })
+                            const p = clampMailActionMenuPosition(e.clientX, e.clientY)
+                            setContextMenuMessage({
+                              id: msg.id,
+                              x: p.x,
+                              y: p.y,
+                              from: msg.from,
+                              folder: msg.folder,
+                              tag_ids: msg.tag_ids,
+                              thread_key: msg.thread_key,
+                            })
                           }}
                           className={`relative px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
                         >
@@ -2053,12 +2218,41 @@ export default function MailPage() {
                             <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                               <div className="flex items-start justify-between gap-2 min-w-0">
                                 <p className={`truncate flex-1 flex items-center gap-1.5 min-w-0 ${msg.is_read ? 'font-medium text-slate-900 dark:text-slate-100' : 'font-semibold text-slate-900 dark:text-slate-100'}`}>
-                                  {activeFolder === 'inbox' && (msg.spam_score ?? 0) >= 52 ? (
+                                  {activeFolder !== 'spam' && (msg.spam_score ?? 0) >= 52 ? (
                                     <span title={`Indésirable probable (score ${msg.spam_score ?? 0}/100) — vérifiez avant d’ouvrir les pièces jointes.`} className="shrink-0 text-amber-600 dark:text-amber-400">
                                       <ShieldAlert className="h-4 w-4" aria-hidden />
                                     </span>
                                   ) : null}
+                                  {activeFolder === 'all' ? (
+                                    <span
+                                      className={`shrink-0 max-w-[9rem] truncate text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                                        msg.folder === 'trash'
+                                          ? 'bg-slate-200 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                                          : msg.folder === 'spam'
+                                            ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-100'
+                                            : 'bg-slate-100 dark:bg-slate-700/70 text-slate-600 dark:text-slate-300'
+                                      }`}
+                                      title={folderDisplayLabel(msg.folder, imapLabelByPath)}
+                                    >
+                                      {folderDisplayLabel(msg.folder, imapLabelByPath)}
+                                    </span>
+                                  ) : null}
                                   <span className="truncate">{msg.subject || '(Sans objet)'}</span>
+                                  {msg.tag_ids && msg.tag_ids.length > 0 ? (
+                                    <span className="flex shrink-0 gap-0.5" title="Étiquettes">
+                                      {msg.tag_ids.map((tid) => {
+                                        const t = mailTags.find((x) => x.id === tid)
+                                        return t ? (
+                                          <span
+                                            key={tid}
+                                            className="h-2 w-2 rounded-full ring-1 ring-black/10 dark:ring-white/20"
+                                            style={{ backgroundColor: t.color || '#64748b' }}
+                                            aria-hidden
+                                          />
+                                        ) : null
+                                      })}
+                                    </span>
+                                  ) : null}
                                 </p>
                                 <span className="flex items-center gap-2 shrink-0">
                                   {(msg.attachment_count ?? 0) > 0 ? (
@@ -2086,96 +2280,57 @@ export default function MailPage() {
                             <div className="flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); setMessageMenuOpenId((prev) => (prev === msg.id ? null : msg.id)) }}
-                                className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-600"
-                                title="Actions"
-                                aria-label="Actions sur le message"
-                                aria-expanded={messageMenuOpenId === msg.id}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const rect = e.currentTarget.getBoundingClientRect()
+                                  setContextMenuMessage((prev) => {
+                                    if (prev?.id === msg.id) return null
+                                    const { x, y } = mailActionMenuPositionBelowButton(rect)
+                                    return {
+                                      id: msg.id,
+                                      x,
+                                      y,
+                                      from: msg.from,
+                                      folder: msg.folder,
+                                      tag_ids: msg.tag_ids,
+                                      thread_key: msg.thread_key,
+                                    }
+                                  })
+                                }}
+                                className="p-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/90 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 shadow-sm"
+                                title="Actions (identique au clic droit)"
+                                aria-label="Menu actions message"
+                                aria-expanded={contextMenuMessage?.id === msg.id}
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </button>
-                              {messageMenuOpenId === msg.id && (
-                                <div className="absolute right-2 mt-1 z-50 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg py-1 min-w-[200px]" role="menu">
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      setMailSelectionMode(true)
-                                      setSelectedMessageIds((prev) => (prev.includes(msg.id) ? prev : [...prev, msg.id]))
-                                      setMessageMenuOpenId(null)
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                  >
-                                    <CheckSquare className="h-4 w-4 shrink-0" /> Sélectionner
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      handleOpenContactFromMail(msg.from)
-                                      setMessageMenuOpenId(null)
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                  >
-                                    <Users className="h-4 w-4 shrink-0" /> Ouvrir dans Contacts
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    onClick={() => {
-                                      void handleQuickAddContactFromMail(msg.from)
-                                      setMessageMenuOpenId(null)
-                                    }}
-                                    className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-                                  >
-                                    <UserPlus className="h-4 w-4 shrink-0" /> Ajouter aux contacts
-                                  </button>
-                                  {msg.thread_key ? (
+                              {((isStandardMailFolderId(activeFolder) && activeFolder !== 'trash') || activeFolder === 'all') && (
+                                <>
+                                  {showMailArchiveAction(activeFolder, msg.folder) ? (
                                     <button
                                       type="button"
-                                      role="menuitem"
-                                      onClick={() => {
-                                        setConversationThreadKey(msg.thread_key!)
-                                        setMessageMenuOpenId(null)
-                                        setMessagePage(0)
-                                      }}
-                                      className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                                      onClick={() => handleMoveToFolder(msg.id, 'archive')}
+                                      disabled={movingMessageId === msg.id}
+                                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+                                      title="Archiver"
+                                      aria-label="Archiver"
                                     >
-                                      <MessagesSquare className="h-4 w-4 shrink-0" /> Voir le fil de conversation
+                                      <Archive className="h-4 w-4" />
                                     </button>
                                   ) : null}
-                                  {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
-                                    <>
-                                      <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'trash'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
-                                        <Trash2 className="h-4 w-4 shrink-0" /> Déplacer vers la corbeille
-                                      </button>
-                                      {activeFolder === 'inbox' && (
-                                        <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'spam'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
-                                          <AlertTriangle className="h-4 w-4 shrink-0" /> Signaler comme spam
-                                        </button>
-                                      )}
-                                    </>
-                                  )}
-                                  {(activeFolder === 'spam' || activeFolder === 'trash') && (
-                                    <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(msg.id, 'inbox'); setMessageMenuOpenId(null) }} disabled={movingMessageId === msg.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
-                                      <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
+                                  {showMailTrashAction(activeFolder, msg.folder) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMoveToFolder(msg.id, 'trash')}
+                                      disabled={movingMessageId === msg.id}
+                                      className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                                      title="Déplacer vers la corbeille"
+                                      aria-label="Corbeille"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
                                     </button>
-                                  )}
-                                </div>
-                              )}
-                              {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleMoveToFolder(msg.id, 'trash')}
-                                    disabled={movingMessageId === msg.id}
-                                    className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
-                                    title="Déplacer vers la corbeille"
-                                    aria-label="Corbeille"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                  {activeFolder === 'inbox' && (
+                                  ) : null}
+                                  {showMailSpamAction(activeFolder, msg.folder) ? (
                                     <button
                                       type="button"
                                       onClick={() => handleMoveToFolder(msg.id, 'spam')}
@@ -2186,10 +2341,13 @@ export default function MailPage() {
                                     >
                                       <AlertTriangle className="h-4 w-4" />
                                     </button>
-                                  )}
+                                  ) : null}
                                 </>
                               )}
-                              {(activeFolder === 'spam' || activeFolder === 'trash') && (
+                              {(activeFolder === 'spam' ||
+                                activeFolder === 'trash' ||
+                                activeFolder === 'archive' ||
+                                (activeFolder === 'all' && showMailRestoreInboxAction(activeFolder, msg.folder))) && (
                                 <button
                                   type="button"
                                   onClick={() => handleMoveToFolder(msg.id, 'inbox')}
@@ -2209,26 +2367,50 @@ export default function MailPage() {
                         )
                       })}
                     </ul>
-                    <div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-t border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50">
-                      <button
-                        type="button"
-                        onClick={() => setMessagePage((p) => Math.max(0, p - 1))}
-                        disabled={messagePage === 0}
-                        className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline"
-                      >
-                        Précédent
-                      </button>
-                      <span className="text-xs text-slate-500 dark:text-slate-400 text-center sm:px-2">
-                        Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s) · {MESSAGES_PAGE_SIZE} par page
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setMessagePage((p) => p + 1)}
-                        disabled={!hasNextPage}
-                        className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline sm:text-right"
-                      >
-                        Suivant
-                      </button>
+                    <div className="shrink-0 flex flex-col gap-2 border-t border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-800/50 px-4 py-2">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => selectAdjacentMessageInList(-1)}
+                          disabled={!canSelectPrevMessageInList}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40"
+                          title="Message précédent dans la liste (page courante)"
+                          aria-label="Message précédent dans la liste"
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" aria-hidden /> Message précédent
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectAdjacentMessageInList(1)}
+                          disabled={!canSelectNextMessageInList}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40"
+                          title="Message suivant dans la liste (page courante)"
+                          aria-label="Message suivant dans la liste"
+                        >
+                          Message suivant <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setMessagePage((p) => Math.max(0, p - 1))}
+                          disabled={messagePage === 0}
+                          className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline"
+                        >
+                          Page précédente
+                        </button>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 text-center sm:px-2 order-first sm:order-none">
+                          Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s) · {MESSAGES_PAGE_SIZE} par page
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMessagePage((p) => p + 1)}
+                          disabled={!hasNextPage}
+                          className="text-sm text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-50 disabled:no-underline sm:text-right"
+                        >
+                          Page suivante
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -2892,7 +3074,7 @@ export default function MailPage() {
 
       {contextMenuMessage && (
         <div
-          className="fixed z-[100] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1 min-w-[200px]"
+          className="fixed z-[120] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1 min-w-[220px] max-h-[min(380px,72vh)] overflow-y-auto overscroll-contain"
           style={{ left: contextMenuMessage.x, top: contextMenuMessage.y }}
           role="menu"
           onClick={(e) => e.stopPropagation()}
@@ -2931,19 +3113,95 @@ export default function MailPage() {
           >
             <UserPlus className="h-4 w-4 shrink-0" /> Ajouter aux contacts
           </button>
-          {(activeFolder === 'inbox' || activeFolder === 'sent' || activeFolder === 'drafts') && (
+          {contextMenuMessage.thread_key ? (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setConversationThreadKey(contextMenuMessage.thread_key!)
+                setContextMenuMessage(null)
+                setMessagePage(0)
+              }}
+              className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+            >
+              <MessagesSquare className="h-4 w-4 shrink-0" /> Voir le fil de conversation
+            </button>
+          ) : null}
+          {showMailArchiveAction(activeFolder, contextMenuMessage.folder) && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                handleMoveToFolder(contextMenuMessage.id, 'archive')
+                setContextMenuMessage(null)
+              }}
+              disabled={movingMessageId === contextMenuMessage.id}
+              className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50"
+            >
+              <Archive className="h-4 w-4 shrink-0" /> Vers Archives
+            </button>
+          )}
+          {mailTags.length > 0 ? (
+            <>
+              <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Étiquettes</div>
+              {mailTags.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void toggleTagOnMessage(contextMenuMessage.id, t.id, contextMenuMessage.tag_ids)}
+                  className="w-full px-3 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                >
+                  <Tag className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                  <span className={contextMenuMessage.tag_ids?.includes(t.id) ? 'font-semibold text-brand-700 dark:text-brand-300' : ''}>
+                    {contextMenuMessage.tag_ids?.includes(t.id) ? '✓ ' : ''}{t.name}
+                  </span>
+                </button>
+              ))}
+            </>
+          ) : null}
+          {customImapSidebarRows.length > 0 &&
+          activeFolder !== 'trash' &&
+          (activeFolder !== 'all' || showMailTrashAction(activeFolder, contextMenuMessage.folder)) ? (
+            <>
+              <div className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400 border-t border-slate-100 dark:border-slate-600 mt-1">
+                Dossiers IMAP
+              </div>
+              {customImapSidebarRows.slice(0, 14).map((row) => (
+                <button
+                  key={row.imap_path}
+                  type="button"
+                  role="menuitem"
+                  disabled={movingMessageId === contextMenuMessage.id || contextMenuMessage.folder === row.imap_path}
+                  onClick={() => {
+                    handleMoveToFolder(contextMenuMessage.id, row.imap_path)
+                    setContextMenuMessage(null)
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40"
+                >
+                  <FolderOpen className="h-4 w-4 shrink-0 opacity-70" />
+                  <span className="truncate">{row.label?.trim() || row.imap_path}</span>
+                </button>
+              ))}
+            </>
+          ) : null}
+          {((isStandardMailFolderId(activeFolder) && activeFolder !== 'trash') ||
+            (activeFolder === 'all' && showMailTrashAction(activeFolder, contextMenuMessage.folder))) && (
             <>
               <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'trash'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
                 <Trash2 className="h-4 w-4 shrink-0" /> Déplacer vers la corbeille
               </button>
-              {activeFolder === 'inbox' && (
+              {showMailSpamAction(activeFolder, contextMenuMessage.folder) && (
                 <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'spam'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
                   <AlertTriangle className="h-4 w-4 shrink-0" /> Signaler comme spam
                 </button>
               )}
             </>
           )}
-          {(activeFolder === 'spam' || activeFolder === 'trash') && (
+          {(activeFolder === 'spam' ||
+            activeFolder === 'trash' ||
+            activeFolder === 'archive' ||
+            (activeFolder === 'all' && showMailRestoreInboxAction(activeFolder, contextMenuMessage.folder))) && (
             <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'inbox'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
               <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
             </button>
@@ -3177,7 +3435,7 @@ export default function MailPage() {
       <button
         type="button"
         onClick={() => openNewCompose()}
-        className="fixed bottom-6 right-6 z-40 flex items-center justify-center gap-2 rounded-full bg-brand-600 dark:bg-brand-500 hover:bg-brand-700 dark:hover:bg-brand-600 text-white shadow-lg hover:shadow-xl w-14 h-14 md:w-16 md:h-16"
+        className="fixed bottom-28 right-5 sm:right-6 z-40 flex items-center justify-center gap-2 rounded-full bg-brand-600 dark:bg-brand-500 hover:bg-brand-700 dark:hover:bg-brand-600 text-white shadow-lg hover:shadow-xl w-14 h-14 md:bottom-32 md:w-16 md:h-16"
         title="Nouveau message"
         aria-label="Nouveau message"
       >

@@ -81,13 +81,21 @@ func spamHeuristicScore(subject, fromAddr string) int {
 	s := sl + " " + fl
 	score := 0
 	for _, w := range []string{
-		"viagra", "cialis", "crypto", "bitcoin", "lottery", "you won", "winner",
+		"viagra", "cialis", "crypto", "bitcoin", "lottery", "you won", "winner", "you've won",
 		"click here", "click now", "act now", "limited time", "congratulations",
 		"urgent:", "invoice attached", "wire transfer", "verify your account",
 		"account suspended", "free gift", "100% free", "no obligation",
+		// FR + phishing courant
+		"gagnez", "gagner", "remboursement", "remboursez", "sécurité", "securite",
+		"validez votre", "confirmez votre compte", "mise à jour obligatoire", "mise a jour obligatoire",
+		"compte bloqué", "compte bloque", "paiement refusé", "paiement refuse",
+		"facture impayée", "facture impayee", "colis en attente", "livraison échouée", "livraison echouee",
+		"heriter", "héritage", "heritage", "western union", "moneygram",
+		"prince nigeria", "bitcoin wallet", "seed phrase", "private key",
+		"référencement google", "referencement google", "backlink",
 	} {
 		if strings.Contains(s, w) {
-			score += 14
+			score += 12
 		}
 	}
 	if len(subject) > 14 && subject == strings.ToUpper(subject) && strings.ContainsAny(subject, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
@@ -96,13 +104,52 @@ func spamHeuristicScore(subject, fromAddr string) int {
 	if strings.Count(sl, "!") >= 3 {
 		score += 10
 	}
+	if strings.Count(sl, "?") >= 3 {
+		score += 6
+	}
+	if sl == "" && fl != "" {
+		score += 8
+	}
 	if strings.Contains(fl, "mailer-daemon@") || strings.Contains(fl, "postmaster@") {
 		score += 8
+	}
+	// Domaines souvent abusifs (heuristique légère, pas un blocage)
+	if dom := spamExtractEmailDomain(fl); dom != "" {
+		for _, suf := range []string{".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".work", ".click", ".loan", ".zip"} {
+			if strings.HasSuffix(dom, suf) {
+				score += 22
+				break
+			}
+		}
+		if strings.Count(dom, ".") >= 3 {
+			score += 6
+		}
 	}
 	if score > 100 {
 		return 100
 	}
 	return score
+}
+
+func spamExtractEmailDomain(fromLower string) string {
+	fromLower = strings.TrimSpace(fromLower)
+	if fromLower == "" {
+		return ""
+	}
+	if i := strings.LastIndex(fromLower, "@"); i >= 0 && i < len(fromLower)-1 {
+		return strings.TrimSpace(fromLower[i+1:])
+	}
+	if strings.Contains(fromLower, "<") {
+		start := strings.LastIndex(fromLower, "<")
+		end := strings.LastIndex(fromLower, ">")
+		if start >= 0 && end > start {
+			inner := strings.TrimSpace(fromLower[start+1 : end])
+			if i := strings.LastIndex(inner, "@"); i >= 0 && i < len(inner)-1 {
+				return strings.TrimSpace(inner[i+1:])
+			}
+		}
+	}
+	return ""
 }
 
 func safeLikeContains(s string) string {
@@ -1176,8 +1223,17 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	if tagID > 0 {
 		tagJoin = fmt.Sprintf(" INNER JOIN mail_message_tags mt ON mt.message_id = m.id AND mt.tag_id = %d", tagID)
 	}
-	args := []interface{}{accountID, folder}
-	p := 3
+	isAll := strings.EqualFold(folder, "all")
+	var args []interface{}
+	p := 2
+	folderSQL := ""
+	if isAll {
+		args = []interface{}{accountID}
+	} else {
+		args = []interface{}{accountID, folder}
+		folderSQL = " AND m.folder = $2"
+		p = 3
+	}
 	extraWhere := ""
 	if threadKey != "" {
 		extraWhere += fmt.Sprintf(" AND m.thread_key = $%d", p)
@@ -1193,7 +1249,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		args = append(args, rcp)
 		p++
 	}
-	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1 AND m.folder = $2%s`, tagJoin, extraWhere)
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1%s%s`, tagJoin, folderSQL, extraWhere)
 	var total int
 	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
@@ -1207,10 +1263,10 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m%s
-			WHERE m.account_id = $1 AND m.folder = $2%s
+			WHERE m.account_id = $1%s%s
 			ORDER BY m.date_at DESC NULLS LAST, m.id DESC
 			LIMIT %s OFFSET %s
-		`, tagJoin, extraWhere, limitPh, offsetPh)
+		`, tagJoin, folderSQL, extraWhere, limitPh, offsetPh)
 	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1852,6 +1908,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		}
 	}
 	h.refreshImapFolderList(accountID, imapClient)
+	totalSynced += h.syncListedImapFoldersExtra(accountID, imapClient)
 	for _, p := range body.ExtraImapFolders {
 		path := strings.TrimSpace(p)
 		if path == "" {

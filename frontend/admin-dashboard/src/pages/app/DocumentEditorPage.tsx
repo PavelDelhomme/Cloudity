@@ -144,6 +144,7 @@ export default function DocumentEditorPage() {
   const queryClient = useQueryClient()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const skipReloadAfterRenameRef = useRef(false)
+  const wasLoadingRef = useRef(loading)
 
   const id = nodeId ? parseInt(nodeId, 10) : NaN
   const validId = Number.isInteger(id) && id > 0
@@ -257,6 +258,19 @@ export default function DocumentEditorPage() {
     if (!rich || !editorRef.current) return
     editorRef.current.innerHTML = content || ''
   }, [rich])
+
+  /** Pendant le chargement le spinner masque l’éditeur : loadContent ne peut pas remplir editorRef. On hydrate ici à la fin du chargement. */
+  useEffect(() => {
+    const prev = wasLoadingRef.current
+    wasLoadingRef.current = loading
+    if (!prev || loading) return
+    if (markdownMode) return
+    if (rich && editorRef.current) {
+      editorRef.current.innerHTML = content || ''
+    } else if (!rich && textareaRef.current && !isSpreadsheet(name)) {
+      textareaRef.current.value = content || ''
+    }
+  }, [loading, rich, markdownMode, content, name])
 
   const updateFormatState = useCallback(() => {
     if (typeof document.queryCommandState !== 'function') return

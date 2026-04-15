@@ -7,7 +7,7 @@
 - **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
 - **Calendrier** : vue mois type Google + plusieurs agendas (`user_calendars`) — fait (base + UI). Reste : semaine/jour, invitations, lien Drive.
 - **Contacts** : liste + fiche + recherche + lien Mail — fait. Reste : groupes, import/export.
-- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Sync IMAP **corbeille** (Trash) côté `mail-directory-service` — fait. Reste : archivage étendu PostgreSQL (corps, rétention), règles auto, push/WebSocket (voir SYNC-BACKLOG).
+- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Sync IMAP **corbeille** (Trash) côté `mail-directory-service` — fait. Menu actions message (clic droit + bouton `…`) : **un seul menu fixe** partagé, position calée dans la fenêtre — fait (`MailPage.tsx`, test Vitest). Reste : archivage étendu PostgreSQL (corps, rétention), règles auto, push/WebSocket (voir SYNC-BACKLOG).
 - **Mobile** : `make run-mobile APP=…` utilise uniquement `scripts/run-mobile.sh` (la cible Makefile dupliquée « menu interactif » a été retirée pour ne plus masquer `APP=`).
 - **Plus tard** : Administration (renforcer), Photos (galerie type Google Photos), Notes (type Google Keep, cartes, couleurs), etc.
 

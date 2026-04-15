@@ -76,6 +76,7 @@ test.describe('Éditeur de document (E2E)', () => {
   test('éditeur affiche la zone de saisie (contenteditable)', async ({ page }) => {
     await mockEditorPage(page, 1)
     await page.goto('/app/office/editor/1')
+    await expect(page.getByTestId('editor-save-state')).toBeVisible({ timeout: 10000 })
     const editor = page.locator('[contenteditable="true"]').first()
     await expect(editor).toBeVisible({ timeout: 10000 })
     await editor.click()

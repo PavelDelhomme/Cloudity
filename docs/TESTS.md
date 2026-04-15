@@ -60,6 +60,10 @@
 
 **Erreurs proxy lors de `make test` ou `make up-full`** : Les tests de l’**api-gateway** (TestAuthPrefixRouted, TestAdminPrefixRouted, TestPassPrefixRouted, TestMailPrefixRouted) lancent un **vrai** serveur gateway qui **proxye** les requêtes vers auth-service, admin-service, password-manager, mail-directory-service. Ces tests s’exécutent **sur la machine hôte** (pas dans Docker). Les noms d’hôte `auth-service`, `admin-service`, `password-manager`, `mail-directory-service` n’existent que dans le **réseau Docker**, donc le gateway obtient par exemple **`http: proxy error: dial tcp: lookup auth-service: no such host`**. Les tests **passent quand même** (PASS) car ils vérifient que le gateway **route** correctement et répond (routage, CORS, méthode), pas que le backend distant soit joignable. Pour éviter ces messages en local, on peut lancer les tests **dans** les conteneurs : **`make test-docker`** (après **`make up`**).
 
+**`db-migrate` (exit 1) pendant `make test` (admin-service) ou `make test-security` (safety)** : le script **`scripts/migrate-db.sh`** retente la connexion **PostgreSQL** jusqu’à ~30 s (réseau Docker au démarrage). Si l’échec persiste, consulter **`docker compose logs db-migrate`** ou lancer **`docker compose run --rm db-migrate`** pour voir l’erreur SQL exacte (`psql`). En local, vérifier que **`cloudity-postgres`** est **healthy** avant les tests.
+
+**E2E Playwright — éditeur (contenteditable)** : attendre **`data-testid="editor-save-state"`** visible avant de simuler la frappe (chargement terminé, même rendu que pour l’utilisateur). Le HTML chargé depuis l’API est injecté dans la zone d’édition **après** la disparition du spinner.
+
 ---
 
 ## 3. Détail par couche
@@ -94,7 +98,7 @@
 | **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
 | **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
 | **src/pages/app/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
-| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage) ; **sélection inversée (page)**. |
+| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage) ; **sélection inversée (page)** ; **menu actions message** (bouton `…` + clic droit) : un seul `role="menu"`, fermeture au second clic sur `…`. |
 | **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
 | **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
 | **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |

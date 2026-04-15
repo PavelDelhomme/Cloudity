@@ -470,8 +470,8 @@ export async function markMailMessageRead(
 }
 
 export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'archive' | 'spam' | 'trash'
-/** Dossier standard ou chemin IMAP synchronisé (même valeur qu’en base). */
-export type MailFolderId = MailStandardFolderId | (string & {})
+/** Dossier standard, vue agrégée `all`, ou chemin IMAP synchronisé (même valeur qu’en base). */
+export type MailFolderId = MailStandardFolderId | 'all' | (string & {})
 
 export async function moveMailMessageToFolder(
   token: string,

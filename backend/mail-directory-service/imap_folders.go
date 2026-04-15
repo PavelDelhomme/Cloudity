@@ -27,8 +27,12 @@ func normalizeMailFolderQuery(folder string) string {
 	if folder == "" {
 		return "inbox"
 	}
-	if isStandardMailFolder(strings.ToLower(folder)) {
-		return strings.ToLower(folder)
+	lf := strings.ToLower(folder)
+	if lf == "all" {
+		return "all"
+	}
+	if isStandardMailFolder(lf) {
+		return lf
 	}
 	return folder
 }
@@ -63,6 +67,14 @@ func (h *Handler) folderAllowed(accountID int, folder string) bool {
 	folder = strings.TrimSpace(folder)
 	if folder == "" {
 		return false
+	}
+	if strings.EqualFold(folder, "all") {
+		var dummy int
+		err := h.db.QueryRow(`
+			SELECT 1 FROM user_email_accounts
+			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		`, accountID).Scan(&dummy)
+		return err == nil
 	}
 	if isStandardMailFolder(folder) {
 		return true
@@ -187,6 +199,50 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 		}
 	}
 	return n, true
+}
+
+// standardImapPathsAlreadySyncedAsStandard recense les chemins de boîte déjà couverts par syncAccountIMAP (clés standard inbox, sent, …).
+func standardImapPathsAlreadySyncedAsStandard() map[string]struct{} {
+	m := make(map[string]struct{})
+	for _, p := range []string{
+		"INBOX",
+		"Sent", "[Gmail]/Sent Mail", "INBOX.Sent",
+		"Drafts", "[Gmail]/Drafts", "INBOX.Drafts",
+		"Archive", "[Gmail]/Archive", "INBOX.Archive", "Archives",
+		"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam",
+		"Trash", "[Gmail]/Trash", "Deleted Messages", "Bin", "INBOX.Trash",
+	} {
+		m[strings.ToLower(strings.TrimSpace(p))] = struct{}{}
+	}
+	return m
+}
+
+// syncListedImapFoldersExtra synchronise les en-têtes pour chaque dossier listé en mail_imap_folders hors boîtes standard.
+func (h *Handler) syncListedImapFoldersExtra(accountID int, ic *client.Client) int {
+	skip := standardImapPathsAlreadySyncedAsStandard()
+	rows, err := h.db.Query(`SELECT imap_path FROM mail_imap_folders WHERE account_id = $1`, accountID)
+	if err != nil {
+		log.Printf("[mail] imap folders list for extra sync: %v", err)
+		return 0
+	}
+	defer rows.Close()
+	total := 0
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			continue
+		}
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		if _, ok := skip[strings.ToLower(path)]; ok {
+			continue
+		}
+		n, _ := h.syncImapMailboxMessages(accountID, ic, path, path)
+		total += n
+	}
+	return total
 }
 
 func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
