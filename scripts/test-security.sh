@@ -65,7 +65,7 @@ echo "  [govulncheck] backends Go (Docker)..."
   echo ""
 } >"$REMEDIATION_FILE"
 
-for dir in backend/auth-service backend/api-gateway backend/password-manager backend/mail-directory-service backend/calendar-service backend/notes-service backend/tasks-service backend/drive-service; do
+for dir in backend/auth-service backend/api-gateway backend/password-manager backend/mail-directory-service backend/calendar-service backend/notes-service backend/tasks-service backend/photos-service backend/drive-service; do
   if [ ! -d "$dir" ]; then
     continue
   fi
@@ -78,6 +78,7 @@ for dir in backend/auth-service backend/api-gateway backend/password-manager bac
     calendar-service) svc="calendar-service" ;;
     notes-service) svc="notes-service" ;;
     tasks-service) svc="tasks-service" ;;
+    photos-service) svc="photos-service" ;;
     drive-service) svc="drive-service" ;;
     *) continue ;;
   esac

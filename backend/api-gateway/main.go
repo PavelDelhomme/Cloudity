@@ -32,6 +32,7 @@ var services = []Service{
 	{Name: "calendar", URL: "http://calendar-service:8052", Prefix: "/calendar"},
 	{Name: "notes", URL: "http://notes-service:8053", Prefix: "/notes"},
 	{Name: "tasks", URL: "http://tasks-service:8054", Prefix: "/tasks"},
+	{Name: "photos", URL: getEnv("PHOTOS_SERVICE_URL", "http://photos-service:8057"), Prefix: "/photos"},
 	{Name: "drive", URL: "http://drive-service:8055", Prefix: "/drive"},
 	{Name: "contacts", URL: "http://contacts-service:8056", Prefix: "/contacts"},
 }

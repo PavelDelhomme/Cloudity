@@ -94,4 +94,19 @@ fi
 
 cd "$TARGET"
 echo "📱 flutter run dans ${TARGET}"
-exec flutter run "$@"
+
+# Appareil : CLOUDITY_DEVICE_ID, ANDROID_SERIAL, ou premier périphérique « device » (adb).
+DEVICE_ARGS=()
+if [[ -n "${CLOUDITY_DEVICE_ID:-}" ]]; then
+  DEVICE_ARGS=(-d "${CLOUDITY_DEVICE_ID}")
+elif [[ -n "${ANDROID_SERIAL:-}" ]]; then
+  DEVICE_ARGS=(-d "${ANDROID_SERIAL}")
+elif command -v adb >/dev/null 2>&1; then
+  SERIAL=$(adb devices 2>/dev/null | awk '/\tdevice$/ {print $1; exit}')
+  if [[ -n "${SERIAL}" ]]; then
+    echo "   → ADB : ${SERIAL}"
+    DEVICE_ARGS=(-d "${SERIAL}")
+  fi
+fi
+
+exec flutter run "${DEVICE_ARGS[@]}" "$@"

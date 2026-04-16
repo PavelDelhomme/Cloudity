@@ -8,7 +8,7 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 
 | Domaine | Pistes |
 |---------|--------|
-| **Photos** | **Priorité actuelle** : API timeline (`/drive/photos/timeline`), galerie web, puis app mobile + sync + règles batterie — **[PHOTOS.md](./PHOTOS.md)**. |
+| **Photos** | **Priorité actuelle** : microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. |
 | **Mail** | §0b (dossiers IMAP), §8–10, §9 recherche ; pièces jointes et aperçu PJ ; archivage §1 (après stabilisation Photos si besoin). |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes, lien Mail ↔ fiches. |
@@ -84,7 +84,7 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 | **Calendar** | **`refetchInterval` 60 s** (calendriers + événements ; overlay tâches 90 s) + `refetchOnWindowFocus` + mutations | **À faire** : rappels, invitations, CalDAV (cible), lien Mail/Tasks, push. |
 | **Contacts** | **`refetchInterval` 60 s** + `refetchOnWindowFocus` | **Import web** : CSV / JSON / HTML ; groupes, export vCard, **liaison Mail ↔ Contacts** (voir **§10**). |
 | **Drive** | Idem | **Priorité produit** : corbeille, partage — voir APP-02 ; **aperçu navigateur** + **vue Récents** : § **3b** ci-dessous. |
-| **Photos** | **`refetchInterval` 60 s** + focus sur la timeline (`fetchDrivePhotosTimeline`) | **Fait (MVP)** : API `GET /drive/photos/timeline` + page Photos (grille, lightbox, upload). **À faire** : mobile, albums, miniatures serveur, EXIF, règles batterie — **PHOTOS.md**. |
+| **Photos** | **`refetchInterval` 60 s** + focus timeline (`fetchDrivePhotosTimeline` → **`/photos/timeline`**) | **Fait (MVP)** : **`photos-service`**, gateway `/photos/*`, page Photos web, Flutter **`mobile/photos`** (liste API + JWT). **À faire** : login mobile, vignettes, upload, WorkManager, albums, EXIF — **PHOTOS.md**. **Déploiement** : `docker compose up -d --build photos-service api-gateway` (ou `make up`) après mise à jour. |
 
 Stratégie unifiée : **TR-07** dans ROADMAP.
 
@@ -148,8 +148,8 @@ Implémentation : **`scripts/run-mobile.sh`**.
 - [ ] **Calendar** : rappels, invitations, CalDAV, push.
 - [ ] **Contacts** : groupes avancés, export vCard, **§10** Mail × Contacts.
 - [ ] **Drive** : parcours produit prioritaire (déjà MVP — extensions ROADMAP).
-- [x] **Photos (web + API)** : timeline `/drive/photos/timeline` + `PhotosPage` (galerie, upload, lightbox, tests Vitest).
-- [ ] **Photos (mobile + sync + perf)** : scaffold Flutter, WorkManager, miniatures / index EXIF.
+- [x] **Photos (web + API)** : **`photos-service`** + `GET /photos/timeline` + `PhotosPage` (galerie, upload, lightbox, tests Vitest) ; proxy Vite `/photos`.
+- [ ] **Photos (mobile + sync + perf)** : auth intégré, vignettes, upload, **WorkManager**, miniatures / index EXIF ; apps **Drive / Mail / Contacts / Calendar / Pass** mobile (scaffold + `run-mobile` + doc).
 - [ ] **Pass** : création alias mail depuis l’UI Pass.
 - [ ] **Mobile** : scaffold `drive_app`, `mail_app`, … + CI.
 - [ ] **TR-07** : documenter choix push (FCM/APNs) quand applicable.

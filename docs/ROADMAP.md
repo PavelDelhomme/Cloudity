@@ -94,7 +94,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Objectif** | UX proche des suites grand public : liste à jour, conflits maîtrisés, mobile aligné sur la même API. |
 | **Mail (web actuel)** | Polling IMAP (~25 s, toutes les boîtes) + `invalidateQueries` : la **liste du dossier affiché** (réception, envoyés, brouillons, spam, corbeille, dossiers IMAP) se met à jour **sans F5**. **Brouillons** : pas d’instantané IMAP ; apparition après la prochaine sync qui lit **Drafts**. **Pas** de WebSocket mail pour l’instant. |
 | **Mail (serveur — gros chantier)** | **Archivage Cloudity** : étendre la sync pour stocker en base (corps + PJ) au-delà de la fenêtre IMAP courante, politique de rétention, recherche — voir APP-01 + [SYNC-BACKLOG.md](./SYNC-BACKLOG.md) §1. |
-| **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Photos (web)** : timeline Drive + galerie (`GET /drive/photos/timeline`, `PhotosPage`) — voir [PHOTOS.md](./PHOTOS.md). **Drive** : focus produit APP-02. |
+| **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Photos (web)** : **`photos-service`** + `GET /photos/timeline`, `PhotosPage` — voir [PHOTOS.md](./PHOTOS.md). **Drive** : focus produit APP-02. |
 | **Pass** | E2E client ; sync coffres via API existante ; alias mail depuis Pass → lien APP-01 + API alias. |
 | **Statut** | Partiel (Mail web avancé ; reste documenté ici pour implémentation progressive). |
 | **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](./SYNC-BACKLOG.md), [MOBILES.md](./MOBILES.md) § 5–6. |
@@ -201,9 +201,9 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Description** | Galerie chronologique, sauvegarde, albums (cible), même espace que le Drive. |
 | **Objectif** | Expérience type Google Photos (auto-hébergée), y compris mobile sobre en batterie. |
 | **Plateformes** | Web ; mobile (Flutter). |
-| **Fonctionnalités — livré / en cours** | **API** `GET /drive/photos/timeline` (images tous dossiers, pagination). **Web** : `PhotosPage` grille, lightbox, upload racine Drive, rafraîchissement 60 s. |
+| **Fonctionnalités — livré / en cours** | **API** `GET /photos/timeline` (`photos-service`, images `drive_nodes`, pagination). **Web** : `PhotosPage` grille, lightbox, upload racine Drive, rafraîchissement 60 s. **Mobile** : `mobile/photos` (liste timeline + JWT). |
 | **Fonctionnalités — à faire** | Albums ; partage ; miniatures serveur ; **EXIF** `taken_at` en base ; app mobile + WorkManager (Wi‑Fi / charge) ; sync curseur. Reconnaissance faciale **opt-in** seulement après TR-01. |
-| **Backend** | `drive-service` (timeline) ; extensions futures : index `photo_assets` ou métadonnées sans dupliquer les blobs. |
+| **Backend** | **`photos-service`** (`GET /photos/timeline`, lecture `drive_nodes`) + gateway `/photos/*` ; `drive-service` garde `/drive/photos/timeline` en secours. Extensions futures : index `photo_assets`, miniatures serveur. |
 | **Statut** | **En cours** (MVP web + API timeline). |
 | **Liens** | [PHOTOS.md](./PHOTOS.md), `backend/drive-service/main.go`, `PhotosPage.tsx`. |
 

@@ -38,7 +38,7 @@
 
 **Drive — Récents / aperçu** : Vitest `DrivePage.test.tsx` (section Récents, ruban racine `fetchDriveRecentFiles` avec limite **24** ; navigation vue Récents). E2E : ajouter plus tard un scénario « vue Récents + grille » si besoin CI.
 
-**Photos** : Vitest `PhotosPage.test.tsx` (titre, état vide, vignette quand `fetchDrivePhotosTimeline` renvoie des items). API : `GET /drive/photos/timeline` (auth requise) — `drive-service/main_test.go`.
+**Photos** : Vitest `PhotosPage.test.tsx` ; API **`GET /photos/timeline`** — `photos-service/main_test.go` + secours `drive-service` (`GET /drive/photos/timeline`).
 
 ---
 
@@ -47,9 +47,10 @@
 | Service | Type | Commande | Fichiers | Nombre de tests |
 |---------|------|----------|----------|------------------|
 | **auth-service** | API (Go) | `go test ./...` | `backend/auth-service/main_test.go` | 15 |
-| **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 7 |
+| **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 8 |
 | **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 8 |
+| **photos-service** | API (Go) | `go test ./...` | `backend/photos-service/main_test.go` | 2 |
 | **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 5 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
 | **admin-dashboard** | Frontend (Vitest) | `npm run test` | **25 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~199** (+ 3 skippés) |
@@ -77,9 +78,10 @@
 | Fichier | Ce qui est testé |
 |---------|-------------------|
 | **auth-service/main_test.go** | Health ; hash mot de passe (Argon2id/bcrypt) ; JWT generate/parse ; register ; login succès/échec ; validate token ; refresh ; 2FA enable/verify (**verify avec code invalide → 401**) ; **loadRSAKeys écrit public.pem quand clé générée en dev**. |
-| **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
+| **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **`/photos/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401. |
+| **photos-service/main_test.go** | Health ; **GET /photos/timeline sans X-User-ID → 401**. |
 | **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
@@ -206,7 +208,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.5 Tests sécurité (`make test-security`)
 
-- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, notes-service, tasks-service, drive-service). Aucune installation sur la machine hôte n’est requise.
+- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 

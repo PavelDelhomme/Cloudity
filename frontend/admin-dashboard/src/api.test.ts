@@ -18,6 +18,9 @@ describe('api', () => {
     it('returns path for /pass/vaults so request hits API host when base is set', () => {
       expect(apiUrl('/pass/vaults')).toContain('/pass/vaults')
     })
+    it('returns path for /photos/timeline (microservice photos via gateway)', () => {
+      expect(apiUrl('/photos/timeline')).toContain('/photos/timeline')
+    })
   })
 
   describe('fetchTenants', () => {

@@ -819,10 +819,10 @@ export async function fetchDrivePhotosTimeline(
   const limit = opts?.limit ?? 48
   const offset = opts?.offset ?? 0
   const res = await fetch(
-    apiUrl(`/drive/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
+    apiUrl(`/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
     { headers: { Authorization: `Bearer ${token}` } }
   )
-  if (!res.ok) throw new Error(`Drive photos timeline: ${res.status}`)
+  if (!res.ok) throw new Error(`Photos timeline: ${res.status}`)
   return res.json() as Promise<DrivePhotosTimelinePage>
 }
 

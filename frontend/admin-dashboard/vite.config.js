@@ -41,6 +41,7 @@ export default defineConfig({
       '/calendar': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/notes': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/tasks': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/photos': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/drive': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/contacts': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/health': { target: 'http://api-gateway:8000', changeOrigin: true },

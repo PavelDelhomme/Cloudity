@@ -1,0 +1,10 @@
+FROM golang:1.24-alpine
+WORKDIR /app
+ENV GOTOOLCHAIN=auto
+RUN apk add --no-cache git wget
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+EXPOSE 8057
+ENV PORT=8057
+CMD ["go", "run", "."]

@@ -26,7 +26,7 @@ ORDER=(
   db-migrate
   auth-service api-gateway admin-service
   mail-directory password-manager
-  drive-service calendar-service notes-service tasks-service contacts-service
+  drive-service photos-service calendar-service notes-service tasks-service contacts-service
   main-frontend admin-dashboard
   adminer redis-commander
 )

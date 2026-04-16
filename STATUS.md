@@ -160,7 +160,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [x] **Calendar, Notes, Tasks (MVP)** : schémas DB `05-schema-calendar.sql`, `06-schema-notes.sql`, `07-schema-tasks.sql`. **calendar-service**, **notes-service**, **tasks-service** (Go) avec DB, auth X-User-ID, CRUD complet. Routes gateway `/calendar/*`, `/notes/*`, `/tasks/*`. **Client web** : pages Agenda, Notes, Tâches connectées aux API (liste, création, mise à jour).
 - [ ] **Éditeur de documents maison** : édition de documents (texte riche, tableur) depuis le Drive avec **notre propre** front (TipTap, Luckysheet ou équivalent open source intégré), sans OnlyOffice. **En cours** — voir `docs/editeur-docs.md`.
 - [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour gros fichiers.
-- [x] **Photos (MVP)** : API `GET /drive/photos/timeline` + page Photos (grille, lightbox, upload Drive). **À faire** : mobile, albums, EXIF, miniatures serveur, règles batterie — `docs/PHOTOS.md`.
+- [x] **Photos (MVP)** : microservice **`photos-service`**, **`GET /photos/timeline`** (gateway), page Photos web, Flutter **`mobile/photos`**. Après mise à jour : **`docker compose up -d --build photos-service api-gateway`** (ou `make up`). **À faire** : auth mobile, albums, EXIF, WorkManager — `docs/PHOTOS.md`.
 - [ ] **Notes (type Google Keep)** : cartes, couleurs, épinglage, rappels, amélioration de l'UI actuelle. **Plus tard.**
 - [ ] **Calendar** : vue agenda / semaine améliorée, rappels. **Plus tard.**
 - [ ] **Administration** : renforcer écrans, rôles, audit. **Plus tard.**

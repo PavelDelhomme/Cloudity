@@ -134,6 +134,8 @@ services:
         condition: service_healthy
       mail-directory-service:
         condition: service_healthy
+      photos-service:
+        condition: service_healthy
       drive-service:
         condition: service_healthy
     healthcheck:
@@ -373,6 +375,37 @@ services:
     networks:
       - cloudity-network
 
+  # Photos — timeline images (lecture drive_nodes ; même DB que Drive)
+  photos-service:
+    build:
+      context: ./backend/photos-service
+      dockerfile: Dockerfile.dev
+    container_name: cloudity-photos-service
+    restart: unless-stopped
+    ports:
+      - "6057:8057"
+    environment:
+      - PORT=8057
+      - GOTOOLCHAIN=auto
+      - GIN_MODE=release
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
+    volumes:
+      - ./backend/photos-service:/app:cached
+      - go_mod_cache_photos:/go/pkg/mod
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8057/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+    networks:
+      - cloudity-network
+
   # Contacts — carnet d'adresses (type Google Contacts), liaison Mail
   contacts-service:
     build:
@@ -508,6 +541,9 @@ volumes:
   go_mod_cache_drive:
     driver: local
     name: cloudity-go-mod-cache-drive
+  go_mod_cache_photos:
+    driver: local
+    name: cloudity-go-mod-cache-photos
   go_mod_cache_contacts:
     driver: local
     name: cloudity-go-mod-cache-contacts

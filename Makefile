@@ -219,6 +219,8 @@ test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lan
 	@(cd backend/notes-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [tasks-service]"
 	@(cd backend/tasks-service && go test -v -count=1 ./...) || exit 1
+	@echo "  [photos-service]"
+	@(cd backend/photos-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [drive-service]"
 	@(cd backend/drive-service && go test -v -count=1 ./...) || exit 1
 	@echo "  [admin-service]"
@@ -277,6 +279,7 @@ test-docker: ## Lance les tests dans les conteneurs (make up avant). Même batte
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T calendar-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T notes-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T tasks-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T photos-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T drive-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1

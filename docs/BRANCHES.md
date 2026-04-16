@@ -32,7 +32,7 @@ Fusion vers `main` : uniquement depuis **`dev`** après validation (tests, revue
 
 | Fonctionnalité / domaine | Branche de travail typique | Fichiers / docs de référence |
 |----------------------------|----------------------------|------------------------------|
-| **Photos** — galerie web, API timeline, perf, sync web | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*` si plusieurs PRs) | `docs/PHOTOS.md`, `docs/SYNC-BACKLOG.md`, `drive-service`, `PhotosPage.tsx` |
+| **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*` si plusieurs PRs) | `docs/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
 | **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/MOBILES.md`, `docs/PHOTOS.md` § 5 |
 | **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` si chantier transversal | `docs/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
 | **Mail** (IMAP, archivage, tri, alias) | `feat/mail-*` | `docs/SYNC-BACKLOG.md`, ROADMAP **APP-01** |

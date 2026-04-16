@@ -12,8 +12,8 @@
 
 | Fonctionnalité | Comportement cible | État Cloudity |
 |----------------|-------------------|---------------|
-| **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : vue transverse sur les fichiers image du Drive (`GET /drive/photos/timeline`) |
-| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload vers la racine Drive depuis Photos ; **mobile** : à faire (WorkManager, voir § 5) |
+| **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (lecture `drive_nodes`, même DB que Drive) |
+| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload vers la racine Drive depuis Photos ; **mobile** : app `mobile/photos` (timeline + JWT manuel) ; **WorkManager** à faire (§ 5) |
 | **Albums / regroupements** | Albums utilisateur, « lieux », dates | **À faire** : tables métadonnées ou dossiers Drive dédiés + API |
 | **Partage** | Liens, albums partagés | **À faire** (alignement APP-02 partage Drive) |
 | **Corbeille** | Suppression réversible | **Réutilise** la corbeille Drive (`deleted_at`) |
@@ -21,17 +21,21 @@
 
 ---
 
-## 2. API (drive-service)
+## 2. API (`photos-service` + gateway)
 
-| Méthode | Chemin | Rôle |
-|---------|--------|------|
-| `GET` | `/drive/photos/timeline` | Liste paginée des **fichiers image** de l’utilisateur (tous dossiers), tri **récent en premier** (`COALESCE(updated_at, created_at)`). Query : `limit` (défaut 48, max 200), `offset`. Réponse : `{ items, limit, offset, has_more }`. |
+| Méthode | Chemin (via **api-gateway** `6080`) | Rôle |
+|---------|-------------------------------------|------|
+| `GET` | **`/photos/timeline`** | Liste paginée des **fichiers image** (`drive_nodes`), tri récent d’abord. Query : `limit` (défaut 48, max 200), `offset`. Réponse : `{ items, limit, offset, has_more }`. |
 
-**Filtre image** : `mime_type` commence par `image/` **ou** extension reconnue (jpg, png, webp, heic, avif, tiff, …).
+**Service** : `photos-service` (port **8057** dans Docker, health `GET /health`). Routage gateway : préfixe **`/photos`** → `photos-service`. Variable optionnelle : `PHOTOS_SERVICE_URL` sur la gateway.
 
-**Authentification** : même mécanisme que le reste du Drive (JWT gateway → en-têtes utilisateur).
+**Compat** : `drive-service` conserve encore `GET /drive/photos/timeline` (même logique) pour outils anciens ; le **client web** et les **nouveaux clients** doivent utiliser **`/photos/timeline`** pour éviter les confusions de déploiement.
 
-**Client web** : `fetchDrivePhotosTimeline` dans `frontend/admin-dashboard/src/api.ts`.
+**Filtre image** : identique au Drive (mime `image/*` ou extensions usuelles).
+
+**Authentification** : JWT → `X-User-ID` / `X-Tenant-ID` (comme Calendar / Drive).
+
+**Client web** : `fetchDrivePhotosTimeline` dans `api.ts` appelle **`/photos/timeline`**.
 
 ---
 
@@ -47,12 +51,12 @@
 
 ## 4. Application mobile (Flutter)
 
-**Statut** : scaffold cible `make run-mobile APP=Photos` (voir [MOBILES.md](./MOBILES.md)).
+**Statut** : projet **`mobile/photos`** — timeline via `GET /photos/timeline` (champs URL gateway + JWT, voir `mobile/photos/README.md`). Lancement : **`make run-mobile APP=Photos`** (ADB : premier appareil `device`, ou `CLOUDITY_DEVICE_ID`).
 
 **Phases** :
 
-1. Liste timeline + détail image (même API).
-2. Sauvegarde album appareil → upload incrémental.
+1. **Fait (base)** : liste des noms / ids depuis l’API.
+2. Vignettes, login intégré (refresh), upload, WorkManager.
 3. **Sync** : curseur serveur (`offset` / futur curseur opaque) + cache local SQLite (optionnel).
 
 ---

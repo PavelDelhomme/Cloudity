@@ -99,6 +99,16 @@ func TestMailPrefixRouted(t *testing.T) {
 	}
 }
 
+func TestPhotosPrefixRouted(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/photos/timeline", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code == http.StatusNotFound {
+		t.Errorf("GET /photos/timeline: got 404, route /photos/* should be registered")
+	}
+}
+
 func TestMailMeAccountsRouted(t *testing.T) {
 	handler := NewHandler()
 	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)

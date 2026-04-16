@@ -20,7 +20,7 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 | **Notes** | APP-06 | Oui | Oui | Saisie rapide, dictée (option) |
 | **Tasks** | APP-07 | Oui | Oui | Widgets, notifications échéance |
 | **Contacts** | APP-08 | Oui | Oui | Intégration répertoire téléphone (permissions) |
-| **Photos** | APP-09 | Oui (galerie + timeline API) | Oui | Sauvegarde album (opt-in), **WorkManager** / contraintes réseau & batterie — **[PHOTOS.md](./PHOTOS.md)** § 5 |
+| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | `make run-mobile APP=Photos` — ADB : premier `device` ou **`CLOUDITY_DEVICE_ID`** ; sauvegarde album (opt-in), **WorkManager** — **[PHOTOS.md](./PHOTOS.md)** § 5 |
 | **AppHub / launcher** | APP-10 | Oui | Shell / deep links | App mobile peut être un **conteneur** avec modules ou apps séparées |
 | **Admin back-office** | ADM-01 | Oui | Voir § 2 | Jamais mélangé aux apps grand public |
 
