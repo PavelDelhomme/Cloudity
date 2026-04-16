@@ -55,6 +55,16 @@ func TestDriveNodesRecentRequiresAuth(t *testing.T) {
 	}
 }
 
+func TestPhotosTimelineRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/photos/timeline", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/photos/timeline without X-User-ID: got %d", w.Code)
+	}
+}
+
 func TestGetNodeContentRequiresAuth(t *testing.T) {
 	r := setupRouter(nil)
 	w := httptest.NewRecorder()

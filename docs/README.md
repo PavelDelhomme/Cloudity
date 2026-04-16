@@ -12,6 +12,8 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme, métriques, ressources |
 | **[MAIL-GMAIL-OAUTH.md](./MAIL-GMAIL-OAUTH.md)** | Configurer OAuth Google (Gmail « en un clic ») côté hébergeur |
 | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | Sync Mail/Drive/Calendar/…, `make run-mobile`, session longue, archivage mail serveur |
+| **[PHOTOS.md](./PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie |
+| **[BRANCHES.md](./BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité |
 
 **Mobile** : `make run-mobile APP=Admin` (ou `APP=Mail`, etc. — voir message script si pas encore scaffold) ; détail [MOBILES.md](./MOBILES.md) § 5.
 
@@ -32,4 +34,4 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 
 ---
 
-*Index mis à jour : 2026-04-13 (+ SYNC-BACKLOG). La racine du repo ne garde que **README.md** et **STATUS.md** comme `.md` d’entrée / suivi.*
+*Index mis à jour : 2026-04-11 (+ PHOTOS.md, BRANCHES.md). La racine du repo ne garde que **README.md** et **STATUS.md** comme `.md` d’entrée / suivi.*

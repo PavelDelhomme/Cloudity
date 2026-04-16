@@ -38,6 +38,8 @@
 
 **Drive — Récents / aperçu** : Vitest `DrivePage.test.tsx` (section Récents, ruban racine `fetchDriveRecentFiles` avec limite **24** ; navigation vue Récents). E2E : ajouter plus tard un scénario « vue Récents + grille » si besoin CI.
 
+**Photos** : Vitest `PhotosPage.test.tsx` (titre, état vide, vignette quand `fetchDrivePhotosTimeline` renvoie des items). API : `GET /drive/photos/timeline` (auth requise) — `drive-service/main_test.go`.
+
 ---
 
 ## 2. Ce que `make test` exécute (référence)
@@ -48,11 +50,11 @@
 | **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 7 |
 | **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 8 |
-| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 4 |
+| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 5 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **19 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage (17 tests), DrivePage, api, …) | **79+** |
+| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **25 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~199** (+ 3 skippés) |
 
-**Total actuel** : **137+ tests** (tous lancés par `make test` ; mail-directory-service : 8 tests).
+**Total** : lancer **`make test`** pour le cumul à jour (tous les services Go, pytest admin-service, Vitest admin-dashboard).
 
 **Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/admin-dashboard` ou **`make test-e2e-playwright`** depuis la racine.
 
@@ -78,7 +80,7 @@
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401. |
-| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
+| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
 

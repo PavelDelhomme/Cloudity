@@ -804,6 +804,28 @@ export async function fetchDriveRecentFiles(
   return res.json() as Promise<DriveNode[]>
 }
 
+/** Réponse paginée : toutes les images du Drive (tous dossiers), tri récent d’abord. */
+export type DrivePhotosTimelinePage = {
+  items: DriveNode[]
+  limit: number
+  offset: number
+  has_more: boolean
+}
+
+export async function fetchDrivePhotosTimeline(
+  token: string,
+  opts?: { limit?: number; offset?: number }
+): Promise<DrivePhotosTimelinePage> {
+  const limit = opts?.limit ?? 48
+  const offset = opts?.offset ?? 0
+  const res = await fetch(
+    apiUrl(`/drive/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) throw new Error(`Drive photos timeline: ${res.status}`)
+  return res.json() as Promise<DrivePhotosTimelinePage>
+}
+
 export async function createDriveFolder(
   token: string,
   parentId: number | null,

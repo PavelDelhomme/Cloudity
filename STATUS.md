@@ -1,7 +1,7 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-04-13 (convention doc : racine **README** + **STATUS** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
-**Branche de référence** : `main` (travail basé sur `origin/main`)  
+**Dernière mise à jour** : 2026-04-11 (convention doc : racine **README** + **STATUS** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
+**Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security` pour Photos galerie + mobile + sync + durcissement sécurité). Détail : **[docs/BRANCHES.md](./docs/BRANCHES.md)**.  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
 
 **Emplacement des docs** : à la racine, **`README.md`** + **`STATUS.md`** uniquement pour l’essentiel ; **ROADMAP**, **TESTS**, **MOBILES**, **PlanImplementation**, **MAIL-GMAIL-OAUTH** et les guides → dossier **`docs/`** (index **[docs/README.md](./docs/README.md)**).
@@ -66,13 +66,13 @@
 
 **État des tests (mars 2026)** : **Tous les tests passent** (`make test` → 133 tests, 19 fichiers frontend). Éditeur : modales **maison** pour Lien, Tableau et « Quitter sans enregistrer » (plus de popup natives) ; tests unitaires DocumentEditorPage (modales Lien/Tableau/Quitter). E2E Playwright : **nettoyage** après création (Drive : suppression fichier téléversé, suppression dossier créé en test breadcrumb) ; **nouveaux scénarios** éditeur (ouverture par URL mockée, modales Lien/Tableau/Quitter). `make up` + `make seed-admin` puis **`make test-e2e-playwright`**.
 
-**Ordre des applications (roadmap globale)** : 1) **Office/Éditeur** (Document complet → Excel → PowerPoint, notre propre Word/Excel/PowerPoint, au moins au niveau de Google Docs / Word) ; 2) **Pass** ; 3) **Calendar** ; 4) **Notes** ; 5) **Tasks** ; 6) **Contacts** ; 7) **Photos** ; 8) **Mail** (retravaillé plus tard). Détail § 1b.
+**Ordre des applications (priorité ajustée avril 2026)** : 1) **Photos** (libérer l’espace type Google Photos : API + web + mobile + sync sobre) — voir **`docs/PHOTOS.md`** ; 2) **Mail** (client riche, tri, alias, archivage) ; 3) **Contacts** ; 4) **Pass** (style Proton) ; puis Office/Éditeur, Calendar, Notes, Tasks selon **`docs/ROADMAP.md`**. Détail § 1b.
 
 **Prochaine étape (en cours)** :  
 1. **Architecture multi-produits (§ 0b)** — monorepo front, packages partagés, apps utilisateur vs **admin-console** séparée, URLs distinctes ; avancer **étape par étape** (A1 → A2/A3 → …) sans casser l’app actuelle.  
 2. **Office/Éditeur document complet** (en parallèle ou après stabilisation 0b) — fil d’Ariane, menus, formatage, export PDF, .pptx, drawer ; voir `docs/editeur-docs.md` et **§ 1b**.
 
-**Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** (galerie type Google Photos) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
+**Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** — albums, mobile, sync batterie (MVP web + API timeline **déjà en cours**, voir `docs/PHOTOS.md`) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche (suite prioritaire après stabilisation Photos) ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
 
 **État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
@@ -160,13 +160,13 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [x] **Calendar, Notes, Tasks (MVP)** : schémas DB `05-schema-calendar.sql`, `06-schema-notes.sql`, `07-schema-tasks.sql`. **calendar-service**, **notes-service**, **tasks-service** (Go) avec DB, auth X-User-ID, CRUD complet. Routes gateway `/calendar/*`, `/notes/*`, `/tasks/*`. **Client web** : pages Agenda, Notes, Tâches connectées aux API (liste, création, mise à jour).
 - [ ] **Éditeur de documents maison** : édition de documents (texte riche, tableur) depuis le Drive avec **notre propre** front (TipTap, Luckysheet ou équivalent open source intégré), sans OnlyOffice. **En cours** — voir `docs/editeur-docs.md`.
 - [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour gros fichiers.
-- [ ] **Photos** : galerie type Google Photos (web + mobile, stockage, métadonnées). **Plus tard.**
+- [x] **Photos (MVP)** : API `GET /drive/photos/timeline` + page Photos (grille, lightbox, upload Drive). **À faire** : mobile, albums, EXIF, miniatures serveur, règles batterie — `docs/PHOTOS.md`.
 - [ ] **Notes (type Google Keep)** : cartes, couleurs, épinglage, rappels, amélioration de l'UI actuelle. **Plus tard.**
 - [ ] **Calendar** : vue agenda / semaine améliorée, rappels. **Plus tard.**
 - [ ] **Administration** : renforcer écrans, rôles, audit. **Plus tard.**
 - [ ] **Apps mobiles** Mail + Pass (Flutter).
 - [ ] **Contacts** : app Contacts web + mobile (interconnectée Mail, Calendar, Tasks).
-- [ ] **Photos** : app Photos web + mobile (galerie, stockage).
+- [ ] **Photos** : app mobile + sync + extensions (au-delà du MVP web).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
 **Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
@@ -235,7 +235,7 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 - [ ] **Éditeur Excel** : pousser le tableur (grille riche, formules, .xlsx).
 - [ ] **Éditeur PowerPoint** : présentations complètes, enregistrement .pptx + PDF.
 
-**Ensuite (ordre des apps)** : **Pass** → **Calendar** → **Notes** → **Tasks** → **Contacts** → **Photos** → **Mail** (retravaillé plus tard). Puis : Corbeille unifiée, Recherche, Visualisation PDF, Extracteur d'archives.
+**Ensuite (ordre des apps — aligné priorité produit)** : **Photos** (compléter mobile + sync) → **Mail** → **Contacts** → **Pass** → puis Calendar, Notes, Tasks, Office selon charge. Puis : Corbeille unifiée, Recherche, Visualisation PDF, Extracteur d'archives.
 
 *Mettre à jour les cases dans ce tableau au fur et à mesure. Les tests listés doivent être ajoutés dans les bons fichiers (voir [docs/TESTS.md](./docs/TESTS.md)) et exécutables via `make test` et/ou `make test-e2e-playwright`.*
 

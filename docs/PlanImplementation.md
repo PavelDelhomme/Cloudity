@@ -41,7 +41,7 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 | **Notes** | Bloc-notes, éditeur riche | App mobile Notes | Sync, partage |
 | **Tasks** | Tâches, to-do | App mobile Tasks | Tasks ↔ Calendar, Mail |
 | **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
-| **Photos** | Galerie, stockage photos | App mobile Photos | Sync, partage, albums |
+| **Photos** | Galerie, stockage photos (timeline `/drive/photos/timeline`, voir **PHOTOS.md**) | App mobile Photos | Sync, partage, albums, batterie |
 
 **À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. **Liste structurée et exhaustive par app** : **[ROADMAP.md](./ROADMAP.md)** ; suivi court : **[STATUS.md](../STATUS.md)** ; tests : **[TESTS.md](./TESTS.md)** ; **[MOBILES.md](./MOBILES.md)** pour le déploiement iOS/Android.
 
