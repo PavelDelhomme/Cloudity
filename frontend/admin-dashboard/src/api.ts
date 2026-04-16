@@ -978,13 +978,24 @@ export async function purgeDriveNode(token: string, id: number): Promise<void> {
 
 export async function downloadDriveFile(
   token: string,
-  nodeId: number
+  nodeId: number,
+  options?: { inline?: boolean }
 ): Promise<Blob> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+  const q = options?.inline ? '?inline=1' : ''
+  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content${q}`), {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Download: ${res.status}`)
-  return res.blob()
+  const blob = await res.blob()
+  const hdr = res.headers.get('Content-Type')?.split(';')[0]?.trim()
+  if (
+    hdr &&
+    hdr !== 'application/octet-stream' &&
+    (!blob.type || blob.type === 'application/octet-stream')
+  ) {
+    return new Blob([await blob.arrayBuffer()], { type: hdr })
+  }
+  return blob
 }
 
 /** Télécharge un dossier entier en ZIP (pas de .zip dans l’UI, juste « Télécharger »). */

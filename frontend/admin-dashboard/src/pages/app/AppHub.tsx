@@ -310,7 +310,7 @@ export default function AppHub() {
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
           {driveFilesRecent.map((n) => (
-            <HubPreviewLine key={n.id} to="/app/drive">
+            <HubPreviewLine key={n.id} to="/app/drive" state={{ openDrivePreviewNode: n }}>
               {n.name} <span className="text-slate-400 shrink-0">· {formatShortDate(n.created_at)}</span>
             </HubPreviewLine>
           ))}

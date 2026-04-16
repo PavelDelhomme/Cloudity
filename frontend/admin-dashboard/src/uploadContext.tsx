@@ -4,6 +4,8 @@ export type UploadItem = {
   id: string
   name: string
   size?: number
+  /** `upload` (défaut) ou `download` — même panneau latéral « Transferts ». */
+  kind?: 'upload' | 'download'
   status: 'pending' | 'uploading' | 'done' | 'error' | 'conflict'
   error?: string
   parentId: number | null
@@ -23,6 +25,8 @@ export type UploadContextValue = {
   replaceUpload: (id: string) => void
   /** Annuler un conflit (supprimer l’entrée sans remplacer). */
   cancelConflict: (id: string) => void
+  /** Téléchargement Drive : suit le même panneau que les téléversements. */
+  registerDownload: (label: string, task: () => Promise<{ blob: Blob; filename: string }>) => void
   driveParentId: number | null
   setDriveParentId: (id: number | null) => void
 }
@@ -46,6 +50,7 @@ export const defaultUploadContextValue: UploadContextValue = {
   clearDone: noop,
   replaceUpload: noop,
   cancelConflict: noop,
+  registerDownload: () => {},
   driveParentId: null,
   setDriveParentId: noop,
 }

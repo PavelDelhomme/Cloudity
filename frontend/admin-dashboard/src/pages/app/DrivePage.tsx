@@ -30,6 +30,7 @@ import {
   MoreVertical,
   ArrowLeft,
   Clock,
+  Eye,
 } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../uploadContext'
@@ -55,7 +56,25 @@ import {
   type DriveNode,
   type DriveZipEntry,
 } from '../../api'
-import { EDITABLE_EXT, getExtension } from '../app/DocumentEditorPage'
+import { getExtension, isOfficeIframePreviewName, isWordDocument } from '../app/DocumentEditorPage'
+
+const OFFICE_PREVIEW_MAX_ROWS = 200
+const OFFICE_PREVIEW_MAX_COLS = 40
+
+type OfficeDrivePreview =
+  | { phase: 'idle' }
+  | { phase: 'loading' }
+  | { phase: 'html'; html: string }
+  | { phase: 'spreadsheet'; grid: string[][] }
+  | { phase: 'plaintext'; text: string }
+  | { phase: 'error' }
+
+function sliceOfficePreviewGrid(grid: string[][]): string[][] {
+  return grid.slice(0, OFFICE_PREVIEW_MAX_ROWS).map((row) => row.slice(0, OFFICE_PREVIEW_MAX_COLS))
+}
+
+/** Délai avant d’ouvrir un dossier au clic simple, pour qu’un double-clic puisse annuler l’ouverture et basculer en sélection. */
+const DRIVE_FOLDER_OPEN_DEBOUNCE_MS = 280
 
 const DRIVE_DISPLAY_STORAGE_KEY = 'cloudity_drive_display'
 
@@ -73,6 +92,16 @@ function displayFileName(name: string): string {
   return name
 }
 
+/**
+ * Indice de fin pour sélectionner le « nom sans extension » au focus du renommage.
+ * Dernier point sert de séparateur ; les dotfiles (`.env`) gardent toute la chaîne sélectionnée.
+ */
+export function renameBaseNameSelectionEnd(filename: string): number {
+  const i = filename.lastIndexOf('.')
+  if (i <= 0) return filename.length
+  return i
+}
+
 /** Texte "X dossiers, Y fichiers" pour un dossier (1er niveau). */
 function folderContentLabel(node: DriveNode): string {
   const folders = node.child_folders ?? 0
@@ -87,6 +116,163 @@ function folderContentLabel(node: DriveNode): string {
 
 /** State passé à l'éditeur pour savoir d'où on vient et où revenir à la fermeture. */
 export type EditorFromState = { from: 'drive'; parentId: number | null; breadcrumb: BreadcrumbItem[] } | { from: 'office' }
+
+/** Position du menu Actions (bouton ⋮) ou clic droit. */
+type DriveItemMenuPosition =
+  | { kind: 'button'; top: number; right: number }
+  | { kind: 'context'; top: number; left: number }
+
+const DRIVE_CTX_MENU_EST_W = 200
+const DRIVE_CTX_MENU_EST_H = 260
+
+type DriveItemContextMenuPortalProps = {
+  open: boolean
+  position: DriveItemMenuPosition | null
+  panelRef: React.RefObject<HTMLDivElement>
+  node: DriveNode
+  isTrashView?: boolean
+  editorLinkState?: EditorFromState
+  onClose: () => void
+  onDownload: (node: DriveNode) => void
+  onStartEdit?: (node: DriveNode) => void
+  onDelete: (node: DriveNode) => void
+  onRestore?: (node: DriveNode) => void
+  onPurge?: (node: DriveNode) => void
+  /** Vue Drive (hors corbeille) : aperçu pour les fichiers. */
+  onPreviewClick?: (node: DriveNode) => void
+}
+
+/** Menu contextuel / ⋮ — actions Télécharger, Renommer, Corbeille, etc. */
+function DriveItemContextMenuPortal({
+  open,
+  position,
+  panelRef,
+  node,
+  isTrashView,
+  editorLinkState,
+  onClose,
+  onDownload,
+  onStartEdit,
+  onDelete,
+  onRestore,
+  onPurge,
+  onPreviewClick,
+}: DriveItemContextMenuPortalProps) {
+  if (!open || !position) return null
+  const style: React.CSSProperties =
+    position.kind === 'button'
+      ? {
+          top: position.top,
+          right: position.right,
+          left: 'auto',
+          transform: 'translateY(-100%)',
+        }
+      : {
+          top: position.top,
+          left: position.left,
+          right: 'auto',
+          transform: 'none',
+        }
+  return ReactDOM.createPortal(
+    <div
+      ref={panelRef}
+      role="menu"
+      aria-label={`Actions pour ${node.name}`}
+      className="fixed z-[10000] min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1"
+      style={style}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {!node.is_folder && !isTrashView && onPreviewClick && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onPreviewClick(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+        >
+          <Eye className="h-4 w-4 shrink-0" /> Aperçu
+        </button>
+      )}
+      {!node.is_folder && isOfficeIframePreviewName(node.name) && editorLinkState && (
+        <Link
+          to={`/app/office/editor/${node.id}`}
+          state={editorLinkState}
+          role="menuitem"
+          onClick={() => onClose()}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+        >
+          <Edit3 className="h-4 w-4 shrink-0" /> Ouvrir
+        </Link>
+      )}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          onDownload(node)
+          onClose()
+        }}
+        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+      >
+        <Download className="h-4 w-4 shrink-0" /> {node.is_folder ? 'Télécharger (ZIP)' : 'Télécharger'}
+      </button>
+      {!isTrashView && onStartEdit && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onStartEdit(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+        >
+          <Edit2 className="h-4 w-4 shrink-0" /> Renommer
+        </button>
+      )}
+      {isTrashView && onRestore && onPurge ? (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onRestore(node)
+              onClose()
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+          >
+            <RotateCcw className="h-4 w-4 shrink-0" /> Restaurer
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onPurge(node)
+              onClose()
+            }}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 text-left"
+          >
+            <Trash2 className="h-4 w-4 shrink-0" /> Supprimer définitivement
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onDelete(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 text-left"
+        >
+          <Trash2 className="h-4 w-4 shrink-0" /> Corbeille
+        </button>
+      )}
+    </div>,
+    document.body
+  )
+}
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
 function isImageNode(node: DriveNode): boolean {
@@ -108,37 +294,82 @@ function isZipNode(node: DriveNode): boolean {
   return ext === '.zip' || (node.mime_type || '').toLowerCase() === 'application/zip'
 }
 
+const VIDEO_PREVIEW_EXTENSIONS = ['.mp4', '.webm', '.ogv', '.mov']
+function isVideoPreviewNode(node: DriveNode): boolean {
+  const ext = getExtension(node.name)
+  if (VIDEO_PREVIEW_EXTENSIONS.includes(ext)) return true
+  const mime = (node.mime_type || '').toLowerCase()
+  return mime.startsWith('video/')
+}
+
+const AUDIO_PREVIEW_EXTENSIONS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.aac', '.opus']
+function isAudioPreviewNode(node: DriveNode): boolean {
+  const ext = getExtension(node.name)
+  if (AUDIO_PREVIEW_EXTENSIONS.includes(ext)) return true
+  const mime = (node.mime_type || '').toLowerCase()
+  return mime.startsWith('audio/')
+}
+
 /** Fichiers dont on peut afficher le contenu texte dans la preview (sans exécution). */
 function isTextPreviewNode(node: DriveNode): boolean {
   const ext = getExtension(node.name)
-  const textExt = ['.txt', '.md', '.json', '.xml', '.csv', '.html', '.htm', '.css', '.js', '.ts', '.tsx', '.jsx', '.log']
+  const textExt = ['.txt', '.md', '.json', '.xml', '.csv', '.html', '.htm', '.css', '.js', '.ts', '.tsx', '.jsx', '.log', '.yaml', '.yml', '.toml', '.ini', '.env', '.sh', '.sql', '.rs', '.go', '.py']
   if (textExt.includes(ext)) return true
   const mime = (node.mime_type || '').toLowerCase()
   return mime.startsWith('text/') || mime === 'application/json' || mime === 'application/xml'
 }
 
 /** Affiche le contenu réel du fichier dans la popup preview (image, PDF, texte, liste ZIP). */
-function FilePreviewContent({ node, accessToken }: { node: DriveNode; accessToken: string | null }) {
+function FilePreviewContent({
+  node,
+  accessToken,
+  previewEditorState,
+}: {
+  node: DriveNode
+  accessToken: string | null
+  previewEditorState?: EditorFromState
+}) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [textContent, setTextContent] = useState<string | null>(null)
   const [zipEntries, setZipEntries] = useState<DriveZipEntry[] | null>(null)
   const [zipStatus, setZipStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
+  const [officePreview, setOfficePreview] = useState<OfficeDrivePreview>({ phase: 'idle' })
   const urlRef = React.useRef<string | null>(null)
   useEffect(() => {
     if (!accessToken || node.is_folder) return
     const isImage = isImageNode(node)
     const isPdf = isPdfNode(node)
     const isText = isTextPreviewNode(node)
-    if (!isImage && !isPdf && !isText) return
+    const isVideo = isVideoPreviewNode(node)
+    const isAudio = isAudioPreviewNode(node)
+    if (!isImage && !isPdf && !isText && !isVideo && !isAudio) return
     setStatus('loading')
     let cancelled = false
-    if (isImage || isPdf) {
-      downloadDriveFile(accessToken, node.id)
+    if (isImage || isPdf || isVideo || isAudio) {
+      downloadDriveFile(accessToken, node.id, { inline: true })
         .then((blob) => {
           if (cancelled) return
           if (urlRef.current) URL.revokeObjectURL(urlRef.current)
-          const url = URL.createObjectURL(blob)
+          let typed = blob
+          if (isPdf && (!blob.type || blob.type === 'application/octet-stream')) {
+            typed = new Blob([blob], { type: 'application/pdf' })
+          } else if (isVideo && (!blob.type || blob.type === 'application/octet-stream')) {
+            const ext = getExtension(node.name)
+            if (ext === '.webm') typed = new Blob([blob], { type: 'video/webm' })
+            else if (ext === '.ogv') typed = new Blob([blob], { type: 'video/ogg' })
+            else if (ext === '.mov') typed = new Blob([blob], { type: 'video/quicktime' })
+            else typed = new Blob([blob], { type: 'video/mp4' })
+          } else if (isAudio && (!blob.type || blob.type === 'application/octet-stream')) {
+            const ext = getExtension(node.name)
+            if (ext === '.wav') typed = new Blob([blob], { type: 'audio/wav' })
+            else if (ext === '.ogg') typed = new Blob([blob], { type: 'audio/ogg' })
+            else if (ext === '.m4a' || ext === '.aac') typed = new Blob([blob], { type: 'audio/mp4' })
+            else if (ext === '.flac') typed = new Blob([blob], { type: 'audio/flac' })
+            else if (ext === '.opus') typed = new Blob([blob], { type: 'audio/opus' })
+            else typed = new Blob([blob], { type: 'audio/mpeg' })
+          }
+          const url = URL.createObjectURL(typed)
           urlRef.current = url
           setBlobUrl(url)
           setStatus('ok')
@@ -157,7 +388,7 @@ function FilePreviewContent({ node, accessToken }: { node: DriveNode; accessToke
       setBlobUrl(null)
       setTextContent(null)
     }
-  }, [node.id, node.is_folder, accessToken])
+  }, [node.id, node.name, node.is_folder, accessToken])
   useEffect(() => {
     if (!accessToken || node.is_folder) return
     if (!isZipNode(node)) return
@@ -171,10 +402,83 @@ function FilePreviewContent({ node, accessToken }: { node: DriveNode; accessToke
       .catch(() => { if (!cancelled) setZipStatus('error') })
     return () => { cancelled = true; setZipEntries(null) }
   }, [node.id, accessToken])
+
+  useEffect(() => {
+    if (!accessToken || node.is_folder) return
+    if (!isOfficeIframePreviewName(node.name)) return
+    if (isTextPreviewNode(node)) return
+    let cancelled = false
+    setOfficePreview({ phase: 'loading' })
+    const fail = () => {
+      if (!cancelled) setOfficePreview({ phase: 'error' })
+    }
+    ;(async () => {
+      try {
+        if (isWordDocument(node.name)) {
+          const blob = await downloadDriveFile(accessToken, node.id, { inline: true })
+          const { wordBlobToHtml } = await import('../../utils/wordToHtml')
+          const html = await wordBlobToHtml(blob)
+          if (!cancelled) setOfficePreview({ phase: 'html', html: html || '<p></p>' })
+          return
+        }
+        if (node.name.toLowerCase().endsWith('.xlsx')) {
+          const blob = await downloadDriveFile(accessToken, node.id, { inline: true })
+          const { xlsxBlobToGrid } = await import('../../utils/exportOffice')
+          const grid = await xlsxBlobToGrid(blob)
+          if (!cancelled) setOfficePreview({ phase: 'spreadsheet', grid })
+          return
+        }
+        const text = await getDriveNodeContentAsText(accessToken, node.id)
+        const ext = getExtension(node.name)
+        if (['.html', '.htm'].includes(ext)) {
+          if (!cancelled) setOfficePreview({ phase: 'html', html: text || '<p></p>' })
+        } else {
+          if (!cancelled) setOfficePreview({ phase: 'plaintext', text: text ?? '' })
+        }
+      } catch {
+        fail()
+      }
+    })()
+    return () => {
+      cancelled = true
+      setOfficePreview({ phase: 'idle' })
+    }
+  }, [node.id, node.name, node.is_folder, accessToken])
+
   if (status === 'loading') return (<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden /></div>)
   if (status === 'error') return (<p className="py-4 text-sm text-slate-500 dark:text-slate-400">Impossible de charger l'aperçu.</p>)
   if (isImageNode(node) && blobUrl) return (<div className="mt-4 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 flex items-center justify-center min-h-[200px] max-h-[70vh]"><img src={blobUrl} alt="" className="max-w-full max-h-[70vh] object-contain" /></div>)
-  if (isPdfNode(node) && blobUrl) return (<div className="mt-4 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 min-h-[400px] max-h-[70vh]"><iframe title="Aperçu PDF" src={blobUrl} className="w-full h-full min-h-[400px] max-h-[70vh] border-0" /></div>)
+  if (isVideoPreviewNode(node) && blobUrl) {
+    return (
+      <div className="mt-4 rounded-lg overflow-hidden bg-black/90 flex items-center justify-center min-h-[220px] max-h-[70vh]">
+        <video src={blobUrl} controls playsInline className="max-w-full max-h-[70vh]" title={displayFileName(node.name)} />
+      </div>
+    )
+  }
+  if (isAudioPreviewNode(node) && blobUrl) {
+    return (
+      <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-6 flex flex-col items-center gap-3">
+        <p className="text-sm text-slate-600 dark:text-slate-300 font-medium truncate max-w-full">{displayFileName(node.name)}</p>
+        <audio src={blobUrl} controls className="w-full max-w-md" title={displayFileName(node.name)} />
+      </div>
+    )
+  }
+  if (isPdfNode(node) && blobUrl) {
+    /* iframe seul peut rester vide selon le navigateur ; <embed> affiche souvent mieux le PDF intégré. */
+    return (
+      <div
+        data-testid="drive-pdf-preview"
+        className="mt-4 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 min-h-[420px] max-h-[75vh] flex flex-col"
+      >
+        <embed
+          src={blobUrl}
+          type="application/pdf"
+          title={`PDF ${displayFileName(node.name)}`}
+          className="w-full min-h-[420px] h-[min(72vh,680px)] bg-white dark:bg-slate-950"
+        />
+      </div>
+    )
+  }
   if (isTextPreviewNode(node) && textContent != null) {
     const ext = getExtension(node.name)
     if (['.html', '.htm'].includes(ext)) return (<div className="mt-4 rounded-lg overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 min-h-[200px] max-h-[70vh]"><iframe title="Aperçu HTML" srcDoc={textContent} className="w-full h-full min-h-[200px] max-h-[70vh] border-0" sandbox="allow-same-origin" /></div>)
@@ -208,11 +512,102 @@ function FilePreviewContent({ node, accessToken }: { node: DriveNode; accessToke
       )
     }
   }
-  if (status === 'idle' && !isImageNode(node) && !isPdfNode(node) && !isTextPreviewNode(node)) {
+  if (!node.is_folder && isOfficeIframePreviewName(node.name) && !isTextPreviewNode(node)) {
+    const editorPath = `/app/office/editor/${node.id}`
+    const officeToolbar = (
+      <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <Link
+          to={editorPath}
+          state={previewEditorState}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600"
+        >
+          <Edit3 className="h-4 w-4 shrink-0" aria-hidden />
+          Éditer dans Office
+        </Link>
+        <span className="text-xs text-slate-500 dark:text-slate-400">Aperçu en lecture seule (pas l’éditeur complet)</span>
+      </div>
+    )
+    if (officePreview.phase === 'loading' || officePreview.phase === 'idle') {
+      return (
+        <div className="mt-4 flex flex-col gap-3 min-h-[200px]">
+          {officeToolbar}
+          <div className="flex items-center justify-center py-12 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden />
+          </div>
+        </div>
+      )
+    }
+    if (officePreview.phase === 'error') {
+      return (
+        <div className="mt-4 flex flex-col gap-3">
+          {officeToolbar}
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            Impossible d’afficher l’aperçu visuel. Utilisez <strong>Éditer dans Office</strong> pour ouvrir le fichier dans l’éditeur (nouvel onglet).
+          </p>
+        </div>
+      )
+    }
+    if (officePreview.phase === 'html') {
+      return (
+        <div className="mt-4 flex flex-col gap-3 min-h-[200px] max-h-[68vh]">
+          {officeToolbar}
+          <div
+            data-testid="drive-office-preview"
+            className="min-h-[240px] max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 prose dark:prose-invert prose-sm max-w-none text-slate-900 dark:text-slate-100 [&_img]:max-w-full [&_table]:text-sm"
+            dangerouslySetInnerHTML={{ __html: officePreview.html }}
+          />
+        </div>
+      )
+    }
+    if (officePreview.phase === 'spreadsheet') {
+      const grid = sliceOfficePreviewGrid(officePreview.grid)
+      return (
+        <div className="mt-4 flex flex-col gap-3 min-h-[200px] max-h-[68vh]">
+          {officeToolbar}
+          <div
+            data-testid="drive-office-preview"
+            className="max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900"
+          >
+            <table className="w-full text-xs border-collapse">
+              <tbody>
+                {grid.map((row, ri) => (
+                  <tr key={ri} className="border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="border-r border-slate-100 dark:border-slate-700 px-1.5 py-1 text-slate-800 dark:text-slate-200 max-w-[160px] truncate" title={cell}>
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {officePreview.grid.length > OFFICE_PREVIEW_MAX_ROWS && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">Aperçu limité aux {OFFICE_PREVIEW_MAX_ROWS} premières lignes — éditeur complet dans Office.</p>
+          )}
+        </div>
+      )
+    }
+    if (officePreview.phase === 'plaintext') {
+      return (
+        <div className="mt-4 flex flex-col gap-3 min-h-[200px] max-h-[68vh]">
+          {officeToolbar}
+          <div data-testid="drive-office-preview" className="max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-4">
+            <pre className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words font-mono">{officePreview.text}</pre>
+          </div>
+        </div>
+      )
+    }
+  }
+  if (status === 'idle' && !isImageNode(node) && !isPdfNode(node) && !isTextPreviewNode(node) && !isVideoPreviewNode(node) && !isAudioPreviewNode(node) && !isZipNode(node)) {
     return (
       <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
         <p className="text-sm text-slate-600 dark:text-slate-300">Aperçu non disponible pour ce type de fichier.</p>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Documents Office (Word, Excel, PowerPoint, ODT, ODS, ODP), tableurs et binaires : utilisez <strong>Ouvrir</strong> ou <strong>Télécharger</strong> ci-dessous.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          PDF, images, texte, archives ZIP (liste), vidéo, audio, et documents Word / Excel / PowerPoint / RTF ouvrables dans l’éditeur s’affichent ici. Pour le reste, utilisez <strong>Télécharger</strong> ou une application sur votre poste.
+        </p>
       </div>
     )
   }
@@ -226,14 +621,24 @@ function DriveThumbnail({ node, accessToken }: { node: DriveNode; accessToken: s
   useEffect(() => {
     if (!node.is_folder && accessToken && isImageNode(node)) {
       let cancelled = false
-      downloadDriveFile(accessToken, node.id)
+      downloadDriveFile(accessToken, node.id, { inline: true })
         .then((blob) => {
-          if (!cancelled && blob.type.startsWith('image/')) {
-            if (urlRef.current) URL.revokeObjectURL(urlRef.current)
-            const url = URL.createObjectURL(blob)
-            urlRef.current = url
-            setObjectUrl(url)
+          if (cancelled) return
+          let b: Blob = blob
+          if (!b.type || !b.type.startsWith('image/')) {
+            const ext = getExtension(node.name)
+            if (ext === '.png') b = new Blob([blob], { type: 'image/png' })
+            else if (ext === '.jpg' || ext === '.jpeg') b = new Blob([blob], { type: 'image/jpeg' })
+            else if (ext === '.gif') b = new Blob([blob], { type: 'image/gif' })
+            else if (ext === '.webp') b = new Blob([blob], { type: 'image/webp' })
+            else if (ext === '.bmp') b = new Blob([blob], { type: 'image/bmp' })
+            else if (ext === '.svg') b = new Blob([blob], { type: 'image/svg+xml' })
+            else return
           }
+          if (urlRef.current) URL.revokeObjectURL(urlRef.current)
+          const url = URL.createObjectURL(b)
+          urlRef.current = url
+          setObjectUrl(url)
         })
         .catch(() => {})
       return () => {
@@ -258,7 +663,13 @@ function DriveThumbnail({ node, accessToken }: { node: DriveNode; accessToken: s
   if (objectUrl) {
     return (
       <div className="w-full h-24 overflow-hidden rounded-t-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-        <img src={objectUrl} alt="" className="max-w-full max-h-full object-contain" />
+        <img
+          src={objectUrl}
+          alt=""
+          draggable={false}
+          className="max-w-full max-h-full object-contain pointer-events-none select-none"
+          onDoubleClick={(e) => e.preventDefault()}
+        />
       </div>
     )
   }
@@ -269,7 +680,7 @@ function DriveThumbnail({ node, accessToken }: { node: DriveNode; accessToken: s
   )
 }
 
-/** Carte Drive pour la vue grille : titre en haut, menu trois points en haut à droite, clic sur la carte = sélection. */
+/** Carte Drive pour la vue grille : dossier = clic simple ouvre (après court délai), double-clic = sélection ; fichier = clic = aperçu ou sélection avec modificateurs. */
 const DriveNodeCard = React.memo(function DriveNodeCard({
   node,
   isSelected,
@@ -312,22 +723,44 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const menuButtonRef = React.useRef<HTMLButtonElement>(null)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null)
+  const menuPanelRef = React.useRef<HTMLDivElement>(null)
+  const [menuPosition, setMenuPosition] = useState<DriveItemMenuPosition | null>(null)
+  const folderOpenTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearFolderOpenTimer = React.useCallback(() => {
+    if (folderOpenTimerRef.current) {
+      clearTimeout(folderOpenTimerRef.current)
+      folderOpenTimerRef.current = null
+    }
+  }, [])
+
+  const scheduleFolderOpen = React.useCallback(() => {
+    clearFolderOpenTimer()
+    folderOpenTimerRef.current = setTimeout(() => {
+      folderOpenTimerRef.current = null
+      onGoTo(node.id, node.name)
+    }, DRIVE_FOLDER_OPEN_DEBOUNCE_MS)
+  }, [clearFolderOpenTimer, node.id, node.name, onGoTo])
 
   useEffect(() => {
-    if (!menuOpen || !menuButtonRef.current) return
-    const updatePos = () => {
-      if (menuButtonRef.current) {
-        const rect = menuButtonRef.current.getBoundingClientRect()
-        setMenuPosition({ top: rect.top - 4, right: window.innerWidth - rect.right })
-      }
-    }
-    updatePos()
-    window.addEventListener('scroll', updatePos, true)
-    window.addEventListener('resize', updatePos)
     return () => {
-      window.removeEventListener('scroll', updatePos, true)
-      window.removeEventListener('resize', updatePos)
+      clearFolderOpenTimer()
+    }
+  }, [node.id, clearFolderOpenTimer])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
     }
   }, [menuOpen])
 
@@ -338,7 +771,10 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   useEffect(() => {
     if (!menuOpen) return
     const onOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node) && menuButtonRef.current && !menuButtonRef.current.contains(e.target as Node)) setMenuOpen(false)
+      const t = e.target as Node
+      if (menuPanelRef.current?.contains(t)) return
+      if (menuRef.current?.contains(t)) return
+      setMenuOpen(false)
     }
     document.addEventListener('click', onOutside)
     return () => document.removeEventListener('click', onOutside)
@@ -347,23 +783,65 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, a, input, [data-card-menu]')) return
     if (isEditing) return
+    // Dossier : clic simple = ouvrir (debounce) ; Ctrl/Maj/Meta = sélection ; double-clic = sélection (voir handleCardDoubleClick).
+    if (node.is_folder) {
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        clearFolderOpenTimer()
+        onSelectClick(e)
+        return
+      }
+      scheduleFolderOpen()
+      return
+    }
+    // Fichier : clic simple = aperçu ; Ctrl/Meta/Maj = sélection pour actions groupées (évite d’associer le clic à « Télécharger »).
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey && onPreviewClick) {
+      onPreviewClick(node)
+      return
+    }
     onSelectClick(e)
   }
   const handleCardDoubleClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button, a, input, [data-card-menu]')) return
     if (isEditing) return
     e.preventDefault()
-    if (node.is_folder) onGoTo(node.id, node.name)
-    else if (onPreviewClick) onPreviewClick(node)
+    e.stopPropagation()
+    if (node.is_folder) {
+      clearFolderOpenTimer()
+      onSelectClick(e)
+    }
   }
+
+  const handleCardContextMenu = (e: React.MouseEvent) => {
+    if (isEditing) return
+    if ((e.target as HTMLElement).closest('input, textarea')) return
+    e.preventDefault()
+    e.stopPropagation()
+    let left = e.clientX
+    let top = e.clientY
+    if (left + DRIVE_CTX_MENU_EST_W > window.innerWidth - 8) left = window.innerWidth - DRIVE_CTX_MENU_EST_W - 8
+    if (top + DRIVE_CTX_MENU_EST_H > window.innerHeight - 8) top = window.innerHeight - DRIVE_CTX_MENU_EST_H - 8
+    if (left < 8) left = 8
+    if (top < 8) top = 8
+    setMenuPosition({ kind: 'context', top, left })
+    setMenuOpen(true)
+  }
+
   return (
     <div
       role="button"
       tabIndex={0}
       onClick={handleCardClick}
+      onContextMenu={handleCardContextMenu}
       onDoubleClick={handleCardDoubleClick}
       onKeyDown={(e) => {
-        if (e.key === 'Enter') onSelectClick(e as unknown as React.MouseEvent)
+        if (e.key === 'Enter') {
+          if (node.is_folder) {
+            clearFolderOpenTimer()
+            onGoTo(node.id, node.name)
+          } else {
+            onSelectClick(e as unknown as React.MouseEvent)
+          }
+        }
       }}
       className={`rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden hover:shadow-md hover:border-slate-300 dark:hover:border-slate-500 transition-all flex flex-col min-w-0 cursor-pointer ${isSelected ? 'ring-2 ring-brand-500 bg-brand-50/50 dark:bg-brand-900/20' : ''}`}
     >
@@ -373,12 +851,18 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
           <div className="flex flex-col gap-0.5 min-w-0" onClick={(e) => e.stopPropagation()}>
             <input
               type="text"
+              data-drive-rename-input={node.id}
               value={editingName ?? node.name}
               onChange={(e) => onEditingNameChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') onRename(node.id)
                 if (e.key === 'Escape') onCancelEdit()
               }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                ;(e.target as HTMLInputElement).select()
+              }}
+              title="Nom sans extension présélectionné. Double-clic pour tout sélectionner (y compris l’extension)."
               className="rounded border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 px-1.5 py-0.5 text-xs min-w-0"
               autoFocus
             />
@@ -410,7 +894,7 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
               e.stopPropagation()
               if (!menuOpen && menuButtonRef.current) {
                 const rect = menuButtonRef.current.getBoundingClientRect()
-                setMenuPosition({ top: rect.top - 4, right: window.innerWidth - rect.right })
+                setMenuPosition({ kind: 'button', top: rect.top - 4, right: window.innerWidth - rect.right })
               }
               setMenuOpen((v) => !v)
             }}
@@ -420,48 +904,28 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
           >
             <MoreVertical className="h-4 w-4" />
           </button>
-          {menuOpen && menuPosition != null && ReactDOM.createPortal(
-            <div
-              className="fixed z-[9999] min-w-[140px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1"
-              style={{ top: menuPosition.top, right: menuPosition.right, transform: 'translateY(-100%)' }}
-            >
-              {!node.is_folder && EDITABLE_EXT.includes(getExtension(node.name)) && editorLinkState && (
-                <Link to={`/app/office/editor/${node.id}`} state={editorLinkState} onClick={() => setMenuOpen(false)} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                  <Edit3 className="h-4 w-4" /> Ouvrir
-                </Link>
-              )}
-              <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(node); setMenuOpen(false) }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                <Download className="h-4 w-4" /> {node.is_folder ? 'Télécharger (ZIP)' : 'Télécharger'}
-              </button>
-              {!isTrashView && onStartEdit && (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onStartEdit(node); setMenuOpen(false) }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                  <Edit2 className="h-4 w-4" /> Renommer
-                </button>
-              )}
-              {isTrashView && onRestore && onPurge ? (
-                <>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onRestore(node); setMenuOpen(false) }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
-                    <RotateCcw className="h-4 w-4" /> Restaurer
-                  </button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); onPurge(node); setMenuOpen(false) }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30">
-                    <Trash2 className="h-4 w-4" /> Supprimer définitivement
-                  </button>
-                </>
-              ) : (
-                <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(node); setMenuOpen(false) }} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30" title="Déplacer dans la corbeille">
-                  <Trash2 className="h-4 w-4" /> Corbeille
-                </button>
-              )}
-            </div>,
-            document.body
-          )}
+          <DriveItemContextMenuPortal
+            open={menuOpen && menuPosition != null}
+            position={menuPosition}
+            panelRef={menuPanelRef}
+            node={node}
+            isTrashView={isTrashView}
+            editorLinkState={editorLinkState}
+            onClose={() => setMenuOpen(false)}
+            onDownload={onDownload}
+            onStartEdit={onStartEdit}
+            onDelete={onDelete}
+            onRestore={onRestore}
+            onPurge={onPurge}
+            onPreviewClick={!isTrashView ? onPreviewClick : undefined}
+          />
         </div>
       </div>
     </div>
   )
 })
 
-/** Ligne tableau Drive — colonnes alignées, sélection style Google (sans case à cocher). En mode corbeille : Restaurer / Supprimer définitivement. */
+/** Ligne tableau Drive — dossier hors corbeille : clic simple = ouvrir (debounce), double-clic = sélection, Ctrl/Maj/Meta+clic = sélection ; fichier : clic = aperçu ou sélection avec modificateurs. Corbeille : inchangé pour les dossiers (sélection au clic sur la ligne). */
 const DriveNodeRow = React.memo(function DriveNodeRow({
   node,
   isEditing,
@@ -509,18 +973,103 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
   editorLinkState?: EditorFromState
   onPreviewClick?: (node: DriveNode) => void
 }) {
+  const [rowMenuOpen, setRowMenuOpen] = useState(false)
+  const [rowMenuPosition, setRowMenuPosition] = useState<DriveItemMenuPosition | null>(null)
+  const rowMenuPanelRef = React.useRef<HTMLDivElement>(null)
+  const folderOpenTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearFolderOpenTimer = React.useCallback(() => {
+    if (folderOpenTimerRef.current) {
+      clearTimeout(folderOpenTimerRef.current)
+      folderOpenTimerRef.current = null
+    }
+  }, [])
+
+  const scheduleFolderOpen = React.useCallback(() => {
+    clearFolderOpenTimer()
+    folderOpenTimerRef.current = setTimeout(() => {
+      folderOpenTimerRef.current = null
+      onGoTo(node.id, node.name)
+    }, DRIVE_FOLDER_OPEN_DEBOUNCE_MS)
+  }, [clearFolderOpenTimer, node.id, node.name, onGoTo])
+
+  useEffect(() => {
+    return () => {
+      clearFolderOpenTimer()
+    }
+  }, [node.id, clearFolderOpenTimer])
+
+  useEffect(() => {
+    if (!rowMenuOpen) return
+    const close = () => setRowMenuOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    const onDoc = (e: MouseEvent) => {
+      if (rowMenuPanelRef.current?.contains(e.target as Node)) return
+      close()
+    }
+    document.addEventListener('click', onDoc)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+      window.removeEventListener('keydown', onKey)
+      document.removeEventListener('click', onDoc)
+    }
+  }, [rowMenuOpen])
+
+  useLayoutEffect(() => {
+    if (!rowMenuOpen) setRowMenuPosition(null)
+  }, [rowMenuOpen])
+
+  const handleRowContextMenu = (e: React.MouseEvent) => {
+    if (isEditing) return
+    if ((e.target as HTMLElement).closest('input')) return
+    if ((e.target as HTMLElement).closest('td:first-child')) return
+    e.preventDefault()
+    e.stopPropagation()
+    let left = e.clientX
+    let top = e.clientY
+    if (left + DRIVE_CTX_MENU_EST_W > window.innerWidth - 8) left = window.innerWidth - DRIVE_CTX_MENU_EST_W - 8
+    if (top + DRIVE_CTX_MENU_EST_H > window.innerHeight - 8) top = window.innerHeight - DRIVE_CTX_MENU_EST_H - 8
+    if (left < 8) left = 8
+    if (top < 8) top = 8
+    setRowMenuPosition({ kind: 'context', top, left })
+    setRowMenuOpen(true)
+  }
+
   const rowClick = (e: React.MouseEvent) => {
     const t = e.target as HTMLElement
     if (t.closest('a, button, input')) return
     if (t.closest('td:first-child')) return
     if (!isTrashView && node.is_folder) {
-      onGoTo(node.id, node.name)
-    } else if (!node.is_folder && onPreviewClick) {
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        clearFolderOpenTimer()
+        onSelectClick(e)
+        return
+      }
+      scheduleFolderOpen()
+      return
+    }
+    if (!node.is_folder && onPreviewClick && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
       onPreviewClick(node)
-    } else {
+      return
+    }
+    onSelectClick(e)
+  }
+
+  const rowDoubleClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('td:first-child')) return
+    if (!isTrashView && node.is_folder) {
+      clearFolderOpenTimer()
+      e.preventDefault()
       onSelectClick(e)
     }
   }
+
   const handleCheckboxClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     onSelectClick(e)
@@ -529,6 +1078,8 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
     <tr
       draggable={!isTrashView}
       onClick={rowClick}
+      onDoubleClick={rowDoubleClick}
+      onContextMenu={handleRowContextMenu}
       onDragStart={isTrashView ? undefined : (e) => {
         onDragStartRow(node)
         e.dataTransfer?.setData('application/x-cloudity-drive-node', String(node.id))
@@ -553,6 +1104,7 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
           <div className="flex items-center gap-2 flex-wrap">
             <input
               type="text"
+              data-drive-rename-input={node.id}
               value={editingName}
               onChange={(e) => onEditingNameChange(e.target.value)}
               onKeyDown={(e) => {
@@ -560,6 +1112,11 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
                 if (e.key === 'Escape') onCancelEdit()
               }}
               onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                ;(e.target as HTMLInputElement).select()
+              }}
+              title="Nom sans extension présélectionné. Double-clic pour tout sélectionner (y compris l’extension)."
               className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 px-2 py-1 text-sm"
               autoFocus
             />
@@ -575,7 +1132,15 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
           ) : (
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); onGoTo(node.id, node.name) }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                clearFolderOpenTimer()
+                onSelectClick(e)
+                return
+              }
+              scheduleFolderOpen()
+            }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); onDragOverFolder(node.id) }}
             onDragLeave={onDragLeaveFolder}
             className="flex items-center gap-2 min-w-0 text-left font-medium text-slate-900 dark:text-slate-100 hover:text-brand-600 dark:hover:text-brand-400"
@@ -587,7 +1152,7 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
         ) : (
           <span className="flex items-center gap-2 min-w-0">
             <File className="h-5 w-5 text-slate-400 flex-shrink-0" />
-            {EDITABLE_EXT.includes(getExtension(node.name)) ? (
+            {isOfficeIframePreviewName(node.name) ? (
               <Link to={`/app/office/editor/${node.id}`} state={editorLinkState} onClick={(e) => e.stopPropagation()} className="truncate text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 hover:underline">
                 {displayFileName(node.name)}
               </Link>
@@ -619,7 +1184,7 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
               </>
             ) : (
               <>
-                {!node.is_folder && EDITABLE_EXT.includes(getExtension(node.name)) && (
+                {!node.is_folder && isOfficeIframePreviewName(node.name) && (
                   <Link to={`/app/office/editor/${node.id}`} state={editorLinkState} onClick={(e) => e.stopPropagation()} className="p-1.5 rounded text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600" title="Éditer"><Edit3 className="h-4 w-4" /></Link>
                 )}
                 <button type="button" onClick={(e) => { e.stopPropagation(); onDownload(node) }} className="p-1.5 rounded text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600" title={node.is_folder ? 'Télécharger le dossier (ZIP)' : 'Télécharger'}>
@@ -632,6 +1197,21 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
           </div>
         )}
       </td>
+      <DriveItemContextMenuPortal
+        open={rowMenuOpen && rowMenuPosition != null}
+        position={rowMenuPosition}
+        panelRef={rowMenuPanelRef}
+        node={node}
+        isTrashView={isTrashView}
+        editorLinkState={editorLinkState}
+        onClose={() => setRowMenuOpen(false)}
+        onDownload={onDownload}
+        onStartEdit={onStartEdit}
+        onDelete={onDelete}
+        onRestore={onRestore}
+        onPurge={onPurge}
+        onPreviewClick={!isTrashView ? onPreviewClick : undefined}
+      />
     </tr>
   )
 })
@@ -953,14 +1533,19 @@ const DriveToolbar = React.memo(function DriveToolbar({
   )
 })
 
-type DriveLocationState = { folderId?: number | null; breadcrumb?: BreadcrumbItem[] }
+type DriveLocationState = {
+  folderId?: number | null
+  breadcrumb?: BreadcrumbItem[]
+  /** Ouvre la modale d’aperçu (ex. PDF depuis le hub ou Office). */
+  openDrivePreviewNode?: DriveNode
+}
 
 export default function DrivePage() {
   const { accessToken, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const { addUpload, addFolderUpload, setDriveParentId } = useUpload()
+  const { addUpload, addFolderUpload, setDriveParentId, registerDownload } = useUpload()
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Drive' }])
   const [newFolderName, setNewFolderName] = useState('')
   const [showNewFolder, setShowNewFolder] = useState(false)
@@ -992,6 +1577,13 @@ export default function DrivePage() {
   const [deleteModalTarget, setDeleteModalTarget] = useState<DeleteModalTarget>(null)
   const [purgeModalTarget, setPurgeModalTarget] = useState<DriveNode | null>(null)
   const [previewNode, setPreviewNode] = useState<DriveNode | null>(null)
+  /** Horodatage d’ouverture de la modale d’aperçu (ignore fermeture « fond » trop rapide après double-clic). */
+  const previewOpenedAtRef = React.useRef(0)
+  useEffect(() => {
+    if (previewNode != null && !previewNode.is_folder) {
+      previewOpenedAtRef.current = Date.now()
+    }
+  }, [previewNode])
   const [displayMode, setDisplayModeState] = useState<'grid' | 'list'>(getStoredDisplayMode)
   const setDisplayMode = useCallback((mode: 'grid' | 'list') => {
     setDisplayModeState(mode)
@@ -1003,14 +1595,32 @@ export default function DrivePage() {
 
   const currentParentId = breadcrumb.length > 1 ? (breadcrumb[breadcrumb.length - 1].id as number) : null
 
-  // Au retour depuis l'éditeur : restaurer le dossier (breadcrumb) et effacer le state
+  // Retour éditeur : fil d’Ariane ; hub / Office : ouvrir l’aperçu fichier (PDF, etc.). Puis effacer le state sans perdre ?view=….
   useEffect(() => {
     const state = location.state as DriveLocationState | null | undefined
-    if (state?.breadcrumb && Array.isArray(state.breadcrumb) && state.breadcrumb.length > 0) {
+    if (!state || typeof state !== 'object') return
+    let consumed = false
+    if (state.breadcrumb && Array.isArray(state.breadcrumb) && state.breadcrumb.length > 0) {
       setBreadcrumb(state.breadcrumb)
-      navigate('/app/drive', { replace: true, state: {} })
+      consumed = true
     }
-  }, [location.state, navigate])
+    if (state.openDrivePreviewNode && !state.openDrivePreviewNode.is_folder) {
+      setPreviewNode(state.openDrivePreviewNode)
+      consumed = true
+    }
+    if (consumed) {
+      const { pathname, search, hash } = location
+      queueMicrotask(() => {
+        navigate({ pathname, search, hash }, { replace: true, state: {} })
+      })
+    }
+  }, [location.state, location.pathname, location.search, location.hash, navigate])
+
+  const closeDrivePreviewBackdrop = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return
+    if (Date.now() - previewOpenedAtRef.current < 450) return
+    setPreviewNode(null)
+  }, [])
 
   useEffect(() => {
     setDriveParentId(currentParentId)
@@ -1218,49 +1828,26 @@ export default function DrivePage() {
   const handleDownload = useCallback(
     (node: DriveNode) => {
       if (!accessToken) return
-      const downloadingToast = toast.loading(node.is_folder ? 'Préparation du dossier…' : 'Préparation du téléchargement…')
-      const doDownload = node.is_folder
-        ? downloadDriveFolderAsZip(accessToken, node.id).then((blob) => ({ blob, name: `${node.name.replace(/\.zip$/i, '')}.zip` }))
-        : downloadDriveFile(accessToken, node.id).then((blob) => ({ blob, name: node.name }))
-      doDownload
-        .then(({ blob, name }) => {
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = name
-          a.click()
-          URL.revokeObjectURL(url)
-          toast.dismiss(downloadingToast)
-          toast.success('Téléchargement démarré')
-        })
-        .catch((e) => {
-          toast.dismiss(downloadingToast)
-          toast.error(e instanceof Error ? e.message : 'Erreur')
-        })
+      const label = node.is_folder ? `${node.name.replace(/\.zip$/i, '')}.zip` : node.name
+      registerDownload(label, () =>
+        node.is_folder
+          ? downloadDriveFolderAsZip(accessToken, node.id).then((blob) => ({
+              blob,
+              filename: `${node.name.replace(/\.zip$/i, '')}.zip`,
+            }))
+          : downloadDriveFile(accessToken, node.id).then((blob) => ({ blob, filename: node.name }))
+      )
     },
-    [accessToken]
+    [accessToken, registerDownload]
   )
 
   const handleDownloadSelectionAsZip = useCallback(() => {
     if (!accessToken || selectedIds.size === 0) return
     const ids = Array.from(selectedIds)
-    const t = toast.loading('Création de l’archive…')
-    downloadDriveArchive(accessToken, ids)
-      .then((blob) => {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'archive.zip'
-        a.click()
-        URL.revokeObjectURL(url)
-        toast.dismiss(t)
-        toast.success('Téléchargement de l’archive démarré')
-      })
-      .catch((e) => {
-        toast.dismiss(t)
-        toast.error(e instanceof Error ? e.message : 'Erreur')
-      })
-  }, [accessToken, selectedIds])
+    registerDownload('archive.zip', () =>
+      downloadDriveArchive(accessToken, ids).then((blob) => ({ blob, filename: 'archive.zip' }))
+    )
+  }, [accessToken, selectedIds, registerDownload])
 
   const uploadFilesToParent = useCallback(
     (files: FileList | null, parentId: number | null) => {
@@ -1294,6 +1881,20 @@ export default function DrivePage() {
     setEditingName('')
   }, [])
 
+  /** Au passage en mode renommage : focus + sélection du nom sans l’extension (double-clic dans le champ = tout sélectionner). */
+  useLayoutEffect(() => {
+    if (editingId == null) return
+    const el = document.querySelector<HTMLInputElement>(`input[data-drive-rename-input="${editingId}"]`)
+    if (!el) return
+    try {
+      const end = renameBaseNameSelectionEnd(el.value)
+      el.focus()
+      el.setSelectionRange(0, end)
+    } catch {
+      /* setSelectionRange peut échouer si le champ n’est pas encore focusable */
+    }
+  }, [editingId])
+
   // Échap : fermer les modales ou désélectionner. Suppr : ouvrir la modal de confirmation de suppression.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -1303,6 +1904,11 @@ export default function DrivePage() {
       }
       if (deleteModalTarget != null) {
         if (e.key === 'Escape') setDeleteModalTarget(null)
+        return
+      }
+      if (e.key === 'Escape' && editingId != null) {
+        handleCancelEdit()
+        e.preventDefault()
         return
       }
       if (e.key === 'Escape') {
@@ -1319,7 +1925,7 @@ export default function DrivePage() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds.size, clearSelection, deleteModalTarget, purgeModalTarget, viewMode])
+  }, [selectedIds.size, clearSelection, deleteModalTarget, purgeModalTarget, viewMode, editingId, handleCancelEdit])
 
   const handleRowSelect = useCallback(
     (node: DriveNode, index: number, e: React.MouseEvent) => {
@@ -1623,7 +2229,7 @@ export default function DrivePage() {
       )}
       {/* Popup d’aperçu fichier (clic sur une ligne fichier) */}
       {previewNode != null && !previewNode.is_folder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title" onClick={() => setPreviewNode(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title" onClick={closeDrivePreviewBackdrop}>
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-slate-200 dark:border-slate-600" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 p-6 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -1638,10 +2244,14 @@ export default function DrivePage() {
               <button type="button" onClick={() => setPreviewNode(null)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer"><X className="h-5 w-5" /></button>
             </div>
             <div className="px-6 pb-4 overflow-auto flex-1 min-h-0">
-              <FilePreviewContent node={previewNode} accessToken={accessToken} />
+              <FilePreviewContent
+                node={previewNode}
+                accessToken={accessToken}
+                previewEditorState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
+              />
             </div>
             <div className="p-6 pt-0 flex flex-wrap gap-2 shrink-0">
-              {EDITABLE_EXT.includes(getExtension(previewNode.name)) && (
+              {isOfficeIframePreviewName(previewNode.name) && (
                 <Link to={`/app/office/editor/${previewNode.id}`} state={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined} onClick={() => setPreviewNode(null)} className="inline-flex items-center justify-center p-2.5 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600" title="Ouvrir" aria-label="Ouvrir">
                   <Edit3 className="h-5 w-5" />
                 </Link>
@@ -1882,6 +2492,7 @@ export default function DrivePage() {
                         type="button"
                         onClick={() => singleNode && handleDownload(singleNode)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+                        title="Enregistrer une copie sur votre appareil (pas l’aperçu)"
                       >
                         <Download className="h-4 w-4" />
                         Télécharger

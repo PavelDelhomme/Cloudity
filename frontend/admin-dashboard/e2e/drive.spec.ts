@@ -307,7 +307,7 @@ test.describe('Drive (E2E)', () => {
       localStorage.setItem('cloudity_drive_display', 'grid')
     })
     // Route dédiée pour le contenu du fichier (prioritaire)
-    await page.route('**/drive/nodes/301/content', async (route) => {
+    await page.route('**/drive/nodes/301/content**', async (route) => {
       await route.fulfill({
         status: 200,
         body: 'Contenu aperçu E2E',
@@ -340,12 +340,70 @@ test.describe('Drive (E2E)', () => {
     await page.goto('/app/drive')
     await expect(page.getByRole('heading', { name: 'Drive' })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Aperçu.txt').first()).toBeVisible({ timeout: 8000 })
-    // Double-clic sur la carte (role=button) qui contient le nom du fichier
     const card = page.getByRole('button').filter({ hasText: 'Aperçu.txt' }).first()
-    await card.dblclick()
+    await card.click()
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
     await expect(page.getByRole('dialog').filter({ hasText: 'Aperçu.txt' })).toBeVisible({ timeout: 2000 })
     await expect(page.getByRole('button', { name: 'Fermer' }).first()).toBeVisible({ timeout: 2000 })
+  })
+
+  test('clic sur un PDF ouvre la modale avec zone d’aperçu', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('cloudity_drive_display', 'grid')
+    })
+    const minimalPdf = Buffer.from(
+      '%PDF-1.1\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n',
+      'utf8'
+    )
+    /* Une seule route : Playwright applique la dernière route enregistrée en premier ; éviter continue() vers l’API réelle pour /content. */
+    await page.route('**/drive/nodes**', async (route) => {
+      const req = route.request()
+      const url = req.url()
+      if (url.includes('trash')) {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) })
+        return
+      }
+      if (url.includes('/drive/nodes/302/content')) {
+        await route.fulfill({
+          status: 200,
+          body: minimalPdf,
+          headers: { 'Content-Type': 'application/pdf' },
+        })
+        return
+      }
+      if (req.method() === 'GET' && url.includes('/content')) {
+        await route.fulfill({ status: 404, body: 'not mocked' })
+        return
+      }
+      if (req.method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: 302,
+              tenant_id: 1,
+              user_id: 1,
+              parent_id: null,
+              name: 'E2E Aperçu.pdf',
+              is_folder: false,
+              size: minimalPdf.length,
+              mime_type: 'application/pdf',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          ]),
+        })
+        return
+      }
+      await route.continue()
+    })
+    await page.goto('/app/drive')
+    await expect(page.getByRole('heading', { name: 'Drive' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('E2E Aperçu.pdf').first()).toBeVisible({ timeout: 8000 })
+    await page.getByRole('button').filter({ hasText: 'E2E Aperçu.pdf' }).first().click()
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 })
+    await expect(page.getByTestId('drive-pdf-preview')).toBeVisible({ timeout: 8000 })
   })
 
   test.skip('suppression : créer un document, retour Drive, supprimer le fichier', async ({ page }) => {

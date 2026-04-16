@@ -168,6 +168,35 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setItems((prev) => prev.filter((it) => it.status !== 'done' && it.status !== 'error'))
   }, [])
 
+  const registerDownload = useCallback(
+    (label: string, task: () => Promise<{ blob: Blob; filename: string }>) => {
+      const id = genId()
+      setItems((prev) => [
+        ...prev,
+        { id, name: label, status: 'uploading', kind: 'download', parentId: null },
+      ])
+      task()
+        .then(({ blob, filename }) => {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = filename
+          a.rel = 'noopener'
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          URL.revokeObjectURL(url)
+          updateItem(id, { status: 'done', progress: 100, size: blob.size })
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'Erreur'
+          updateItem(id, { status: 'error', error: msg })
+          toast.error(`« ${label} » : ${msg}`)
+        })
+    },
+    [updateItem]
+  )
+
   const cancelConflict = useCallback((id: string) => {
     removeItem(id)
   }, [removeItem])
@@ -175,7 +204,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const replaceUpload = useCallback(
     (id: string) => {
       const it = itemsRef.current.find((i) => i.id === id)
-      if (!it || it.status !== 'conflict' || !it.file) return
+      if (!it || it.kind === 'download' || it.status !== 'conflict' || !it.file) return
       const file = it.file
       updateItem(id, { status: 'uploading', progress: 0 })
       uploadDriveFileWithProgress(accessToken!, it.parentId, file, (p) => updateItem(id, { progress: p }), true)
@@ -201,6 +230,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     clearDone,
     replaceUpload,
     cancelConflict,
+    registerDownload,
     driveParentId: driveParentIdState,
     setDriveParentId,
   }

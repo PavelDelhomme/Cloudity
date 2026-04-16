@@ -216,7 +216,7 @@ export default function OfficePage() {
                 <button
                   key={node.id}
                   type="button"
-                  onClick={() => navigate('/app/drive')}
+                  onClick={() => navigate('/app/drive', { state: { openDrivePreviewNode: node } })}
                   className={cardClass}
                 >
                   {inner}

@@ -4,7 +4,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Routes, Route } from 'react-router-dom'
 import { TestRouter } from '../../test-utils'
-import DocumentEditorPage, { EDITABLE_EXT, getExtension, isRich, isWordDocument } from './DocumentEditorPage'
+import DocumentEditorPage, { EDITABLE_EXT, getExtension, isRich, isWordDocument, isOfficeIframePreviewName } from './DocumentEditorPage'
 import { useAuth } from '../../authContext'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
@@ -318,5 +318,15 @@ describe('DocumentEditorPage helpers', () => {
     expect(isWordDocument('a.docx')).toBe(true)
     expect(isWordDocument('a.doc')).toBe(true)
     expect(isWordDocument('a.html')).toBe(false)
+  })
+
+  it('isOfficeIframePreviewName inclut éditable + ppt/pptx/rtf/htm et noms Présentation', () => {
+    expect(isOfficeIframePreviewName('a.docx')).toBe(true)
+    expect(isOfficeIframePreviewName('a.pptx')).toBe(true)
+    expect(isOfficeIframePreviewName('a.ppt')).toBe(true)
+    expect(isOfficeIframePreviewName('a.rtf')).toBe(true)
+    expect(isOfficeIframePreviewName('a.htm')).toBe(true)
+    expect(isOfficeIframePreviewName('Présentation sans titre.html')).toBe(true)
+    expect(isOfficeIframePreviewName('archive.zip')).toBe(false)
   })
 })

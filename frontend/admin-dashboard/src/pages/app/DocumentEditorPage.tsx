@@ -19,6 +19,10 @@ import {
 } from '../../api'
 
 const EDITABLE_EXT = ['.txt', '.md', '.html', '.csv', '.xlsx', '.doc', '.docx']
+
+/** Formats éditables + voisins ouvrables dans l’éditeur (aperçu Drive possible en iframe). */
+const OFFICE_IFRAME_PREVIEW_EXTRA_EXT = ['.htm', '.ppt', '.pptx', '.rtf'] as const
+
 const RICH_EXT = ['.html', '.docx', '.doc']
 const DOCX_EXT = '.docx'
 const DOC_EXT = '.doc'
@@ -26,6 +30,14 @@ const DOC_EXT = '.doc'
 function getExtension(name: string): string {
   const i = name.lastIndexOf('.')
   return i >= 0 ? name.slice(i).toLowerCase() : ''
+}
+
+/** Nom de fichier ouvrable dans l’éditeur / affichable en aperçu intégré Drive (iframe). */
+export function isOfficeIframePreviewName(name: string): boolean {
+  if (/présentation|\.pptx?$/i.test(name)) return true
+  const ext = getExtension(name)
+  if (EDITABLE_EXT.includes(ext)) return true
+  return (OFFICE_IFRAME_PREVIEW_EXTRA_EXT as readonly string[]).includes(ext)
 }
 
 function isRich(name: string): boolean {

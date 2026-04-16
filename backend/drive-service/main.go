@@ -20,6 +20,78 @@ import (
 
 const defaultPort = "8055"
 
+// mimeFromFileName complète le Content-Type quand la colonne mime_type est vide (uploads anciens ou clients sans MIME).
+func mimeFromFileName(name string) string {
+	switch strings.ToLower(path.Ext(name)) {
+	case ".pdf":
+		return "application/pdf"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
+	case ".bmp":
+		return "image/bmp"
+	case ".txt", ".log":
+		return "text/plain; charset=utf-8"
+	case ".md":
+		return "text/markdown; charset=utf-8"
+	case ".csv":
+		return "text/csv; charset=utf-8"
+	case ".html", ".htm":
+		return "text/html; charset=utf-8"
+	case ".css":
+		return "text/css; charset=utf-8"
+	case ".js", ".mjs", ".cjs":
+		return "text/javascript; charset=utf-8"
+	case ".json":
+		return "application/json; charset=utf-8"
+	case ".xml":
+		return "application/xml; charset=utf-8"
+	case ".mp4":
+		return "video/mp4"
+	case ".webm":
+		return "video/webm"
+	case ".ogv":
+		return "video/ogg"
+	case ".mp3":
+		return "audio/mpeg"
+	case ".wav":
+		return "audio/wav"
+	case ".ogg":
+		return "audio/ogg"
+	case ".m4a":
+		return "audio/mp4"
+	case ".mov":
+		return "video/quicktime"
+	case ".opus":
+		return "audio/opus"
+	case ".flac":
+		return "audio/flac"
+	case ".aac":
+		return "audio/aac"
+	case ".zip":
+		return "application/zip"
+	default:
+		return ""
+	}
+}
+
+func dispositionFilename(name string) string {
+	s := strings.ReplaceAll(name, `"`, "'")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "\n", " ")
+	if s == "" {
+		return "file"
+	}
+	return s
+}
+
 func setupRouter(db *sql.DB) *gin.Engine {
 	h := &Handler{db: db}
 	r := gin.Default()
@@ -582,10 +654,36 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 		return
 	}
 	ct := "application/octet-stream"
-	if mime.Valid && mime.String != "" {
-		ct = mime.String
+	if mime.Valid && strings.TrimSpace(mime.String) != "" {
+		ct = strings.TrimSpace(mime.String)
 	}
-	c.Header("Content-Disposition", "attachment; filename=\""+name+"\"")
+	if ct == "application/octet-stream" || ct == "" {
+		if inf := mimeFromFileName(name); inf != "" {
+			ct = inf
+		}
+	}
+	if len(content) >= 4 && string(content[0:4]) == "%PDF" {
+		ct = "application/pdf"
+	}
+	inlineParam := strings.ToLower(strings.TrimSpace(c.Query("inline")))
+	wantInline := inlineParam == "1" || inlineParam == "true" || inlineParam == "yes"
+	baseCT := ct
+	if i := strings.Index(baseCT, ";"); i > 0 {
+		baseCT = strings.TrimSpace(baseCT[:i])
+	}
+	previewable := strings.HasPrefix(baseCT, "text/") ||
+		strings.HasPrefix(baseCT, "video/") || strings.HasPrefix(baseCT, "audio/") ||
+		baseCT == "application/pdf" || baseCT == "application/json" || baseCT == "application/xml"
+	// image/* : inline seulement sur demande (?inline=1) pour éviter d’afficher des binaires lourds par erreur.
+	imagePreviewable := strings.HasPrefix(baseCT, "image/")
+	disp := "attachment"
+	if wantInline && (previewable || imagePreviewable) {
+		disp = "inline"
+	} else if baseCT == "application/pdf" {
+		// PDF : toujours proposer l’affichage inline (aperçu SPA, iframe blob). Le bouton Télécharger utilise fetch + a.download.
+		disp = "inline"
+	}
+	c.Header("Content-Disposition", disp+`; filename="`+dispositionFilename(name)+`"`)
 	c.Data(http.StatusOK, ct, content)
 }
 

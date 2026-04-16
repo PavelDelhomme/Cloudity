@@ -4,13 +4,16 @@ import { render, screen, fireEvent, act, waitFor, within } from '@testing-librar
 import { Routes, Route } from 'react-router-dom'
 import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import DrivePage from './DrivePage'
+import DrivePage, { renameBaseNameSelectionEnd } from './DrivePage'
 import AppLayout from '../../layouts/AppLayout'
 import { useAuth } from '../../authContext'
 import { UploadProvider } from '../../UploadProvider'
 import { DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../uploadContext'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
+vi.mock('../../utils/wordToHtml', () => ({
+  wordBlobToHtml: vi.fn(async () => '<p>Aperçu docx test</p>'),
+}))
 vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   fetchDriveTrash: vi.fn().mockResolvedValue([]),
@@ -219,8 +222,11 @@ describe('DrivePage', () => {
     const folderCard = screen.getByText('Dossier Parent').closest('[role="button"]')
     expect(folderCard).toBeTruthy()
     await act(async () => {
-      fireEvent.doubleClick(folderCard as HTMLElement)
-      await new Promise((r) => setTimeout(r, 100))
+      fireEvent.click(folderCard as HTMLElement)
+    })
+    // Ouverture dossier : debounce (DRIVE_FOLDER_OPEN_DEBOUNCE_MS) puis navigation.
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 350))
     })
     await waitFor(() => expect(screen.getByText(/Aucun fichier ni dossier ici/)).toBeTruthy(), { timeout: 3000 })
     await act(async () => {
@@ -482,7 +488,7 @@ describe('DrivePage', () => {
       await waitFor(() => expect(screen.getByText(/Déplacer dans la corbeille \?/)).toBeTruthy())
     })
 
-    it('vue grille: clic sur une carte sélectionne et affiche la barre de sélection', async () => {
+    it('vue grille: double-clic sur une carte dossier sélectionne et affiche la barre de sélection (clic simple ouvre le dossier)', async () => {
       const { fetchDriveNodes } = await import('../../api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = {}
@@ -495,7 +501,7 @@ describe('DrivePage', () => {
       expect(screen.getByText('Tout sélectionner')).toBeTruthy()
       const card = screen.getByText('Mon dossier').closest('[role="button"]')
       expect(card).toBeTruthy()
-      if (card) fireEvent.click(card as HTMLElement)
+      if (card) fireEvent.doubleClick(card as HTMLElement)
       await waitFor(() => expect(screen.getByText(/1 élément\(s\) sélectionné\(s\)/)).toBeTruthy())
     })
 
@@ -538,9 +544,12 @@ describe('DrivePage', () => {
       }, { timeout: 2000 })
     })
 
-    it('vue grille: double-clic sur une carte fichier ouvre la modale d\'aperçu', async () => {
-      const { fetchDriveNodes } = await import('../../api')
-      vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
+    it('vue grille: clic sur une carte fichier ouvre la modale d\'aperçu', async () => {
+      const api = await import('../../api')
+      vi.mocked(api.fetchDriveNodes).mockResolvedValue([mockFile as never])
+      vi.mocked(api.downloadDriveFile).mockResolvedValue(
+        new Blob(['x'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+      )
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: () => null, setItem: () => {} },
         writable: true,
@@ -550,10 +559,15 @@ describe('DrivePage', () => {
       const card = screen.getByText('Doc.docx').closest('[role="button"]')
       expect(card).toBeTruthy()
       if (card) {
-        fireEvent.doubleClick(card as HTMLElement)
+        fireEvent.click(card as HTMLElement)
       }
       await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
-      expect(within(screen.getByRole('dialog')).getByText('Doc.docx')).toBeTruthy()
+      const dialog = screen.getByRole('dialog')
+      expect(within(dialog).getByText('Doc.docx')).toBeTruthy()
+      const editLink = within(dialog).getByRole('link', { name: /Éditer dans Office/ })
+      expect(editLink.getAttribute('href')).toContain('/app/office/editor/2')
+      await waitFor(() => expect(within(dialog).getByTestId('drive-office-preview')).toBeTruthy())
+      expect(within(dialog).getByTestId('drive-office-preview').textContent).toMatch(/Aperçu docx test/)
     })
 
     it.skip('vue grille: menu Corbeille ouvre la modale de confirmation', async () => {
@@ -617,9 +631,12 @@ describe('DrivePage', () => {
       expect(screen.queryByText('Tout sélectionner')).toBeNull()
     })
 
-    it('clic sur un fichier ouvre la modale d\'aperçu avec métadonnées', async () => {
-      const { fetchDriveNodes } = await import('../../api')
-      vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
+    it('clic sur un fichier (vue liste) ouvre la modale d\'aperçu avec métadonnées', async () => {
+      const api = await import('../../api')
+      vi.mocked(api.fetchDriveNodes).mockResolvedValue([mockFile as never])
+      vi.mocked(api.downloadDriveFile).mockResolvedValue(
+        new Blob(['x'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+      )
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: (k: string) => storage[k] ?? null, setItem: (k: string, v: string) => { storage[k] = v } },
@@ -635,6 +652,9 @@ describe('DrivePage', () => {
       await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy())
       const dialog = screen.getByRole('dialog')
       expect(within(dialog).getByText('Doc.docx')).toBeTruthy()
+      const editLink = within(dialog).getByRole('link', { name: /Éditer dans Office/ })
+      expect(editLink.getAttribute('href')).toContain('/app/office/editor/2')
+      await waitFor(() => expect(within(dialog).getByTestId('drive-office-preview')).toBeTruthy())
       expect(within(dialog).getAllByRole('button', { name: 'Fermer' }).length).toBeGreaterThanOrEqual(1)
     })
   })
@@ -724,5 +744,17 @@ describe('DrivePage', () => {
       await waitFor(() => expect(screen.getByText('Supprimé.docx')).toBeTruthy(), { timeout: 3000 })
       expect(screen.getByText('Supprimé le')).toBeTruthy()
     })
+  })
+})
+
+describe('renameBaseNameSelectionEnd', () => {
+  it('coupe avant la dernière extension', () => {
+    expect(renameBaseNameSelectionEnd('doc.docx')).toBe(3)
+    expect(renameBaseNameSelectionEnd('archive.tar.gz')).toBe(11)
+  })
+  it('sans extension ou dotfile : longueur entière', () => {
+    expect(renameBaseNameSelectionEnd('README')).toBe(6)
+    expect(renameBaseNameSelectionEnd('Dossier')).toBe(7)
+    expect(renameBaseNameSelectionEnd('.env')).toBe(4)
   })
 })

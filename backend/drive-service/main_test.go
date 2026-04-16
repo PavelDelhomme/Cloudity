@@ -6,6 +6,25 @@ import (
 	"testing"
 )
 
+func TestMimeFromFileName(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"doc.pdf", "application/pdf"},
+		{"X.PDF", "application/pdf"},
+		{"a.png", "image/png"},
+		{"b.Mp4", "video/mp4"},
+		{"noext", ""},
+	}
+	for _, tc := range tests {
+		got := mimeFromFileName(tc.name)
+		if got != tc.want {
+			t.Errorf("mimeFromFileName(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestHealth(t *testing.T) {
 	r := setupRouter(nil)
 	w := httptest.NewRecorder()
