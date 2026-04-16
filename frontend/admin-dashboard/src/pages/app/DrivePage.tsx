@@ -1560,9 +1560,19 @@ const DriveToolbar = React.memo(function DriveToolbar({
             )}
           </nav>
         )}
-        <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-          {viewMode === 'trash' ? 'Corbeille' : viewMode === 'recent' ? 'Récents' : 'Drive'}
-        </h1>
+        {(viewMode === 'trash' || viewMode === 'recent') && (
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            {viewMode === 'trash' ? 'Corbeille' : 'Récents'}
+          </h1>
+        )}
+        {viewMode === 'drive' && breadcrumb.length <= 1 && (
+          <h1 className="sr-only">Drive</h1>
+        )}
+        {viewMode === 'drive' && breadcrumb.length > 1 && (
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
+            {breadcrumb[breadcrumb.length - 1]?.name ?? 'Dossier'}
+          </h1>
+        )}
         {viewMode === 'trash' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Fichiers et dossiers supprimés — restaurez ou supprimez définitivement.
@@ -1760,10 +1770,23 @@ export default function DrivePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const viewFromUrl = searchParams.get('view') === 'trash' ? 'trash' : searchParams.get('view') === 'recent' ? 'recent' : 'drive'
   const [viewMode, setViewModeState] = useState<'drive' | 'trash' | 'recent'>(viewFromUrl)
-  const setViewMode = useCallback((mode: 'drive' | 'trash' | 'recent') => {
-    setViewModeState(mode)
-    setSearchParams(mode === 'trash' ? { view: 'trash' } : mode === 'recent' ? { view: 'recent' } : {}, { replace: true })
-  }, [setSearchParams])
+  const setViewMode = useCallback(
+    (mode: 'drive' | 'trash' | 'recent') => {
+      setViewModeState(mode)
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams()
+          if (mode === 'trash') n.set('view', 'trash')
+          else if (mode === 'recent') n.set('view', 'recent')
+          const q = prev.get('q')
+          if (q) n.set('q', q)
+          return n
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
   useEffect(() => {
     setViewModeState(viewFromUrl)
   }, [viewFromUrl])
@@ -1866,7 +1889,6 @@ export default function DrivePage() {
     [recentCalendarGroups]
   )
   const nodes = viewMode === 'drive' ? (data ?? []) : viewMode === 'trash' ? (trashData ?? []) : recentFlatOrdered
-  const totalCount = nodes.length
   const sortedNodes = React.useMemo(() => {
     if (viewMode === 'recent') return [...nodes]
     const arr = [...nodes]
@@ -1892,7 +1914,14 @@ export default function DrivePage() {
     })
     return arr
   }, [nodes, viewMode, sortBy, sortOrder])
-  const displayNodes = sortedNodes.slice(0, visibleCount)
+  const driveNameQuery = (searchParams.get('q') ?? '').trim()
+  const driveNameQueryLower = driveNameQuery.toLowerCase()
+  const sortedNodesFiltered = React.useMemo(() => {
+    if (!driveNameQueryLower || viewMode !== 'drive') return sortedNodes
+    return sortedNodes.filter((n) => n.name.toLowerCase().includes(driveNameQueryLower))
+  }, [sortedNodes, driveNameQueryLower, viewMode])
+  const totalCount = sortedNodesFiltered.length
+  const displayNodes = sortedNodesFiltered.slice(0, visibleCount)
   const displayNodeIdSet = useMemo(() => new Set(displayNodes.map((n) => n.id)), [displayNodes])
   const hasMore = totalCount > visibleCount
 
@@ -1906,7 +1935,7 @@ export default function DrivePage() {
     setListReady(false)
     setSelectedIds(new Set())
     setLastClickedIndex(null)
-  }, [currentParentId, viewMode])
+  }, [currentParentId, viewMode, driveNameQuery])
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set())
@@ -2511,8 +2540,8 @@ export default function DrivePage() {
       />
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[200px] max-h-[calc(100dvh-11rem)]">
-        <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2 shrink-0">
-          <HardDrive className="h-5 w-5 text-slate-400" />
+        <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex flex-wrap items-center gap-2 shrink-0">
+          <HardDrive className="h-5 w-5 text-slate-400 shrink-0" />
           <span className="font-medium text-slate-700 dark:text-slate-300">
             {viewMode === 'recent'
               ? 'Récents'
@@ -2520,6 +2549,25 @@ export default function DrivePage() {
                 ? 'Racine'
                 : breadcrumb[breadcrumb.length - 1]?.name}
           </span>
+          {viewMode === 'drive' && driveNameQuery ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/40 px-2.5 py-0.5 text-xs font-medium text-brand-800 dark:text-brand-200">
+              Filtre : « {driveNameQuery} »
+              <button
+                type="button"
+                className="ml-0.5 rounded p-0.5 hover:bg-brand-100 dark:hover:bg-brand-800/80"
+                aria-label="Effacer le filtre de recherche"
+                onClick={() => {
+                  setSearchParams((prev) => {
+                    const n = new URLSearchParams(prev)
+                    n.delete('q')
+                    return n
+                  })
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ) : null}
         </div>
         <div
           className={`relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 transition-colors ${dragOver ? 'bg-brand-50 dark:bg-brand-900/30 ring-2 ring-brand-300 dark:ring-brand-600 ring-inset' : ''}`}
@@ -2803,6 +2851,27 @@ export default function DrivePage() {
             </>
           ) : (
             <>
+              {viewMode === 'drive' && driveNameQuery && totalCount === 0 && nodes.length > 0 && (
+                <div
+                  className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-900/25 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100"
+                  role="status"
+                >
+                  <span>Aucun résultat pour « {driveNameQuery} » dans ce dossier.</span>
+                  <button
+                    type="button"
+                    className="font-medium text-blue-700 dark:text-blue-300 hover:underline"
+                    onClick={() => {
+                      setSearchParams((prev) => {
+                        const n = new URLSearchParams(prev)
+                        n.delete('q')
+                        return n
+                      })
+                    }}
+                  >
+                    Effacer le filtre
+                  </button>
+                </div>
+              )}
               {viewMode === 'drive' && selectedIds.size > 0 && (
                 <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-700">
                   <span className="text-sm font-medium text-brand-800 dark:text-brand-200">

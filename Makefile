@@ -32,9 +32,9 @@ help: ## Affiche ce message d'aide
 	@echo '  make rebuild   - Reconstruit tous les services, redémarre et applique les migrations (tout-en-un)'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
-	@echo '  make test       - Tests unitaires/applicatifs (Go, pytest, Vitest) — sans E2E'
+	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité (make test, test-e2e, test-e2e-playwright, test-security), rapport dans reports/'
-	@echo '  make test-dashboard - Tests Vitest du dashboard uniquement (sans Docker, rapide). Pour tout: make test.'
+	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
 	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
@@ -46,7 +46,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make status-watch - Rafraîchit le statut toutes les 10 s (commande watch)'
 	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security (stack up + make seed-admin)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
-	@echo '  make test-docker - Même batterie que test mais exécutée dans les conteneurs (make up avant)'
+	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
 	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
 	@echo '  make logs       - Logs de tous les services en temps réel'
 	@echo ''
@@ -200,39 +200,47 @@ build-admin: ## Build uniquement le service admin
 build-dashboard: ## Build uniquement le dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) build admin-dashboard
 
-# make test = unitaires + applicatifs uniquement (PAS les E2E). E2E = make test-e2e (après make up).
+# make test = unitaires + applicatifs uniquement (PAS les E2E), **dans Docker** (sauf Playwright E2E = host).
 # Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
 # et vous laissent dans la racine à la fin, avec code de sortie 0 (succès) ou 1 (échec).
-test: ## Lance tous les tests unitaires/applicatifs (Go, pytest, Vitest). Ne lance pas les E2E.
-	@echo "🧪 Tests unitaires / applicatifs..."
+test: ## Tests dans Docker : Go via compose run --no-deps ; admin-service pytest avec Postgres (deps) ; Vitest dashboard --no-deps. Prérequis: Docker. Pas d’E2E.
+	@echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible (démarrer le démon Docker)."; exit 1; fi
 	@echo "  [auth-service]"
-	@(cd backend/auth-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps auth-service go test -v -count=1 ./... || exit 1
 	@echo "  [api-gateway]"
-	@(cd backend/api-gateway && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps api-gateway go test -v -count=1 ./... || exit 1
 	@echo "  [password-manager]"
-	@(cd backend/password-manager && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps password-manager go test -v -count=1 ./... || exit 1
 	@echo "  [mail-directory-service]"
-	@(cd backend/mail-directory-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
 	@echo "  [calendar-service]"
-	@(cd backend/calendar-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps calendar-service go test -v -count=1 ./... || exit 1
 	@echo "  [notes-service]"
-	@(cd backend/notes-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps notes-service go test -v -count=1 ./... || exit 1
 	@echo "  [tasks-service]"
-	@(cd backend/tasks-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps tasks-service go test -v -count=1 ./... || exit 1
 	@echo "  [photos-service]"
-	@(cd backend/photos-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps photos-service go test -v -count=1 ./... || exit 1
 	@echo "  [drive-service]"
-	@(cd backend/drive-service && go test -v -count=1 ./...) || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps drive-service go test -v -count=1 ./... || exit 1
 	@echo "  [admin-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
+	@if $(COMPOSE) $(COMPOSE_FILES) ps -q admin-service 2>/dev/null | grep -q .; then \
+		echo "    → exec dans admin-service (stack déjà up, évite un 2e Postgres sur le port hôte)"; \
+		$(COMPOSE) $(COMPOSE_FILES) exec -T admin-service python -m pytest tests/ -v --tb=short || exit 1; \
+	else \
+		echo "    → compose run (démarre Postgres / Redis / migrate pour pytest)"; \
+		$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1; \
+	fi
 	@echo "  [admin-dashboard]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tous les tests sont passés."
 
-# Tests Vitest du dashboard uniquement (sans Docker). Utile pour itérer rapidement. Pour tout lancer: make test.
-test-dashboard: ## Lance les tests unitaires du dashboard (Vitest). Prérequis: cd frontend/admin-dashboard && npm install
-	@echo "🧪 Tests dashboard (Vitest)..."
-	@(cd frontend/admin-dashboard && npm run test) || exit 1
+# Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
+test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-deps)
+	@echo "🧪 Tests dashboard (Vitest via Docker)..."
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps admin-dashboard sh -c "npm install && npm run test" || exit 1
 	@echo "✅ Tests dashboard OK."
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
@@ -270,8 +278,8 @@ test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@chmod +x scripts/test-security.sh
 	@./scripts/test-security.sh
 
-test-docker: ## Lance les tests dans les conteneurs (make up avant). Même batterie que make test.
-	@echo "🧪 Tests dans les conteneurs..."
+test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). Pytest/Vitest en run. Vérifie les binaires en cours d’exécution.
+	@echo "🧪 Tests dans les conteneurs déjà up (exec Go + run admin)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T auth-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T api-gateway go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T password-manager go test -v ./... || exit 1
@@ -281,8 +289,8 @@ test-docker: ## Lance les tests dans les conteneurs (make up avant). Même batte
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T tasks-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T photos-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T drive-service go test -v ./... || exit 1
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm admin-dashboard sh -c "npm install && npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T admin-service python -m pytest tests/ -v --tb=short || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T admin-dashboard sh -c "cd /app && npm install && npm run test" || exit 1
 	@echo "✅ Tests Docker terminés."
 
 test-full: test-all test-docker ## TOUT + tests dans les conteneurs (make up avant, puis 20-30 s)

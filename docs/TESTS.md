@@ -1,6 +1,6 @@
 # CLOUDITY — Référence des tests
 
-**Objectif** : tout tester (API, frontend, E2E). Les tests unitaires/applicatifs passent par **`make test`**. Les E2E sont **à part** : **`make test-e2e`** (après `make up`).
+**Objectif** : tout tester (API, frontend, E2E). Les tests unitaires/applicatifs passent par **`make test`**, exécutés **dans les images Docker** (même environnement que la stack). Les E2E sont **à part** : **`make test-e2e`** (après `make up`).
 
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
 
@@ -15,13 +15,13 @@
 
 | Commande | Rôle |
 |----------|------|
-| **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E). Lance : auth-service, api-gateway, password-manager (Go), admin-service (pytest), admin-dashboard (Vitest). À lancer avant chaque merge/feature. |
+| **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **admin-dashboard** : `compose run --no-deps` + Vitest. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make tests`** | **TOUT** : unit/app + E2E (health/proxy) + **E2E Playwright** (navigateur) + sécurité. Génère un rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, attendre 20-30 s. |
 | **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
 | **`make test-all`** | Même enchaînement que **`make tests`** (test + test-e2e + test-e2e-playwright + test-security) mais sans rapport fichier. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
-| **`make test-docker`** | Même batterie que `make test` mais exécutée dans les conteneurs (après `make up`). |
+| **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
@@ -42,16 +42,21 @@
 
 ---
 
-## 2. Ce que `make test` exécute (référence)
+## 2. Ce que `make test` exécute (référence — **Docker**)
+
+Tous les services listés ci‑dessous sont invoqués via **`docker compose run`** (Go avec **`--no-deps`**) depuis la racine du dépôt (`docker-compose.yml`). Les tests **Go** n’ont pas besoin que la stack soit démarrée au préalable.
 
 | Service | Type | Commande | Fichiers | Nombre de tests |
 |---------|------|----------|----------|------------------|
-| **auth-service** | API (Go) | `go test ./...` | `backend/auth-service/main_test.go` | 15 |
-| **api-gateway** | API (Go) | `go test ./...` | `backend/api-gateway/main_test.go` | 8 |
-| **password-manager** | API (Go) | `go test ./...` | `backend/password-manager/main_test.go` | 3 |
-| **mail-directory-service** | API (Go) | `go test ./...` | `backend/mail-directory-service/main_test.go` | 8 |
-| **photos-service** | API (Go) | `go test ./...` | `backend/photos-service/main_test.go` | 2 |
-| **drive-service** | API (Go) | `go test ./...` | `backend/drive-service/main_test.go` | 5 |
+| **auth-service** | API (Go) | `go test ./...` (image Docker) | `backend/auth-service/main_test.go` | 15 |
+| **api-gateway** | API (Go) | idem | `backend/api-gateway/main_test.go` | 8 |
+| **password-manager** | API (Go) | idem | `backend/password-manager/main_test.go` | 3 |
+| **mail-directory-service** | API (Go) | idem | `backend/mail-directory-service/main_test.go` | 8 |
+| **calendar-service** | API (Go) | idem | `backend/calendar-service/main_test.go` | 2 |
+| **notes-service** | API (Go) | idem | `backend/notes-service/main_test.go` | 2 |
+| **tasks-service** | API (Go) | idem | `backend/tasks-service/main_test.go` | 2 |
+| **photos-service** | API (Go) | idem | `backend/photos-service/main_test.go` | 2 |
+| **drive-service** | API (Go) | idem | `backend/drive-service/main_test.go` | 5 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
 | **admin-dashboard** | Frontend (Vitest) | `npm run test` | **25 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~199** (+ 3 skippés) |
 
@@ -63,7 +68,7 @@
 
 **« [no test files] »** : Lors de **`go test ./...`**, les sous-packages qui n’ont **aucun** fichier `*_test.go` (ex. `.../cmd`) affichent une ligne du type **`?   github.com/pavel/cloudity/api-gateway/cmd   [no test files]`**. C’est **normal** : Go indique simplement qu’il n’y a pas de tests dans ce package. Ces packages ne sont pas comptés dans le nombre de tests ; seuls les packages contenant des `*_test.go` exécutent des tests. Aucune action requise.
 
-**Erreurs proxy lors de `make test` ou `make up-full`** : Les tests de l’**api-gateway** (TestAuthPrefixRouted, TestAdminPrefixRouted, TestPassPrefixRouted, TestMailPrefixRouted) lancent un **vrai** serveur gateway qui **proxye** les requêtes vers auth-service, admin-service, password-manager, mail-directory-service. Ces tests s’exécutent **sur la machine hôte** (pas dans Docker). Les noms d’hôte `auth-service`, `admin-service`, `password-manager`, `mail-directory-service` n’existent que dans le **réseau Docker**, donc le gateway obtient par exemple **`http: proxy error: dial tcp: lookup auth-service: no such host`**. Les tests **passent quand même** (PASS) car ils vérifient que le gateway **route** correctement et répond (routage, CORS, méthode), pas que le backend distant soit joignable. Pour éviter ces messages en local, on peut lancer les tests **dans** les conteneurs : **`make test-docker`** (après **`make up`**).
+**Messages proxy / « no such host » pendant `make test` (api-gateway)** : les tests (`TestAuthPrefixRouted`, etc.) lancent le **handler** gateway dans le **conteneur** `api-gateway` avec **`--no-deps`** : les autres microservices ne sont **pas** démarrés sur le réseau du projet, donc le reverse proxy peut journaliser des erreurs de connexion vers `auth-service`, `mail-directory-service`, etc. Les tests **passent** car ils vérifient surtout l’**absence de 404** sur les préfixes routés. Pour un test **contre la stack réelle**, utiliser **`make test-docker`** après **`make up`** (**`exec`** dans les conteneurs déjà liés).
 
 **`db-migrate` (exit 1) pendant `make test` (admin-service) ou `make test-security` (safety)** : le script **`scripts/migrate-db.sh`** retente la connexion **PostgreSQL** jusqu’à ~30 s (réseau Docker au démarrage). Si l’échec persiste, consulter **`docker compose logs db-migrate`** ou lancer **`docker compose run --rm db-migrate`** pour voir l’erreur SQL exacte (`psql`). En local, vérifier que **`cloudity-postgres`** est **healthy** avant les tests.
 

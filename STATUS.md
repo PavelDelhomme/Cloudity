@@ -39,32 +39,21 @@
 
 | Commande | Rôle |
 |----------|------|
-| **`make test`** | Lance **uniquement** les tests unitaires + applicatifs (Go, pytest, Vitest). **Ne lance pas les E2E.** À exécuter avant chaque merge/feature. |
+| **`make test`** | Tests unitaires + applicatifs **dans Docker** (`compose run` / `exec`). **Ne lance pas les E2E.** Docker requis ; voir **TESTS.md**. |
 | **`make test-e2e`** | **Tests E2E à part** : vérifie que les services répondent (health, gateway proxy). **Prérequis : `make up`** avant, puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make test-all`** | Lance **`make test`** puis **`make test-e2e`** (tout en une commande ; E2E échouera si la stack n'est pas up). |
 | **`make test-security`** | Audits de dépendances (npm, pip safety, govulncheck) + checks auth (401 sans token / token invalide sur `/auth/validate`). |
-| **`make test-docker`** | Même batterie que make test mais **dans** les conteneurs (make up avant). |
+| **`make test-docker`** | **`exec`** dans la stack **déjà démarrée** (`make up`) — vérifie les binaires en cours d’exécution. |
 | **`make test-full`** | test-all + test-docker (tout, stack up requise). |
 
 **Important** : Pour **tout** vérifier (unit/app + E2E + sécurité) : **`make up`**, attendre 20-30 s, puis **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
 **Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
-**Ce que `make test` exécute :**
-- **auth-service** (Go) : `go test ./...` → health, hash, JWT, register, login, validate, refresh, 2FA enable/verify (dont code invalide), **écriture public.pem si clé générée** → **15 tests**.
-- **api-gateway** (Go) : `go test ./...` → health, routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **CORS** → **7 tests**.
-- **password-manager** (Go) : `go test ./...` → health, auth requis pour `/pass/vaults` → **3 tests**.
-- **mail-directory-service** (Go) : `go test ./...` → health, `/mail/health`, `/mail/domains` sans X-Tenant-ID → 401, X-Tenant-ID invalide → 401 → **4 tests**.
-- **drive-service** (Go) : `go test ./...` → health, GET /drive/nodes sans X-User-ID → 401 → **2 tests**.
-- **admin-service** (Python) : `pytest tests/` → **21 tests**.
-- **admin-dashboard** (Vitest) : **19 fichiers**, **133 tests** (dont DrivePage 27, DocumentEditorPage 13, AppLayout 3, App 8, Login 3, api 38, etc.).
-
-**Total : 133 tests** (make test) — tous passent au 2026-03-05.
-
-**Détail des tests et liste des tests à faire** : voir **[docs/TESTS.md](./docs/TESTS.md)**.
+**Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **admin-dashboard** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État des tests (mars 2026)** : **Tous les tests passent** (`make test` → 133 tests, 19 fichiers frontend). Éditeur : modales **maison** pour Lien, Tableau et « Quitter sans enregistrer » (plus de popup natives) ; tests unitaires DocumentEditorPage (modales Lien/Tableau/Quitter). E2E Playwright : **nettoyage** après création (Drive : suppression fichier téléversé, suppression dossier créé en test breadcrumb) ; **nouveaux scénarios** éditeur (ouverture par URL mockée, modales Lien/Tableau/Quitter). `make up` + `make seed-admin` puis **`make test-e2e-playwright`**.
+**État des tests** : lancer **`make test`** (Docker) avant merge ; chiffres à jour dans **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
 
 **Ordre des applications (priorité ajustée avril 2026)** : 1) **Photos** (libérer l’espace type Google Photos : API + web + mobile + sync sobre) — voir **`docs/PHOTOS.md`** ; 2) **Mail** (client riche, tri, alias, archivage) ; 3) **Contacts** ; 4) **Pass** (style Proton) ; puis Office/Éditeur, Calendar, Notes, Tasks selon **`docs/ROADMAP.md`**. Détail § 1b.
 

@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../authContext'
 import { UploadProvider, DriveUploadInputs } from '../UploadProvider'
 import { UploadOverlay } from '../components/UploadOverlay'
+import GlobalSearchPalette from '../components/GlobalSearchPalette'
 import { NotificationsProvider, useNotifications } from '../notificationsContext'
 import { formatRelativeDate } from '../utils/formatDate'
 
@@ -338,7 +339,10 @@ export default function AppLayout() {
               ))}
               </nav>
             </div>
-            <NotificationBell />
+            <div className="flex items-center gap-0.5 shrink-0">
+              <GlobalSearchPalette />
+              <NotificationBell />
+            </div>
           </div>
           <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
             <Outlet />
