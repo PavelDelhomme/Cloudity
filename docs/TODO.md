@@ -4,6 +4,7 @@
 
 ## Priorités actuelles
 
+- **Drive** : vue **Récents** (plein écran) avec regroupement **jour + heure**, grille/liste, API `recent` jusqu’à 500 entrées (fichiers + dossiers) ; aperçu modale Office/PDF stabilisé (token ref). **À suivre** : E2E Récents, PPT binaire côté serveur (voir SYNC-BACKLOG §3b).
 - **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
 - **Calendrier** : vue mois type Google + plusieurs agendas (`user_calendars`) — fait (base + UI). Reste : semaine/jour, invitations, lien Drive.
 - **Contacts** : liste + fiche + recherche + lien Mail — fait. Reste : groupes, import/export.

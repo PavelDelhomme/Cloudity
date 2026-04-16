@@ -36,6 +36,8 @@
 - **E2E Playwright** : les scénarios Drive qui créent des dossiers ou téléversent des fichiers **mockent l’API** (route `**/drive/nodes**`) pour ne pas créer de ressources réelles. Le test « Téléverser : file chooser » envoie un fichier vers l’API ; **si l’API est réelle, un fichier peut être créé**. Pour éviter tout fichier résiduel en CI, mocker dans ce test les requêtes POST (création nœud) et PUT (contenu) vers `/drive/nodes` (voir exemples dans les autres tests du fichier).  
 - Si vous lancez des E2E contre l’API réelle (sans mocks), des dossiers/fichiers peuvent être créés ; dans ce cas, un nettoyage manuel ou un script post-test peut être nécessaire (non fourni par défaut).
 
+**Drive — Récents / aperçu** : Vitest `DrivePage.test.tsx` (section Récents, ruban racine `fetchDriveRecentFiles` avec limite **24** ; navigation vue Récents). E2E : ajouter plus tard un scénario « vue Récents + grille » si besoin CI.
+
 ---
 
 ## 2. Ce que `make test` exécute (référence)

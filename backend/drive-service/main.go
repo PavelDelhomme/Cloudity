@@ -273,13 +273,13 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 	}
 	limitStr := c.DefaultQuery("limit", "20")
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 || limit > 100 {
+	if err != nil || limit < 1 || limit > 500 {
 		limit = 20
 	}
 	rows, err := h.db.Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
-		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		ORDER BY updated_at DESC NULLS LAST, id DESC
 		LIMIT $1
 	`, limit)

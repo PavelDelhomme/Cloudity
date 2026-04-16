@@ -10,6 +10,7 @@ import {
   FileText,
   Upload,
   ChevronRight,
+  ChevronLeft,
   ChevronUp,
   ChevronDown,
   FolderPlus,
@@ -35,7 +36,7 @@ import {
 import { useAuth } from '../../authContext'
 import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../uploadContext'
 import { formatFileSize } from '../../utils/formatFileSize'
-import { formatRelativeDate, formatFullDate, formatRecentGroupLabel, formatRelativeDateWithTime } from '../../utils/formatDate'
+import { formatRelativeDate, formatFullDate, formatRelativeDateWithTime } from '../../utils/formatDate'
 import {
   fetchDriveNodes,
   fetchDriveTrash,
@@ -57,20 +58,139 @@ import {
   type DriveZipEntry,
 } from '../../api'
 import { getExtension, isOfficeIframePreviewName, isWordDocument } from '../app/DocumentEditorPage'
+import { parseCsvToGrid } from '../../utils/csvGrid'
+import { markdownToHtml } from '../../utils/htmlMarkdown'
 
-const OFFICE_PREVIEW_MAX_ROWS = 200
-const OFFICE_PREVIEW_MAX_COLS = 40
+/** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
+const OFFICE_PREVIEW_MAX_ROWS = 5000
+const OFFICE_PREVIEW_MAX_COLS = 512
 
 type OfficeDrivePreview =
   | { phase: 'idle' }
   | { phase: 'loading' }
   | { phase: 'html'; html: string }
+  | { phase: 'slides'; slides: string[] }
   | { phase: 'spreadsheet'; grid: string[][] }
   | { phase: 'plaintext'; text: string }
   | { phase: 'error' }
 
 function sliceOfficePreviewGrid(grid: string[][]): string[][] {
   return grid.slice(0, OFFICE_PREVIEW_MAX_ROWS).map((row) => row.slice(0, OFFICE_PREVIEW_MAX_COLS))
+}
+
+/** Présentation éditeur (.pptx, nom « Présentation », etc.) — même heuristique que l’éditeur. */
+function isDrivePresentationFileName(name: string): boolean {
+  return /présentation|\.pptx?$/i.test(name)
+}
+
+/** Découpe le HTML stocké (séparateurs &lt;hr&gt; ou blocs h1) en diapos pour l’aperçu Drive. */
+function drivePreviewSlidesFromHtml(html: string): string[] {
+  if (!html?.trim()) return ['<p></p>']
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  const body = doc.body
+  const slides: string[] = []
+  let current: string[] = []
+  const flush = () => {
+    if (current.length) {
+      slides.push(current.join(''))
+      current = []
+    }
+  }
+  for (const n of body.childNodes) {
+    if (n.nodeType !== Node.ELEMENT_NODE) {
+      if (n.textContent?.trim()) current.push(n.textContent)
+      continue
+    }
+    const el = n as Element
+    if (el.tagName === 'HR') {
+      flush()
+      continue
+    }
+    if (el.tagName === 'H1' && current.length > 0) {
+      flush()
+    }
+    current.push((el as Element).outerHTML)
+  }
+  flush()
+  return slides.length ? slides : ['<p></p>']
+}
+
+function DriveSpreadsheetPreviewTable({ grid, testId }: { grid: string[][]; testId?: string }) {
+  const view = sliceOfficePreviewGrid(grid)
+  return (
+    <div
+      data-testid={testId}
+      className="max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm"
+    >
+      <table className="w-full text-xs border-collapse">
+        <tbody>
+          {view.map((row, ri) => (
+            <tr
+              key={ri}
+              className={`border-b border-slate-200 dark:border-slate-600 ${
+                ri === 0 ? 'bg-slate-100 dark:bg-slate-800/80 font-medium text-slate-900 dark:text-slate-100' : ri % 2 === 1 ? 'bg-slate-50/90 dark:bg-slate-800/40' : ''
+              }`}
+            >
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className="border-r border-slate-100 dark:border-slate-700 px-2 py-1.5 text-slate-800 dark:text-slate-200 max-w-[180px] truncate align-top"
+                  title={cell}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function DrivePresentationSlidePreview({ slides, toolbar }: { slides: string[]; toolbar: React.ReactNode }) {
+  const [idx, setIdx] = React.useState(0)
+  React.useEffect(() => {
+    setIdx(0)
+  }, [slides])
+  const safe = slides.length ? slides : ['<p></p>']
+  const i = Math.min(Math.max(0, idx), safe.length - 1)
+  const html = safe[i] ?? '<p></p>'
+  return (
+    <div className="mt-4 flex flex-col gap-3 min-h-[200px] max-h-[68vh]">
+      {toolbar}
+      <div className="flex flex-wrap items-center justify-between gap-2 shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 px-2 py-1.5">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Diapositive précédente"
+            disabled={i <= 0}
+            onClick={() => setIdx((x) => Math.max(0, x - 1))}
+            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Diapositive suivante"
+            disabled={i >= safe.length - 1}
+            onClick={() => setIdx((x) => Math.min(safe.length - 1, x + 1))}
+            className="p-1.5 rounded-md border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+          Diapositive {i + 1} / {safe.length}
+        </span>
+      </div>
+      <div
+        data-testid="drive-office-preview"
+        className="min-h-[220px] max-h-[52vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-6 shadow-inner prose dark:prose-invert prose-sm max-w-none text-slate-900 dark:text-slate-100 [&_img]:max-w-full [&_table]:text-sm"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    </div>
+  )
 }
 
 /** Délai avant d’ouvrir un dossier au clic simple, pour qu’un double-clic puisse annuler l’ouverture et basculer en sélection. */
@@ -310,6 +430,52 @@ function isAudioPreviewNode(node: DriveNode): boolean {
   return mime.startsWith('audio/')
 }
 
+const DRIVE_RECENT_WINDOW_MS = 366 * 24 * 60 * 60 * 1000
+
+type DriveRecentHourGroup = { hourKey: string; hourLabel: string; nodes: DriveNode[] }
+type DriveRecentDayGroup = { dayKey: string; dayTitle: string; hours: DriveRecentHourGroup[] }
+
+/** Regroupe les nœuds récents par jour civil (fuseau local), puis par heure de dernière modification. */
+function groupRecentDriveByCalendarDayAndHour(nodes: DriveNode[]): DriveRecentDayGroup[] {
+  const cutoff = Date.now() - DRIVE_RECENT_WINDOW_MS
+  const filtered = nodes.filter((n) => {
+    const t = n.updated_at ? new Date(n.updated_at).getTime() : 0
+    return t >= cutoff
+  })
+  filtered.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
+  const byDay = new Map<string, DriveNode[]>()
+  for (const n of filtered) {
+    const d = new Date(n.updated_at || n.created_at || Date.now())
+    const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    if (!byDay.has(dayKey)) byDay.set(dayKey, [])
+    byDay.get(dayKey)!.push(n)
+  }
+  const dayKeys = [...byDay.keys()].sort((a, b) => b.localeCompare(a))
+  const fmtDay = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  return dayKeys.map((dayKey) => {
+    const dayNodes = byDay.get(dayKey)!
+    const hourMap = new Map<number, DriveNode[]>()
+    for (const n of dayNodes) {
+      const d = new Date(n.updated_at || n.created_at || Date.now())
+      const h = d.getHours()
+      if (!hourMap.has(h)) hourMap.set(h, [])
+      hourMap.get(h)!.push(n)
+    }
+    const hoursDesc = [...hourMap.keys()].sort((a, b) => b - a)
+    const anchor = new Date(dayKey + 'T12:00:00')
+    const dayTitle = fmtDay.format(anchor)
+    return {
+      dayKey,
+      dayTitle,
+      hours: hoursDesc.map((hour) => ({
+        hourKey: `${dayKey}-h${hour}`,
+        hourLabel: `${String(hour).padStart(2, '0')} h`,
+        nodes: (hourMap.get(hour) ?? []).sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || '')),
+      })),
+    }
+  })
+}
+
 /** Fichiers dont on peut afficher le contenu texte dans la preview (sans exécution). */
 function isTextPreviewNode(node: DriveNode): boolean {
   const ext = getExtension(node.name)
@@ -336,8 +502,13 @@ function FilePreviewContent({
   const [zipStatus, setZipStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
   const [officePreview, setOfficePreview] = useState<OfficeDrivePreview>({ phase: 'idle' })
   const urlRef = React.useRef<string | null>(null)
+  /** Ne pas dépendre de `accessToken` dans les effets : au retour d’onglet le refresh JWT recréait l’URL blob et rechargeait l’aperçu (PDF, etc.). */
+  const accessTokenRef = React.useRef(accessToken)
+  accessTokenRef.current = accessToken
+
   useEffect(() => {
-    if (!accessToken || node.is_folder) return
+    const token = accessTokenRef.current
+    if (!token || node.is_folder) return
     const isImage = isImageNode(node)
     const isPdf = isPdfNode(node)
     const isText = isTextPreviewNode(node)
@@ -347,7 +518,7 @@ function FilePreviewContent({
     setStatus('loading')
     let cancelled = false
     if (isImage || isPdf || isVideo || isAudio) {
-      downloadDriveFile(accessToken, node.id, { inline: true })
+      downloadDriveFile(token, node.id, { inline: true })
         .then((blob) => {
           if (cancelled) return
           if (urlRef.current) URL.revokeObjectURL(urlRef.current)
@@ -376,7 +547,7 @@ function FilePreviewContent({
         })
         .catch(() => { if (!cancelled) setStatus('error') })
     } else {
-      getDriveNodeContentAsText(accessToken, node.id)
+      getDriveNodeContentAsText(token, node.id)
         .then((text) => {
           if (!cancelled) { setTextContent(text); setStatus('ok') }
         })
@@ -388,23 +559,25 @@ function FilePreviewContent({
       setBlobUrl(null)
       setTextContent(null)
     }
-  }, [node.id, node.name, node.is_folder, accessToken])
+  }, [node.id, node.name, node.is_folder])
   useEffect(() => {
-    if (!accessToken || node.is_folder) return
+    const token = accessTokenRef.current
+    if (!token || node.is_folder) return
     if (!isZipNode(node)) return
     setZipStatus('loading')
     setZipEntries(null)
     let cancelled = false
-    fetchDriveZipEntries(accessToken, node.id)
+    fetchDriveZipEntries(token, node.id)
       .then((entries) => {
         if (!cancelled) { setZipEntries(entries); setZipStatus('ok') }
       })
       .catch(() => { if (!cancelled) setZipStatus('error') })
     return () => { cancelled = true; setZipEntries(null) }
-  }, [node.id, accessToken])
+  }, [node.id, node.name, node.is_folder])
 
   useEffect(() => {
-    if (!accessToken || node.is_folder) return
+    const token = accessTokenRef.current
+    if (!token || node.is_folder) return
     if (!isOfficeIframePreviewName(node.name)) return
     if (isTextPreviewNode(node)) return
     let cancelled = false
@@ -415,20 +588,27 @@ function FilePreviewContent({
     ;(async () => {
       try {
         if (isWordDocument(node.name)) {
-          const blob = await downloadDriveFile(accessToken, node.id, { inline: true })
+          const blob = await downloadDriveFile(token, node.id, { inline: true })
           const { wordBlobToHtml } = await import('../../utils/wordToHtml')
           const html = await wordBlobToHtml(blob)
           if (!cancelled) setOfficePreview({ phase: 'html', html: html || '<p></p>' })
           return
         }
-        if (node.name.toLowerCase().endsWith('.xlsx')) {
-          const blob = await downloadDriveFile(accessToken, node.id, { inline: true })
+        const lower = node.name.toLowerCase()
+        if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.xlsm')) {
+          const blob = await downloadDriveFile(token, node.id, { inline: true })
           const { xlsxBlobToGrid } = await import('../../utils/exportOffice')
           const grid = await xlsxBlobToGrid(blob)
           if (!cancelled) setOfficePreview({ phase: 'spreadsheet', grid })
           return
         }
-        const text = await getDriveNodeContentAsText(accessToken, node.id)
+        if (isDrivePresentationFileName(node.name)) {
+          const text = await getDriveNodeContentAsText(token, node.id)
+          const slides = drivePreviewSlidesFromHtml(text || '<p></p>')
+          if (!cancelled) setOfficePreview({ phase: 'slides', slides })
+          return
+        }
+        const text = await getDriveNodeContentAsText(token, node.id)
         const ext = getExtension(node.name)
         if (['.html', '.htm'].includes(ext)) {
           if (!cancelled) setOfficePreview({ phase: 'html', html: text || '<p></p>' })
@@ -443,7 +623,7 @@ function FilePreviewContent({
       cancelled = true
       setOfficePreview({ phase: 'idle' })
     }
-  }, [node.id, node.name, node.is_folder, accessToken])
+  }, [node.id, node.name, node.is_folder])
 
   if (status === 'loading') return (<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden /></div>)
   if (status === 'error') return (<p className="py-4 text-sm text-slate-500 dark:text-slate-400">Impossible de charger l'aperçu.</p>)
@@ -481,8 +661,37 @@ function FilePreviewContent({
   }
   if (isTextPreviewNode(node) && textContent != null) {
     const ext = getExtension(node.name)
-    if (['.html', '.htm'].includes(ext)) return (<div className="mt-4 rounded-lg overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 min-h-[200px] max-h-[70vh]"><iframe title="Aperçu HTML" srcDoc={textContent} className="w-full h-full min-h-[200px] max-h-[70vh] border-0" sandbox="allow-same-origin" /></div>)
-    return (<div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-4 max-h-[70vh] overflow-auto"><pre className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words font-mono">{textContent}</pre></div>)
+    if (['.html', '.htm'].includes(ext)) {
+      return (
+        <div className="mt-4 rounded-lg overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-600 min-h-[200px] max-h-[70vh] shadow-sm">
+          <iframe title="Aperçu HTML" srcDoc={textContent} className="w-full h-full min-h-[200px] max-h-[70vh] border-0" sandbox="allow-same-origin" />
+        </div>
+      )
+    }
+    if (ext === '.csv') {
+      const grid = parseCsvToGrid(textContent)
+      return (
+        <div className="mt-4 flex flex-col gap-2 min-h-[200px] max-h-[70vh]">
+          <p className="text-xs text-slate-500 dark:text-slate-400">Aperçu tableau (lecture seule)</p>
+          <DriveSpreadsheetPreviewTable grid={grid} testId="drive-csv-preview" />
+        </div>
+      )
+    }
+    if (ext === '.md') {
+      const mdHtml = markdownToHtml(textContent)
+      return (
+        <div
+          data-testid="drive-md-preview"
+          className="mt-4 max-h-[70vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-5 shadow-sm prose dark:prose-invert prose-sm max-w-none text-slate-900 dark:text-slate-100 [&_img]:max-w-full [&_pre]:text-xs"
+          dangerouslySetInnerHTML={{ __html: mdHtml }}
+        />
+      )
+    }
+    return (
+      <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 p-4 max-h-[70vh] overflow-auto shadow-sm">
+        <pre className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words font-mono leading-relaxed">{textContent}</pre>
+      </div>
+    )
   }
   if (isZipNode(node)) {
     if (zipStatus === 'loading') return (<div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-slate-400" aria-hidden /></div>)
@@ -555,35 +764,20 @@ function FilePreviewContent({
           {officeToolbar}
           <div
             data-testid="drive-office-preview"
-            className="min-h-[240px] max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 prose dark:prose-invert prose-sm max-w-none text-slate-900 dark:text-slate-100 [&_img]:max-w-full [&_table]:text-sm"
+            className="min-h-[240px] max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 shadow-sm prose dark:prose-invert prose-sm max-w-none text-slate-900 dark:text-slate-100 [&_img]:max-w-full [&_table]:text-sm"
             dangerouslySetInnerHTML={{ __html: officePreview.html }}
           />
         </div>
       )
     }
+    if (officePreview.phase === 'slides') {
+      return <DrivePresentationSlidePreview slides={officePreview.slides} toolbar={officeToolbar} />
+    }
     if (officePreview.phase === 'spreadsheet') {
-      const grid = sliceOfficePreviewGrid(officePreview.grid)
       return (
         <div className="mt-4 flex flex-col gap-3 min-h-[200px] max-h-[68vh]">
           {officeToolbar}
-          <div
-            data-testid="drive-office-preview"
-            className="max-h-[58vh] overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900"
-          >
-            <table className="w-full text-xs border-collapse">
-              <tbody>
-                {grid.map((row, ri) => (
-                  <tr key={ri} className="border-b border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    {row.map((cell, ci) => (
-                      <td key={ci} className="border-r border-slate-100 dark:border-slate-700 px-1.5 py-1 text-slate-800 dark:text-slate-200 max-w-[160px] truncate" title={cell}>
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DriveSpreadsheetPreviewTable grid={officePreview.grid} testId="drive-office-preview" />
           {officePreview.grid.length > OFFICE_PREVIEW_MAX_ROWS && (
             <p className="text-xs text-slate-500 dark:text-slate-400">Aperçu limité aux {OFFICE_PREVIEW_MAX_ROWS} premières lignes — éditeur complet dans Office.</p>
           )}
@@ -606,7 +800,7 @@ function FilePreviewContent({
       <div className="mt-4 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 p-6 text-center">
         <p className="text-sm text-slate-600 dark:text-slate-300">Aperçu non disponible pour ce type de fichier.</p>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          PDF, images, texte, archives ZIP (liste), vidéo, audio, et documents Word / Excel / PowerPoint / RTF ouvrables dans l’éditeur s’affichent ici. Pour le reste, utilisez <strong>Télécharger</strong> ou une application sur votre poste.
+          PDF, images, texte et code, CSV (tableau), Markdown rendu, archives ZIP (liste), médias, et fichiers Office (Word, Excel y compris .xls, présentations diapos par diapos) s’affichent ici en aperçu visuel. Pour le reste, utilisez <strong>Télécharger</strong>.
         </p>
       </div>
     )
@@ -1376,7 +1570,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
         )}
         {viewMode === 'recent' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Fichiers et dossiers modifiés ou créés récemment (30 derniers jours).
+            Fichiers et dossiers classés par <strong>jour</strong> puis par <strong>heure</strong> de dernière modification (fenêtre ~1 an). Vue grille ou liste comme le Drive.
           </p>
         )}
       </div>
@@ -1439,7 +1633,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
           </button>
           </>
         )}
-        {viewMode === 'drive' && onDisplayModeChange && (
+        {(viewMode === 'drive' || viewMode === 'recent') && onDisplayModeChange && (
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 p-0.5">
             <button
               type="button"
@@ -1642,17 +1836,19 @@ export default function DrivePage() {
     staleTime: 60 * 1000,
   })
   const { data: recentNodes = [] } = useQuery({
-    queryKey: ['drive', 'recent'],
-    queryFn: () => fetchDriveRecentFiles(accessToken!, 12),
+    queryKey: ['drive', 'recent', 'ribbon'],
+    queryFn: () => fetchDriveRecentFiles(accessToken!, 24),
     enabled: Boolean(accessToken) && viewMode === 'drive' && currentParentId == null,
     staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   })
   const { data: recentNodesFull = [], isLoading: isRecentFullLoading } = useQuery({
-    queryKey: ['drive', 'recent', 'full'],
-    queryFn: () => fetchDriveRecentFiles(accessToken!, 100),
+    queryKey: ['drive', 'recent', 'full', 500],
+    queryFn: () => fetchDriveRecentFiles(accessToken!, 500),
     enabled: Boolean(accessToken) && viewMode === 'recent',
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
+    refetchOnWindowFocus: false,
   })
   const [recentSectionVisible, setRecentSectionVisible] = useState(() => {
     try { return localStorage.getItem('cloudity_drive_recent_visible') !== 'false' } catch { return true }
@@ -1664,33 +1860,15 @@ export default function DrivePage() {
       return next
     })
   }, [])
-  const thirtyDaysAgo = useMemo(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 30)
-    return d.getTime()
-  }, [])
-  const recentGroupedByDay = useMemo(() => {
-    const list = recentNodesFull.filter((n) => (n.updated_at ? new Date(n.updated_at).getTime() : 0) >= thirtyDaysAgo)
-    list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''))
-    const groupOrder = ["Aujourd'hui", 'Hier', 'Cette semaine']
-    const byLabel = new Map<string, typeof list>()
-    for (const node of list) {
-      const label = formatRecentGroupLabel(node.updated_at)
-      if (!byLabel.has(label)) byLabel.set(label, [])
-      byLabel.get(label)!.push(node)
-    }
-    const otherLabels = Array.from(byLabel.keys()).filter((l) => !groupOrder.includes(l))
-    otherLabels.sort((a, b) => {
-      const dateA = byLabel.get(a)?.[0]?.updated_at
-      const dateB = byLabel.get(b)?.[0]?.updated_at
-      return (dateB || '').localeCompare(dateA || '')
-    })
-    const orderedLabels = [...groupOrder.filter((l) => byLabel.has(l)), ...otherLabels]
-    return orderedLabels.map((label) => ({ label, nodes: byLabel.get(label) ?? [] })).filter((g) => g.nodes.length > 0)
-  }, [recentNodesFull, thirtyDaysAgo])
-  const nodes = viewMode === 'drive' ? (data ?? []) : (trashData ?? [])
+  const recentCalendarGroups = useMemo(() => groupRecentDriveByCalendarDayAndHour(recentNodesFull), [recentNodesFull])
+  const recentFlatOrdered = useMemo(
+    () => recentCalendarGroups.flatMap((d) => d.hours.flatMap((h) => h.nodes)),
+    [recentCalendarGroups]
+  )
+  const nodes = viewMode === 'drive' ? (data ?? []) : viewMode === 'trash' ? (trashData ?? []) : recentFlatOrdered
   const totalCount = nodes.length
   const sortedNodes = React.useMemo(() => {
+    if (viewMode === 'recent') return [...nodes]
     const arr = [...nodes]
     arr.sort((a, b) => {
       let cmp = 0
@@ -1713,8 +1891,9 @@ export default function DrivePage() {
       return cmp
     })
     return arr
-  }, [nodes, sortBy, sortOrder])
+  }, [nodes, viewMode, sortBy, sortOrder])
   const displayNodes = sortedNodes.slice(0, visibleCount)
+  const displayNodeIdSet = useMemo(() => new Set(displayNodes.map((n) => n.id)), [displayNodes])
   const hasMore = totalCount > visibleCount
 
   const toggleSort = useCallback((key: 'name' | 'size' | 'created_at' | 'updated_at') => {
@@ -1727,7 +1906,7 @@ export default function DrivePage() {
     setListReady(false)
     setSelectedIds(new Set())
     setLastClickedIndex(null)
-  }, [currentParentId])
+  }, [currentParentId, viewMode])
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set())
@@ -1736,6 +1915,16 @@ export default function DrivePage() {
 
   // Différer l'affichage de la liste pour garder le thread libre et les boutons réactifs (Chromium)
   useEffect(() => {
+    if (viewMode === 'recent') {
+      if (!isRecentFullLoading) {
+        const t = setTimeout(() => {
+          startTransition(() => setListReady(true))
+        }, 100)
+        return () => clearTimeout(t)
+      }
+      setListReady(false)
+      return
+    }
     if (!isLoading && nodes.length >= 0) {
       const t = setTimeout(() => {
         startTransition(() => setListReady(true))
@@ -1743,10 +1932,11 @@ export default function DrivePage() {
       return () => clearTimeout(t)
     }
     setListReady(false)
-  }, [isLoading, nodes.length])
+  }, [viewMode, isRecentFullLoading, isLoading, nodes.length])
 
   const goTo = useCallback(
     (id: number | null, name: string) => {
+      if (viewMode !== 'drive') setViewMode('drive')
       if (id === null) {
         startTransition(() => setBreadcrumb([{ id: null, name: 'Drive' }]))
         return
@@ -1758,7 +1948,7 @@ export default function DrivePage() {
         startTransition(() => setBreadcrumb([...breadcrumb, { id, name }]))
       }
     },
-    [breadcrumb]
+    [breadcrumb, viewMode, setViewMode]
   )
 
   const loadMore = useCallback(() => {
@@ -2245,14 +2435,34 @@ export default function DrivePage() {
             </div>
             <div className="px-6 pb-4 overflow-auto flex-1 min-h-0">
               <FilePreviewContent
+                key={previewNode.id}
                 node={previewNode}
                 accessToken={accessToken}
-                previewEditorState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
+                previewEditorState={
+                  viewMode === 'drive'
+                    ? { from: 'drive', parentId: currentParentId, breadcrumb }
+                    : viewMode === 'recent'
+                      ? { from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }
+                      : undefined
+                }
               />
             </div>
             <div className="p-6 pt-0 flex flex-wrap gap-2 shrink-0">
               {isOfficeIframePreviewName(previewNode.name) && (
-                <Link to={`/app/office/editor/${previewNode.id}`} state={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined} onClick={() => setPreviewNode(null)} className="inline-flex items-center justify-center p-2.5 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600" title="Ouvrir" aria-label="Ouvrir">
+                <Link
+                  to={`/app/office/editor/${previewNode.id}`}
+                  state={
+                    viewMode === 'drive'
+                      ? { from: 'drive', parentId: currentParentId, breadcrumb }
+                      : viewMode === 'recent'
+                        ? { from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }
+                        : undefined
+                  }
+                  onClick={() => setPreviewNode(null)}
+                  className="inline-flex items-center justify-center p-2.5 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600"
+                  title="Ouvrir"
+                  aria-label="Ouvrir"
+                >
                   <Edit3 className="h-5 w-5" />
                 </Link>
               )}
@@ -2304,7 +2514,11 @@ export default function DrivePage() {
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2 shrink-0">
           <HardDrive className="h-5 w-5 text-slate-400" />
           <span className="font-medium text-slate-700 dark:text-slate-300">
-            {currentParentId == null ? 'Racine' : breadcrumb[breadcrumb.length - 1]?.name}
+            {viewMode === 'recent'
+              ? 'Récents'
+              : currentParentId == null
+                ? 'Racine'
+                : breadcrumb[breadcrumb.length - 1]?.name}
           </span>
         </div>
         <div
@@ -2355,43 +2569,160 @@ export default function DrivePage() {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
               </div>
+            ) : recentCalendarGroups.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center" aria-label="Aucun récent">
+                <div className="rounded-full bg-slate-100 dark:bg-slate-700 p-4">
+                  <Clock className="h-10 w-10 text-slate-400" />
+                </div>
+                <p className="mt-4 text-slate-600 dark:text-slate-300">Aucun élément récent dans la fenêtre affichée (~1 an).</p>
+              </div>
+            ) : !listReady ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
             ) : (
-              <div className="space-y-6" aria-label="Récents par jour">
-                {recentGroupedByDay.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center">
-                    <div className="rounded-full bg-slate-100 dark:bg-slate-700 p-4">
-                      <Clock className="h-10 w-10 text-slate-400" />
-                    </div>
-                    <p className="mt-4 text-slate-600 dark:text-slate-300">Aucun élément récent (30 derniers jours).</p>
+              <div className="space-y-6" aria-label="Récents par jour et par heure">
+                {selectedIds.size > 0 && (
+                  <div className="flex flex-wrap items-center gap-3 mb-4 p-3 rounded-lg bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-700">
+                    <span className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                      {selectedIds.size} élément(s) sélectionné(s)
+                    </span>
+                    <button type="button" onClick={clearSelection} className="text-sm font-medium text-brand-700 dark:text-brand-300 hover:underline">
+                      Tout désélectionner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDownloadSelectionAsZip}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+                    >
+                      <Download className="h-4 w-4" />
+                      Télécharger en ZIP
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBulkDelete}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 dark:bg-red-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 dark:hover:bg-red-600"
+                      data-testid="drive-bulk-delete-btn"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Déplacer vers la corbeille
+                    </button>
+                  </div>
+                )}
+                {displayMode === 'grid' ? (
+                  <div className="space-y-10">
+                    {recentCalendarGroups.map((day) => (
+                      <section key={day.dayKey} aria-label={day.dayTitle}>
+                        <h2 className="text-base font-semibold text-slate-800 dark:text-slate-100 border-b border-slate-200 dark:border-slate-600 pb-2 mb-4">
+                          {day.dayTitle}
+                        </h2>
+                        <div className="space-y-8">
+                          {day.hours.map((hour) => (
+                            <div key={hour.hourKey}>
+                              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">
+                                {hour.hourLabel}
+                              </h3>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                                {hour.nodes
+                                  .filter((n) => displayNodeIdSet.has(n.id))
+                                  .map((node) => {
+                                    const index = recentFlatOrdered.findIndex((n) => n.id === node.id)
+                                    return (
+                                      <DriveNodeCard
+                                        key={node.id}
+                                        node={node}
+                                        isSelected={selectedIds.has(node.id)}
+                                        onSelectClick={(e) => handleRowSelect(node, index, e)}
+                                        onGoTo={goTo}
+                                        onPreviewClick={setPreviewNode}
+                                        onDownload={handleDownload}
+                                        onDelete={handleDelete}
+                                        onStartEdit={startEdit}
+                                        onRename={handleRename}
+                                        onCancelEdit={handleCancelEdit}
+                                        onEditingNameChange={setEditingName}
+                                        editingName={editingName}
+                                        isEditing={editingId === node.id}
+                                        isTrashView={false}
+                                        editorLinkState={{ from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }}
+                                        accessToken={accessToken}
+                                      />
+                                    )
+                                  })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 ) : (
-                  recentGroupedByDay.map(({ label, nodes: groupNodes }) => (
-                    <section key={label} aria-label={label}>
-                      <h2 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">{label}</h2>
-                      <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 scrollbar-thin" style={{ scrollbarGutter: 'stable' }}>
-                        {groupNodes.map((node) => (
-                          <button
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-700/30 text-left text-xs font-medium text-slate-500 dark:text-slate-400">
+                          <th className="w-10 py-3 pl-3 pr-1 font-medium">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (displayNodes.length > 0 && displayNodes.every((n) => selectedIds.has(n.id))) clearSelection()
+                                else {
+                                  setSelectedIds(new Set(displayNodes.map((n) => n.id)))
+                                  setLastClickedIndex(null)
+                                }
+                              }}
+                              className="p-2 rounded-lg border border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700"
+                              title={displayNodes.length > 0 && displayNodes.every((n) => selectedIds.has(n.id)) ? 'Tout désélectionner' : 'Tout sélectionner'}
+                              aria-label={displayNodes.length > 0 && displayNodes.every((n) => selectedIds.has(n.id)) ? 'Tout désélectionner' : 'Tout sélectionner'}
+                            >
+                              {displayNodes.length > 0 && displayNodes.every((n) => selectedIds.has(n.id)) ? (
+                                <Check className="h-5 w-5 text-brand-600 dark:text-brand-400" />
+                              ) : (
+                                <span className="inline-block w-5 h-5 rounded border border-slate-300 dark:border-slate-500" />
+                              )}
+                            </button>
+                          </th>
+                          <th className="py-3 px-2 font-medium">Nom</th>
+                          <th className="py-3 px-2 font-medium text-right w-28">Taille</th>
+                          <th className="py-3 px-2 font-medium w-32">Créé</th>
+                          <th className="py-3 px-2 font-medium w-32">Modifié</th>
+                          <th className="py-3 pr-3 pl-1 w-28" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayNodes.map((node, index) => (
+                          <DriveNodeRow
                             key={node.id}
-                            type="button"
-                            onClick={() => (node.is_folder ? goTo(node.id, node.name) : setPreviewNode(node))}
-                            className="flex-shrink-0 w-28 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-left hover:bg-slate-50 dark:hover:bg-slate-700 flex flex-col items-center gap-1.5"
-                          >
-                            {node.is_folder ? (
-                              <Folder className="h-8 w-8 text-amber-500 shrink-0" />
-                            ) : (
-                              <FileText className="h-8 w-8 text-slate-400 shrink-0" />
-                            )}
-                            <span className="text-xs text-slate-700 dark:text-slate-200 truncate w-full text-center" title={node.name}>
-                              {displayFileName(node.name)}
-                            </span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
-                              {formatRelativeDateWithTime(node.updated_at)}
-                            </span>
-                          </button>
+                            node={node}
+                            isEditing={editingId === node.id}
+                            editingName={editingName}
+                            isDropTarget={dropTargetFolderId === node.id}
+                            isSelected={selectedIds.has(node.id)}
+                            onSelectClick={(e) => handleRowSelect(node, index, e)}
+                            onGoTo={goTo}
+                            onStartEdit={startEdit}
+                            onRename={handleRename}
+                            onCancelEdit={handleCancelEdit}
+                            onEditingNameChange={setEditingName}
+                            onDownload={handleDownload}
+                            onDelete={handleDelete}
+                            onDragStartRow={handleDragStartRow}
+                            onDragEndRow={handleDragEndRow}
+                            onDragOverFolder={handleDragOverFolder}
+                            onDragLeaveFolder={handleDragLeaveFolder}
+                            isTrashView={false}
+                            editorLinkState={{ from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }}
+                            onPreviewClick={setPreviewNode}
+                          />
                         ))}
-                      </div>
-                    </section>
-                  ))
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {hasMore && (
+                  <div ref={loadMoreSentinelRef} className="h-8 flex items-center justify-center text-xs text-slate-400">
+                    Chargement…
+                  </div>
                 )}
               </div>
             )
@@ -2435,7 +2766,7 @@ export default function DrivePage() {
                       {recentNodes.length === 0 ? (
                         <p className="text-sm text-slate-500 dark:text-slate-400 py-2">Aucun élément récent.</p>
                       ) : (
-                        recentNodes.slice(0, 12).map((node) => (
+                        recentNodes.slice(0, 24).map((node) => (
                           <button
                             key={node.id}
                             type="button"
@@ -2549,7 +2880,7 @@ export default function DrivePage() {
                       {recentNodes.length === 0 ? (
                         <p className="text-sm text-slate-500 dark:text-slate-400 py-2">Aucun élément récent.</p>
                       ) : (
-                        recentNodes.slice(0, 12).map((node) => (
+                        recentNodes.slice(0, 24).map((node) => (
                           <button
                             key={node.id}
                             type="button"

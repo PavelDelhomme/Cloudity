@@ -12,7 +12,7 @@ Objectif : permettre d’ouvrir et d’éditer des documents (texte riche, table
 - **Navigation et fermeture** : le fil d'Ariane **global** (barre du haut) affiche **Tableau de bord > Drive** (et non « Office > Éditeur ») quand on est dans l'éditeur. À la **fermeture** (bouton Fermer ou Fichier > Fermer) : si le document a été ouvert depuis la page **Office** (récemment modifiés, création), retour à `/app/office` ; si ouvert depuis le **Drive**, retour à `/app/drive` avec restauration du dossier (breadcrumb) où on était.
 - **Clic sur un fichier dans le Drive** : pour les types éditables (`.txt`, `.md`, `.html`), le **nom du fichier** est un lien vers l’éditeur ; le bouton « Éditer » ouvre aussi l’éditeur.
 - **Page Suite Office** : libellés **Documents (éditeur maison)**, **Tableur (maison – à venir)**, **Présentation (maison – à venir)** et section **« Récemment modifiés »** (derniers fichiers en date, liens vers l’éditeur pour les types éditables).
-- **API** : `GET /drive/nodes/recent?limit=N` renvoie les fichiers de l’utilisateur triés par `updated_at` DESC (auth requise).
+- **API** : `GET /drive/nodes/recent?limit=N` renvoie les **fichiers et dossiers** de l’utilisateur triés par `updated_at` DESC (auth requise) ; **N** plafonné à **500** côté serveur. Le dashboard expose une **vue Récents** (regroupement jour/heure, cartes comme le Drive) en plus du ruban racine.
 
 ## Principe (doc initiale)
 

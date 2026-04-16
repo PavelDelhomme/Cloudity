@@ -696,7 +696,7 @@ describe('DrivePage', () => {
       render(wrap(<DrivePage />))
       await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 3000 })
       // La requête récents est asynchrone ; on vérifie au moins la section et que fetchDriveRecentFiles a été appelé
-      expect(vi.mocked(api.fetchDriveRecentFiles)).toHaveBeenCalledWith('token', 12)
+      expect(vi.mocked(api.fetchDriveRecentFiles).mock.calls.some((c) => c[0] === 'token' && c[1] === 24)).toBe(true)
       const section = screen.getByRole('region', { name: 'Récents' })
       expect(section).toBeTruthy()
       // Si la requête a résolu à temps, la carte doit apparaître

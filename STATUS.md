@@ -197,9 +197,11 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 
 ### Drive — à faire
 
+**Livré récemment (à documenter dans les releases)** : vue **Récents** plein écran (comme Corbeille) avec regroupement **par jour puis par heure**, bascule **grille / liste**, même cartes que le Drive ; API `recent` élargie (500 entrées, dossiers inclus) ; aperçu modale **sans recharger** au refresh JWT (ref token dans `FilePreviewContent`).
+
 | # | Fonctionnalité | Détail | Tests à prévoir |
 |---|----------------|--------|------------------|
-| 1 | **Visualisation PDF intégrée** | Ouvrir un PDF dans l’app (iframe ou viewer type PDF.js) sans téléchargement obligatoire. | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
+| 1 | **Visualisation PDF intégrée** | Aperçu **embed** dans la modale (cible complémentaire : **PDF.js** pour zoom/recherche). | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
 | 2 | **Extracteur d'archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
 | 3 | **Recherche globale** | Recherche dans l’app : **Drive** (fichiers/dossiers), puis notes, tâches, calendrier, mail, pass, documents. Champ de recherche unifié + résultats groupés par type. | Unit : logique recherche / filtres ; E2E : saisie recherche → résultats Drive (et autres si implémentés). |
 

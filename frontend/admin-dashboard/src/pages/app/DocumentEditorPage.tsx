@@ -21,7 +21,7 @@ import {
 const EDITABLE_EXT = ['.txt', '.md', '.html', '.csv', '.xlsx', '.doc', '.docx']
 
 /** Formats éditables + voisins ouvrables dans l’éditeur (aperçu Drive possible en iframe). */
-const OFFICE_IFRAME_PREVIEW_EXTRA_EXT = ['.htm', '.ppt', '.pptx', '.rtf'] as const
+const OFFICE_IFRAME_PREVIEW_EXTRA_EXT = ['.htm', '.ppt', '.pptx', '.rtf', '.xls', '.xlsm'] as const
 
 const RICH_EXT = ['.html', '.docx', '.doc']
 const DOCX_EXT = '.docx'
