@@ -2539,7 +2539,7 @@ export default function DrivePage() {
         onDisplayModeChange={setDisplayMode}
       />
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[200px] max-h-[calc(100dvh-11rem)]">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[min(420px,52vh)] max-h-[calc(100dvh-11rem)]">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex flex-wrap items-center gap-2 shrink-0">
           <HardDrive className="h-5 w-5 text-slate-400 shrink-0" />
           <span className="font-medium text-slate-700 dark:text-slate-300">
@@ -2579,8 +2579,12 @@ export default function DrivePage() {
             <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-brand-500/10 dark:bg-brand-600/20 pointer-events-none" aria-hidden>
               <div className="flex flex-col items-center gap-2 rounded-xl border-2 border-dashed border-brand-500 dark:border-brand-400 bg-white/90 dark:bg-slate-800/90 px-8 py-6">
                 <Upload className="h-12 w-12 text-brand-600 dark:text-brand-400" />
-                <span className="text-sm font-medium text-brand-800 dark:text-brand-200">Déposez des fichiers ou dossiers ici</span>
-                <span className="text-xs text-slate-600 dark:text-slate-400">La structure des dossiers est conservée</span>
+                <span className="text-sm font-medium text-brand-800 dark:text-brand-200">
+                  Déposez des fichiers ou dossiers depuis votre ordinateur
+                </span>
+                <span className="text-xs text-slate-600 dark:text-slate-400">
+                  Glisser-déposer (style Google Drive) — la structure des dossiers est conservée
+                </span>
               </div>
             </div>
           )}

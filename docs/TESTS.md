@@ -4,9 +4,10 @@
 
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
 
-**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). Les **applications mobiles** (voir **[MOBILES.md](./MOBILES.md)**) auront plus tard une couche de tests UI / intégration hors du périmètre minimal de `make test` — à documenter quand les premiers clients mobiles existent.
+**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-photos`** et la **phase 5** de **`make tests`** couvrent l’app Flutter **Photos** (tests hôte + `integration_test` sur ADB si un appareil est branché) — détail § **1b** ; guide produit **[MOBILES.md](./MOBILES.md)**.
 
-**Suivi quotidien** : **[STATUS.md](../STATUS.md)**.  
+**Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
+**Stratégie sécurité / confiance** : **[SECURITE.md](./SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
 **Autres guides** (éditeur, archi front, sécurité détaillée, notes dev) : **[README.md](./README.md)** (index de ce dossier).
 
 ---
@@ -17,19 +18,20 @@
 |----------|------|
 | **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **admin-dashboard** : `compose run --no-deps` + Vitest. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make tests`** | **TOUT** : unit/app + E2E (health/proxy) + **E2E Playwright** (navigateur) + sécurité. Génère un rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, attendre 20-30 s. |
-| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
-| **`make test-all`** | Même enchaînement que **`make tests`** (test + test-e2e + test-e2e-playwright + test-security) mais sans rapport fichier. |
+| **`make tests`** | **TOUT** : unit/app + E2E (health/proxy) + **E2E Playwright** (navigateur) + sécurité + **mobile Photos** (Flutter : `flutter test` hôte + `integration_test` sur ADB si appareil). Génère un rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, attendre 20-30 s (pour les phases web / API). |
+| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et `npx playwright` tournent en général sur la **machine hôte** (pas dans l’image Docker du dashboard) ; le reste de **`make test`** reste **Docker**. |
+| **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-photos`**. |
+| **`make test-mobile-photos`** | Uniquement l’app **`mobile/photos`** : `flutter pub get`, **`flutter test`** (répertoire `test/` sur la machine hôte), puis si **adb** voit au moins un appareil en état **`device`**, **`flutter test integration_test/photos_flow_test.dart -d <serial>`** (build + install sur l’appareil, comme un mini parcours Playwright côté natif). Voir § **1b**. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
-**En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité. **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
+**En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité + **test-mobile-photos**. **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
 
-**Ce que `make tests` couvre** : (1) **Phase 1** — tests unitaires et applicatifs (Go, pytest, Vitest) ; (2) **Phase 2** — E2E health/proxy (stack up) ; (3) **Phase 3** — E2E Playwright (navigateur : auth, Hub, Drive, Office, Pass, Mail, éditeur) ; (4) **Phase 4** — sécurité (npm audit, safety, govulncheck, checks auth).
+**Ce que `make tests` couvre** : (1) **Phase 1** — tests unitaires et applicatifs (Go, pytest, Vitest) ; (2) **Phase 2** — E2E health/proxy (stack up) ; (3) **Phase 3** — E2E Playwright (navigateur : auth, Hub, Drive, Office, Pass, Mail, éditeur) ; (4) **Phase 4** — sécurité (npm audit, safety, govulncheck, checks auth) ; (5) **Phase 5** — Flutter **Photos** (voir § **1b**).
 
-**Résumé en console** : À la fin de **`make tests`**, le script affiche le **RÉSUMÉ** (Unit/App, E2E, E2E Playwright, Sécurité) et le **RÉSULTAT FINAL** (SUCCÈS ou ÉCHEC). En cas d’avertissements sécurité, la ligne indique « vulnérabilités signalées » et précise que les détails sont dans le rapport. Le chemin du rapport détaillé est indiqué (ex. `reports/test-YYYYMMDD-HHMMSS.log`).
+**Résumé en console** : À la fin de **`make tests`**, le script affiche le **RÉSUMÉ** (Unit/App, E2E, E2E Playwright, Sécurité, **Mobile Photos**) et le **RÉSULTAT FINAL** (SUCCÈS ou ÉCHEC). En cas d’avertissements sécurité, la ligne indique « vulnérabilités signalées » et précise que les détails sont dans le rapport. Le chemin du rapport détaillé est indiqué (ex. `reports/test-YYYYMMDD-HHMMSS.log`).
 
 **Drive et fichiers « 0 octet » / nettoyage** :  
 - **Tests unitaires (Vitest)** : toutes les appels API Drive sont **mockés** ; aucun fichier ni dossier n’est créé en base. Les réponses mockées utilisent `size: 0` pour les nœuds fichier (documents vides à la création), ce qui reflète le comportement réel de l’API.  
@@ -38,7 +40,57 @@
 
 **Drive — Récents / aperçu** : Vitest `DrivePage.test.tsx` (section Récents, ruban racine `fetchDriveRecentFiles` avec limite **24** ; navigation vue Récents). E2E : ajouter plus tard un scénario « vue Récents + grille » si besoin CI.
 
-**Photos** : Vitest `PhotosPage.test.tsx` ; API **`GET /photos/timeline`** — `photos-service/main_test.go` + secours `drive-service` (`GET /drive/photos/timeline`).
+**Photos** : Vitest `PhotosPage.test.tsx` ; API **`GET /photos/timeline`** — `photos-service/main_test.go` + secours `drive-service` (`GET /drive/photos/timeline`). **App Flutter** `mobile/photos` : tests dans `test/` + **`integration_test/photos_flow_test.dart`** (parcours device).
+
+---
+
+## 1b. Mobile Flutter — `make test-mobile-photos` (et phase 5 de `make tests`)
+
+**Script** : `scripts/test-mobile-photos.sh` (appelé par **`make test-mobile-photos`** et par **`scripts/run-tests-with-report.sh`**).
+
+| Étape | Comportement |
+|--------|----------------|
+| **Flutter absent** | Message d’avertissement ; le script **sort 0** (ne fait pas échouer `make tests` sur une machine sans SDK mobile). |
+| **Hôte** | `cd mobile/photos && flutter pub get && flutter test` — exécute les tests du dossier **`test/`** (ex. smoke `MaterialApp`). **Docker non requis.** Ne nécessite **pas** un SDK Flutter inscriptible (pas de Gradle dans `flutter_tools` pour cette étape). |
+| **ADB** | Si **`adb`** n’est pas installé ou **aucun** périphérique en état **`device`**, la partie **integration_test** est **ignorée** (sortie 0 après les tests hôte). |
+| **SDK inscriptible** | **Uniquement** si un **appareil ADB** est prêt pour l’**integration_test** : Gradle doit pouvoir écrire sous `packages/flutter_tools/gradle`. Sinon (ex. **`/usr/lib/flutter`** root sur Arch) : message explicite, **integration_test ignorée**, **sortie 0** — la phase 5 de **`make tests`** reste **OK** dès que les tests **hôte** ont réussi. **`make run-mobile`** continue d’exiger la vérif **avant** le build (voir **`run-mobile.sh`**). |
+| **Choix d’appareil** | **`CLOUDITY_DEVICE_ID`** ou **`ANDROID_SERIAL`** si défini ; sinon **un seul** appareil `device` → pris automatiquement ; **plusieurs** appareils + terminal **interactif** → menu **`select`** bash ; plusieurs + **stdin non TTY** (CI) → **premier** serial + avertissement sur stderr. |
+| **Sur l’appareil** | `flutter test integration_test/photos_flow_test.dart -d <serial>` : Flutter **compile**, **installe** l’APK de test et enchaîne les scénarios (équivalent « E2E natif » à Playwright côté navigateur). |
+
+**Scénarios `integration_test`** (`mobile/photos/integration_test/photos_flow_test.dart`) :
+
+1. **Smoke** — après bootstrap, l’écran **Connexion** ou la **timeline** est visible (pas de collage JWT : auth réelle).
+2. **Connexion + timeline** — **uniquement** si des **`--dart-define`** sont passés à la compilation (voir ci‑dessous). Sinon le 2ᵉ test est **marqué skipped** par Flutter. Si une session est **déjà** persistée sur l’appareil, le test peut atteindre directement la timeline (succès).
+
+**Variables d’environnement** (lues par le script et transmises en `--dart-define=…`) pour le parcours login **contre la vraie stack** (comme Playwright avec `BASE_URL` + compte démo) :
+
+| Variable | Exemple | Rôle |
+|----------|---------|------|
+| **`CLOUDITY_E2E_GATEWAY`** | `http://10.0.2.2:6080` (émulateur) ou `http://192.168.x.x:6080` (téléphone USB, **IP LAN du PC** où tourne `make up`) | URL **api-gateway** joignable **depuis l’appareil**. |
+| **`CLOUDITY_E2E_EMAIL`** | `admin@cloudity.local` | Compte (après **`make seed-admin`**). |
+| **`CLOUDITY_E2E_PASSWORD`** | `Admin123!` | Mot de passe. |
+| **`CLOUDITY_E2E_TENANT`** | `1` | Optionnel (défaut côté test Dart : `1`). |
+
+Exemple (téléphone sur le même LAN que le PC qui héberge Docker) :
+
+```bash
+export CLOUDITY_E2E_GATEWAY='http://192.168.1.42:6080'
+export CLOUDITY_E2E_EMAIL='admin@cloudity.local'
+export CLOUDITY_E2E_PASSWORD='Admin123!'
+make test-mobile-photos
+```
+
+**Convention** : mêmes idées que Playwright (**`BASE_URL`** + identifiants) ; ici le « navigateur » est l’**APK** sous contrôle du **WidgetTester** + moteur d’intégration Flutter.
+
+**Dépannage** :
+
+1. **« Could not determine java version from '17.x.x' »** — **`gradle-wrapper.properties`** pointant vers une **Gradle trop ancienne** (ex. 2.x). Les apps **`mobile/photos`** et **`mobile/drive`** doivent utiliser **Gradle ≥ 8.13** pour **AGP 8.11**. Ce n’est **pas** un problème d’**ADB** si `adb devices` affiche `device`.
+
+2. **« NoSuchFileException » … `flutter_tools/gradle/.kotlin/sessions/*.salive`** — le SDK Flutter (souvent **`/usr/lib/flutter`** en **root** sur Arch) n’est **pas inscriptible** par Gradle pour les **builds Android**. **`run-mobile.sh`** appelle **`check-flutter-sdk-writable.sh`** avant **`flutter run`**. **`test-mobile-photos.sh`** n’applique cette vérif **qu’avant** l’**integration_test** sur appareil : **`flutter test` hôte** peut réussir sans **`chown`**. Pour lancer sur device ou **`make run-mobile`** : **`sudo chown -R $(whoami) /usr/lib/flutter`** (ou Flutter officiel dans **`$HOME`** en premier dans le **`PATH`**). Contournement avancé : **`CLOUDITY_SKIP_FLUTTER_SDK_CHECK=1`** (le build device peut quand même échouer si le SDK reste non inscriptible).
+
+3. **`JAVA_HOME`**, **Android SDK** : vérifier avec **`flutter doctor`**.
+
+4. Sans appareil / sans env Android OK : **`CLOUDITY_SKIP_DEVICE_INTEGRATION=1 make test-mobile-photos`** (phase 5 de **`make tests`** : uniquement `flutter test` hôte).
 
 ---
 
@@ -58,7 +110,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **photos-service** | API (Go) | idem | `backend/photos-service/main_test.go` | 2 |
 | **drive-service** | API (Go) | idem | `backend/drive-service/main_test.go` | 5 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **25 fichiers** (AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~199** (+ 3 skippés) |
+| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **26+ fichiers** (dont **GlobalSearchPalette.test.tsx**, AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~207** (+ 3 skippés) — lancer **`make test`** pour le total exact |
 
 **Total** : lancer **`make test`** pour le cumul à jour (tous les services Go, pytest admin-service, Vitest admin-dashboard).
 
@@ -118,8 +170,9 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **src/pages/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
 | **src/pages/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
 | **src/pages/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
-| **src/pages/app/DrivePage.test.tsx** | Titre Drive, breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). |
+| **src/pages/app/DrivePage.test.tsx** | Titre Drive (**`h1` racine en `sr-only`**), breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). **Filtre nom** : query **`?q=`** (dossier courant, client-side) — à couvrir par tests unitaires ciblés si besoin. |
 | **src/layouts/AppLayout.test.tsx** | **getAppBreadcrumb** : sur l’éditeur renvoie « Tableau de bord > Drive » (pas Office ni Éditeur) ; sur /app/drive et /app. |
+| **src/components/GlobalSearchPalette.test.tsx** | Ouverture modale (loupe), submit → **`/app/drive?q=`**, bouton Contacts → **`/app/contacts?q=`**, Échap, **Ctrl+K**, pas de toggle depuis un input externe. |
 | **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
@@ -170,11 +223,13 @@ Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIG
 ## 4. Tests à faire / à ajouter au fur et à mesure
 
 Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `make test-e2e` pour les E2E).  
-**Voir aussi** : [STATUS.md § 1b](../STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité. Pour **ZIP (ouverture en live, extraction)** et **éditeur (barre type Office, breadcrumb, boutons en haut)**, voir **§ 4.6** et [STATUS.md § 1c](../STATUS.md).
+**Voir aussi** : [STATUS.md § 1b](../STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité. Pour **ZIP (ouverture en live, extraction)** et **éditeur (barre type Office, breadcrumb, boutons en haut)**, voir **§ 4.7** et [STATUS.md § 1c](../STATUS.md).
 
 ### 4.0 Drive, éditeur, corbeille (roadmap STATUS.md § 1b)
 
-- [ ] **Recherche Drive / globale** : unit (logique recherche, filtres) ; E2E (saisie → résultats Drive puis autres modules).
+- [x] **Recherche Drive / globale (MVP)** : palette barre app (**GlobalSearchPalette**), **`?q=`** filtre les noms dans le **dossier Drive courant** ; raccourci **Ctrl/Cmd+K**.
+- [x] **Tests Vitest GlobalSearchPalette** : navigation Drive / Contacts, raccourci, Échap (`GlobalSearchPalette.test.tsx`).
+- [ ] **Recherche Drive / globale (suite)** : tests **Vitest** parsing **`?q=`** sur **DrivePage** (optionnel) ; **API** recherche arborescente / cross-apps ; **E2E** (saisie palette → liste filtrée puis autres modules).
 - [ ] **Visualisation PDF** : unit (composant viewer) ; E2E (ouvrir un PDF depuis le Drive).
 - [ ] **Extracteur d’archives** : API Go (endpoint extract, structure dossiers) ; E2E (upload archive → extraction → structure).
 - [ ] **Éditeur : renommer document** : unit (renommage + sync nom) ; E2E (créer doc → ouvrir → renommer → vérifier Drive).
@@ -217,7 +272,17 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 
-### 4.6 À faire (reprise demain) — ZIP et éditeur (STATUS.md § 1c)
+### 4.6 Sécurité avancée (alignement **[SECURITE.md](./SECURITE.md)**)
+
+À planifier quand les briques existent ; complète §4.5 (dépendances + auth basique).
+
+- [ ] **Signatures applicatives** : tests unitaires / intégration sur **canonical string** + rejet si **nonce** rejoué ou **horodatage** hors fenêtre ; routes pilotes (export, admin critique). *(Les tests **GlobalSearchPalette** couvrent la navigation recherche MVP, pas les signatures.)*
+- [ ] **mTLS ou tokens service** : tests ou doc de non-régression pour appels inter-services (gateway → backends).
+- [ ] **Audit log** : tests API (écriture + lecture filtrée) quand le schéma est livré.
+- [ ] **WAF** : tests infra ou checklist manuelle (mode détection → blocage ciblé) — hors `make test` classique si le WAF n’est pas dans le même compose.
+- [ ] **SAST / DAST** : intégration CI (forge) — voir aussi **SECURITE-DONNEES.md**.
+
+### 4.7 À faire (reprise demain) — ZIP et éditeur (STATUS.md § 1c)
 
 À ajouter / adapter quand les fonctionnalités § 1c seront implémentées.
 
@@ -257,7 +322,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ## 5. Récap
 
-- **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](./ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit.
+- **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](./ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit ; les chantiers **sécurité transverse** (phases, signatures, Zero Trust) : **[SECURITE.md](./SECURITE.md)** + **[BACKLOG.md](../BACKLOG.md)**.
 - **Lancer tous les tests** : **`make test`** (unit/app uniquement).
 - **Lancer tout (unit + E2E + E2E Playwright + sécurité)** : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport dans `reports/`) ou **`make test-all`**.
 - **Lancer tout + tests dans les conteneurs** : **`make test-full`** (stack up requise).

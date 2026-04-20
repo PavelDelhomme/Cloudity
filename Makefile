@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -33,7 +33,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
-	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité (make test, test-e2e, test-e2e-playwright, test-security), rapport dans reports/'
+	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Photos Flutter (make test, …, test-mobile-photos), rapport dans reports/'
 	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
@@ -44,7 +44,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make status       - Tableau services (port, URL, Up/Down)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
 	@echo '  make status-watch - Rafraîchit le statut toutes les 10 s (commande watch)'
-	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security (stack up + make seed-admin)'
+	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security + test-mobile-photos (stack up + make seed-admin pour E2E)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
 	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
@@ -244,11 +244,15 @@ test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-de
 	@echo "✅ Tests dashboard OK."
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
-tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité), sortie en direct + rapport dans reports/
+tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos), sortie en direct + rapport dans reports/
 	@chmod +x scripts/run-tests-with-report.sh
 	@./scripts/run-tests-with-report.sh
 
-test-all: test test-e2e test-e2e-playwright test-security ## TOUT: unit/app + E2E + E2E Playwright + sécurité (stack up + make seed-admin + 20-30 s)
+test-mobile-photos: ## Flutter mobile/photos : flutter test (hôte) + integration_test sur ADB si appareil (sélection interactive si plusieurs)
+	@chmod +x scripts/test-mobile-photos.sh
+	@./scripts/test-mobile-photos.sh
+
+test-all: test test-e2e test-e2e-playwright test-security test-mobile-photos ## TOUT: unit/app + E2E + E2E Playwright + sécurité + Photos Flutter (stack up + seed-admin pour E2E web)
 
 test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
 	@chmod +x scripts/test-e2e.sh
@@ -256,7 +260,7 @@ test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s q
 
 test-e2e-playwright: ## Tests E2E navigateur (Playwright). Prérequis: make up, make seed-admin, attendre 20-30 s
 	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office, Mail, Pass, Calendrier)..."
-	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test
+	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test
 	@echo "✅ E2E Playwright OK"
 
 test-e2e-playwright-calendar: ## E2E Playwright — calendrier uniquement (e2e/calendar.spec.ts). Prérequis: make up, make seed-admin

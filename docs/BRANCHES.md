@@ -2,7 +2,7 @@
 
 **Objectif** : tout le monde sait **sur quelle branche travailler** selon la fonctionnalité, et comment intégrer le code sans casser la ligne stable.
 
-**Documents liés** : [README.md](./README.md) (index `docs/`), [STATUS.md](../STATUS.md), [ROADMAP.md](./ROADMAP.md), [PHOTOS.md](./PHOTOS.md).
+**Documents liés** : [README.md](./README.md) (index `docs/`), [STATUS.md](../STATUS.md), [BACKLOG.md](../BACKLOG.md), [ROADMAP.md](./ROADMAP.md), [PHOTOS.md](./PHOTOS.md).
 
 ---
 

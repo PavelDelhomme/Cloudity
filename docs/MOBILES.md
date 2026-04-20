@@ -13,14 +13,14 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 | Produit | ID ROADMAP | Web (cible) | Mobile utilisateur | Notes |
 |---------|------------|-------------|-------------------|--------|
 | **Mail** | APP-01 | Oui (prioritaire) | Oui | Sync push (FCM/APNs), viewer offline partiel |
-| **Drive** | APP-02 | Oui | Oui | Upload photos / fichiers, sync sélective |
+| **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` — même session que Photos si déjà connecté |
 | **Office** | APP-03 | Oui (édition complète) | Viewer + édition légère (cible) | Parité complète difficile sur petit écran — prioriser lecture + commentaires |
 | **Pass** | APP-04 | Oui | Oui | Auto-fill OS / clavier ; biométrie |
 | **Calendar** | APP-05 | Oui | Oui | Rappels natifs, widgets |
 | **Notes** | APP-06 | Oui | Oui | Saisie rapide, dictée (option) |
 | **Tasks** | APP-07 | Oui | Oui | Widgets, notifications échéance |
 | **Contacts** | APP-08 | Oui | Oui | Intégration répertoire téléphone (permissions) |
-| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | `make run-mobile APP=Photos` — ADB : premier `device` ou **`CLOUDITY_DEVICE_ID`** ; sauvegarde album (opt-in), **WorkManager** — **[PHOTOS.md](./PHOTOS.md)** § 5 |
+| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | **Connexion** e-mail / mot de passe / tenant + session persistée (`flutter_secure_storage` + prefs) ; `make run-mobile APP=Photos` — ADB : premier `device` ou **`CLOUDITY_DEVICE_ID`** ; **`make test-mobile-photos`** / phase 5 de **`make tests`** — **[PHOTOS.md](./PHOTOS.md)** § 5, **[TESTS.md](./TESTS.md)** § 1b |
 | **AppHub / launcher** | APP-10 | Oui | Shell / deep links | App mobile peut être un **conteneur** avec modules ou apps séparées |
 | **Admin back-office** | ADM-01 | Oui | Voir § 2 | Jamais mélangé aux apps grand public |
 
@@ -57,7 +57,7 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 - **Auth** : refresh token, stockage sécurisé (Keychain / Keystore).
 - **Push** : service notifications (à ajouter infra) pour Mail, Calendar, Tasks.
 - **Deep links** : `cloudity://mail/...` ou Universal Links pour ouvrir le bon écran depuis une notification.
-- **Tests** : tests d’intégration API partagés avec le web ; tests UI mobiles hors scope de `make test` classique — prévoir CI dédiée plus tard (noter dans [TESTS.md](./TESTS.md)).
+- **Tests** : l’app **Photos** (`mobile/photos`) a des tests **Vitest côté web** (dashboard) côté repo, et des tests **Flutter** : **`make test-mobile-photos`** = `flutter test` (hôte) + **`integration_test`** sur **ADB** si un appareil est branché (sélection interactive si plusieurs). La même étape est la **phase 5** de **`make tests`** — détail **[TESTS.md](./TESTS.md)** § 1b. **Détection des autres apps** de la suite sur l’appareil : phase produit ultérieure (même `applicationId` / plugin ou heuristiques) ; aujourd’hui **convention de stockage** partagée `cloudity_suite_*` dans `mobile/photos/lib/storage_keys.dart` pour réutiliser gateway + jetons entre futures apps Drive, Mail, etc.
 
 ---
 
@@ -84,7 +84,7 @@ make run-mobile APP="Photos"
 | **Photos** | `mobile/photos/` ou `mobile/photos_app/` |
 | **Pass** | `mobile/pass/` ou `mobile/pass_app/` |
 
-Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code 2.
+Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code **2** (comportement voulu : *pas encore implémenté*, pas un crash). Dans le dépôt actuel : **`Photos`**, **`Drive`** (`mobile/drive`) et **`Admin`** (si présent) sont lançables ; **Mail**, **Calendar**, etc. le seront une fois le dossier Flutter créé.
 
 Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** (ex. `http://10.0.2.2:6080` pour émulateur Android, IP LAN pour appareil physique).
 
@@ -108,10 +108,10 @@ Tant que l’état reste `unauthorized`, **`flutter run` ne pourra pas installer
 - [ ] Choisir stack par défaut (Flutter vs PWA vs mixte).
 - [x] Cible `make run-mobile APP=…` (`scripts/run-mobile.sh`) — **Admin** exécutable d’office ; les autres dès qu’un dossier Flutter correspondant existe (voir tableau § 5).
 - [ ] Premier client mobile (souvent **Pass** ou **Mail** selon priorité ROADMAP).
-- [ ] Pipeline build iOS/Android (CI).
+- [ ] Pipeline build iOS/Android (CI) — en local : **`make test-mobile-photos`** + phase 5 de **`make tests`** (ADB optionnel).
 - [ ] Publication stores (comptes, politique confidentialité).
 - [ ] **ADM-02** : MVP admin mobile après stabilisation ADM-01 web.
 
 ---
 
-*Fichier : `docs/MOBILES.md`. Dernière révision : 2026-04-13.*
+*Fichier : `docs/MOBILES.md`. Dernière révision : 2026-04-17.*

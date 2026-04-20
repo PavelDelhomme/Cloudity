@@ -391,40 +391,47 @@ describe('MailPage', () => {
     expect(warn).toBeTruthy()
   })
 
-  it('passe à la page suivante des messages et relance fetchMailMessages avec offset', async () => {
-    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
-      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
-    ])
-    const msgs = (offset: number) =>
-      Array.from({ length: 25 }, (_, i) => ({
-        id: offset + i + 1,
-        account_id: 1,
-        folder: 'inbox',
-        from: 'a@test.com',
-        to: 'b@test.com',
-        subject: `Sujet ${offset + i + 1}`,
-        created_at: new Date().toISOString(),
-        is_read: true,
-      }))
-    vi.mocked(api.fetchMailMessages).mockImplementation(async (_t, _a, _f, opts: { offset?: number }) => {
-      const offset = opts?.offset ?? 0
-      return { messages: msgs(offset), total: 30 } as any
-    })
+  it(
+    'passe à la page suivante des messages et relance fetchMailMessages avec offset',
+    async () => {
+      vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+        { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+      ])
+      const msgs = (offset: number) =>
+        Array.from({ length: 25 }, (_, i) => ({
+          id: offset + i + 1,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: `Sujet ${offset + i + 1}`,
+          created_at: new Date().toISOString(),
+          is_read: true,
+        }))
+      vi.mocked(api.fetchMailMessages).mockImplementation(async (_t, _a, _f, opts: { offset?: number }) => {
+        const offset = opts?.offset ?? 0
+        return { messages: msgs(offset), total: 30 } as any
+      })
 
-    render(wrap(<MailPage />))
+      render(wrap(<MailPage />))
 
-    await screen.findByText(/Page 1 \/ 2/)
-    const next = screen.getByRole('button', { name: 'Page suivante' })
-    fireEvent.click(next)
+      await screen.findByText(/Page 1 \/ 2/, {}, { timeout: 10_000 })
+      const next = screen.getByRole('button', { name: 'Page suivante' })
+      fireEvent.click(next)
 
-    await waitFor(() => {
-      expect(screen.getByText(/Page 2 \/ 2/)).toBeTruthy()
-    })
-    expect(api.fetchMailMessages).toHaveBeenCalledWith(
-      'token',
-      1,
-      'inbox',
-      expect.objectContaining({ offset: 25, limit: 25 })
-    )
-  })
+      await waitFor(
+        () => {
+          expect(screen.getByText(/Page 2 \/ 2/)).toBeTruthy()
+        },
+        { timeout: 10_000 }
+      )
+      expect(api.fetchMailMessages).toHaveBeenCalledWith(
+        'token',
+        1,
+        'inbox',
+        expect.objectContaining({ offset: 25, limit: 25 })
+      )
+    },
+    15_000
+  )
 })

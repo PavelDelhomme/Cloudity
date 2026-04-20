@@ -266,4 +266,4 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 
 ---
 
-*Fichier : **`docs/ROADMAP.md`**. Convention : les seuls Markdown à la **racine** du repo sont **`README.md`** (entrée) et **`STATUS.md`** (suivi) ; le catalogue produit vit ici. Dernière révision : 2026-04-11 (Photos API + web MVP).*
+*Fichier : **`docs/ROADMAP.md`**. Convention : à la **racine** du repo, **`README.md`** (entrée), **`STATUS.md`** (suivi) et **`BACKLOG.md`** (priorités actionnables) ; le catalogue produit détaillé vit ici. Dernière révision : 2026-04-11 (Photos API + web MVP).*

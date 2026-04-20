@@ -1,6 +1,6 @@
 # Plan d'implémentation CLOUDITY
 
-**Emplacement** : ce fichier est dans **`docs/`**. À la racine du dépôt, seuls **`README.md`** et **`STATUS.md`** restent comme fichiers Markdown « principaux ».
+**Emplacement** : ce fichier est dans **`docs/`**. À la racine du dépôt : **`README.md`**, **`STATUS.md`** et **`BACKLOG.md`** (backlog condensé).
 
 **Référence au quotidien** : [STATUS.md](../STATUS.md) (suivi détaillé, checklist, ports 60XX, § 0b monorepo front).  
 **Catalogue produits & chantiers transverses** : [ROADMAP.md](./ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  

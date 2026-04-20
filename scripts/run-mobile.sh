@@ -27,6 +27,11 @@ if ! command -v flutter >/dev/null 2>&1; then
   exit 1
 fi
 
+chmod +x "${ROOT}/scripts/check-flutter-sdk-writable.sh" 2>/dev/null || true
+if ! "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
+  exit 1
+fi
+
 # Premier dossier existant gagne (aligné sur Makefile init-mobile : mobile/mail, mobile/drive, …).
 first_existing() {
   for d in "$@"; do
@@ -68,11 +73,12 @@ case "$NORM" in
 esac
 
 if [[ -z "${TARGET:-}" ]]; then
-  echo "ℹ️  Aucun projet Flutter trouvé pour « ${APP_RAW} »."
-  echo "    Créez par exemple :"
+  echo "ℹ️  Aucun dossier Flutter dans le dépôt pour « ${APP_RAW} » — ce n’est pas une panne :"
+  echo "    seuls les projets déjà créés sous mobile/ sont lançables (ex. Photos : make run-mobile APP=Photos)."
+  echo "    Drive / Mail / Calendar / … = à scaffold (sauf si le dossier est déjà dans le dépôt). Créez par exemple :"
   case "$NORM" in
     admin) echo "      cd mobile && flutter create admin_app" ;;
-    drive) echo "      cd mobile && flutter create drive" ;;
+    drive) echo "      cd mobile && flutter create drive   # le dépôt inclut déjà mobile/drive si vous avez pull la branche courante" ;;
     mail) echo "      cd mobile && flutter create mail" ;;
     calendar) echo "      cd mobile && flutter create calendar" ;;
     contacts) echo "      cd mobile && flutter create contacts" ;;

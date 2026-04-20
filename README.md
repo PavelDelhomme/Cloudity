@@ -19,11 +19,11 @@ L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UN
 
 Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
 
-**Convention documentation** : à la **racine** du dépôt, seuls **`README.md`** (cette page) et **`STATUS.md`** (suivi quotidien) restent comme fichiers Markdown « principaux ». Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
+**Convention documentation** : à la **racine** du dépôt, **`README.md`** (cette page), **`STATUS.md`** (suivi quotidien) et **`BACKLOG.md`** (priorités / backlog condensé). Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
 
 **Branches Git** : intégration sur **`dev`**, fonctionnalités sur **`feat/<sujet>`** (ex. Photos mobile + sync + sécurité), stable sur **`main`** — détail **[docs/BRANCHES.md](./docs/BRANCHES.md)**.
 
-**Suivi du projet** : **[STATUS.md](./STATUS.md)**. **Détail** : [docs/ROADMAP.md](./docs/ROADMAP.md), [docs/MOBILES.md](./docs/MOBILES.md), [docs/TESTS.md](./docs/TESTS.md), [docs/PlanImplementation.md](./docs/PlanImplementation.md), [docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md) (sync, mobile, session). **Flutter** : `make run-mobile APP=Admin` (autres noms → message tant que le scaffold n’existe pas ; voir [docs/MOBILES.md](./docs/MOBILES.md) § 5).
+**Suivi du projet** : **[STATUS.md](./STATUS.md)** · **Backlog** : **[BACKLOG.md](./BACKLOG.md)** · **Sécurité & confiance (vision)** : [docs/SECURITE.md](./docs/SECURITE.md). **Détail** : [docs/ROADMAP.md](./docs/ROADMAP.md), [docs/MOBILES.md](./docs/MOBILES.md), [docs/TESTS.md](./docs/TESTS.md), [docs/PlanImplementation.md](./docs/PlanImplementation.md), [docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md) (sync, mobile, session). **Flutter** : `make run-mobile APP=Admin` (autres noms → message tant que le scaffold n’existe pas ; voir [docs/MOBILES.md](./docs/MOBILES.md) § 5).
 
 **Dépannage** : Si la page **Mail** reste sur « Chargement des comptes » et que l’API renvoie **404** sur `GET /mail/me/accounts`, exécutez `make rebuild-mail` puis rechargez l’app. Vérifier ensuite : `make verify-mail-api`. **Gmail** : comme Thunderbird ou BlueMail, utilisez un [mot de passe d’application](https://myaccount.google.com/apppasswords) (Paramètres Google > Sécurité).
 

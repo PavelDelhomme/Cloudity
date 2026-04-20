@@ -1,5 +1,6 @@
 # Sécurité et chiffrement des données — Cloudity
 
+> **Vision longue** (suite Google + confiance Proton, phases, signatures, Zero Trust, WAF) : **[SECURITE.md](./SECURITE.md)**.  
 > **Référence produit** : chantier transversal détaillé dans **[ROADMAP.md](./ROADMAP.md)** (TR-01). Tableau algorithmes dans **[STATUS.md](../STATUS.md)** (§ 2.3). Tests sécurité → **[TESTS.md](./TESTS.md)** (`make test-security`). Index → **[README.md](./README.md)**.
 
 ## Déjà en place (rappel)

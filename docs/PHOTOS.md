@@ -13,8 +13,8 @@
 | Fonctionnalité | Comportement cible | État Cloudity |
 |----------------|-------------------|---------------|
 | **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (lecture `drive_nodes`, même DB que Drive) |
-| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload vers la racine Drive depuis Photos ; **mobile** : app `mobile/photos` (timeline + JWT manuel) ; **WorkManager** à faire (§ 5) |
-| **Albums / regroupements** | Albums utilisateur, « lieux », dates | **À faire** : tables métadonnées ou dossiers Drive dédiés + API |
+| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload + **glisser-déposer** racine Drive ; **mobile** : `mobile/photos` (session) ; **WorkManager** à faire (§ 5) |
+| **Albums / regroupements** | Albums utilisateur, « lieux », dates | **Web** : onglet **Albums** = dossiers racine Drive (MVP) ; **À faire** : tables métadonnées / albums natifs + API |
 | **Partage** | Liens, albums partagés | **À faire** (alignement APP-02 partage Drive) |
 | **Corbeille** | Suppression réversible | **Réutilise** la corbeille Drive (`deleted_at`) |
 | **Recherche / visages** | Opt-in, respect vie privée | **Hors MVP** ; documenter TR-01 avant toute ML |
@@ -41,11 +41,14 @@
 
 ## 3. Application web (`PhotosPage`)
 
-- Grille de vignettes, **lightbox** (flèches, Échap), lien vers **Drive** pour organisation des dossiers.
-- **Rafraîchissement** : `refetchInterval` 60 s + focus (alignement TR-07 avec Calendar / Contacts).
+- Grille de vignettes (colonnes type Google Photos), **lightbox** (flèches, Échap), **regroupement par jour** avec en-têtes **sticky**.
+- **Glisser-déposer** : déposer des fichiers image sur la page (onglet **Chronologie**) → upload racine Drive (même flux que le bouton Importer).
+- **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive, lien vers Drive avec fil d’Ariane) | **Archivé** / **Verrouillé** (guidage + roadmap ; pas d’API dédiée encore) | **Corbeille** (lien vers `/app/drive?view=trash`).
+- **État synchro** : libellé relatif basé sur le dernier `dataUpdatedAt` de la requête timeline + indicateur « mise à jour… ».
+- **Rafraîchissement** : `refetchInterval` 60 s + focus.
 - **Upload** : `POST /drive/nodes/upload` (racine `parent_id` absent).
 
-**Pistes UX suivantes** : regroupement par jour, sélection multiple, envoi vers album, corbeille depuis Photos.
+**Suite** : sélection multiple, albums métier (API), corbeille « photos uniquement » côté serveur si besoin.
 
 ---
 

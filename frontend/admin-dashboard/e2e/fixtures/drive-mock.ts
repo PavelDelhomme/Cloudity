@@ -100,22 +100,19 @@ export async function mockEditorPage(page: Page, nodeId = 1): Promise<void> {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
-  // Content en premier pour que cette route soit prioritaire sur **/drive/nodes**
-  await page.route(`**/drive/nodes/${nodeId}/content**`, async (route) => {
-    if (route.request().method() === 'GET') {
-      await route.fulfill({ status: 200, body: '<p>Contenu E2E</p>', contentType: 'text/html' })
-      return
-    }
-    await route.continue()
-  })
+  // Une seule route : ne jamais `continue()` sur GET …/content (sinon le vrai backend renvoie du
+  // binaire et l’éditeur affiche du bruit). Les anciennes doubles routes + ordre Playwright
+  // faisaient matcher `**/drive/nodes**` avant la route dédiée au content.
+  const contentPath = `/drive/nodes/${nodeId}/content`
+  await page.unroute('**/drive/nodes**').catch(() => {})
   await page.route('**/drive/nodes**', async (route) => {
     const req = route.request()
     const url = req.url()
-    if (url.includes('/content')) {
-      await route.continue()
+    if (req.method() === 'GET' && url.includes(contentPath)) {
+      await route.fulfill({ status: 200, body: '<p>Contenu E2E</p>', contentType: 'text/html' })
       return
     }
-    if (req.method() === 'GET') {
+    if (req.method() === 'GET' && !url.includes('/content')) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -129,6 +129,8 @@ export default function DocumentEditorPage() {
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
   const [dirty, setDirty] = useState(false)
+  const dirtyRef = useRef(false)
+  const loadingRef = useRef(loading)
   const [rich, setRich] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [formatState, setFormatState] = useState({ bold: false, italic: false, underline: false, strikeThrough: false, formatBlock: 'p' as string })
@@ -152,20 +154,36 @@ export default function DocumentEditorPage() {
   const [markdownSource, setMarkdownSource] = useState('')
   const [openMenu, setOpenMenu] = useState<'fichier' | 'edition' | 'affichage' | 'insertion' | 'format' | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  /** Dernière sélection dans l’éditeur riche : restaurée avant execCommand quand le menu a volé le focus. */
+  const savedEditorRangeRef = useRef<Range | null>(null)
   const menuBarRef = useRef<HTMLDivElement>(null)
   const queryClient = useQueryClient()
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const skipReloadAfterRenameRef = useRef(false)
   const wasLoadingRef = useRef(loading)
+  /** Incrémenté à chaque chargement Drive : une réponse async obsolète ne doit pas réécraser l’éditeur (saisie / autre requête). */
+  const driveContentLoadGenRef = useRef(0)
 
   const id = nodeId ? parseInt(nodeId, 10) : NaN
   const validId = Number.isInteger(id) && id > 0
 
+  useEffect(() => {
+    dirtyRef.current = dirty
+  }, [dirty])
+
+  useEffect(() => {
+    loadingRef.current = loading
+  }, [loading])
+
   const loadContent = useCallback(async () => {
     if (!validId || !accessToken) return
-    setLoading(true)
+    const gen = ++driveContentLoadGenRef.current
+    const silentRefresh = loadingRef.current === false && dirtyRef.current
+    if (!silentRefresh) setLoading(true)
     try {
       const text = await getDriveNodeContentAsText(accessToken, id)
+      if (gen !== driveContentLoadGenRef.current) return
+      if (dirtyRef.current) return
       setContent(text)
       if (editorRef.current && rich) {
         editorRef.current.innerHTML = text || ''
@@ -177,46 +195,57 @@ export default function DocumentEditorPage() {
         setGridRows(parseCsvToGrid(text || ''))
       }
     } catch (e) {
+      if (gen !== driveContentLoadGenRef.current) return
       toast.error(e instanceof Error ? e.message : 'Impossible de charger le fichier')
       navigate('/app/drive')
     } finally {
-      setLoading(false)
+      if (gen === driveContentLoadGenRef.current) setLoading(false)
     }
   }, [id, validId, accessToken, rich, name, navigate])
 
   const loadWordContent = useCallback(async () => {
     if (!validId || !accessToken) return
-    setLoading(true)
+    const gen = ++driveContentLoadGenRef.current
+    const silentRefresh = loadingRef.current === false && dirtyRef.current
+    if (!silentRefresh) setLoading(true)
     try {
       const blob = await downloadDriveFile(accessToken, id)
+      if (gen !== driveContentLoadGenRef.current) return
       const { wordBlobToHtml } = await import('../../utils/wordToHtml')
       const html = await wordBlobToHtml(blob)
+      if (gen !== driveContentLoadGenRef.current) return
+      if (dirtyRef.current) return
       setContent(html)
       setRich(true)
       if (editorRef.current) editorRef.current.innerHTML = html || ''
     } catch (e) {
+      if (gen !== driveContentLoadGenRef.current) return
       toast.error(e instanceof Error ? e.message : 'Impossible d\'ouvrir le document Word')
       navigate('/app/drive')
     } finally {
-      setLoading(false)
+      if (gen === driveContentLoadGenRef.current) setLoading(false)
     }
   }, [id, validId, accessToken, navigate])
 
   const loadXlsxContent = useCallback(async () => {
     if (!validId || !accessToken) return
+    const gen = ++driveContentLoadGenRef.current
     setLoading(true)
     try {
       const blob = await downloadDriveFile(accessToken, id)
+      if (gen !== driveContentLoadGenRef.current) return
       const { xlsxBlobToGrid } = await import('../../utils/exportOffice')
       const grid = await xlsxBlobToGrid(blob)
+      if (gen !== driveContentLoadGenRef.current) return
       setGridRows(grid)
       setRich(false)
       setContent('')
     } catch (e) {
+      if (gen !== driveContentLoadGenRef.current) return
       toast.error(e instanceof Error ? e.message : 'Impossible d\'ouvrir le tableur')
       navigate('/app/drive')
     } finally {
-      setLoading(false)
+      if (gen === driveContentLoadGenRef.current) setLoading(false)
     }
   }, [id, validId, accessToken, navigate])
 
@@ -312,7 +341,34 @@ export default function DocumentEditorPage() {
     }
   }, [rich, updateFormatState])
 
+  useEffect(() => {
+    if (!rich) {
+      savedEditorRangeRef.current = null
+      return
+    }
+    const onSelectionChange = () => {
+      if (!editorRef.current) return
+      const sel = document.getSelection()
+      if (!sel || sel.rangeCount === 0) return
+      let range: Range
+      try {
+        range = sel.getRangeAt(0)
+      } catch {
+        return
+      }
+      if (!editorRef.current.contains(range.commonAncestorContainer)) return
+      try {
+        savedEditorRangeRef.current = range.cloneRange()
+      } catch {
+        /* ignore */
+      }
+    }
+    document.addEventListener('selectionchange', onSelectionChange)
+    return () => document.removeEventListener('selectionchange', onSelectionChange)
+  }, [rich])
+
   const handleInput = useCallback(() => {
+    dirtyRef.current = true
     if (rich && editorRef.current) {
       setContent(editorRef.current.innerHTML)
     } else if (textareaRef.current) {
@@ -322,6 +378,30 @@ export default function DocumentEditorPage() {
   }, [rich])
 
   const execCommand = (cmd: string, value?: string) => {
+    const ed = editorRef.current
+    const saved = savedEditorRangeRef.current
+    let formatBlockStartNode: Node | null = null
+    if (cmd === 'formatBlock' && value && ed && saved) {
+      try {
+        if (ed.contains(saved.startContainer)) formatBlockStartNode = saved.startContainer
+      } catch {
+        /* ignore */
+      }
+    }
+    if (ed && saved) {
+      try {
+        if (ed.contains(saved.startContainer)) {
+          const selection = document.getSelection()
+          if (selection) {
+            ed.focus()
+            selection.removeAllRanges()
+            selection.addRange(saved)
+          }
+        }
+      } catch {
+        savedEditorRangeRef.current = null
+      }
+    }
     const sel = document.getSelection()
     const isInlineFormat = ['bold', 'italic', 'underline', 'strikeThrough'].includes(cmd)
     if (isInlineFormat && sel && sel.rangeCount > 0 && editorRef.current) {
@@ -333,6 +413,55 @@ export default function DocumentEditorPage() {
       }
     }
     document.execCommand(cmd, false, value)
+    /* formatBlock « h1 » etc. échoue parfois (focus menu, Chromium) : forcer le bloc courant. */
+    if (cmd === 'formatBlock' && value && /^h[1-6]|p$/i.test(value) && editorRef.current) {
+      const root = editorRef.current
+      const selAfter = document.getSelection()
+      const tag = value.toLowerCase()
+      let start: Node | null = null
+      if (formatBlockStartNode && root.contains(formatBlockStartNode)) {
+        start = formatBlockStartNode
+      } else if (selAfter && selAfter.rangeCount > 0 && root.contains(selAfter.anchorNode)) {
+        start = selAfter.anchorNode
+      } else {
+        try {
+          const r = savedEditorRangeRef.current
+          if (r && root.contains(r.startContainer)) start = r.startContainer
+        } catch {
+          /* ignore */
+        }
+      }
+      if (start) {
+        let n: Node | null = start
+        if (n.nodeType === Node.TEXT_NODE) n = n.parentNode
+        while (n && n !== root) {
+          if (n instanceof HTMLElement) {
+            const t = n.tagName.toLowerCase()
+            if (['p', 'div', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(t)) {
+              if (t !== tag) {
+                const neu = document.createElement(tag)
+                neu.innerHTML = n.innerHTML
+                n.parentNode?.replaceChild(neu, n)
+                const nr = document.createRange()
+                nr.selectNodeContents(neu)
+                nr.collapse(false)
+                if (selAfter) {
+                  selAfter.removeAllRanges()
+                  selAfter.addRange(nr)
+                }
+                try {
+                  savedEditorRangeRef.current = nr.cloneRange()
+                } catch {
+                  /* ignore */
+                }
+              }
+              break
+            }
+          }
+          n = n.parentNode
+        }
+      }
+    }
     if (editorRef.current) setContent(editorRef.current.innerHTML)
     setDirty(true)
     editorRef.current?.focus()
@@ -882,7 +1011,7 @@ export default function DocumentEditorPage() {
               <Type className="h-4 w-4" /> Format <ChevronDown className="h-3.5 w-3.5" />
             </button>
             {openMenu === 'format' && (
-              <div className="absolute left-0 top-full z-50 mt-0.5 w-56 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1 max-h-[80vh] overflow-y-auto">
+              <div data-testid="menu-format" className="absolute left-0 top-full z-50 mt-0.5 w-56 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl py-1 max-h-[80vh] overflow-y-auto">
                 <button type="button" onClick={() => { execCommand('formatBlock', 'h1'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><Heading1 className="h-4 w-4" /> Titre 1</button>
                 <button type="button" onClick={() => { execCommand('formatBlock', 'h2'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><Heading2 className="h-4 w-4" /> Titre 2</button>
                 <button type="button" onClick={() => { execCommand('formatBlock', 'h3'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><Heading3 className="h-4 w-4" /> Titre 3</button>
@@ -1205,6 +1334,7 @@ export default function DocumentEditorPage() {
         ) : rich ? (
           <div
             ref={editorRef}
+            data-testid="document-editor-rich"
             contentEditable
             onInput={handleInput}
             className="min-h-[300px] max-w-3xl mx-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 prose dark:prose-invert prose-headings:font-semibold prose-blockquote:border-l-brand-500 prose-blockquote:italic prose-blockquote:pl-4 prose-hr:my-6 prose-hr:border-slate-200 dark:prose-hr:border-slate-600 [&_hr]:block [&_hr]:w-full [&_hr]:min-h-[1px]"

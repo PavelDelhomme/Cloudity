@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Lance tous les tests (unit/app, E2E, E2E Playwright, sécurité).
-# Exécute toujours les 4 phases puis affiche le résumé (ne s’arrête pas à la première erreur).
+# Lance tous les tests (unit/app, E2E, E2E Playwright, sécurité, mobile Photos Flutter).
+# Exécute toujours les 5 phases puis affiche le résumé (ne s’arrête pas à la première erreur).
 # Usage: ./scripts/run-tests-with-report.sh  ou  make tests
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# Évite mélanges binaires / encodage incohérent dans tee et les outils CLI (npm, Playwright, etc.)
+export LC_ALL=C.UTF-8
+export LANG=C.UTF-8
+export PYTHONUTF8=1
 mkdir -p reports
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 LOG="reports/test-${TIMESTAMP}.log"
@@ -34,6 +38,8 @@ run_phase() {
   return "$r"
 }
 
+MOBILE_PHOTOS_STATUS="SKIP"
+
 {
   echo "========================================"
   echo "Rapport des tests Cloudity - $TIMESTAMP"
@@ -42,7 +48,7 @@ run_phase() {
 
 echo "========================================"
 echo "  CLOUDITY — make tests"
-echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security"
+echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security + test-mobile-photos"
 echo "  Rapport détaillé : $LOG"
 echo "  Dossier rapports : $ROOT/reports/"
 echo "========================================"
@@ -52,11 +58,12 @@ echo "  1. make test           — Tests unitaires/applicatifs **dans Docker** (
 echo "  2. make test-e2e       — E2E health/proxy (stack démarrée)"
 echo "  3. make test-e2e-playwright — E2E navigateur Playwright (Hub, Drive, Calendrier, Mail… stack + seed-admin)"
 echo "  4. make test-security  — Audits de dépendances + auth"
+echo "  5. test-mobile-photos  — Flutter Photos (widget hôte) + integration_test sur ADB si appareil"
 echo ""
 
 # ----- Phase 1 -----
 echo ""
-echo ">>> Phase 1/4 : Tests unitaires et applicatifs (make test)"
+echo ">>> Phase 1/5 : Tests unitaires et applicatifs (make test)"
 if run_phase "Phase 1: make test" "make test"; then
   UNIT_STATUS="OK"
   echo ""
@@ -70,7 +77,7 @@ fi
 
 # ----- Phase 2 -----
 echo ""
-echo ">>> Phase 2/4 : Tests E2E health/proxy (make test-e2e)"
+echo ">>> Phase 2/5 : Tests E2E health/proxy (make test-e2e)"
 if run_phase "Phase 2: make test-e2e" "make test-e2e"; then
   E2E_STATUS="OK"
   echo ""
@@ -84,7 +91,7 @@ fi
 
 # ----- Phase 3 -----
 echo ""
-echo ">>> Phase 3/4 : Tests E2E navigateur Playwright (make test-e2e-playwright)"
+echo ">>> Phase 3/5 : Tests E2E navigateur Playwright (make test-e2e-playwright)"
 if run_phase "Phase 3: make test-e2e-playwright" "make test-e2e-playwright"; then
   E2E_PW_STATUS="OK"
   echo ""
@@ -98,7 +105,7 @@ fi
 
 # ----- Phase 4 -----
 echo ""
-echo ">>> Phase 4/4 : Vérifications sécurité (make test-security)"
+echo ">>> Phase 4/5 : Vérifications sécurité (make test-security)"
 if run_phase "Phase 4: make test-security" "make test-security"; then
   if [ -f reports/.security-avertissements ]; then
     SEC_STATUS="OK (avertissements)"
@@ -116,6 +123,20 @@ else
   show_tail "$LOG" 35
 fi
 
+# ----- Phase 5 (Flutter Photos : hôte + ADB optionnel) -----
+echo ""
+echo ">>> Phase 5/5 : Mobile Cloudity Photos (./scripts/test-mobile-photos.sh)"
+MOBILE_PHOTOS_STATUS="OK"
+if run_phase "Phase 5: test-mobile-photos" "chmod +x scripts/test-mobile-photos.sh 2>/dev/null || true; ./scripts/test-mobile-photos.sh"; then
+  echo ""
+  echo "  Phase 5 (Mobile Photos) : OK"
+else
+  MOBILE_PHOTOS_STATUS="FAIL"
+  echo ""
+  echo "  Phase 5 (Mobile Photos) : ÉCHEC (flutter test / integration_test — voir log)"
+  show_tail "$LOG" 40
+fi
+
 # ----- Résumé (toujours affiché) -----
 {
   echo ""
@@ -126,12 +147,13 @@ fi
   echo "  E2E:            $E2E_STATUS"
   echo "  E2E Playwright: $E2E_PW_STATUS"
   echo "  Sécurité:       $SEC_STATUS"
+  echo "  Mobile Photos:  $MOBILE_PHOTOS_STATUS"
   echo "  Rapport:        $LOG"
   echo "  Répertoire:     $ROOT (racine du dépôt)"
   echo "========================================"
 } | tee -a "$LOG"
 
-if [ "$UNIT_STATUS" = "FAIL" ] || [ "$E2E_STATUS" = "FAIL" ] || [ "$E2E_PW_STATUS" = "FAIL" ] || [ "$SEC_STATUS" = "FAIL" ]; then
+if [ "$UNIT_STATUS" = "FAIL" ] || [ "$E2E_STATUS" = "FAIL" ] || [ "$E2E_PW_STATUS" = "FAIL" ] || [ "$SEC_STATUS" = "FAIL" ] || [ "$MOBILE_PHOTOS_STATUS" = "FAIL" ]; then
   echo ""
   echo "❌ RÉSULTAT FINAL : ÉCHEC (au moins une phase a échoué)"
   echo "   Rapport complet : $LOG"

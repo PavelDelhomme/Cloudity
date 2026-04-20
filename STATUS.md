@@ -1,18 +1,24 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-04-11 (convention doc : racine **README** + **STATUS** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
+**Dernière mise à jour** : 2026-04-17 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
 **Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security` pour Photos galerie + mobile + sync + durcissement sécurité). Détail : **[docs/BRANCHES.md](./docs/BRANCHES.md)**.  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
 
-**Emplacement des docs** : à la racine, **`README.md`** + **`STATUS.md`** uniquement pour l’essentiel ; **ROADMAP**, **TESTS**, **MOBILES**, **PlanImplementation**, **MAIL-GMAIL-OAUTH** et les guides → dossier **`docs/`** (index **[docs/README.md](./docs/README.md)**).
+**Emplacement des docs** : à la racine, **`README.md`**, **`STATUS.md`** et **`BACKLOG.md`** (priorités et cases à cocher condensées) ; **ROADMAP**, **TESTS**, **MOBILES**, **PlanImplementation**, **MAIL-GMAIL-OAUTH** et les guides → dossier **`docs/`** (index **[docs/README.md](./docs/README.md)**).
+
+**Backlog condensé (démarrage / priorités)** : **[BACKLOG.md](./BACKLOG.md)** — point d’entrée avant le détail **SYNC-BACKLOG** / **ROADMAP**.
 
 **Catalogue produit & mobile** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/MOBILES.md](./docs/MOBILES.md)** — matrice **web / mobile** + **admin mobile** (ADM-02). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**.
+
+**Sécurité & confiance (vision suite Google + niveau Proton, phases, signatures requêtes, Zero Trust, WAF)** : **[docs/SECURITE.md](./docs/SECURITE.md)** — complète **[docs/SECURITE-DONNEES.md](./docs/SECURITE-DONNEES.md)** (chiffrement, durcissement HTTP, TR-01).
 
 **Pourquoi mocker l'API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l'API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L'objectif est la pratique standard (tests isolés). L'avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes.
 
 ---
 
 ## 0. Démarrage
+
+**Ordre lecture** : **[BACKLOG.md](./BACKLOG.md)** (priorités + liens) → **[docs/SECURITE.md](./docs/SECURITE.md)** (cadre confiance / phases) → ce §0 pour les commandes → **[docs/TESTS.md](./docs/TESTS.md)** avant merge.
 
 | Action | Commande |
 |--------|----------|
@@ -21,7 +27,7 @@
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
 | **Première fois** | **`make setup`** puis **`make up-full`** |
-| **App mobile (Flutter)** | **`make run-mobile APP=Admin`** (prérequis : Flutter) ; Drive/Mail/Calendar/… → message + **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 tant que non scaffold |
+| **App mobile (Flutter)** | **`make run-mobile APP=Admin`** ou **`APP=Photos`** (prérequis : Flutter) ; Drive/Mail/Calendar/… → message + **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 tant que non scaffold |
 
 **URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
 
@@ -41,19 +47,21 @@
 |----------|------|
 | **`make test`** | Tests unitaires + applicatifs **dans Docker** (`compose run` / `exec`). **Ne lance pas les E2E.** Docker requis ; voir **TESTS.md**. |
 | **`make test-e2e`** | **Tests E2E à part** : vérifie que les services répondent (health, gateway proxy). **Prérequis : `make up`** avant, puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make test-all`** | Lance **`make test`** puis **`make test-e2e`** (tout en une commande ; E2E échouera si la stack n'est pas up). |
+| **`make tests`** | **Batterie complète** avec rapport dans `reports/` : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-photos`** (Flutter Photos : hôte + ADB si appareil). Prérequis : stack + **`make seed-admin`** pour les phases web ; voir **[docs/TESTS.md](./docs/TESTS.md)** § 1b. |
+| **`make test-all`** | Même enchaînement que **`make tests`** sans fichier de rapport : **`make test`**, **`test-e2e`**, **`test-e2e-playwright`**, **`test-security`**, **`test-mobile-photos`**. |
+| **`make test-mobile-photos`** | Uniquement **`mobile/photos`** : `flutter test` (hôte) + **`integration_test`** sur un appareil **ADB** si disponible (menu de choix si plusieurs). |
 | **`make test-security`** | Audits de dépendances (npm, pip safety, govulncheck) + checks auth (401 sans token / token invalide sur `/auth/validate`). |
 | **`make test-docker`** | **`exec`** dans la stack **déjà démarrée** (`make up`) — vérifie les binaires en cours d’exécution. |
 | **`make test-full`** | test-all + test-docker (tout, stack up requise). |
 
-**Important** : Pour **tout** vérifier (unit/app + E2E + sécurité) : **`make up`**, attendre 20-30 s, puis **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
+**Important** : Pour **tout** vérifier (unit/app + E2E web + Playwright + sécurité + **Photos Flutter**) : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport) ou **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
 **Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
 **Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **admin-dashboard** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État des tests** : lancer **`make test`** (Docker) avant merge ; chiffres à jour dans **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
+**État des tests** : lancer **`make test`** (Docker) avant merge ; chiffres à jour dans **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. **Mobile Photos** : **`make test-mobile-photos`** (ou phase 5 de **`make tests`**) — ADB + variables **`CLOUDITY_E2E_*`** pour un parcours login réel sur appareil, voir **TESTS.md** § 1b. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
 
 **Ordre des applications (priorité ajustée avril 2026)** : 1) **Photos** (libérer l’espace type Google Photos : API + web + mobile + sync sobre) — voir **`docs/PHOTOS.md`** ; 2) **Mail** (client riche, tri, alias, archivage) ; 3) **Contacts** ; 4) **Pass** (style Proton) ; puis Office/Éditeur, Calendar, Notes, Tasks selon **`docs/ROADMAP.md`**. Détail § 1b.
 
@@ -61,7 +69,11 @@
 1. **Architecture multi-produits (§ 0b)** — monorepo front, packages partagés, apps utilisateur vs **admin-console** séparée, URLs distinctes ; avancer **étape par étape** (A1 → A2/A3 → …) sans casser l’app actuelle.  
 2. **Office/Éditeur document complet** (en parallèle ou après stabilisation 0b) — fil d’Ariane, menus, formatage, export PDF, .pptx, drawer ; voir `docs/editeur-docs.md` et **§ 1b**.
 
-**Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** — albums, mobile, sync batterie (MVP web + API timeline **déjà en cours**, voir `docs/PHOTOS.md`) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche (suite prioritaire après stabilisation Photos) ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
+**Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** — albums, sync batterie, détection des **autres apps** suite sur l’appareil (phase 2) ; l’app **mobile/photos** a désormais **connexion compte**, timeline et tests **`make test-mobile-photos`** (voir `docs/PHOTOS.md`, **TESTS.md** § 1b) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche (suite prioritaire après stabilisation Photos) ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
+
+**Suite utilisateur (UX récente)** : barre d’app **recherche** (icône loupe + **Ctrl/Cmd+K**) à côté des **notifications** ; sur **Drive**, paramètre **`?q=`** filtre les noms dans le **dossier courant** (recherche arborescente = backlog **BACKLOG.md** / **TESTS.md** §4.0).
+
+**Stratégie sécurité / produit** : document **[docs/SECURITE.md](./docs/SECURITE.md)** — cible *expérience type Google* + *promesses type Proton* (E2EE / zero-access sur espaces privés), **4 couches** (sync, fichiers, photos, sécurité), **phases 1–4**, **signatures HTTP** complémentaires au TLS, **Zero Trust**, rôle **WAF** en périmètre. Mettre à jour **BACKLOG.md** (§ sécurité) quand une ligne est livrée.
 
 **État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
@@ -111,7 +123,18 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 
 ## 1. Ce que je dois faire (priorités)
 
-Section pour **avancer concrètement** : cocher au fur et à mesure.
+Section pour **avancer concrètement** : cocher au fur et à mesure. **Backlog condensé** : **[BACKLOG.md](./BACKLOG.md)**. **Tests à prévoir** : **[docs/TESTS.md](./docs/TESTS.md)** §4.
+
+### Pistes « à faire » les plus rentables (ordre court)
+
+| Priorité | Action | Référence |
+|----------|--------|-----------|
+| 1 | Stabiliser **Photos** (mobile auth, albums, sync batterie — MVP déjà web + API) | **docs/PHOTOS.md**, **SYNC-BACKLOG** |
+| 2 | Poursuivre **Mail** (dossiers IMAP §0b, recherche §9, PJ, archivage) | **SYNC-BACKLOG**, **STATUS** §1c M* |
+| 3 | **Éditeur** : export PDF, tableur / .pptx, barre Office §1c E* | **editeur-docs.md**, **TESTS** §4.7 |
+| 4 | **Drive** : ZIP live + extract (Z1–Z3), PDF.js aperçu | **TESTS** §4.7 |
+| 5 | **Recherche** : API arborescente / cross-apps (au-delà du MVP `?q=` + palette) | **BACKLOG**, **TESTS** §4.0 |
+| 6 | **Sécurité** : suivre phases **docs/SECURITE.md** + durcissement **SECURITE-DONNEES.md** | **SECURITE.md** |
 
 ### Immédiat (base actuelle)
 
@@ -131,9 +154,9 @@ Section pour **avancer concrètement** : cocher au fur et à mesure.
 - [ ] **Stack mail** : Postfix + Dovecot + Rspamd + Redis dans le Compose.
 - [x] **mail-directory-service** (Go) : domaines, comptes, alias (CRUD + API). Port 6050, route gateway `/mail/*`.
 - [x] **Schéma DB mail** : `03-schema-mail.sql` (mail_domains, mail_mailboxes, mail_aliases).
-- [ ] **mail-client-api** : wrapper IMAP/SMTP en REST pour l'UI.
+- [ ] **mail-client-api** : *optionnel* — wrapper IMAP/SMTP si on extrait la logique hors **mail-directory-service** ; sinon reporter après stabilisation **§1c**.
 - [ ] **Client mail Flutter** (web + Linux) : lecture/envoi, dossiers, étiquettes.
-- [ ] **Client mail web (admin-dashboard)** : envoi, brouillons, dossiers, déplacer des mails, récupération, gestion de plusieurs boîtes (à brancher sur mail-client-api).
+- [x] **Client mail web (admin-dashboard)** : envoi, sync IMAP, plusieurs boîtes, dossiers standard, pièces jointes en partie, polling / actualisation — **voir §1c M*** pour la suite (dossiers perso, règles, recherche full-text). *Un **mail-client-api** dédié reste optionnel* tant que l’UI parle au **mail-directory-service** via la gateway.
 - [x] **Page Domaines** (admin-dashboard) : liste + création domaines mail, API /mail/domains.
 
 ### Phase 3 — Alias + intégration
@@ -192,7 +215,7 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 |---|----------------|--------|------------------|
 | 1 | **Visualisation PDF intégrée** | Aperçu **embed** dans la modale (cible complémentaire : **PDF.js** pour zoom/recherche). | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
 | 2 | **Extracteur d'archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
-| 3 | **Recherche globale** | Recherche dans l’app : **Drive** (fichiers/dossiers), puis notes, tâches, calendrier, mail, pass, documents. Champ de recherche unifié + résultats groupés par type. | Unit : logique recherche / filtres ; E2E : saisie recherche → résultats Drive (et autres si implémentés). |
+| 3 | **Recherche globale** | **MVP livré** : palette barre app (**Ctrl/Cmd+K**), filtre **`?q=`** sur les noms dans le **dossier Drive courant**, raccourci **Contacts**. **À faire** : API recherche arborescente / multi-apps + résultats groupés. | Unit : **GlobalSearchPalette** + parsing `?q=` ; E2E : palette → Drive filtré. Voir **TESTS.md** §4.0. |
 
 ### Éditeur de documents (Office) — à faire
 
@@ -261,7 +284,7 @@ La détection IMAP/SMTP est **entièrement automatique** à partir de l’adress
 | # | Tâche | Détail | Tests |
 |---|--------|--------|--------|
 | M1 | **Récupération des mails (sync IMAP)** | Déjà en place : POST /mail/me/accounts/:id/sync, connexion IMAP. **Toute adresse** gérée par détection automatique (voir ci-dessus). Stockage en-têtes dans `mail_messages`. À améliorer : autres dossiers (Sent, Drafts, Trash), corps, pièces jointes. | API : sync avec un fournisseur quelconque ; E2E : ajouter boîte → sync → voir messages. |
-| M2 | **Frontend Mail** | Liste des messages, **bouton Actualiser** uniquement (pas de polling 60 s). **Actualiser** : le backend ne compte que les **nouveaux** messages insérés (synced = RowsAffected), plus de « 200+ nouveaux » à tort. **Panneau gauche** (boîtes + dossiers) **réductible** (icônes seules, préférence dans localStorage). **Répondre / Répondre à tous / Transférer** sur le détail du message. **Nouveau message** : **panneau en bas** (style Gmail/Proton), réductible/agrandissable, pas de modale centrée. **Signature** : paramètres Mail (textarea) stockée en localStorage, ajoutée en bas à l’envoi. Envoi sans ressaisir le mot de passe. **Déjà implémenté** : multi-sélection + actions en masse (lu/non lu/spam/corbeille/boîte de réception/archiver), `Tout sélectionner (page)`, `Inverser la sélection (page)`, pagination `Page X / Y` + total. **À ajouter** : option `Tout sélectionner (boîte entière)` (toutes les pages), distincte de `Tout sélectionner (page)`. | Unit : MailPage ; E2E : ajout boîte, sync, actualiser, envoi sans mot de passe. |
+| M2 | **Frontend Mail** | **En place** : liste messages, **sync IMAP** + **polling** arrière-plan (intervalle configurable), notifications nouveaux messages, panneau gauche réductible, réponse / transfert, rédaction panneau bas, signature localStorage, envoi sans ressaisir mot de passe, multi-sélection + actions masse, pagination `Page X / Y`, sélection page / inverser. **À ajouter** : `Tout sélectionner (boîte entière)`, raffinements UX, corps à l’ouverture si absent en base (cf. M8). | Unit : MailPage ; E2E : ajout boîte, sync, envoi. |
 | M3 | **Dossiers personnalisés** | Créer ses propres dossiers et sous-dossiers (indépendamment de Gmail/OVH), gérer la hiérarchie (dossier/sous-dossier/sous-sous-dossier), déplacer les messages. Backend : IMAP LIST/CREATE/MOVE ou structure propre en base. Corbeille mail, Brouillons, zone Envois programmés. | API : list/create/move folders ; E2E : créer dossier, déplacer message. |
 | M4 | **Lecture, recherche, filtres** | Marquer lu / non lu dans la liste ; recherche full-text dans les messages ; filtres et tri (date, expéditeur, objet) ; « À lire plus tard » / liste en attente ; gestion de la file d’envoi (messages en attente). | API : flags read/unread, search endpoint ; E2E : marquer lu, recherche. |
 | M5 | **Envoi programmé** | Programmer l’envoi d’un mail (date/heure). Backend : file d’envoi + worker ou cron. Interface : date/heure dans la fenêtre de rédaction. | API : scheduled_send ; E2E : programmer envoi. |
@@ -344,9 +367,10 @@ En production, exposer les services via un reverse proxy (Nginx Proxy Manager, N
 
 ## 3. Branches et base de travail
 
-- **Branche principale** : `main` (à garder à jour avec `origin/main`).
-- **Branches distantes connues** : `develop`, `feature/auth-service`, `release/v0.1`, `hotfix/base-upload`, `cursor/fix-cors-and-api-errors-on-dashboard-a59d`.
-- **Recommandation** : travailler à partir de `main`, merger `develop` ou les features une fois validées. Avant de commencer une grosse phase, faire un `git fetch origin` et se baser sur la branche la plus à jour (en général `main`).
+- **Branche principale** : `main` (stable) ; intégration **`dev`** ; chantiers **`feat/<sujet>`**.
+- **Branche chantier récente (Photos / mobile / sync / sécurité)** : **`feat/photos-gallery-mobile-sync-security`** — souvent la plus à jour pour ce périmètre ; fusionner vers **`dev`** après **`make test`** + revue.
+- **Branches distantes possibles** : `develop`, `feature/*`, `release/*`, etc. — voir aussi **[docs/BRANCHES.md](./docs/BRANCHES.md)**.
+- **Recommandation** : `git fetch origin` ; rebaser ou merger depuis la branche d’intégration convenue en équipe ; ne pas laisser diverger **STATUS.md** / **BACKLOG.md** sur une branche trop longtemps.
 
 ---
 
@@ -384,24 +408,24 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 
 ### 4.3 Schéma PostgreSQL actuel
 
-- **Tables** : `tenants`, `users`, `sessions`, `audit_logs` (RLS activé).
-- **À venir** : schémas/schema séparés ou tables pour **mail** (domains, mailboxes, aliases), **pass** (vaults, items), **drive** (fichiers, meta).
+- **Tables cœur** : `tenants`, `users`, `sessions`, `audit_logs` (RLS activé).
+- **Déjà branchés** (migrations + services) : **mail** (`mail_*`), **pass** (`pass_*`), **drive** (`drive_nodes`), **calendar** (`calendar_events`), **notes** (`notes`), **tasks** (`task_lists` / `tasks`), **photos** (selon migrations photos) — détail dans `infrastructure/postgresql/migrations/` et schémas init.
 
 ### 4.4 Services backend
 
 | Service | Stack | Statut | Détail |
 |---------|--------|--------|--------|
 | auth-service | Go (Gin) | ✅ OK | Health, Register/Login/Refresh/Validate, 2FA TOTP ; Argon2id, refresh avec rotation, JWT ; tests unitaires (main_test.go). |
-| api-gateway | Go (Gorilla mux) | ✅ OK | Proxy vers auth et admin, CORS ; exposé host **6080**. |
+| api-gateway | Go (Gorilla mux) | ✅ OK | Proxy **auth**, **admin**, **pass**, **mail**, **drive**, **calendar**, **notes**, **tasks**, **photos** ; CORS ; host **6080**. |
 | admin-service | Python (FastAPI) | ✅ OK | CRUD tenants, CRUD users, **GET /admin/stats** (dashboard), health ; exposé host **6082** ; tests pytest (health, **stats**, tenants, users) — 21 tests. |
 | **password-manager** | Go (Gin) | ✅ OK | Health, CRUD vaults, CRUD items (ciphertext uniquement) ; auth via X-User-ID / X-Tenant-ID (gateway) ; port **6051**, route gateway `/pass/*` ; tests Go (health, auth requis) — 3 tests. |
-| mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias (CRUD + API). Port **6050**, route gateway `/mail/*`. Health + GET/POST /mail/domains. |
-| mail-client-api | — | ❌ À faire | Wrap IMAP/SMTP en REST/GraphQL pour l'UI (Phase 2). |
-| password-manager | (voir ci-dessus) | ✅ OK | Service 6051 déjà en place. |
+| mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias, sync IMAP, messages (API). Port **6050**, route gateway `/mail/*`. |
+| mail-client-api | — | ⬜ Optionnel | Couche REST dédiée si besoin ; l’UI **Mail** utilise déjà **`/mail/*`** via la gateway. |
 | calendar-service | Go (Gin) | ✅ OK | Événements (calendar_events). Port **6052**, route gateway `/calendar/*`. DB + auth X-User-ID. CRUD events. |
 | notes-service | Go (Gin) | ✅ OK | Notes (table notes). Port **6053**, route gateway `/notes/*`. DB + auth X-User-ID. CRUD notes. |
 | tasks-service | Go (Gin) | ✅ OK | Tâches et listes (task_lists, tasks). Port **6054**, route gateway `/tasks/*`. DB + auth X-User-ID. CRUD lists/tasks. |
-| drive-service | Go (Gin) | ✅ OK | Fichiers et dossiers en cascade. Port **6055**, route gateway `/drive/*`. DB : `drive_nodes` (04-schema-drive.sql). CRUD nodes, upload/download. Auth via X-User-ID / X-Tenant-ID. |
+| drive-service | Go (Gin) | ✅ OK | Fichiers et dossiers en cascade. Port **6055**, route gateway `/drive/*`. DB : `drive_nodes`. CRUD nodes, upload/download, récents, timeline photos secours. Auth via X-User-ID / X-Tenant-ID. |
+| photos-service | Go (Gin) | ✅ OK | **GET /photos/timeline** (gateway `/photos/*`). Tests Go dans `make test`. |
 
 ### 4.5 Frontend & applications web (port 6001)
 
@@ -414,22 +438,27 @@ Actuellement, cette app unique couvre :
 | **/** | Landing publique : hero, présentation Drive/Pass/Mail, liens Connexion / Créer un compte | ✅ |
 | **/login** | Connexion (email + mot de passe uniquement ; pas de champ Tenant ID visible) | ✅ |
 | **/register** | Inscription (email + mot de passe) | ✅ |
-| **/app** | Hub : tableau de bord avec liens vers Drive, Pass, Mail | ✅ |
-| **/app/drive** | Drive : dossiers et fichiers en cascade (breadcrumb, nouveau dossier, téléverser, renommer, supprimer, télécharger) | ✅ |
-| **/app/pass** | Pass web : coffres et entrées (même API que admin, déchiffrement côté client à venir) | ✅ |
-| **/app/mail** | Interface Mail (placeholder : dossiers, liste, à brancher sur mail-client-api) | ✅ |
-| **/app/settings** | Paramètres utilisateur (session) ; à enrichir (profil, préférences, etc.) | ✅ |
+| **/app** | Hub : liens vers Drive, Office, Pass, Mail, Agenda, Notes, Tâches, Contacts, Photos | ✅ |
+| **/app/drive** | Drive web : arborescence, téléversement, corbeille / récents, aperçus, recherche MVP **`?q=`** | ✅ |
+| **/app/office** | Hub Office + éditeur documents (TipTap, etc.) | ✅ |
+| **/app/pass** | Pass web : coffres et entrées ; déchiffrement côté client à renforcer (Flutter / extension) | ✅ |
+| **/app/mail** | Client Mail web : boîtes, dossiers, sync IMAP, envoi, brouillons partiels, PJ — suite **§1c** | ✅ |
+| **/app/calendar**, **/app/notes**, **/app/tasks** | Agenda, Notes, Tâches (CRUD + UI) | ✅ |
+| **/app/contacts** | Contacts (carnet, recherche, import) | ✅ |
+| **/app/photos** | Galerie timeline (API photos-service) | ✅ (MVP) |
+| **/app/corbeille** | Corbeille Drive (vue dédiée) | ✅ |
+| **/app/settings** | Paramètres utilisateur (session) ; à enrichir (profil, préférences) | ✅ |
 | **/admin** | Administration : tableau de bord, Tenants, Users, Vaults, Domaines mail, Settings | ✅ |
 
 **Connexion** : l'utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l'API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.
 
 **Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l'admin.
 
-**Applications web comme modules** : Les fonctionnalités (Drive, Pass, Agenda, Notes, Tâches, Admin) sont conçues comme **modules intégrés** au projet principal Cloudity. Chaque module correspond à une ou plusieurs routes sous `/app/*` ou `/admin`, à un service backend dédié (drive-service, password-manager, calendar-service, etc.) et à une API sous le gateway (`/drive/*`, `/pass/*`, `/calendar/*`, etc.). Le shell commun (admin-dashboard) fournit l'auth, la navigation et le layout ; les pages de chaque module chargent leurs données via l'API unique (`VITE_API_URL`). Pour étendre Cloudity : ajouter une route, une page React (éventuellement lazy-loaded), et un backend + route gateway si besoin. Les futures apps Flutter ou PWA pourront réutiliser les mêmes APIs en tant que clients alternatifs.
+**Applications web comme modules** : Drive, Pass, Mail, Office, Agenda, Notes, Tâches, Contacts, Photos et Admin sont des **modules** dans **admin-dashboard** (`/app/*`, `/admin`), chacun derrière la gateway (`/drive/*`, `/mail/*`, `/photos/*`, …). Le shell fournit auth, layout, **recherche MVP** (palette globale) et notifications. Pour étendre : route + page (+ service + préfixe gateway si nouveau domaine). Clients **Flutter** / PWA réutilisent les mêmes APIs — voir **MOBILES.md**.
 
 | App / cible | Stack | Statut | Détail |
 |-------------|--------|--------|--------|
-| **App web unifiée** (6001) | React (Vite, TanStack Query, Tailwind) | ✅ OK | Landing, login, register, hub Drive/Pass/Mail, admin sous /admin. |
+| **App web unifiée** (6001) | React (Vite, TanStack Query, Tailwind) | ✅ OK | Suite **§4.5** (Hub, Drive, Mail, Office, Pass, Agenda, Notes, Tâches, Contacts, Photos) + **/admin**. |
 | Mail (web/desktop) | Flutter | ❌ À faire | Phase 2 (client riche). |
 | Password Manager (desktop) | Flutter | ❌ À faire | Phase 1 (optionnel si web Pass suffit). |
 | Extensions navigateur (Pass) | JS/TS Manifest v3 | ❌ À faire | Phase 1 (MVP) puis Phase 3 (alias). |
@@ -442,7 +471,7 @@ Actuellement, cette app unique couvre :
 - `scripts/setup-dev.sh` : deps locales pour dev (Go, Node, Python).
 - `scripts/diagnose.sh` : vérification structure + ports 60XX.
 - `scripts/fix-project.sh` : réparation .env, go.mod, frontend minimal.
-- À prévoir : migrations DB versionnées (ex. golang-migrate ou `infrastructure/postgresql/migrations/*.sql`).
+- **Migrations** : dossier **`infrastructure/postgresql/migrations/`** + service **db-migrate** au `make up` — outil externe type golang-migrate **optionnel** si besoin de versioning plus strict.
 
 ### 4.7 Base pour avancer (à étendre)
 
@@ -451,7 +480,7 @@ Actuellement, cette app unique couvre :
 | **admin-dashboard** (React/Vite) | UI admin actuelle | Renforcer (tenants, users, settings) ; servir de modèle pour Mail/Pass UI. |
 | **admin-service** (FastAPI) | CRUD tenants, API admin | Étendre (users, rôles) ; même pattern pour mail-directory et password-manager. |
 | **auth-service** (Go) | Login, register, JWT, 2FA | Consolider (Argon2id, refresh tokens) puis brancher tous les fronts. |
-| **api-gateway** (Go) | Route /auth, /admin, CORS | Ajouter routes /mail, /pass, /drive au fur et à mesure. |
+| **api-gateway** (Go) | Reverse proxy + CORS | Routes **/mail**, **/pass**, **/drive**, **/calendar**, **/notes**, **/tasks**, **/photos** déjà branchées ; étendre pour nouveaux services. |
 
 Pour **Mail Core** : ajouter Postfix, Dovecot, Rspamd + **mail-directory-service** (Go) + schéma DB mail.  
 Pour **Password Manager** : ajouter **password-manager-service** (Go) + schéma pass + app Flutter + extension navigateur.  
@@ -469,7 +498,7 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [x] Fichiers `postgresql.conf` et `redis.conf` : mounts retirés du Compose (config par défaut) → démarrage sans erreur.
 - [x] Init PostgreSQL fiable : scripts dans `infrastructure/postgresql/init/` (01-schema.sql, 02-schema-pass.sql).
 - [ ] Templates ou structure type pour nouveaux services (Go backend, Flutter front).
-- [ ] Migrations DB versionnées : dossier `infrastructure/postgresql/migrations/` + README en place ; outil (golang-migrate/Flyway) à intégrer si besoin.
+- [x] **Migrations DB versionnées** : dossier **`infrastructure/postgresql/migrations/`** appliqué au **`make up`** via **db-migrate** ; outil externe (golang-migrate / Flyway) **optionnel** pour historique plus strict.
 
 ### Phase 1 — Auth + Password Manager MVP
 
@@ -484,8 +513,9 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [ ] **Stack mail** : Postfix + Dovecot + Rspamd + Redis + PostgreSQL (Docker Compose).
 - [x] **mail-directory-service** (Go) : domaines, comptes, alias (CRUD + API). Health + GET/POST /mail/domains.
 - [x] **Schéma DB mail** : domains, mailboxes, aliases dans 03-schema-mail.sql.
-- [ ] **UI admin** (web) : gestion comptes/alias mail.
-- [ ] **mail-client-api** : expose IMAP/SMTP en REST/GraphQL pour le client.
+- [x] **UI admin — domaines mail** : écran **Domaines** (création / liste) branché sur **`/mail/domains`**.
+- [ ] **UI admin — suite** : supervision comptes, quotas, outils op (au-delà des domaines).
+- [ ] **mail-client-api** : *optionnel* (voir §4.4) — REST dédié si extraction de la logique IMAP.
 - [ ] **Client mail Flutter** : Web + Linux (lecture/envoi, dossiers, étiquettes, règles simples type Sieve).
 
 ### Phase 3 — Intégration alias + Password Manager
@@ -494,11 +524,11 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [ ] **Extension Pass** : bouton “Créer alias” → appel API → remplissage champ email + stockage dans vault.
 - [ ] **UI Cloudity** : vue centralisée alias, règles de forwarding, expiration.
 
-### Phase 4 — E2E mail + Drive
+### Phase 4 — E2E mail + Drive avancé
 
 - [ ] **Mail E2E** : chiffrement OpenPGP pour mails Cloudity–Cloudity (gestion clés, import/export).
-- [ ] **Drive** : service stockage (fichiers chiffrés côté client, meta en DB, stockage objet ou FS).
-- [ ] **Client Drive** : Flutter (web/desktop/mobile) + intégration avec le reste de la suite.
+- [x] **Drive (MVP web + API)** : **drive-service** + page **/app/drive** (déjà livré — voir §1 et §4.4).
+- [ ] **Drive avancé** : chiffrement côté client (E2E), stockage objet pour très gros fichiers, client **Flutter** dédié.
 
 ### Phase 5 — Mobile et finalisation
 
@@ -517,7 +547,8 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - [ ] **Migrations DB versionnées** : dossier `infrastructure/postgresql/migrations/` + README créés ; appliquer les migrations à la main ou via outil (golang-migrate, Flyway).
 - [ ] **Branches** : travailler depuis `main` ; merger `develop` / `feature/*` une fois validé.
 - [ ] **Login par email seul (sans tenant)** : côté backend, optionnel — résolution du tenant par domaine email ou endpoint (ex. GET /auth/tenants?email=…) pour que l'utilisateur n'ait jamais à saisir d'organisation. Actuellement le frontend envoie `tenant_id: 1` par défaut.
-- [ ] **Documentation** : **STATUS.md** (racine) = suivi quotidien ; **docs/ROADMAP.md**, **docs/MOBILES.md**, **docs/PlanImplementation.md**, **docs/TESTS.md**, **docs/MAIL-GMAIL-OAUTH.md** ; index **docs/README.md**.
+- [x] **Documentation de base** : **STATUS.md**, **BACKLOG.md**, index **docs/README.md**, **TESTS.md**, **SYNC-BACKLOG**, **SECURITE.md**, **SECURITE-DONNEES**, **ROADMAP**, **MOBILES**, **BRANCHES** — *maintenir à chaque livraison significative*.
+- [ ] **Documentation** : relire **PlanImplementation**, **MAIL-GMAIL-OAUTH**, **PHOTOS** après chaque merge majeur ; éviter les doublons entre STATUS et ROADMAP (STATUS = état + prochaines étapes courtes).
 
 ---
 
@@ -526,10 +557,11 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 - **Roadmap produits & transversal** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** (applications, sécurité, infra, API, template nouvelle app).
 - **Mobile (web vs app, admin mobile)** : **[docs/MOBILES.md](./docs/MOBILES.md)**.
 - **Tests** : **[docs/TESTS.md](./docs/TESTS.md)** (référence unique des commandes et de la couverture).
+- **Sécurité & confiance (cadre produit)** : **[docs/SECURITE.md](./docs/SECURITE.md)** ; chiffrement / durcissement : **[docs/SECURITE-DONNEES.md](./docs/SECURITE-DONNEES.md)**.
+- **Backlog condensé** : **[BACKLOG.md](./BACKLOG.md)** (racine).
 - **Plan long terme** : **[docs/PlanImplementation.md](./docs/PlanImplementation.md)** (phases 1–6, métriques, ressources).
 - **Index du dossier documentation** : **[docs/README.md](./docs/README.md)** (éditeur, architecture front, évolution plateforme, sécurité, TODO dev).
-- **Sync & mobile & session** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** (priorités parallèles : mail archivé PG, corbeille IMAP, calendar, contacts, drive, apps Flutter).
-- **Sync données + mobile + session + mail serveur** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** (priorités de travail ; détail ROADMAP **TR-07**).
+- **Sync & mobile & session + mail serveur** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** (priorités de travail ; détail ROADMAP **TR-07**).
 - **Mail — OAuth Google (Gmail)** : **[docs/MAIL-GMAIL-OAUTH.md](./docs/MAIL-GMAIL-OAUTH.md)**.
 - **Vision détaillée** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** et **[docs/PlanImplementation.md](./docs/PlanImplementation.md)** ; historique de demande / contexte produit dans les échanges du projet.
 - **Architecture technique** : `README.md` (vue d’ensemble) ; approfondissements **docs/** (ex. **[docs/ARCHITECTURE-FRONTENDS.md](./docs/ARCHITECTURE-FRONTENDS.md)**, **[docs/EVOLUTION-PLATEFORME.md](./docs/EVOLUTION-PLATEFORME.md)**).

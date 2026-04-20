@@ -1,5 +1,7 @@
 # Backlog — synchronisation, mobile, session, mail serveur
 
+**Priorités globales et tableau condensé** : voir d’abord **[../BACKLOG.md](../BACKLOG.md)** à la racine du dépôt. **Confiance / E2EE / sync / Zero Trust (cadre)** : **[SECURITE.md](./SECURITE.md)**.
+
 Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](./ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). Mobile : **[MOBILES.md](./MOBILES.md)**. Tests : **[TESTS.md](./TESTS.md)**.
 
 **Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](./BRANCHES.md)**.
@@ -8,11 +10,11 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 
 | Domaine | Pistes |
 |---------|--------|
-| **Photos** | **Priorité actuelle** : microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. |
+| **Photos** | **Priorité actuelle** : microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
 | **Mail** | §0b (dossiers IMAP), §8–10, §9 recherche ; pièces jointes et aperçu PJ ; archivage §1 (après stabilisation Photos si besoin). |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes, lien Mail ↔ fiches. |
-| **Tests & mobile** | `make test`, Vitest ; `make run-mobile`, tests Flutter / CI — **TESTS.md**, **MOBILES.md**. |
+| **Tests & mobile** | `make test`, Vitest ; **`make tests`** inclut **`test-mobile-photos`** (Flutter hôte toujours ; ADB + SDK inscriptible **uniquement** pour l’`integration_test` device — sinon phase 5 **OK** après tests hôte, **TESTS.md** § 1b). **`make run-mobile APP=Photos`** fonctionne dès que `mobile/photos` existe ; **`APP=Drive` / Mail / …** ne marchent **que** si le dossier Flutter correspondant existe (`flutter create` dans `mobile/` — sinon message volontaire + code 2, **pas** un bug). Voir **MOBILES.md** § 5. |
 
 ---
 
@@ -84,7 +86,7 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 | **Calendar** | **`refetchInterval` 60 s** (calendriers + événements ; overlay tâches 90 s) + `refetchOnWindowFocus` + mutations | **À faire** : rappels, invitations, CalDAV (cible), lien Mail/Tasks, push. |
 | **Contacts** | **`refetchInterval` 60 s** + `refetchOnWindowFocus` | **Import web** : CSV / JSON / HTML ; groupes, export vCard, **liaison Mail ↔ Contacts** (voir **§10**). |
 | **Drive** | Idem | **Priorité produit** : corbeille, partage — voir APP-02 ; **aperçu navigateur** + **vue Récents** : § **3b** ci-dessous. |
-| **Photos** | **`refetchInterval` 60 s** + focus timeline (`fetchDrivePhotosTimeline` → **`/photos/timeline`**) | **Fait (MVP)** : **`photos-service`**, gateway `/photos/*`, page Photos web, Flutter **`mobile/photos`** (liste API + JWT). **À faire** : login mobile, vignettes, upload, WorkManager, albums, EXIF — **PHOTOS.md**. **Déploiement** : `docker compose up -d --build photos-service api-gateway` (ou `make up`) après mise à jour. |
+| **Photos** | **`refetchInterval` 60 s** + focus timeline (`fetchDrivePhotosTimeline` → **`/photos/timeline`**) | **Fait (MVP)** : **`photos-service`**, gateway `/photos/*`, page Photos web, Flutter **`mobile/photos`** (liste API + JWT). **À faire** : login mobile, vignettes, upload, WorkManager, albums, EXIF — **PHOTOS.md**. **Dossier verrouillé** (coffre biométrique mobile + équivalent web, hors timeline principale) : **§3c**. **Déploiement** : `docker compose up -d --build photos-service api-gateway` (ou `make up`) après mise à jour. |
 
 Stratégie unifiée : **TR-07** dans ROADMAP.
 
@@ -100,6 +102,20 @@ Stratégie unifiée : **TR-07** dans ROADMAP.
 | **Gros fichiers** | Aujourd’hui le contenu est en **bytea** : pas de streaming range ; prévoir **fichiers > ~50 Mo** (stockage objet + URL signée + `Accept-Ranges`). |
 | **PDF.js** | Intégrer Mozilla **pdf.js** pour un rendu PDF homogène (zoom, recherche) si les navigateurs restreignent `blob:` + `object`. |
 | **Sécurité** | Politique CSP stricte pour `srcDoc` HTML d’aperçu ; sandbox iframe déjà partiellement en place. |
+
+### 3c. Photos — dossier verrouillé / coffre biométrique (type Google Photos)
+
+**Besoin produit** : permettre de **déplacer** des photos (ou médias) vers un **espace sécurisé** distinct de la bibliothèque principale — comme le **dossier verrouillé** Google Photos — avec **accès conditionné** à une **preuve forte d’identité** sur l’appareil.
+
+| Cible | Exigence |
+|-------|----------|
+| **Mobile (prioritaire)** | Accès au coffre via **biométrie** (empreinte digitale, reconnaissance faciale selon plateforme) : **Flutter** `local_auth` (Android BiometricPrompt / iOS LocalAuthentication). Option : **lier** l’ouverture du coffre à une **empreinte d’appareil** (clé matérielle, attestation, ou jeton d’appareil enregistré côté serveur — à cadrer avec **SECURITE.md** / Zero Trust). |
+| **Web** | **Parité fonctionnelle** : pas de capteur biométrique dans le navigateur pour tous les utilisateurs ; prévoir **WebAuthn** (passkeys), **code PIN** session longue, ou **re-authentification** (mot de passe / 2FA) avant d’afficher le coffre. L’« empreinte d’appareil » côté web = combinaison **WebAuthn** + cookies limités ou **appareil enregistré** documenté en UX. |
+| **Bibliothèque principale** | Les éléments rangés dans le coffre **ne doivent plus apparaître** dans la **timeline / grille** de la page Photos « normale » (filtrage API + index sync). Entrée produit dédiée : **« Dossier verrouillé »** / **« Coffre »** avec liste séparée. |
+| **Backend / API** | Modèle de données dédié (ex. `photos_vault_items`, flag `storage_tier=vault`, ou dossier Drive réservé **chiffré** côté client — selon choix E2EE). **`GET /photos/timeline`** : exclure par défaut les IDs du coffre ; endpoint ou scope **`/photos/vault/...`** après authentification renforcée. **Sync mobile** : même exclusion dans les jobs de vignettes / WorkManager tant que le coffre n’est pas déverrouillé. |
+| **Sécurité** | Chiffrement au repos, politique de **verrouillage** (timeout), pas de miniatures sensibles en cache disque non chiffré sans consentement — alignement **TR-01** / **SECURITE.md**. |
+
+**Documents liés** : **[PHOTOS.md](./PHOTOS.md)**, **[MOBILES.md](./MOBILES.md)**, **[SECURITE.md](./SECURITE.md)** ; à référencer dans **ROADMAP** (ex. entrée **APP-Photos** ou extension **APP-01**) lorsque la conception sera priorisée.
 
 ---
 
@@ -149,7 +165,7 @@ Implémentation : **`scripts/run-mobile.sh`**.
 - [ ] **Contacts** : groupes avancés, export vCard, **§10** Mail × Contacts.
 - [ ] **Drive** : parcours produit prioritaire (déjà MVP — extensions ROADMAP).
 - [x] **Photos (web + API)** : **`photos-service`** + `GET /photos/timeline` + `PhotosPage` (galerie, upload, lightbox, tests Vitest) ; proxy Vite `/photos`.
-- [ ] **Photos (mobile + sync + perf)** : auth intégré, vignettes, upload, **WorkManager**, miniatures / index EXIF ; apps **Drive / Mail / Contacts / Calendar / Pass** mobile (scaffold + `run-mobile` + doc).
+- [ ] **Photos (mobile + sync + perf)** : auth intégré, vignettes, upload, **WorkManager**, miniatures / index EXIF ; **dossier verrouillé** (§3c) ; apps **Drive / Mail / Contacts / Calendar / Pass** mobile (scaffold + `run-mobile` + doc).
 - [ ] **Pass** : création alias mail depuis l’UI Pass.
 - [ ] **Mobile** : scaffold `drive_app`, `mail_app`, … + CI.
 - [ ] **TR-07** : documenter choix push (FCM/APNs) quand applicable.
