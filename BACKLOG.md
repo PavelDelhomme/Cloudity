@@ -31,7 +31,7 @@
 | 4 | **Contacts** | Groupes, import/export, lien Mail ↔ fiches |
 | 5 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K** barre app, `?q=` filtre noms **dossier Drive courant** + lien Contacts ; **À faire** : API recherche arborescente / cross-apps — **TESTS.md** §4.0 |
 | 6 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (A1–A10) |
-| 7 | **Drive mobile** | Scaffold + même UX barre (loupe, notifications) — **MOBILES.md** |
+| 7 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 8 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
 
 ### Suite « Google + Proton » (rappel)
@@ -58,7 +58,9 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### Mobile
 
-- [ ] Apps **Drive**, **Mail**, … (hors **Photos** / **Admin**) : scaffolds — **docs/MOBILES.md** §5.
+- [x] **Drive** Flutter (`mobile/drive`) : liste fichiers — **`make test-mobile-drive`** / suite — **MOBILES.md**.
+- [x] **Photos** Flutter : **`make test-mobile-photos`** / suite.
+- [x] **Mail** Flutter (`mobile/mail`) : MVP connexion + boîte réception — **`make test-mobile-mail`** / suite ; à poursuivre : multi-boîtes, dossiers, PJ, push — **MOBILES.md** §5.
 - [ ] Aligner barre d’app (loupe, notifications) avec le web — rappel dans **GlobalSearchPalette** (texte d’aide UI).
 
 ### Backend / infra

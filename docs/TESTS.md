@@ -4,7 +4,7 @@
 
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
 
-**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-photos`** et la **phase 5** de **`make tests`** couvrent l’app Flutter **Photos** (tests hôte + `integration_test` sur ADB si un appareil est branché) — détail § **1b** ; guide produit **[MOBILES.md](./MOBILES.md)**.
+**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](./MOBILES.md)**.
 
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
 **Stratégie sécurité / confiance** : **[SECURITE.md](./SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
@@ -18,20 +18,23 @@
 |----------|------|
 | **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **admin-dashboard** : `compose run --no-deps` + Vitest. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make tests`** | **TOUT** : unit/app + E2E (health/proxy) + **E2E Playwright** (navigateur) + sécurité + **mobile Photos** (Flutter : `flutter test` hôte + `integration_test` sur ADB si appareil). Génère un rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, attendre 20-30 s (pour les phases web / API). |
+| **`make tests`** | **TOUT** : unit/app + E2E + **Playwright** + sécurité + **mobile Flutter Photos + Drive + Mail** (`test-mobile-suite`). Rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
 | **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et `npx playwright` tournent en général sur la **machine hôte** (pas dans l’image Docker du dashboard) ; le reste de **`make test`** reste **Docker**. |
-| **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-photos`**. |
-| **`make test-mobile-photos`** | Uniquement l’app **`mobile/photos`** : `flutter pub get`, **`flutter test`** (répertoire `test/` sur la machine hôte), puis si **adb** voit au moins un appareil en état **`device`**, **`flutter test integration_test/photos_flow_test.dart -d <serial>`** (build + install sur l’appareil, comme un mini parcours Playwright côté natif). Voir § **1b**. |
+| **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`**. |
+| **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** : § **1b**. **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** → sans Drive ; **`CLOUDITY_SKIP_MOBILE_MAIL=1`** → sans Mail. |
+| **`make test-mobile-photos`** | Wrapper **`scripts/test-mobile-app.sh` photos** — **`mobile/photos`**. |
+| **`make test-mobile-drive`** | Wrapper **`scripts/test-mobile-app.sh` drive** — **`mobile/drive`**. |
+| **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
-**En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité + **test-mobile-photos**. **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
+**En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité + **`test-mobile-suite`** (P+D+M). **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
 
-**Ce que `make tests` couvre** : (1) **Phase 1** — tests unitaires et applicatifs (Go, pytest, Vitest) ; (2) **Phase 2** — E2E health/proxy (stack up) ; (3) **Phase 3** — E2E Playwright (navigateur : auth, Hub, Drive, Office, Pass, Mail, éditeur) ; (4) **Phase 4** — sécurité (npm audit, safety, govulncheck, checks auth) ; (5) **Phase 5** — Flutter **Photos** (voir § **1b**).
+**Ce que `make tests` couvre** : (1) **Phase 1** — unitaires/applicatifs ; (2) **Phase 2** — E2E health/proxy ; (3) **Phase 3** — Playwright ; (4) **Phase 4** — sécurité ; (5) **Phase 5** — Flutter **Photos + Drive + Mail** (§ **1b**).
 
-**Résumé en console** : À la fin de **`make tests`**, le script affiche le **RÉSUMÉ** (Unit/App, E2E, E2E Playwright, Sécurité, **Mobile Photos**) et le **RÉSULTAT FINAL** (SUCCÈS ou ÉCHEC). En cas d’avertissements sécurité, la ligne indique « vulnérabilités signalées » et précise que les détails sont dans le rapport. Le chemin du rapport détaillé est indiqué (ex. `reports/test-YYYYMMDD-HHMMSS.log`).
+**Résumé en console** : le **RÉSUMÉ** inclut **Mobile (P+D+M)** ; le **RÉSULTAT FINAL** indique SUCCÈS ou ÉCHEC. Avertissements sécurité : détails dans le rapport (`reports/test-*.log`).
 
 **Drive et fichiers « 0 octet » / nettoyage** :  
 - **Tests unitaires (Vitest)** : toutes les appels API Drive sont **mockés** ; aucun fichier ni dossier n’est créé en base. Les réponses mockées utilisent `size: 0` pour les nœuds fichier (documents vides à la création), ce qui reflète le comportement réel de l’API.  
@@ -40,44 +43,56 @@
 
 **Drive — Récents / aperçu** : Vitest `DrivePage.test.tsx` (section Récents, ruban racine `fetchDriveRecentFiles` avec limite **24** ; navigation vue Récents). E2E : ajouter plus tard un scénario « vue Récents + grille » si besoin CI.
 
-**Photos** : Vitest `PhotosPage.test.tsx` ; API **`GET /photos/timeline`** — `photos-service/main_test.go` + secours `drive-service` (`GET /drive/photos/timeline`). **App Flutter** `mobile/photos` : tests dans `test/` + **`integration_test/photos_flow_test.dart`** (parcours device).
+**Photos** : Vitest `PhotosPage.test.tsx` ; API **`GET /photos/timeline`** — `photos-service/main_test.go` + secours `drive-service` (`GET /drive/photos/timeline`). **Apps Flutter** : **`mobile/photos`**, **`mobile/drive`**, **`mobile/mail`** (`integration_test/*_flow_test.dart`) — **`scripts/test-mobile-suite.sh`** (phase 5 **`make tests`**).
 
 ---
 
-## 1b. Mobile Flutter — `make test-mobile-photos` (et phase 5 de `make tests`)
+## 1b. Mobile Flutter — `make test-mobile-suite` (phase 5 de `make tests`)
 
-**Script** : `scripts/test-mobile-photos.sh` (appelé par **`make test-mobile-photos`** et par **`scripts/run-tests-with-report.sh`**).
+**HTTPS (dev vs prod)** : en développement, le gateway est en général joignable en **`http://`** depuis le téléphone (même réseau) — aligné sur **`docker-compose`**. En **production**, le client mobile et le front doivent cibler une **base URL HTTPS** (terminaison TLS sur LB / ingress). Ne pas confondre « tout en HTTPS sur ma machine » (chantier **mkcert** + Vite ou proxy) avec le durcissement **prod** décrit dans **[SECURITE.md](./SECURITE.md)** et **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** § **0c**.
+
+**Orchestrateur** : **`scripts/test-mobile-suite.sh`** → **`test-mobile-app.sh` photos** → **drive** → **mail** (**`scripts/mobile-test-common.inc.sh`**). Cibles **`*-photos|drive|mail`** pour une app seule.
 
 | Étape | Comportement |
 |--------|----------------|
 | **Flutter absent** | Message d’avertissement ; le script **sort 0** (ne fait pas échouer `make tests` sur une machine sans SDK mobile). |
-| **Hôte** | `cd mobile/photos && flutter pub get && flutter test` — exécute les tests du dossier **`test/`** (ex. smoke `MaterialApp`). **Docker non requis.** Ne nécessite **pas** un SDK Flutter inscriptible (pas de Gradle dans `flutter_tools` pour cette étape). |
+| **Hôte** | Pour chaque app : `cd mobile/<app> && flutter pub get && flutter test`. **Docker non requis.** Pas besoin de SDK inscriptible pour cette étape. |
+| **Saut Drive / Mail** | **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** ou **`CLOUDITY_SKIP_MOBILE_MAIL=1`** pour raccourcir la suite. |
 | **ADB** | Si **`adb`** n’est pas installé ou **aucun** périphérique en état **`device`**, la partie **integration_test** est **ignorée** (sortie 0 après les tests hôte). |
 | **SDK inscriptible** | **Uniquement** si un **appareil ADB** est prêt pour l’**integration_test** : Gradle doit pouvoir écrire sous `packages/flutter_tools/gradle`. Sinon (ex. **`/usr/lib/flutter`** root sur Arch) : message explicite, **integration_test ignorée**, **sortie 0** — la phase 5 de **`make tests`** reste **OK** dès que les tests **hôte** ont réussi. **`make run-mobile`** continue d’exiger la vérif **avant** le build (voir **`run-mobile.sh`**). |
 | **Choix d’appareil** | **`CLOUDITY_DEVICE_ID`** ou **`ANDROID_SERIAL`** si défini ; sinon **un seul** appareil `device` → pris automatiquement ; **plusieurs** appareils + terminal **interactif** → menu **`select`** bash ; plusieurs + **stdin non TTY** (CI) → **premier** serial + avertissement sur stderr. |
-| **Sur l’appareil** | `flutter test integration_test/photos_flow_test.dart -d <serial>` : Flutter **compile**, **installe** l’APK de test et enchaîne les scénarios (équivalent « E2E natif » à Playwright côté navigateur). |
+| **Sur l’appareil** | `flutter test integration_test/<app>_flow_test.dart -d <serial>` : build APK + scénarios (type E2E Playwright côté natif). |
+| **E2E auto** | Si **`CLOUDITY_E2E_GATEWAY`** n’est **pas** défini et **`CLOUDITY_E2E_NO_AUTO≠1`** : **émulateur** détecté (`emulator-*`, `ro.kernel.qemu`, `ro.hardware` ranchu/goldfish) → `http://10.0.2.2:<port>` ; **appareil physique** → `http://<IPv4 LAN du PC>:<port>` via `ip route` puis **`hostname -I`**. Port **`CLOUDITY_GATEWAY_PORT`** (défaut **6080**, comme **`docker-compose.yml`**). Dès qu’un gateway est connu (auto ou export), **`CLOUDITY_E2E_EMAIL` / `PASSWORD` / `TENANT`** prennent les **valeurs démo** (`admin@cloudity.local`, `Admin123!`, `1`) si non fournies. |
 
-**Scénarios `integration_test`** (`mobile/photos/integration_test/photos_flow_test.dart`) :
+**Scénarios `integration_test`**
 
-1. **Smoke** — après bootstrap, l’écran **Connexion** ou la **timeline** est visible (pas de collage JWT : auth réelle).
-2. **Connexion + timeline** — **uniquement** si des **`--dart-define`** sont passés à la compilation (voir ci‑dessous). Sinon le 2ᵉ test est **marqué skipped** par Flutter. Si une session est **déjà** persistée sur l’appareil, le test peut atteindre directement la timeline (succès).
+- **Photos** — smoke + connexion + timeline si dart-defines.
+- **Drive** — smoke + connexion + fichiers (`cloudity_drive_files`).
+- **Mail** (`mobile/mail/integration_test/mail_flow_test.dart`) — smoke + connexion + boîte (`cloudity_mail_inbox`).
 
 **Variables d’environnement** (lues par le script et transmises en `--dart-define=…`) pour le parcours login **contre la vraie stack** (comme Playwright avec `BASE_URL` + compte démo) :
 
 | Variable | Exemple | Rôle |
 |----------|---------|------|
-| **`CLOUDITY_E2E_GATEWAY`** | `http://10.0.2.2:6080` (émulateur) ou `http://192.168.x.x:6080` (téléphone USB, **IP LAN du PC** où tourne `make up`) | URL **api-gateway** joignable **depuis l’appareil**. |
-| **`CLOUDITY_E2E_EMAIL`** | `admin@cloudity.local` | Compte (après **`make seed-admin`**). |
-| **`CLOUDITY_E2E_PASSWORD`** | `Admin123!` | Mot de passe. |
-| **`CLOUDITY_E2E_TENANT`** | `1` | Optionnel (défaut côté test Dart : `1`). |
+| **`CLOUDITY_E2E_GATEWAY`** | (souvent **inutile** : détection auto) ou `http://192.168.x.x:6080` si tu forces une autre IP | URL **api-gateway** joignable **depuis l’appareil**. |
+| **`CLOUDITY_GATEWAY_PORT`** | `6080` | Port hôte du gateway (défaut aligné sur le compose). |
+| **`CLOUDITY_E2E_NO_AUTO`** | `1` | Désactive la détection auto du gateway (il faut alors **`CLOUDITY_E2E_GATEWAY`** pour le test login). |
+| **`CLOUDITY_E2E_EMAIL`** | `admin@cloudity.local` | Compte (défaut démo après **`make seed-admin`**). |
+| **`CLOUDITY_E2E_PASSWORD`** | `Admin123!` | Mot de passe (défaut démo). |
+| **`CLOUDITY_E2E_TENANT`** | `1` | Optionnel (défaut **1**). |
 
-Exemple (téléphone sur le même LAN que le PC qui héberge Docker) :
+Exemple minimal (stack up + seed-admin, téléphone ou émulateur, SDK inscriptible pour build device) :
+
+```bash
+make test-mobile-suite
+# ou une app : make test-mobile-photos | test-mobile-drive | test-mobile-mail
+```
+
+Surcharge manuelle (IP fixe ou port gateway non standard en détection auto) :
 
 ```bash
 export CLOUDITY_E2E_GATEWAY='http://192.168.1.42:6080'
-export CLOUDITY_E2E_EMAIL='admin@cloudity.local'
-export CLOUDITY_E2E_PASSWORD='Admin123!'
-make test-mobile-photos
+make test-mobile-suite
 ```
 
 **Convention** : mêmes idées que Playwright (**`BASE_URL`** + identifiants) ; ici le « navigateur » est l’**APK** sous contrôle du **WidgetTester** + moteur d’intégration Flutter.
@@ -86,7 +101,7 @@ make test-mobile-photos
 
 1. **« Could not determine java version from '17.x.x' »** — **`gradle-wrapper.properties`** pointant vers une **Gradle trop ancienne** (ex. 2.x). Les apps **`mobile/photos`** et **`mobile/drive`** doivent utiliser **Gradle ≥ 8.13** pour **AGP 8.11**. Ce n’est **pas** un problème d’**ADB** si `adb devices` affiche `device`.
 
-2. **« NoSuchFileException » … `flutter_tools/gradle/.kotlin/sessions/*.salive`** — le SDK Flutter (souvent **`/usr/lib/flutter`** en **root** sur Arch) n’est **pas inscriptible** par Gradle pour les **builds Android**. **`run-mobile.sh`** appelle **`check-flutter-sdk-writable.sh`** avant **`flutter run`**. **`test-mobile-photos.sh`** n’applique cette vérif **qu’avant** l’**integration_test** sur appareil : **`flutter test` hôte** peut réussir sans **`chown`**. Pour lancer sur device ou **`make run-mobile`** : **`sudo chown -R $(whoami) /usr/lib/flutter`** (ou Flutter officiel dans **`$HOME`** en premier dans le **`PATH`**). Contournement avancé : **`CLOUDITY_SKIP_FLUTTER_SDK_CHECK=1`** (le build device peut quand même échouer si le SDK reste non inscriptible).
+2. **« NoSuchFileException » … `flutter_tools/gradle/.kotlin/sessions/*.salive`** — le SDK Flutter (souvent **`/usr/lib/flutter`** en **root** sur Arch) n’est **pas inscriptible** par Gradle pour les **builds Android**. **`run-mobile.sh`** appelle **`check-flutter-sdk-writable.sh`** avant **`flutter run`**. **`test-mobile-app.sh`** n’applique cette vérif **qu’avant** l’**integration_test** sur appareil : **`flutter test` hôte** peut réussir sans **`chown`**. Pour lancer sur device ou **`make run-mobile`** : **`sudo chown -R $(whoami) /usr/lib/flutter`** (ou Flutter officiel dans **`$HOME`** en premier dans le **`PATH`**). Contournement avancé : **`CLOUDITY_SKIP_FLUTTER_SDK_CHECK=1`** (le build device peut quand même échouer si le SDK reste non inscriptible).
 
 3. **`JAVA_HOME`**, **Android SDK** : vérifier avec **`flutter doctor`**.
 

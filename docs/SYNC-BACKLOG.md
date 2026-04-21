@@ -6,6 +6,15 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 
 **Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](./BRANCHES.md)**.
 
+## 0c. HTTPS / TLS et durcissement (hors « tout-HTTPS localhost » sans design)
+
+| Sujet | Rappel |
+|--------|--------|
+| **Dev (`http://localhost:6001`)** | Stack Docker classique en **HTTP** sur la machine ; suffisant pour développer. Passer le dashboard en **HTTPS** en local impose **certificats** (ex. **mkcert**) + config **Vite `server.https`** ou **reverse proxy** (Caddy) — à traiter comme chantier infra dédié, pas un toggle magique. |
+| **Production** | TLS **1.2+** (idéalement **1.3**) en **terminaison** sur LB / ingress (**Traefik**, **Caddy**, **nginx**), en-têtes **HSTS**, cookies **Secure** / **SameSite**, pas de contenu actif **HTTP** sur pages **HTTPS**. Détail vision : **[SECURITE.md](./SECURITE.md)**. |
+| **Détection de failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety, **govulncheck** sur les services Go), checks auth. À étendre : **OWASP ZAP** / scan DAST sur stack déployée, **pinning** dépendances, politique **SLSA** — voir **[STATUS.md](../STATUS.md)** § « TLS & scans ». |
+| **OpenClaw / ClawSecure** | Outils **tiers** orientés audit de *skills* / agents **IA** (OWASP ASI), ex. [ClawSecure OpenClaw](https://github.com/ClawSecure/clawsecure-openclaw-security) — **hors périmètre** du code applicatif Cloudity (Go + React) ; pertinent seulement si vous publiez des *skills* Cursor sensibles à auditer séparément. |
+
 ## Suite prioritaire (rappel)
 
 | Domaine | Pistes |
@@ -14,7 +23,7 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 | **Mail** | §0b (dossiers IMAP), §8–10, §9 recherche ; pièces jointes et aperçu PJ ; archivage §1 (après stabilisation Photos si besoin). |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes, lien Mail ↔ fiches. |
-| **Tests & mobile** | `make test`, Vitest ; **`make tests`** inclut **`test-mobile-photos`** (Flutter hôte toujours ; ADB + SDK inscriptible **uniquement** pour l’`integration_test` device — sinon phase 5 **OK** après tests hôte, **TESTS.md** § 1b). **`make run-mobile APP=Photos`** fonctionne dès que `mobile/photos` existe ; **`APP=Drive` / Mail / …** ne marchent **que** si le dossier Flutter correspondant existe (`flutter create` dans `mobile/` — sinon message volontaire + code 2, **pas** un bug). Voir **MOBILES.md** § 5. |
+| **Tests & mobile** | `make test`, Vitest ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
 
 ---
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lance tous les tests (unit/app, E2E, E2E Playwright, sécurité, mobile Photos Flutter).
+# Lance tous les tests (unit/app, E2E, E2E Playwright, sécurité, mobile Flutter Photos + Drive + Mail).
 # Exécute toujours les 5 phases puis affiche le résumé (ne s’arrête pas à la première erreur).
 # Usage: ./scripts/run-tests-with-report.sh  ou  make tests
 
@@ -48,7 +48,7 @@ MOBILE_PHOTOS_STATUS="SKIP"
 
 echo "========================================"
 echo "  CLOUDITY — make tests"
-echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security + test-mobile-photos"
+echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security + test-mobile-suite (Photos + Drive + Mail)"
 echo "  Rapport détaillé : $LOG"
 echo "  Dossier rapports : $ROOT/reports/"
 echo "========================================"
@@ -58,7 +58,7 @@ echo "  1. make test           — Tests unitaires/applicatifs **dans Docker** (
 echo "  2. make test-e2e       — E2E health/proxy (stack démarrée)"
 echo "  3. make test-e2e-playwright — E2E navigateur Playwright (Hub, Drive, Calendrier, Mail… stack + seed-admin)"
 echo "  4. make test-security  — Audits de dépendances + auth"
-echo "  5. test-mobile-photos  — Flutter Photos (widget hôte) + integration_test sur ADB si appareil"
+echo "  5. test-mobile-suite   — Flutter Photos + Drive + Mail (hôte + integration_test ADB si appareil / SDK OK)"
 echo ""
 
 # ----- Phase 1 -----
@@ -123,17 +123,17 @@ else
   show_tail "$LOG" 35
 fi
 
-# ----- Phase 5 (Flutter Photos : hôte + ADB optionnel) -----
+# ----- Phase 5 (Flutter Photos + Drive : hôte + ADB optionnel) -----
 echo ""
-echo ">>> Phase 5/5 : Mobile Cloudity Photos (./scripts/test-mobile-photos.sh)"
+echo ">>> Phase 5/5 : Mobile Cloudity (./scripts/test-mobile-suite.sh)"
 MOBILE_PHOTOS_STATUS="OK"
-if run_phase "Phase 5: test-mobile-photos" "chmod +x scripts/test-mobile-photos.sh 2>/dev/null || true; ./scripts/test-mobile-photos.sh"; then
+if run_phase "Phase 5: test-mobile-suite" "chmod +x scripts/test-mobile-suite.sh scripts/test-mobile-app.sh scripts/test-mobile-mail.sh 2>/dev/null || true; ./scripts/test-mobile-suite.sh"; then
   echo ""
-  echo "  Phase 5 (Mobile Photos) : OK"
+  echo "  Phase 5 (Mobile P+D+M) : OK"
 else
   MOBILE_PHOTOS_STATUS="FAIL"
   echo ""
-  echo "  Phase 5 (Mobile Photos) : ÉCHEC (flutter test / integration_test — voir log)"
+  echo "  Phase 5 (Mobile P+D+M) : ÉCHEC (flutter test / integration_test — voir log)"
   show_tail "$LOG" 40
 fi
 
@@ -147,7 +147,7 @@ fi
   echo "  E2E:            $E2E_STATUS"
   echo "  E2E Playwright: $E2E_PW_STATUS"
   echo "  Sécurité:       $SEC_STATUS"
-  echo "  Mobile Photos:  $MOBILE_PHOTOS_STATUS"
+  echo "  Mobile (P+D+M): $MOBILE_PHOTOS_STATUS"
   echo "  Rapport:        $LOG"
   echo "  Répertoire:     $ROOT (racine du dépôt)"
   echo "========================================"

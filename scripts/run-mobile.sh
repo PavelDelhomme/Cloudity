@@ -74,8 +74,8 @@ esac
 
 if [[ -z "${TARGET:-}" ]]; then
   echo "ℹ️  Aucun dossier Flutter dans le dépôt pour « ${APP_RAW} » — ce n’est pas une panne :"
-  echo "    seuls les projets déjà créés sous mobile/ sont lançables (ex. Photos : make run-mobile APP=Photos)."
-  echo "    Drive / Mail / Calendar / … = à scaffold (sauf si le dossier est déjà dans le dépôt). Créez par exemple :"
+  echo "    Projets présents : Photos, Drive, Mail, Admin (voir mobile/)."
+  echo "    Pour une app absente (Calendar, …), créez par exemple :"
   case "$NORM" in
     admin) echo "      cd mobile && flutter create admin_app" ;;
     drive) echo "      cd mobile && flutter create drive   # le dépôt inclut déjà mobile/drive si vous avez pull la branche courante" ;;

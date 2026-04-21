@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
 # État des services Cloudity : tableau lisible (ports, URL, Up/Down), ordre logique, rafraîchissement via make status-watch.
+#
+# Couleurs : actives en TTY ; sinon si forcées (watch pipe souvent sans TTY) :
+#   CLOUDITY_STATUS_FORCE_COLOR=1  ou  FORCE_COLOR=1  ou  CLICOLOR_FORCE=1
+# Ex. : watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd repo && ./scripts/status.sh'
+# make status-watch définit déjà CLOUDITY_STATUS_FORCE_COLOR=1 pour le sous-processus.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-if command -v tput >/dev/null 2>&1 && [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+_use_color() {
+  command -v tput >/dev/null 2>&1 || return 1
+  [[ -z "${NO_COLOR:-}" ]] || return 1
+  if [[ -t 1 ]]; then return 0; fi
+  if [[ "${CLOUDITY_STATUS_FORCE_COLOR:-}" == "1" ]]; then return 0; fi
+  if [[ "${FORCE_COLOR:-}" == "1" ]]; then return 0; fi
+  if [[ "${CLICOLOR_FORCE:-}" == "1" ]]; then return 0; fi
+  return 1
+}
+
+if _use_color; then
   RED=$(tput setaf 1)
   GREEN=$(tput setaf 2)
   YELLOW=$(tput setaf 3)

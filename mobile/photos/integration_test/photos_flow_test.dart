@@ -4,8 +4,9 @@ import 'package:integration_test/integration_test.dart';
 
 import 'package:cloudity_photos/main.dart' as app;
 
-/// Définis au build : `--dart-define=CLOUDITY_E2E_GATEWAY=http://10.0.2.2:6080` (émulateur)
-/// ou l’IP LAN du PC pour un téléphone USB. Même principe que Playwright (BASE_URL + compte).
+/// Au build : `--dart-define=…` (injectés par `scripts/test-mobile-photos.sh` si besoin).
+/// Détection auto côté script : émulateur → `http://10.0.2.2:6080`, téléphone → IP LAN du PC.
+/// Surcharge : `CLOUDITY_E2E_GATEWAY`, `CLOUDITY_E2E_NO_AUTO=1` pour désactiver l’auto.
 const String kE2eGateway = String.fromEnvironment('CLOUDITY_E2E_GATEWAY', defaultValue: '');
 const String kE2eEmail = String.fromEnvironment('CLOUDITY_E2E_EMAIL', defaultValue: '');
 const String kE2ePassword = String.fromEnvironment('CLOUDITY_E2E_PASSWORD', defaultValue: '');

@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -10,6 +10,10 @@ endif
 
 COMPOSE_FILES = -f docker-compose.yml
 COMPOSE_DEV = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.dev.yml
+
+# Pseudo-TTY pour `docker compose run` : couleurs Go (-v), pytest, Vitest si `make` a un terminal.
+# Sans TTY (CI), la variable reste vide.
+DOCKER_IT := $(shell test -t 1 && printf '%s' '-it' || true)
 COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
@@ -33,7 +37,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
-	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Photos Flutter (make test, …, test-mobile-photos), rapport dans reports/'
+	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
 	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
@@ -43,8 +47,8 @@ help: ## Affiche ce message d'aide
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
-	@echo '  make status-watch - Rafraîchit le statut toutes les 10 s (commande watch)'
-	@echo '  make test-all   - TOUT: make test + test-e2e + test-e2e-playwright + test-security + test-mobile-photos (stack up + make seed-admin pour E2E)'
+	@echo '  make status-watch - Statut toutes les 10 s (watch + couleurs Up/Down)'
+	@echo '  make test-all   - TOUT: make test + … + test-mobile-suite Photos/Drive/Mail (stack up + seed-admin pour E2E)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
 	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
@@ -53,10 +57,10 @@ help: ## Affiche ce message d'aide
 	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
-	@echo '  make run-mobile APP=Admin|Drive|Mail|Calendar|Contacts|Photos|Pass - Flutter (seul Admin existe ; autres → docs/SYNC-BACKLOG.md)'
+	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-run-mobile: ## Lance une app Flutter : make run-mobile APP=Admin (prérequis : flutter). Autres APP → scaffold futur ; voir docs/SYNC-BACKLOG.md et docs/MOBILES.md
+run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/MOBILES.md
 	@chmod +x scripts/run-mobile.sh 2>/dev/null || true
 	@APP="$(APP)" ./scripts/run-mobile.sh
 
@@ -203,27 +207,27 @@ build-dashboard: ## Build uniquement le dashboard
 # make test = unitaires + applicatifs uniquement (PAS les E2E), **dans Docker** (sauf Playwright E2E = host).
 # Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
 # et vous laissent dans la racine à la fin, avec code de sortie 0 (succès) ou 1 (échec).
-test: ## Tests dans Docker : Go via compose run --no-deps ; admin-service pytest avec Postgres (deps) ; Vitest dashboard --no-deps. Prérequis: Docker. Pas d’E2E.
+test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vitest). Prérequis: Docker. Pas d’E2E.
 	@echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible (démarrer le démon Docker)."; exit 1; fi
 	@echo "  [auth-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps auth-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps auth-service go test -v -count=1 ./... || exit 1
 	@echo "  [api-gateway]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps api-gateway go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps api-gateway go test -v -count=1 ./... || exit 1
 	@echo "  [password-manager]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps password-manager go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps password-manager go test -v -count=1 ./... || exit 1
 	@echo "  [mail-directory-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
 	@echo "  [calendar-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps calendar-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps calendar-service go test -v -count=1 ./... || exit 1
 	@echo "  [notes-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps notes-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps notes-service go test -v -count=1 ./... || exit 1
 	@echo "  [tasks-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps tasks-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps tasks-service go test -v -count=1 ./... || exit 1
 	@echo "  [photos-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps photos-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps photos-service go test -v -count=1 ./... || exit 1
 	@echo "  [drive-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps drive-service go test -v -count=1 ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps drive-service go test -v -count=1 ./... || exit 1
 	@echo "  [admin-service]"
 	@if $(COMPOSE) $(COMPOSE_FILES) ps -q admin-service 2>/dev/null | grep -q .; then \
 		echo "    → exec dans admin-service (stack déjà up, évite un 2e Postgres sur le port hôte)"; \
@@ -233,26 +237,38 @@ test: ## Tests dans Docker : Go via compose run --no-deps ; admin-service pytest
 		$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1; \
 	fi
 	@echo "  [admin-dashboard]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps admin-dashboard sh -c "npm install && npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tous les tests sont passés."
 
 # Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
 test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-deps)
 	@echo "🧪 Tests dashboard (Vitest via Docker)..."
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm --no-deps admin-dashboard sh -c "npm install && npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tests dashboard OK."
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
-tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos), sortie en direct + rapport dans reports/
+tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos+Drive+Mail), sortie en direct + rapport dans reports/
 	@chmod +x scripts/run-tests-with-report.sh
 	@./scripts/run-tests-with-report.sh
 
-test-mobile-photos: ## Flutter mobile/photos : flutter test (hôte) + integration_test sur ADB si appareil (sélection interactive si plusieurs)
-	@chmod +x scripts/test-mobile-photos.sh
+test-mobile-suite: ## Flutter Photos → Drive → Mail : hôte + integration_test ADB (gateway auto). SKIP: CLOUDITY_SKIP_MOBILE_DRIVE / CLOUDITY_SKIP_MOBILE_MAIL
+	@chmod +x scripts/test-mobile-suite.sh scripts/test-mobile-app.sh scripts/test-mobile-mail.sh scripts/mobile-test-common.inc.sh
+	@./scripts/test-mobile-suite.sh
+
+test-mobile-photos: ## Flutter mobile/photos uniquement (wrapper test-mobile-app.sh photos)
+	@chmod +x scripts/test-mobile-photos.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
 	@./scripts/test-mobile-photos.sh
 
-test-all: test test-e2e test-e2e-playwright test-security test-mobile-photos ## TOUT: unit/app + E2E + E2E Playwright + sécurité + Photos Flutter (stack up + seed-admin pour E2E web)
+test-mobile-drive: ## Flutter mobile/drive uniquement (wrapper test-mobile-app.sh drive)
+	@chmod +x scripts/test-mobile-drive.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
+	@./scripts/test-mobile-drive.sh
+
+test-mobile-mail: ## Flutter mobile/mail uniquement (wrapper test-mobile-app.sh mail)
+	@chmod +x scripts/test-mobile-mail.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
+	@./scripts/test-mobile-mail.sh
+
+test-all: test test-e2e test-e2e-playwright test-security test-mobile-suite ## TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile P+D+M (stack up + seed-admin pour E2E web)
 
 test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
 	@chmod +x scripts/test-e2e.sh
@@ -491,12 +507,16 @@ status: ## Affiche services, port, URL et état (Up vert / Down rouge), ordre lo
 statys stats stat: ## Alias de make status (ex. faute « statys » ou raccourci « stat »)
 	@$(MAKE) --no-print-directory status
 
-status-watch: ## Rafraîchit make status toutes les 10 s (nécessite `watch` : pacman -S procps-ng / apt install procps)
+status-watch: ## Rafraîchit make status toutes les 10 s (`watch -c` + couleurs forcées). Prérequis : procps-ng / watch
 	@chmod +x scripts/status.sh 2>/dev/null || true
 	@if command -v watch >/dev/null 2>&1; then \
-		watch -n 10 -c 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+		if watch -h 2>&1 | grep -q -- '--color'; then \
+			watch -n 10 -c -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+		else \
+			watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+		fi; \
 	else \
-		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou lancez : while sleep 10; do clear; make status; done"; \
+		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou : while sleep 10; do clear; CLOUDITY_STATUS_FORCE_COLOR=1 make status; done"; \
 		exit 1; \
 	fi
 

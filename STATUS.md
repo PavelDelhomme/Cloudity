@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-04-17 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
+**Dernière mise à jour** : 2026-04-21 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
 **Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security` pour Photos galerie + mobile + sync + durcissement sécurité). Détail : **[docs/BRANCHES.md](./docs/BRANCHES.md)**.  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
 
@@ -27,9 +27,9 @@
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
 | **Première fois** | **`make setup`** puis **`make up-full`** |
-| **App mobile (Flutter)** | **`make run-mobile APP=Admin`** ou **`APP=Photos`** (prérequis : Flutter) ; Drive/Mail/Calendar/… → message + **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 tant que non scaffold |
+| **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 |
 
-**URLs** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084
+**URLs (dev, HTTP)** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084 — **HTTPS en production** (terminaison TLS sur LB / ingress) : voir **[docs/SECURITE.md](./docs/SECURITE.md)** et **§ TLS & scans** ci-dessous ; dev local en **https://** = chantier optionnel (mkcert + Vite ou proxy).
 
 **Session web** : JWT d’accès **60 min** par défaut (`ACCESS_TOKEN_DURATION_MINUTES` sur **auth-service** dans `docker-compose`) ; refresh **30 j** avec rotation ; le front **rafraîchit** le token toutes les **10 min** et **au retour sur l’onglet** pour éviter les déconnexions quand le navigateur ralentit les timers en arrière-plan.
 
@@ -47,21 +47,22 @@
 |----------|------|
 | **`make test`** | Tests unitaires + applicatifs **dans Docker** (`compose run` / `exec`). **Ne lance pas les E2E.** Docker requis ; voir **TESTS.md**. |
 | **`make test-e2e`** | **Tests E2E à part** : vérifie que les services répondent (health, gateway proxy). **Prérequis : `make up`** avant, puis **attendre 20-30 s** que tous les services soient healthy. |
-| **`make tests`** | **Batterie complète** avec rapport dans `reports/` : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-photos`** (Flutter Photos : hôte + ADB si appareil). Prérequis : stack + **`make seed-admin`** pour les phases web ; voir **[docs/TESTS.md](./docs/TESTS.md)** § 1b. |
-| **`make test-all`** | Même enchaînement que **`make tests`** sans fichier de rapport : **`make test`**, **`test-e2e`**, **`test-e2e-playwright`**, **`test-security`**, **`test-mobile-photos`**. |
+| **`make tests`** | **Batterie complète** avec rapport dans `reports/` : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`** (Flutter **Photos + Drive + Mail** : hôte + `integration_test` sur ADB si SDK inscriptible). Prérequis : stack + **`make seed-admin`** pour les phases web ; voir **[docs/TESTS.md](./docs/TESTS.md)** § 1b. |
+| **`make test-all`** | Même enchaînement que **`make tests`** sans fichier de rapport : **`make test`**, **`test-e2e`**, **`test-e2e-playwright`**, **`test-security`**, **`test-mobile-suite`**. |
+| **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** (`scripts/test-mobile-suite.sh`). Variables **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`** pour sauter une app. |
 | **`make test-mobile-photos`** | Uniquement **`mobile/photos`** : `flutter test` (hôte) + **`integration_test`** sur un appareil **ADB** si disponible (menu de choix si plusieurs). |
 | **`make test-security`** | Audits de dépendances (npm, pip safety, govulncheck) + checks auth (401 sans token / token invalide sur `/auth/validate`). |
 | **`make test-docker`** | **`exec`** dans la stack **déjà démarrée** (`make up`) — vérifie les binaires en cours d’exécution. |
 | **`make test-full`** | test-all + test-docker (tout, stack up requise). |
 
-**Important** : Pour **tout** vérifier (unit/app + E2E web + Playwright + sécurité + **Photos Flutter**) : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport) ou **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
+**Important** : Pour **tout** vérifier (unit/app + E2E web + Playwright + sécurité + **mobile P+D+M**) : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport) ou **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
 **Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
 **Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **admin-dashboard** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
-**État des tests** : lancer **`make test`** (Docker) avant merge ; chiffres à jour dans **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. **Mobile Photos** : **`make test-mobile-photos`** (ou phase 5 de **`make tests`**) — ADB + variables **`CLOUDITY_E2E_*`** pour un parcours login réel sur appareil, voir **TESTS.md** § 1b. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
+**État des tests** : lancer **`make test`** (Docker) avant merge ; chiffres à jour dans **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. **Mobile (Photos, Drive, Mail)** : **`make test-mobile-suite`** (phase 5 de **`make tests`**) ou **`make test-mobile-mail`** / **`make test-mobile-drive`** / **`make test-mobile-photos`** — ADB + variables **`CLOUDITY_E2E_*`** pour un parcours login réel sur appareil ; si le message **« SDK Flutter non inscriptible »** apparaît, les **`integration_test`** device sont ignorées alors que **`flutter test`** (hôte) reste **OK** : corriger les droits sur le SDK (ex. `sudo chown -R "$(whoami)" /usr/lib/flutter` ou installer Flutter dans **`$HOME`**), voir **TESTS.md** § 1b. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
 
 **Ordre des applications (priorité ajustée avril 2026)** : 1) **Photos** (libérer l’espace type Google Photos : API + web + mobile + sync sobre) — voir **`docs/PHOTOS.md`** ; 2) **Mail** (client riche, tri, alias, archivage) ; 3) **Contacts** ; 4) **Pass** (style Proton) ; puis Office/Éditeur, Calendar, Notes, Tasks selon **`docs/ROADMAP.md`**. Détail § 1b.
 
@@ -74,6 +75,14 @@
 **Suite utilisateur (UX récente)** : barre d’app **recherche** (icône loupe + **Ctrl/Cmd+K**) à côté des **notifications** ; sur **Drive**, paramètre **`?q=`** filtre les noms dans le **dossier courant** (recherche arborescente = backlog **BACKLOG.md** / **TESTS.md** §4.0).
 
 **Stratégie sécurité / produit** : document **[docs/SECURITE.md](./docs/SECURITE.md)** — cible *expérience type Google* + *promesses type Proton* (E2EE / zero-access sur espaces privés), **4 couches** (sync, fichiers, photos, sécurité), **phases 1–4**, **signatures HTTP** complémentaires au TLS, **Zero Trust**, rôle **WAF** en périmètre. Mettre à jour **BACKLOG.md** (§ sécurité) quand une ligne est livrée.
+
+### TLS & scans (réponse courte)
+
+| Sujet | Réponse |
+|--------|---------|
+| **`http://localhost:6001/app` en dev** | Normal : la stack Docker sert le dashboard en **HTTP** sur la machine hôte. **« Sécurité de zinzin »** en prod = **TLS** (LB / ingress), **HSTS**, cookies **Secure**, politique CSP, pas de mix **HTTP**/**HTTPS**. Passer **tout** le dev local en **https://** = chantier dédié (certificats **mkcert** + **Vite `server.https`** ou reverse proxy type **Caddy**) — backlog **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** § **0c**. |
+| **Détecter les failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety sur admin-service, **govulncheck** sur chaque service Go), checks **401** sur `/auth/validate`. Rapports : `reports/security-*.txt`, `reports/govulncheck-*.txt`. Remédiation : monter **pytest** ≥ 9.0.3 (CVE-2025-71176), traiter les **npm audit** high sur admin-dashboard, suivre les sorties govulncheck. |
+| **OpenClaw / ClawSecure** | Outils **tiers** pour auditer des *skills* / agents **IA** (OWASP ASI), ex. [ClawSecure OpenClaw](https://github.com/ClawSecure/clawsecure-openclaw-security) — **pas** un remplacement du durcissement applicatif Cloudity ; utile si vous versionnez des *Cursor skills* sensibles **à part**. |
 
 **État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
 
