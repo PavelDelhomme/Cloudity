@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-04-21 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
+**Dernière mise à jour** : 2026-04-22 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**)  
 **Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security` pour Photos galerie + mobile + sync + durcissement sécurité). Détail : **[docs/BRANCHES.md](./docs/BRANCHES.md)**.  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
 
@@ -72,7 +72,7 @@
 
 **Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** — albums, sync batterie, détection des **autres apps** suite sur l’appareil (phase 2) ; l’app **mobile/photos** a désormais **connexion compte**, timeline et tests **`make test-mobile-photos`** (voir `docs/PHOTOS.md`, **TESTS.md** § 1b) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche (suite prioritaire après stabilisation Photos) ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
 
-**Suite utilisateur (UX récente)** : barre d’app **recherche** (icône loupe + **Ctrl/Cmd+K**) à côté des **notifications** ; sur **Drive**, paramètre **`?q=`** filtre les noms dans le **dossier courant** (recherche arborescente = backlog **BACKLOG.md** / **TESTS.md** §4.0).
+**Suite utilisateur (UX récente)** : barre d’app **recherche** (icône loupe + **Ctrl/Cmd+K**) à côté des **notifications** ; sur **Drive**, **`?q=`** avec terme non vide déclenche la recherche **API** sur **tout l’arborescence** (**`GET /drive/nodes/search`** via la gateway) ; sans terme (ou hors ce flux), la liste du **dossier courant** reste la référence (filtre client possible). Recherche **cross-apps** (Mail, Pass…) : backlog **BACKLOG.md** / **TESTS.md** §4.0.
 
 **Stratégie sécurité / produit** : document **[docs/SECURITE.md](./docs/SECURITE.md)** — cible *expérience type Google* + *promesses type Proton* (E2EE / zero-access sur espaces privés), **4 couches** (sync, fichiers, photos, sécurité), **phases 1–4**, **signatures HTTP** complémentaires au TLS, **Zero Trust**, rôle **WAF** en périmètre. Mettre à jour **BACKLOG.md** (§ sécurité) quand une ligne est livrée.
 
@@ -224,7 +224,7 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 |---|----------------|--------|------------------|
 | 1 | **Visualisation PDF intégrée** | Aperçu **embed** dans la modale (cible complémentaire : **PDF.js** pour zoom/recherche). | Unit : composant viewer ; E2E : ouvrir un PDF depuis le Drive. |
 | 2 | **Extracteur d'archives** | Support : **zip**, **tar**, **tar.gz**, **tar.bz2**, **7z**, etc. Extraction **côté backend** en **conservant la structure** (dossiers → création de dossiers, fichiers à la bonne place). | API : endpoint extract (ex. POST /drive/nodes/:id/extract) ; tests Go ; E2E : upload archive → extraction → vérifier structure. |
-| 3 | **Recherche globale** | **MVP livré** : palette barre app (**Ctrl/Cmd+K**), filtre **`?q=`** sur les noms dans le **dossier Drive courant**, raccourci **Contacts**. **À faire** : API recherche arborescente / multi-apps + résultats groupés. | Unit : **GlobalSearchPalette** + parsing `?q=` ; E2E : palette → Drive filtré. Voir **TESTS.md** §4.0. |
+| 3 | **Recherche globale** | **MVP livré** : palette (**Ctrl/Cmd+K**), **`?q=`** sur le Drive : terme non vide → **API** **`/drive/nodes/search`** (tout le Drive + emplacement parent) ; sinon filtre **client** sur le dossier courant ; raccourci **Contacts**. **À faire** : résultats **multi-apps** (Mail, Pass…) + groupement. | Unit : **GlobalSearchPalette**, **`fetchDriveSearch`**, **DrivePage** ; E2E : palette → Drive. Voir **TESTS.md** §4.0. |
 
 ### Éditeur de documents (Office) — à faire
 
@@ -235,6 +235,8 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 | 6 | **Supprimer le document depuis l'éditeur** | Option **Supprimer** dans l'éditeur (avec confirmation) : envoie en **corbeille** ou suppression définitive selon politique. | Unit : action supprimer + redirection ; E2E : ouvrir doc → supprimer → retour Drive / corbeille. |
 | 7 | **Présentation : enregistrement .pptx** | Comme document (.docx) et tableur (.xlsx) : pouvoir **enregistrer** une présentation en **.pptx** dans le Drive (création « Nouvelle présentation » en .pptx ou « Enregistrer en .pptx »). Téléchargement .pptx. Conversion vers d'autres formats plus tard. | Unit : html/diapos → blob pptx ; E2E : créer présentation → éditer → enregistrer .pptx. |
 | 8 | **Approfondir l'éditeur** | Enrichir l'éditeur (formatage, styles, tableaux) selon la stack (TipTap, Luckysheet, etc.). Détail dans `docs/editeur-docs.md`. | Tests au fil de l'eau. |
+| 9 | **LaTeX comme source par défaut (Office)** | Objectif produit : mode **LaTeX** (ou équivalent) comme **format / source par défaut** pour documents avancés (formules, bibliographie) ; le **Markdown** reste une **option** (import/export, utilisateurs légers), **pas** le mode par défaut « tout en MD ». Prévoir rendu (KaTeX/MathJax ou PDF intermédiaire) + export `.tex` / PDF ; cadrage technique dans **`docs/editeur-docs.md`**. | Unit : bascule modes, parse minimal ; E2E : ouvrir doc → mode LaTeX → sauvegarder. |
+| 10 | **Interop .docx / HTML** | Conserver ouverture et export des documents **Drive** existants (.docx, HTML éditeur actuel) en parallèle du pipeline LaTeX. | Tests Vitest + E2E sur round-trip ciblé. |
 
 ### Corbeille (recycle bin) — à faire
 
@@ -253,6 +255,7 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 - [x] **Renommer depuis l'éditeur** : champ ou modal pour renommer (sync Drive).
 - [x] **Supprimer depuis l'éditeur** : bouton Supprimer → corbeille, redirection.
 - [ ] **Export PDF** : bouton Exporter en PDF (document, tableur, présentation).
+- [ ] **Mode LaTeX par défaut** : source / édition **LaTeX** en entrée principale du produit cible Office ; **Markdown** en option secondaire (cf. tableau §1b « Éditeur » lignes 9–10). Spec **`docs/editeur-docs.md`**.
 - [ ] **Éditeur Excel** : pousser le tableur (grille riche, formules, .xlsx).
 - [ ] **Éditeur PowerPoint** : présentations complètes, enregistrement .pptx + PDF.
 
@@ -286,13 +289,15 @@ Priorité : **faire avancer l’application** (Drive, Office, corbeille) avec le
 
 ### Mail — récupération, frontend et base
 
+**Messages console (Vite, CSS, favicons, « À l’instant » en corbeille)** : explications et causes dans **[docs/PLAN.md](./docs/PLAN.md)** — à lire avant d’ouvrir un ticket « erreur navigateur ».
+
 La détection IMAP/SMTP est **entièrement automatique** à partir de l’adresse : aucun domaine n’est codé en dur. Règles : fournisseurs connus (Gmail, Outlook, Yahoo, iCloud, OVH) via leur host dédié ; **toute autre adresse** → `imap.<domaine>` et `smtp.<domaine>` déduits du domaine (partie après @).
 
 **Pour retester l’attachement d’une boîte mail** : dans l’app **Mail**, déconnecter l’adresse (menu ou bouton « Déconnecter »), puis la rajouter. En dev : **`make mail-clean-dev`** (après **`make up`**) supprime tous les comptes mail du compte démo en base ; vous restez connecté (le JWT est en localStorage), rechargez la page Mail puis ajoutez la boîte à nouveau.
 
 | # | Tâche | Détail | Tests |
 |---|--------|--------|--------|
-| M1 | **Récupération des mails (sync IMAP)** | Déjà en place : POST /mail/me/accounts/:id/sync, connexion IMAP. **Toute adresse** gérée par détection automatique (voir ci-dessus). Stockage en-têtes dans `mail_messages`. À améliorer : autres dossiers (Sent, Drafts, Trash), corps, pièces jointes. | API : sync avec un fournisseur quelconque ; E2E : ajouter boîte → sync → voir messages. |
+| M1 | **Récupération des mails (sync IMAP)** | Déjà en place : POST /mail/me/accounts/:id/sync, connexion IMAP. **Toute adresse** gérée par détection automatique (voir ci-dessus). Stockage en-têtes dans `mail_messages`. **Correction** : si l’enveloppe IMAP n’a pas de `Date`, ne plus écrire `date_at = now()` (affichage « à l’instant » en corbeille) — **`imap_folders.go`** + **`docs/PLAN.md` §5**. À améliorer : §0b SYNC (chemins Trash/Sent), corps, PJ. | API : sync avec un fournisseur quelconque ; E2E : ajouter boîte → sync → voir messages. |
 | M2 | **Frontend Mail** | **En place** : liste messages, **sync IMAP** + **polling** arrière-plan (intervalle configurable), notifications nouveaux messages, panneau gauche réductible, réponse / transfert, rédaction panneau bas, signature localStorage, envoi sans ressaisir mot de passe, multi-sélection + actions masse, pagination `Page X / Y`, sélection page / inverser. **À ajouter** : `Tout sélectionner (boîte entière)`, raffinements UX, corps à l’ouverture si absent en base (cf. M8). | Unit : MailPage ; E2E : ajout boîte, sync, envoi. |
 | M3 | **Dossiers personnalisés** | Créer ses propres dossiers et sous-dossiers (indépendamment de Gmail/OVH), gérer la hiérarchie (dossier/sous-dossier/sous-sous-dossier), déplacer les messages. Backend : IMAP LIST/CREATE/MOVE ou structure propre en base. Corbeille mail, Brouillons, zone Envois programmés. | API : list/create/move folders ; E2E : créer dossier, déplacer message. |
 | M4 | **Lecture, recherche, filtres** | Marquer lu / non lu dans la liste ; recherche full-text dans les messages ; filtres et tri (date, expéditeur, objet) ; « À lire plus tard » / liste en attente ; gestion de la file d’envoi (messages en attente). | API : flags read/unread, search endpoint ; E2E : marquer lu, recherche. |

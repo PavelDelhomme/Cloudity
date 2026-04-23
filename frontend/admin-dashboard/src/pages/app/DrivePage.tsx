@@ -39,6 +39,7 @@ import { formatFileSize } from '../../utils/formatFileSize'
 import { formatRelativeDate, formatFullDate, formatRelativeDateWithTime } from '../../utils/formatDate'
 import {
   fetchDriveNodes,
+  fetchDriveSearch,
   fetchDriveTrash,
   fetchDriveRecentFiles,
   createDriveFolder,
@@ -894,6 +895,7 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   onPurge,
   editorLinkState,
   accessToken,
+  fromGlobalSearch,
 }: {
   node: DriveNode
   isSelected: boolean
@@ -913,6 +915,7 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   onPurge?: (node: DriveNode) => void
   editorLinkState?: EditorFromState
   accessToken: string | null
+  fromGlobalSearch?: boolean
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
@@ -1070,6 +1073,11 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
             {displayFileName(node.name)}
           </p>
         )}
+        {fromGlobalSearch && !isEditing ? (
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate px-0.5 mt-0.5">
+            Dans : {node.parent_id == null ? 'Racine' : (node.parent_folder_name ?? '').trim() || 'Dossier'}
+          </p>
+        ) : null}
       </div>
       <DriveThumbnail node={node} accessToken={accessToken} />
       {/* Pied de carte : taille, date, et menu trois points intégré */}
@@ -1143,6 +1151,7 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
   onPurge,
   editorLinkState,
   onPreviewClick,
+  fromGlobalSearch,
 }: {
   node: DriveNode
   isEditing: boolean
@@ -1166,6 +1175,7 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
   onPurge?: (node: DriveNode) => void
   editorLinkState?: EditorFromState
   onPreviewClick?: (node: DriveNode) => void
+  fromGlobalSearch?: boolean
 }) {
   const [rowMenuOpen, setRowMenuOpen] = useState(false)
   const [rowMenuPosition, setRowMenuPosition] = useState<DriveItemMenuPosition | null>(null)
@@ -1355,6 +1365,11 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
             )}
           </span>
         )}
+        {fromGlobalSearch && !isEditing ? (
+          <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate block mt-0.5">
+            Dans : {node.parent_id == null ? 'Racine' : (node.parent_folder_name ?? '').trim() || 'Dossier'}
+          </span>
+        ) : null}
       </td>
       <td className="py-2 px-2 align-middle text-right text-sm text-slate-500 dark:text-slate-400 whitespace-nowrap w-28">
         {node.is_folder ? folderContentLabel(node) : formatFileSize(node.size)}
@@ -1790,6 +1805,9 @@ export default function DrivePage() {
   useEffect(() => {
     setViewModeState(viewFromUrl)
   }, [viewFromUrl])
+  const driveNameQuery = (searchParams.get('q') ?? '').trim()
+  const driveNameQueryLower = driveNameQuery.toLowerCase()
+  const isGlobalSearch = viewMode === 'drive' && driveNameQuery.length > 0
   type DeleteModalTarget = { type: 'single'; node: DriveNode } | { type: 'bulk'; ids: number[] } | null
   const [deleteModalTarget, setDeleteModalTarget] = useState<DeleteModalTarget>(null)
   const [purgeModalTarget, setPurgeModalTarget] = useState<DriveNode | null>(null)
@@ -1847,9 +1865,20 @@ export default function DrivePage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['drive', 'nodes', currentParentId],
     queryFn: () => fetchDriveNodes(accessToken!, currentParentId),
-    enabled: Boolean(accessToken) && viewMode === 'drive',
+    enabled: Boolean(accessToken) && viewMode === 'drive' && !isGlobalSearch,
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 2 * 60 * 1000,
+  })
+  const {
+    data: searchData,
+    isLoading: isSearchLoading,
+    error: searchError,
+  } = useQuery({
+    queryKey: ['drive', 'search', driveNameQuery],
+    queryFn: () => fetchDriveSearch(accessToken!, driveNameQuery),
+    enabled: Boolean(accessToken) && isGlobalSearch,
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
+    staleTime: 60 * 1000,
   })
   const { data: trashData } = useQuery({
     queryKey: ['drive', 'trash'],
@@ -1861,7 +1890,7 @@ export default function DrivePage() {
   const { data: recentNodes = [] } = useQuery({
     queryKey: ['drive', 'recent', 'ribbon'],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 24),
-    enabled: Boolean(accessToken) && viewMode === 'drive' && currentParentId == null,
+    enabled: Boolean(accessToken) && viewMode === 'drive' && currentParentId == null && !isGlobalSearch,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
@@ -1888,7 +1917,16 @@ export default function DrivePage() {
     () => recentCalendarGroups.flatMap((d) => d.hours.flatMap((h) => h.nodes)),
     [recentCalendarGroups]
   )
-  const nodes = viewMode === 'drive' ? (data ?? []) : viewMode === 'trash' ? (trashData ?? []) : recentFlatOrdered
+  const nodes =
+    viewMode === 'drive'
+      ? isGlobalSearch
+        ? (searchData ?? [])
+        : (data ?? [])
+      : viewMode === 'trash'
+        ? (trashData ?? [])
+        : recentFlatOrdered
+  const driveQueryError = error ?? searchError
+  const driveListLoading = isGlobalSearch ? isSearchLoading : isLoading
   const sortedNodes = React.useMemo(() => {
     if (viewMode === 'recent') return [...nodes]
     const arr = [...nodes]
@@ -1914,12 +1952,10 @@ export default function DrivePage() {
     })
     return arr
   }, [nodes, viewMode, sortBy, sortOrder])
-  const driveNameQuery = (searchParams.get('q') ?? '').trim()
-  const driveNameQueryLower = driveNameQuery.toLowerCase()
   const sortedNodesFiltered = React.useMemo(() => {
-    if (!driveNameQueryLower || viewMode !== 'drive') return sortedNodes
+    if (isGlobalSearch || !driveNameQueryLower || viewMode !== 'drive') return sortedNodes
     return sortedNodes.filter((n) => n.name.toLowerCase().includes(driveNameQueryLower))
-  }, [sortedNodes, driveNameQueryLower, viewMode])
+  }, [sortedNodes, driveNameQueryLower, viewMode, isGlobalSearch])
   const totalCount = sortedNodesFiltered.length
   const displayNodes = sortedNodesFiltered.slice(0, visibleCount)
   const displayNodeIdSet = useMemo(() => new Set(displayNodes.map((n) => n.id)), [displayNodes])
@@ -1954,14 +1990,14 @@ export default function DrivePage() {
       setListReady(false)
       return
     }
-    if (!isLoading && nodes.length >= 0) {
+    if (!driveListLoading && nodes.length >= 0) {
       const t = setTimeout(() => {
         startTransition(() => setListReady(true))
       }, 150)
       return () => clearTimeout(t)
     }
     setListReady(false)
-  }, [viewMode, isRecentFullLoading, isLoading, nodes.length])
+  }, [viewMode, isRecentFullLoading, driveListLoading, nodes.length])
 
   const goTo = useCallback(
     (id: number | null, name: string) => {
@@ -1978,6 +2014,43 @@ export default function DrivePage() {
       }
     },
     [breadcrumb, viewMode, setViewMode]
+  )
+
+  const clearDriveSearchFromUrl = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('q')
+        return n
+      },
+      { replace: true }
+    )
+  }, [setSearchParams])
+
+  const goToFolderFromGlobalSearch = useCallback(
+    (id: number, name: string) => {
+      clearDriveSearchFromUrl()
+      if (viewMode !== 'drive') setViewMode('drive')
+      startTransition(() => setBreadcrumb([{ id: null, name: 'Drive' }, { id, name }]))
+    },
+    [viewMode, setViewMode, clearDriveSearchFromUrl]
+  )
+
+  const openPreviewFromGlobalSearch = useCallback(
+    (node: DriveNode) => {
+      if (!isGlobalSearch) {
+        setPreviewNode(node)
+        return
+      }
+      clearDriveSearchFromUrl()
+      if (node.parent_id != null) {
+        goTo(node.parent_id, (node.parent_folder_name ?? '').trim() || 'Dossier')
+      } else {
+        goTo(null, 'Drive')
+      }
+      queueMicrotask(() => setPreviewNode(node))
+    },
+    [isGlobalSearch, goTo, clearDriveSearchFromUrl]
   )
 
   const loadMore = useCallback(() => {
@@ -2363,7 +2436,7 @@ export default function DrivePage() {
     [handleMove]
   )
 
-  if (error && error instanceof Error && error.message.includes('401')) {
+  if (driveQueryError && driveQueryError instanceof Error && driveQueryError.message.includes('401')) {
     return (
       <div className="space-y-6 p-6">
         <p className="text-red-600">
@@ -2551,11 +2624,15 @@ export default function DrivePage() {
           </span>
           {viewMode === 'drive' && driveNameQuery ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/40 px-2.5 py-0.5 text-xs font-medium text-brand-800 dark:text-brand-200">
-              Filtre : « {driveNameQuery} »
+              {isGlobalSearch ? (
+                <>Recherche tout le Drive : « {driveNameQuery} »</>
+              ) : (
+                <>Filtre : « {driveNameQuery} »</>
+              )}
               <button
                 type="button"
                 className="ml-0.5 rounded p-0.5 hover:bg-brand-100 dark:hover:bg-brand-800/80"
-                aria-label="Effacer le filtre de recherche"
+                aria-label={isGlobalSearch ? 'Effacer la recherche' : 'Effacer le filtre de recherche'}
                 onClick={() => {
                   setSearchParams((prev) => {
                     const n = new URLSearchParams(prev)
@@ -2778,7 +2855,7 @@ export default function DrivePage() {
                 )}
               </div>
             )
-          ) : isLoading ? (
+          ) : driveListLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
             </div>
@@ -2788,7 +2865,7 @@ export default function DrivePage() {
             </div>
           ) : nodes.length === 0 && !showNewFolder ? (
             <>
-              {viewMode === 'drive' && currentParentId == null && (
+              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"
@@ -2847,15 +2924,34 @@ export default function DrivePage() {
                 <div className="rounded-full bg-slate-100 dark:bg-slate-700 p-4">
                   <Folder className="h-10 w-10 text-slate-400" />
                 </div>
-                <p className="mt-4 text-slate-600 dark:text-slate-300">Aucun fichier ni dossier ici.</p>
+                <p className="mt-4 text-slate-600 dark:text-slate-300">
+                  {isGlobalSearch ? `Aucun résultat pour « ${driveNameQuery} » dans tout le Drive.` : 'Aucun fichier ni dossier ici.'}
+                </p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Créez un dossier, utilisez Téléverser ou déposez des fichiers ici.
+                  {isGlobalSearch
+                    ? 'Modifiez les termes ou effacez la recherche pour revenir à la navigation par dossiers.'
+                    : 'Créez un dossier, utilisez Téléverser ou déposez des fichiers ici.'}
                 </p>
               </div>
             </>
           ) : (
             <>
-              {viewMode === 'drive' && driveNameQuery && totalCount === 0 && nodes.length > 0 && (
+              {viewMode === 'drive' && isGlobalSearch && totalCount === 0 && !isSearchLoading && (
+                <div
+                  className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-900/25 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100"
+                  role="status"
+                >
+                  <span>Aucun résultat pour « {driveNameQuery} » dans tout le Drive.</span>
+                  <button
+                    type="button"
+                    className="font-medium text-blue-700 dark:text-blue-300 hover:underline"
+                    onClick={clearDriveSearchFromUrl}
+                  >
+                    Effacer la recherche
+                  </button>
+                </div>
+              )}
+              {viewMode === 'drive' && driveNameQuery && !isGlobalSearch && totalCount === 0 && nodes.length > 0 && (
                 <div
                   className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/90 dark:bg-amber-900/25 px-3 py-2.5 text-sm text-amber-950 dark:text-amber-100"
                   role="status"
@@ -2923,7 +3019,7 @@ export default function DrivePage() {
                   </button>
                 </div>
               )}
-              {viewMode === 'drive' && currentParentId == null && (
+              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"
@@ -3010,8 +3106,8 @@ export default function DrivePage() {
                         node={node}
                         isSelected={selectedIds.has(node.id)}
                         onSelectClick={(e) => handleRowSelect(node, index, e)}
-                        onGoTo={goTo}
-                        onPreviewClick={setPreviewNode}
+                        onGoTo={viewMode === 'drive' && isGlobalSearch ? goToFolderFromGlobalSearch : goTo}
+                        onPreviewClick={viewMode === 'drive' && isGlobalSearch ? openPreviewFromGlobalSearch : setPreviewNode}
                         onDownload={handleDownload}
                         onDelete={handleDelete}
                         onStartEdit={startEdit}
@@ -3025,6 +3121,7 @@ export default function DrivePage() {
                         onPurge={viewMode === 'trash' ? handlePurgeClick : undefined}
                         editorLinkState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
                         accessToken={accessToken}
+                        fromGlobalSearch={viewMode === 'drive' && isGlobalSearch}
                       />
                     ))}
                   </div>
@@ -3090,7 +3187,7 @@ export default function DrivePage() {
                         isDropTarget={dropTargetFolderId === node.id}
                         isSelected={selectedIds.has(node.id)}
                         onSelectClick={(e) => handleRowSelect(node, index, e)}
-                        onGoTo={goTo}
+                        onGoTo={viewMode === 'drive' && isGlobalSearch ? goToFolderFromGlobalSearch : goTo}
                         onStartEdit={startEdit}
                         onRename={handleRename}
                         onCancelEdit={handleCancelEdit}
@@ -3105,7 +3202,8 @@ export default function DrivePage() {
                         onRestore={viewMode === 'trash' ? handleRestore : undefined}
                         onPurge={viewMode === 'trash' ? handlePurgeClick : undefined}
                         editorLinkState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
-                        onPreviewClick={setPreviewNode}
+                        onPreviewClick={viewMode === 'drive' && isGlobalSearch ? openPreviewFromGlobalSearch : setPreviewNode}
+                        fromGlobalSearch={viewMode === 'drive' && isGlobalSearch}
                       />
                     ))}
                   </tbody>

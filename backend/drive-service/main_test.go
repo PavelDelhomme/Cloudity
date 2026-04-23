@@ -85,3 +85,35 @@ func TestPutNodeContentRequiresAuth(t *testing.T) {
 		t.Errorf("PUT /drive/nodes/1/content without X-User-ID: got %d", w.Code)
 	}
 }
+
+func TestDriveSearchRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/search?q=doc", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/nodes/search without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestDriveSearchBadRequestEmptyQ(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/search?q=", nil)
+	req.Header.Set("X-User-ID", "1")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("GET /drive/nodes/search with empty q: got %d, want 400", w.Code)
+	}
+}
+
+func TestDriveSearchNilDBReturnsEmpty(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/search?q=hello", nil)
+	req.Header.Set("X-User-ID", "1")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /drive/nodes/search with db=nil: got %d, want 200", w.Code)
+	}
+}

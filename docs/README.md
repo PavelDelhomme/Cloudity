@@ -11,6 +11,7 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[TESTS.md](./TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, liste des tests à ajouter |
 | **[../BACKLOG.md](../BACKLOG.md)** (racine) | Backlog actionnable : priorités, liens vers SYNC-BACKLOG / ROADMAP / TESTS |
 | **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme, métriques, ressources |
+| **[PLAN.md](./PLAN.md)** | Dépannage **dev** : console navigateur (Mail, Vite), favicons, dates corbeille, liens vers backlog |
 | **[MAIL-GMAIL-OAUTH.md](./MAIL-GMAIL-OAUTH.md)** | Configurer OAuth Google (Gmail « en un clic ») côté hébergeur |
 | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | Sync Mail/Drive/Calendar/…, `make run-mobile`, session longue, archivage mail serveur |
 | **[SECURITE.md](./SECURITE.md)** | Vision Google + Proton, phases, signatures requêtes, Zero Trust, WAF ; complète SECURITE-DONNEES |
@@ -36,4 +37,4 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 
 ---
 
-*Index mis à jour : 2026-04-11 (+ **SECURITE.md** : vision Google + Proton, Zero Trust, signatures, WAF). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*
+*Index mis à jour : 2026-04-11 — ajout **PLAN.md** (dépannage console Mail / Vite). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*

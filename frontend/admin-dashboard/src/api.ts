@@ -777,6 +777,8 @@ export type DriveNode = {
   child_files?: number
   /** Date de suppression (corbeille). */
   deleted_at?: string | null
+  /** Nom du dossier parent (recherche GET /drive/nodes/search). */
+  parent_folder_name?: string
 }
 
 export async function fetchDriveNodes(
@@ -789,6 +791,27 @@ export async function fetchDriveNodes(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Drive: ${res.status}`)
+  return res.json() as Promise<DriveNode[]>
+}
+
+/** Recherche par nom sur tout le Drive (ou sous-arbre si `parent_id` est défini). */
+export async function fetchDriveSearch(
+  token: string,
+  q: string,
+  opts?: { limit?: number; parent_id?: number | null }
+): Promise<DriveNode[]> {
+  const params = new URLSearchParams()
+  params.set('q', q)
+  if (opts?.limit != null && opts.limit > 0) {
+    params.set('limit', String(Math.min(200, opts.limit)))
+  }
+  if (opts?.parent_id != null && opts.parent_id !== undefined) {
+    params.set('parent_id', String(opts.parent_id))
+  }
+  const res = await fetch(apiUrl(`/drive/nodes/search?${params.toString()}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Drive search: ${res.status}`)
   return res.json() as Promise<DriveNode[]>
 }
 

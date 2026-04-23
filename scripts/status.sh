@@ -97,6 +97,23 @@ is_up() {
   echo "$1" | grep -qE "Up|running" && echo "Up" || echo "Down"
 }
 
+# db-migrate : conteneur one-shot (migrations) — « Exited (0) » est le comportement normal, pas une panne.
+state_for_row() {
+  local sn="$1"
+  local status="$2"
+  if [[ "$sn" == "db-migrate" ]]; then
+    if echo "$status" | grep -qE 'Exited \(0\)'; then
+      echo "OK (job)"
+      return
+    fi
+    if echo "$status" | grep -qE 'Exited \([1-9][0-9]*\)'; then
+      echo "Fail"
+      return
+    fi
+  fi
+  is_up "$status"
+}
+
 W=30
 COLW=6
 URLW=34
@@ -124,7 +141,7 @@ while IFS= read -r line; do
   [ -z "$port" ] && port="n/a"
   sn=$(short_name "$name")
   url=$(url_for "$port")
-  up=$(is_up "$status")
+  up=$(state_for_row "$sn" "$status")
   sk=$(sort_key "$sn")
   printf '%s\t%s\t%s\t%s\t%s\n' "$sk" "$sn" "$port" "$url" "$up"
 done <<< "$raw" | sort -t$'\t' -k1,1n -k2,2 | cut -f2- >"$tmp"
@@ -133,7 +150,7 @@ shown=0
 while IFS=$'\t' read -r sn port url up; do
   [ -z "${sn:-}" ] && continue
   shown=1
-  if [ "$up" = "Up" ]; then
+  if [ "$up" = "Up" ] || [ "$up" = "OK (job)" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${GREEN}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
   else
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${RED}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"

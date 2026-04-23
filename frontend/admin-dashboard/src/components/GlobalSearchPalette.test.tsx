@@ -42,7 +42,7 @@ describe('GlobalSearchPalette', () => {
     fireEvent.click(screen.getByRole('button', { name: /Ouvrir la recherche/i }))
     const input = screen.getByRole('searchbox')
     fireEvent.change(input, { target: { value: '  rapport  ' } })
-    fireEvent.click(screen.getByRole('button', { name: /Filtrer dans le dossier Drive courant/i }))
+    fireEvent.click(screen.getByRole('button', { name: /Ouvrir le Drive \(recherche\)/i }))
     await waitFor(() => {
       expect(screen.getByTestId('location-probe').textContent).toContain('/app/drive')
       expect(screen.getByTestId('location-probe').textContent).toContain('q=rapport')
@@ -62,7 +62,7 @@ describe('GlobalSearchPalette', () => {
   it('Drive sans requête : /app/drive sans query', async () => {
     renderPalette()
     fireEvent.click(screen.getByRole('button', { name: /Ouvrir la recherche/i }))
-    fireEvent.click(screen.getByRole('button', { name: /Filtrer dans le dossier Drive courant/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^Ouvrir le Drive$/i }))
     await waitFor(() => {
       expect(screen.getByTestId('location-probe').textContent).toBe('/app/drive')
     })

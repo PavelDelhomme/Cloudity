@@ -12,7 +12,7 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 
 | Produit | ID ROADMAP | Web (cible) | Mobile utilisateur | Notes |
 |---------|------------|-------------|-------------------|--------|
-| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | MVP mobile : connexion + boîte de réception (`/mail/me/accounts`, messages `inbox`) ; `make run-mobile APP=Mail` ; **`make test-mobile-mail`** / suite **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b ; push FCM / viewer offline = plus tard |
+| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; `flutter test` (validation + widget). FCM / brouillon serveur = plus tard — **[TESTS.md](./TESTS.md)** § 1b |
 | **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` ; **`make test-mobile-drive`** ou phase 5 **`make test-mobile-suite`** / **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b |
 | **Office** | APP-03 | Oui (édition complète) | Viewer + édition légère (cible) | Parité complète difficile sur petit écran — prioriser lecture + commentaires |
 | **Pass** | APP-04 | Oui | Oui | Auto-fill OS / clavier ; biométrie |
@@ -20,7 +20,7 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 | **Notes** | APP-06 | Oui | Oui | Saisie rapide, dictée (option) |
 | **Tasks** | APP-07 | Oui | Oui | Widgets, notifications échéance |
 | **Contacts** | APP-08 | Oui | Oui | Intégration répertoire téléphone (permissions) |
-| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | **Connexion** + session persistée ; `make run-mobile APP=Photos` ; **`make test-mobile-photos`** ou suite **`make test-mobile-suite`** (Photos+Drive) / **`make tests`** phase 5 — **[PHOTOS.md](./PHOTOS.md)** § 5, **[TESTS.md](./TESTS.md)** § 1b |
+| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | **Connexion** + session persistée ; `make run-mobile APP=Photos` ; **`make test-mobile-photos`** ou suite **`make test-mobile-suite`** (Photos+Drive+Mail) / **`make tests`** phase 5 — **[PHOTOS.md](./PHOTOS.md)** § 5, **[TESTS.md](./TESTS.md)** § 1b |
 | **AppHub / launcher** | APP-10 | Oui | Shell / deep links | App mobile peut être un **conteneur** avec modules ou apps séparées |
 | **Admin back-office** | ADM-01 | Oui | Voir § 2 | Jamais mélangé aux apps grand public |
 
@@ -84,9 +84,9 @@ make run-mobile APP="Photos"
 | **Photos** | `mobile/photos/` ou `mobile/photos_app/` |
 | **Pass** | `mobile/pass/` ou `mobile/pass_app/` |
 
-Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code **2** (comportement voulu : *pas encore implémenté*, pas un crash). Dans le dépôt actuel : **`Photos`**, **`Drive`** (`mobile/drive`) et **`Admin`** (si présent) sont lançables ; **Mail**, **Calendar**, etc. le seront une fois le dossier Flutter créé.
+Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code **2** (comportement voulu : *pas encore implémenté*, pas un crash). Dans le dépôt actuel : **`Photos`**, **`Drive`**, **`Mail`** et **`Admin`** (si présent) sont lançables ; **Calendar**, **Contacts**, etc. le seront une fois le dossier Flutter créé.
 
-Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** (ex. `http://10.0.2.2:6080` pour émulateur Android, IP LAN pour appareil physique).
+Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** (ex. `http://10.0.2.2:6080` pour émulateur Android, IP LAN pour appareil physique). **SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — soit `sudo chown -R "$(whoami)" /usr/lib/flutter`, soit Flutter clone dans `$HOME` puis **`export FLUTTER_ROOT="$HOME/flutter"`** et **`export PATH="$FLUTTER_ROOT/bin:$PATH"`** (honoré par `scripts/run-mobile.sh` et `test-mobile-app.sh`).
 
 **Note** : `make init-mobile` parcourt aussi `mobile/contacts`, `mobile/photos`, `mobile/pass` lorsqu’ils existent. Suite produit : **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** (scaffold + CI).
 

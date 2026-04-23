@@ -16,6 +16,7 @@ vi.mock('../../utils/wordToHtml', () => ({
 }))
 vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
+  fetchDriveSearch: vi.fn().mockResolvedValue([]),
   fetchDriveTrash: vi.fn().mockResolvedValue([]),
   fetchDriveRecentFiles: vi.fn().mockResolvedValue([]),
   createDriveFolder: vi.fn().mockResolvedValue({ id: 1 }),
@@ -78,6 +79,22 @@ describe('DrivePage', () => {
 
   it('renders without throwing', () => {
     expect(() => render(wrap(<DrivePage />))).not.toThrow()
+  })
+
+  it('avec ?q= dans l’URL, appelle fetchDriveSearch pour la recherche sur tout le Drive', async () => {
+    const api = await import('../../api')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <UploadProvider>
+          <TestRouter initialEntries={['/app/drive?q=rapport']}>
+            <DrivePage />
+          </TestRouter>
+        </UploadProvider>
+      </QueryClientProvider>
+    )
+    await waitFor(() => {
+      expect(vi.mocked(api.fetchDriveSearch)).toHaveBeenCalledWith('token', 'rapport')
+    })
   })
 
   it('renders Drive title et bouton Corbeille dans la barre d’outils', () => {

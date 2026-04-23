@@ -1,0 +1,31 @@
+# Référence de vérité : les tests unitaires / applicatifs passent dans les **images Docker**
+# (même toolchain que `docker compose`), pas uniquement sur la machine hôte.
+# Équivalent local : `make test`. Après `make up` : `make test-docker` (exec dans les conteneurs up).
+name: Tests unitaires (Docker)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-unit-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  make-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: make test (Go + pytest + Vitest dans les conteneurs)
+        run: make test
+        env:
+          DOCKER_BUILDKIT: "1"

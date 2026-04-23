@@ -21,6 +21,12 @@ fi
 
 NORM=$(echo "$APP_RAW" | tr '[:upper:]' '[:lower:]')
 
+# SDK dans $HOME : prioriser FLUTTER_ROOT (évite /usr/lib/flutter root-only sous pacman).
+if [[ -n "${FLUTTER_ROOT:-}" ]] && [[ -x "${FLUTTER_ROOT}/bin/flutter" ]]; then
+  export PATH="${FLUTTER_ROOT}/bin:${PATH}"
+  echo "→ Flutter : FLUTTER_ROOT=${FLUTTER_ROOT}"
+fi
+
 if ! command -v flutter >/dev/null 2>&1; then
   echo "❌ Flutter n’est pas installé ou pas dans le PATH."
   echo "   https://docs.flutter.dev/get-started/install"

@@ -22,6 +22,10 @@ _cloudity_flutter_sdk_error() {
   echo "      (à refaire après une mise à jour majeure du paquet flutter)" >&2
   echo "   2) Installer Flutter dans votre \$HOME (git clone officiel) et mettre ce bin" >&2
   echo "      avant /usr/bin dans le PATH." >&2
+  echo "   3) Ou, sans toucher au PATH global, pour une session uniquement :" >&2
+  echo "        export FLUTTER_ROOT=\"\$HOME/flutter\"   # chemin où est installé le SDK" >&2
+  echo "        export PATH=\"\$FLUTTER_ROOT/bin:\$PATH\"" >&2
+  echo "        make run-mobile APP=Mail              # run-mobile honore FLUTTER_ROOT" >&2
   echo "" >&2
 }
 

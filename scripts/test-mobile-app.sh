@@ -38,6 +38,10 @@ if [[ ! -d "$APP_DIR" ]]; then
   exit 1
 fi
 
+if [[ -n "${FLUTTER_ROOT:-}" ]] && [[ -x "${FLUTTER_ROOT}/bin/flutter" ]]; then
+  export PATH="${FLUTTER_ROOT}/bin:${PATH}"
+fi
+
 if ! command -v flutter >/dev/null 2>&1; then
   echo "⚠️  Flutter absent — ${APP_LABEL} ignoré (PATH sans flutter)."
   exit 0
@@ -78,7 +82,8 @@ cloudity_prepare_e2e_env "$SERIAL"
 if ! CLOUDITY_QUIET_FLUTTER_SDK_CHECK=1 "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
   echo ""
   echo "ℹ️  SDK Flutter non inscriptible : integration_test ${APP_LABEL} ignorée (tests hôte OK)."
-  echo "    sudo chown -R \"\$(whoami)\" /usr/lib/flutter   # ou Flutter dans \$HOME"
+  echo "    sudo chown -R \"\$(whoami)\" /usr/lib/flutter"
+  echo "    ou : export FLUTTER_ROOT=\"\$HOME/flutter\" && export PATH=\"\$FLUTTER_ROOT/bin:\$PATH\""
   exit 0
 fi
 

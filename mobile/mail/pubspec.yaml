@@ -1,5 +1,5 @@
 name: cloudity_mail
-description: "Cloudity Mail — app mobile (MVP : connexion + boîte de réception)."
+description: "Cloudity Mail — app mobile (boîtes, dossiers, PJ, envoi minimal, tests)."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -14,6 +14,8 @@ dependencies:
   http: ^1.2.2
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.3.3
+  path_provider: ^2.1.4
+  share_plus: ^10.1.4
 
 dev_dependencies:
   flutter_test:

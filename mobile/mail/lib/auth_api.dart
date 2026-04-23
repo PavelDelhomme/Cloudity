@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -145,6 +146,137 @@ class AuthApi {
       return (messages: list, total: n);
     }
     throw AuthException('Réponse messages invalide');
+  }
+
+  /// Totaux / non-lus par dossier (`inbox`, `sent`, … + `extra` pour dossiers IMAP).
+  Future<Map<String, dynamic>> fetchFolderSummary({
+    required String accessToken,
+    required int accountId,
+  }) async {
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/folders/summary');
+    final res = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Mail dossiers HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw AuthException('Réponse dossiers invalide');
+    }
+    return data;
+  }
+
+  /// Détail d’un message (corps, pièces jointes métadonnées).
+  Future<Map<String, dynamic>> fetchMailMessage({
+    required String accessToken,
+    required int accountId,
+    required int messageId,
+  }) async {
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages/$messageId');
+    final res = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Mail message HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(res.body);
+    if (data is! Map<String, dynamic>) {
+      throw AuthException('Réponse message invalide');
+    }
+    return data;
+  }
+
+  /// `PATCH /mail/me/accounts/:id/messages/:msgId/read` — corps `{"read": true|false}`.
+  Future<void> patchMessageRead({
+    required String accessToken,
+    required int accountId,
+    required int messageId,
+    required bool read,
+  }) async {
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages/$messageId/read');
+    final res = await http.patch(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'read': read}),
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      final err = res.body.isEmpty ? '' : res.body;
+      throw AuthException('Mail read HTTP ${res.statusCode}: $err');
+    }
+  }
+
+  /// `POST /mail/me/send` — texte brut ; `password` si absent en base (OAuth = autre flux).
+  Future<void> sendMail({
+    required String accessToken,
+    required int accountId,
+    required String to,
+    String subject = '',
+    String body = '',
+    String? password,
+  }) async {
+    final uri = Uri.parse('$_base/mail/me/send');
+    final payload = <String, dynamic>{
+      'account_id': accountId,
+      'to': to,
+      'subject': subject,
+      'body': body,
+    };
+    if (password != null && password.isNotEmpty) {
+      payload['password'] = password;
+    }
+    final res = await http.post(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      final err = res.body.isEmpty ? '' : res.body;
+      throw AuthException('Envoi HTTP ${res.statusCode}: $err');
+    }
+  }
+
+  /// Corps binaire d’une pièce jointe (Bearer requis).
+  Future<Uint8List> downloadMailAttachment({
+    required String accessToken,
+    required int accountId,
+    required int messageId,
+    required int attachmentId,
+  }) async {
+    final uri = Uri.parse(
+      '$_base/mail/me/accounts/$accountId/messages/$messageId/attachments/$attachmentId',
+    );
+    final res = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('PJ HTTP ${res.statusCode}');
+    }
+    return res.bodyBytes;
   }
 }
 

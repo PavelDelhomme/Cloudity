@@ -106,6 +106,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	drive := r.Group("/drive")
 	{
 		drive.GET("/nodes", h.listNodes)
+		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
 		drive.GET("/nodes/recent", h.listRecentNodes)
 		drive.GET("/nodes/trash", h.listTrash)
@@ -193,20 +194,22 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Node struct {
-	ID          int     `json:"id"`
-	TenantID    int     `json:"tenant_id"`
-	UserID      int     `json:"user_id"`
-	ParentID    *int    `json:"parent_id"`
-	Name        string  `json:"name"`
-	IsFolder    bool    `json:"is_folder"`
-	Size        int64   `json:"size"`
-	MimeType    *string `json:"mime_type,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID           int     `json:"id"`
+	TenantID     int     `json:"tenant_id"`
+	UserID       int     `json:"user_id"`
+	ParentID     *int    `json:"parent_id"`
+	Name         string  `json:"name"`
+	IsFolder     bool    `json:"is_folder"`
+	Size         int64   `json:"size"`
+	MimeType     *string `json:"mime_type,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 	ChildCount   int     `json:"child_count,omitempty"`
 	ChildFolders int     `json:"child_folders,omitempty"`
 	ChildFiles   int     `json:"child_files,omitempty"`
 	DeletedAt    string  `json:"deleted_at,omitempty"` // pour la corbeille
+	// Renseigné par GET /drive/nodes/search (dossier parent pour navigation).
+	ParentFolderName string `json:"parent_folder_name,omitempty"`
 }
 
 func (h *Handler) listNodes(c *gin.Context) {
@@ -263,6 +266,91 @@ func (h *Handler) listNodes(c *gin.Context) {
 		}
 		n.UpdatedAt = uat
 		list = append(list, n)
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+// searchNodes — recherche par nom sur tout le Drive de l’utilisateur (ou sous-arbre si parent_id).
+// GET /drive/nodes/search?q=...&limit=50&parent_id= optionnel
+func (h *Handler) searchNodes(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	if q == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "q is required"})
+		return
+	}
+	if h.db == nil {
+		c.JSON(http.StatusOK, []Node{})
+		return
+	}
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 200 {
+			limit = n
+		}
+	}
+	const selectSearch = `
+			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL),
+				COALESCE(p.name, '')
+			FROM drive_nodes n
+			LEFT JOIN drive_nodes p ON p.id = n.parent_id AND p.user_id = n.user_id AND p.deleted_at IS NULL
+			WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER
+			AND n.deleted_at IS NULL
+			AND POSITION(LOWER($1) IN LOWER(n.name)) > 0`
+	parentStr := strings.TrimSpace(c.Query("parent_id"))
+	var rows *sql.Rows
+	var err error
+	if parentStr == "" || parentStr == "null" {
+		rows, err = h.db.Query(selectSearch+` ORDER BY n.is_folder DESC, n.name ASC LIMIT $2`, q, limit)
+	} else {
+		parentID, perr := strconv.Atoi(parentStr)
+		if perr != nil || parentID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
+			return
+		}
+		qTree := `
+			WITH RECURSIVE descendants AS (
+				SELECT id FROM drive_nodes
+				WHERE id = $3 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+				UNION ALL
+				SELECT c.id FROM drive_nodes c
+				INNER JOIN descendants d ON c.parent_id = d.id
+				WHERE c.deleted_at IS NULL AND c.user_id = current_setting('app.current_user_id', true)::INTEGER
+			)` + selectSearch + ` AND n.id IN (SELECT id FROM descendants)
+			ORDER BY n.is_folder DESC, n.name ASC LIMIT $2`
+		rows, err = h.db.Query(qTree, q, limit, parentID)
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	var list []Node
+	for rows.Next() {
+		var n Node
+		var pid sql.NullInt64
+		var mime sql.NullString
+		var uat string
+		var parentFolder string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.ChildCount, &n.ChildFolders, &n.ChildFiles, &parentFolder); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if pid.Valid {
+			p := int(pid.Int64)
+			n.ParentID = &p
+		}
+		if mime.Valid {
+			n.MimeType = &mime.String
+		}
+		n.UpdatedAt = uat
+		n.ParentFolderName = parentFolder
+		list = append(list, n)
+	}
+	if list == nil {
+		list = []Node{}
 	}
 	c.JSON(http.StatusOK, list)
 }

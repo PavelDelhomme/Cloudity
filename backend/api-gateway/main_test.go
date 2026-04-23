@@ -109,6 +109,17 @@ func TestPhotosPrefixRouted(t *testing.T) {
 	}
 }
 
+func TestDriveSearchPrefixRouted(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/drive/nodes/search?q=x", nil)
+	req.Header.Set("Authorization", "Bearer fake-token")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code == http.StatusNotFound {
+		t.Errorf("GET /drive/nodes/search: got 404, route /drive/* should forward to drive service")
+	}
+}
+
 func TestMailMeAccountsRouted(t *testing.T) {
 	handler := NewHandler()
 	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)

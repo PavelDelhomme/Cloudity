@@ -1,57 +1,57 @@
-# À faire (Cloudity) — notes de développement
+# À faire (Cloudity) — pivot quotidien
 
-> **Priorités produit** et liste des apps : **[ROADMAP.md](./ROADMAP.md)** et **[STATUS.md](../STATUS.md)**. Ce fichier garde surtout des **notes techniques** (incidents résolus, perf Drive, pistes). Index : **[README.md](./README.md)**.
+> **Tu veux travailler sans parcourir toute la doc ?** Tiens **`docs/TODO.md`** (ce fichier) + **`docs/PLAN.md`** : le PLAN explique les **symptômes** (console, Mail) et pointe vers le reste ; le TODO liste **quoi faire** et les **liens** vers les gros documents quand il faut le détail.
+
+## Liens utiles (détail ailleurs)
+
+| Sujet | Fichier |
+|--------|---------|
+| Dépannage console, Mail, sync par boîte, dates corbeille | **[PLAN.md](./PLAN.md)** |
+| Cases à cocher racine | **[../BACKLOG.md](../BACKLOG.md)** |
+| Suivi produit / tableaux Drive, Mail, éditeur | **[../STATUS.md](../STATUS.md)** |
+| IMAP, mobile, archivage | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** |
+| Tests `make test`, Vitest, Playwright | **[TESTS.md](./TESTS.md)** |
+| Roadmap par app | **[ROADMAP.md](./ROADMAP.md)** |
+| Index de tout `docs/` | **[README.md](./README.md)** |
 
 ## Priorités actuelles
 
-- **Photos** (priorité produit) : **`docs/PHOTOS.md`** — API timeline `GET /drive/photos/timeline`, page Photos (grille, lightbox, upload). **À suivre** : mobile Flutter, albums, EXIF, miniatures serveur, WorkManager (batterie).
-- **Drive** : vue **Récents** (plein écran) avec regroupement **jour + heure**, grille/liste, API `recent` jusqu’à 500 entrées (fichiers + dossiers) ; aperçu modale Office/PDF stabilisé (token ref). **À suivre** : E2E Récents, PPT binaire côté serveur (voir SYNC-BACKLOG §3b).
-- **En cours** : **Éditeur de documents maison** — édition de documents depuis le Drive avec notre propre front (TipTap pour le texte, Luckysheet ou équivalent pour les tableurs), sans OnlyOffice. Voir `docs/editeur-docs.md`.
-- **Calendrier** : vue mois type Google + plusieurs agendas (`user_calendars`) — fait (base + UI). Reste : semaine/jour, invitations, lien Drive.
-- **Contacts** : liste + fiche + recherche + lien Mail — fait. Reste : groupes, import/export.
-- **Mail** : alias par boîte, filtre « sous-boîte », score spam heuristique, lien Pass — fait. Sync IMAP **corbeille** (Trash) côté `mail-directory-service` — fait. Menu actions message (clic droit + bouton `…`) : **un seul menu fixe** partagé, position calée dans la fenêtre — fait (`MailPage.tsx`, test Vitest). Reste : archivage étendu PostgreSQL (corps, rétention), règles auto, push/WebSocket (voir SYNC-BACKLOG).
-- **Mobile** : `make run-mobile APP=…` utilise uniquement `scripts/run-mobile.sh` (la cible Makefile dupliquée « menu interactif » a été retirée pour ne plus masquer `APP=`).
-- **Plus tard** : Administration (renforcer) ; Photos (mobile + sync + albums — le MVP web est documenté dans **PHOTOS.md**) ; Notes (type Google Keep, cartes, couleurs), etc.
+- **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
+- **Drive** : Récents, recherche **`?q=`** + API **`/drive/nodes/search`** ; suite E2E, ZIP/PPT serveur (**SYNC-BACKLOG §3b**, **TESTS**).
+- **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
+- **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
+- **Contacts** : liste/fiche OK ; groupes, import/export.
+- **Mail** : alias boîte, polling, corbeille IMAP, menu message — OK. **Sync par boîte** (icône ↻ dans la barre des boîtes, « Actualiser cette boîte », Paramètres « Sync maintenant ») — **PLAN §9**. Suite : archivage PG, règles, push (**SYNC-BACKLOG**). **Console / favicons** : **PLAN** §1–5.
+- **Mobile Mail** : **MOBILES.md** / **BACKLOG** — brouillon IMAP, PJ inline, FCM.
+- **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
 
-## Problème résolu : crash HMR + lenteur au clic Téléverser
+## Tests : toujours valider **dans les conteneurs**
+
+- **`make test`** : Go (`docker compose run --no-deps … go test`), **admin-service** (pytest en run ou exec), **admin-dashboard** (Vitest après `npm install` **dans l’image**). C’est la cible à viser avant merge ; évite les écarts de version Node / Go / libc entre ta machine et la stack.
+- **Stack déjà démarrée** : **`make test-docker`** — mêmes tests via **`exec`** sur les binaires réellement up.
+- **CI** : **`.github/workflows/docker-unit-tests.yml`** exécute **`make test`** sur push / PR (`main`, `master`). Détail : **[TESTS.md](./TESTS.md)**.
+- Les **`npx vitest`** / **`npm run test:drive`** sur l’hôte restent utiles pour le cycle rapide en dev, mais la **vérité partagée** reste **`make test`** (Docker).
+
+## Notes techniques (rappels)
+
+- **Drive / HMR / Téléverser** : overlay + `UploadProvider`, inputs dans **AppLayout**, **TODO** historique (perf, `startTransition`) — inchangé ; détail dans les paragraphes ci-dessous si besoin de recontextualiser.
+
+### Problème résolu : crash HMR + lenteur au clic Téléverser
 
 - **Crash "useUpload must be used within UploadProvider"** : l’overlay utilise `useContext(UploadContext)` et ne rend rien si le contexte est absent (HMR). `useUpload()` ne lance plus d’erreur (retourne une valeur par défaut si pas de provider).
-- **Clic Téléverser lent / navigateur qui rame** : les inputs fichier/dossier sont maintenant montés **une seule fois** dans le layout (`DriveUploadInputs` dans `AppLayout`), plus recréés à chaque rendu du Drive. Les labels natifs pointent vers ces inputs stables. Quand tu quittes la page Drive, `driveParentId` est remis à `null`.
-- **Chromium (Brave / Chrome) vs Firefox** : sous Chromium, les re-renders du composant qui contient l’input fichier peuvent bloquer ou ralentir l’ouverture du sélecteur. Un **contexte trigger stable** (`UploadTriggerContext`) avec une ref pour le parent courant évite tout re-render des inputs quand on change de dossier (breadcrumb) ; seuls les callbacks (ref mutée) sont mis à jour. Les inputs utilisent uniquement ce contexte, pas `driveParentId`, donc ils ne re-rendent pas.
-- **Trace React Profiler (Drive)** : commits DrivePage ~5–10 ms, nombreux composants (File, Download, etc.) par ligne. Pour réduire la charge main thread sous Chromium : **startTransition** pour les mises à jour non urgentes (Nouveau dossier, breadcrumb, loadMore, listReady), **liste différée** (setTimeout 80 ms + startTransition) pour que la barre d’outils soit interactive tout de suite, **ligne mémoïsée** (`DriveNodeRow`) et callbacks stables pour limiter les re-renders.
-- **Progression téléversement** : upload via XHR avec `onprogress` pour afficher un **pourcentage** (0–100 %) dans l’overlay et une barre de progression par fichier.
-
-## Comment tracer une lenteur ou un gel (Performance)
-
-1. **Chrome DevTools → Performance**  
-   - Ouvre l’onglet Performance, clique sur Record (●).  
-   - Dans l’app, clique sur « Téléverser » (ou fais l’action lente).  
-   - Arrête l’enregistrement après l’action.  
-   - Regarde la timeline : tâches longues (Main thread), re-renders React (si React DevTools Profiler est enregistré), Layout/Paint.
-
-2. **React DevTools → Profiler**  
-   - Onglet Profiler, puis Record.  
-   - Reproduis le clic / l’action.  
-   - Arrête et regarde quels composants ont rendu et combien de temps ils ont pris (flamegraph).
-
-3. **Réduire la charge**  
-   - Moins de composants qui re-rendent (inputs stables dans le layout, pas dans la page Drive).  
-   - Moins de nœuds dans la liste (pagination / virtualisation si beaucoup de fichiers).
+- **Clic Téléverser lent / navigateur qui rame** : les inputs fichier/dossier sont montés **une seule fois** dans le layout (`DriveUploadInputs` dans `AppLayout`). **`UploadTriggerContext`** pour éviter les re-renders du parent fichier sous Chromium.
+- **Progression téléversement** : XHR `onprogress` → pourcentage dans l’overlay.
 
 ## Tests Drive (Téléverser, Dossier, Nouveau dossier)
 
-- **Unitaires (Vitest)** : `npm run test:drive` — chaîne complète avec AppLayout, simulation `change` sur les inputs fichier/dossier.
-- **Boucle** : `RUNS=20 npm run test:drive:loop` — rapport dans `test-results-drive-loop.json`.
-- **E2E (Playwright)** : `npm run test:e2e:drive` — contre l’app réelle (port 6001). Prérequis : `make up`, être connecté, puis depuis `frontend/admin-dashboard` : `npx playwright install chromium` (une fois), `BASE_URL=http://localhost:6001 npx playwright test e2e/drive.spec.ts`.
+- **Vitest** : `npm run test:drive` — chaîne avec AppLayout.
+- **Boucle** : `RUNS=20 npm run test:drive:loop`.
+- **Playwright** : `npm run test:e2e:drive` — prérequis `make up`, etc. (**TESTS.md**).
 
 ## Notifications
 
-- **Calendar, Mail, Tasks** : envoyer des notifications sur l’appareil depuis le navigateur (en arrière-plan).
-  - Piste : Web Push API (PushManager, Service Worker), avec backend pour envoyer les payloads.
-- **Plus tard** : synchronisation des notifications avec l’app mobile native (même notifs sur navigateur et téléphone).
+- Piste Web Push + backend ; mobile plus tard.
 
 ## Session / sécurité (fait)
 
-- Refresh token automatique côté frontend : intervalle **10 min** + renouvellement au **retour onglet / focus** + sur **activité** (clic/touche, max toutes les **4 min** si l’onglet est visible). Détail : `docs/SYNC-BACKLOG.md` § 4.
-- En cas de 401, tentative de refresh avant déconnexion.
-- Refresh token backend : 30 jours, rotation à chaque refresh.
+- Refresh token, **SYNC-BACKLOG** §4.

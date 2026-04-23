@@ -4,6 +4,8 @@
 
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
 
+**Référence CI** : le workflow **`.github/workflows/docker-unit-tests.yml`** lance **`make test`** sur chaque push / PR vers `main` ou `master` : même batterie que en local **dans les conteneurs** (pas de « seulement npm test sur l’hôte » pour valider la fusion). Après un **`make up`** réussi, **`make test-docker`** rejoue Go / pytest / Vitest via **`docker compose exec`** sur les processus **déjà en cours d’exécution** (double vérif que ce qui tourne dans la stack est testable).
+
 **Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](./MOBILES.md)**.
 
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
@@ -68,7 +70,7 @@
 
 - **Photos** — smoke + connexion + timeline si dart-defines.
 - **Drive** — smoke + connexion + fichiers (`cloudity_drive_files`).
-- **Mail** (`mobile/mail/integration_test/mail_flow_test.dart`) — smoke + connexion + boîte (`cloudity_mail_inbox`).
+- **Mail** (`mobile/mail/integration_test/mail_flow_test.dart`) — smoke + connexion + boîte (`cloudity_mail_inbox`). **Tests hôte** : `test/widget_test.dart`, **`test/mail_validation_test.dart`** (destinataire envoi).
 
 **Variables d’environnement** (lues par le script et transmises en `--dart-define=…`) pour le parcours login **contre la vraie stack** (comme Playwright avec `BASE_URL` + compte démo) :
 
@@ -116,16 +118,17 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | Service | Type | Commande | Fichiers | Nombre de tests |
 |---------|------|----------|----------|------------------|
 | **auth-service** | API (Go) | `go test ./...` (image Docker) | `backend/auth-service/main_test.go` | 15 |
-| **api-gateway** | API (Go) | idem | `backend/api-gateway/main_test.go` | 8 |
+| **api-gateway** | API (Go) | idem | `backend/api-gateway/main_test.go` | 11 |
 | **password-manager** | API (Go) | idem | `backend/password-manager/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | idem | `backend/mail-directory-service/main_test.go` | 8 |
 | **calendar-service** | API (Go) | idem | `backend/calendar-service/main_test.go` | 2 |
+| **contacts-service** | API (Go) | idem | `backend/contacts-service/main_test.go` | 3 |
 | **notes-service** | API (Go) | idem | `backend/notes-service/main_test.go` | 2 |
 | **tasks-service** | API (Go) | idem | `backend/tasks-service/main_test.go` | 2 |
 | **photos-service** | API (Go) | idem | `backend/photos-service/main_test.go` | 2 |
-| **drive-service** | API (Go) | idem | `backend/drive-service/main_test.go` | 5 |
+| **drive-service** | API (Go) | idem | `backend/drive-service/main_test.go` | 10 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **26+ fichiers** (dont **GlobalSearchPalette.test.tsx**, AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~207** (+ 3 skippés) — lancer **`make test`** pour le total exact |
+| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **26+ fichiers** (dont **GlobalSearchPalette.test.tsx**, AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~210** (+ 3 skippés) — lancer **`make test`** pour le total exact |
 
 **Total** : lancer **`make test`** pour le cumul à jour (tous les services Go, pytest admin-service, Vitest admin-dashboard).
 
@@ -150,11 +153,12 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | Fichier | Ce qui est testé |
 |---------|-------------------|
 | **auth-service/main_test.go** | Health ; hash mot de passe (Argon2id/bcrypt) ; JWT generate/parse ; register ; login succès/échec ; validate token ; refresh ; 2FA enable/verify (**verify avec code invalide → 401**) ; **loadRSAKeys écrit public.pem quand clé générée en dev**. |
-| **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **`/photos/*`** ; **CORS** (Origin → Access-Control-Allow-Origin). |
+| **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **`/photos/*`**, **`/drive/nodes/search`** (pas 404) ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401. |
+| **contacts-service/main_test.go** | Health (`/health`, `/contacts/health`) ; **GET /contacts sans `X-User-ID` → 401** ; GET /contacts avec `X-User-ID` et **DB absente** → 200 liste vide. |
 | **photos-service/main_test.go** | Health ; **GET /photos/timeline sans X-User-ID → 401**. |
-| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
+| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/search sans X-User-ID → 401** ; **GET /drive/nodes/search avec `q` vide → 400** ; **GET /drive/nodes/search avec DB absente → 200 `[]`** ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
 
@@ -169,7 +173,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|
-| **src/api.test.ts** | `apiUrl` ; `fetchTenants`, … ; **`createDriveFile`**, **`createDriveFileWithUniqueName`** (retry 409 et 500 duplicate → nom unique), **`getDriveNodeContentAsText`**, **`fetchDriveRecentFiles`**, **`putDriveNodeContent`**, … ; **`moveDriveNode`**. |
+| **src/api.test.ts** | `apiUrl` ; `fetchTenants`, … ; **`createDriveFile`**, **`createDriveFileWithUniqueName`** (retry 409 et 500 duplicate → nom unique), **`getDriveNodeContentAsText`**, **`fetchDriveRecentFiles`**, **`fetchDriveSearch`**, **`putDriveNodeContent`**, … ; **`moveDriveNode`**. |
 | **src/authContext.test.tsx** | `isAuthenticated` sans storage ; bouton Logout ; restauration auth depuis `localStorage`. |
 | **src/App.test.tsx** | Rendu login si non authentifié ; logout → login + clear storage ; hub /app ; routes /app/calendar, /app/notes, /app/tasks (titres **Agenda**, **Notes**, **Tâches** + sous-titres statiques). |
 | **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
@@ -185,9 +189,9 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **src/pages/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
 | **src/pages/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
 | **src/pages/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
-| **src/pages/app/DrivePage.test.tsx** | Titre Drive (**`h1` racine en `sr-only`**), breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). **Filtre nom** : query **`?q=`** (dossier courant, client-side) — à couvrir par tests unitaires ciblés si besoin. |
+| **src/pages/app/DrivePage.test.tsx** | Titre Drive (**`h1` racine en `sr-only`**), breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). **`?q=`** : avec terme non vide → **`fetchDriveSearch`** (recherche API sur tout le Drive) ; sans **`q`** ou dossier courant seul → filtre client sur la liste chargée par **`fetchDriveNodes`**. |
 | **src/layouts/AppLayout.test.tsx** | **getAppBreadcrumb** : sur l’éditeur renvoie « Tableau de bord > Drive » (pas Office ni Éditeur) ; sur /app/drive et /app. |
-| **src/components/GlobalSearchPalette.test.tsx** | Ouverture modale (loupe), submit → **`/app/drive?q=`**, bouton Contacts → **`/app/contacts?q=`**, Échap, **Ctrl+K**, pas de toggle depuis un input externe. |
+| **src/components/GlobalSearchPalette.test.tsx** | Ouverture modale (loupe), submit → **`/app/drive?q=`** (terme non vide) ou **`/app/drive`** sans query, bouton Contacts → **`/app/contacts?q=`**, Échap, **Ctrl+K**, pas de toggle depuis un input externe. |
 | **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
@@ -242,9 +246,10 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.0 Drive, éditeur, corbeille (roadmap STATUS.md § 1b)
 
-- [x] **Recherche Drive / globale (MVP)** : palette barre app (**GlobalSearchPalette**), **`?q=`** filtre les noms dans le **dossier Drive courant** ; raccourci **Ctrl/Cmd+K**.
+- [x] **Recherche Drive / globale (MVP)** : palette barre app (**GlobalSearchPalette**), **`?q=`** avec terme → page Drive + **API** recherche sur **tout l’arborescence** ; raccourci **Ctrl/Cmd+K**.
 - [x] **Tests Vitest GlobalSearchPalette** : navigation Drive / Contacts, raccourci, Échap (`GlobalSearchPalette.test.tsx`).
-- [ ] **Recherche Drive / globale (suite)** : tests **Vitest** parsing **`?q=`** sur **DrivePage** (optionnel) ; **API** recherche arborescente / cross-apps ; **E2E** (saisie palette → liste filtrée puis autres modules).
+- [x] **API + UI recherche nom sur tout le Drive** : **GET /drive/nodes/search** ; **`fetchDriveSearch`** ; **DrivePage** avec **`?q=`** non vide (tests Go, Vitest `api` / `DrivePage`).
+- [ ] **Recherche Drive / globale (suite)** : **E2E** (saisie palette → liste puis navigation) ; **API** recherche cross-apps (Mail, Pass…) ; affinements **Vitest** (clic résultat recherche → breadcrumb / aperçu).
 - [ ] **Visualisation PDF** : unit (composant viewer) ; E2E (ouvrir un PDF depuis le Drive).
 - [ ] **Extracteur d’archives** : API Go (endpoint extract, structure dossiers) ; E2E (upload archive → extraction → structure).
 - [ ] **Éditeur : renommer document** : unit (renommage + sync nom) ; E2E (créer doc → ouvrir → renommer → vérifier Drive).
@@ -283,7 +288,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.5 Tests sécurité (`make test-security`)
 
-- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
+- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, **contacts-service**, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 

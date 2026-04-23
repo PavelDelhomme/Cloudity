@@ -29,7 +29,7 @@
 | 2 | **Mail** | Dossiers IMAP §0b SYNC-BACKLOG, recherche §9, PJ, archivage §1 |
 | 3 | **Pass** | Style Proton, alias — **ROADMAP APP-04** |
 | 4 | **Contacts** | Groupes, import/export, lien Mail ↔ fiches |
-| 5 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K** barre app, `?q=` filtre noms **dossier Drive courant** + lien Contacts ; **À faire** : API recherche arborescente / cross-apps — **TESTS.md** §4.0 |
+| 5 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 6 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (A1–A10) |
 | 7 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 8 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
@@ -52,7 +52,8 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### UX / Suite web (`frontend/admin-dashboard`)
 
-- [ ] Recherche globale **API** (tous dossiers Drive, puis Mail, Pass…) — aujourd’hui filtrage **client** sur la liste courante + navigation **Contacts**.
+- [ ] **Mail web — doc & robustesse** : console navigateur (Vite, CSS mail HTML, favicons) et **dates liste corbeille** — voir **`docs/PLAN.md`** ; sync **`date_at`** sans `time.Now()` si enveloppe IMAP sans date (**mail-directory-service**). Alias boîte **MVP** ; système **complet** (expiration, vue globale, DNS) : **SYNC-BACKLOG §2**, **STATUS** Phase 3, **ROADMAP APP-04**.
+- [ ] Recherche globale **API** cross-apps (Mail, Pass…) — **Drive** : recherche nom sur **tout l’arborescence** via **`GET /drive/nodes/search`** quand **`?q=`** est renseigné dans le dashboard ; navigation **Contacts** inchangée.
 - [ ] Hub : recherche cross-apps (alignée ROADMAP).
 - [ ] Playwright : scénario ouverture palette recherche + `?q=` sur Drive (optionnel).
 
@@ -60,12 +61,12 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 - [x] **Drive** Flutter (`mobile/drive`) : liste fichiers — **`make test-mobile-drive`** / suite — **MOBILES.md**.
 - [x] **Photos** Flutter : **`make test-mobile-photos`** / suite.
-- [x] **Mail** Flutter (`mobile/mail`) : MVP connexion + boîte réception — **`make test-mobile-mail`** / suite ; à poursuivre : multi-boîtes, dossiers, PJ, push — **MOBILES.md** §5.
+- [x] **Mail** Flutter (`mobile/mail`) : multi-boîtes, dossiers, lu, **PJ téléchargeable / partage**, **envoi minimal** (`POST /mail/me/send`), tests `mail_validation` — **`make test-mobile-mail`** ; à poursuivre : brouillon **serveur**, PJ inline, push — **MOBILES.md** §5.
 - [ ] Aligner barre d’app (loupe, notifications) avec le web — rappel dans **GlobalSearchPalette** (texte d’aide UI).
 
 ### Backend / infra
 
-- [ ] **contacts-service** : tests `go test` dans **Makefile** `make test` quand des `*_test.go` existent.
+- [x] **contacts-service** : **`main_test.go`** (health, 401 sans `X-User-ID`, liste vide si DB absente) — inclus dans **`make test`** / **`make test-docker`** / **govulncheck** (`scripts/test-security.sh`).
 - [ ] Mail archivage longue durée + full-text — **SYNC-BACKLOG** §1, **ROADMAP APP-01**.
 
 ### Qualité & CI

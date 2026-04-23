@@ -220,6 +220,8 @@ test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vite
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
 	@echo "  [calendar-service]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps calendar-service go test -v -count=1 ./... || exit 1
+	@echo "  [contacts-service]"
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps contacts-service go test -v -count=1 ./... || exit 1
 	@echo "  [notes-service]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps notes-service go test -v -count=1 ./... || exit 1
 	@echo "  [tasks-service]"
@@ -305,6 +307,7 @@ test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). 
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T password-manager go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T mail-directory-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T calendar-service go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T contacts-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T notes-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T tasks-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T photos-service go test -v ./... || exit 1

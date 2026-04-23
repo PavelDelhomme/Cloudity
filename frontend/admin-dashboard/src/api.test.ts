@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode, createDriveFile, createDriveFileWithUniqueName, getDriveNodeContentAsText, putDriveNodeContent, fetchDriveRecentFiles, fetchMailAccounts, syncMailAccount, sendMailMessage } from './api'
+import { apiUrl, fetchTenants, fetchUsers, fetchDashboardStats, fetchVaults, createVault, fetchVaultItems, fetchDomains, createDomain, login, register, refreshAuth, moveDriveNode, createDriveFile, createDriveFileWithUniqueName, getDriveNodeContentAsText, putDriveNodeContent, fetchDriveRecentFiles, fetchDriveSearch, fetchMailAccounts, syncMailAccount, sendMailMessage } from './api'
 
 describe('api', () => {
   beforeEach(() => {
@@ -413,6 +413,27 @@ describe('api', () => {
     it('throws when response not ok', async () => {
       vi.mocked(fetch).mockResolvedValue({ ok: false, status: 401 } as Response)
       await expect(fetchDriveRecentFiles('x', 10)).rejects.toThrow(/401/)
+    })
+  })
+
+  describe('fetchDriveSearch', () => {
+    it('calls GET /drive/nodes/search with q and optional limit', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response)
+      await fetchDriveSearch('tk', 'notes', { limit: 30 })
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringMatching(/\/drive\/nodes\/search\?q=notes&limit=30/),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer tk' }),
+        })
+      )
+    })
+    it('throws when response not ok', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: false, status: 500 } as Response)
+      await expect(fetchDriveSearch('x', 'a')).rejects.toThrow(/500/)
     })
   })
 

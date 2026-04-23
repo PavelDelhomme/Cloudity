@@ -112,7 +112,7 @@ export default function GlobalSearchPalette() {
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Nom de fichier, dossier…"
+                placeholder="Nom de fichier ou dossier (tout le Drive)…"
                 className="w-full rounded-lg border border-gray-300 dark:border-slate-500 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-1 focus:ring-blue-500 focus:outline-none"
                 autoComplete="off"
               />
@@ -123,7 +123,7 @@ export default function GlobalSearchPalette() {
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 dark:bg-blue-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600"
               >
                 <HardDrive className="h-4 w-4 shrink-0" />
-                Filtrer dans le dossier Drive courant
+                Ouvrir le Drive{query.trim() ? ' (recherche)' : ''}
               </button>
               <button
                 type="button"
@@ -135,9 +135,7 @@ export default function GlobalSearchPalette() {
               </button>
             </div>
             <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">
-              Sur le web, la loupe reste à côté des notifications ; sur l’app mobile Drive, prévoir la même icône
-              (barre du haut ou app bar) puis le même flux : saisie → résultats dans le contexte courant. La recherche
-              arborescente complète arrivera côté API.
+              Avec un terme, le Drive interroge <strong className="font-medium text-gray-700 dark:text-slate-300">tout votre espace</strong> (recherche par nom côté serveur). Sans terme, vous ouvrez simplement la racine Drive. Sur mobile, prévoir la même icône (barre du haut) puis un flux équivalent.
             </p>
           </form>
         </div>

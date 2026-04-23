@@ -773,7 +773,8 @@ export default function MailPage() {
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
-  const [refreshingFromServer, setRefreshingFromServer] = useState(false)
+  /** ID de la boîte en cours de sync manuelle (null = idle). Une seule sync à la fois pour éviter la surcharge IMAP. */
+  const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null)
   const lastSyncAtRef = useRef<number>(0)
   const notificationsRef = useRef(notifications)
   notificationsRef.current = notifications
@@ -1171,21 +1172,42 @@ export default function MailPage() {
       .finally(() => setSyncing(false))
   }, [syncAccountId, syncPassword, accessToken, queryClient, syncExtraImapOptions])
 
-  /** Récupère les nouveaux messages depuis le serveur IMAP puis rafraîchit la liste (sans ouvrir la modale). */
+  /** Sync IMAP pour une boîte donnée (mot de passe serveur déjà stocké si besoin). Rafraîchit les caches de cette boîte. */
+  const handleSyncOneAccount = useCallback(
+    (accountId: number) => {
+      if (!accessToken || syncingAccountId !== null) return
+      setSyncingAccountId(accountId)
+      syncMailAccount(accessToken, accountId, undefined, syncExtraImapOptions(accountId))
+        .then((r) => {
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'messages', accountId] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary', accountId] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', accountId] })
+          if (accountId === effectiveAccountId) {
+            void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+            void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+            void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+            refetchMessages()
+          }
+          const acc = accountsRef.current.find((a) => a.id === accountId)
+          if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
+          const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
+          toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
+        })
+        .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation'))
+        .finally(() => setSyncingAccountId(null))
+    },
+    [accessToken, syncingAccountId, queryClient, refetchMessages, syncExtraImapOptions, effectiveAccountId]
+  )
+
+  /** Actualiser = sync uniquement la boîte actuellement affichée (même effet que l’icône à côté du nom dans la colonne gauche). */
   const handleRefreshFromServer = useCallback(() => {
-    if (!effectiveAccountId || !accessToken) return
-    setRefreshingFromServer(true)
-    syncMailAccount(accessToken, effectiveAccountId, undefined, syncExtraImapOptions(effectiveAccountId))
-      .then((r) => {
-        queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-        void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
-        refetchMessages()
-        toast.success(r.synced > 0 ? `${r.synced} nouveau(x) message(s) récupéré(s)` : r.message || 'Liste à jour')
-      })
-      .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur lors de l’actualisation'))
-      .finally(() => setRefreshingFromServer(false))
-  }, [effectiveAccountId, accessToken, queryClient, refetchMessages, syncExtraImapOptions])
+    if (!effectiveAccountId) return
+    if (syncingAccountId !== null) {
+      toast.error('Une synchronisation est déjà en cours. Patientez quelques secondes.')
+      return
+    }
+    handleSyncOneAccount(effectiveAccountId)
+  }, [effectiveAccountId, handleSyncOneAccount, syncingAccountId])
 
   const [movingMessageId, setMovingMessageId] = useState<number | null>(null)
   const handleMoveToFolder = useCallback(
@@ -1776,29 +1798,45 @@ export default function MailPage() {
               <div className={`flex flex-col gap-1.5 ${sidebarCollapsed ? 'items-center' : ''}`}>
               {accounts.map((acc) => (
                 <div key={acc.id} className={`flex flex-col rounded-lg ${sidebarCollapsed ? 'w-full' : ''}`}>
-                  <button
-                    type="button"
-                    onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox'); setRecipientAliasFilter(null) }}
-                    className={`rounded-lg text-sm font-medium truncate transition-colors w-full ${sidebarCollapsed ? 'p-2 flex justify-center' : 'text-left px-3 py-2'} ${
-                      effectiveAccountId === acc.id
-                        ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
-                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
-                    }`}
-                    title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
-                  >
-                    {sidebarCollapsed ? (
-                      <Mail className="h-5 w-5 mx-auto" />
-                    ) : (
-                      <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
-                        <span className="truncate w-full">{acc.label || acc.email}</span>
-                        {acc.label ? (
-                          <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">
-                            {acc.email}
-                          </span>
-                        ) : null}
-                      </span>
-                    )}
-                  </button>
+                  <div className={`flex ${sidebarCollapsed ? 'flex-col items-center gap-0.5' : 'flex-row items-stretch gap-0.5'}`}>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox'); setRecipientAliasFilter(null) }}
+                      className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 ${sidebarCollapsed ? 'p-2 flex justify-center w-full' : 'flex-1 text-left px-3 py-2'} ${
+                        effectiveAccountId === acc.id
+                          ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                      }`}
+                      title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
+                    >
+                      {sidebarCollapsed ? (
+                        <Mail className="h-5 w-5 mx-auto" />
+                      ) : (
+                        <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
+                          <span className="truncate w-full">{acc.label || acc.email}</span>
+                          {acc.label ? (
+                            <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                              {acc.email}
+                            </span>
+                          ) : null}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSyncOneAccount(acc.id)}
+                      disabled={syncingAccountId !== null}
+                      className={`shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 disabled:pointer-events-none ${sidebarCollapsed ? 'p-1' : 'px-2 self-stretch flex items-center justify-center'}`}
+                      title={`Synchroniser ${acc.email} (IMAP)`}
+                      aria-label={`Synchroniser la boîte ${acc.email}`}
+                    >
+                      {syncingAccountId === acc.id ? (
+                        <Loader2 className={`${sidebarCollapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} animate-spin`} aria-hidden />
+                      ) : (
+                        <RefreshCw className={sidebarCollapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden />
+                      )}
+                    </button>
+                  </div>
                   {!sidebarCollapsed && effectiveAccountId === acc.id && (
                     <div className="mt-1 ml-1 pl-2 border-l-2 border-slate-200 dark:border-slate-600 space-y-0.5 pb-1">
                       <button
@@ -1925,7 +1963,7 @@ export default function MailPage() {
               })}
               {!sidebarCollapsed && (
                 <p className="px-2 mt-2 text-[10px] text-slate-400 dark:text-slate-500">
-                  Libellé, synchro avancée et retrait d’une boîte : icône Paramètres en haut.
+                  Icône ↻ à droite d’une boîte : synchro IMAP uniquement cette boîte. Libellé, synchro avec mot de passe et retrait : Paramètres en haut.
                 </p>
               )}
             </div>
@@ -1966,16 +2004,16 @@ export default function MailPage() {
               <button
                 type="button"
                 onClick={handleRefreshFromServer}
-                disabled={refreshingFromServer}
+                disabled={syncingAccountId !== null}
                 className="self-start sm:self-center inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                title="Récupérer les nouveaux messages depuis le serveur mail (IMAP)"
+                title="Synchroniser la boîte affichée (IMAP). Pour une autre boîte, utilisez l’icône ↻ dans la colonne de gauche."
               >
-                {refreshingFromServer ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {refreshingFromServer ? 'Actualisation…' : 'Actualiser'}
+                {syncingAccountId === effectiveAccountId ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {syncingAccountId === effectiveAccountId ? 'Synchronisation…' : 'Actualiser cette boîte'}
               </button>
             </div>
             <p className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50">
-              Cliquez sur « Actualiser » pour récupérer les nouveaux messages du serveur.
+              « Actualiser cette boîte » synchronise uniquement la boîte affichée ; chaque boîte a aussi une icône ↻ dans la colonne de gauche. Une seule sync manuelle à la fois.
               {filterTagId != null ? ' — filtre par étiquette actif (dossier courant).' : ''}
               {conversationThreadKey ? ' — seuls les messages de cette conversation sont listés.' : ''}
             </p>
@@ -2300,7 +2338,9 @@ export default function MailPage() {
                                     <span className="truncate min-w-0">De : {formatSenderOneLine(msg.from, contacts)}</span>
                                   </p>
                                   <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
-                                    Reçu : {formatReceivedDetail(msg.date_at ?? msg.created_at)}
+                                    {activeFolder === 'trash' || activeFolder === 'spam'
+                                      ? `Date du message : ${formatReceivedDetail(msg.date_at ?? msg.created_at)}`
+                                      : `Reçu : ${formatReceivedDetail(msg.date_at ?? msg.created_at)}`}
                                   </p>
                                 </div>
                             <div className="flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
@@ -2447,9 +2487,9 @@ export default function MailPage() {
                     Cliquez sur « Actualiser » ci-dessus pour récupérer les messages depuis le serveur, ou écrivez un message.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                    <button type="button" onClick={handleRefreshFromServer} disabled={refreshingFromServer} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1">
-                      {refreshingFromServer ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Actualiser
+                    <button type="button" onClick={handleRefreshFromServer} disabled={syncingAccountId !== null} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1">
+                      {syncingAccountId === effectiveAccountId ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                      Actualiser cette boîte
                     </button>
                     <span className="text-slate-300 dark:text-slate-500">·</span>
                     <button type="button" onClick={() => openNewCompose()} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
@@ -2766,14 +2806,27 @@ export default function MailPage() {
                             type="button"
                             onClick={() => {
                               setShowMailSettings(false)
+                              handleSyncOneAccount(acc.id)
+                            }}
+                            disabled={syncingAccountId !== null}
+                            className="inline-flex items-center gap-1 rounded-lg border border-brand-200 dark:border-brand-700 bg-brand-50/80 dark:bg-brand-950/40 px-2.5 py-1.5 text-xs font-medium text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50 disabled:opacity-40"
+                            title="Sync IMAP avec le mot de passe déjà enregistré (sans saisie)"
+                          >
+                            {syncingAccountId === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                            Sync maintenant
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMailSettings(false)
                               setSyncAccountId(acc.id)
                               setSyncPassword('')
                               setShowSyncModal(true)
                             }}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
                           >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            Synchroniser…
+                            <KeyRound className="h-3.5 w-3.5" />
+                            Sync avec mot de passe…
                           </button>
                           <button
                             type="button"

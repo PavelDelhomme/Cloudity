@@ -14,6 +14,16 @@ Objectif : permettre d’ouvrir et d’éditer des documents (texte riche, table
 - **Page Suite Office** : libellés **Documents (éditeur maison)**, **Tableur (maison – à venir)**, **Présentation (maison – à venir)** et section **« Récemment modifiés »** (derniers fichiers en date, liens vers l’éditeur pour les types éditables).
 - **API** : `GET /drive/nodes/recent?limit=N` renvoie les **fichiers et dossiers** de l’utilisateur triés par `updated_at` DESC (auth requise) ; **N** plafonné à **500** côté serveur. Le dashboard expose une **vue Récents** (regroupement jour/heure, cartes comme le Drive) en plus du ruban racine.
 
+## Orientation produit — LaTeX (TODO)
+
+**Décision cible** : pour la **suite Office** maison, viser un mode **LaTeX** (source + rendu) comme **piste par défaut** pour les documents « sérieux » (maths, physique, biblio), **plutôt** qu’un produit **uniquement** centré Markdown. Le **Markdown** reste **utile** en **option** (import, utilisateurs légers, README), **pas** le mode unique du parcours principal.
+
+**À cadrer** : choix moteur (édition LaTeX dans le navigateur vs source `.tex` + prévisualisation PDF côté client ou **microservice** sandbox), taille bundle, accessibilité, et coexistence avec l’éditeur **HTML / TipTap** actuel pour les `.docx` / brouillons existants dans le Drive.
+
+**Tests** : bascule mode, rendu d’un fragment formule, export `.tex` + PDF — Vitest + Playwright (voir **STATUS.md** §1b tableau Éditeur, lignes LaTeX).
+
+---
+
 ## Principe (doc initiale)
 
 - **Texte riche (type Word)** : éditeur intégré au front (ex. [TipTap](https://tiptap.dev/), ProseMirror). Fichiers stockés en JSON ou HTML dans le Drive ; ouverture/édition en page dédiée ou modal, sauvegarde via l’API Drive existante.

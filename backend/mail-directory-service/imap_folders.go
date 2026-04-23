@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
@@ -165,9 +164,11 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 		}
 		toAddrs := formatImapAddressList(msg.Envelope.To)
 		subject := msg.Envelope.Subject
-		dateAt := msg.Envelope.Date
-		if dateAt.IsZero() {
-			dateAt = time.Now()
+		// Ne pas utiliser time.Now() : une enveloppe sans date (souvent dossiers Trash / copies)
+		// faisait apparaître « reçu à l'instant » côté web (liste utilise date_at puis created_at).
+		var dateAt interface{}
+		if !msg.Envelope.Date.IsZero() {
+			dateAt = msg.Envelope.Date
 		}
 		mid := normalizeMessageID(msg.Envelope.MessageId)
 		irt := normalizeMessageID(msg.Envelope.InReplyTo)
@@ -180,7 +181,7 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 				from_addr = EXCLUDED.from_addr,
 				to_addrs = EXCLUDED.to_addrs,
 				subject = EXCLUDED.subject,
-				date_at = EXCLUDED.date_at,
+				date_at = COALESCE(EXCLUDED.date_at, mail_messages.date_at),
 				internet_msg_id = CASE WHEN EXCLUDED.internet_msg_id <> '' THEN EXCLUDED.internet_msg_id ELSE mail_messages.internet_msg_id END,
 				in_reply_to = CASE WHEN EXCLUDED.in_reply_to <> '' THEN EXCLUDED.in_reply_to ELSE mail_messages.in_reply_to END,
 				thread_key = CASE
