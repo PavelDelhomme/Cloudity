@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
@@ -285,10 +286,36 @@ func authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// logResponseWriter capture le code HTTP final pour les journaux de latence (TR-06 / PERFORMANCES.md).
+type logResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (lw *logResponseWriter) WriteHeader(code int) {
+	if lw.status == 0 {
+		lw.status = code
+	}
+	lw.ResponseWriter.WriteHeader(code)
+}
+
+func (lw *logResponseWriter) Write(b []byte) (int, error) {
+	if lw.status == 0 {
+		lw.status = http.StatusOK
+	}
+	return lw.ResponseWriter.Write(b)
+}
+
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("%s %s", r.Method, r.URL.Path)
-		next.ServeHTTP(w, r)
+		start := time.Now()
+		lw := &logResponseWriter{ResponseWriter: w, status: 0}
+		next.ServeHTTP(lw, r)
+		status := lw.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		log.Printf("[gateway] %s %s -> %d %s", r.Method, r.URL.Path, status, time.Since(start).Round(time.Millisecond))
 	})
 }
 
