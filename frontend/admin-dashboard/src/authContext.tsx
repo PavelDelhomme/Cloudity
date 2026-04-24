@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { refreshAuth } from './api'
 
-const STORAGE_KEY = 'cloudity_admin_auth'
+import { AUTH_STORAGE_KEY as STORAGE_KEY } from './lib/cloudityCore'
 
 export type AuthState = {
   accessToken: string | null

@@ -69,7 +69,8 @@ else
     (cd backend/tasks-service && go mod tidy 2>/dev/null) || true
     (cd backend/photos-service && go mod tidy 2>/dev/null) || true
     (cd backend/drive-service && go mod tidy 2>/dev/null) || true
-    [ -f frontend/admin-dashboard/package.json ] && (cd frontend/admin-dashboard && npm install 2>/dev/null) || true
+    ([ -f frontend/package.json ] && (cd frontend && npm install 2>/dev/null)) || \
+    ([ -f frontend/admin-dashboard/package.json ] && (cd frontend/admin-dashboard && npm install 2>/dev/null)) || true
     command -v flutter &>/dev/null && [ -d mobile/admin_app ] && (cd mobile/admin_app && flutter pub get 2>/dev/null) || true
 fi
 

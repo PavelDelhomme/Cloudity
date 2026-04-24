@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -106,7 +108,16 @@ func NewHandler() http.Handler {
 
 	for _, svc := range services {
 		serviceURL, _ := url.Parse(svc.URL)
+		svcName := svc.Name
 		proxy := httputil.NewSingleHostReverseProxy(serviceURL)
+		// Client qui quitte la page pendant un POST long (ex. sync mail) : pas de ligne « proxy error: context canceled ».
+		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			log.Printf("[gateway] %s proxy: %v", svcName, err)
+			w.WriteHeader(http.StatusBadGateway)
+		}
 		// Supprimer tous les en-têtes CORS de la réponse du backend pour éviter doublon avec le middleware CORS du gateway.
 		proxy.ModifyResponse = func(resp *http.Response) error {
 			for k := range resp.Header {
@@ -117,7 +128,6 @@ func NewHandler() http.Handler {
 			return nil
 		}
 		su, pr := serviceURL, proxy
-		svcName := svc.Name
 		r.PathPrefix(svc.Prefix).HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// auth-service expose GET /health, pas /auth/health : réécrire pour que le proxy fonctionne
 			if svcName == "auth" && r.URL.Path == "/auth/health" {
@@ -160,7 +170,7 @@ func NewHandler() http.Handler {
 			return false
 		}
 		corsHandler = cors.New(cors.Options{
-			AllowOriginFunc:   allowOriginFunc,
+			AllowOriginFunc:  allowOriginFunc,
 			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 			AllowedHeaders:   []string{"*"},
 			AllowCredentials: true,

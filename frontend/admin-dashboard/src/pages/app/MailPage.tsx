@@ -1,9 +1,11 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, Settings, AlertTriangle, ChevronLeft, ChevronRight, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users, Archive, ArrowUp, ArrowDown, Tag, Layers } from 'lucide-react'
+import { Mail, Inbox, Send, FileText, X, PenLine, Paperclip, FolderOpen, Loader2, RefreshCw, AlertTriangle, ChevronLeft, ChevronRight, ChevronDown, Reply, Forward, Minimize2, Maximize2, Trash2, MoreVertical, CheckSquare, Square, MailOpen, ShieldAlert, KeyRound, MessagesSquare, Download, UserPlus, Users, Archive, ArrowUp, ArrowDown, Tag, Layers, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
+import { useOptionalAppPageChrome } from '../../appPageChromeContext'
+import { MailAppBreadcrumbMenu } from '../../components/MailAppBreadcrumbMenu'
 import { useNotifications } from '../../notificationsContext'
 import {
   fetchDriveNodes,
@@ -22,6 +24,9 @@ import {
   fetchMailAliases,
   fetchMailFolderSummary,
   fetchMailImapFolders,
+  createMailImapFolder,
+  renameMailImapFolder,
+  deleteMailImapFolder,
   fetchMailTags,
   createMailTag,
   putMailMessageTags,
@@ -37,6 +42,7 @@ import {
   type MailStandardFolderId,
   type MailFolderSummaryResponse,
   type ContactResponse,
+  type MailImapFolderRow,
 } from '../../api'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
@@ -228,7 +234,8 @@ function showMailRestoreInboxAction(activeFolder: string, msgFolder: string | un
 }
 
 function folderDisplayLabel(folder: string | undefined, imapLabels: Map<string, string>): string {
-  const f = (folder ?? '').toLowerCase().trim()
+  const raw = folder ?? ''
+  const f = raw.toLowerCase().trim()
   switch (f) {
     case 'inbox':
       return 'Réception'
@@ -242,8 +249,13 @@ function folderDisplayLabel(folder: string | undefined, imapLabels: Map<string, 
       return 'Spam'
     case 'trash':
       return 'Corbeille'
-    default:
-      return (folder && imapLabels.get(folder)) || folder || '—'
+    default: {
+      if (f.endsWith('.trash') || f.endsWith('/trash') || f === 'inbox.trash') return 'Corbeille'
+      const fromMap = raw ? imapLabels.get(raw) : undefined
+      const lab = fromMap || raw || '—'
+      if (lab.trim().toLowerCase() === 'trash') return 'Corbeille'
+      return lab
+    }
   }
 }
 
@@ -271,32 +283,65 @@ function mailActionMenuPositionBelowButton(rect: DOMRect): { x: number; y: numbe
   return clampMailActionMenuPosition(x, y)
 }
 
-/** Dossiers déjà couverts par la sync standard : ne pas dupliquer dans la liste IMAP. */
-const RESERVED_IMAP_PATHS = new Set([
-  'INBOX',
-  'Sent',
-  '[Gmail]/Sent Mail',
-  'INBOX.Sent',
-  'Drafts',
-  '[Gmail]/Drafts',
-  'INBOX.Drafts',
-  'Archive',
-  '[Gmail]/Archive',
-  'INBOX.Archive',
-  'Archives',
-  'Spam',
-  'Junk',
-  '[Gmail]/Spam',
-  'INBOX.Spam',
-  'Trash',
-  '[Gmail]/Trash',
-  'Deleted Messages',
-  'Bin',
-  'INBOX.Trash',
-])
+/** Dossiers déjà couverts par la sync standard : ne pas dupliquer dans la liste IMAP (comparaison insensible à la casse). */
+const RESERVED_IMAP_PATHS_LOWER = new Set(
+  [
+    'INBOX',
+    'Sent',
+    '[Gmail]/Sent Mail',
+    'INBOX.Sent',
+    'INBOX.Envoyés',
+    'Envoyés',
+    'Drafts',
+    '[Gmail]/Drafts',
+    'INBOX.Drafts',
+    'Brouillons',
+    'INBOX.Brouillons',
+    'Archive',
+    '[Gmail]/Archive',
+    'INBOX.Archive',
+    'Archives',
+    'Spam',
+    'Junk',
+    '[Gmail]/Spam',
+    'INBOX.Spam',
+    'Trash',
+    '[Gmail]/Trash',
+    '[Gmail]/Bin',
+    'Deleted Messages',
+    'Bin',
+    'INBOX.Trash',
+    'Corbeille',
+    'INBOX.Corbeille',
+    'Courrier indésirable',
+    'INBOX.Courrier indésirable',
+  ].map((s) => s.toLowerCase())
+)
 
 function isReservedImapPathForSidebar(path: string): boolean {
-  return RESERVED_IMAP_PATHS.has(path.trim())
+  return RESERVED_IMAP_PATHS_LOWER.has(path.trim().toLowerCase())
+}
+
+/** Dossier LIST déjà mappé sur une entrée standard (Corbeille, Spam, …) : pas de doublon dans « autres dossiers ». */
+function shouldHideImapFolderFromSidebar(row: MailImapFolderRow): boolean {
+  const sp = (row.imap_special_use ?? '').trim().toLowerCase()
+  if (['trash', 'spam', 'drafts', 'sent', 'archive'].includes(sp)) return true
+  const p = row.imap_path.trim()
+  if (p.toLowerCase() === 'inbox') return true
+  return isReservedImapPathForSidebar(p)
+}
+
+/** Aligné sur le backend : pas de création de sous-dossier sous ces rôles IMAP. */
+function imapSpecialRoleBlocksSubfolderCreation(role: string | undefined): boolean {
+  const r = (role ?? '').trim().toLowerCase()
+  return ['drafts', 'sent', 'spam', 'trash'].includes(r)
+}
+
+/** Empêche de supprimer la boîte = email de connexion Cloudity (côté API aussi). */
+function isMailboxSameAsLoginEmail(mailboxEmail: string, loginEmail: string | null | undefined): boolean {
+  const m = mailboxEmail.trim().toLowerCase()
+  const u = (loginEmail ?? '').trim().toLowerCase()
+  return m !== '' && u !== '' && m === u
 }
 
 function folderSidebarBadge(id: MailStandardFolderId, summary: MailFolderSummaryResponse | undefined): string | null {
@@ -316,16 +361,6 @@ function extraFolderSidebarBadge(imapPath: string, summary: MailFolderSummaryRes
   if (u > 0) return String(u)
   if (t > 0) return String(t)
   return null
-}
-
-function activeFolderTitle(
-  activeFolder: string,
-  imapLabels: Map<string, string>
-): string {
-  if (activeFolder === 'all') return 'Tous les dossiers (boîte sélectionnée)'
-  const std = FOLDERS.find((f) => f.id === activeFolder)
-  if (std) return std.label
-  return imapLabels.get(activeFolder) ?? activeFolder
 }
 
 type AttachmentFromDrive = { nodeId: number; name: string; size: number }
@@ -506,9 +541,10 @@ function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResp
 
 export default function MailPage() {
   const navigate = useNavigate()
-  const { accessToken } = useAuth()
+  const { accessToken, email: authLoginEmail } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
+  const appPageChrome = useOptionalAppPageChrome()
   const [showConnectEmail, setShowConnectEmail] = useState(false)
   const [connectEmailValue, setConnectEmailValue] = useState('')
   const [connectPassword, setConnectPassword] = useState('')
@@ -583,6 +619,20 @@ export default function MailPage() {
   const [aliasCibleDraft, setAliasCibleDraft] = useState('')
   const [newMailTagName, setNewMailTagName] = useState('')
   const [showFullMailHeaders, setShowFullMailHeaders] = useState(getMailShowFullHeaders)
+  /** Liste des boîtes repliée : une ligne pour la boîte active ; dépliée pour changer de compte. */
+  const [mailboxesListExpanded, setMailboxesListExpanded] = useState(false)
+  const [showCreateImapFolderModal, setShowCreateImapFolderModal] = useState(false)
+  const [newImapFolderPathInput, setNewImapFolderPathInput] = useState('')
+  const [newImapFolderParentPath, setNewImapFolderParentPath] = useState('INBOX')
+  const [newImapFolderColor, setNewImapFolderColor] = useState('')
+  const [newImapFolderIcon, setNewImapFolderIcon] = useState('')
+  const [creatingImapFolder, setCreatingImapFolder] = useState(false)
+  const [imapFolderCtx, setImapFolderCtx] = useState<null | { x: number; y: number; row: MailImapFolderRow }>(null)
+  const [imapRenameTarget, setImapRenameTarget] = useState<null | { imap_path: string; label: string }>(null)
+  const [imapRenameDraft, setImapRenameDraft] = useState('')
+  const [imapRenameSaving, setImapRenameSaving] = useState(false)
+  const [imapDeleteTarget, setImapDeleteTarget] = useState<null | { imap_path: string; label: string }>(null)
+  const [imapDeleteWorking, setImapDeleteWorking] = useState(false)
 
   const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
@@ -638,14 +688,17 @@ export default function MailPage() {
     staleTime: 15_000,
   })
 
+  /** Badge « Tous les dossiers » : hors corbeille / spam / brouillons (même logique que l’API `folder=all`). */
   const allMessagesBadgeTotal = useMemo(() => {
     if (!folderSummary) return null
     let n = 0
-    const std: MailStandardFolderId[] = ['inbox', 'sent', 'drafts', 'archive', 'spam', 'trash']
-    for (const id of std) {
+    const inAllView: MailStandardFolderId[] = ['inbox', 'sent', 'archive']
+    for (const id of inAllView) {
       n += folderSummary[id]?.total ?? 0
     }
+    const excluded = new Set(['trash', 'spam', 'drafts'])
     for (const e of folderSummary.extra ?? []) {
+      if (excluded.has(e.folder.trim().toLowerCase())) continue
       n += e.total ?? 0
     }
     return n
@@ -661,7 +714,13 @@ export default function MailPage() {
   const imapLabelByPath = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of imapFolders) {
-      const lab = r.label?.trim() || r.imap_path
+      const sp = (r.imap_special_use ?? '').trim().toLowerCase()
+      let lab = r.label?.trim() || r.imap_path
+      if (sp === 'trash') lab = 'Corbeille'
+      else if (sp === 'spam') lab = 'Spam'
+      else if (sp === 'drafts') lab = 'Brouillons'
+      else if (sp === 'sent') lab = 'Envoyés'
+      else if (sp === 'archive') lab = 'Archives'
       m.set(r.imap_path, lab)
     }
     return m
@@ -670,10 +729,26 @@ export default function MailPage() {
   const customImapSidebarRows = useMemo(
     () =>
       [...imapFolders]
-        .filter((r) => !isReservedImapPathForSidebar(r.imap_path))
+        .filter((r) => !shouldHideImapFolderFromSidebar(r))
         .sort((a, b) => a.imap_path.localeCompare(b.imap_path)),
     [imapFolders]
   )
+
+  const imapFolderParentOptions = useMemo(() => {
+    const rows = [...imapFolders]
+      .filter((r) => !imapSpecialRoleBlocksSubfolderCreation(r.imap_special_use))
+      .sort((a, b) => a.imap_path.localeCompare(b.imap_path))
+    if (rows.some((r) => r.imap_path.trim().toLowerCase() === 'inbox')) return rows
+    return [
+      {
+        imap_path: 'INBOX',
+        parent_imap_path: '',
+        label: 'Boîte de réception',
+        delimiter: '.',
+      } as MailImapFolderRow,
+      ...rows,
+    ]
+  }, [imapFolders])
 
   const { data: mailTags = [] } = useQuery({
     queryKey: ['mail', 'tags', effectiveAccountId],
@@ -1082,7 +1157,7 @@ export default function MailPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('non configuré') || msg.includes('503')) {
-        toast.error('La connexion Google n’est pas encore activée sur ce serveur. Utilisez « Ajouter une boîte » avec un mot de passe d’application Gmail (voir aide).', { duration: 6000 })
+        toast.error('La connexion Google n’est pas encore activée sur ce serveur. Utilisez le menu Mail (icône à côté du fil d’Ariane) puis « Ajouter une boîte » avec un mot de passe d’application Gmail (voir aide).', { duration: 6000 })
         setShowConnectEmail(true)
       } else {
         toast.error(msg || 'Erreur')
@@ -1142,11 +1217,14 @@ export default function MailPage() {
           queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
           queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
           void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'tags'] })
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'aliases'] })
           if (selectedAccountId === accountId) setSelectedAccountId(null)
-          toast.success('Adresse déconnectée')
+          toast.success('Boîte retirée.')
           notifications?.addNotification({
-            title: 'Adresse mail déconnectée',
-            message: `${email} n'est plus reliée à ce compte.`,
+            title: 'Boîte retirée',
+            message: email,
             type: 'info',
           })
         })
@@ -1199,7 +1277,7 @@ export default function MailPage() {
     [accessToken, syncingAccountId, queryClient, refetchMessages, syncExtraImapOptions, effectiveAccountId]
   )
 
-  /** Actualiser = sync uniquement la boîte actuellement affichée (même effet que l’icône à côté du nom dans la colonne gauche). */
+  /** Synchronisation IMAP manuelle du compte affiché (toutes les boîtes connues + dossiers LIST). */
   const handleRefreshFromServer = useCallback(() => {
     if (!effectiveAccountId) return
     if (syncingAccountId !== null) {
@@ -1208,6 +1286,158 @@ export default function MailPage() {
     }
     handleSyncOneAccount(effectiveAccountId)
   }, [effectiveAccountId, handleSyncOneAccount, syncingAccountId])
+
+  const openCreateImapFolderModal = useCallback(() => {
+    setNewImapFolderPathInput('')
+    setNewImapFolderParentPath('INBOX')
+    setNewImapFolderColor('')
+    setNewImapFolderIcon('')
+    setShowCreateImapFolderModal(true)
+  }, [])
+
+  const handleCreateImapFolderFromModal = useCallback(async () => {
+    if (!accessToken || effectiveAccountId == null) return
+    const raw = newImapFolderPathInput.trim()
+    if (!raw) {
+      toast.error('Indiquez un nom ou un chemin de dossier')
+      return
+    }
+    const parent = (newImapFolderParentPath || 'INBOX').trim() || 'INBOX'
+    setCreatingImapFolder(true)
+    try {
+      const hasPathSegments = raw.includes('/')
+      await createMailImapFolder(accessToken, effectiveAccountId, {
+        parent_imap_path: parent,
+        ...(hasPathSegments ? { path: raw.replace(/\/+/g, '/').replace(/\/$/, '') } : { label: raw }),
+        ui_color: newImapFolderColor.trim(),
+        ui_icon: newImapFolderIcon.trim(),
+      })
+      toast.success('Dossier créé.')
+      setShowCreateImapFolderModal(false)
+      setNewImapFolderPathInput('')
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', effectiveAccountId] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary', effectiveAccountId] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setCreatingImapFolder(false)
+    }
+  }, [
+    accessToken,
+    effectiveAccountId,
+    newImapFolderPathInput,
+    newImapFolderParentPath,
+    newImapFolderColor,
+    newImapFolderIcon,
+    queryClient,
+  ])
+
+  const handleConfirmRenameImapFolder = useCallback(async () => {
+    if (!accessToken || effectiveAccountId == null || !imapRenameTarget) return
+    const name = imapRenameDraft.trim()
+    if (!name) {
+      toast.error('Nom requis')
+      return
+    }
+    setImapRenameSaving(true)
+    try {
+      await renameMailImapFolder(accessToken, effectiveAccountId, {
+        imap_path: imapRenameTarget.imap_path,
+        new_label: name,
+      })
+      toast.success('Dossier renommé.')
+      setImapRenameTarget(null)
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', effectiveAccountId] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setImapRenameSaving(false)
+    }
+  }, [accessToken, effectiveAccountId, imapRenameDraft, imapRenameTarget, queryClient])
+
+  const handleConfirmDeleteImapFolder = useCallback(async () => {
+    if (!accessToken || effectiveAccountId == null || !imapDeleteTarget) return
+    const deletedPath = imapDeleteTarget.imap_path
+    setImapDeleteWorking(true)
+    try {
+      await deleteMailImapFolder(accessToken, effectiveAccountId, { imap_path: deletedPath })
+      toast.success('Dossier supprimé ; les messages ont été déplacés vers la corbeille.')
+      setImapDeleteTarget(null)
+      if (activeFolder === deletedPath) setActiveFolder('inbox')
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', effectiveAccountId] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary', effectiveAccountId] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setImapDeleteWorking(false)
+    }
+  }, [accessToken, effectiveAccountId, imapDeleteTarget, activeFolder, queryClient])
+
+  const mailBreadcrumbMenu = useMemo(
+    () => (
+      <MailAppBreadcrumbMenu
+        onOpenSettings={() => setShowMailSettings(true)}
+        onConnectGoogle={() => void handleConnectGoogle()}
+        onAddAccount={() => setShowConnectEmail(true)}
+        onRefresh={() => handleRefreshFromServer()}
+        googleConnecting={googleConnecting}
+        syncLocked={syncingAccountId !== null}
+        refreshSpinning={syncingAccountId === effectiveAccountId}
+        refreshDisabled={effectiveAccountId == null}
+      />
+    ),
+    [
+      googleConnecting,
+      syncingAccountId,
+      effectiveAccountId,
+      handleConnectGoogle,
+      handleRefreshFromServer,
+    ]
+  )
+
+  useEffect(() => {
+    if (!appPageChrome) return
+    appPageChrome.setBreadcrumbActions(mailBreadcrumbMenu)
+    return () => {
+      appPageChrome.setBreadcrumbActions(null)
+    }
+  }, [appPageChrome, mailBreadcrumbMenu])
+
+  useEffect(() => {
+    if (!appPageChrome) return undefined
+    appPageChrome.setShellSearchAdjacent(
+      <button
+        type="button"
+        onClick={() => handleRefreshFromServer()}
+        disabled={effectiveAccountId == null || syncingAccountId !== null}
+        className="p-2 rounded-lg text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-slate-200 disabled:opacity-40"
+        title="Actualiser les boîtes (IMAP)"
+        aria-label="Actualiser les boîtes (IMAP)"
+      >
+        {syncingAccountId === effectiveAccountId ? (
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+        ) : (
+          <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
+        )}
+      </button>
+    )
+    return () => appPageChrome.setShellSearchAdjacent(null)
+  }, [appPageChrome, handleRefreshFromServer, syncingAccountId, effectiveAccountId])
+
+  useEffect(() => {
+    if (!imapFolderCtx) return undefined
+    const close = () => setImapFolderCtx(null)
+    const t = window.setTimeout(() => document.addEventListener('mousedown', close), 0)
+    return () => {
+      window.clearTimeout(t)
+      document.removeEventListener('mousedown', close)
+    }
+  }, [imapFolderCtx])
 
   const [movingMessageId, setMovingMessageId] = useState<number | null>(null)
   const handleMoveToFolder = useCallback(
@@ -1706,36 +1936,148 @@ export default function MailPage() {
 
   return (
     <div className="flex flex-col gap-4 min-h-0 pb-6">
-      <div className="flex flex-row items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Mail</h1>
-        <div className="flex items-center gap-2">
+      {accounts.length > 0 && !is404 && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           <button
             type="button"
-            onClick={() => setShowMailSettings(true)}
-            className="rounded-lg border border-slate-300 dark:border-slate-500 p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
-            title="Paramètres de l’application Mail"
-            aria-label="Paramètres Mail"
+            onClick={() => openNewCompose()}
+            disabled={accounts.length === 0}
+            className="rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-slate-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            title={accounts.length === 0 ? 'Ajoutez d’abord une boîte (menu Mail à côté du fil d’Ariane)' : 'Rédiger un nouveau message'}
           >
-            <Settings className="h-5 w-5" />
+            <PenLine className="h-4 w-4 shrink-0" />
+            Nouveau message
           </button>
           <button
             type="button"
-            onClick={handleConnectGoogle}
-            disabled={googleConnecting}
-            className="rounded-lg border border-slate-300 dark:border-slate-500 px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50"
+            onClick={() => handleRefreshFromServer()}
+            disabled={effectiveAccountId == null || syncingAccountId !== null}
+            className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 shrink-0"
+            title="Actualiser (IMAP)"
+            aria-label="Actualiser (IMAP)"
           >
-            {googleConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Se connecter avec Google
+            {syncingAccountId === effectiveAccountId ? (
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+            ) : (
+              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
+            )}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowConnectEmail(true)}
-            className="rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600"
-          >
-            + Ajouter une boîte
-          </button>
+          {effectiveAccountId != null ? (
+            <>
+              <span className="hidden sm:inline w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0" aria-hidden />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">Étiquettes</span>
+              <button
+                type="button"
+                onClick={() => setFilterTagId(null)}
+                className={`text-xs rounded-full px-2.5 py-1 font-medium ${
+                  filterTagId == null
+                    ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                }`}
+              >
+                Toutes
+              </button>
+              {mailTags.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
+                  className={`text-xs rounded-full px-2.5 py-1 font-medium ${
+                    filterTagId === t.id
+                      ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {t.name}
+                </button>
+              ))}
+              <input
+                type="text"
+                value={newMailTagName}
+                onChange={(e) => setNewMailTagName(e.target.value)}
+                placeholder="Nouvelle étiquette"
+                className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 min-w-[6rem] max-w-[9rem]"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    mailTagMutation.mutate()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                disabled={mailTagMutation.isPending || !newMailTagName.trim()}
+                onClick={() => mailTagMutation.mutate()}
+                className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40 shrink-0"
+              >
+                Créer
+              </button>
+              <span className="hidden md:inline w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0 mx-0.5" aria-hidden />
+              {messages.length > 0 ? (
+                !mailSelectionMode && selectedMessageIds.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setMailSelectionMode(true)}
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-600 shrink-0"
+                    aria-label="Sélectionner des messages"
+                  >
+                    <CheckSquare className="h-4 w-4 text-slate-500" aria-hidden />
+                    Sélectionner des messages
+                  </button>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAllOnPage}
+                      disabled={bulkWorking}
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                      aria-label="Tout sélectionner (page)"
+                    >
+                      {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
+                      {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
+                    </button>
+                    {selectedMessageIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleInvertSelectionOnPage}
+                        disabled={bulkWorking}
+                        className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                        aria-label="Inverser la sélection (page)"
+                      >
+                        Inverser la sélection
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => clearMessageSelection()}
+                      className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 shrink-0"
+                    >
+                      Terminer
+                    </button>
+                    {selectedMessageIds.length > 0 ? (
+                      <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        {selectedMessageIds.length} message(s) sélectionné(s)
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Appui long sur un message pour l’ajouter à la sélection</span>
+                    )}
+                  </div>
+                )
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-600 shrink-0 cursor-not-allowed opacity-60"
+                  title="Aucun message sur cette page"
+                >
+                  <CheckSquare className="h-4 w-4" aria-hidden />
+                  Sélectionner des messages
+                </button>
+              )}
+            </>
+          ) : null}
         </div>
-      </div>
+      )}
 
       {is404 && (
         <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4" role="alert">
@@ -1795,54 +2137,102 @@ export default function MailPage() {
           >
             <div className={sidebarCollapsed ? 'flex flex-col items-center gap-1' : ''}>
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Boîtes mail</p>}
-              <div className={`flex flex-col gap-1.5 ${sidebarCollapsed ? 'items-center' : ''}`}>
-              {accounts.map((acc) => (
-                <div key={acc.id} className={`flex flex-col rounded-lg ${sidebarCollapsed ? 'w-full' : ''}`}>
-                  <div className={`flex ${sidebarCollapsed ? 'flex-col items-center gap-0.5' : 'flex-row items-stretch gap-0.5'}`}>
+              {sidebarCollapsed ? (
+                <div className="flex flex-col gap-1.5 items-center">
+                  {accounts.map((acc) => (
                     <button
+                      key={acc.id}
                       type="button"
-                      onClick={() => { setSelectedAccountId(acc.id); setActiveFolder('inbox'); setRecipientAliasFilter(null) }}
-                      className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 ${sidebarCollapsed ? 'p-2 flex justify-center w-full' : 'flex-1 text-left px-3 py-2'} ${
+                      onClick={() => {
+                        setSelectedAccountId(acc.id)
+                        setActiveFolder('inbox')
+                        setRecipientAliasFilter(null)
+                      }}
+                      className={`rounded-lg p-2 w-full flex justify-center ${
                         effectiveAccountId === acc.id
                           ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                          : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
                       }`}
                       title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
                     >
-                      {sidebarCollapsed ? (
-                        <Mail className="h-5 w-5 mx-auto" />
-                      ) : (
-                        <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
-                          <span className="truncate w-full">{acc.label || acc.email}</span>
-                          {acc.label ? (
-                            <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">
-                              {acc.email}
-                            </span>
-                          ) : null}
-                        </span>
-                      )}
+                      <Mail className="h-5 w-5" aria-hidden />
                     </button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {accounts.length > 0 ? (
                     <button
                       type="button"
-                      onClick={() => handleSyncOneAccount(acc.id)}
-                      disabled={syncingAccountId !== null}
-                      className={`shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600 disabled:opacity-40 disabled:pointer-events-none ${sidebarCollapsed ? 'p-1' : 'px-2 self-stretch flex items-center justify-center'}`}
-                      title={`Synchroniser ${acc.email} (IMAP)`}
-                      aria-label={`Synchroniser la boîte ${acc.email}`}
+                      onClick={() => setMailboxesListExpanded((v) => !v)}
+                      className="w-full flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/50 dark:bg-slate-800/30 px-2 py-2 text-left text-sm text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 mb-1"
+                      aria-expanded={mailboxesListExpanded}
                     >
-                      {syncingAccountId === acc.id ? (
-                        <Loader2 className={`${sidebarCollapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} animate-spin`} aria-hidden />
-                      ) : (
-                        <RefreshCw className={sidebarCollapsed ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden />
-                      )}
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${mailboxesListExpanded ? 'rotate-180' : ''}`}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1">
+                        {(() => {
+                          const acc = accounts.find((a) => a.id === effectiveAccountId) ?? accounts[0]
+                          if (!acc) return <span className="text-slate-500">—</span>
+                          return (
+                            <span className="flex flex-col min-w-0">
+                              <span className="truncate font-medium">{acc.label?.trim() || acc.email}</span>
+                              {acc.label?.trim() ? (
+                                <span className="truncate text-[10px] text-slate-500 dark:text-slate-400">{acc.email}</span>
+                              ) : null}
+                            </span>
+                          )
+                        })()}
+                      </span>
                     </button>
-                  </div>
-                  {!sidebarCollapsed && effectiveAccountId === acc.id && (
+                  ) : null}
+                  {mailboxesListExpanded && accounts.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {accounts.map((acc) => (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAccountId(acc.id)
+                            setActiveFolder('inbox')
+                            setRecipientAliasFilter(null)
+                            setMailboxesListExpanded(false)
+                          }}
+                          className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 w-full text-left px-3 py-2 ${
+                            effectiveAccountId === acc.id
+                              ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
+                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                          }`}
+                          title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
+                        >
+                          <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
+                            <span className="truncate w-full">{acc.label || acc.email}</span>
+                            {acc.label ? (
+                              <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
+                            ) : null}
+                          </span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowConnectEmail(true)
+                          setMailboxesListExpanded(true)
+                        }}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-brand-300 dark:border-brand-600 py-2 text-[11px] font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40"
+                      >
+                        <Plus className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        Ajouter une autre boîte mail
+                      </button>
+                    </div>
+                  ) : null}
+                  {effectiveAccountId != null && !sidebarCollapsed ? (
                     <div className="mt-1 ml-1 pl-2 border-l-2 border-slate-200 dark:border-slate-600 space-y-0.5 pb-1">
                       <button
                         type="button"
                         onClick={() => setRecipientAliasFilter(null)}
-                        title="Tous les messages du dossier : adresse principale de la boîte et tous les alias enregistrés (reçus en To)."
                         className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-slate-200/80 dark:bg-slate-600 text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                       >
                         Toutes les adresses
@@ -1853,22 +2243,32 @@ export default function MailPage() {
                           type="button"
                           onClick={() => setRecipientAliasFilter(al.alias_email)}
                           className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/80 dark:bg-brand-900/50 text-brand-900 dark:text-brand-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
-                          title={`Messages dont le champ À contient ${al.alias_email}`}
                         >
                           {al.label?.trim() ? `${al.label} · ${al.alias_email}` : al.alias_email}
                         </button>
                       ))}
-                      {accountAliases.length === 0 ? (
-                        <p className="text-[10px] text-slate-400 px-1.5">Alias : Paramètres Mail</p>
-                      ) : null}
                     </div>
-                  )}
-                </div>
-              ))}
-              </div>
+                  ) : null}
+                </>
+              )}
             </div>
             <div className={`border-t border-slate-200 dark:border-slate-600 pt-2 ${sidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
-              {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Dossiers</p>}
+              {!sidebarCollapsed && (
+                <div className="flex items-center justify-between gap-1 px-2 mb-1">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dossiers</p>
+                  {effectiveAccountId != null ? (
+                    <button
+                      type="button"
+                      onClick={openCreateImapFolderModal}
+                      className="p-1 rounded-md text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 shrink-0"
+                      aria-label="Créer un dossier"
+                      title="Créer un dossier IMAP"
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  ) : null}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setActiveFolder('all')}
@@ -1879,8 +2279,8 @@ export default function MailPage() {
                 }`}
                 title={
                   sidebarCollapsed
-                    ? `Tous les dossiers — boîte sélectionnée uniquement (inbox, envoyés, spam, dossiers IMAP, etc.)${allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? ` · ${allMessagesBadgeTotal}` : ''}`
-                    : 'Tous les dossiers de la boîte actuellement sélectionnée (pas un seul dossier) : réception, envoyés, brouillons, spam, corbeille et dossiers IMAP personnalisés.'
+                    ? `Tous les dossiers — réception, sous-dossiers, envoyés, archives, dossiers IMAP (sans corbeille, spam ni brouillons).${allMessagesBadgeTotal != null && allMessagesBadgeTotal > 0 ? ` · ${allMessagesBadgeTotal}` : ''}`
+                    : 'Vue agrégée : boîte de réception (et sous-dossiers), Envoyés, Archives et autres dossiers IMAP. Exclut corbeille, spam et brouillons — ouvrez-les via les entrées dédiées à gauche.'
                 }
               >
                 <Layers className="h-4 w-4 flex-shrink-0" />
@@ -1931,12 +2331,20 @@ export default function MailPage() {
               ) : null}
               {customImapSidebarRows.map((row) => {
                 const badge = extraFolderSidebarBadge(row.imap_path, folderSummary)
-                const depth = row.parent_imap_path ? 1 : 0
+                const delim = row.delimiter || '.'
+                const depth = Math.max(0, row.imap_path.split(delim).filter((s) => s.length > 0).length - 2)
+                const iconTxt = (row.ui_icon ?? '').trim()
+                const colorDot = (row.ui_color ?? '').trim()
                 return (
                   <button
                     key={row.imap_path}
                     type="button"
                     onClick={() => setActiveFolder(row.imap_path)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      const p = clampMailActionMenuPosition(e.clientX, e.clientY)
+                      setImapFolderCtx({ x: p.x, y: p.y, row })
+                    }}
                     className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'} ${
                       activeFolder === row.imap_path
                         ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
@@ -1944,11 +2352,23 @@ export default function MailPage() {
                     }`}
                     title={sidebarCollapsed ? row.imap_path : undefined}
                   >
-                    <FolderOpen className="h-4 w-4 flex-shrink-0 opacity-80" />
+                    {iconTxt ? (
+                      <span className="text-sm shrink-0 w-4 text-center leading-none" aria-hidden>
+                        {iconTxt}
+                      </span>
+                    ) : colorDot ? (
+                      <span
+                        className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-black/10 dark:ring-white/15"
+                        style={{ backgroundColor: colorDot }}
+                        aria-hidden
+                      />
+                    ) : (
+                      <FolderOpen className="h-4 w-4 flex-shrink-0 opacity-80" aria-hidden />
+                    )}
                     {!sidebarCollapsed && (
                       <span
                         className="flex-1 text-left truncate text-[13px]"
-                        style={{ paddingLeft: depth ? 10 : 0 }}
+                        style={{ paddingLeft: depth > 0 ? Math.min(16, 6 + depth * 6) : 0 }}
                       >
                         {row.label?.trim() || row.imap_path}
                       </span>
@@ -1961,11 +2381,6 @@ export default function MailPage() {
                   </button>
                 )
               })}
-              {!sidebarCollapsed && (
-                <p className="px-2 mt-2 text-[10px] text-slate-400 dark:text-slate-500">
-                  Icône ↻ à droite d’une boîte : synchro IMAP uniquement cette boîte. Libellé, synchro avec mot de passe et retrait : Paramètres en haut.
-                </p>
-              )}
             </div>
             <button
               type="button"
@@ -1990,33 +2405,11 @@ export default function MailPage() {
             </div>
           )}
           <div className="flex flex-col min-h-0 min-w-0 flex-1 overflow-hidden">
-            <div className="border-b border-slate-200 dark:border-slate-600 px-4 py-3 bg-white dark:bg-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex flex-col gap-0.5 min-w-0">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {activeFolderTitle(activeFolder, imapLabelByPath)}
-                </span>
-                {effectiveAccountId != null && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                    {accounts.find((a) => a.id === effectiveAccountId)?.email}
-                  </span>
-                )}
+            {filterTagId != null && !conversationThreadKey ? (
+              <div className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
+                Filtre par étiquette actif (dossier courant).
               </div>
-              <button
-                type="button"
-                onClick={handleRefreshFromServer}
-                disabled={syncingAccountId !== null}
-                className="self-start sm:self-center inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                title="Synchroniser la boîte affichée (IMAP). Pour une autre boîte, utilisez l’icône ↻ dans la colonne de gauche."
-              >
-                {syncingAccountId === effectiveAccountId ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                {syncingAccountId === effectiveAccountId ? 'Synchronisation…' : 'Actualiser cette boîte'}
-              </button>
-            </div>
-            <p className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50">
-              « Actualiser cette boîte » synchronise uniquement la boîte affichée ; chaque boîte a aussi une icône ↻ dans la colonne de gauche. Une seule sync manuelle à la fois.
-              {filterTagId != null ? ' — filtre par étiquette actif (dossier courant).' : ''}
-              {conversationThreadKey ? ' — seuls les messages de cette conversation sont listés.' : ''}
-            </p>
+            ) : null}
             {conversationThreadKey ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-amber-50/50 dark:bg-amber-900/10">
                 <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
@@ -2032,58 +2425,78 @@ export default function MailPage() {
                 </button>
               </div>
             ) : null}
-            {effectiveAccountId != null && (
-              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">Étiquettes</span>
-                <button
-                  type="button"
-                  onClick={() => setFilterTagId(null)}
-                  className={`text-xs rounded-full px-2.5 py-1 font-medium ${
-                    filterTagId == null
-                      ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  Toutes
-                </button>
-                {mailTags.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
-                    className={`text-xs rounded-full px-2.5 py-1 font-medium ${
-                      filterTagId === t.id
-                        ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                    }`}
-                  >
-                    {t.name}
-                  </button>
-                ))}
-                <span className="hidden sm:inline w-px h-4 bg-slate-200 dark:bg-slate-600 mx-0.5" aria-hidden />
-                <input
-                  type="text"
-                  value={newMailTagName}
-                  onChange={(e) => setNewMailTagName(e.target.value)}
-                  placeholder="Nouvelle étiquette"
-                  className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 min-w-[7rem] max-w-[11rem]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      mailTagMutation.mutate()
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  disabled={mailTagMutation.isPending || !newMailTagName.trim()}
-                  onClick={() => mailTagMutation.mutate()}
-                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40"
-                >
-                  Créer
-                </button>
+            {effectiveAccountId != null && messages.length > 0 && selectedMessageIds.length > 0 ? (
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkMarkRead(true)}
+                        disabled={bulkWorking}
+                        aria-label="Marquer comme lu en masse"
+                        className="rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
+                      >
+                        Marquer comme lu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkMarkRead(false)}
+                        disabled={bulkWorking}
+                        aria-label="Marquer comme non lu en masse"
+                        className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                      >
+                        Marquer comme non lu
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkMove('trash')}
+                        disabled={bulkWorking}
+                        aria-label="Corbeille en masse"
+                        className="rounded-lg border border-red-200 dark:border-red-900/50 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/35 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4 shrink-0" /> Corbeille
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkMove('spam')}
+                        disabled={bulkWorking}
+                        aria-label="Spam en masse"
+                        className="rounded-lg border border-orange-200 dark:border-orange-900/50 px-3 py-1.5 text-sm font-medium text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/30 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <AlertTriangle className="h-4 w-4 shrink-0" /> Spam
+                      </button>
+                      {(activeFolder === 'all' || (activeFolder !== 'archive' && activeFolder !== 'trash')) && (
+                        <button
+                          type="button"
+                          onClick={() => handleBulkMove('archive')}
+                          disabled={bulkWorking}
+                          aria-label="Archives en masse"
+                          className="rounded-lg border border-sky-200 dark:border-sky-800 px-3 py-1.5 text-sm font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Archive className="h-4 w-4 shrink-0" /> Archives
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleBulkMove('inbox')}
+                        disabled={bulkWorking}
+                        aria-label="Boîte de réception en masse"
+                        className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <Inbox className="h-4 w-4" /> Boîte de réception
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => clearMessageSelection()}
+                        disabled={bulkWorking}
+                        aria-label="Effacer la sélection"
+                        className="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                      >
+                        Effacer la sélection
+                      </button>
+                    </div>
               </div>
-            )}
+            ) : null}
             <div ref={listPreviewSplitRef} className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
               <div
                 className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
@@ -2099,134 +2512,6 @@ export default function MailPage() {
               >
                 {messages.length > 0 ? (
                   <>
-                    <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20 flex flex-wrap items-center justify-between gap-3">
-                      {!mailSelectionMode && selectedMessageIds.length === 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => setMailSelectionMode(true)}
-                          className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-600"
-                          aria-label="Sélectionner des messages"
-                        >
-                          <CheckSquare className="h-4 w-4 text-slate-500" aria-hidden />
-                          Sélectionner des messages
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={handleToggleSelectAllOnPage}
-                            disabled={bulkWorking}
-                            className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
-                            aria-label="Tout sélectionner (page)"
-                          >
-                            {allMessagesSelectedOnPage ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
-                            {allMessagesSelectedOnPage ? 'Tout désélectionner' : 'Tout sélectionner'}
-                          </button>
-
-                          {selectedMessageIds.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={handleInvertSelectionOnPage}
-                              disabled={bulkWorking}
-                              className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
-                              aria-label="Inverser la sélection (page)"
-                            >
-                              Inverser la sélection
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => clearMessageSelection()}
-                            className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                          >
-                            Terminer
-                          </button>
-
-                          {selectedMessageIds.length > 0 ? (
-                            <span className="text-xs text-slate-500 dark:text-slate-400">
-                              {selectedMessageIds.length} message(s) sélectionné(s)
-                            </span>
-                          ) : (
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Appui long sur un message pour en ajouter à la sélection</span>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {selectedMessageIds.length > 0 && (
-                      <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMarkRead(true)}
-                            disabled={bulkWorking}
-                            aria-label="Marquer comme lu en masse"
-                            className="rounded-lg bg-brand-600 dark:bg-brand-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
-                          >
-                            Marquer comme lu
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMarkRead(false)}
-                            disabled={bulkWorking}
-                            aria-label="Marquer comme non lu en masse"
-                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            Marquer comme non lu
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMove('trash')}
-                            disabled={bulkWorking}
-                            aria-label="Corbeille en masse"
-                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" /> Corbeille
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMove('spam')}
-                            disabled={bulkWorking}
-                            aria-label="Spam en masse"
-                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
-                          >
-                            <AlertTriangle className="h-4 w-4 text-red-600" /> Spam
-                          </button>
-                          {(activeFolder === 'all' || (activeFolder !== 'archive' && activeFolder !== 'trash')) && (
-                            <button
-                              type="button"
-                              onClick={() => handleBulkMove('archive')}
-                              disabled={bulkWorking}
-                              aria-label="Archives en masse"
-                              className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
-                            >
-                              <Archive className="h-4 w-4" /> Archives
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleBulkMove('inbox')}
-                            disabled={bulkWorking}
-                            aria-label="Boîte de réception en masse"
-                            className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
-                          >
-                            <Inbox className="h-4 w-4" /> Boîte de réception
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => clearMessageSelection()}
-                            disabled={bulkWorking}
-                            aria-label="Effacer la sélection"
-                            className="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
-                          >
-                            Effacer la sélection
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
                     <ul className="divide-y divide-slate-200 dark:divide-slate-600 min-h-0 overflow-y-auto flex-1 overscroll-contain">
                       {messages.map((msg) => {
                         const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
@@ -2377,7 +2662,7 @@ export default function MailPage() {
                                       type="button"
                                       onClick={() => handleMoveToFolder(msg.id, 'archive')}
                                       disabled={movingMessageId === msg.id}
-                                      className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+                                      className="p-1.5 rounded-lg border border-sky-200 dark:border-sky-700 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 disabled:opacity-50"
                                       title="Archiver"
                                       aria-label="Archiver"
                                     >
@@ -2389,7 +2674,7 @@ export default function MailPage() {
                                       type="button"
                                       onClick={() => handleMoveToFolder(msg.id, 'trash')}
                                       disabled={movingMessageId === msg.id}
-                                      className="p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:text-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
+                                      className="p-1.5 rounded-lg border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/35 disabled:opacity-50"
                                       title="Déplacer vers la corbeille"
                                       aria-label="Corbeille"
                                     >
@@ -2401,7 +2686,7 @@ export default function MailPage() {
                                       type="button"
                                       onClick={() => handleMoveToFolder(msg.id, 'spam')}
                                       disabled={movingMessageId === msg.id}
-                                      className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:text-red-400 dark:hover:bg-red-900/30 disabled:opacity-50"
+                                      className="p-1.5 rounded-lg border border-orange-200 dark:border-orange-900/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 disabled:opacity-50"
                                       title="Signaler comme spam"
                                       aria-label="Spam"
                                     >
@@ -2466,7 +2751,7 @@ export default function MailPage() {
                           Page précédente
                         </button>
                         <span className="text-xs text-slate-500 dark:text-slate-400 text-center sm:px-2 order-first sm:order-none">
-                          Page {messagePage + 1} / {totalPages} · {messagesTotal} message(s) · {MESSAGES_PAGE_SIZE} par page
+                          Page {messagePage + 1} / {totalPages}
                         </span>
                         <button
                           type="button"
@@ -2484,14 +2769,9 @@ export default function MailPage() {
                   <Mail className="h-12 w-12 text-slate-300 dark:text-slate-500" />
                   <p className="mt-4 text-slate-600 dark:text-slate-300">Aucun message dans ce dossier</p>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                    Cliquez sur « Actualiser » ci-dessus pour récupérer les messages depuis le serveur, ou écrivez un message.
+                    Utilisez « Menu Mail » à côté du fil d’Ariane puis « Actualiser (IMAP) », ou rédigez un message.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-                    <button type="button" onClick={handleRefreshFromServer} disabled={syncingAccountId !== null} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-50 inline-flex items-center gap-1">
-                      {syncingAccountId === effectiveAccountId ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                      Actualiser cette boîte
-                    </button>
-                    <span className="text-slate-300 dark:text-slate-500">·</span>
                     <button type="button" onClick={() => openNewCompose()} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
                       Écrire un message
                     </button>
@@ -2727,7 +3007,7 @@ export default function MailPage() {
                               )
                             ) : (
                               <div className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400 italic">
-                                Corps du message vide pour l’instant. Utilisez « Actualiser » en haut de la liste ou rouvrez le message après synchronisation.
+                                Corps du message vide pour l’instant. Utilisez « Menu Mail » → « Actualiser (IMAP) » ou rouvrez le message après synchronisation.
                               </div>
                             )}
                           </article>
@@ -2748,7 +3028,7 @@ export default function MailPage() {
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col">
             <div className="px-5 pt-5 pb-3 border-b border-slate-200 dark:border-slate-600 shrink-0">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Paramètres Mail</h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Signature, boîtes reliées (renommer, synchro, retirer).</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Signature et boîtes reliées.</p>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
               <div>
@@ -2772,10 +3052,20 @@ export default function MailPage() {
               </div>
 
               <div>
-                <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Mes boîtes mail</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
-                  Renommer, modifier les serveurs / mot de passe, forcer une synchro ou retirer une adresse (action définitive).
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Mes boîtes mail</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMailSettings(false)
+                      setShowConnectEmail(true)
+                    }}
+                    className="inline-flex items-center gap-1 rounded-lg border border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-[11px] font-semibold text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50 shrink-0"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden />
+                    Ajouter une boîte
+                  </button>
+                </div>
                 {accounts.length === 0 ? (
                   <p className="text-sm text-slate-500 dark:text-slate-400">Aucune boîte reliée.</p>
                 ) : (
@@ -2830,17 +3120,17 @@ export default function MailPage() {
                           </button>
                           <button
                             type="button"
+                            disabled={isMailboxSameAsLoginEmail(acc.email, authLoginEmail)}
+                            title={isMailboxSameAsLoginEmail(acc.email, authLoginEmail) ? 'Compte Cloudity' : undefined}
                             onClick={() => {
                               if (
-                                window.confirm(
-                                  `Retirer la boîte « ${acc.email} » de Cloudity ?\n\nLes messages déjà synchronisés ne seront plus accessibles ici. Cette action est définitive.`
-                                )
+                                window.confirm(`Retirer « ${acc.email} » de Cloudity ? Cette action est définitive.`)
                               ) {
                                 handleDisconnectAccount(acc.id, acc.email)
                                 setShowMailSettings(false)
                               }
                             }}
-                            className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/30 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/50"
+                            className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50/80 dark:bg-red-950/30 px-2.5 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             Retirer la boîte
                           </button>
@@ -2855,9 +3145,6 @@ export default function MailPage() {
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                   <KeyRound className="h-4 w-4" /> Sécurité & Coffre-fort
                 </h3>
-                <p className="text-xs text-slate-600 dark:text-slate-400">
-                  Les mots de passe IMAP/SMTP sont chiffrés en base (clé <code className="text-[10px]">MAIL_PASSWORD_ENCRYPTION_KEY</code>). Centralisez les secrets liés au mail dans le coffre Pass.
-                </p>
                 <Link
                   to="/app/pass"
                   onClick={() => setShowMailSettings(false)}
@@ -2865,18 +3152,11 @@ export default function MailPage() {
                 >
                   Ouvrir Coffre (Pass)
                 </Link>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  <strong>Anti-spam :</strong> score heuristique (0–100) sur chaque message en boîte de réception ; pastille orange si suspect. Chiffrement « de bout en bout » des corps stockés et détection ML : voir roadmap projet.
-                </p>
               </div>
 
               {effectiveAccountId != null && (
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Alias (adresses supplémentaires)</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
-                    Déclarez les adresses qui <strong>reçoivent</strong> dans cette boîte (fournisseur / DNS déjà configurés). Dans la barre latérale, « Toutes les adresses » affiche tout le dossier ; un alias ne montre que les messages dont le champ <strong>À</strong> contient cette adresse.
-                    La <strong>cible de livraison</strong> est une note pour vous (et plus tard Pass) : vers quelle boîte réelle le mail doit arriver — Cloudity ne configure pas seul le DNS MX.
-                  </p>
+                  <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Alias</h3>
                   <ul className="space-y-2 mb-3 max-h-48 overflow-y-auto">
                     {accountAliases.map((al) => (
                       <li
@@ -2995,6 +3275,199 @@ export default function MailPage() {
         </div>
       )}
 
+      {showCreateImapFolderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Nouveau dossier</h2>
+            <label htmlFor="mail-new-imap-path" className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+              Nom ou chemin
+            </label>
+            <input
+              id="mail-new-imap-path"
+              type="text"
+              value={newImapFolderPathInput}
+              onChange={(e) => setNewImapFolderPathInput(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 mb-3"
+              placeholder="Ex. : Factures ou Candidatures/RH"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleCreateImapFolderFromModal()
+                }
+              }}
+            />
+            <label htmlFor="mail-new-imap-parent" className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+              Dossier parent
+            </label>
+            <select
+              id="mail-new-imap-parent"
+              value={newImapFolderParentPath}
+              onChange={(e) => setNewImapFolderParentPath(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 mb-3"
+            >
+              {imapFolderParentOptions.map((r) => (
+                <option key={r.imap_path} value={r.imap_path}>
+                  {r.label?.trim() || r.imap_path}
+                </option>
+              ))}
+            </select>
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div>
+                <label htmlFor="mail-new-imap-color" className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  Couleur (optionnel)
+                </label>
+                <input
+                  id="mail-new-imap-color"
+                  type="text"
+                  value={newImapFolderColor}
+                  onChange={(e) => setNewImapFolderColor(e.target.value)}
+                  placeholder="#3b82f6"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="mail-new-imap-icon" className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">
+                  Icône (optionnel)
+                </label>
+                <input
+                  id="mail-new-imap-icon"
+                  type="text"
+                  value={newImapFolderIcon}
+                  onChange={(e) => setNewImapFolderIcon(e.target.value)}
+                  placeholder="Emoji ou texte court"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1.5 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCreateImapFolderModal(false)}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={creatingImapFolder || !newImapFolderPathInput.trim()}
+                onClick={() => void handleCreateImapFolderFromModal()}
+                className="rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {creatingImapFolder ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imapFolderCtx ? (
+        <div
+          className="fixed z-[100] min-w-[12rem] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+          style={{ left: imapFolderCtx.x, top: imapFolderCtx.y }}
+          role="menu"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {imapFolderCtx.row.user_created ? (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-sm text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700/80"
+                onClick={() => {
+                  const lab = imapFolderCtx.row.label?.trim() || imapFolderCtx.row.imap_path
+                  setImapRenameTarget({ imap_path: imapFolderCtx.row.imap_path, label: lab })
+                  setImapRenameDraft(lab)
+                  setImapFolderCtx(null)
+                }}
+              >
+                Renommer…
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/30"
+                onClick={() => {
+                  const lab = imapFolderCtx.row.label?.trim() || imapFolderCtx.row.imap_path
+                  setImapDeleteTarget({ imap_path: imapFolderCtx.row.imap_path, label: lab })
+                  setImapFolderCtx(null)
+                }}
+              >
+                Supprimer…
+              </button>
+            </>
+          ) : (
+            <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">Dossier IMAP</p>
+          )}
+        </div>
+      ) : null}
+
+      {imapRenameTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-sm p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Renommer le dossier</h2>
+            <input
+              type="text"
+              value={imapRenameDraft}
+              onChange={(e) => setImapRenameDraft(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm mb-4"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleConfirmRenameImapFolder()
+                }
+              }}
+            />
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setImapRenameTarget(null)}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={imapRenameSaving || !imapRenameDraft.trim()}
+                onClick={() => void handleConfirmRenameImapFolder()}
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {imapRenameSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {imapDeleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Supprimer « {imapDeleteTarget.label} » ?</h2>
+            <div className="flex flex-wrap gap-2 justify-end mt-4">
+              <button
+                type="button"
+                onClick={() => setImapDeleteTarget(null)}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={imapDeleteWorking}
+                onClick={() => void handleConfirmDeleteImapFolder()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {imapDeleteWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showConnectEmail && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
@@ -3003,7 +3476,7 @@ export default function MailPage() {
               Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP).
             </p>
             <p className="text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-lg px-3 py-2 mb-4">
-              <strong>Gmail sans mot de passe d’application :</strong> fermez cette fenêtre et utilisez « Se connecter avec Google » sur la page Mail (OAuth). Ce formulaire sert aux boîtes IMAP/SMTP classiques.
+              <strong>Gmail sans mot de passe d’application :</strong> fermez cette fenêtre et utilisez « Menu Mail » → « Se connecter avec Google » (OAuth). Ce formulaire sert aux boîtes IMAP/SMTP classiques.
             </p>
             {/^[^@]*@gmail\.com$/i.test(connectEmailValue.trim()) && (
               <div className="mb-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
@@ -3261,9 +3734,9 @@ export default function MailPage() {
                 setContextMenuMessage(null)
               }}
               disabled={movingMessageId === contextMenuMessage.id}
-              className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50"
+              className="w-full px-3 py-2 text-left text-sm text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 flex items-center gap-2 disabled:opacity-50"
             >
-              <Archive className="h-4 w-4 shrink-0" /> Vers Archives
+              <Archive className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" /> Vers Archives
             </button>
           )}
           {mailTags.length > 0 ? (
@@ -3313,12 +3786,12 @@ export default function MailPage() {
           {((isStandardMailFolderId(activeFolder) && activeFolder !== 'trash') ||
             (activeFolder === 'all' && showMailTrashAction(activeFolder, contextMenuMessage.folder))) && (
             <>
-              <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'trash'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
-                <Trash2 className="h-4 w-4 shrink-0" /> Déplacer vers la corbeille
+              <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'trash'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/35 flex items-center gap-2 disabled:opacity-50">
+                <Trash2 className="h-4 w-4 shrink-0 text-red-600 dark:text-red-400" /> Déplacer vers la corbeille
               </button>
               {showMailSpamAction(activeFolder, contextMenuMessage.folder) && (
-                <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'spam'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50">
-                  <AlertTriangle className="h-4 w-4 shrink-0" /> Signaler comme spam
+                <button type="button" role="menuitem" onClick={() => { handleMoveToFolder(contextMenuMessage.id, 'spam'); setContextMenuMessage(null) }} disabled={movingMessageId === contextMenuMessage.id} className="w-full px-3 py-2 text-left text-sm text-orange-700 dark:text-orange-300 hover:bg-orange-50 dark:hover:bg-orange-950/30 flex items-center gap-2 disabled:opacity-50">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-orange-600 dark:text-orange-400" /> Signaler comme spam
                 </button>
               )}
             </>
@@ -3555,17 +4028,6 @@ export default function MailPage() {
           </div>
         </div>
       )}
-
-      {/* Bouton flottant Nouveau message (style Gmail) */}
-      <button
-        type="button"
-        onClick={() => openNewCompose()}
-        className="fixed bottom-28 right-5 sm:right-6 z-40 flex items-center justify-center gap-2 rounded-full bg-brand-600 dark:bg-brand-500 hover:bg-brand-700 dark:hover:bg-brand-600 text-white shadow-lg hover:shadow-xl w-14 h-14 md:bottom-32 md:w-16 md:h-16"
-        title="Nouveau message"
-        aria-label="Nouveau message"
-      >
-        <PenLine className="h-6 w-6 md:h-7 md:w-7" />
-      </button>
     </div>
   )
 }

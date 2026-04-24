@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -44,15 +46,26 @@ func imapMailboxCandidatesForDbFolder(dbFolder string) []string {
 	case "inbox":
 		return []string{"INBOX"}
 	case "sent":
-		return []string{"Sent", "[Gmail]/Sent Mail", "INBOX.Sent"}
+		return []string{
+			"Sent", "[Gmail]/Sent Mail", "INBOX.Sent", "Sent Items", "INBOX.Sent Items",
+			"Envoyés", "INBOX.Envoyés", "Éléments envoyés", "INBOX.Éléments envoyés",
+		}
 	case "drafts":
-		return []string{"Drafts", "[Gmail]/Drafts", "INBOX.Drafts"}
+		return []string{"Drafts", "[Gmail]/Drafts", "INBOX.Drafts", "Brouillons", "INBOX.Brouillons"}
 	case "spam":
-		return []string{"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam"}
+		return []string{
+			"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam", "Junk E-mail", "INBOX.Junk E-mail",
+			"Courrier indésirable", "INBOX.Courrier indésirable", "Bulk Mail", "INBOX.Bulk Mail",
+		}
 	case "trash":
-		return []string{"Trash", "[Gmail]/Trash", "Deleted Messages", "Bin", "INBOX.Trash"}
+		return []string{
+			"Trash", "[Gmail]/Trash", "[Gmail]/Bin", "Deleted Messages", "Deleted Items",
+			"INBOX.Trash", "INBOX.Deleted Items", "Bin", "Corbeille", "INBOX.Corbeille",
+			"Papierkorb", "INBOX.Papierkorb",
+		}
 	case "archive":
-		return []string{"Archive", "[Gmail]/Archive", "INBOX.Archive", "Archives"}
+		// Essayer les noms « génériques » d’abord ; chemins [Gmail]/… en dernier (délimiteur « . » OVH → erreur « / » invalide).
+		return []string{"Archive", "INBOX.Archive", "Archives", "[Gmail]/Archive"}
 	default:
 		p := strings.TrimSpace(dbFolder)
 		if p == "" {
@@ -87,7 +100,137 @@ func (h *Handler) folderAllowed(accountID int, folder string) bool {
 	return n > 0
 }
 
-// refreshImapFolderList exécute IMAP LIST et met à jour mail_imap_folders.
+func specialUseFromIMAPAttributes(attrs []string) string {
+	for _, raw := range attrs {
+		switch strings.TrimSpace(raw) {
+		case imap.TrashAttr:
+			return "trash"
+		case imap.SentAttr:
+			return "sent"
+		case imap.DraftsAttr:
+			return "drafts"
+		case imap.JunkAttr:
+			return "spam"
+		case imap.ArchiveAttr:
+			return "archive"
+		}
+	}
+	return ""
+}
+
+// inferSpecialUseFromPathAndLabel complète SPECIAL-USE (OVH FR, Exchange, etc.) sans écraser l’INBOX.
+func inferSpecialUseFromPathAndLabel(path, label string) string {
+	pl := strings.ToLower(strings.TrimSpace(path))
+	ll := strings.ToLower(strings.TrimSpace(label))
+	if pl == "inbox" && (ll == "inbox" || ll == "") {
+		return ""
+	}
+	trashHints := []string{"trash", "corbeille", "deleted items", "deleted messages", "papierkorb", "gelöscht", "[gmail]/trash", "[gmail]/bin"}
+	if containsAnySubstring(pl, trashHints) || containsAnySubstring(ll, trashHints) {
+		return "trash"
+	}
+	if strings.Contains(pl, "outbox") && !strings.Contains(pl, "sent") {
+		// Boîte d’envoi / Outbox ≠ Envoyés
+	} else if strings.HasSuffix(pl, ".sent") || strings.HasSuffix(pl, "/sent") || ll == "sent" ||
+		strings.Contains(ll, "éléments envoy") || strings.Contains(ll, "elements envoy") ||
+		strings.Contains(pl, "sent items") || strings.Contains(ll, "sent items") ||
+		strings.Contains(pl, "sent mail") || strings.Contains(pl, "[gmail]/sent") ||
+		strings.Contains(pl, "envoyé") || strings.Contains(ll, "envoyé") {
+		// OVH / FR : dossier « INBOX.Envoyés » (accents) après strings.ToLower
+		return "sent"
+	}
+	draftHints := []string{"draft", "brouillon", "[gmail]/draft"}
+	if containsAnySubstring(pl, draftHints) || containsAnySubstring(ll, draftHints) {
+		return "drafts"
+	}
+	spamHints := []string{"spam", "junk", "indésirable", "bulk mail", "courrier indésirable", "pourriel", "[gmail]/spam"}
+	if containsAnySubstring(pl, spamHints) || containsAnySubstring(ll, spamHints) {
+		return "spam"
+	}
+	archHints := []string{"[gmail]/archive", "inbox.archive", ".archive"}
+	if containsAnySubstring(pl, archHints) || ll == "archive" || ll == "archives" {
+		return "archive"
+	}
+	return ""
+}
+
+func containsAnySubstring(s string, keys []string) bool {
+	for _, k := range keys {
+		if k != "" && strings.Contains(s, k) {
+			return true
+		}
+	}
+	return false
+}
+
+func mergeUniqueImapPaths(first, second []string) []string {
+	seen := make(map[string]struct{})
+	var out []string
+	add := func(list []string) {
+		for _, raw := range list {
+			s := strings.TrimSpace(raw)
+			if s == "" {
+				continue
+			}
+			k := strings.ToLower(s)
+			if _, ok := seen[k]; ok {
+				continue
+			}
+			seen[k] = struct{}{}
+			out = append(out, s)
+		}
+	}
+	add(first)
+	add(second)
+	return out
+}
+
+// mergeImapFolderCandidates : chemins découverts (SPECIAL-USE / heuristique) en tête, puis liste statique.
+func (h *Handler) mergeImapFolderCandidates(accountID int, dbFolder string, static []string) []string {
+	role := strings.TrimSpace(strings.ToLower(dbFolder))
+	if role == "inbox" {
+		return static
+	}
+	if !isStandardMailFolder(role) {
+		if len(static) > 0 {
+			return static
+		}
+		p := strings.TrimSpace(dbFolder)
+		if p == "" {
+			return nil
+		}
+		return []string{p}
+	}
+	rows, err := h.db.Query(`
+		SELECT imap_path FROM mail_imap_folders
+		WHERE account_id = $1 AND LOWER(TRIM(imap_special_use)) = $2
+		ORDER BY LENGTH(imap_path), imap_path
+	`, accountID, role)
+	if err != nil {
+		log.Printf("[mail] mergeImapFolderCandidates query: %v", err)
+		return static
+	}
+	defer rows.Close()
+	var fromDB []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			continue
+		}
+		p = strings.TrimSpace(p)
+		if p != "" {
+			fromDB = append(fromDB, p)
+		}
+	}
+	return mergeUniqueImapPaths(fromDB, static)
+}
+
+func (h *Handler) imapCandidatesForAccountFolder(accountID int, dbFolder string) []string {
+	static := imapMailboxCandidatesForDbFolder(dbFolder)
+	return h.mergeImapFolderCandidates(accountID, dbFolder, static)
+}
+
+// refreshImapFolderList exécute IMAP LIST et met à jour mail_imap_folders (+ rôle SPECIAL-USE / heuristique).
 func (h *Handler) refreshImapFolderList(accountID int, ic *client.Client) {
 	ch := make(chan *imap.MailboxInfo, 128)
 	go func() {
@@ -115,26 +258,52 @@ func (h *Handler) refreshImapFolderList(accountID int, ic *client.Client) {
 		if idx := strings.LastIndex(path, delim); idx >= 0 && idx < len(path)-1 {
 			label = path[idx+len(delim):]
 		}
+		special := specialUseFromIMAPAttributes(info.Attributes)
+		if special == "" {
+			special = inferSpecialUseFromPathAndLabel(path, label)
+		}
+		// NOT NULL sur imap_special_use : une chaîne vide « pas de rôle » doit rester '' (NULLIF('', '') = NULL en SQL).
 		_, err := h.db.Exec(`
-			INSERT INTO mail_imap_folders (account_id, imap_path, parent_imap_path, label, delimiter)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO mail_imap_folders (account_id, imap_path, parent_imap_path, label, delimiter, imap_special_use)
+			VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), ''))
 			ON CONFLICT (account_id, imap_path) DO UPDATE SET
 				parent_imap_path = EXCLUDED.parent_imap_path,
 				label = EXCLUDED.label,
 				delimiter = EXCLUDED.delimiter,
+				imap_special_use = COALESCE(NULLIF(EXCLUDED.imap_special_use, ''), mail_imap_folders.imap_special_use),
 				updated_at = CURRENT_TIMESTAMP
-		`, accountID, path, parent, label, delim)
+			-- Ne pas écraser user_created / ui_color / ui_icon (création Cloudity ou prefs utilisateur)
+		`, accountID, path, parent, label, delim, special)
 		if err != nil {
 			log.Printf("[mail] upsert mail_imap_folders %s: %v", path, err)
 		}
 	}
 }
 
+// isBenignImapSelectErr indique une tentative de SELECT sur un nom de boîte absent ou incompatible (probe multi-fournisseur).
+func isBenignImapSelectErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return true
+	}
+	s := strings.ToLower(err.Error())
+	return strings.Contains(s, "doesn't exist") ||
+		strings.Contains(s, "does not exist") ||
+		strings.Contains(s, "mailbox doesn't exist") ||
+		strings.Contains(s, "trycreate") ||
+		strings.Contains(s, "invalid mailbox name") ||
+		strings.Contains(s, "nonexistent mailbox")
+}
+
 // syncImapMailboxMessages synchronise les en-têtes d’une boîte IMAP vers mail_messages (dbFolder = clé stockée en base).
 func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imapMailbox string, dbFolder string) (int, bool) {
 	mbox, err := ic.Select(imapMailbox, false)
 	if err != nil {
-		log.Printf("[mail] sync select %q: %v", imapMailbox, err)
+		if !isBenignImapSelectErr(err) {
+			log.Printf("[mail] sync select %q: %v", imapMailbox, err)
+		}
 		return 0, false
 	}
 	if mbox == nil || mbox.Messages == 0 {
@@ -205,15 +374,10 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 // standardImapPathsAlreadySyncedAsStandard recense les chemins de boîte déjà couverts par syncAccountIMAP (clés standard inbox, sent, …).
 func standardImapPathsAlreadySyncedAsStandard() map[string]struct{} {
 	m := make(map[string]struct{})
-	for _, p := range []string{
-		"INBOX",
-		"Sent", "[Gmail]/Sent Mail", "INBOX.Sent",
-		"Drafts", "[Gmail]/Drafts", "INBOX.Drafts",
-		"Archive", "[Gmail]/Archive", "INBOX.Archive", "Archives",
-		"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam",
-		"Trash", "[Gmail]/Trash", "Deleted Messages", "Bin", "INBOX.Trash",
-	} {
-		m[strings.ToLower(strings.TrimSpace(p))] = struct{}{}
+	for _, role := range []string{"inbox", "sent", "drafts", "archive", "spam", "trash"} {
+		for _, p := range imapMailboxCandidatesForDbFolder(role) {
+			m[strings.ToLower(strings.TrimSpace(p))] = struct{}{}
+		}
 	}
 	return m
 }
@@ -221,7 +385,10 @@ func standardImapPathsAlreadySyncedAsStandard() map[string]struct{} {
 // syncListedImapFoldersExtra synchronise les en-têtes pour chaque dossier listé en mail_imap_folders hors boîtes standard.
 func (h *Handler) syncListedImapFoldersExtra(accountID int, ic *client.Client) int {
 	skip := standardImapPathsAlreadySyncedAsStandard()
-	rows, err := h.db.Query(`SELECT imap_path FROM mail_imap_folders WHERE account_id = $1`, accountID)
+	rows, err := h.db.Query(`
+		SELECT imap_path FROM mail_imap_folders
+		WHERE account_id = $1 AND COALESCE(imap_special_use, '') = ''
+	`, accountID)
 	if err != nil {
 		log.Printf("[mail] imap folders list for extra sync: %v", err)
 		return 0
@@ -265,7 +432,8 @@ func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
 		return
 	}
 	rows, err := h.db.Query(`
-		SELECT imap_path, parent_imap_path, label, delimiter
+		SELECT imap_path, parent_imap_path, label, delimiter, COALESCE(imap_special_use, ''),
+		       COALESCE(user_created, false), COALESCE(ui_color, ''), COALESCE(ui_icon, '')
 		FROM mail_imap_folders
 		WHERE account_id = $1
 		ORDER BY imap_path
@@ -280,11 +448,15 @@ func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
 		ParentImapPath string `json:"parent_imap_path"`
 		Label          string `json:"label"`
 		Delimiter      string `json:"delimiter"`
+		ImapSpecialUse string `json:"imap_special_use,omitempty"`
+		UserCreated    bool   `json:"user_created"`
+		UiColor        string `json:"ui_color,omitempty"`
+		UiIcon         string `json:"ui_icon,omitempty"`
 	}
 	var list []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.ImapPath, &r.ParentImapPath, &r.Label, &r.Delimiter); err != nil {
+		if err := rows.Scan(&r.ImapPath, &r.ParentImapPath, &r.Label, &r.Delimiter, &r.ImapSpecialUse, &r.UserCreated, &r.UiColor, &r.UiIcon); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

@@ -6,6 +6,15 @@
 
 **Référence CI** : le workflow **`.github/workflows/docker-unit-tests.yml`** lance **`make test`** sur chaque push / PR vers `main` ou `master` : même batterie que en local **dans les conteneurs** (pas de « seulement npm test sur l’hôte » pour valider la fusion). Après un **`make up`** réussi, **`make test-docker`** rejoue Go / pytest / Vitest via **`docker compose exec`** sur les processus **déjà en cours d’exécution** (double vérif que ce qui tourne dans la stack est testable).
 
+### Migrations PostgreSQL (schéma)
+
+| Commande | Rôle |
+|----------|------|
+| **`make migrate`** | À lancer **à la racine du dépôt** : `docker compose … run --rm db-migrate` — applique les fichiers **`infrastructure/postgresql/migrations/*.sql`** non encore joués (idempotent). **Prérequis** : démon Docker ; Postgres joignable (souvent **`make up`** avant, ou le `run` remonte Postgres via les dépendances du service). |
+| **`make rebuild`** | Rebuild des images + **`make up`** + exécution **`db-migrate`** (comme au premier démarrage des services) — pratique après une mise à jour du dépôt qui ajoute des migrations SQL. |
+
+**`make test`** (Vitest, Go, pytest) **ne rejoue pas** les fichiers SQL de migration : il valide le **code**. Le schéma est supposé à jour grâce à **`make migrate`**, **`make rebuild`**, ou le **`db-migrate`** déclenché au **`make up`**. Pour vérifier manuellement : après migrate, contrôler les tables / colonnes (ex. Adminer sur le port 6083). **Idée backlog** : outil CLI ou écran **admin** (web + mobile admin) listant version / état des migrations — voir **STATUS.md**, **TODO.md**, **SYNC-BACKLOG §0d**, **PLAN §11**.
+
 **Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](./MOBILES.md)**.
 
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
@@ -19,6 +28,8 @@
 | Commande | Rôle |
 |----------|------|
 | **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **admin-dashboard** : `compose run --no-deps` + Vitest. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
+| **`make test-auth`** | Smoke **auth-service** seul (`go test -v -count=1 ./...` dans le conteneur). Pratique pour valider Docker sans lancer toute la batterie. |
+| **`make test-go-one SERVICE=nom`** | Smoke **un** service Go (`api-gateway`, `mail-directory-service`, `drive-service`, …) — **`SERVICE`** = clé exacte dans **docker-compose.yml**. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make tests`** | **TOUT** : unit/app + E2E + **Playwright** + sécurité + **mobile Flutter Photos + Drive + Mail** (`test-mobile-suite`). Rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
 | **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et `npx playwright` tournent en général sur la **machine hôte** (pas dans l’image Docker du dashboard) ; le reste de **`make test`** reste **Docker**. |
@@ -29,6 +40,22 @@
 | **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
+
+**Smoke d’un seul service Go** (depuis la racine du dépôt) : privilégier **Make** (même `docker compose` que le reste du projet) :
+
+```bash
+make test-auth
+# ou un autre backend Go :
+make test-go-one SERVICE=mail-directory-service
+```
+
+Équivalent brut (sans raccourci) — **ne pas** recopier de points de suspension `…` dans la ligne de commande :
+
+```bash
+docker compose -f docker-compose.yml run --rm --no-deps auth-service go test -count=1 ./...
+```
+
+Pour tout valider avant merge : **`make test`** (tous les services + dashboard).
 
 **Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
@@ -58,7 +85,7 @@
 | Étape | Comportement |
 |--------|----------------|
 | **Flutter absent** | Message d’avertissement ; le script **sort 0** (ne fait pas échouer `make tests` sur une machine sans SDK mobile). |
-| **Hôte** | Pour chaque app : `cd mobile/<app> && flutter pub get && flutter test`. **Docker non requis.** Pas besoin de SDK inscriptible pour cette étape. |
+| **Hôte** | Pour chaque app : `cd mobile/<app> && flutter pub get && flutter test` — exécute **tous** les fichiers `test/**/*_test.dart` (ex. **`widget_test.dart`** + **`mail_validation_test.dart`** pour Mail). Le rapport compact n’affiche pas toujours chaque fichier sur une ligne ; le compteur `+N` regroupe l’ensemble. |
 | **Saut Drive / Mail** | **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** ou **`CLOUDITY_SKIP_MOBILE_MAIL=1`** pour raccourcir la suite. |
 | **ADB** | Si **`adb`** n’est pas installé ou **aucun** périphérique en état **`device`**, la partie **integration_test** est **ignorée** (sortie 0 après les tests hôte). |
 | **SDK inscriptible** | **Uniquement** si un **appareil ADB** est prêt pour l’**integration_test** : Gradle doit pouvoir écrire sous `packages/flutter_tools/gradle`. Sinon (ex. **`/usr/lib/flutter`** root sur Arch) : message explicite, **integration_test ignorée**, **sortie 0** — la phase 5 de **`make tests`** reste **OK** dès que les tests **hôte** ont réussi. **`make run-mobile`** continue d’exiger la vérif **avant** le build (voir **`run-mobile.sh`**). |
@@ -170,6 +197,10 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **tests/test_users.py** | Liste users par tenant (skip/limit) ; get user 404 ; update (validation, payload valide, body vide, is_active). |
 
 ### 3.3 Frontend — admin-dashboard (Vitest)
+
+**Workspaces (STATUS §0b A1)** : le dépôt peut avoir une racine **`frontend/package.json`** (workspaces **`admin-dashboard`** + **`packages/*`**). **`make test`** lance toujours Vitest **dans le conteneur** avec le contexte **`frontend/admin-dashboard`** (`npm install` + `npm run test`) ; en développement hôte : **`make frontend-install`** ou **`cd frontend && npm install`**, puis **`npm run test -w admin-dashboard`** (ou **`cd frontend/admin-dashboard && npm run test`**).
+
+**Si `docker compose … admin-dashboard` échoue avec `npm error 404 … @cloudity/cloudity-core`** : ce paquet **n’existe pas** sur le registre npm ; le code utilise **`admin-dashboard/src/lib/cloudityCore.ts`**. Supprimer toute entrée **`packages/cloudity-core`** / **`@cloudity/cloudity-core`** obsolète dans **`frontend/package-lock.json`**, exécuter **`cd frontend && npm install`**, puis **`docker compose build --no-cache admin-dashboard`** (voir aussi **SYNC-BACKLOG §0b**).
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|

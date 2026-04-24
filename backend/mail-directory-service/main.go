@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -199,6 +200,9 @@ func main() {
 		mail.DELETE("/me/accounts/:id/aliases/:aliasId", h.deleteAccountAlias)
 		mail.GET("/me/accounts/:id/folders/summary", h.accountFolderSummary)
 		mail.GET("/me/accounts/:id/imap-folders", h.listImapFoldersHTTP)
+		mail.POST("/me/accounts/:id/imap-folders/rename", h.renameImapFolderHTTP)
+		mail.POST("/me/accounts/:id/imap-folders/delete", h.deleteImapFolderHTTP)
+		mail.POST("/me/accounts/:id/imap-folders", h.createImapFolderHTTP)
 		mail.GET("/me/accounts/:id/tags", h.listMailTagsHTTP)
 		mail.POST("/me/accounts/:id/tags", h.createMailTagHTTP)
 		mail.PUT("/me/accounts/:id/messages/:msgId/tags", h.putMessageTagsHTTP)
@@ -740,6 +744,31 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	var accountEmail string
+	if err := h.db.QueryRow(`
+		SELECT LOWER(TRIM(email)) FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, id).Scan(&accountEmail); err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var loginEmail sql.NullString
+	if err := h.db.QueryRow(`
+		SELECT LOWER(TRIM(email)) FROM users WHERE id = current_setting('app.current_user_id', true)::INTEGER
+	`).Scan(&loginEmail); err != nil || !loginEmail.Valid || strings.TrimSpace(loginEmail.String) == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "profil utilisateur introuvable"})
+		return
+	}
+	if accountEmail == strings.TrimSpace(loginEmail.String) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Impossible de retirer la boîte dont l’adresse est identique à votre compte Cloudity : vous perdriez l’accès à l’application. Utilisez une autre adresse pour vos tests.",
+		})
+		return
+	}
+	// CASCADE : messages, pièces jointes, dossiers IMAP, étiquettes, alias — tout ce qui référence account_id.
 	res, err := h.db.Exec(`DELETE FROM user_email_accounts WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1228,8 +1257,11 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	var args []interface{}
 	p := 2
 	folderSQL := ""
+	// Vue « all » : agrégat « courrier utile » — pas corbeille / spam / brouillons (dossiers dédiés dans la barre latérale).
+	allFolderExclude := ""
 	if isAll {
 		args = []interface{}{accountID}
+		allFolderExclude = " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts')"
 	} else {
 		args = []interface{}{accountID, folder}
 		folderSQL = " AND m.folder = $2"
@@ -1250,7 +1282,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		args = append(args, rcp)
 		p++
 	}
-	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1%s%s`, tagJoin, folderSQL, extraWhere)
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1%s%s%s`, tagJoin, folderSQL, allFolderExclude, extraWhere)
 	var total int
 	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
@@ -1264,10 +1296,10 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m%s
-			WHERE m.account_id = $1%s%s
+			WHERE m.account_id = $1%s%s%s
 			ORDER BY m.date_at DESC NULLS LAST, m.id DESC
 			LIMIT %s OFFSET %s
-		`, tagJoin, folderSQL, extraWhere, limitPh, offsetPh)
+		`, tagJoin, folderSQL, allFolderExclude, extraWhere, limitPh, offsetPh)
 	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1546,7 +1578,7 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 			return nil, err
 		}
 	}
-	candidates := imapMailboxCandidatesForDbFolder(folder)
+	candidates := h.imapCandidatesForAccountFolder(accountID, folder)
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("dossier IMAP introuvable pour %q", folder)
 	}
@@ -1732,18 +1764,13 @@ func (h *Handler) moveMessageToFolder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé pour cette boîte"})
 		return
 	}
-	res, err := h.db.Exec(`
-		UPDATE mail_messages SET folder = $1
-		WHERE id = $2 AND account_id = $3
-		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, folder, msgID, accountID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+	if err := h.imapMoveMessage(accountID, msgID, folder); err != nil {
+		if errors.Is(err, errMailMessageNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+			return
+		}
+		log.Printf("[mail] move IMAP account=%d msg=%d -> %q: %v", accountID, msgID, folder, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "folder": folder})
@@ -1929,16 +1956,19 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		dbFolder  string
 	}
 	foldersToSync := []folderTry{
-		{[]string{"INBOX"}, "inbox"},
-		{[]string{"Sent", "[Gmail]/Sent Mail", "INBOX.Sent"}, "sent"},
-		{[]string{"Drafts", "[Gmail]/Drafts", "INBOX.Drafts"}, "drafts"},
-		{[]string{"Archive", "[Gmail]/Archive", "INBOX.Archive", "Archives"}, "archive"},
-		{[]string{"Spam", "Junk", "[Gmail]/Spam", "INBOX.Spam"}, "spam"},
-		{[]string{"Trash", "[Gmail]/Trash", "Deleted Messages", "Bin", "INBOX.Trash"}, "trash"},
+		{imapMailboxCandidatesForDbFolder("inbox"), "inbox"},
+		{imapMailboxCandidatesForDbFolder("sent"), "sent"},
+		{imapMailboxCandidatesForDbFolder("drafts"), "drafts"},
+		{imapMailboxCandidatesForDbFolder("archive"), "archive"},
+		{imapMailboxCandidatesForDbFolder("spam"), "spam"},
+		{imapMailboxCandidatesForDbFolder("trash"), "trash"},
 	}
+	// LIST d’abord : SPECIAL-USE + heuristique → mail_imap_folders.imap_special_use (chemins OVH FR, Exchange, etc.)
+	h.refreshImapFolderList(accountID, imapClient)
 	var totalSynced int
 	for _, ft := range foldersToSync {
-		for _, imapName := range ft.imapNames {
+		candidates := h.mergeImapFolderCandidates(accountID, ft.dbFolder, ft.imapNames)
+		for _, imapName := range candidates {
 			n, ok := h.syncImapMailboxMessages(accountID, imapClient, imapName, ft.dbFolder)
 			if ok {
 				totalSynced += n
@@ -1946,7 +1976,6 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 			}
 		}
 	}
-	h.refreshImapFolderList(accountID, imapClient)
 	totalSynced += h.syncListedImapFoldersExtra(accountID, imapClient)
 	for _, p := range body.ExtraImapFolders {
 		path := strings.TrimSpace(p)

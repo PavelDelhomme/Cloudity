@@ -1,0 +1,20 @@
+{
+  "name": "cloudity-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Racine workspaces npm — STATUS.md §0b A1. L’image Docker admin-dashboard build encore depuis frontend/admin-dashboard seul.",
+  "workspaces": [
+    "admin-dashboard",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w admin-dashboard",
+    "build": "npm run build -w admin-dashboard",
+    "test": "npm run test -w admin-dashboard",
+    "lint": "npm run lint -w admin-dashboard",
+    "preview": "npm run preview -w admin-dashboard"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

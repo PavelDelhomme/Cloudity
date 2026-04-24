@@ -1,0 +1,6 @@
+{
+  "name": "@cloudity/workspace-meta",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Placeholder workspace (STATUS A1). Future @cloudity/* packages under frontend/packages/."
+}

@@ -28,10 +28,15 @@ if [ -f backend/admin-service/requirements.txt ]; then
   echo "✅ Python deps OK"
 fi
 
-# Node (frontend admin-dashboard — inclut docx, xlsx, etc.)
-if [ -f frontend/admin-dashboard/package.json ]; then
+# Node — workspaces à la racine frontend/ (A1) si présent, sinon admin-dashboard seul
+if [ -f frontend/package.json ]; then
+  echo "  npm: frontend/ (workspaces)"
+  (cd frontend && npm install)
+elif [ -f frontend/admin-dashboard/package.json ]; then
   echo "  npm: frontend/admin-dashboard"
   (cd frontend/admin-dashboard && npm install)
+fi
+if [ -f frontend/package.json ] || [ -f frontend/admin-dashboard/package.json ]; then
   echo "✅ npm deps OK"
 fi
 

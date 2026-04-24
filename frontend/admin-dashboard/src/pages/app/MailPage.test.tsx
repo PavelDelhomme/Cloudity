@@ -26,6 +26,9 @@ vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   fetchMailAliases: vi.fn().mockResolvedValue([]),
   fetchMailImapFolders: vi.fn().mockResolvedValue([]),
+  createMailImapFolder: vi.fn().mockResolvedValue({ ok: true, imap_path: 'INBOX.Test' }),
+  renameMailImapFolder: vi.fn().mockResolvedValue({ ok: true, imap_path: 'INBOX.Test2' }),
+  deleteMailImapFolder: vi.fn().mockResolvedValue({ ok: true }),
   fetchMailTags: vi.fn().mockResolvedValue([]),
   createMailTag: vi.fn().mockResolvedValue({ id: 1, name: 'test' }),
   putMailMessageTags: vi.fn().mockResolvedValue({ ok: true }),
@@ -81,10 +84,13 @@ describe('MailPage', () => {
     mockAddNotification.mockClear()
   })
 
-  it('renders Mail title when authenticated', async () => {
+  it('affiche la barre Courrier (nouveau message) lorsque des comptes existent', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, email: 'a@test.com', label: 'Test', imap_host: 'h', imap_port: 993, smtp_host: 's', smtp_port: 587 } as any,
+    ])
     render(wrap(<MailPage />))
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Mail' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Nouveau message/i })).toBeTruthy()
     })
   })
 

@@ -21,13 +21,19 @@
 - **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
 - **Contacts** : liste/fiche OK ; groupes, import/export.
-- **Mail** : alias boîte, polling, corbeille IMAP, menu message — OK. **Sync par boîte** (icône ↻ dans la barre des boîtes, « Actualiser cette boîte », Paramètres « Sync maintenant ») — **PLAN §9**. Suite : archivage PG, règles, push (**SYNC-BACKLOG**). **Console / favicons** : **PLAN** §1–5.
+- **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **Nouveau message** : bouton dans l’en-tête à côté de **+ Ajouter une boîte** (plus de bouton flottant sur la liste). Suite : archivage PG / quota OVH, règles, push (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
 - **Mobile Mail** : **MOBILES.md** / **BACKLOG** — brouillon IMAP, PJ inline, FCM.
 - **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
 
+## Migrations base de données
+
+- **`make migrate`** (racine du repo, Docker) applique **`infrastructure/postgresql/migrations/`**. **`make rebuild`** inclut migrations + redémarrage. Détail : **[TESTS.md](./TESTS.md)** (section Migrations).
+- **Backlog** : outil dédié (CLI ou service bas niveau) + **panneau admin web / app admin mobile** pour état des migrations, verrou, rollback documenté — **STATUS**, **PLAN §11**, **SYNC-BACKLOG §0d**.
+
 ## Tests : toujours valider **dans les conteneurs**
 
-- **`make test`** : Go (`docker compose run --no-deps … go test`), **admin-service** (pytest en run ou exec), **admin-dashboard** (Vitest après `npm install` **dans l’image**). C’est la cible à viser avant merge ; évite les écarts de version Node / Go / libc entre ta machine et la stack.
+- **`make test`** : batterie complète dans Docker (Go, pytest, Vitest). C’est la cible avant merge.
+- **Smokes rapides** : **`make test-auth`** (auth seul) ; **`make test-go-one SERVICE=mail-directory-service`** (ou `drive-service`, `api-gateway`, …). Détail : **[TESTS.md](./TESTS.md)** § 1.
 - **Stack déjà démarrée** : **`make test-docker`** — mêmes tests via **`exec`** sur les binaires réellement up.
 - **CI** : **`.github/workflows/docker-unit-tests.yml`** exécute **`make test`** sur push / PR (`main`, `master`). Détail : **[TESTS.md](./TESTS.md)**.
 - Les **`npx vitest`** / **`npm run test:drive`** sur l’hôte restent utiles pour le cycle rapide en dev, mais la **vérité partagée** reste **`make test`** (Docker).

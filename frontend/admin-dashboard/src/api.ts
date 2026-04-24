@@ -1,15 +1,6 @@
-const getBaseUrl = (): string => {
-  const env = (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env
-  let base = env?.VITE_API_URL ?? ''
-  base = base ? `${base.replace(/\/$/, '')}` : ''
-  return base
-}
+import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY } from './lib/cloudityCore'
 
-export function apiUrl(path: string): string {
-  const base = getBaseUrl()
-  const pathNorm = path.startsWith('/') ? path : `/${path}`
-  return base ? `${base}${pathNorm}` : pathNorm
-}
+export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY }
 
 export type TenantResponse = {
   id: number
@@ -248,7 +239,16 @@ export async function deleteMailAccount(token: string, accountId: number): Promi
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`Delete mail account: ${res.status}`)
+  if (res.ok) return
+  const t = await res.text()
+  let msg = t
+  try {
+    const j = JSON.parse(t) as { error?: string }
+    if (j.error) msg = j.error
+  } catch {
+    /* ignore */
+  }
+  throw new Error(msg || `Suppression boîte mail: ${res.status}`)
 }
 
 export type MailMessageResponse = {
@@ -603,6 +603,12 @@ export type MailImapFolderRow = {
   parent_imap_path: string
   label: string
   delimiter: string
+  /** Rôle logique (RFC6154 / heuristique) : trash, sent, … — masqué dans la liste « autres dossiers » si doublon des entrées standard. */
+  imap_special_use?: string
+  /** Dossier créé via Cloudity (renommage / suppression autorisés côté UI). */
+  user_created?: boolean
+  ui_color?: string
+  ui_icon?: string
 }
 
 /** Arborescence dossiers telle que renvoyée par IMAP LIST (après sync). */
@@ -613,6 +619,92 @@ export async function fetchMailImapFolders(token: string, accountId: number): Pr
   if (!res.ok) throw new Error(`Mail IMAP folders: ${res.status}`)
   const data = (await res.json()) as unknown
   return Array.isArray(data) ? (data as MailImapFolderRow[]) : []
+}
+
+/** Crée un dossier IMAP sous un parent (ex. INBOX) : CREATE serveur + persistance LIST (`mail_imap_folders`). */
+export async function createMailImapFolder(
+  token: string,
+  accountId: number,
+  payload: {
+    parent_imap_path?: string
+    /** Nom simple ou chemin avec `/` (ex. `Candidatures/RH`) sous le parent. */
+    label?: string
+    path?: string
+    ui_color?: string
+    ui_icon?: string
+  }
+): Promise<{ ok: boolean; imap_path: string; parent_imap_path?: string; label?: string }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      parent_imap_path: payload.parent_imap_path ?? 'INBOX',
+      label: payload.label ?? '',
+      path: payload.path ?? '',
+      ui_color: payload.ui_color?.trim() ?? '',
+      ui_icon: payload.ui_icon?.trim() ?? '',
+    }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    let msg = t
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      if (j.error) msg = j.error
+    } catch {
+      /* corps non JSON */
+    }
+    throw new Error(msg || `Création dossier IMAP: ${res.status}`)
+  }
+  return res.json() as Promise<{ ok: boolean; imap_path: string; parent_imap_path?: string; label?: string }>
+}
+
+export async function renameMailImapFolder(
+  token: string,
+  accountId: number,
+  payload: { imap_path: string; new_label: string }
+): Promise<{ ok: boolean; imap_path: string }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/rename`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imap_path: payload.imap_path, new_label: payload.new_label }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    let msg = t
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      if (j.error) msg = j.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || `Renommage dossier IMAP: ${res.status}`)
+  }
+  return res.json() as Promise<{ ok: boolean; imap_path: string }>
+}
+
+export async function deleteMailImapFolder(
+  token: string,
+  accountId: number,
+  payload: { imap_path: string }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/delete`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ imap_path: payload.imap_path }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    let msg = t
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      if (j.error) msg = j.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg || `Suppression dossier IMAP: ${res.status}`)
+  }
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 export type MailTagResponse = {

@@ -24,7 +24,10 @@ if command -v go &>/dev/null; then
 fi
 
 # Optionnel: Node (pour lancer le front en local sur 5173)
-if command -v node &>/dev/null && [ -f frontend/admin-dashboard/package.json ]; then
+if command -v node &>/dev/null && [ -f frontend/package.json ]; then
+    echo "📦 Node: npm install (frontend workspaces)..."
+    (cd frontend && npm install)
+elif command -v node &>/dev/null && [ -f frontend/admin-dashboard/package.json ]; then
     echo "📦 Node: npm install (admin-dashboard)..."
     (cd frontend/admin-dashboard && npm install)
 fi

@@ -21,6 +21,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
+import { AppPageChromeProvider, BreadcrumbAppActionsSlot, ShellSearchAdjacentSlot } from '../appPageChromeContext'
 import { UploadProvider, DriveUploadInputs } from '../UploadProvider'
 import { UploadOverlay } from '../components/UploadOverlay'
 import GlobalSearchPalette from '../components/GlobalSearchPalette'
@@ -312,6 +313,7 @@ export default function AppLayout() {
         )}
       </aside>
       <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
+        <AppPageChromeProvider>
         <NotificationsProvider>
           <div className="shrink-0 flex items-center justify-between gap-4 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
             <div className="flex items-center gap-2 min-w-0">
@@ -338,8 +340,10 @@ export default function AppLayout() {
                 </span>
               ))}
               </nav>
+              <BreadcrumbAppActionsSlot />
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
+              <ShellSearchAdjacentSlot />
               <GlobalSearchPalette />
               <NotificationBell />
             </div>
@@ -348,6 +352,7 @@ export default function AppLayout() {
             <Outlet />
           </div>
         </NotificationsProvider>
+        </AppPageChromeProvider>
       </main>
       </div>
       <UploadOverlay />

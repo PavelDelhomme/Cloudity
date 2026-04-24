@@ -4,6 +4,8 @@
 
 ## État actuel (monolithique)
 
+**Workspaces npm (A1)** : la racine **`frontend/package.json`** déclare des workspaces (**`admin-dashboard`**, **`packages/*`**) avec un lockfile **`frontend/package-lock.json`** ; en local : **`make frontend-install`** ou **`cd frontend && npm install`**. Le build **Docker** du service **admin-dashboard** utilise encore le contexte **`./frontend/admin-dashboard`** et **`npm ci`** sur ce dossier (reproductible sans monter tout le monorepo) — unification du contexte **`./frontend`** = backlog **STATUS §0b A8**.
+
 Aujourd’hui, **une seule application Vite/React** (`frontend/admin-dashboard`) sert :
 
 - le site public (landing, login, inscription) ;

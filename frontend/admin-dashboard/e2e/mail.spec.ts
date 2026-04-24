@@ -13,7 +13,7 @@ test.describe('Mail (E2E)', () => {
     await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
     // Contenu attendu : section Boîtes mail, bouton ajouter, ou chargement / erreur
     await expect(
-      page.getByText(/Boîtes mail|Ajouter une boîte|Chargement des comptes|service Mail ne répond pas/i).first()
+      page.getByText(/Boîtes mail|Menu Mail|Chargement des comptes|service Mail ne répond pas/i).first()
     ).toBeVisible({ timeout: 5000 })
   })
 

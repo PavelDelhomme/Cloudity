@@ -21,6 +21,18 @@
 - **Paramètres Mail** : **« Sync maintenant »** (rapide) vs **« Sync avec mot de passe… »** (modale si le serveur exige une resaisie).
 - **File d’attente** : une seule sync manuelle à la fois (évite la surcharge IMAP) ; le **polling ~25 s** continue d’actualiser **toutes** les boîtes en arrière-plan.
 
+## 10. Tests Docker — smokes sans retaper `docker compose`
+
+- **`make test`** : toute la batterie unitaire / applicative (recommandé avant merge).
+- **`make test-auth`** : uniquement **auth-service** (`go test` dans l’image).
+- **`make test-go-one SERVICE=<clé-compose>`** : un autre service Go (`mail-directory-service`, `drive-service`, …). Tableau et équivalent `docker compose …` : **[TESTS.md](./TESTS.md)** § 1.
+
+## 11. Migrations SQL & évolution schéma
+
+- **Appliquer** : **`make migrate`** à la racine (Docker, service **`db-migrate`**) ; ou **`make rebuild`** après mise à jour du code incluant de nouveaux fichiers sous **`infrastructure/postgresql/migrations/`**. **`make up`** enchaîne déjà **`db-migrate`** pour les services qui en dépendent.
+- **`make test`** ne constitue pas un substitut aux migrations : il teste le code ; le schéma doit être à jour séparément (voir **TESTS.md**).
+- **À terme (produit / ops)** : vision d’un **outil ou écran admin** (web + mobile admin) pour visualiser la version de schéma, l’historique des migrations et les garde-fous — pas encore implémenté ; suivi **STATUS**, **TODO**, **SYNC-BACKLOG §0d**.
+
 ---
 
 *Suite : dépannage console et bugs connus (sections 1–7).*
@@ -96,4 +108,4 @@ En vues **Corbeille** et **Spam**, le libellé détail sous la ligne n’est plu
 
 ---
 
-*Mise à jour 2026-04 : §8–9 (hub docs + sync par boîte) ; sections 1–7 = console / dates corbeille.*
+*Mise à jour 2026-04 : §8–11 (hub, sync par boîte, smokes, migrations / backlog admin) ; sections 1–7 = console / dates corbeille.*

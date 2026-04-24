@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard dashboard-npm-ci dashboard-npm-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -33,17 +33,21 @@ help: ## Affiche ce message d'aide
 	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
+	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
 	@echo '  make rebuild   - Reconstruit tous les services, redémarre et applique les migrations (tout-en-un)'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
 	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
+	@echo '  make test-auth      - Smoke : go test auth-service seul (Docker --no-deps)'
+	@echo '  make test-go-one SERVICE=drive-service - Smoke Go pour UN service (nom = clé docker-compose.yml)'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
 	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
 	@echo '  make dashboard-npm-ci - npm ci dans frontend/admin-dashboard (valide le lockfile, comme le Dockerfile)'
 	@echo '  make dashboard-npm-install - npm install dashboard (après changement de package.json)'
+	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
@@ -137,7 +141,11 @@ create-python-project: ## Initialise le projet Python
 
 create-react-project: ## Initialise le projet React
 	@echo "⚛️  Initialisation du projet React..."
-	@cd frontend/admin-dashboard && npm install 2>/dev/null || true
+	@if [ -f frontend/package.json ]; then \
+		cd frontend && npm install 2>/dev/null || true; \
+	else \
+		cd frontend/admin-dashboard && npm install 2>/dev/null || true; \
+	fi
 	@echo "✅ Projet React initialisé"
 
 create-flutter-project: ## Initialise le projet Flutter
@@ -249,6 +257,24 @@ test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-de
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tests dashboard OK."
 
+# Smoke Go : un service à la fois (même flags que la première étape de make test)
+test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service (clé = nom du service dans docker-compose.yml)
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Usage: make test-go-one SERVICE=auth-service"; \
+		echo "Exemples: api-gateway, mail-directory-service, drive-service, photos-service, …"; \
+		exit 1; \
+	fi
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
+	@echo "🧪 $(SERVICE) (Docker go test -v -count=1 ./...)..."
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps $(SERVICE) go test -v -count=1 ./... || exit 1
+	@echo "✅ $(SERVICE) OK."
+
+test-auth: ## Raccourci : go test auth-service seul dans Docker (équivalent à compose run --no-deps auth-service)
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
+	@echo "🧪 auth-service (Docker go test -v -count=1 ./...)..."
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps auth-service go test -v -count=1 ./... || exit 1
+	@echo "✅ auth-service OK."
+
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
 tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos+Drive+Mail), sortie en direct + rapport dans reports/
 	@chmod +x scripts/run-tests-with-report.sh
@@ -295,6 +321,16 @@ dashboard-npm-install: ## npm install dans le dashboard (met à jour node_module
 	@echo "📦 npm install — frontend/admin-dashboard..."
 	@(cd frontend/admin-dashboard && npm install)
 	@echo "✅ dashboard-npm-install OK"
+
+frontend-npm-ci: ## npm ci à la racine frontend/ (workspaces : admin-dashboard + packages/*) — STATUS §0b A1
+	@echo "📦 npm ci — frontend/ (workspaces)..."
+	@(cd frontend && npm ci)
+	@echo "✅ frontend-npm-ci OK"
+
+frontend-install: ## npm install à la racine frontend/ (workspaces)
+	@echo "📦 npm install — frontend/ (workspaces)..."
+	@(cd frontend && npm install)
+	@echo "✅ frontend-install OK"
 
 test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@chmod +x scripts/test-security.sh
