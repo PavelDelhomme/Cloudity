@@ -48,7 +48,7 @@
 - **Rafraîchissement** : `refetchInterval` 60 s + focus.
 - **Upload** : `POST /drive/nodes/upload` (racine `parent_id` absent).
 
-**Suite** : sélection multiple, albums métier (API), corbeille « photos uniquement » côté serveur si besoin.
+**Suite** : **sélection multiple** (chronologie : mode Sélectionner → corbeille Drive via `DELETE /drive/nodes/:id`) ✅ ; albums métier (API), corbeille « photos uniquement » côté serveur si besoin.
 
 ---
 

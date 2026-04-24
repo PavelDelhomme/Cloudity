@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TestRouter } from '../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PhotosPage from './PhotosPage'
@@ -13,6 +13,7 @@ vi.mock('../../api', () => ({
   fetchDriveNodes: vi.fn(),
   downloadDriveFile: vi.fn(),
   uploadDriveFileWithProgress: vi.fn(),
+  deleteDriveNode: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -27,6 +28,12 @@ function wrap(ui: React.ReactElement) {
 
 describe('PhotosPage', () => {
   beforeEach(() => {
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+    } catch {
+      /* ignore */
+    }
     queryClient.clear()
     vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
       items: [],
@@ -38,6 +45,7 @@ describe('PhotosPage', () => {
     vi.mocked(api.downloadDriveFile).mockResolvedValue(
       new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' })
     )
+    vi.mocked(api.deleteDriveNode).mockResolvedValue(undefined)
   })
 
   it('affiche le titre Photos', async () => {
@@ -148,5 +156,56 @@ describe('PhotosPage', () => {
     })
     render(wrap(<PhotosPage />))
     expect(await screen.findByRole('button', { name: /Ouvrir test\.jpg/ })).toBeTruthy()
+  })
+
+  it('mode sélection : corbeille appelle deleteDriveNode pour les photos choisies', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'a.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+        {
+          id: 11,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'b.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    await screen.findByRole('button', { name: /Ouvrir a\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sélectionner a\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mettre les photos sélectionnées à la corbeille Drive' }))
+    await waitFor(() => {
+      expect(api.deleteDriveNode).toHaveBeenCalledWith('token', 10)
+    })
   })
 })

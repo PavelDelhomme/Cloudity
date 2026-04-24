@@ -13,10 +13,12 @@ import {
   Trash2,
   Lock,
   Cloud,
+  Check,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import {
+  deleteDriveNode,
   downloadDriveFile,
   fetchDriveNodes,
   fetchDrivePhotosTimeline,
@@ -70,10 +72,16 @@ function isImageFile(f: File): boolean {
 function PhotoThumb({
   node,
   token,
+  selectMode,
+  selected,
+  onToggleSelect,
   onOpen,
 }: {
   node: DriveNode
   token: string
+  selectMode: boolean
+  selected: boolean
+  onToggleSelect: () => void
   onOpen: (n: DriveNode) => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -109,10 +117,25 @@ function PhotoThumb({
   return (
     <button
       type="button"
-      aria-label={`Ouvrir ${node.name}`}
-      onClick={() => onOpen(node)}
-      className="relative aspect-square rounded-md overflow-hidden ring-1 ring-slate-200/80 dark:ring-slate-600/80 bg-slate-100 dark:bg-slate-900 shadow-sm hover:shadow-md hover:ring-2 hover:ring-brand-400/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-shadow"
+      aria-label={selectMode ? (selected ? `Désélectionner ${node.name}` : `Sélectionner ${node.name}`) : `Ouvrir ${node.name}`}
+      aria-pressed={selectMode ? selected : undefined}
+      onClick={() => (selectMode ? onToggleSelect() : onOpen(node))}
+      className={`relative aspect-square rounded-md overflow-hidden ring-1 ring-slate-200/80 dark:ring-slate-600/80 bg-slate-100 dark:bg-slate-900 shadow-sm hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 transition-shadow ${
+        selected ? 'ring-2 ring-brand-500 dark:ring-brand-400' : 'hover:ring-2 hover:ring-brand-400/60'
+      }`}
     >
+      {selectMode && (
+        <span
+          className={`absolute top-1 left-1 z-10 flex h-6 w-6 items-center justify-center rounded-md border shadow-sm ${
+            selected
+              ? 'border-brand-600 bg-brand-600 text-white'
+              : 'border-slate-300 bg-white/95 dark:border-slate-500 dark:bg-slate-800/95 text-transparent'
+          }`}
+          aria-hidden
+        >
+          {selected ? <Check className="h-4 w-4" strokeWidth={3} /> : null}
+        </span>
+      )}
       {err ? (
         <span className="absolute inset-0 flex items-center justify-center text-xs text-slate-500 p-1 text-center">
           Échec du chargement
@@ -267,6 +290,9 @@ export default function PhotosPage() {
   const tabRaw = (searchParams.get('tab') ?? 'timeline').toLowerCase()
   const tab: PhotosTab = TAB_ITEMS.some((t) => t.id === tabRaw) ? (tabRaw as PhotosTab) : 'timeline'
   const [fileDragActive, setFileDragActive] = useState(false)
+  /** Sélection multiple (chronologie) — alignement PHOTOS.md §3. */
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
 
   const setTab = useCallback(
     (next: PhotosTab) => {
@@ -309,6 +335,33 @@ export default function PhotosPage() {
 
   const sections = useMemo(() => groupTimelineByDay(flatItems), [flatItems])
 
+  const togglePhotoSelected = useCallback((id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  const selectAllVisiblePhotos = useCallback(() => {
+    setSelectedIds(new Set(flatItems.map((n) => n.id)))
+  }, [flatItems])
+
+  const clearPhotoSelection = useCallback(() => setSelectedIds(new Set()), [])
+
+  const exitPhotoSelectionMode = useCallback(() => {
+    setSelectionMode(false)
+    setSelectedIds(new Set())
+  }, [])
+
+  useEffect(() => {
+    if (tab !== 'timeline') {
+      setSelectionMode(false)
+      setSelectedIds(new Set())
+    }
+  }, [tab])
+
   const uploadMutation = useMutation({
     mutationFn: async (files: FileList | File[]) => {
       if (!accessToken) throw new Error('Non connecté')
@@ -331,6 +384,25 @@ export default function PhotosPage() {
     onError: (e: Error) => {
       toast.error(e.message || 'Échec du téléversement')
     },
+  })
+
+  const deletePhotosMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      if (!accessToken) throw new Error('Non connecté')
+      for (const id of ids) {
+        await deleteDriveNode(accessToken, id)
+      }
+    },
+    onSuccess: (_, ids) => {
+      toast.success(
+        ids.length > 1 ? `${ids.length} photos déplacées vers la corbeille Drive` : 'Photo déplacée vers la corbeille Drive'
+      )
+      setLightboxIndex(null)
+      exitPhotoSelectionMode()
+      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'timeline'] })
+      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'albums'] })
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec de la suppression'),
   })
 
   const onPickFiles = useCallback(() => fileInputRef.current?.click(), [])
@@ -542,6 +614,62 @@ export default function PhotosPage() {
 
           {flatItems.length > 0 && accessToken && (
             <>
+              <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-slate-200/80 dark:border-slate-600/60">
+                {!selectionMode ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectionMode(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Sélectionner
+                  </button>
+                ) : (
+                  <>
+                    <span className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={selectAllVisiblePhotos}
+                      className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                    >
+                      Tout sélectionner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearPhotoSelection}
+                      disabled={selectedIds.size === 0}
+                      className="text-sm font-medium text-slate-600 dark:text-slate-400 hover:underline disabled:opacity-40"
+                    >
+                      Tout désélectionner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ids = [...selectedIds]
+                        if (ids.length) deletePhotosMutation.mutate(ids)
+                      }}
+                      disabled={selectedIds.size === 0 || deletePhotosMutation.isPending}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/50 disabled:opacity-40"
+                      aria-label="Mettre les photos sélectionnées à la corbeille Drive"
+                    >
+                      {deletePhotosMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                      ) : (
+                        <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                      )}
+                      Corbeille
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exitPhotoSelectionMode}
+                      className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    >
+                      Terminer
+                    </button>
+                  </>
+                )}
+              </div>
               <div className="flex flex-col gap-10">
                 {sections.map((section) => (
                   <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
@@ -553,7 +681,15 @@ export default function PhotosPage() {
                     </h2>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-1 sm:gap-1.5">
                       {section.items.map((node) => (
-                        <PhotoThumb key={node.id} node={node} token={accessToken} onOpen={openAt} />
+                        <PhotoThumb
+                          key={node.id}
+                          node={node}
+                          token={accessToken}
+                          selectMode={selectionMode}
+                          selected={selectedIds.has(node.id)}
+                          onToggleSelect={() => togglePhotoSelected(node.id)}
+                          onOpen={openAt}
+                        />
                       ))}
                     </div>
                   </section>
