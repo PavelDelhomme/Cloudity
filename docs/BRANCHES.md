@@ -70,6 +70,38 @@ git checkout -b feat/mon-sujet
 git checkout main && git merge dev && git push origin main
 ```
 
+### 5b. Finaliser une feature d’un coup (`make feature-finish`)
+
+Quand une branche `feat/…` contient le travail à publier et que vous voulez **tout indexer**, **committer**, **pousser**, puis **renommer** la branche en `feat/finish-<dérivé-du-nom>` pour marquer la clôture côté GitHub (sans réécrire l’historique) :
+
+```bash
+make feature-finish MSG="feat(photos): galerie timeline + tests"
+```
+
+Comportement (script `scripts/feature-finish.sh`) :
+
+1. `git add -A` puis `git commit -m "MSG"` (si des changements sont en attente ; si tout est déjà commité mais **ahead** de `origin`, pas de commit vide).
+2. `git push -u origin HEAD` sur le **nom actuel** de la branche.
+3. Renommage local en `feat/finish-<slug>` (ex. `feat/photos-gallery-mobile-sync-security` → `feat/finish-photos-gallery-mobile-sync-security`).
+4. `git push -u origin` pour la nouvelle branche, puis **`git push origin --delete <ancien_nom>`** sur GitHub (best effort si la branche n’est pas protégée).
+
+Options :
+
+- `NO_RENAME=1` — commit + push uniquement, **sans** renommage.
+- `ALLOW_MAIN=1` — autoriser l’usage depuis `main` (déconseillé).
+
+Nettoyage des références après suppression sur le dépôt distant :
+
+```bash
+make git-fetch-prune
+```
+
+Supprimer **une** branche distante précise (ex. branche Cursor obsolète) :
+
+```bash
+make git-delete-remote-branch BRANCH=cursor/fix-cors-and-api-errors-on-dashboard-a59d
+```
+
 ---
 
-*Créé / mis à jour : 2026-04-11. Ajuster ce fichier si vous renommez des branches ou adoptez GitFlow strict.*
+*Créé / mis à jour : 2026-04-24 — `feature-finish`, nettoyage branches. Ajuster ce fichier si vous renommez des branches ou adoptez GitFlow strict.*

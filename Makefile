@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile feature-finish git-fetch-prune git-delete-remote-branch
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -62,7 +62,25 @@ help: ## Affiche ce message d'aide
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
 	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
+	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/BRANCHES.md)'
+	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
+	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+feature-finish: ## Commit final + push + renommage feat/finish-… : make feature-finish MSG="message de commit"
+	@if [ -z "$(MSG)" ]; then echo '❌ Indiquez MSG="votre message" (ex. make feature-finish MSG="feat(mail): PJ liste")'; exit 1; fi
+	@chmod +x scripts/feature-finish.sh
+	@MSG="$(MSG)" NO_RENAME="$(NO_RENAME)" ALLOW_MAIN="$(ALLOW_MAIN)" ./scripts/feature-finish.sh
+
+git-fetch-prune: ## git fetch origin --prune (refs distantes alignées après suppressions sur GitHub)
+	@git fetch origin --prune
+	@echo '✅ fetch --prune terminé.'
+
+git-delete-remote-branch: ## Supprime une branche sur origin : make git-delete-remote-branch BRANCH=cursor/…
+	@if [ -z "$(BRANCH)" ]; then echo '❌ Indiquez BRANCH=nom-complet (ex. BRANCH=cursor/fix-cors-and-api-errors-on-dashboard-a59d)'; exit 1; fi
+	@git push origin --delete "$(BRANCH)"
+	@git fetch origin --prune
+	@echo "✅ Branche distante supprimée : $(BRANCH)"
 
 run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/MOBILES.md
 	@chmod +x scripts/run-mobile.sh 2>/dev/null || true
