@@ -20,10 +20,11 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 | Domaine | Pistes |
 |---------|--------|
 | **Photos** | **Priorité actuelle** : microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
-| **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; archivage §1. |
+| **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; **suite web prioritaire : pièces jointes** (liste, tailles, téléchargement fiable multi-boîtes) ; archivage §1. |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
-| **Contacts** | §10, import / export, groupes, lien Mail ↔ fiches. |
+| **Contacts** | §10, import / export, groupes ; **lien Mail ↔ fiches** (liaison produit complète) **après MVP Mail web** — accès contact depuis un message déjà partiel côté dashboard. |
 | **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
+| **Perf / observabilité** | Sync IMAP, gros volumes mail et uploads Drive : intérêt de **mesurer** latence et charge (gateway, workers) — voir **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; rester aligné **SECURITE.md** (pas d’optimisation qui affaiblit TLS, auth ou quotas). |
 
 ---
 

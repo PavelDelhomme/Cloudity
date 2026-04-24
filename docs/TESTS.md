@@ -17,6 +17,8 @@
 
 **Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](./MOBILES.md)**.
 
+**Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
+
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
 **Stratégie sécurité / confiance** : **[SECURITE.md](./SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
 **Autres guides** (éditeur, archi front, sécurité détaillée, notes dev) : **[README.md](./README.md)** (index de ce dossier).

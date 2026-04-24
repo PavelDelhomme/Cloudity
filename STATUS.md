@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-04-11 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**). **§0b A1** : workspaces npm racine **`frontend/`** (détail tableau ci-dessous). **Mail** : barre de page allégée (**Nouveau message** seul) ; comptes / Google / paramètres app / synchro dans **« Menu Mail »** à côté du fil d’Ariane (**`AppPageChromeContext`** — réutilisable Calendar, etc.). **Migrations** : voir tableau §0 (**`make migrate`**) et **TESTS.md** / **SYNC-BACKLOG §0d**.  
+**Dernière mise à jour** : 2026-04-11 (convention doc : racine **README** + **STATUS** + **BACKLOG.md** ; ROADMAP / TESTS / MOBILES / PlanImplementation / guides → **`docs/`**). **§0b A1** : workspaces npm racine **`frontend/`** (détail tableau ci-dessous). **Mail** : barre de page allégée (**Nouveau message** seul) ; comptes / Google / paramètres app / synchro dans **« Menu Mail »** à côté du fil d’Ariane (**`AppPageChromeContext`** — réutilisable Calendar, etc.). **Migrations** : voir tableau §0 (**`make migrate`**) et **TESTS.md** / **SYNC-BACKLOG §0d**. **Performances** : **[docs/PERFORMANCES.md](./docs/PERFORMANCES.md)** + **BACKLOG** n°9 + **ROADMAP TR-06** ; gros exports de trace ignorés par **`.gitignore`**.  
 **Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security` pour Photos galerie + mobile + sync + durcissement sécurité). Détail : **[docs/BRANCHES.md](./docs/BRANCHES.md)**.  
 **Document de référence** : ce fichier sert de **référence unique** pour l'avancement et les prochaines étapes. *(Fichier canonique : `STATUS.md` à la racine du repo.)*
 
@@ -8,7 +8,7 @@
 
 **Backlog condensé (démarrage / priorités)** : **[BACKLOG.md](./BACKLOG.md)** — point d’entrée avant le détail **SYNC-BACKLOG** / **ROADMAP**.
 
-**Catalogue produit & mobile** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/MOBILES.md](./docs/MOBILES.md)** — matrice **web / mobile** + **admin mobile** (ADM-02). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**.
+**Catalogue produit & mobile** : **[docs/ROADMAP.md](./docs/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/MOBILES.md](./docs/MOBILES.md)** — matrice **web / mobile** + **admin mobile** (ADM-02). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**. **Performances & diagnostic** (stack actuelle, leviers d’optimisation, alternatives, sans sacrifier **SECURITE** ni l’UX) : **[docs/PERFORMANCES.md](./docs/PERFORMANCES.md)** ; exports **React Profiler** / **Chrome Performance** (`profiling-data*.json`, `Trace-*.json` / `.tgz`) : **ne pas versionner** (voir **PERFORMANCES §8** et `.gitignore`).
 
 **Sécurité & confiance (vision suite Google + niveau Proton, phases, signatures requêtes, Zero Trust, WAF)** : **[docs/SECURITE.md](./docs/SECURITE.md)** — complète **[docs/SECURITE-DONNEES.md](./docs/SECURITE-DONNEES.md)** (chiffrement, durcissement HTTP, TR-01).
 

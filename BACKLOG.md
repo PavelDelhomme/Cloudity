@@ -29,11 +29,12 @@
 | 1 | **Photos** | API timeline, galerie web, **mobile/photos**, sync sobre — **docs/PHOTOS.md** |
 | 2 | **Mail** | Dossiers IMAP §0b SYNC-BACKLOG (dont **logs** probes / gateway), recherche §9, PJ, archivage §1 |
 | 3 | **Pass** | Style Proton, alias — **ROADMAP APP-04** |
-| 4 | **Contacts** | Groupes, import/export, lien Mail ↔ fiches |
+| 4 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
 | 5 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 6 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** workspaces ✅ ; **A2/A3** `cloudityCore.ts` ; **A3.1** Mail dossiers / IMAP+BDD ; **A4–A10**) |
 | 7 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 8 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
+| 9 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/PERFORMANCES.md**, **ROADMAP TR-06** |
 
 ### Suite « Google + Proton » (rappel)
 

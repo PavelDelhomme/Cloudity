@@ -2,6 +2,11 @@
 reports/
 **/test-results-drive-loop.json
 
+# Exports de profiling (Chrome Performance, React DevTools Profiler) — souvent volumineux ; voir docs/PERFORMANCES.md §8
+profiling-data*.json
+Trace-*.json
+Trace-*.tgz
+
 # Dépendances et artefacts de build (ne pas versionner)
 node_modules/
 dist/

@@ -9,6 +9,7 @@
 - **[PlanImplementation.md](./PlanImplementation.md)** — phases long terme, métriques, ressources.
 - **[README.md](./README.md)** (ce dossier) — index des guides thématiques (éditeur, architecture front, évolution plateforme, sécurité approfondie, TODO dev).
 - **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** — backlog opérationnel sync web/mobile, `make run-mobile`, session, archivage mail (complète **TR-07**).
+- **[PERFORMANCES.md](./PERFORMANCES.md)** — stack, diagnostic, leviers d’optimisation ; prolonge **TR-06**.
 
 **Comment ajouter une application** : copier le **modèle vierge** en fin de document, remplir les champs, ajuster l’ID (ex. `APP-NN`), cocher le statut.
 
@@ -76,15 +77,15 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Fonctionnalités** | Workspaces npm ; packages `@cloudity/*` (noms à finaliser) ; app suite utilisateur vs `admin-console`. |
 | **Statut** | Non démarré (voir STATUS § 0b, A1–A13). |
 
-### TR-06 — Observabilité et qualité
+### TR-06 — Observabilité, qualité et performances
 
 | Champ | Contenu |
 |--------|---------|
-| **Description** | Tests automatisés, traces, logs structurés. |
-| **Objectif** | Régressions visibles tôt. |
-| **Fonctionnalités** | `make test`, Playwright, rapports ; logs corrélés request-id (cible). |
-| **Statut** | En cours. |
-| **Liens** | [TESTS.md](./TESTS.md) |
+| **Description** | Tests automatisés, traces, logs structurés ; **diagnostic de performance** (web, gateway, services, mobile) dans le périmètre produit. |
+| **Objectif** | Régressions visibles tôt ; **mesurer** latence et charge avant optimisations ; garder la suite **aussi légère que raisonnable** sans compromettre [SECURITE.md](./SECURITE.md) ni l’UX. |
+| **Fonctionnalités** | `make test`, Playwright, rapports ; logs corrélés `request-id` (cible) ; métriques p50/p95 (cible) ; budgets Web Vitals sur routes clés ; `pprof` / traces Go sous contrôle ; Flutter profile. **Inventaire et pistes** : [PERFORMANCES.md](./PERFORMANCES.md). |
+| **Statut** | En cours (tests + doc perf ; métriques runtime à industrialiser). |
+| **Liens** | [TESTS.md](./TESTS.md), [PERFORMANCES.md](./PERFORMANCES.md), [STATUS.md](../STATUS.md) |
 
 ### TR-07 — Synchronisation des données (web + mobile, cible)
 

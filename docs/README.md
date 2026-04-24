@@ -17,6 +17,7 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[SECURITE.md](./SECURITE.md)** | Vision Google + Proton, phases, signatures requêtes, Zero Trust, WAF ; complète SECURITE-DONNEES |
 | **[PHOTOS.md](./PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie |
 | **[BRANCHES.md](./BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité |
+| **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf / alternatives, artefacts `Trace-*` / `profiling-data*` |
 
 **Mobile** : `make run-mobile APP=Admin` (ou `APP=Mail`, etc. — voir message script si pas encore scaffold) ; détail [MOBILES.md](./MOBILES.md) § 5.
 
@@ -37,4 +38,4 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 
 ---
 
-*Index mis à jour : 2026-04-11 — ajout **PLAN.md** (dépannage console Mail / Vite). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*
+*Index mis à jour : 2026-04-11 — **PERFORMANCES.md** (diagnostic, stack, leviers d’optimisation, explication des exports Profiler / Chrome Trace). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*

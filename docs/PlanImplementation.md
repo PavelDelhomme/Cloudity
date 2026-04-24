@@ -23,7 +23,7 @@
 
 **À faire (priorité)** : Suite Office (éditeur de documents **maison** : TipTap, Luckysheet, intégrés au Drive) ; app **Contacts** ; app **Photos** ; **alias mail** (API + UI) ; application mobile (Drive, Office, etc.) ; téléversement Drive à valider en conditions réelles après correctifs CORS.
 
-**Détail par produit** : voir **[ROADMAP.md](./ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-06). **Mobile** : **[MOBILES.md](./MOBILES.md)**.
+**Détail par produit** : voir **[ROADMAP.md](./ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](./PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILES.md](./MOBILES.md)**.
 
 ---
 

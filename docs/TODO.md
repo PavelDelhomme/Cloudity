@@ -12,6 +12,7 @@
 | IMAP, mobile, archivage | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** |
 | Tests `make test`, Vitest, Playwright | **[TESTS.md](./TESTS.md)** |
 | Roadmap par app | **[ROADMAP.md](./ROADMAP.md)** |
+| Performances, stack, diagnostic, exports Profiler / Chrome | **[PERFORMANCES.md](./PERFORMANCES.md)** |
 | Index de tout `docs/` | **[README.md](./README.md)** |
 
 ## Priorités actuelles
@@ -20,10 +21,11 @@
 - **Drive** : Récents, recherche **`?q=`** + API **`/drive/nodes/search`** ; suite E2E, ZIP/PPT serveur (**SYNC-BACKLOG §3b**, **TESTS**).
 - **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
-- **Contacts** : liste/fiche OK ; groupes, import/export.
+- **Contacts** : liste/fiche OK ; groupes, import/export. **Liaison Mail ↔ contacts** (règles, fiches liées) : à planifier **une fois le MVP Mail web** (liste, PJ, multi-boîtes) stabilisé.
 - **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **Nouveau message** : bouton dans l’en-tête à côté de **+ Ajouter une boîte** (plus de bouton flottant sur la liste). Suite : archivage PG / quota OVH, règles, push (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
 - **Mobile Mail** : **MOBILES.md** / **BACKLOG** — brouillon IMAP, PJ inline, FCM.
 - **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
+- **Performances (chantier à industrialiser)** : état des lieux et pistes dans **PERFORMANCES.md** ; cible **ROADMAP TR-06** (métriques runtime, Web Vitals par route, `pprof` Go sous contrôle, profil Flutter) — toujours compatible **SECURITE.md** et une UX fluide.
 
 ## Migrations base de données
 

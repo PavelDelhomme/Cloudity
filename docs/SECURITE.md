@@ -1,6 +1,6 @@
 # Sécurité & confiance — vision Cloudity (Google + Proton + Zero Trust)
 
-**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](./ROADMAP.md)** (TR-01, TR-07). **Tests** : **[TESTS.md](./TESTS.md)** (`make test-security` + §4).
+**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](./ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](./PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](./TESTS.md)** (`make test-security` + §4).
 
 **Branche de référence** (fin 2025 / 2026) : `feat/photos-gallery-mobile-sync-security` — l’état **réel** du code reste la source de vérité ; ce document fixe les **objectifs** et l’**ordre d’implémentation**.
 
@@ -127,6 +127,7 @@ Documenter pour chaque feature **ce que le serveur voit**.
 | **[BACKLOG.md](../BACKLOG.md)** | Cases à cocher priorisées racine |
 | **[TESTS.md](./TESTS.md)** | `make test-security`, dettes tests sécurité |
 | **[ROADMAP.md](./ROADMAP.md)** | TR-01, TR-07, APP-xx |
+| **[PERFORMANCES.md](./PERFORMANCES.md)** | Leviers perf / alternatives ; contraintes sécurité §6 |
 
 ---
 

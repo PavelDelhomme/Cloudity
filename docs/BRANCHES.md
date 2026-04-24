@@ -2,7 +2,7 @@
 
 **Objectif** : tout le monde sait **sur quelle branche travailler** selon la fonctionnalité, et comment intégrer le code sans casser la ligne stable.
 
-**Documents liés** : [README.md](./README.md) (index `docs/`), [STATUS.md](../STATUS.md), [BACKLOG.md](../BACKLOG.md), [ROADMAP.md](./ROADMAP.md), [PHOTOS.md](./PHOTOS.md).
+**Documents liés** : [README.md](./README.md) (index `docs/`), [STATUS.md](../STATUS.md), [BACKLOG.md](../BACKLOG.md), [ROADMAP.md](./ROADMAP.md), [PHOTOS.md](./PHOTOS.md), [PERFORMANCES.md](./PERFORMANCES.md).
 
 ---
 
@@ -40,6 +40,7 @@ Fusion vers `main` : uniquement depuis **`dev`** après validation (tests, revue
 | **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/SYNC-BACKLOG.md` § 3b |
 | **Back-office admin** (écrans Tenants, Users, Domaines, rôles, **exploitation complète**) | `feat/admin-console-*` | ROADMAP **ADM-01**, **STATUS** § 0b — *l’admin web a été amorcé ; il reste à le rendre **entièrement opérationnel** (rôles fins, audit, parité ops).* |
 | **Transversal** (gateway, CI, monorepo front) | `feat/tr-*` ou `chore/infra-*` | ROADMAP **TR-03**, **TR-05** |
+| **Performances / observabilité** (métriques, budgets, profilage contrôlé) | `feat/perf-*` ou `chore/observability-*` | **PERFORMANCES.md**, ROADMAP **TR-06** ; ne pas merger des exports lourds (`Trace-*`, `profiling-data*`) |
 
 Si un chantier touche **plusieurs domaines** (ex. Photos + Drive), privilégier **une branche** avec commits logiques séparés, ou deux branches successives après merge du socle commun.
 

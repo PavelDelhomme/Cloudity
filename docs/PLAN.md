@@ -13,6 +13,7 @@
 | **[TESTS.md](./TESTS.md)** | Commandes et couverture de tests |
 | **[ROADMAP.md](./ROADMAP.md)** | Fiches par application (APP-0x) |
 | **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme |
+| **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack, conteneurs, techno par couche ; diagnostic ; leviers et alternatives ; explication `profiling-data*` / `Trace-*` |
 
 ## 9. Mail web — synchronisation par boîte (livré)
 
@@ -108,4 +109,4 @@ En vues **Corbeille** et **Spam**, le libellé détail sous la ligne n’est plu
 
 ---
 
-*Mise à jour 2026-04 : §8–11 (hub, sync par boîte, smokes, migrations / backlog admin) ; sections 1–7 = console / dates corbeille.*
+*Mise à jour 2026-04-11 : §8 inclut **PERFORMANCES.md** ; §8–11 (hub, sync par boîte, smokes, migrations / backlog admin) ; sections 1–7 = console / dates corbeille.*
