@@ -327,6 +327,34 @@ export async function fetchMailMessages(
   return { messages, total }
 }
 
+/** Liste agrégée : toutes les boîtes du compte Cloudity (exclut corbeille, spam, brouillons — comme `folder=all` par boîte). */
+export async function fetchUnifiedMailMessages(
+  token: string,
+  options?: {
+    limit?: number
+    offset?: number
+    recipient?: string
+    delivered_to?: string
+    thread_key?: string
+  }
+): Promise<MailMessagesPageResponse> {
+  const params = new URLSearchParams()
+  if (options?.limit != null) params.set('limit', String(options.limit))
+  if (options?.offset != null) params.set('offset', String(options.offset))
+  if (options?.delivered_to?.trim()) params.set('delivered_to', options.delivered_to.trim())
+  else if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
+  if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
+  const q = params.toString()
+  const res = await fetch(apiUrl(`/mail/me/messages/unified${q ? `?${q}` : ''}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail messages unifiés: ${res.status}`)
+  const data = (await res.json()) as MailMessagesPageResponse
+  const messages = Array.isArray(data.messages) ? data.messages : []
+  const total = typeof data.total === 'number' ? data.total : messages.length
+  return { messages, total }
+}
+
 export type MailAccountUpdatePayload = {
   label?: string
   password?: string
@@ -472,8 +500,8 @@ export async function markMailMessageRead(
 }
 
 export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'archive' | 'spam' | 'trash'
-/** Dossier standard, vue agrégée `all`, ou chemin IMAP synchronisé (même valeur qu’en base). */
-export type MailFolderId = MailStandardFolderId | 'all' | (string & {})
+/** Dossier standard, vue agrégée `all`, vue multi-boîtes `unified`, ou chemin IMAP synchronisé (même valeur qu’en base). */
+export type MailFolderId = MailStandardFolderId | 'all' | 'unified' | (string & {})
 
 export async function moveMailMessageToFolder(
   token: string,

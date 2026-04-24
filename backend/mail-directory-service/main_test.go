@@ -129,6 +129,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
+		mail.GET("/me/messages/unified", h.listUnifiedUserMessages)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/domains", h.listDomains)
 		mail.POST("/domains", h.createDomain)

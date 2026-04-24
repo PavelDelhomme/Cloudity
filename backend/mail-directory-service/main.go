@@ -206,6 +206,7 @@ func main() {
 		mail.GET("/me/accounts/:id/tags", h.listMailTagsHTTP)
 		mail.POST("/me/accounts/:id/tags", h.createMailTagHTTP)
 		mail.PUT("/me/accounts/:id/messages/:msgId/tags", h.putMessageTagsHTTP)
+		mail.GET("/me/messages/unified", h.listUnifiedUserMessages)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
 		mail.GET("/me/accounts/:id/messages/:msgId/attachments/:attId", h.downloadMailAttachmentHTTP)
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
@@ -1300,6 +1301,92 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 			ORDER BY m.date_at DESC NULLS LAST, m.id DESC
 			LIMIT %s OFFSET %s
 		`, tagJoin, folderSQL, allFolderExclude, extraWhere, limitPh, offsetPh)
+	rows, err := h.db.Query(selectSQL, argsSel...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	var msgList []MailMessage
+	for rows.Next() {
+		var m MailMessage
+		var dateAt sql.NullString
+		var tagCSV string
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if dateAt.Valid {
+			m.DateAt = dateAt.String
+		}
+		m.TagIDs = parseMessageTagCSV(tagCSV)
+		m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
+		msgList = append(msgList, m)
+	}
+	if msgList == nil {
+		msgList = []MailMessage{}
+	}
+	c.JSON(http.StatusOK, gin.H{"messages": msgList, "total": total})
+}
+
+// listUnifiedUserMessages liste le courrier « utile » agrégé sur toutes les boîtes du
+// utilisateur (même exclusion que folder=all : pas corbeille / spam / brouillons).
+// Les filtres tag_id ne s’appliquent pas ici (étiquettes par compte).
+func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
+	limit := 25
+	if l := c.Query("limit"); l != "" {
+		if n, _ := strconv.Atoi(l); n > 0 && n <= 100 {
+			limit = n
+		}
+	}
+	offset := 0
+	if o := c.Query("offset"); o != "" {
+		if n, _ := strconv.Atoi(o); n >= 0 {
+			offset = n
+		}
+	}
+	rcp := safeLikeContains(c.Query("recipient"))
+	dlv := safeLikeContains(c.Query("delivered_to"))
+	threadKey := strings.TrimSpace(c.Query("thread_key"))
+
+	baseAcct := `m.account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)`
+	allFolderExclude := " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts')"
+	extraWhere := ""
+	args := []interface{}{}
+	p := 1
+	if threadKey != "" {
+		extraWhere += fmt.Sprintf(" AND m.thread_key = $%d", p)
+		args = append(args, threadKey)
+		p++
+	}
+	if dlv != "" {
+		extraWhere += fmt.Sprintf(" AND LOWER(m.to_addrs) LIKE $%d", p)
+		args = append(args, dlv)
+		p++
+	} else if rcp != "" {
+		extraWhere += fmt.Sprintf(" AND (LOWER(m.to_addrs) LIKE $%d OR LOWER(m.from_addr) LIKE $%d OR LOWER(m.subject) LIKE $%d)", p, p, p)
+		args = append(args, rcp)
+		p++
+	}
+	whereClause := baseAcct + allFolderExclude + extraWhere
+	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m WHERE %s`, whereClause)
+	var total int
+	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
+		return
+	}
+	limitPh := fmt.Sprintf("$%d", p)
+	offsetPh := fmt.Sprintf("$%d", p+1)
+	argsSel := append(args, limit, offset)
+	selectSQL := fmt.Sprintf(`
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
+				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
+				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
+			FROM mail_messages m
+			WHERE %s
+			ORDER BY m.date_at DESC NULLS LAST, m.account_id DESC, m.id DESC
+			LIMIT %s OFFSET %s
+		`, whereClause, limitPh, offsetPh)
 	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

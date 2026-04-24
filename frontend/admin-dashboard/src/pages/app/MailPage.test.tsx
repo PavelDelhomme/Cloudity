@@ -13,6 +13,7 @@ vi.mock('../../notificationsContext', () => ({ useNotifications: vi.fn() }))
 vi.mock('../../api', () => ({
   fetchMailAccounts: vi.fn(),
   fetchMailMessages: vi.fn(),
+  fetchUnifiedMailMessages: vi.fn(),
   fetchMailMessage: vi.fn(),
   downloadMailAttachment: vi.fn(),
   markMailMessageRead: vi.fn(),
@@ -78,6 +79,7 @@ describe('MailPage', () => {
     })
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([])
     vi.mocked(api.fetchMailMessages).mockResolvedValue([])
+    vi.mocked(api.fetchUnifiedMailMessages).mockResolvedValue({ messages: [], total: 0 })
     vi.mocked(api.fetchMailAliases).mockResolvedValue([])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
     vi.mocked(api.moveMailMessageToFolder).mockClear()
