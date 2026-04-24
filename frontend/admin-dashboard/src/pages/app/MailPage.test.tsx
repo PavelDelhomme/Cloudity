@@ -58,10 +58,27 @@ function wrap(ui: React.ReactElement) {
   )
 }
 
+/**
+ * Active le mode sélection comme dans l’UI : clic sur l’avatar (bouton « Sélectionner le message … »).
+ * (L’ancien bouton global « Sélectionner des messages » n’existe plus ; le menu ⋮ propose aussi « Sélectionner ».)
+ */
+async function enterMailSelectionModeFromList(messageSubject: string) {
+  await screen.findByText(messageSubject)
+  fireEvent.click(
+    await screen.findByRole('button', { name: `Sélectionner le message ${messageSubject}` })
+  )
+}
+
 const mockAddNotification = vi.fn()
 
 describe('MailPage', () => {
   beforeEach(() => {
+    try {
+      localStorage.clear()
+      sessionStorage.clear()
+    } catch {
+      /* ignore */
+    }
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,
@@ -91,9 +108,7 @@ describe('MailPage', () => {
       { id: 1, email: 'a@test.com', label: 'Test', imap_host: 'h', imap_port: 993, smtp_host: 's', smtp_port: 587 } as any,
     ])
     render(wrap(<MailPage />))
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Nouveau message/i })).toBeTruthy()
-    })
+    expect(await screen.findByRole('button', { name: /Nouveau message/i })).toBeTruthy()
   })
 
   it('shows empty state when no mail accounts', async () => {
@@ -170,7 +185,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
     expect(await screen.findByText(/Page 1 \/ 2/)).toBeTruthy()
-    expect(screen.getByText(/25 par page/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Page suivante' }).disabled).toBe(false)
   })
 
   it('affiche un seul menu actions message (bouton … ou clic droit)', async () => {
@@ -243,7 +258,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
+    await enterMailSelectionModeFromList('Sujet 1')
 
     const cb1 = await screen.findByRole('checkbox', { name: /Sujet 1/ })
     const cb2 = await screen.findByRole('checkbox', { name: /Sujet 2/ })
@@ -296,7 +311,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
+    await enterMailSelectionModeFromList('Sujet 1')
     const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
     fireEvent.click(toggleAllBtn)
 
@@ -341,7 +356,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner des messages' }))
+    await enterMailSelectionModeFromList('Archive 1')
     const toggleAllBtn = await screen.findByRole('button', { name: 'Tout sélectionner (page)' })
     fireEvent.click(toggleAllBtn)
 
