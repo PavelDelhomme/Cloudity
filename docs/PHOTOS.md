@@ -14,9 +14,9 @@
 |----------------|-------------------|---------------|
 | **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (lecture `drive_nodes`, même DB que Drive) |
 | **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload + **glisser-déposer** racine Drive ; **mobile** : `mobile/photos` (session) ; **WorkManager** à faire (§ 5) |
-| **Albums / regroupements** | Albums utilisateur, « lieux », dates | **Web** : onglet **Albums** = dossiers racine Drive (MVP) ; **À faire** : tables métadonnées / albums natifs + API |
+| **Albums / regroupements** | Albums utilisateur, « lieux », dates | **Web** : onglet **Albums** = dossiers racine Drive ; ouverture d’un album → **`/app/photos?tab=albums&album=<id>`** (grille images + lightbox, retour liste). **À faire** : création d’album UI, tables métadonnées / albums natifs + API |
 | **Partage** | Liens, albums partagés | **À faire** (alignement APP-02 partage Drive) |
-| **Corbeille** | Suppression réversible | **Réutilise** la corbeille Drive (`deleted_at`) |
+| **Corbeille** | Suppression réversible | **Web** : onglet **Corbeille** = photos dans la corbeille Drive, **restauration** ; lien vers vue Drive complète. **À faire** : purge définitive depuis Photos |
 | **Recherche / visages** | Opt-in, respect vie privée | **Hors MVP** ; documenter TR-01 avant toute ML |
 
 ---
@@ -41,7 +41,9 @@
 
 ## 3. Application web (`PhotosPage`)
 
-- Grille de vignettes (colonnes type Google Photos), **lightbox** (flèches, Échap), **regroupement par jour** avec en-têtes **sticky**.
+- **Albums** : liste des dossiers racine ; clic → vue dossier (paramètre URL **`album`**). Cartes liste : mode clair / **sombre** avec bordures et dégradé léger pour éviter le « tout noir ».
+- **Barre de navigation bas** : tons proches **Material / Google Photos** (fond `#1f1f1f` en sombre, onglet actif surligné bleu `#8ab4f8` / fond discret, inactifs gris `#9aa0a6`).
+- Grille de vignettes (colonnes type Google Photos), **lightbox** (flèches, Échap), **regroupement par jour** avec en-têtes **sticky** : titre **large léger** (`Aujourd’hui` / `Hier` / date), **sous-ligne** jour complet pour contexte ; séparateur léger sous la date (alignement affichage type Google Photos web).
 - **Glisser-déposer** : déposer des fichiers image sur la page (onglet **Chronologie**) → upload racine Drive (même flux que le bouton Importer).
 - **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive, lien vers Drive avec fil d’Ariane) | **Archivé** / **Verrouillé** (guidage + roadmap ; pas d’API dédiée encore) | **Corbeille** (lien vers `/app/drive?view=trash`).
 - **État synchro** : libellé relatif basé sur le dernier `dataUpdatedAt` de la requête timeline + indicateur « mise à jour… ».
@@ -78,6 +80,8 @@ Ces règles seront détaillées dans **MOBILES.md** au fur et à mesure de l’i
 ---
 
 ## 6. Ordre de livraison (priorité produit actuelle)
+
+Règle transversale **Cloudity** : **web d’abord, mobile ensuite** (toutes les apps) — **[MOBILES.md](./MOBILES.md)** § **0**.
 
 1. **API** timeline + filtres image (**fait** : timeline de base).
 2. **Web** galerie + upload + lightbox (**MVP en cours**).

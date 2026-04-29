@@ -7,7 +7,7 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | Fichier | Rôle |
 |---------|------|
 | **[ROADMAP.md](./ROADMAP.md)** | Fiches par application + transversal (sécurité, infra, API, monorepo) ; template nouvelle app |
-| **[MOBILES.md](./MOBILES.md)** | Web vs mobile par produit, admin mobile (ADM-02) |
+| **[MOBILES.md](./MOBILES.md)** | §0 **web puis mobile** ; matrice web vs mobile par produit ; admin mobile (ADM-02) |
 | **[TESTS.md](./TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, liste des tests à ajouter |
 | **[../BACKLOG.md](../BACKLOG.md)** (racine) | Backlog actionnable : priorités, liens vers SYNC-BACKLOG / ROADMAP / TESTS |
 | **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme, métriques, ressources |

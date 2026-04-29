@@ -349,7 +349,8 @@ export default function AppLayout() {
             </div>
           </div>
           <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
-            <Outlet />
+            {/* Clé sur pathname : remonte chaque page (Drive → Photos, etc.) pour réinitialiser effets / requêtes sans F5. */}
+            <Outlet key={location.pathname} />
           </div>
         </NotificationsProvider>
         </AppPageChromeProvider>

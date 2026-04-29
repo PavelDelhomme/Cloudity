@@ -18,6 +18,15 @@
 ## Priorités actuelles
 
 - **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
+
+### Photos web — suite produit (à faire)
+
+- **Albums** : navigation **dans** un album (**livré** : URL **`/app/photos?tab=albums&album=<id>`**, grille images + lightbox, retour liste) ; **création d’album** (API + UI) ; couverture / titre ; cartes liste **mode sombre** (contraste, bordures — itéré avril 2026).
+- **Corbeille Photos** : **partiellement livré** — onglet **Corbeille** = images dans **`GET /drive/nodes/trash`**, grille + **Restaurer** (`POST …/restore`) + lien vers corbeille Drive complète ; **à faire** : suppression définitive (purge) depuis Photos, regroupement par date, UX sans doublon API.
+- **Archivé** : dossier ou étiquette **archivé** côté API + liste dans l’onglet Archivé (hors simple placeholder).
+- **Verrouillé / coffre** : espace **sécurisé** (photos sensibles, chiffrement / biométrie — alignement **SECURITE.md** / **TR-01**), navigation depuis l’onglet Verrouillé.
+- **Navigation** : barre **bas d’écran** type Google Photos (livré) ; si la sidebar app est **repliée** en `w-14` sur desktop, ajuster le décalage `left` de la barre (aujourd’hui calé sur sidebar **dépliée** `md:left-56`).
+
 - **Drive** : Récents, recherche **`?q=`** + API **`/drive/nodes/search`** ; suite E2E, ZIP/PPT serveur (**SYNC-BACKLOG §3b**, **TESTS**).
 - **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
@@ -26,6 +35,10 @@
 - **Mobile Mail** : **MOBILES.md** / **BACKLOG** — brouillon IMAP, PJ inline, FCM.
 - **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
 - **Performances (chantier à industrialiser)** : état des lieux et pistes dans **PERFORMANCES.md** ; cible **ROADMAP TR-06** (métriques runtime, Web Vitals par route, `pprof` Go sous contrôle, profil Flutter) — toujours compatible **SECURITE.md** et une UX fluide.
+
+## Ordre de livraison : applications **web** puis **mobile**
+
+Pour chaque produit de la suite (**Photos**, **Mail**, **Drive**, etc.), on vise d’abord une **expérience web complète** dans **`frontend/admin-dashboard`** (API gateway + JWT, tests **Vitest** / **`make test`**), puis on **porte ou complète** le **client mobile** (`mobile/…`, Flutter) une fois les flux et contrats d’API stabilisés. Cela évite de figer trop tôt une UX native alors que le produit évolue encore. Détail matrice web × mobile, commandes **`make run-mobile`**, et parité attendue : **[MOBILES.md](./MOBILES.md)** (§ **0** + matrice § **1**).
 
 ## Migrations base de données
 
@@ -43,6 +56,11 @@
 ## Notes techniques (rappels)
 
 - **Drive / HMR / Téléverser** : overlay + `UploadProvider`, inputs dans **AppLayout**, **TODO** historique (perf, `startTransition`) — inchangé ; détail dans les paragraphes ci-dessous si besoin de recontextualiser.
+
+### Problème résolu : hub / sidebar → Photos sans F5
+
+- **Symptôme** : depuis le tableau de bord ou une autre app, un clic vers **Photos** ne chargeait pas correctement la chronologie tant qu’on ne rechargeait pas la page.
+- **Correctif** : **`frontend/admin-dashboard/src/layouts/AppLayout.tsx`** — **`<Outlet key={location.pathname} />`** (on évite d’inclure `search` pour ne pas démonter **Drive** à chaque **`?q=`**). **Photos** : affichage chargement / vide basé sur **`isPending`** plutôt que **`isLoading`** (RQ v5).
 
 ### Problème résolu : crash HMR + lenteur au clic Téléverser
 

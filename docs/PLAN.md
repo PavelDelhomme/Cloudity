@@ -6,7 +6,8 @@
 
 | Fichier | Quand l’ouvrir |
 |---------|----------------|
-| **[TODO.md](./TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN |
+| **[TODO.md](./TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN ; § **Ordre de livraison** (web puis mobile) |
+| **[MOBILES.md](./MOBILES.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
 | **[../BACKLOG.md](../BACKLOG.md)** | Cases à cocher produit condensées |
 | **[STATUS.md](../STATUS.md)** | Suivi détaillé apps, §1c Mail/Drive/… |
 | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | IMAP, mobile, archivage mail, session |

@@ -11,9 +11,11 @@ vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../api', () => ({
   fetchDrivePhotosTimeline: vi.fn(),
   fetchDriveNodes: vi.fn(),
+  fetchDriveTrash: vi.fn(),
   downloadDriveFile: vi.fn(),
   uploadDriveFileWithProgress: vi.fn(),
   deleteDriveNode: vi.fn(),
+  restoreDriveNode: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -42,6 +44,8 @@ describe('PhotosPage', () => {
       has_more: false,
     })
     vi.mocked(api.fetchDriveNodes).mockResolvedValue([])
+    vi.mocked(api.fetchDriveTrash).mockResolvedValue([])
+    vi.mocked(api.restoreDriveNode).mockResolvedValue(undefined)
     vi.mocked(api.downloadDriveFile).mockResolvedValue(
       new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' })
     )
@@ -59,8 +63,9 @@ describe('PhotosPage', () => {
       logout: vi.fn(),
     } as unknown as ReturnType<typeof useAuth>)
     render(wrap(<PhotosPage />))
-    expect(screen.getByRole('heading', { name: 'Photos' })).toBeTruthy()
-    await screen.findByText(/Aucune photo pour l’instant/)
+    expect(await screen.findByText(/Aucune photo/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Importer des photos' })).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: 'Navigation Photos' })).toBeTruthy()
   })
 
   it('sans token, invite à se connecter', () => {
@@ -203,7 +208,7 @@ describe('PhotosPage', () => {
     await screen.findByRole('button', { name: /Ouvrir a\.jpg/ })
     fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
     fireEvent.click(screen.getByRole('button', { name: /Sélectionner a\.jpg/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Mettre les photos sélectionnées à la corbeille Drive' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mettre à la corbeille' }))
     await waitFor(() => {
       expect(api.deleteDriveNode).toHaveBeenCalledWith('token', 10)
     })

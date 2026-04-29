@@ -6,6 +6,19 @@
 
 ---
 
+## 0. Web d’abord, mobile ensuite (gouvernance produit)
+
+| Règle | Détail |
+|--------|--------|
+| **Séquence** | Pour une app donnée (ex. **Photos**, **Mail**), on **livre et durcit** le parcours **web** (`/app/…`, **`admin-dashboard`**) : navigation, listes, édition, corbeilles dédiées, etc. Le **mobile** (`mobile/<app>`, Flutter) suit pour **aligner** la même API et la même sémantique (pas l’inverse). |
+| **Pourquoi** | Une seule base **HTTP + JWT** ; itérations plus rapides sur le web ; contrats d’API et textes métier validés avant d’investir dans les écrans natifs, widgets et **WorkManager** / push. |
+| **Documentation** | **TODO.md** § « Ordre de livraison » ; **PHOTOS.md** § 6 (ordre livraison Photos) ; **SYNC-BACKLOG** (sync web ↔ mobile une fois les deux clients existent). |
+| **Tests** | Web : **Vitest** + **`make test`**. Mobile : **`make test-mobile-*`** / **`make test-mobile-suite`** — **TESTS.md** § 1b. |
+
+Les lignes du tableau § **1** ci-dessous restent la **cible** (web **et** mobile) ; la colonne **Notes** précise l’état ou le dossier Flutter quand il existe déjà.
+
+---
+
 ## 1. Matrice produit × plateforme
 
 Légende : **Web** = application navigateur (actuellement souvent `frontend/admin-dashboard`). **Mobile** = app native ou **Flutter** / **React Native** / PWA selon choix d’implémentation (à figer par produit).
