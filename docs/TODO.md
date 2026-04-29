@@ -31,8 +31,8 @@
 - **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
 - **Contacts** : liste/fiche OK ; groupes, import/export. **Liaison Mail ↔ contacts** (règles, fiches liées) : à planifier **une fois le MVP Mail web** (liste, PJ, multi-boîtes) stabilisé.
-- **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **Nouveau message** : bouton dans l’en-tête à côté de **+ Ajouter une boîte** (plus de bouton flottant sur la liste). Suite : archivage PG / quota OVH, règles, push (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
-- **Mobile Mail** : **MOBILES.md** / **BACKLOG** — brouillon IMAP, PJ inline, FCM.
+- **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **En-têtes MIME complets** : liens mail/URL cliquables en cours d’itération UX. **Actions “Nouveau/Recharger/Étiquettes”** : déplacées dans la colonne gauche entre “Boîtes mail” et “Dossiers” ; à finaliser côté responsive/collapsed. **Notifications hors page Mail (web)** : livrées via watcher global AppLayout. Suite : archivage PG / quota OVH, règles, push (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
+- **Mobile Mail** : **sync in-app périodique + bannière nouveaux messages** livré ; login mobile simplifié (**email + mot de passe**, gateway auto, affichage mot de passe, bouton inscription). Reste **notifications push système** (FCM/APNs + Linux desktop app), brouillon IMAP, PJ inline avancé, et **pilotage admin ON/OFF de l’auto-inscription** (politique sécurité).
 - **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
 - **Performances (chantier à industrialiser)** : état des lieux et pistes dans **PERFORMANCES.md** ; cible **ROADMAP TR-06** (métriques runtime, Web Vitals par route, `pprof` Go sous contrôle, profil Flutter) — toujours compatible **SECURITE.md** et une UX fluide.
 

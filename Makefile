@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile feature-finish git-fetch-prune git-delete-remote-branch
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug feature-finish git-fetch-prune git-delete-remote-branch
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -62,6 +62,13 @@ help: ## Affiche ce message d'aide
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
 	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
+	@echo '  make mobile-devices - Liste les appareils ADB'
+	@echo '  make mobile-adb-authorize - Redémarre ADB et aide à autoriser le téléphone'
+	@echo '  make mobile-doctor - Vérifie Flutter/ADB/SDK local pour mobile'
+	@echo '  make mobile-logcat-clear - Vide le buffer logcat du device ADB'
+	@echo '  make mobile-logcat - Suit logcat en direct (ADB_SERIAL optionnel)'
+	@echo '  make mobile-logcat-mail - Suit logcat filtré Cloudity/Mail/Flutter'
+	@echo '  make mobile-mail-debug - Session complète: clear logcat + test mobile mail + export logs'
 	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/BRANCHES.md)'
 	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
 	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
@@ -85,6 +92,33 @@ git-delete-remote-branch: ## Supprime une branche sur origin : make git-delete-r
 run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/MOBILES.md
 	@chmod +x scripts/run-mobile.sh 2>/dev/null || true
 	@APP="$(APP)" ./scripts/run-mobile.sh
+
+mobile-devices: ## Liste les appareils ADB détectés
+	@adb devices -l
+
+mobile-adb-authorize: ## Redémarre ADB puis affiche les devices (autorisation USB)
+	@adb kill-server || true
+	@adb start-server
+	@echo "👉 Déverrouillez le téléphone et acceptez la clé RSA « Autoriser le débogage USB »."
+	@adb devices -l
+
+mobile-doctor: ## Vérifie Flutter/ADB et fallback SDK local
+	@chmod +x scripts/mobile-doctor.sh scripts/mobile-flutter-env.sh scripts/check-flutter-sdk-writable.sh
+	@./scripts/mobile-doctor.sh
+
+mobile-logcat-clear: ## Vide logcat du device ADB (ADB_SERIAL optionnel)
+	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -c
+	@echo "✅ logcat vidé."
+
+mobile-logcat: ## Suit logcat en direct (ADB_SERIAL optionnel)
+	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -v time
+
+mobile-logcat-mail: ## Suit logcat filtré Mail/Cloudity/Flutter (ADB_SERIAL optionnel)
+	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -v time | rg --line-buffered -i "cloudity|mail|flutter|dart|imap|notification"
+
+mobile-mail-debug: ## Session debug Mail mobile: clear logcat + test + export logs
+	@chmod +x scripts/mobile-mail-debug.sh scripts/mobile-test-common.inc.sh scripts/test-mobile-mail.sh scripts/test-mobile-app.sh
+	@ADB_SERIAL="$(ADB_SERIAL)" ./scripts/mobile-mail-debug.sh
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."

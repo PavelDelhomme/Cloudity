@@ -33,6 +33,25 @@ class SessionStore {
     return prefs.getString(CloudityStorageKeys.gatewayUrl) ?? CloudityStorageKeys.defaultGateway;
   }
 
+  static Future<List<String>> gatewayCandidates() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(CloudityStorageKeys.gatewayUrl);
+    final candidates = <String>[
+      if (saved != null && saved.trim().isNotEmpty) saved.trim(),
+      CloudityStorageKeys.defaultGateway,
+      'http://10.0.2.2:6080',
+      'http://10.0.3.2:6080',
+    ];
+    final seen = <String>{};
+    final uniq = <String>[];
+    for (final c in candidates) {
+      final normalized = c.replaceAll(RegExp(r'/$'), '');
+      if (normalized.isEmpty) continue;
+      if (seen.add(normalized)) uniq.add(normalized);
+    }
+    return uniq;
+  }
+
   static Future<({AuthApi api, String access, String refresh})?> loadValidatedSession() async {
     final prefs = await SharedPreferences.getInstance();
     final gateway =

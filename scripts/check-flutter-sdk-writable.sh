@@ -5,6 +5,7 @@
 #
 # CLOUDITY_SKIP_FLUTTER_SDK_CHECK=1 — court-circuite la vérif (risque d’échec build).
 # CLOUDITY_QUIET_FLUTTER_SDK_CHECK=1 — échec sans message stderr (l’appelant explique le contexte).
+# CLOUDITY_ALLOW_READONLY_FLUTTER_SDK=1 — autorise SDK readonly si Kotlin est redirigé hors SDK.
 set -euo pipefail
 
 _cloudity_flutter_sdk_error() {
@@ -55,11 +56,21 @@ if [[ ! -d "$GDIR" ]]; then
 fi
 
 if [[ ! -w "$GDIR" ]]; then
+  if [[ "${CLOUDITY_ALLOW_READONLY_FLUTTER_SDK:-0}" == "1" ]]; then
+    if [[ -n "${KOTLIN_USER_HOME:-}" ]] || [[ "${GRADLE_OPTS:-}" == *"kotlin.project.persistent.dir="* ]]; then
+      exit 0
+    fi
+  fi
   [[ "$QUIET" != "1" ]] && _cloudity_flutter_sdk_error "$FL_ROOT" "$GDIR"
   exit 1
 fi
 
 if [[ -e "$GDIR/.kotlin" ]] && [[ ! -w "$GDIR/.kotlin" ]]; then
+  if [[ "${CLOUDITY_ALLOW_READONLY_FLUTTER_SDK:-0}" == "1" ]]; then
+    if [[ -n "${KOTLIN_USER_HOME:-}" ]] || [[ "${GRADLE_OPTS:-}" == *"kotlin.project.persistent.dir="* ]]; then
+      exit 0
+    fi
+  fi
   [[ "$QUIET" != "1" ]] && _cloudity_flutter_sdk_error "$FL_ROOT" "$GDIR"
   exit 1
 fi

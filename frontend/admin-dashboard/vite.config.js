@@ -20,8 +20,25 @@ function faviconIcoRedirect() {
   }
 }
 
+/** Force fallback HTML pour /app* même si le navigateur envoie un Accept atypique. */
+function appRouteHtmlFallback() {
+  return {
+    name: 'app-route-html-fallback',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        const u = req.url || ''
+        if (req.method !== 'GET') return next()
+        if (u === '/app' || u === '/app/' || u.startsWith('/app?') || u.startsWith('/app/')) {
+          req.url = '/'
+        }
+        next()
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), faviconIcoRedirect()],
+  plugins: [react(), faviconIcoRedirect(), appRouteHtmlFallback()],
   test: {
     globals: true,
     environment: 'jsdom',

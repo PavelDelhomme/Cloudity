@@ -48,6 +48,7 @@ class UserResponse(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    email: Optional[str] = Field(None, min_length=3, max_length=255)
     is_active: Optional[bool] = None
     role: Optional[str] = Field(None, min_length=1, max_length=50)
 

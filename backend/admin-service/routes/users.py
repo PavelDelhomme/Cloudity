@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -31,6 +32,10 @@ async def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="User not found")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(user, key, value)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email déjà utilisé pour ce tenant")
     db.refresh(user)
     return user

@@ -38,6 +38,7 @@ export type UserResponse = {
 }
 
 export type UserUpdatePayload = {
+  email?: string
   is_active?: boolean
   role?: string
 }

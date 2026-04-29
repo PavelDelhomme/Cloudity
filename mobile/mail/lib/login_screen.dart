@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
@@ -14,27 +16,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _gatewayCtrl = TextEditingController(text: 'http://10.0.2.2:6080');
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _tenantCtrl = TextEditingController(text: '1');
   String? _error;
   bool _busy = false;
+  bool _passwordVisible = false;
 
   @override
   void initState() {
     super.initState();
-    SessionStore.gatewayOrDefault().then((url) {
-      if (mounted) _gatewayCtrl.text = url;
-    });
   }
 
   @override
   void dispose() {
-    _gatewayCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
-    _tenantCtrl.dispose();
     super.dispose();
   }
 
@@ -44,23 +40,75 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
     });
     try {
-      final gateway = _gatewayCtrl.text.trim();
-      final api = AuthApi(gateway);
-      final tokens = await api.login(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
-        tenantId: _tenantCtrl.text.trim(),
-      );
+      final email = _emailCtrl.text.trim();
+      final password = _passwordCtrl.text;
+      AuthApi? selectedApi;
+      Map<String, dynamic>? tokens;
+      final gateways = await SessionStore.gatewayCandidates();
+      for (final gateway in gateways) {
+        final api = AuthApi(gateway);
+        if (!await api.authHealth()) continue;
+        selectedApi = api;
+        tokens = await api.login(email: email, password: password);
+        break;
+      }
+      if (selectedApi == null || tokens == null) {
+        throw AuthException(
+          'Impossible de joindre Cloudity automatiquement. Vérifiez la stack (make up) et USB debug (make mobile-adb-authorize).',
+        );
+      }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
       await SessionStore.saveSession(
-        gatewayUrl: gateway,
+        gatewayUrl: selectedApi.baseUrl,
         accessToken: access,
         refreshToken: refresh,
       );
-      widget.onLoggedIn(UserSession(api: api, accessToken: access, refreshToken: refresh));
+      widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
     } on AuthException catch (e) {
       setState(() => _error = e.message);
+    } on TimeoutException {
+      setState(() => _error = 'Connexion timeout. Vérifiez Cloudity (make up) et USB debug.');
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _register() async {
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
+    try {
+      final email = _emailCtrl.text.trim();
+      final password = _passwordCtrl.text;
+      AuthApi? selectedApi;
+      Map<String, dynamic>? tokens;
+      final gateways = await SessionStore.gatewayCandidates();
+      for (final gateway in gateways) {
+        final api = AuthApi(gateway);
+        if (!await api.authHealth()) continue;
+        selectedApi = api;
+        tokens = await api.register(email: email, password: password);
+        break;
+      }
+      if (selectedApi == null || tokens == null) {
+        throw AuthException('Inscription impossible: gateway Cloudity introuvable.');
+      }
+      final access = tokens['access_token']! as String;
+      final refresh = (tokens['refresh_token'] as String?) ?? '';
+      await SessionStore.saveSession(
+        gatewayUrl: selectedApi.baseUrl,
+        accessToken: access,
+        refreshToken: refresh,
+      );
+      widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } on TimeoutException {
+      setState(() => _error = 'Inscription timeout. Vérifiez Cloudity (make up) et USB debug.');
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -76,21 +124,10 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.all(20),
         children: [
           Text(
-            'Même compte que le web. Session partagée avec Photos / Drive (clés cloudity_suite_*).',
+            'Même compte que le web. Entrez e-mail + mot de passe (gateway détectée automatiquement).',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
           const SizedBox(height: 20),
-          TextField(
-            key: const ValueKey('cloudity_mail_login_gateway'),
-            controller: _gatewayCtrl,
-            decoration: const InputDecoration(
-              labelText: 'URL gateway',
-              border: OutlineInputBorder(),
-              hintText: 'http://10.0.2.2:6080 ou http://IP_LAN:6080',
-            ),
-            keyboardType: TextInputType.url,
-          ),
-          const SizedBox(height: 12),
           TextField(
             key: const ValueKey('cloudity_mail_login_email'),
             controller: _emailCtrl,
@@ -105,37 +142,45 @@ class _LoginScreenState extends State<LoginScreen> {
           TextField(
             key: const ValueKey('cloudity_mail_login_password'),
             controller: _passwordCtrl,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Mot de passe',
               border: OutlineInputBorder(),
+              suffixIcon: IconButton(
+                tooltip: _passwordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
+                onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+                icon: Icon(_passwordVisible ? Icons.visibility_off : Icons.visibility),
+              ),
             ),
-            obscureText: true,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            key: const ValueKey('cloudity_mail_login_tenant'),
-            controller: _tenantCtrl,
-            decoration: const InputDecoration(
-              labelText: 'ID tenant',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: TextInputType.number,
+            obscureText: !_passwordVisible,
+            onTapOutside: (_) => FocusScope.of(context).unfocus(),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           ],
           const SizedBox(height: 20),
-          FilledButton(
-            key: const ValueKey('cloudity_mail_login_submit'),
-            onPressed: _busy ? null : _submit,
-            child: _busy
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Se connecter'),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  key: const ValueKey('cloudity_mail_login_submit'),
+                  onPressed: _busy ? null : _submit,
+                  child: _busy
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Se connecter'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              OutlinedButton(
+                key: const ValueKey('cloudity_mail_register_submit'),
+                onPressed: _busy ? null : _register,
+                child: const Text('Créer un compte'),
+              ),
+            ],
           ),
         ],
       ),

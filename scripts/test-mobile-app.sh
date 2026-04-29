@@ -32,19 +32,27 @@ esac
 
 # shellcheck source=mobile-test-common.inc.sh
 source "${ROOT}/scripts/mobile-test-common.inc.sh"
+# shellcheck source=mobile-flutter-env.sh
+source "${ROOT}/scripts/mobile-flutter-env.sh"
 
 if [[ ! -d "$APP_DIR" ]]; then
   echo "❌ Dossier ${APP_DIR} introuvable."
   exit 1
 fi
 
-if [[ -n "${FLUTTER_ROOT:-}" ]] && [[ -x "${FLUTTER_ROOT}/bin/flutter" ]]; then
-  export PATH="${FLUTTER_ROOT}/bin:${PATH}"
-fi
+cloudity_prepare_flutter_env "$ROOT" || true
 
 if ! command -v flutter >/dev/null 2>&1; then
   echo "⚠️  Flutter absent — ${APP_LABEL} ignoré (PATH sans flutter)."
   exit 0
+fi
+
+# Contournement SDK readonly (/usr/lib/flutter) : Kotlin/Gradle écrit dans $HOME.
+KOTLIN_HOME_DEFAULT="${HOME}/.cache/cloudity-kotlin"
+export KOTLIN_USER_HOME="${KOTLIN_USER_HOME:-$KOTLIN_HOME_DEFAULT}"
+mkdir -p "$KOTLIN_USER_HOME"
+if [[ "${GRADLE_OPTS:-}" != *"kotlin.project.persistent.dir="* ]]; then
+  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dkotlin.project.persistent.dir=${KOTLIN_USER_HOME}"
 fi
 
 chmod +x "${ROOT}/scripts/check-flutter-sdk-writable.sh" 2>/dev/null || true
@@ -79,7 +87,7 @@ fi
 
 cloudity_prepare_e2e_env "$SERIAL"
 
-if ! CLOUDITY_QUIET_FLUTTER_SDK_CHECK=1 "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
+if ! CLOUDITY_ALLOW_READONLY_FLUTTER_SDK=1 CLOUDITY_QUIET_FLUTTER_SDK_CHECK=1 "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
   echo ""
   echo "ℹ️  SDK Flutter non inscriptible : integration_test ${APP_LABEL} ignorée (tests hôte OK)."
   echo "    sudo chown -R \"\$(whoami)\" /usr/lib/flutter"

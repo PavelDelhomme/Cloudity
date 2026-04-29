@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   HardDrive,
   Lock,
@@ -27,6 +28,7 @@ import { UploadOverlay } from '../components/UploadOverlay'
 import GlobalSearchPalette from '../components/GlobalSearchPalette'
 import { NotificationsProvider, useNotifications } from '../notificationsContext'
 import { formatRelativeDate } from '../utils/formatDate'
+import { fetchMailAccounts, syncMailAccount, type MailAccountResponse } from '../api'
 
 function NotificationBell() {
   const ctx = useNotifications()
@@ -97,6 +99,106 @@ function NotificationBell() {
   )
 }
 
+const GLOBAL_MAIL_SYNC_INTERVAL_MS = 25_000
+const GLOBAL_MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
+
+function notifyNewMailForAccountGlobal(
+  notificationsCtx: ReturnType<typeof useNotifications>,
+  account: MailAccountResponse,
+  synced: number
+) {
+  if (!notificationsCtx || synced <= 0) return
+  const name = (account.label?.trim() || account.email || `Boîte #${account.id}`).trim()
+  notificationsCtx.addNotification({
+    type: 'info',
+    title: synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
+    message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
+  })
+  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification('Cloudity Mail', {
+        body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
+      })
+    } catch {
+      // Ignorer les erreurs de notification navigateur.
+    }
+  }
+}
+
+/** Sync mail globale hors page Mail pour garder les notifications actives dans toute l'app. */
+function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
+  const { accessToken } = useAuth()
+  const notifications = useNotifications()
+  const queryClient = useQueryClient()
+  const accountsRef = useRef<MailAccountResponse[]>([])
+  const notificationsRef = useRef(notifications)
+  const lastSyncAtRef = useRef<number>(0)
+
+  notificationsRef.current = notifications
+
+  useEffect(() => {
+    if (!accessToken || disabled) return
+    let cancelled = false
+    fetchMailAccounts(accessToken)
+      .then((rows) => {
+        if (!cancelled) accountsRef.current = rows
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      accountsRef.current = []
+    }
+  }, [accessToken, disabled])
+
+  useEffect(() => {
+    if (!accessToken || disabled) return
+    const tick = async () => {
+      for (const acc of accountsRef.current) {
+        try {
+          const r = await syncMailAccount(accessToken, acc.id)
+          notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
+        } catch {
+          // On continue sur les autres comptes.
+        }
+      }
+      lastSyncAtRef.current = Date.now()
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+      await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+    }
+    const id = window.setInterval(tick, GLOBAL_MAIL_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [accessToken, disabled, queryClient])
+
+  useEffect(() => {
+    if (!accessToken || disabled) return
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastSyncAtRef.current < GLOBAL_MAIL_VISIBILITY_SYNC_MIN_GAP_MS) return
+      const list = accountsRef.current
+      if (list.length === 0) return
+      void (async () => {
+        for (const acc of list) {
+          try {
+            const r = await syncMailAccount(accessToken, acc.id)
+            notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
+          } catch {
+            // Ignorer.
+          }
+        }
+        lastSyncAtRef.current = Date.now()
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+      })()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [accessToken, disabled, queryClient])
+
+  return null
+}
+
 const appNav = [
   { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard, end: true },
   { name: 'Drive', href: '/app/drive', icon: HardDrive, end: false, subItem: { name: 'Corbeille', href: '/app/corbeille', icon: Trash2 } },
@@ -162,6 +264,7 @@ export default function AppLayout() {
   const location = useLocation()
   const { email, logout } = useAuth()
   const isDrive = location.pathname.startsWith('/app/drive')
+  const isMailRoute = location.pathname.startsWith('/app/mail')
   const [driveInputsReady, setDriveInputsReady] = useState(false)
   const [sidebarVisible, setSidebarVisible] = useState(getInitialSidebarVisible)
 
@@ -315,6 +418,7 @@ export default function AppLayout() {
       <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
         <AppPageChromeProvider>
         <NotificationsProvider>
+          <GlobalMailSyncWatcher disabled={isMailRoute} />
           <div className="shrink-0 flex items-center justify-between gap-4 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
             <div className="flex items-center gap-2 min-w-0">
               <button

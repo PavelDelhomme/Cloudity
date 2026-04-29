@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 
 /// Appels HTTP vers le **api-gateway** (auth + mail).
 class AuthApi {
-  AuthApi(String gatewayBase) : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
+  AuthApi(String gatewayBase)
+    : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
 
   final String _base;
 
@@ -14,10 +15,11 @@ class AuthApi {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
-    required String tenantId,
+    String tenantId = '1',
   }) async {
     final uri = Uri.parse('$_base/auth/login');
-    final res = await http.post(
+    final res = await http
+        .post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
@@ -25,7 +27,8 @@ class AuthApi {
         'password': password,
         'tenant_id': tenantId,
       }),
-    );
+    )
+        .timeout(const Duration(seconds: 8));
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -46,7 +49,46 @@ class AuthApi {
     return {'access_token': access, 'refresh_token': refresh ?? ''};
   }
 
-  Future<({String access, String refresh})> refreshTokens(String refreshToken) async {
+  Future<Map<String, dynamic>> register({
+    required String email,
+    required String password,
+    String tenantId = '1',
+  }) async {
+    final uri = Uri.parse('$_base/auth/register');
+    final res = await http
+        .post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'tenant_id': tenantId,
+      }),
+    )
+        .timeout(const Duration(seconds: 8));
+    final body = res.body.isEmpty ? '{}' : res.body;
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode != 201) {
+      final err = map['error']?.toString() ?? body;
+      throw AuthException('Inscription impossible ($res.statusCode): $err');
+    }
+    final access = map['access_token'] as String?;
+    final refresh = map['refresh_token'] as String?;
+    if (access == null || access.isEmpty) {
+      throw AuthException('Réponse serveur sans access_token après inscription.');
+    }
+    return {'access_token': access, 'refresh_token': refresh ?? ''};
+  }
+
+  Future<bool> authHealth() async {
+    final uri = Uri.parse('$_base/auth/health');
+    final res = await http.get(uri).timeout(const Duration(seconds: 3));
+    return res.statusCode == 200;
+  }
+
+  Future<({String access, String refresh})> refreshTokens(
+    String refreshToken,
+  ) async {
     final uri = Uri.parse('$_base/auth/refresh');
     final res = await http.post(
       uri,
@@ -88,7 +130,9 @@ class AuthApi {
     return res.statusCode == 200;
   }
 
-  Future<List<Map<String, dynamic>>> fetchMailAccounts(String accessToken) async {
+  Future<List<Map<String, dynamic>>> fetchMailAccounts(
+    String accessToken,
+  ) async {
     final uri = Uri.parse('$_base/mail/me/accounts');
     final res = await http.get(
       uri,
@@ -114,13 +158,14 @@ class AuthApi {
     int limit = 30,
     int offset = 0,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages').replace(
-      queryParameters: {
-        'folder': folder,
-        'limit': limit.toString(),
-        'offset': offset.toString(),
-      },
-    );
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages')
+        .replace(
+          queryParameters: {
+            'folder': folder,
+            'limit': limit.toString(),
+            'offset': offset.toString(),
+          },
+        );
     final res = await http.get(
       uri,
       headers: {'Authorization': 'Bearer $accessToken'},
@@ -133,7 +178,9 @@ class AuthApi {
     }
     final data = jsonDecode(res.body);
     if (data is List) {
-      final list = data.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final list = data
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       return (messages: list, total: list.length);
     }
     if (data is Map<String, dynamic>) {
@@ -142,7 +189,9 @@ class AuthApi {
           ? raw.map((e) => Map<String, dynamic>.from(e as Map)).toList()
           : <Map<String, dynamic>>[];
       final total = data['total'];
-      final n = total is int ? total : (total is num ? total.toInt() : list.length);
+      final n = total is int
+          ? total
+          : (total is num ? total.toInt() : list.length);
       return (messages: list, total: n);
     }
     throw AuthException('Réponse messages invalide');
@@ -171,13 +220,41 @@ class AuthApi {
     return data;
   }
 
+  /// Lance une sync IMAP serveur pour une boîte ; retourne le nombre de nouveaux messages détectés.
+  Future<int> syncMailAccount({
+    required String accessToken,
+    required int accountId,
+  }) async {
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/sync');
+    final res = await http.post(
+      uri,
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Mail sync HTTP ${res.statusCode}');
+    }
+    if (res.body.isEmpty) return 0;
+    final data = jsonDecode(res.body);
+    if (data is Map<String, dynamic>) {
+      final synced = data['synced'];
+      if (synced is int) return synced;
+      if (synced is num) return synced.toInt();
+    }
+    return 0;
+  }
+
   /// Détail d’un message (corps, pièces jointes métadonnées).
   Future<Map<String, dynamic>> fetchMailMessage({
     required String accessToken,
     required int accountId,
     required int messageId,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages/$messageId');
+    final uri = Uri.parse(
+      '$_base/mail/me/accounts/$accountId/messages/$messageId',
+    );
     final res = await http.get(
       uri,
       headers: {'Authorization': 'Bearer $accessToken'},
@@ -202,7 +279,9 @@ class AuthApi {
     required int messageId,
     required bool read,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages/$messageId/read');
+    final uri = Uri.parse(
+      '$_base/mail/me/accounts/$accountId/messages/$messageId/read',
+    );
     final res = await http.patch(
       uri,
       headers: {

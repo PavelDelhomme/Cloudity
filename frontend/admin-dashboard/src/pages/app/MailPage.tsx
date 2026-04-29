@@ -44,6 +44,7 @@ import {
   Flag,
   ShoppingCart,
   Home,
+  CalendarPlus,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
@@ -65,6 +66,7 @@ import {
   sendMailMessage,
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
+  createCalendarEvent,
   fetchMailAliases,
   fetchMailFolderSummary,
   fetchMailImapFolders,
@@ -579,6 +581,131 @@ function senderAvatarInitials(from: string | undefined, contactName?: string | n
   return base.slice(0, 2).toUpperCase()
 }
 
+/** Rend les emails/URL cliquables dans les en-têtes MIME bruts. */
+function renderTextWithLinks(text: string, keyPrefix: string): React.ReactNode[] {
+  const re = /(https?:\/\/[^\s<>"']+|mailto:[^\s<>"']+|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/gi
+  const out: React.ReactNode[] = []
+  let last = 0
+  let m: RegExpExecArray | null
+  let idx = 0
+  while ((m = re.exec(text)) !== null) {
+    const start = m.index
+    const match = m[0]
+    if (start > last) out.push(text.slice(last, start))
+    const isMail = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(match)
+    const href = isMail ? `mailto:${match}` : match
+    out.push(
+      <a
+        key={`${keyPrefix}-lk-${idx++}`}
+        href={href}
+        target={isMail ? undefined : '_blank'}
+        rel={isMail ? undefined : 'noopener noreferrer'}
+        className="underline decoration-slate-400 hover:decoration-brand-500 text-brand-700 dark:text-brand-300"
+      >
+        {match}
+      </a>
+    )
+    last = start + match.length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
+function unfoldIcsLines(input: string): string[] {
+  const raw = input.replace(/\r\n/g, '\n').split('\n')
+  const out: string[] = []
+  for (const line of raw) {
+    if ((line.startsWith(' ') || line.startsWith('\t')) && out.length > 0) out[out.length - 1] += line.slice(1)
+    else out.push(line)
+  }
+  return out
+}
+
+function parseIcsDate(raw: string): string | null {
+  const v = raw.trim()
+  if (!v) return null
+  if (/^\d{8}T\d{6}Z$/.test(v)) {
+    const y = Number(v.slice(0, 4))
+    const m = Number(v.slice(4, 6))
+    const d = Number(v.slice(6, 8))
+    const hh = Number(v.slice(9, 11))
+    const mm = Number(v.slice(11, 13))
+    const ss = Number(v.slice(13, 15))
+    return new Date(Date.UTC(y, m - 1, d, hh, mm, ss)).toISOString()
+  }
+  if (/^\d{8}T\d{6}$/.test(v)) {
+    const y = Number(v.slice(0, 4))
+    const m = Number(v.slice(4, 6))
+    const d = Number(v.slice(6, 8))
+    const hh = Number(v.slice(9, 11))
+    const mm = Number(v.slice(11, 13))
+    const ss = Number(v.slice(13, 15))
+    return new Date(y, m - 1, d, hh, mm, ss).toISOString()
+  }
+  if (/^\d{8}$/.test(v)) {
+    const y = Number(v.slice(0, 4))
+    const m = Number(v.slice(4, 6))
+    const d = Number(v.slice(6, 8))
+    return new Date(y, m - 1, d, 9, 0, 0).toISOString()
+  }
+  const dt = new Date(v)
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString()
+}
+
+function parseIcsFirstEvent(ics: string): { title: string; startAt: string; endAt: string; location?: string; description?: string } | null {
+  const lines = unfoldIcsLines(ics)
+  let inEvent = false
+  const fields: Record<string, string> = {}
+  for (const line of lines) {
+    if (line.trim().toUpperCase() === 'BEGIN:VEVENT') {
+      inEvent = true
+      continue
+    }
+    if (line.trim().toUpperCase() === 'END:VEVENT') break
+    if (!inEvent) continue
+    const idx = line.indexOf(':')
+    if (idx <= 0) continue
+    const k = line.slice(0, idx).split(';')[0].trim().toUpperCase()
+    const v = line.slice(idx + 1).trim()
+    if (!fields[k]) fields[k] = v
+  }
+  const startAt = parseIcsDate(fields.DTSTART || '')
+  if (!startAt) return null
+  const endAt = parseIcsDate(fields.DTEND || '')
+  const start = new Date(startAt)
+  const fallbackEnd = new Date(start.getTime() + 60 * 60 * 1000).toISOString()
+  return {
+    title: fields.SUMMARY?.trim() || 'Événement importé (.ics)',
+    startAt,
+    endAt: endAt || fallbackEnd,
+    location: fields.LOCATION?.trim() || undefined,
+    description: fields.DESCRIPTION?.replace(/\\n/g, '\n').trim() || undefined,
+  }
+}
+
+function sanitizeMailHtmlUnsafeInput(raw: string): string {
+  if (!raw.trim()) return ''
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(raw, 'text/html')
+    doc.querySelectorAll('script, iframe, object, embed, form, meta, base, link[rel="import"]').forEach((n) => n.remove())
+    doc.querySelectorAll<HTMLElement>('*').forEach((el) => {
+      const attrs = Array.from(el.attributes)
+      for (const a of attrs) {
+        const name = a.name.toLowerCase()
+        const value = a.value.trim().toLowerCase()
+        if (name.startsWith('on')) el.removeAttribute(a.name)
+        if ((name === 'href' || name === 'src' || name === 'xlink:href') && value.startsWith('javascript:')) {
+          el.removeAttribute(a.name)
+        }
+      }
+    })
+    return doc.body.innerHTML
+  } catch {
+    return ''
+  }
+}
+
 function formatReceivedDetail(dateAt: string | undefined): string {
   if (!dateAt) return ''
   try {
@@ -597,14 +724,11 @@ function formatReceivedDetail(dateAt: string | undefined): string {
 
 function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResponse | null }) {
   const email = extractEmailFromSender(from)
-  const urls = useMemo(() => mailFaviconCandidateUrlsFromEmail(email), [email])
-  const [urlIdx, setUrlIdx] = useState(0)
-  useEffect(() => {
-    setUrlIdx(0)
-  }, [email])
+  const src = useMemo(() => mailFaviconCandidateUrlsFromEmail(email)[0] ?? null, [email])
+  const [imgError, setImgError] = useState(false)
+  useEffect(() => setImgError(false), [src])
   const initials = senderAvatarInitials(from, contact?.name)
-  const src = urls[urlIdx] ?? null
-  const showImg = src != null && urlIdx < urls.length
+  const showImg = src != null && !imgError
   return (
     <div
       className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 dark:from-indigo-600 dark:to-violet-700 flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
@@ -615,7 +739,7 @@ function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResp
           src={src}
           alt=""
           className="h-full w-full object-cover bg-white dark:bg-slate-800"
-          onError={() => setUrlIdx((i) => i + 1)}
+          onError={() => setImgError(true)}
         />
       ) : (
         <span aria-hidden>{initials}</span>
@@ -653,6 +777,11 @@ export default function MailPage() {
   const [googleConnecting, setGoogleConnecting] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const [messagePage, setMessagePage] = useState(0)
+  const [mailSearchText, setMailSearchText] = useState('')
+  const [mailSearchSubject, setMailSearchSubject] = useState(true)
+  const [mailSearchSender, setMailSearchSender] = useState(true)
+  const [mailSearchUnreadOnly, setMailSearchUnreadOnly] = useState(false)
+  const [mailSearchWithAttachmentsOnly, setMailSearchWithAttachmentsOnly] = useState(false)
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null)
   /** Compte IMAP du message ouvert (obligatoire en vue unifiée). */
   const [selectedMessageAccountId, setSelectedMessageAccountId] = useState<number | null>(null)
@@ -959,6 +1088,24 @@ export default function MailPage() {
   })
   const messages = messagesData?.messages ?? []
   const messagesTotal = messagesData?.total ?? 0
+  const visibleMessages = useMemo(() => {
+    const q = mailSearchText.trim().toLowerCase()
+    return messages.filter((m) => {
+      if (mailSearchUnreadOnly && m.is_read) return false
+      if (mailSearchWithAttachmentsOnly && (m.attachment_count ?? 0) <= 0) return false
+      if (!q) return true
+      const inSubject = mailSearchSubject && (m.subject || '').toLowerCase().includes(q)
+      const inSender = mailSearchSender && (m.from || '').toLowerCase().includes(q)
+      return inSubject || inSender
+    })
+  }, [
+    messages,
+    mailSearchText,
+    mailSearchSubject,
+    mailSearchSender,
+    mailSearchUnreadOnly,
+    mailSearchWithAttachmentsOnly,
+  ])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
@@ -987,6 +1134,10 @@ export default function MailPage() {
     retry: 8,
     retryDelay: (attempt) => Math.min(12_000, 400 * 2 ** attempt),
   })
+  const safeSelectedMessageHtml = useMemo(
+    () => sanitizeMailHtmlUnsafeInput(selectedMessageDetail?.body_html || ''),
+    [selectedMessageDetail?.body_html]
+  )
 
   const { data: driveNodes = [], isLoading: driveNodesLoading } = useQuery({
     queryKey: ['drive', 'nodes', drivePickerParentId],
@@ -1033,6 +1184,34 @@ export default function MailPage() {
       }
     },
     [accessToken, effectiveAccountId]
+  )
+
+  const handleImportIcsAttachment = useCallback(
+    async (messageId: number, attachmentId: number, filename: string, accountId?: number) => {
+      const aid = accountId ?? effectiveAccountId
+      if (!accessToken || aid == null) return
+      try {
+        const blob = await downloadMailAttachment(accessToken, aid, messageId, attachmentId)
+        const icsText = await blob.text()
+        const event = parseIcsFirstEvent(icsText)
+        if (!event) {
+          toast.error('Fichier .ics invalide ou sans VEVENT lisible')
+          return
+        }
+        await createCalendarEvent(accessToken, {
+          title: event.title,
+          start_at: event.startAt,
+          end_at: event.endAt,
+          location: event.location,
+          description: event.description,
+        })
+        void queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] })
+        toast.success(`Événement importé depuis ${filename || '.ics'}`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Import calendrier impossible')
+      }
+    },
+    [accessToken, effectiveAccountId, queryClient]
   )
 
   const mailboxLabelForAccount = useCallback(
@@ -1246,12 +1425,15 @@ export default function MailPage() {
     const primary = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
     if (!primary) return
     const allowed = new Set([primary.toLowerCase(), ...accountAliases.map((a) => a.alias_email.toLowerCase())])
-    setComposeSlots((prev) =>
-      prev.map((s) => {
+    setComposeSlots((prev) => {
+      let changed = false
+      const next = prev.map((s) => {
         if (allowed.has(s.fromAddress.toLowerCase())) return s
+        changed = true
         return { ...s, fromAddress: primary }
       })
-    )
+      return changed ? next : prev
+    })
   }, [effectiveAccountId, accounts, accountAliases])
 
   useEffect(() => {
@@ -2144,82 +2326,6 @@ export default function MailPage() {
     <div className="flex flex-col gap-4 min-h-0 pb-6">
       {accounts.length > 0 && !is404 && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-          <button
-            type="button"
-            onClick={() => openNewCompose()}
-            disabled={accounts.length === 0}
-            className="rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 px-3 py-2 text-sm font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-slate-600 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-            title={accounts.length === 0 ? 'Ajoutez d’abord une boîte (menu Mail à côté du fil d’Ariane)' : 'Rédiger un nouveau message'}
-          >
-            <PenLine className="h-4 w-4 shrink-0" />
-            Nouveau message
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRefreshFromServer()}
-            disabled={effectiveAccountId == null || syncingAccountId !== null}
-            className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-40 shrink-0"
-            title="Actualiser (IMAP)"
-            aria-label="Actualiser (IMAP)"
-          >
-            {syncingAccountId === effectiveAccountId ? (
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-            ) : (
-              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
-            )}
-          </button>
-          {effectiveAccountId != null && activeFolder !== 'unified' ? (
-            <>
-              <span className="hidden sm:inline w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0" aria-hidden />
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 shrink-0">Étiquettes</span>
-              <button
-                type="button"
-                onClick={() => setFilterTagId(null)}
-                className={`text-xs rounded-full px-2.5 py-1 font-medium ${
-                  filterTagId == null
-                    ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
-                    : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                }`}
-              >
-                Toutes
-              </button>
-              {mailTags.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
-                  className={`text-xs rounded-full px-2.5 py-1 font-medium ${
-                    filterTagId === t.id
-                      ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  }`}
-                >
-                  {t.name}
-                </button>
-              ))}
-              <input
-                type="text"
-                value={newMailTagName}
-                onChange={(e) => setNewMailTagName(e.target.value)}
-                placeholder="Nouvelle étiquette"
-                className="text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 min-w-[6rem] max-w-[9rem]"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    mailTagMutation.mutate()
-                  }
-                }}
-              />
-              <button
-                type="button"
-                disabled={mailTagMutation.isPending || !newMailTagName.trim()}
-                onClick={() => mailTagMutation.mutate()}
-                className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40 shrink-0"
-              >
-                Créer
-              </button>
-            </>
-          ) : null}
           {effectiveAccountId != null && messages.length > 0 && (mailSelectionMode || selectedMessageIds.length > 0) ? (
             <>
               <span className="hidden md:inline w-px h-6 bg-slate-200 dark:bg-slate-600 shrink-0 mx-0.5" aria-hidden />
@@ -2459,6 +2565,90 @@ export default function MailPage() {
                 </>
               )}
             </div>
+            {!sidebarCollapsed && effectiveAccountId != null ? (
+              <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white/70 dark:bg-slate-800/40 p-2.5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openNewCompose()}
+                    className="inline-flex items-center gap-2 rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-slate-600"
+                    title="Rédiger un nouveau message"
+                  >
+                    <PenLine className="h-3.5 w-3.5 shrink-0" />
+                    Nouveau
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRefreshFromServer()}
+                    disabled={syncingAccountId !== null}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-500 px-2 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40"
+                    title="Actualiser (IMAP)"
+                  >
+                    {syncingAccountId === effectiveAccountId ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    )}
+                    Recharger
+                  </button>
+                </div>
+                {activeFolder !== 'unified' ? (
+                  <div className="space-y-1.5">
+                    <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Étiquettes</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setFilterTagId(null)}
+                        className={`text-[11px] rounded-full px-2 py-1 font-medium ${
+                          filterTagId == null
+                            ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                            : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                        }`}
+                      >
+                        Toutes
+                      </button>
+                      {mailTags.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
+                          className={`text-[11px] rounded-full px-2 py-1 font-medium ${
+                            filterTagId === t.id
+                              ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          }`}
+                        >
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={newMailTagName}
+                        onChange={(e) => setNewMailTagName(e.target.value)}
+                        placeholder="Nouvelle étiquette"
+                        className="flex-1 text-xs rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            mailTagMutation.mutate()
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={mailTagMutation.isPending || !newMailTagName.trim()}
+                        onClick={() => mailTagMutation.mutate()}
+                        className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline disabled:opacity-40 shrink-0"
+                      >
+                        Créer
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             <div className={`border-t border-slate-200 dark:border-slate-600 pt-2 ${sidebarCollapsed ? 'flex flex-col items-center' : ''}`}>
               {!sidebarCollapsed && (
                 <div className="flex items-center justify-between gap-1 px-2 mb-1">
@@ -2632,6 +2822,44 @@ export default function MailPage() {
                 </button>
               </div>
             ) : null}
+            <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={mailSearchText}
+                  onChange={(e) => setMailSearchText(e.target.value)}
+                  placeholder="Rechercher dans les mails de cette page (expéditeur, objet)"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                />
+                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                  <label className="inline-flex items-center gap-1.5">
+                    <input type="checkbox" checked={mailSearchSender} onChange={(e) => setMailSearchSender(e.target.checked)} />
+                    Expéditeur
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input type="checkbox" checked={mailSearchSubject} onChange={(e) => setMailSearchSubject(e.target.checked)} />
+                    Objet
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input type="checkbox" checked={mailSearchUnreadOnly} onChange={(e) => setMailSearchUnreadOnly(e.target.checked)} />
+                    Non lus uniquement
+                  </label>
+                  <label className="inline-flex items-center gap-1.5">
+                    <input
+                      type="checkbox"
+                      checked={mailSearchWithAttachmentsOnly}
+                      onChange={(e) => setMailSearchWithAttachmentsOnly(e.target.checked)}
+                    />
+                    Avec pièces jointes
+                  </label>
+                  {mailSearchText.trim() ? (
+                    <span className="text-slate-500 dark:text-slate-400">
+                      {visibleMessages.length} résultat(s) sur {messages.length}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            </div>
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
                     <div className="flex flex-wrap items-center gap-2">
@@ -2719,10 +2947,10 @@ export default function MailPage() {
                     : undefined
                 }
               >
-                {messages.length > 0 ? (
+                {visibleMessages.length > 0 ? (
                   <>
                     <ul className="divide-y divide-slate-200 dark:divide-slate-600 min-h-0 overflow-y-auto flex-1 overscroll-contain">
-                      {messages.map((msg) => {
+                      {visibleMessages.map((msg) => {
                         const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
                         const rowContact = senderKey ? contactsByEmail.get(senderKey) ?? null : null
                         return (
@@ -3012,7 +3240,9 @@ export default function MailPage() {
                 ) : (
                 <div className="flex flex-col items-center justify-center p-8 text-center">
                   <Mail className="h-12 w-12 text-slate-300 dark:text-slate-500" />
-                  <p className="mt-4 text-slate-600 dark:text-slate-300">Aucun message dans ce dossier</p>
+                  <p className="mt-4 text-slate-600 dark:text-slate-300">
+                    {messages.length > 0 ? 'Aucun résultat pour cette recherche' : 'Aucun message dans ce dossier'}
+                  </p>
                   <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
                     Utilisez « Menu Mail » à côté du fil d’Ariane puis « Actualiser (IMAP) », ou rédigez un message.
                   </p>
@@ -3174,9 +3404,13 @@ export default function MailPage() {
                                 Récupération des en-têtes depuis le serveur…
                               </p>
                             ) : selectedMessageDetail.raw_headers?.trim() ? (
-                              <pre className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-[11px] leading-snug font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
-                                {selectedMessageDetail.raw_headers}
-                              </pre>
+                              <div className="max-h-64 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 text-[11px] leading-snug font-mono text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-all">
+                                {selectedMessageDetail.raw_headers
+                                  .split('\n')
+                                  .map((line, i) => (
+                                    <p key={`raw-h-${i}`}>{renderTextWithLinks(line, `raw-h-${i}`)}</p>
+                                  ))}
+                              </div>
                             ) : (
                               <div className="space-y-2">
                                 <p className="text-xs text-slate-500 dark:text-slate-400 italic">
@@ -3231,26 +3465,46 @@ export default function MailPage() {
                             <ul className="flex flex-col gap-1.5">
                               {selectedMessageDetail.attachments!.map((att) => (
                                 <li key={att.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleDownloadAttachment(
-                                        selectedMessageDetail.id,
-                                        att.id,
-                                        att.filename,
-                                        selectedMessageDetail.account_id
-                                      )
-                                    }
-                                    className="w-full text-left flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-600 hover:bg-brand-50/50 dark:hover:bg-brand-900/20"
-                                  >
-                                    <Download className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-                                    <span className="flex-1 min-w-0 truncate font-medium text-slate-800 dark:text-slate-100">{att.filename}</span>
-                                    <span className="text-xs text-slate-500 shrink-0 tabular-nums">
-                                      {att.size_bytes > MAIL_INLINE_ATTACHMENT_MAX_BYTES
-                                        ? '≥ 512 Ko'
-                                        : `${Math.max(1, Math.round(att.size_bytes / 1024))} Ko`}
-                                    </span>
-                                  </button>
+                                  <div className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-brand-300 dark:hover:border-brand-600">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleDownloadAttachment(
+                                          selectedMessageDetail.id,
+                                          att.id,
+                                          att.filename,
+                                          selectedMessageDetail.account_id
+                                        )
+                                      }
+                                      className="flex flex-1 min-w-0 items-center gap-2 text-left"
+                                    >
+                                      <Download className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                                      <span className="flex-1 min-w-0 truncate font-medium text-slate-800 dark:text-slate-100">{att.filename}</span>
+                                      <span className="text-xs text-slate-500 shrink-0 tabular-nums">
+                                        {att.size_bytes > MAIL_INLINE_ATTACHMENT_MAX_BYTES
+                                          ? '≥ 512 Ko'
+                                          : `${Math.max(1, Math.round(att.size_bytes / 1024))} Ko`}
+                                      </span>
+                                    </button>
+                                    {(att.filename || '').toLowerCase().endsWith('.ics') ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleImportIcsAttachment(
+                                            selectedMessageDetail.id,
+                                            att.id,
+                                            att.filename,
+                                            selectedMessageDetail.account_id
+                                          )
+                                        }
+                                        className="inline-flex items-center gap-1 rounded-md border border-emerald-300 dark:border-emerald-700 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/25"
+                                        title="Ajouter au calendrier Cloudity"
+                                      >
+                                        <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+                                        Ajouter
+                                      </button>
+                                    ) : null}
+                                  </div>
                                 </li>
                               ))}
                             </ul>
@@ -3264,7 +3518,7 @@ export default function MailPage() {
                               selectedMessageDetail.body_html ? (
                                 <div
                                   className="mail-html-body px-5 py-6 md:px-8 md:py-8"
-                                  dangerouslySetInnerHTML={{ __html: selectedMessageDetail.body_html }}
+                                  dangerouslySetInnerHTML={{ __html: safeSelectedMessageHtml }}
                                 />
                               ) : (
                                 <div className="px-5 py-6 md:px-8 md:py-8 text-[0.9375rem] leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap font-sans">

@@ -21,11 +21,9 @@ fi
 
 NORM=$(echo "$APP_RAW" | tr '[:upper:]' '[:lower:]')
 
-# SDK dans $HOME : prioriser FLUTTER_ROOT (évite /usr/lib/flutter root-only sous pacman).
-if [[ -n "${FLUTTER_ROOT:-}" ]] && [[ -x "${FLUTTER_ROOT}/bin/flutter" ]]; then
-  export PATH="${FLUTTER_ROOT}/bin:${PATH}"
-  echo "→ Flutter : FLUTTER_ROOT=${FLUTTER_ROOT}"
-fi
+# shellcheck source=mobile-flutter-env.sh
+source "${ROOT}/scripts/mobile-flutter-env.sh"
+cloudity_prepare_flutter_env "$ROOT" || true
 
 if ! command -v flutter >/dev/null 2>&1; then
   echo "❌ Flutter n’est pas installé ou pas dans le PATH."
@@ -33,10 +31,20 @@ if ! command -v flutter >/dev/null 2>&1; then
   exit 1
 fi
 
+# Contournement Kotlin/Gradle : écrit dans $HOME.
+KOTLIN_HOME_DEFAULT="${HOME}/.cache/cloudity-kotlin"
+export KOTLIN_USER_HOME="${KOTLIN_USER_HOME:-$KOTLIN_HOME_DEFAULT}"
+mkdir -p "$KOTLIN_USER_HOME"
+if [[ "${GRADLE_OPTS:-}" != *"kotlin.project.persistent.dir="* ]]; then
+  export GRADLE_OPTS="${GRADLE_OPTS:-} -Dkotlin.project.persistent.dir=${KOTLIN_USER_HOME}"
+fi
+
 chmod +x "${ROOT}/scripts/check-flutter-sdk-writable.sh" 2>/dev/null || true
-if ! "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
+if ! CLOUDITY_ALLOW_READONLY_FLUTTER_SDK=1 "${ROOT}/scripts/check-flutter-sdk-writable.sh"; then
   exit 1
 fi
+
+echo "→ Flutter : $(command -v flutter)"
 
 # Premier dossier existant gagne (aligné sur Makefile init-mobile : mobile/mail, mobile/drive, …).
 first_existing() {
@@ -118,6 +126,8 @@ elif command -v adb >/dev/null 2>&1; then
   if [[ -n "${SERIAL}" ]]; then
     echo "   → ADB : ${SERIAL}"
     DEVICE_ARGS=(-d "${SERIAL}")
+    # Dev mobile USB : permet d'utiliser http://127.0.0.1:6080 depuis le téléphone.
+    adb -s "${SERIAL}" reverse tcp:6080 tcp:6080 >/dev/null 2>&1 || true
   fi
 fi
 

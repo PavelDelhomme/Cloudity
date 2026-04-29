@@ -25,7 +25,7 @@ Légende : **Web** = application navigateur (actuellement souvent `frontend/admi
 
 | Produit | ID ROADMAP | Web (cible) | Mobile utilisateur | Notes |
 |---------|------------|-------------|-------------------|--------|
-| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; `flutter test` (validation + widget). FCM / brouillon serveur = plus tard — **[TESTS.md](./TESTS.md)** § 1b |
+| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; **sync IMAP périodique in-app + bannière nouveaux mails** ; `flutter test` (validation + widget). **Push système (FCM/APNs/Linux desktop notifications)** et brouillon serveur = plus tard — **[TESTS.md](./TESTS.md)** § 1b |
 | **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` ; **`make test-mobile-drive`** ou phase 5 **`make test-mobile-suite`** / **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b |
 | **Office** | APP-03 | Oui (édition complète) | Viewer + édition légère (cible) | Parité complète difficile sur petit écran — prioriser lecture + commentaires |
 | **Pass** | APP-04 | Oui | Oui | Auto-fill OS / clavier ; biométrie |
