@@ -362,7 +362,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 - [ ] **API mail-directory-service** : test (ou scénario manuel) sync IMAP avec un fournisseur type OVH (ssl0.ovh.net) ; message d’erreur clair si identifiants invalides.
 - [ ] **Frontend MailPage** : tests unitaires (liste comptes, liste messages, bouton sync, formulaire envoi) ; E2E : ajouter une boîte (mock ou compte test), sync, affichage messages.
-- [ ] **Frontend MailPage** : compléter les tests actions de masse (spam, non lu, remettre en boîte) sur sélection multiple (**routes batch `PATCH /messages/read` et `PATCH /messages/folder` déjà couvertes pour corbeille/archive/lu**).
+- [x] **Frontend MailPage** : compléter les tests actions de masse (spam, non lu, remettre en boîte) sur sélection multiple (**routes batch `PATCH /messages/read` et `PATCH /messages/folder` couvertes**).
 - [ ] **Frontend MailPage** : test anti-régression `Maximum update depth exceeded` (montage page Mail + changements de chrome + navigation vers Drive puis retour sans warning console).
 - [x] **Frontend MailPage** : test **sélection inversée (page)** sur sélection multiple.
 - [x] **Frontend MailPage** : test **pagination avec total** (`Page X / Y` + `N message(s)`).

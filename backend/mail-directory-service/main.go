@@ -1573,8 +1573,11 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 			}
 		}
 	}
-	// Si le corps n'est pas en base, récupérer le RFC822 depuis IMAP : corps + pièces jointes + fil de discussion.
-	if !bodyPlain.Valid && !bodyHTML.Valid {
+	// Si le corps n'est pas en base (NULL) ou vide, récupérer le RFC822 depuis IMAP :
+	// corps + pièces jointes + fil de discussion.
+	bodyMissing := (!bodyPlain.Valid && !bodyHTML.Valid) ||
+		(strings.TrimSpace(m.BodyPlain) == "" && strings.TrimSpace(m.BodyHTML) == "")
+	if bodyMissing {
 		raw, fetchErr := h.fetchRawRFC822FromIMAP(c, accountID, messageUID, m.Folder)
 		if fetchErr != nil {
 			log.Printf("[mail] corps IMAP message id=%d uid=%d: %v", msgID, messageUID, fetchErr)

@@ -11,6 +11,7 @@ import * as api from '../../api'
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../notificationsContext', () => ({ useNotifications: vi.fn() }))
 vi.mock('../../api', () => ({
+  apiUrl: vi.fn((path: string) => path),
   fetchMailAccounts: vi.fn(),
   fetchMailMessages: vi.fn(),
   fetchUnifiedMailMessages: vi.fn(),
@@ -112,7 +113,7 @@ describe('MailPage', () => {
       { id: 1, email: 'a@test.com', label: 'Test', imap_host: 'h', imap_port: 993, smtp_host: 's', smtp_port: 587 } as any,
     ])
     render(wrap(<MailPage />))
-    expect(await screen.findByRole('button', { name: /Nouveau message/i })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: /Nouveau/i })).toBeTruthy()
   })
 
   it('shows empty state when no mail accounts', async () => {
@@ -409,6 +410,127 @@ describe('MailPage', () => {
     await waitFor(() => {
       expect(api.markMailMessagesReadBulk).toHaveBeenCalledTimes(1)
       expect(api.markMailMessagesReadBulk).toHaveBeenCalledWith('token', 1, [21, 22], true)
+    })
+  })
+
+  it('marque en masse comme non lu via endpoint batch', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 31,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Unread 1',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+        {
+          id: 32,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Unread 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await enterMailSelectionModeFromList('Unread 1')
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout sélectionner (page)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Marquer comme non lu en masse' }))
+
+    await waitFor(() => {
+      expect(api.markMailMessagesReadBulk).toHaveBeenCalledTimes(1)
+      expect(api.markMailMessagesReadBulk).toHaveBeenCalledWith('token', 1, [31, 32], false)
+    })
+  })
+
+  it('déplace en masse vers spam via endpoint batch', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 41,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Spam 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 42,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Spam 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await enterMailSelectionModeFromList('Spam 1')
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout sélectionner (page)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Spam en masse' }))
+
+    await waitFor(() => {
+      expect(api.moveMailMessagesToFolderBulk).toHaveBeenCalledWith('token', 1, [41, 42], 'spam')
+    })
+  })
+
+  it('remet en masse en réception via endpoint batch', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 51,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Inbox 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 52,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Inbox 2',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await enterMailSelectionModeFromList('Inbox 1')
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout sélectionner (page)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Boîte de réception en masse' }))
+
+    await waitFor(() => {
+      expect(api.moveMailMessagesToFolderBulk).toHaveBeenCalledWith('token', 1, [51, 52], 'inbox')
     })
   })
 

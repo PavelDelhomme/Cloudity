@@ -2476,6 +2476,7 @@ export default function MailPage() {
     accounts,
     queryClient,
   ])
+  const isEditingAccountSyncing = editAccountId != null && syncingAccountId === editAccountId
 
   const handleResetAccountServersAuto = useCallback(async () => {
     if (!accessToken || editAccountId == null) return
@@ -5432,6 +5433,11 @@ export default function MailPage() {
             </p>
 
             <div className="space-y-4">
+              {isEditingAccountSyncing ? (
+                <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
+                  Synchronisation IMAP en cours pour cette boîte : les champs serveur IMAP/SMTP sont temporairement verrouillés.
+                </p>
+              ) : null}
               <div>
                 <label htmlFor="mail-edit-label" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Libellé</label>
                 <input
@@ -5469,6 +5475,7 @@ export default function MailPage() {
                       value={editAccImapHost}
                       onChange={(e) => setEditAccImapHost(e.target.value)}
                       placeholder="(détection automatique)"
+                      disabled={isEditingAccountSyncing}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
@@ -5481,6 +5488,7 @@ export default function MailPage() {
                       onChange={(e) => setEditAccImapPort(e.target.value)}
                       placeholder="993"
                       inputMode="numeric"
+                      disabled={isEditingAccountSyncing}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
@@ -5498,6 +5506,7 @@ export default function MailPage() {
                       value={editAccSmtpHost}
                       onChange={(e) => setEditAccSmtpHost(e.target.value)}
                       placeholder="(détection automatique)"
+                      disabled={isEditingAccountSyncing}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
@@ -5510,6 +5519,7 @@ export default function MailPage() {
                       onChange={(e) => setEditAccSmtpPort(e.target.value)}
                       placeholder="587"
                       inputMode="numeric"
+                      disabled={isEditingAccountSyncing}
                       className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
@@ -5539,7 +5549,7 @@ export default function MailPage() {
                 <button
                   type="button"
                   onClick={handleSaveAccountSettings}
-                  disabled={savingAccount}
+                  disabled={savingAccount || isEditingAccountSyncing}
                   className="rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
                 >
                   {savingAccount ? 'Enregistrement…' : 'Enregistrer'}
