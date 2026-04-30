@@ -15,6 +15,8 @@ vi.mock('../../utils/wordToHtml', () => ({
   wordBlobToHtml: vi.fn(async () => '<p>Aperçu docx test</p>'),
 }))
 vi.mock('../../api', () => ({
+  fetchMailAccounts: vi.fn().mockResolvedValue([]),
+  syncMailAccount: vi.fn().mockResolvedValue({ synced: 0 }),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   fetchDriveSearch: vi.fn().mockResolvedValue([]),
   fetchDriveTrash: vi.fn().mockResolvedValue([]),

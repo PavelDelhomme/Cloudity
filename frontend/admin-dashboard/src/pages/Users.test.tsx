@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import UsersPage from './Users'
@@ -48,8 +48,10 @@ describe('UsersPage', () => {
     render(wrap(<UsersPage />))
     expect(screen.getByText(/Chargement/)).toBeTruthy()
     await waitFor(() => {
-      expect(screen.getByText('u1@example.com')).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Afficher les e-mails/i })).toBeTruthy()
     })
+    fireEvent.click(screen.getByRole('button', { name: /Afficher les e-mails/i }))
+    expect(screen.getByText('u1@example.com')).toBeTruthy()
     expect(screen.getByText('user')).toBeTruthy()
   })
 

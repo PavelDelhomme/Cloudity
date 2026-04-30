@@ -27,6 +27,17 @@ export default function Users() {
     enabled: Boolean(accessToken && tenantId != null),
   })
 
+  const updateUserMutation = useMutation({
+    mutationFn: (payload: { userId: number; email: string }) => updateUser(payload.userId, { email: payload.email }, accessToken!),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['users', tenantId ?? 0] })
+      setEditingUserId(null)
+      setEditingEmail('')
+      toast.success('Adresse de connexion mise à jour')
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur de mise à jour'),
+  })
+
   if (tenantId == null || !accessToken) {
     return (
       <PageLayout title="Utilisateurs">
@@ -55,16 +66,6 @@ export default function Users() {
   }
 
   const list = users ?? []
-  const updateUserMutation = useMutation({
-    mutationFn: (payload: { userId: number; email: string }) => updateUser(payload.userId, { email: payload.email }, accessToken!),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['users', tenantId ?? 0] })
-      setEditingUserId(null)
-      setEditingEmail('')
-      toast.success('Adresse de connexion mise à jour')
-    },
-    onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur de mise à jour'),
-  })
 
   return (
     <PageLayout
