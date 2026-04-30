@@ -17,6 +17,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/emersion/go-imap"
 	"github.com/emersion/go-imap/client"
@@ -164,6 +165,64 @@ func safeLikeContains(s string) string {
 	return "%" + s + "%"
 }
 
+func clampMailSearchQ(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	const maxBytes = 240
+	if len(raw) > maxBytes {
+		raw = raw[:maxBytes]
+	}
+	return raw
+}
+
+// mailFtsWebInput normalise la requête utilisateur pour websearch_to_tsquery (french + english).
+func mailFtsWebInput(raw string) (string, bool) {
+	raw = strings.TrimSpace(clampMailSearchQ(raw))
+	if len(raw) < 2 {
+		return "", false
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		switch {
+		case r < 32:
+			continue
+		case r == '\'', r == '"', r == '\\':
+			continue
+		case unicode.IsLetter(r), unicode.IsNumber(r), unicode.IsSpace(r):
+			b.WriteRune(r)
+		case r == '@', r == '.', r == '-', r == '_', r == '+':
+			b.WriteRune(r)
+		default:
+			b.WriteRune(' ')
+		}
+	}
+	s := strings.TrimSpace(strings.Join(strings.Fields(b.String()), " "))
+	if len(s) < 2 {
+		return "", false
+	}
+	return s, true
+}
+
+// buildMailFullTextSearch ajoute le filtre FTS bilingue (FR+EN) et, si useRankOrder, le préfixe ORDER BY ts_rank_cd.
+func buildMailFullTextSearch(extraWhere string, args []interface{}, p int, rawQ string, useRankOrder bool) (string, string, []interface{}, int, bool) {
+	q, ok := mailFtsWebInput(rawQ)
+	if !ok {
+		return extraWhere, "", args, p, false
+	}
+	ph := fmt.Sprintf("$%d", p)
+	tsq := fmt.Sprintf("(websearch_to_tsquery('french', %s::text) || websearch_to_tsquery('english', %s::text))", ph, ph)
+	extraWhere += " AND m.search_tsv @@ " + tsq
+	orderPrefix := ""
+	if useRankOrder {
+		orderPrefix = fmt.Sprintf("ts_rank_cd(m.search_tsv, %s) DESC NULLS LAST, ", tsq)
+	}
+	args = append(args, q)
+	p++
+	return extraWhere, orderPrefix, args, p, true
+}
+
 func main() {
 	godotenv.Load()
 
@@ -181,6 +240,7 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
+	r.GET("/mail/favicon", h.mailFaviconProxy)
 	// Callback OAuth Google : pas d'auth (redirection navigateur depuis Google)
 	r.GET("/mail/me/oauth/google/callback", h.oauthGoogleCallback)
 	r.Use(h.requireTenantAndUser)
@@ -198,6 +258,11 @@ func main() {
 		mail.POST("/me/accounts/:id/aliases", h.createAccountAlias)
 		mail.PATCH("/me/accounts/:id/aliases/:aliasId", h.patchAccountAlias)
 		mail.DELETE("/me/accounts/:id/aliases/:aliasId", h.deleteAccountAlias)
+		mail.GET("/me/accounts/:id/rules", h.listMailFilterRules)
+		mail.POST("/me/accounts/:id/rules", h.createMailFilterRule)
+		mail.PATCH("/me/accounts/:id/rules/:ruleId", h.patchMailFilterRule)
+		mail.DELETE("/me/accounts/:id/rules/:ruleId", h.deleteMailFilterRule)
+		mail.POST("/me/accounts/:id/rules/apply", h.applyMailFilterRulesNow)
 		mail.GET("/me/accounts/:id/folders/summary", h.accountFolderSummary)
 		mail.GET("/me/accounts/:id/imap-folders", h.listImapFoldersHTTP)
 		mail.POST("/me/accounts/:id/imap-folders/rename", h.renameImapFolderHTTP)
@@ -212,6 +277,9 @@ func main() {
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/read", h.markMessageRead)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/folder", h.moveMessageToFolder)
+		mail.PATCH("/me/accounts/:id/messages/read", h.markMessagesReadBulk)
+		mail.PATCH("/me/accounts/:id/messages/folder", h.moveMessagesToFolderBulk)
+		mail.DELETE("/me/accounts/:id/messages/:msgId/permanent", h.deleteMessagePermanently)
 		mail.POST("/me/accounts/:id/sync", h.syncAccountIMAP)
 		mail.POST("/me/send", h.sendMessageSMTP)
 		mail.GET("/domains", h.listDomains)
@@ -483,19 +551,19 @@ func (h *Handler) listAliases(c *gin.Context) {
 }
 
 type UserEmailAccount struct {
-	ID        int    `json:"id"`
-	UserID    int    `json:"user_id"`
-	TenantID  int    `json:"tenant_id"`
-	Email     string `json:"email"`
-	Label     string `json:"label,omitempty"`
+	ID       int    `json:"id"`
+	UserID   int    `json:"user_id"`
+	TenantID int    `json:"tenant_id"`
+	Email    string `json:"email"`
+	Label    string `json:"label,omitempty"`
 	// IMAP/SMTP options override des valeurs déduites du domaine.
 	// Valeurs null => détection automatique côté backend.
-	ImapHost *string `json:"imap_host,omitempty"`
-	ImapPort *int    `json:"imap_port,omitempty"`
-	SmtpHost *string `json:"smtp_host,omitempty"`
-	SmtpPort *int    `json:"smtp_port,omitempty"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ImapHost  *string `json:"imap_host,omitempty"`
+	ImapPort  *int    `json:"imap_port,omitempty"`
+	SmtpHost  *string `json:"smtp_host,omitempty"`
+	SmtpPort  *int    `json:"smtp_port,omitempty"`
+	CreatedAt string  `json:"created_at"`
+	UpdatedAt string  `json:"updated_at"`
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
@@ -1283,6 +1351,12 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		args = append(args, rcp)
 		p++
 	}
+	sortQ := strings.TrimSpace(strings.ToLower(c.Query("sort")))
+	ftsUseRank := sortQ != "date"
+	var ftsOrderPrefix string
+	if ew, ord, na, np, ok := buildMailFullTextSearch(extraWhere, args, p, c.Query("q"), ftsUseRank); ok {
+		extraWhere, ftsOrderPrefix, args, p = ew, ord, na, np
+	}
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1%s%s%s`, tagJoin, folderSQL, allFolderExclude, extraWhere)
 	var total int
 	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
@@ -1292,15 +1366,19 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	limitPh := fmt.Sprintf("$%d", p)
 	offsetPh := fmt.Sprintf("$%d", p+1)
 	argsSel := append(args, limit, offset)
+	orderBy := "m.date_at DESC NULLS LAST, m.id DESC"
+	if ftsOrderPrefix != "" {
+		orderBy = ftsOrderPrefix + orderBy
+	}
 	selectSQL := fmt.Sprintf(`
 			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m%s
 			WHERE m.account_id = $1%s%s%s
-			ORDER BY m.date_at DESC NULLS LAST, m.id DESC
+			ORDER BY %s
 			LIMIT %s OFFSET %s
-		`, tagJoin, folderSQL, allFolderExclude, extraWhere, limitPh, offsetPh)
+		`, tagJoin, folderSQL, allFolderExclude, extraWhere, orderBy, limitPh, offsetPh)
 	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1368,6 +1446,12 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 		args = append(args, rcp)
 		p++
 	}
+	sortQ := strings.TrimSpace(strings.ToLower(c.Query("sort")))
+	ftsUseRank := sortQ != "date"
+	var ftsOrderPrefix string
+	if ew, ord, na, np, ok := buildMailFullTextSearch(extraWhere, args, p, c.Query("q"), ftsUseRank); ok {
+		extraWhere, ftsOrderPrefix, args, p = ew, ord, na, np
+	}
 	whereClause := baseAcct + allFolderExclude + extraWhere
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m WHERE %s`, whereClause)
 	var total int
@@ -1378,15 +1462,19 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	limitPh := fmt.Sprintf("$%d", p)
 	offsetPh := fmt.Sprintf("$%d", p+1)
 	argsSel := append(args, limit, offset)
+	orderBy := "m.date_at DESC NULLS LAST, m.account_id DESC, m.id DESC"
+	if ftsOrderPrefix != "" {
+		orderBy = ftsOrderPrefix + orderBy
+	}
 	selectSQL := fmt.Sprintf(`
 			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m
 			WHERE %s
-			ORDER BY m.date_at DESC NULLS LAST, m.account_id DESC, m.id DESC
+			ORDER BY %s
 			LIMIT %s OFFSET %s
-		`, whereClause, limitPh, offsetPh)
+		`, whereClause, orderBy, limitPh, offsetPh)
 	rows, err := h.db.Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1863,6 +1951,140 @@ func (h *Handler) moveMessageToFolder(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true, "folder": folder})
 }
 
+func (h *Handler) markMessagesReadBulk(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	var body struct {
+		MessageIDs []int `json:"message_ids"`
+		Read       *bool `json:"read"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Read == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain message_ids[] and read"})
+		return
+	}
+	idsSet := map[int]struct{}{}
+	ids := make([]int, 0, len(body.MessageIDs))
+	for _, id := range body.MessageIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := idsSet[id]; ok {
+			continue
+		}
+		idsSet[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message_ids vide"})
+		return
+	}
+	updated := 0
+	for _, msgID := range ids {
+		res, execErr := h.db.Exec(`
+			UPDATE mail_messages SET is_read = $1
+			WHERE id = $2 AND account_id = $3
+			AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+		`, *body.Read, msgID, accountID)
+		if execErr != nil {
+			log.Printf("[mail] bulk mark read account=%d msg=%d: %v", accountID, msgID, execErr)
+			continue
+		}
+		n, _ := res.RowsAffected()
+		if n > 0 {
+			updated++
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "updated": updated, "requested": len(ids), "read": *body.Read})
+}
+
+func (h *Handler) moveMessagesToFolderBulk(c *gin.Context) {
+	idStr := c.Param("id")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	var body struct {
+		MessageIDs []int   `json:"message_ids"`
+		Folder     *string `json:"folder"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Folder == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain message_ids[] and folder"})
+		return
+	}
+	raw := strings.TrimSpace(*body.Folder)
+	if raw == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "folder vide"})
+		return
+	}
+	folder := raw
+	if isStandardMailFolder(raw) {
+		folder = strings.ToLower(raw)
+	}
+	if !h.folderAllowed(accountID, folder) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé pour cette boîte"})
+		return
+	}
+	idsSet := map[int]struct{}{}
+	ids := make([]int, 0, len(body.MessageIDs))
+	for _, id := range body.MessageIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := idsSet[id]; ok {
+			continue
+		}
+		idsSet[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message_ids vide"})
+		return
+	}
+	updated := 0
+	for _, msgID := range ids {
+		if moveErr := h.imapMoveMessage(accountID, msgID, folder); moveErr != nil {
+			log.Printf("[mail] bulk move account=%d msg=%d -> %q: %v", accountID, msgID, folder, moveErr)
+			continue
+		}
+		updated++
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "updated": updated, "requested": len(ids), "folder": folder})
+}
+
+func (h *Handler) deleteMessagePermanently(c *gin.Context) {
+	idStr := c.Param("id")
+	msgIdStr := c.Param("msgId")
+	accountID, err := strconv.Atoi(idStr)
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	msgID, err := strconv.Atoi(msgIdStr)
+	if err != nil || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
+		return
+	}
+	if err := h.imapDeleteMessagePermanently(accountID, msgID); err != nil {
+		if errors.Is(err, errMailMessageNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+			return
+		}
+		if errors.Is(err, errMailMessageNotInTrash) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "message must be in trash before permanent deletion"})
+			return
+		}
+		log.Printf("[mail] permanent delete IMAP account=%d msg=%d: %v", accountID, msgID, err)
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 // xoauth2RawBytes contenu brut XOAUTH2 (sans base64). SMTP fera le base64.
 func xoauth2RawBytes(email, accessToken string) []byte {
 	return []byte("user=" + email + "\x01auth=Bearer " + accessToken + "\x01\x01")
@@ -1877,7 +2099,7 @@ func xoauth2InitialResponse(email, accessToken string) []byte {
 type xoauth2SASL struct{ ir []byte }
 
 func (x *xoauth2SASL) Start() (string, []byte, error) { return "XOAUTH2", x.ir, nil }
-func (x *xoauth2SASL) Next([]byte) ([]byte, error)   { return nil, nil }
+func (x *xoauth2SASL) Next([]byte) ([]byte, error)    { return nil, nil }
 
 // getGoogleAccessToken échange le refresh_token contre un access_token.
 func getGoogleAccessToken(refreshToken string) (string, error) {
@@ -2072,6 +2294,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		n, _ := h.syncImapMailboxMessages(accountID, imapClient, path, path)
 		totalSynced += n
 	}
+	_, _ = h.applyMailRulesForAccount(accountID)
 	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})
 }
 

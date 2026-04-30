@@ -293,6 +293,29 @@ export type MailMessagesPageResponse = {
   total: number
 }
 
+export type MailFilterRuleResponse = {
+  id: number
+  account_id: number
+  name: string
+  from_pattern: string
+  /** Domaine expéditeur (ex. `newsletter.com`), distinct du motif « from contient ». */
+  from_domain_pattern?: string
+  /** Destinataire (champ To/Cc/Bcc agrégé côté serveur). */
+  recipient_pattern?: string
+  has_tag_id?: number
+  add_tag_id?: number
+  subject_pattern: string
+  has_attachments?: boolean
+  action_folder: string
+  mark_read?: boolean
+  enabled: boolean
+  rule_order?: number
+  criteria_json?: string
+  actions_json?: string
+  created_at: string
+  updated_at: string
+}
+
 export async function fetchMailMessages(
   token: string,
   accountId: number,
@@ -306,6 +329,10 @@ export async function fetchMailMessages(
     tag_id?: number
     /** Ne garder que les messages de cette conversation (même clé thread côté serveur). */
     thread_key?: string
+    /** Recherche texte (objet, expéditeur, destinataires, corps texte brut) — serveur. */
+    q?: string
+    /** Avec `q` : `rank` (défaut) = ts_rank_cd puis date ; `date` = ordre chronologique uniquement. */
+    sort?: 'rank' | 'date'
   }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams({ folder })
@@ -315,6 +342,8 @@ export async function fetchMailMessages(
   else if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
   if (options?.tag_id != null && options.tag_id > 0) params.set('tag_id', String(options.tag_id))
   if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
+  if (options?.q?.trim()) params.set('q', options.q.trim())
+  if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -337,6 +366,8 @@ export async function fetchUnifiedMailMessages(
     recipient?: string
     delivered_to?: string
     thread_key?: string
+    q?: string
+    sort?: 'rank' | 'date'
   }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams()
@@ -345,6 +376,8 @@ export async function fetchUnifiedMailMessages(
   if (options?.delivered_to?.trim()) params.set('delivered_to', options.delivered_to.trim())
   else if (options?.recipient?.trim()) params.set('recipient', options.recipient.trim())
   if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
+  if (options?.q?.trim()) params.set('q', options.q.trim())
+  if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
   const q = params.toString()
   const res = await fetch(apiUrl(`/mail/me/messages/unified${q ? `?${q}` : ''}`), {
     headers: { Authorization: `Bearer ${token}` },
@@ -403,6 +436,94 @@ export async function fetchMailAliases(token: string, accountId: number): Promis
   if (!res.ok) throw new Error(`Mail aliases: ${res.status}`)
   const data = (await res.json()) as unknown
   return Array.isArray(data) ? (data as MailAliasResponse[]) : []
+}
+
+export async function fetchMailFilterRules(token: string, accountId: number): Promise<MailFilterRuleResponse[]> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Mail rules: ${res.status}`)
+  return res.json() as Promise<MailFilterRuleResponse[]>
+}
+
+export async function createMailFilterRule(
+  token: string,
+  accountId: number,
+  payload: {
+    name: string
+    from_pattern?: string
+    from_domain_pattern?: string
+    recipient_pattern?: string
+    has_tag_id?: number
+    add_tag_id?: number
+    subject_pattern?: string
+    has_attachments?: boolean
+    action_folder: string
+    mark_read?: boolean
+    enabled?: boolean
+    rule_order?: number
+  }
+): Promise<{ ok: boolean; id: number }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Create mail rule: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; id: number }>
+}
+
+
+export async function patchMailFilterRule(
+  token: string,
+  accountId: number,
+  ruleId: number,
+  patch: {
+    name?: string
+    from_pattern?: string
+    from_domain_pattern?: string
+    recipient_pattern?: string
+    has_tag_id?: number | null
+    add_tag_id?: number | null
+    subject_pattern?: string
+    has_attachments?: boolean
+    action_folder?: string
+    mark_read?: boolean
+    enabled?: boolean
+    rule_order?: number
+  }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`Patch mail rule: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
+}
+
+export async function deleteMailFilterRule(token: string, accountId: number, ruleId: number): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete mail rule: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
+}
+
+export async function applyMailFilterRules(token: string, accountId: number): Promise<{ ok: boolean; affected: number }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/apply`), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Apply mail rules: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; affected: number }>
 }
 
 export async function createMailAlias(
@@ -520,6 +641,59 @@ export async function moveMailMessageToFolder(
   })
   if (!res.ok) throw new Error(`Move message: ${res.status}`)
   return res.json() as Promise<{ ok: boolean; folder: string }>
+}
+
+export async function markMailMessagesReadBulk(
+  token: string,
+  accountId: number,
+  messageIds: number[],
+  read: boolean
+): Promise<{ ok: boolean; updated: number; requested: number; read: boolean }> {
+  const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/read`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message_ids: ids, read }),
+  })
+  if (!res.ok) throw new Error(`Bulk mark read: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; updated: number; requested: number; read: boolean }>
+}
+
+export async function moveMailMessagesToFolderBulk(
+  token: string,
+  accountId: number,
+  messageIds: number[],
+  folder: string
+): Promise<{ ok: boolean; updated: number; requested: number; folder: string }> {
+  const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/folder`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message_ids: ids, folder }),
+  })
+  if (!res.ok) throw new Error(`Bulk move messages: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean; updated: number; requested: number; folder: string }>
+}
+
+export async function deleteMailMessagePermanently(
+  token: string,
+  accountId: number,
+  messageId: number
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/permanent`), {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  if (!res.ok) throw new Error(`Permanent delete message: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 /** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */

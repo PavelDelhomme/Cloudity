@@ -114,6 +114,54 @@ func TestMailPatchAccountRequiresUserID(t *testing.T) {
 	}
 }
 
+func TestMailBulkReadRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/me/accounts/1/messages/read", strings.NewReader(`{"message_ids":[1],"read":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("PATCH /mail/me/accounts/1/messages/read without auth headers: got %d", w.Code)
+	}
+}
+
+func TestMailBulkReadInvalidPayload(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/me/accounts/1/messages/read", strings.NewReader(`{"message_ids":[1]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/me/accounts/1/messages/read invalid payload: got %d", w.Code)
+	}
+}
+
+func TestMailBulkFolderRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/me/accounts/1/messages/folder", strings.NewReader(`{"message_ids":[1],"folder":"archive"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("PATCH /mail/me/accounts/1/messages/folder without auth headers: got %d", w.Code)
+	}
+}
+
+func TestMailBulkFolderInvalidPayload(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/me/accounts/1/messages/folder", strings.NewReader(`{"message_ids":[1]}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/me/accounts/1/messages/folder invalid payload: got %d", w.Code)
+	}
+}
+
 // setupRouter construit un router de test (sans DB pour health/domains sans liste).
 // Doit refléter les routes de main.go pour que les tests vérifient l'enregistrement.
 func setupRouter(db *sql.DB) *gin.Engine {
@@ -131,6 +179,8 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		mail.DELETE("/me/accounts/:id", h.deleteUserAccount)
 		mail.GET("/me/messages/unified", h.listUnifiedUserMessages)
 		mail.GET("/me/accounts/:id/messages", h.listAccountMessages)
+		mail.PATCH("/me/accounts/:id/messages/read", h.markMessagesReadBulk)
+		mail.PATCH("/me/accounts/:id/messages/folder", h.moveMessagesToFolderBulk)
 		mail.GET("/domains", h.listDomains)
 		mail.POST("/domains", h.createDomain)
 		mail.GET("/domains/:id/mailboxes", h.listMailboxes)

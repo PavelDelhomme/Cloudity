@@ -452,7 +452,7 @@ export default function AppLayout() {
               <NotificationBell />
             </div>
           </div>
-          <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain p-6">
+          <div className={`flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden overscroll-y-contain ${isMailRoute ? 'p-2 md:p-3' : 'p-6'}`}>
             {/* Clé sur pathname : remonte chaque page (Drive → Photos, etc.) pour réinitialiser effets / requêtes sans F5. */}
             <Outlet key={location.pathname} />
           </div>

@@ -157,15 +157,22 @@ class AuthApi {
     String folder = 'inbox',
     int limit = 30,
     int offset = 0,
+    /// Recherche plein texte serveur (index `search_tsv`) — même paramètre que le web (`q`).
+    String? q,
+    /// Avec `q` : `date` pour ordre chronologique ; sinon pertinence (`ts_rank_cd`) côté serveur.
+    String? sort,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages')
-        .replace(
-          queryParameters: {
-            'folder': folder,
-            'limit': limit.toString(),
-            'offset': offset.toString(),
-          },
-        );
+    final params = <String, String>{
+      'folder': folder,
+      'limit': limit.toString(),
+      'offset': offset.toString(),
+    };
+    final t = q?.trim() ?? '';
+    if (t.length >= 2) {
+      params['q'] = t.length > 200 ? t.substring(0, 200) : t;
+      if (sort == 'date') params['sort'] = 'date';
+    }
+    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages').replace(queryParameters: params);
     final res = await http.get(
       uri,
       headers: {'Authorization': 'Bearer $accessToken'},
@@ -296,6 +303,33 @@ class AuthApi {
     if (res.statusCode != 200) {
       final err = res.body.isEmpty ? '' : res.body;
       throw AuthException('Mail read HTTP ${res.statusCode}: $err');
+    }
+  }
+
+  /// `PATCH /mail/me/accounts/:id/messages/:msgId/folder` — corps `{"folder":"spam|trash|archive|inbox"}`.
+  Future<void> patchMessageFolder({
+    required String accessToken,
+    required int accountId,
+    required int messageId,
+    required String folder,
+  }) async {
+    final uri = Uri.parse(
+      '$_base/mail/me/accounts/$accountId/messages/$messageId/folder',
+    );
+    final res = await http.patch(
+      uri,
+      headers: {
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'folder': folder}),
+    );
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      final err = res.body.isEmpty ? '' : res.body;
+      throw AuthException('Mail folder HTTP ${res.statusCode}: $err');
     }
   }
 

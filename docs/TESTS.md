@@ -184,7 +184,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **auth-service/main_test.go** | Health ; hash mot de passe (Argon2id/bcrypt) ; JWT generate/parse ; register ; login succès/échec ; validate token ; refresh ; 2FA enable/verify (**verify avec code invalide → 401**) ; **loadRSAKeys écrit public.pem quand clé générée en dev**. |
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **`/photos/*`**, **`/drive/nodes/search`** (pas 404) ; **CORS** (Origin → Access-Control-Allow-Origin). |
 | **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
-| **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401. |
+| **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401 ; routes batch Mail (`PATCH /messages/read`, `PATCH /messages/folder`) : auth requise + payload invalide → 400. |
 | **contacts-service/main_test.go** | Health (`/health`, `/contacts/health`) ; **GET /contacts sans `X-User-ID` → 401** ; GET /contacts avec `X-User-ID` et **DB absente** → 200 liste vide. |
 | **photos-service/main_test.go** | Health ; **GET /photos/timeline sans X-User-ID → 401**. |
 | **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/search sans X-User-ID → 401** ; **GET /drive/nodes/search avec `q` vide → 400** ; **GET /drive/nodes/search avec DB absente → 200 `[]`** ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
@@ -213,7 +213,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
 | **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
 | **src/pages/app/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
-| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage) ; **sélection inversée (page)** ; **menu actions message** (bouton `…` + clic droit) : un seul `role="menu"`, fermeture au second clic sur `…`. |
+| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage, marquer lu) avec appels **batch** ; **sélection inversée (page)** ; **menu actions message** (bouton `…` + clic droit) : un seul `role="menu"`, fermeture au second clic sur `…`. |
 | **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
 | **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
 | **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
@@ -228,7 +228,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
-**Comportement Mail (actualisation et notifications)** : à chaque ouverture de la boîte mail (ou changement de compte), un **sync IMAP** est lancé puis la liste des messages est rafraîchie ; un **polling** toutes les 60 s refait un sync et affiche une notification en cas de nouveaux messages ; au **retour sur l’onglet** (visibility), un sync est lancé (throttle 30 s) avec notification si nouveaux messages. Les tests unitaires **MailPage.test.tsx** vérifient le sync à l’ouverture et l’appel à la notification.
+**Comportement Mail (actualisation et notifications)** : à chaque ouverture de la boîte mail (ou changement de compte), un **sync IMAP** est lancé puis la liste des messages est rafraîchie ; un **polling** (~25 s) refait un sync et affiche une notification en cas de nouveaux messages ; au **retour sur l’onglet** (visibility), un sync est lancé (throttle) avec notification si nouveaux messages. Le polling auto passe désormais par un **batch unique** (anti-chevauchement + anti-rafale + pause onglet caché). Les tests unitaires **MailPage.test.tsx** vérifient le sync à l’ouverture et l’appel à la notification.
 
 ### 3.4 E2E — scripts/test-e2e.sh
 
@@ -362,10 +362,11 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 - [ ] **API mail-directory-service** : test (ou scénario manuel) sync IMAP avec un fournisseur type OVH (ssl0.ovh.net) ; message d’erreur clair si identifiants invalides.
 - [ ] **Frontend MailPage** : tests unitaires (liste comptes, liste messages, bouton sync, formulaire envoi) ; E2E : ajouter une boîte (mock ou compte test), sync, affichage messages.
-- [ ] **Frontend MailPage** : tests unitaires actions de masse complètes (spam, non lu, remettre en boîte) sur sélection multiple.
+- [ ] **Frontend MailPage** : compléter les tests actions de masse (spam, non lu, remettre en boîte) sur sélection multiple (**routes batch `PATCH /messages/read` et `PATCH /messages/folder` déjà couvertes pour corbeille/archive/lu**).
+- [ ] **Frontend MailPage** : test anti-régression `Maximum update depth exceeded` (montage page Mail + changements de chrome + navigation vers Drive puis retour sans warning console).
 - [x] **Frontend MailPage** : test **sélection inversée (page)** sur sélection multiple.
 - [x] **Frontend MailPage** : test **pagination avec total** (`Page X / Y` + `N message(s)`).
-- [ ] **Frontend MailPage** : ajout bouton **“Tout sélectionner (boîte entière)”** (toutes les pages) + actions de masse sur tous les messages de la boîte (pas seulement la page).
+- [x] **Frontend MailPage** : ajout bouton **“Tout sélectionner (boîte entière)”** (toutes les pages) + actions de masse sur tous les messages de la boîte (pas seulement la page).
 - [ ] **Mail dossiers hiérarchiques** : tests API + E2E création dossier/sous-dossier/sous-sous-dossier et déplacement de mails.
 - [ ] **Règles automatiques Mail** : tests API (conditions combinées date/heure/expéditeur/destinataire/sujet/contenu) + E2E application immédiate et rétroactive.
 - [ ] **Recherche avancée Mail** : tests unitaires filtres combinés + E2E recherche par période, expéditeur, sujet, texte.

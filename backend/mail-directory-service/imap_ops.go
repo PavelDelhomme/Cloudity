@@ -17,6 +17,7 @@ import (
 
 // errMailMessageNotFound : aucune ligne mail_messages pour ce compte / id.
 var errMailMessageNotFound = errors.New("message introuvable")
+var errMailMessageNotInTrash = errors.New("message hors corbeille")
 
 // imapDialAndLogin ouvre une session IMAP authentifiée (l’appelant doit Logout()).
 func (h *Handler) imapDialAndLogin(accountID int, passwordOverride string) (email string, ic *client.Client, err error) {
@@ -585,6 +586,63 @@ func (h *Handler) imapMoveMessage(accountID, msgID int, destFolder string) error
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return fmt.Errorf("message introuvable en base après IMAP")
+	}
+	return nil
+}
+
+// imapDeleteMessagePermanently supprime un message de la corbeille côté IMAP puis en base.
+func (h *Handler) imapDeleteMessagePermanently(accountID, msgID int) error {
+	var curFolder string
+	var messageUID int64
+	err := h.db.QueryRow(`
+		SELECT folder, message_uid FROM mail_messages
+		WHERE id = $1 AND account_id = $2
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, msgID, accountID).Scan(&curFolder, &messageUID)
+	if err == sql.ErrNoRows {
+		return errMailMessageNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !strings.EqualFold(strings.TrimSpace(curFolder), "trash") {
+		return errMailMessageNotInTrash
+	}
+	if messageUID <= 0 {
+		return fmt.Errorf("UID message invalide")
+	}
+	_, ic, err := h.imapDialAndLogin(accountID, "")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = ic.Logout() }()
+	srcMb, err := h.imapResolveSourceMailbox(accountID, ic, curFolder, uint32(messageUID))
+	if err != nil {
+		return fmt.Errorf("source IMAP: %w", err)
+	}
+	if _, err := ic.Select(srcMb, false); err != nil {
+		return fmt.Errorf("select source %q: %w", srcMb, err)
+	}
+	seqset := new(imap.SeqSet)
+	seqset.AddNum(uint32(messageUID))
+	storeItem := imap.FormatFlagsOp(imap.AddFlags, true)
+	if err := ic.UidStore(seqset, storeItem, []interface{}{imap.DeletedFlag}, nil); err != nil {
+		return fmt.Errorf("marquage IMAP \\Deleted: %w", err)
+	}
+	if err := ic.Expunge(nil); err != nil {
+		return fmt.Errorf("expunge IMAP: %w", err)
+	}
+	res, err := h.db.Exec(`
+		DELETE FROM mail_messages
+		WHERE id = $1 AND account_id = $2
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, msgID, accountID)
+	if err != nil {
+		return fmt.Errorf("suppression base après IMAP: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return errMailMessageNotFound
 	}
 	return nil
 }

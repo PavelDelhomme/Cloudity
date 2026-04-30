@@ -51,6 +51,8 @@ class _InboxScreenState extends State<InboxScreen> {
   String _folder = 'inbox';
   Map<String, dynamic>? _folderSummary;
   Timer? _mailSyncTimer;
+  Timer? _searchDebounce;
+  final TextEditingController _searchController = TextEditingController();
   int _lastBackgroundSyncAtMs = 0;
   bool _backgroundSyncing = false;
   int _bottomNavIndex = 0;
@@ -61,6 +63,9 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _reloadAccounts();
     WidgetsBinding.instance.addObserver(_lifecycleObserver);
     _mailSyncTimer = Timer.periodic(
@@ -72,6 +77,8 @@ class _InboxScreenState extends State<InboxScreen> {
   @override
   void dispose() {
     _mailSyncTimer?.cancel();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     WidgetsBinding.instance.removeObserver(_lifecycleObserver);
     super.dispose();
   }
@@ -248,6 +255,20 @@ class _InboxScreenState extends State<InboxScreen> {
     }
   }
 
+  String? _mailSearchQueryParam() {
+    final t = _searchController.text.trim();
+    if (t.length < 2) return null;
+    return t.length > 200 ? t.substring(0, 200) : t;
+  }
+
+  void _onSearchFieldChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 450), () {
+      if (!mounted) return;
+      _reloadMessages();
+    });
+  }
+
   Future<void> _reloadMessages() async {
     final id = _accountId;
     if (id == null) return;
@@ -257,12 +278,14 @@ class _InboxScreenState extends State<InboxScreen> {
     });
     try {
       await widget.session.refreshIfNeeded();
+      final q = _mailSearchQueryParam();
       final page = await widget.session.api.fetchMailMessages(
         accessToken: widget.session.accessToken,
         accountId: id,
         folder: _folder,
         limit: 50,
         offset: 0,
+        q: q,
       );
       if (!mounted) return;
       setState(() {
@@ -274,12 +297,14 @@ class _InboxScreenState extends State<InboxScreen> {
       if (e.message == 'non_autorisé') {
         try {
           await widget.session.refreshIfNeeded();
+          final q = _mailSearchQueryParam();
           final page = await widget.session.api.fetchMailMessages(
             accessToken: widget.session.accessToken,
             accountId: id,
             folder: _folder,
             limit: 50,
             offset: 0,
+            q: q,
           );
           if (!mounted) return;
           setState(() {
@@ -307,6 +332,7 @@ class _InboxScreenState extends State<InboxScreen> {
 
   void _onAccountChanged(int? newId) {
     if (newId == null) return;
+    _searchController.clear();
     setState(() {
       _accountId = newId;
       _folder = 'inbox';
@@ -316,6 +342,7 @@ class _InboxScreenState extends State<InboxScreen> {
 
   void _onFolderChanged(String api) {
     if (_folder == api) return;
+    _searchController.clear();
     setState(() => _folder = api);
     _reloadMessages();
   }
@@ -367,6 +394,38 @@ class _InboxScreenState extends State<InboxScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Impossible de changer l’état lu/non lu: $e')),
+      );
+    }
+  }
+
+  Future<void> _moveMessageToFolder(Map<String, dynamic> message, String folder, String label) async {
+    final id = _accountId;
+    if (id == null) return;
+    final midRaw = message['id'];
+    final mid = midRaw is int ? midRaw : int.tryParse(midRaw?.toString() ?? '');
+    if (mid == null) return;
+    try {
+      await widget.session.refreshIfNeeded();
+      await widget.session.api.patchMessageFolder(
+        accessToken: widget.session.accessToken,
+        accountId: id,
+        messageId: mid,
+        folder: folder,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Message déplacé vers $label')),
+      );
+      await _reloadSummaryAndMessages();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de déplacer le message')),
       );
     }
   }
@@ -448,6 +507,29 @@ class _InboxScreenState extends State<InboxScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Text('${_folderTitle()} ($_total)', style: Theme.of(context).textTheme.titleSmall),
                 ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Recherche (2+ car., FR+EN, tri pertinence)',
+                      prefixIcon: const Icon(Icons.search, size: 22),
+                      suffixIcon: _searchController.text.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchDebounce?.cancel();
+                                _reloadMessages();
+                              },
+                            ),
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: _onSearchFieldChanged,
+                  ),
+                ),
                 if (_loading && _messages.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(32),
@@ -466,39 +548,57 @@ class _InboxScreenState extends State<InboxScreen> {
                     final nAtt = att is int ? att : (att is num ? att.toInt() : 0);
                     final read = m['is_read'];
                     final isRead = read == true;
-                    return ListTile(
-                      title: Text(
-                        sub,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.w600),
-                      ),
-                      subtitle: Text(from, maxLines: 1, overflow: TextOverflow.ellipsis),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (nAtt > 0)
-                            Tooltip(
-                              message: '$nAtt pièce(s) jointe(s)',
-                              child: const Icon(Icons.attach_file, size: 20),
-                            ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert),
-                            onSelected: (value) {
-                              if (value == 'toggle-read') {
-                                _setMessageReadState(m, !isRead);
-                              }
-                            },
-                            itemBuilder: (ctx) => [
-                              PopupMenuItem<String>(
-                                value: 'toggle-read',
-                                child: Text(isRead ? 'Marquer comme non lu' : 'Marquer comme lu'),
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        title: Text(
+                          sub,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.w600),
+                        ),
+                        subtitle: Text(from, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (nAtt > 0)
+                              Tooltip(
+                                message: '$nAtt pièce(s) jointe(s)',
+                                child: const Icon(Icons.attach_file, size: 20),
                               ),
-                            ],
-                          ),
-                        ],
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (value) {
+                                if (value == 'toggle-read') {
+                                  _setMessageReadState(m, !isRead);
+                                } else if (value == 'move-spam') {
+                                  _moveMessageToFolder(m, 'spam', 'Spam');
+                                } else if (value == 'move-trash') {
+                                  _moveMessageToFolder(m, 'trash', 'Corbeille');
+                                } else if (value == 'move-archive') {
+                                  _moveMessageToFolder(m, 'archive', 'Archive');
+                                } else if (value == 'move-inbox') {
+                                  _moveMessageToFolder(m, 'inbox', 'Réception');
+                                }
+                              },
+                              itemBuilder: (ctx) => [
+                                PopupMenuItem<String>(
+                                  value: 'toggle-read',
+                                  child: Text(isRead ? 'Marquer comme non lu' : 'Marquer comme lu'),
+                                ),
+                                const PopupMenuItem<String>(value: 'move-spam', child: Text('Signaler spam')),
+                                const PopupMenuItem<String>(value: 'move-trash', child: Text('Mettre en corbeille')),
+                                const PopupMenuItem<String>(value: 'move-archive', child: Text('Archiver')),
+                                const PopupMenuItem<String>(value: 'move-inbox', child: Text('Déplacer vers réception')),
+                              ],
+                            ),
+                          ],
+                        ),
+                        onTap: () => _openMessage(m),
                       ),
-                      onTap: () => _openMessage(m),
                     );
                   }),
               ],

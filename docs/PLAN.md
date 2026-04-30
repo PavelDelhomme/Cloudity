@@ -21,6 +21,14 @@
 - **Colonne « Boîtes mail »** : à droite de chaque boîte, une icône **↻** lance **`POST /mail/me/accounts/:id/sync`** pour **cette boîte uniquement** (mot de passe déjà stocké côté serveur si besoin). Panneau réduit : icône sous l’icône enveloppe.
 - **En-tête de liste** : **« Actualiser cette boîte »** = même sync pour la boîte **actuellement affichée**.
 - **Paramètres Mail** : **« Sync maintenant »** (rapide) vs **« Sync avec mot de passe… »** (modale si le serveur exige une resaisie).
+- **Polling auto** : batch unique (toutes boîtes) avec garde **anti-chevauchement**, **anti-rafale**, et **pause si onglet non visible** ; badge visuel en bas de la sidebar (`Sync auto en cours…`).
+
+## 10. Mail web — boucle React "Maximum update depth" (avril 2026)
+
+- **Symptôme** : warning React `Maximum update depth exceeded` sur `MailPage`, navigation `/app/mail` instable (retours Drive/Hub perturbés).
+- **Cause probable** : effets qui poussent du chrome (`setBreadcrumbActions`, `setShellSearchAdjacent`) + dépendances instables, et setState inutile sur certains cycles.
+- **Correctifs appliqués** : garde anti-réécriture dans les effets AppChrome, suppression des mises à jour d’état inutiles (`setComposeSlots` quand inchangé), simplification avatar mail pour éviter cascade d’erreurs `onError`.
+- **Validation** : surveiller console après `make restart`, navigation `/app/mail` ↔ `/app/drive`, et `make mail-security-check`.
 - **File d’attente** : une seule sync manuelle à la fois (évite la surcharge IMAP) ; le **polling ~25 s** continue d’actualiser **toutes** les boîtes en arrière-plan.
 
 ## 10. Tests Docker — smokes sans retaper `docker compose`
@@ -73,12 +81,10 @@ indiquent une **réponse réussie**. Ce n’est **pas** une erreur (contrairemen
 
 ## 4. Requêtes vers **Google** (`s2/favicons`, `faviconV2`) — 301, 404
 
-Le Mail web affiche une **pastille / favicon** par domaine d’expéditeur. La logique essaie plusieurs URLs (voir `mailFaviconCandidateUrlsFromEmail` dans **`MailPage.tsx`**) : services publics **Google** / **DuckDuckGo**.
+Les anciennes itérations du Mail web chargeaient des favicons externes par domaine d’expéditeur, ce qui pouvait générer du bruit réseau (`301/404`) et contribuer à des re-renders parasites.
 
-- **301** : redirection habituelle du service Google.
-- **404** sur `t*.gstatic.com/faviconV2?...` : le moteur n’a **pas** d’icône pour ce domaine exact — l’UI bascule alors sur la **candidate suivante** ou sur les **initiales** (`onError` sur `<img>`).
-
-**Comportement attendu** : pas d’action obligatoire ; amélioration possible : héberger un cache d’icônes côté Cloudity pour limiter les fuites vers des tiers (backlog vie privée).
+**État courant** : l’avatar de liste utilise désormais les **initiales** côté UI (sans dépendance favicon externe) pour stabiliser l’affichage et réduire le bruit console/réseau.  
+**Suite possible** : si besoin produit, réintroduire des icônes via un cache **interne Cloudity** (pas d’appels tiers directs).
 
 ## 5. Corbeille (Trash) : « À l’instant » / « reçu tout à l’heure » pour un vieux message
 

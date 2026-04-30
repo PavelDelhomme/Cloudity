@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug feature-finish git-fetch-prune git-delete-remote-branch
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -69,6 +69,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make mobile-logcat - Suit logcat en direct (ADB_SERIAL optionnel)'
 	@echo '  make mobile-logcat-mail - Suit logcat filtré Cloudity/Mail/Flutter'
 	@echo '  make mobile-mail-debug - Session complète: clear logcat + test mobile mail + export logs'
+	@echo '  make mail-security-check - Vérifie sécurité Mail (PJ sans auth + HTML sanitizé)'
 	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/BRANCHES.md)'
 	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
 	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
@@ -119,6 +120,10 @@ mobile-logcat-mail: ## Suit logcat filtré Mail/Cloudity/Flutter (ADB_SERIAL opt
 mobile-mail-debug: ## Session debug Mail mobile: clear logcat + test + export logs
 	@chmod +x scripts/mobile-mail-debug.sh scripts/mobile-test-common.inc.sh scripts/test-mobile-mail.sh scripts/test-mobile-app.sh
 	@ADB_SERIAL="$(ADB_SERIAL)" ./scripts/mobile-mail-debug.sh
+
+mail-security-check: ## Vérifie sécurité Mail: PJ non accessible sans auth + sanitation HTML
+	@chmod +x scripts/mail-security-check.sh
+	@./scripts/mail-security-check.sh
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."

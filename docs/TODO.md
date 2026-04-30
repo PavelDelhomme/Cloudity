@@ -31,8 +31,8 @@
 - **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
 - **Contacts** : liste/fiche OK ; groupes, import/export. **Liaison Mail ↔ contacts** (règles, fiches liées) : à planifier **une fois le MVP Mail web** (liste, PJ, multi-boîtes) stabilisé.
-- **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **En-têtes MIME complets** : liens mail/URL cliquables en cours d’itération UX. **Actions “Nouveau/Recharger/Étiquettes”** : déplacées dans la colonne gauche entre “Boîtes mail” et “Dossiers” ; à finaliser côté responsive/collapsed. **Notifications hors page Mail (web)** : livrées via watcher global AppLayout. Suite : archivage PG / quota OVH, règles, push (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
-- **Mobile Mail** : **sync in-app périodique + bannière nouveaux messages** livré ; login mobile simplifié (**email + mot de passe**, gateway auto, affichage mot de passe, bouton inscription). Reste **notifications push système** (FCM/APNs + Linux desktop app), brouillon IMAP, PJ inline avancé, et **pilotage admin ON/OFF de l’auto-inscription** (politique sécurité).
+- **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Sync auto** : batch unique + anti-chevauchement + anti-rafale + pause onglet non visible + indicateur visuel en bas de la sidebar (`Sync auto en cours…`). **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **En-têtes MIME complets** : liens mail/URL cliquables en cours d’itération UX. **Actions “Nouveau/Recharger/Étiquettes”** : déplacées dans la colonne gauche entre “Boîtes mail” et “Dossiers” ; à finaliser côté responsive/collapsed. **Stabilité React** : correction boucle `Maximum update depth` (effets AppChrome + garde anti-setState inutile) ; surveillance console encore requise. **Corbeille Mail** : suppression définitive en masse livrée. **Règles automatiques Mail** : MVP livré (conditions expéditeur/sujet/PJ + action dossier + marquer lu, application rétroactive + exécution après sync) + **réconciliation IMAP** best-effort (move + lu/non lu). **Notifications hors page Mail (web)** : livrées via watcher global AppLayout. Suite : archivage PG / quota OVH, push, anti-spam avancé (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
+- **Mobile Mail** : **sync in-app périodique + bannière nouveaux messages** livré ; login mobile simplifié (**email + mot de passe**, gateway auto, affichage mot de passe, bouton inscription). UI en cours d’alignement avec le web : cartes messages arrondies + menu `⋮` (lu/non lu, spam, corbeille, archive, réception). Reste **notifications push système** (FCM/APNs + Linux desktop app), brouillon IMAP, PJ inline avancé, et **pilotage admin ON/OFF de l’auto-inscription** (politique sécurité).
 - **Mobile** : `scripts/run-mobile.sh`, **`FLUTTER_ROOT`** (voir **MOBILES.md** §5).
 - **Performances (chantier à industrialiser)** : état des lieux et pistes dans **PERFORMANCES.md** ; cible **ROADMAP TR-06** (métriques runtime, Web Vitals par route, `pprof` Go sous contrôle, profil Flutter) — toujours compatible **SECURITE.md** et une UX fluide.
 
@@ -81,3 +81,7 @@ Pour chaque produit de la suite (**Photos**, **Mail**, **Drive**, etc.), on vise
 ## Session / sécurité (fait)
 
 - Refresh token, **SYNC-BACKLOG** §4.
+
+## Sécurité long terme (à préparer)
+
+- [ ] **Post-quantique (PQC)** : définir le plan de transition (inventaire des usages crypto, mode hybride classique+PQC, rotation des clés/certificats, compatibilité clients et validation perf/sécurité).

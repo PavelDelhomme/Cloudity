@@ -17,7 +17,9 @@ vi.mock('../../api', () => ({
   fetchMailMessage: vi.fn(),
   downloadMailAttachment: vi.fn(),
   markMailMessageRead: vi.fn(),
+  markMailMessagesReadBulk: vi.fn().mockResolvedValue({ ok: true, updated: 0, requested: 0, read: true }),
   moveMailMessageToFolder: vi.fn().mockResolvedValue({ ok: true, folder: 'trash' }),
+  moveMailMessagesToFolderBulk: vi.fn().mockResolvedValue({ ok: true, updated: 0, requested: 0, folder: 'trash' }),
   syncMailAccount: vi.fn(),
   sendMailMessage: vi.fn(),
   getMailGoogleOAuthRedirectUrl: vi.fn(),
@@ -100,6 +102,8 @@ describe('MailPage', () => {
     vi.mocked(api.fetchMailAliases).mockResolvedValue([])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
     vi.mocked(api.moveMailMessageToFolder).mockClear()
+    vi.mocked(api.moveMailMessagesToFolderBulk).mockClear()
+    vi.mocked(api.markMailMessagesReadBulk).mockClear()
     mockAddNotification.mockClear()
   })
 
@@ -272,9 +276,8 @@ describe('MailPage', () => {
     fireEvent.click(bulkTrashBtn)
 
     await waitFor(() => {
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledTimes(2)
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 1, 'trash')
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 2, 'trash')
+      expect(api.moveMailMessagesToFolderBulk).toHaveBeenCalledTimes(1)
+      expect(api.moveMailMessagesToFolderBulk).toHaveBeenCalledWith('token', 1, [1, 2], 'trash')
     })
   })
 
@@ -364,8 +367,48 @@ describe('MailPage', () => {
     fireEvent.click(bulkArchiveBtn)
 
     await waitFor(() => {
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 10, 'archive')
-      expect(api.moveMailMessageToFolder).toHaveBeenCalledWith('token', 1, 11, 'archive')
+      expect(api.moveMailMessagesToFolderBulk).toHaveBeenCalledWith('token', 1, [10, 11], 'archive')
+    })
+  })
+
+  it('marque en masse comme lu via endpoint batch', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 21,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'b@test.com',
+          subject: 'Read 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 22,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'c@test.com',
+          to: 'd@test.com',
+          subject: 'Read 2',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await enterMailSelectionModeFromList('Read 1')
+    fireEvent.click(await screen.findByRole('button', { name: 'Tout sélectionner (page)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Marquer comme lu en masse' }))
+
+    await waitFor(() => {
+      expect(api.markMailMessagesReadBulk).toHaveBeenCalledTimes(1)
+      expect(api.markMailMessagesReadBulk).toHaveBeenCalledWith('token', 1, [21, 22], true)
     })
   })
 

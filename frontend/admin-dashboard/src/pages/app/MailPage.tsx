@@ -49,9 +49,9 @@ import {
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { useOptionalAppPageChrome } from '../../appPageChromeContext'
-import { MailAppBreadcrumbMenu } from '../../components/MailAppBreadcrumbMenu'
 import { useNotifications } from '../../notificationsContext'
 import {
+  apiUrl,
   fetchDriveNodes,
   fetchMailAccounts,
   createMailAccount,
@@ -61,13 +61,17 @@ import {
   fetchMailMessage,
   downloadMailAttachment,
   markMailMessageRead,
+  markMailMessagesReadBulk,
   moveMailMessageToFolder,
+  moveMailMessagesToFolderBulk,
+  deleteMailMessagePermanently,
   syncMailAccount,
   sendMailMessage,
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
   createCalendarEvent,
   fetchMailAliases,
+  fetchMailFilterRules,
   fetchMailFolderSummary,
   fetchMailImapFolders,
   createMailImapFolder,
@@ -79,7 +83,13 @@ import {
   createMailAlias,
   patchMailAlias,
   deleteMailAlias,
+  fetchVaults,
+  fetchVaultItems,
+  deleteMailFilterRule,
+  patchMailFilterRule,
   updateMailAccount,
+  createMailFilterRule,
+  applyMailFilterRules,
   createContact,
   type DriveNode,
   type MailMessageResponse,
@@ -89,6 +99,9 @@ import {
   type MailFolderSummaryResponse,
   type ContactResponse,
   type MailImapFolderRow,
+  type MailFilterRuleResponse,
+  type VaultResponse,
+  type PassItemResponse,
 } from '../../api'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
@@ -109,6 +122,35 @@ const MAIL_INLINE_ATTACHMENT_MAX_BYTES = 512 * 1024
 const MAIL_BACKGROUND_SYNC_INTERVAL_MS = 25_000
 /** Évite de relancer une sync complète au retour sur l’onglet juste après un tick de fond. */
 const MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
+/** Anti-rafale : délai mini entre deux batches auto (polling/visible). */
+const MAIL_AUTO_SYNC_MIN_GAP_MS = 12_000
+
+/**
+ * Lignes « non lu » dans la liste : 1 = uni, 2 = dégradé teinté, 3 = halo + barre + cadre (défaut).
+ * Si le rendu ne convient pas, essayez 2 (dégradé sans blanc).
+ */
+const MAIL_UNREAD_ROW_VARIANT: 1 | 2 | 3 = 3
+
+function mailUnreadListRowSurface(selected: boolean): string {
+  const bar = 'border-l-[5px] border-l-brand-500'
+  switch (MAIL_UNREAD_ROW_VARIANT) {
+    case 1:
+      if (selected) {
+        return `border border-brand-300/70 dark:border-brand-600/50 ${bar} bg-slate-200 dark:bg-slate-800 hover:bg-slate-300/80 dark:hover:bg-slate-700`
+      }
+      return `border border-slate-300/70 dark:border-slate-600/80 ${bar} bg-slate-200/90 dark:bg-slate-800/95 hover:bg-slate-300/85 dark:hover:bg-slate-700`
+    case 2:
+      if (selected) {
+        return `border border-brand-300/70 dark:border-brand-600/50 ${bar} bg-gradient-to-r from-slate-300/95 via-brand-100/80 to-slate-200 dark:from-slate-900 dark:via-brand-950/50 dark:to-slate-800`
+      }
+      return `border border-slate-300/70 dark:border-slate-600/80 ${bar} bg-gradient-to-r from-slate-300/90 via-slate-200 to-slate-200 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900`
+    case 3:
+      if (selected) {
+        return `border border-brand-300/70 dark:border-brand-600/50 ${bar} bg-slate-200 dark:bg-slate-800 ring-2 ring-inset ring-brand-400/35 dark:ring-brand-500/25`
+      }
+      return `border border-slate-300/70 dark:border-slate-600/80 ${bar} bg-slate-200/80 dark:bg-slate-800/95 ring-1 ring-inset ring-brand-400/40 dark:ring-brand-500/20`
+  }
+}
 
 type DraftLocal = { to: string; subject: string; body: string; fromAddress?: string; updatedAt: string }
 
@@ -318,6 +360,46 @@ function showMailRestoreInboxAction(activeFolder: string, msgFolder: string | un
   return ef === 'spam' || ef === 'trash' || ef === 'archive'
 }
 
+/** Dossier cible par défaut dans l’assistant « règle depuis ce message » (standard ou dossier IMAP courant). */
+function ruleAssistantDefaultActionFolder(msgFolder: string | undefined): MailFolderId {
+  const raw = (msgFolder ?? '').trim()
+  if (!raw) return 'inbox'
+  const f = raw.toLowerCase()
+  if (STANDARD_FOLDER_IDS.has(f)) return f as MailFolderId
+  return raw as MailFolderId
+}
+
+function parsePassAliasTarget(raw: string | undefined): { vaultId: number; itemId: number } | null {
+  const v = (raw || '').trim()
+  const m = /^pass:\/\/vault\/(\d+)\/item\/(\d+)$/i.exec(v)
+  if (!m) return null
+  const vaultId = Number.parseInt(m[1] || '', 10)
+  const itemId = Number.parseInt(m[2] || '', 10)
+  if (!Number.isFinite(vaultId) || !Number.isFinite(itemId) || vaultId <= 0 || itemId <= 0) return null
+  return { vaultId, itemId }
+}
+
+function passAliasTargetLabel(raw: string | undefined, vaults: VaultResponse[]): string {
+  const parsed = parsePassAliasTarget(raw)
+  if (!parsed) return raw || ''
+  const v = vaults.find((x) => x.id === parsed.vaultId)
+  return `Pass → ${v?.name || `Coffre #${parsed.vaultId}`} / Entrée #${parsed.itemId}`
+}
+function isAliasDeliverTargetValid(raw: string | undefined): boolean {
+  const v = (raw || '').trim()
+  if (!v) return true
+  if (parsePassAliasTarget(v)) return true
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
+}
+
+function aliasDeliverTargetValidationMessage(raw: string | undefined): string {
+  const v = (raw || '').trim()
+  if (!v) return ''
+  if (isAliasDeliverTargetValid(v)) return ''
+  return 'Format invalide: utilisez un e-mail ou pass://vault/<id>/item/<id>'
+}
+
+
 function folderDisplayLabel(folder: string | undefined, imapLabels: Map<string, string>): string {
   const raw = folder ?? ''
   const f = raw.toLowerCase().trim()
@@ -490,6 +572,29 @@ function extractEmailFromSender(from: string | undefined): string | null {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null
 }
 
+/** Domaine de l’expéditeur (pour règles « domaine uniquement »). */
+function extractDomainFromSender(from: string | undefined): string {
+  const em = extractEmailFromSender(from)
+  if (em) {
+    const i = em.lastIndexOf('@')
+    return i >= 0 ? em.slice(i + 1).toLowerCase().trim() : ''
+  }
+  const raw = (from || '').toLowerCase()
+  const lt = raw.lastIndexOf('<')
+  const gt = raw.lastIndexOf('>')
+  const inner = lt >= 0 && gt > lt ? raw.slice(lt + 1, gt) : raw
+  const at = inner.lastIndexOf('@')
+  if (at >= 0 && at < inner.length - 1) {
+    const part = inner
+      .slice(at + 1)
+      .replace(/>/g, '')
+      .trim()
+      .split(/[\s;,]/)[0]
+    return part ?? ''
+  }
+  return ''
+}
+
 /** Découpe l’en-tête From (« Nom » <email>) pour affichage type client mail. */
 function parseFromHeader(from: string | undefined): { displayName: string; email: string | null } {
   if (!from?.trim()) return { displayName: '', email: null }
@@ -538,39 +643,14 @@ function formatMessageDate(dateAt: string | undefined): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: d.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })
 }
 
-/** URLs favicon à essayer dans l’ordre : sous-domaines remontés + Google puis DuckDuckGo par domaine. */
+/** URL de favicon via proxy backend Cloudity (cache serveur, pas d'appel tiers direct depuis le navigateur). */
 function mailFaviconCandidateUrlsFromEmail(senderEmail: string | null): string[] {
   if (!senderEmail) return []
   const at = senderEmail.lastIndexOf('@')
   if (at < 0 || at >= senderEmail.length - 1) return []
-  let host = senderEmail.slice(at + 1).trim().toLowerCase()
-  if (!host) return []
-  const domains: string[] = []
-  const seenD = new Set<string>()
-  for (let depth = 0; depth < 8 && host.includes('.'); depth++) {
-    if (!seenD.has(host)) {
-      seenD.add(host)
-      domains.push(host)
-    }
-    const dot = host.indexOf('.')
-    if (dot < 0) break
-    const rest = host.slice(dot + 1)
-    if (rest.split('.').length < 2) break
-    host = rest
-  }
-  const urls: string[] = []
-  const seenU = new Set<string>()
-  for (const d of domains) {
-    const g = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(d)}&sz=64`
-    const duck = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(d)}.ico`
-    for (const u of [g, duck]) {
-      if (!seenU.has(u)) {
-        seenU.add(u)
-        urls.push(u)
-      }
-    }
-  }
-  return urls
+  const domain = senderEmail.slice(at + 1).trim().toLowerCase()
+  if (!domain) return []
+  return [apiUrl(`/mail/favicon?domain=${encodeURIComponent(domain)}`)]
 }
 
 function senderAvatarInitials(from: string | undefined, contactName?: string | null): string {
@@ -683,6 +763,53 @@ function parseIcsFirstEvent(ics: string): { title: string; startAt: string; endA
   }
 }
 
+function parseMailSearchQuery(raw: string): {
+  plainTerms: string[]
+  tagTerms: string[]
+  senderTerms: string[]
+  unreadOnly: boolean
+  readOnly: boolean
+  withAttachmentsOnly: boolean
+} {
+  const tokens = raw
+    .trim()
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+  const plainTerms: string[] = []
+  const tagTerms: string[] = []
+  const senderTerms: string[] = []
+  let unreadOnly = false
+  let readOnly = false
+  let withAttachmentsOnly = false
+
+  for (const t of tokens) {
+    const low = t.toLowerCase()
+    if (t.startsWith('#') && t.length > 1) {
+      tagTerms.push(t.slice(1).toLowerCase())
+      continue
+    }
+    if (t.startsWith('$') && t.length > 1) {
+      senderTerms.push(t.slice(1).toLowerCase())
+      continue
+    }
+    if (low === 'is:unread' || low === 'is:nonlu') {
+      unreadOnly = true
+      continue
+    }
+    if (low === 'is:read' || low === 'is:lu') {
+      readOnly = true
+      continue
+    }
+    if (low === 'has:att' || low === 'has:pj' || low === 'has:attachment') {
+      withAttachmentsOnly = true
+      continue
+    }
+    plainTerms.push(low)
+  }
+  return { plainTerms, tagTerms, senderTerms, unreadOnly, readOnly, withAttachmentsOnly }
+}
+
 function sanitizeMailHtmlUnsafeInput(raw: string): string {
   if (!raw.trim()) return ''
   try {
@@ -725,25 +852,25 @@ function formatReceivedDetail(dateAt: string | undefined): string {
 function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResponse | null }) {
   const email = extractEmailFromSender(from)
   const src = useMemo(() => mailFaviconCandidateUrlsFromEmail(email)[0] ?? null, [email])
-  const [imgError, setImgError] = useState(false)
-  useEffect(() => setImgError(false), [src])
   const initials = senderAvatarInitials(from, contact?.name)
-  const showImg = src != null && !imgError
   return (
     <div
       className="relative h-9 w-9 shrink-0 rounded-full overflow-hidden bg-gradient-to-br from-indigo-500 to-violet-600 dark:from-indigo-600 dark:to-violet-700 flex items-center justify-center text-[11px] font-bold text-white shadow-sm ring-1 ring-black/5 dark:ring-white/10"
       title={contact?.name ? `${contact.name} (${email || ''})` : email || undefined}
     >
-      {showImg ? (
+      {src ? (
         <img
           src={src}
           alt=""
-          className="h-full w-full object-cover bg-white dark:bg-slate-800"
-          onError={() => setImgError(true)}
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover bg-white dark:bg-slate-800"
+          onError={(e) => {
+            // Fallback purement DOM (sans setState) pour éviter tout risque de boucle React.
+            e.currentTarget.style.display = 'none'
+          }}
         />
-      ) : (
-        <span aria-hidden>{initials}</span>
-      )}
+      ) : null}
+      <span aria-hidden>{initials}</span>
     </div>
   )
 }
@@ -782,6 +909,10 @@ export default function MailPage() {
   const [mailSearchSender, setMailSearchSender] = useState(true)
   const [mailSearchUnreadOnly, setMailSearchUnreadOnly] = useState(false)
   const [mailSearchWithAttachmentsOnly, setMailSearchWithAttachmentsOnly] = useState(false)
+  /** Avec recherche serveur (`q`) : tri par pertinence (défaut) ou date pure. */
+  const [mailSearchSort, setMailSearchSort] = useState<'rank' | 'date'>('rank')
+  const [similarSenderFilter, setSimilarSenderFilter] = useState<string | null>(null)
+  const [mailCompactUi, setMailCompactUi] = useState(false)
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null)
   /** Compte IMAP du message ouvert (obligatoire en vue unifiée). */
   const [selectedMessageAccountId, setSelectedMessageAccountId] = useState<number | null>(null)
@@ -805,7 +936,9 @@ export default function MailPage() {
     account_id: number
     x: number
     y: number
+    is_read?: boolean
     from?: string
+    subject?: string
     folder?: string
     tag_ids?: number[]
     thread_key?: string | null
@@ -820,6 +953,7 @@ export default function MailPage() {
   const selectedMessageIds = listMsgSelection.ids
   const selectionAccountByMessageId = listMsgSelection.accountById
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [selectingAllInScope, setSelectingAllInScope] = useState(false)
   const [showEditAccountModal, setShowEditAccountModal] = useState(false)
   const [editAccountId, setEditAccountId] = useState<number | null>(null)
   const [editAccLabel, setEditAccLabel] = useState('')
@@ -834,9 +968,25 @@ export default function MailPage() {
   const [newAliasLabel, setNewAliasLabel] = useState('')
   /** Cible de livraison documentée (Pass / transfert) — n’active pas le routage sans DNS / fournisseur. */
   const [newAliasDeliverTarget, setNewAliasDeliverTarget] = useState('')
+  const [aliasTargetVaultId, setAliasTargetVaultId] = useState<number | null>(null)
+  const [aliasTargetItemId, setAliasTargetItemId] = useState<number | null>(null)
   const [editingAliasCibleId, setEditingAliasCibleId] = useState<number | null>(null)
   const [aliasCibleDraft, setAliasCibleDraft] = useState('')
+  const newAliasDeliverTargetError = useMemo(() => aliasDeliverTargetValidationMessage(newAliasDeliverTarget), [newAliasDeliverTarget])
+  const aliasCibleDraftError = useMemo(() => aliasDeliverTargetValidationMessage(aliasCibleDraft), [aliasCibleDraft])
   const [newMailTagName, setNewMailTagName] = useState('')
+  const [newRuleName, setNewRuleName] = useState('')
+  const [newRuleFromPattern, setNewRuleFromPattern] = useState('')
+  const [newRuleFromDomainPattern, setNewRuleFromDomainPattern] = useState('')
+  const [newRuleRecipientPattern, setNewRuleRecipientPattern] = useState('')
+  const [newRuleHasTagId, setNewRuleHasTagId] = useState<number | null>(null)
+  const [newRuleAddTagId, setNewRuleAddTagId] = useState<number | null>(null)
+  const [newRuleSubjectPattern, setNewRuleSubjectPattern] = useState('')
+  const [newRuleActionFolder, setNewRuleActionFolder] = useState<MailFolderId>('inbox')
+  const [newRuleHasAttachmentsOnly, setNewRuleHasAttachmentsOnly] = useState(false)
+  const [newRuleMarkRead, setNewRuleMarkRead] = useState(false)
+  const [newRuleOrder, setNewRuleOrder] = useState('1000')
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null)
   const [showFullMailHeaders, setShowFullMailHeaders] = useState(getMailShowFullHeaders)
   /** Liste des boîtes repliée : une ligne pour la boîte active ; dépliée pour changer de compte. */
   const [mailboxesListExpanded, setMailboxesListExpanded] = useState(false)
@@ -898,6 +1048,20 @@ export default function MailPage() {
     queryKey: ['mail', 'aliases', effectiveAccountId],
     queryFn: () => fetchMailAliases(accessToken!, effectiveAccountId!),
     enabled: !!accessToken && effectiveAccountId != null,
+  })
+
+  const { data: passVaults = [] } = useQuery({
+    queryKey: ['pass', 'vaults'],
+    queryFn: () => fetchVaults(accessToken!),
+    enabled: !!accessToken && showMailSettings,
+    staleTime: 45_000,
+  })
+
+  const { data: passVaultItems = [] } = useQuery({
+    queryKey: ['pass', 'vault-items', aliasTargetVaultId],
+    queryFn: () => fetchVaultItems(accessToken!, aliasTargetVaultId!),
+    enabled: !!accessToken && showMailSettings && aliasTargetVaultId != null,
+    staleTime: 30_000,
   })
 
   const { data: folderSummary } = useQuery({
@@ -985,21 +1149,39 @@ export default function MailPage() {
     staleTime: 30_000,
   })
 
-  useEffect(() => {
-    setRecipientAliasFilter(null)
-  }, [effectiveAccountId])
+  const { data: mailRules = [] } = useQuery({
+    queryKey: ['mail', 'rules', effectiveAccountId],
+    queryFn: () => fetchMailFilterRules(accessToken!, effectiveAccountId!),
+    enabled: !!accessToken && effectiveAccountId != null,
+    staleTime: 30_000,
+  })
+  const safeMailRules = useMemo(
+    () => (Array.isArray(mailRules) ? (mailRules as MailFilterRuleResponse[]) : []),
+    [mailRules]
+  )
 
   useEffect(() => {
-    setFilterTagId(null)
-    setConversationThreadKey(null)
+    setRecipientAliasFilter((prev) => (prev == null ? prev : null))
+  }, [effectiveAccountId])
+
+
+  useEffect(() => {
+    if (aliasTargetVaultId == null && passVaults.length > 0) {
+      setAliasTargetVaultId(passVaults[0].id)
+    }
+  }, [aliasTargetVaultId, passVaults])
+
+  useEffect(() => {
+    setFilterTagId((prev) => (prev == null ? prev : null))
+    setConversationThreadKey((prev) => (prev == null ? prev : null))
   }, [effectiveAccountId, activeFolder])
 
   useEffect(() => {
-    setMessagePage(0)
+    setMessagePage((prev) => (prev === 0 ? prev : 0))
   }, [conversationThreadKey])
 
   useEffect(() => {
-    setMessagePage(0)
+    setMessagePage((prev) => (prev === 0 ? prev : 0))
   }, [recipientAliasFilter])
 
   const aliasMutation = useMutation({
@@ -1010,15 +1192,19 @@ export default function MailPage() {
       if (mode.type === 'add') {
         const em = newAliasEmail.trim().toLowerCase()
         if (!em) throw new Error('Adresse alias requise')
+        const target = newAliasDeliverTarget.trim()
+        if (!isAliasDeliverTargetValid(target)) throw new Error(aliasDeliverTargetValidationMessage(target) || 'Cible invalide')
         await createMailAlias(accessToken, effectiveAccountId, {
           alias_email: em,
           label: newAliasLabel.trim() || undefined,
-          deliver_target_email: newAliasDeliverTarget.trim() || undefined,
+          deliver_target_email: target || undefined,
         })
         return
       }
       if (mode.type === 'patch') {
-        await patchMailAlias(accessToken, effectiveAccountId, mode.id, { deliver_target_email: mode.deliver_target_email })
+        const target = mode.deliver_target_email.trim()
+        if (!isAliasDeliverTargetValid(target)) throw new Error(aliasDeliverTargetValidationMessage(target) || 'Cible invalide')
+        await patchMailAlias(accessToken, effectiveAccountId, mode.id, { deliver_target_email: target })
         return
       }
       await deleteMailAlias(accessToken, effectiveAccountId, mode.id)
@@ -1056,6 +1242,111 @@ export default function MailPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur étiquette'),
   })
 
+  const mailRulesMutation = useMutation({
+    mutationFn: async (mode: { type: 'add' } | { type: 'del'; id: number } | { type: 'apply' } | { type: 'patch'; id: number; enabledOnly?: boolean }) => {
+      if (!accessToken || effectiveAccountId == null) return
+      if (mode.type === 'add') {
+        const name = newRuleName.trim() || 'Règle automatique'
+        const fromPattern = newRuleFromPattern.trim()
+        const fromDomainPattern = newRuleFromDomainPattern.trim()
+        const subjectPattern = newRuleSubjectPattern.trim()
+        const recipientPattern = newRuleRecipientPattern.trim().toLowerCase()
+        const hasTagId = newRuleHasTagId && newRuleHasTagId > 0 ? newRuleHasTagId : undefined
+        const addTagId = newRuleAddTagId && newRuleAddTagId > 0 ? newRuleAddTagId : undefined
+        const ruleOrder = Number.parseInt(newRuleOrder.trim() || '1000', 10)
+        const normalizedRuleOrder = Number.isFinite(ruleOrder) && ruleOrder >= 0 ? ruleOrder : 1000
+        if (!fromPattern && !fromDomainPattern && !recipientPattern && !subjectPattern && !newRuleHasAttachmentsOnly && !hasTagId) {
+          throw new Error('Ajoutez au moins une condition (expéditeur, domaine, destinataire, sujet, étiquette, ou PJ).')
+        }
+        await createMailFilterRule(accessToken, effectiveAccountId, {
+          name,
+          from_pattern: fromPattern || undefined,
+          from_domain_pattern: fromDomainPattern || undefined,
+          recipient_pattern: recipientPattern || undefined,
+          has_tag_id: hasTagId,
+          add_tag_id: addTagId,
+          subject_pattern: subjectPattern || undefined,
+          has_attachments: newRuleHasAttachmentsOnly ? true : undefined,
+          action_folder: newRuleActionFolder,
+          mark_read: newRuleMarkRead || undefined,
+          enabled: true,
+          rule_order: normalizedRuleOrder,
+        })
+        return
+      }
+      if (mode.type === 'patch') {
+        if (mode.enabledOnly) {
+          const target = safeMailRules.find((r) => r.id === mode.id)
+          if (!target) throw new Error('Règle introuvable')
+          await patchMailFilterRule(accessToken, effectiveAccountId, mode.id, { enabled: !target.enabled })
+          return
+        }
+        const fromPattern = newRuleFromPattern.trim()
+        const fromDomainPattern = newRuleFromDomainPattern.trim()
+        const recipientPattern = newRuleRecipientPattern.trim().toLowerCase()
+        const subjectPattern = newRuleSubjectPattern.trim()
+        const hasTagId = newRuleHasTagId && newRuleHasTagId > 0 ? newRuleHasTagId : null
+        const addTagId = newRuleAddTagId && newRuleAddTagId > 0 ? newRuleAddTagId : null
+        const ruleOrder = Number.parseInt(newRuleOrder.trim() || '1000', 10)
+        const normalizedRuleOrder = Number.isFinite(ruleOrder) && ruleOrder >= 0 ? ruleOrder : 1000
+        if (!fromPattern && !fromDomainPattern && !recipientPattern && !subjectPattern && !newRuleHasAttachmentsOnly && !hasTagId) {
+          throw new Error('Ajoutez au moins une condition (expéditeur, domaine, destinataire, sujet, étiquette, ou PJ).')
+        }
+        await patchMailFilterRule(accessToken, effectiveAccountId, mode.id, {
+          name: newRuleName.trim() || 'Règle automatique',
+          from_pattern: fromPattern || '',
+          from_domain_pattern: fromDomainPattern || '',
+          recipient_pattern: recipientPattern || '',
+          has_tag_id: hasTagId,
+          add_tag_id: addTagId,
+          subject_pattern: subjectPattern || '',
+          has_attachments: newRuleHasAttachmentsOnly,
+          action_folder: newRuleActionFolder,
+          mark_read: newRuleMarkRead,
+          enabled: true,
+          rule_order: normalizedRuleOrder,
+        })
+        return
+      }
+      if (mode.type === 'del') {
+        await deleteMailFilterRule(accessToken, effectiveAccountId, mode.id)
+        return
+      }
+      const res = await applyMailFilterRules(accessToken, effectiveAccountId)
+      toast.success(`${res.affected} message(s) mis à jour par les règles`)
+    },
+    onSuccess: (_, mode) => {
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'rules', effectiveAccountId] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+      if (mode.type === 'add' || mode.type === 'patch') {
+        setNewRuleName('')
+        setNewRuleFromPattern('')
+        setNewRuleFromDomainPattern('')
+        setNewRuleRecipientPattern('')
+        setNewRuleHasTagId(null)
+        setNewRuleAddTagId(null)
+        setNewRuleSubjectPattern('')
+        setNewRuleActionFolder('inbox')
+        setNewRuleHasAttachmentsOnly(false)
+        setNewRuleMarkRead(false)
+        setNewRuleOrder('1000')
+        setEditingRuleId(null)
+        toast.success(mode.type === 'add' ? 'Règle enregistrée' : 'Règle mise à jour')
+      } else if (mode.type === 'del') {
+        toast.success('Règle supprimée')
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur règles'),
+  })
+
+  const mailSearchParsed = useMemo(() => parseMailSearchQuery(mailSearchText), [mailSearchText])
+  const mailServerSearchQ = useMemo(() => {
+    const j = mailSearchParsed.plainTerms.join(' ').trim()
+    if (j.length < 2) return ''
+    return j.slice(0, 200)
+  }, [mailSearchParsed])
+
   const isUnifiedFolder = activeFolder === 'unified'
   const { data: messagesData, refetch: refetchMessages } = useQuery({
     queryKey: [
@@ -1067,6 +1358,8 @@ export default function MailPage() {
       recipientAliasFilter,
       filterTagId,
       conversationThreadKey,
+      mailServerSearchQ,
+      mailSearchSort,
     ],
     queryFn: () =>
       isUnifiedFolder
@@ -1075,6 +1368,7 @@ export default function MailPage() {
             offset: messagePage * MESSAGES_PAGE_SIZE,
             ...(recipientAliasFilter ? { delivered_to: recipientAliasFilter } : {}),
             ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
+            ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
           })
         : fetchMailMessages(accessToken!, effectiveAccountId!, activeFolder, {
             limit: MESSAGES_PAGE_SIZE,
@@ -1082,36 +1376,74 @@ export default function MailPage() {
             ...(recipientAliasFilter ? { delivered_to: recipientAliasFilter } : {}),
             ...(filterTagId != null && filterTagId > 0 ? { tag_id: filterTagId } : {}),
             ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
+            ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
           }),
     enabled: !!accessToken && (isUnifiedFolder ? accounts.length > 0 : effectiveAccountId != null),
     refetchOnWindowFocus: true,
   })
   const messages = messagesData?.messages ?? []
   const messagesTotal = messagesData?.total ?? 0
+
+  useEffect(() => {
+    setMessagePage(0)
+  }, [mailServerSearchQ, mailSearchSort, activeFolder, effectiveAccountId, conversationThreadKey, recipientAliasFilter, filterTagId, isUnifiedFolder])
+
   const visibleMessages = useMemo(() => {
-    const q = mailSearchText.trim().toLowerCase()
+    const parsed = mailSearchParsed
+    const fieldsEnabled = mailSearchSubject || mailSearchSender
     return messages.filter((m) => {
+      if (similarSenderFilter) {
+        const senderEmail = extractEmailFromSender(m.from)?.toLowerCase() ?? (m.from || '').toLowerCase()
+        if (senderEmail !== similarSenderFilter.toLowerCase()) return false
+      }
       if (mailSearchUnreadOnly && m.is_read) return false
       if (mailSearchWithAttachmentsOnly && (m.attachment_count ?? 0) <= 0) return false
-      if (!q) return true
-      const inSubject = mailSearchSubject && (m.subject || '').toLowerCase().includes(q)
-      const inSender = mailSearchSender && (m.from || '').toLowerCase().includes(q)
-      return inSubject || inSender
+      if (parsed.unreadOnly && m.is_read) return false
+      if (parsed.readOnly && !m.is_read) return false
+      if (parsed.withAttachmentsOnly && (m.attachment_count ?? 0) <= 0) return false
+
+      const senderValue = (m.from || '').toLowerCase()
+      if (parsed.senderTerms.some((term) => !senderValue.includes(term))) return false
+
+      if (parsed.tagTerms.length > 0) {
+        const names = (m.tag_ids ?? [])
+          .map((id) => mailTags.find((t) => t.id === id)?.name?.toLowerCase() || '')
+          .filter(Boolean)
+        if (parsed.tagTerms.some((term) => !names.some((n) => n.includes(term)))) return false
+      }
+
+      if (!mailServerSearchQ) {
+        if (parsed.plainTerms.length === 0) return true
+        const subjectValue = (m.subject || '').toLowerCase()
+        return parsed.plainTerms.every((term) => {
+          const inSubject = (mailSearchSubject || !fieldsEnabled) && subjectValue.includes(term)
+          const inSender = (mailSearchSender || !fieldsEnabled) && senderValue.includes(term)
+          return inSubject || inSender
+        })
+      }
+      return true
     })
   }, [
     messages,
-    mailSearchText,
+    mailSearchParsed,
+    mailServerSearchQ,
     mailSearchSubject,
     mailSearchSender,
     mailSearchUnreadOnly,
     mailSearchWithAttachmentsOnly,
+    similarSenderFilter,
+    mailTags,
   ])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
+  const allMessagesSelectedInScope = messagesTotal > 0 && selectedMessageIds.length >= messagesTotal
   /** ID de la boîte en cours de sync manuelle (null = idle). Une seule sync à la fois pour éviter la surcharge IMAP. */
   const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null)
+  const [autoSyncRunning, setAutoSyncRunning] = useState(false)
   const lastSyncAtRef = useRef<number>(0)
+  const backgroundSyncRunningRef = useRef(false)
+  const lastBackgroundSyncStartAtRef = useRef<number>(0)
   const notificationsRef = useRef(notifications)
   notificationsRef.current = notifications
   const refetchMessagesRef = useRef(refetchMessages)
@@ -1223,78 +1555,26 @@ export default function MailPage() {
     [accounts]
   )
 
-  useEffect(() => {
-    setSelectedMessageId(null)
-    setSelectedMessageAccountId(null)
-    setMessagePage(0)
-    setMailSelectionMode(false)
-    setListMsgSelection({ ids: [], accountById: {} })
-  }, [effectiveAccountId, activeFolder])
-
-  /** À l'ouverture de la boîte mail (ou au changement de compte), sync IMAP puis rafraîchir la liste. */
-  useEffect(() => {
-    if (!accessToken || effectiveAccountId == null) return
-    let cancelled = false
-    syncMailAccount(accessToken, effectiveAccountId, undefined, syncExtraImapOptions(effectiveAccountId))
-      .then((r) => {
-        if (cancelled) return
-        lastSyncAtRef.current = Date.now()
-        queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-        void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
-        refetchMessagesRef.current()
-        const acc = accountsRef.current.find((a) => a.id === effectiveAccountId)
-        if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
-      })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [effectiveAccountId, accessToken, queryClient, syncExtraImapOptions])
-
-  /**
-   * Polling IMAP : le backend synchronise **inbox, sent, drafts, spam, trash** (dont corbeille IMAP Gmail/OVH/etc.).
-   * Les messages mis en corbeille uniquement depuis l’app restent en `folder=trash` en base ; la sync fusionne avec le dossier Trash IMAP (UID).
-   * invalidateQueries(['mail','messages']) invalide toutes les listes React Query ; refetchMessages() met à jour le dossier ouvert.
-   */
-  useEffect(() => {
-    if (!accessToken || accountIdsFingerprint === '') return
-    const tick = async () => {
-      const list = accountsRef.current
-      for (const acc of list) {
-        try {
-          const r = await syncMailAccount(accessToken, acc.id, undefined, syncExtraImapOptions(acc.id))
-          notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
-        } catch {
-          /* erreur réseau / IMAP : on continue les autres comptes */
-        }
-      }
-      lastSyncAtRef.current = Date.now()
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+  const runMailSyncBatch = useCallback(
+    async (accountIds: number[], options?: { force?: boolean }) => {
+      if (!accessToken) return false
+      if (backgroundSyncRunningRef.current) return false
+      const ids = [...new Set(accountIds.filter((id) => id > 0))]
+      if (ids.length === 0) return false
+      const now = Date.now()
+      if (!options?.force && now-lastBackgroundSyncStartAtRef.current < MAIL_AUTO_SYNC_MIN_GAP_MS) return false
+      backgroundSyncRunningRef.current = true
+      setAutoSyncRunning(true)
+      lastBackgroundSyncStartAtRef.current = now
       try {
-        await refetchMessagesRef.current()
-      } catch {
-        /* refetch peut échouer si la requête est désactivée */
-      }
-    }
-    const id = window.setInterval(tick, MAIL_BACKGROUND_SYNC_INTERVAL_MS)
-    return () => window.clearInterval(id)
-  }, [accessToken, accountIdsFingerprint, queryClient, syncExtraImapOptions])
-
-  /** Au retour sur l'onglet : sync toutes les boîtes si le dernier sync date un peu. */
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState !== 'visible' || !accessToken) return
-      if (Date.now() - lastSyncAtRef.current < MAIL_VISIBILITY_SYNC_MIN_GAP_MS) return
-      const list = accountsRef.current
-      if (list.length === 0) return
-      void (async () => {
-        for (const acc of list) {
+        for (const id of ids) {
+          const acc = accountsRef.current.find((a) => a.id === id)
+          if (!acc) continue
           try {
-            const r = await syncMailAccount(accessToken, acc.id, undefined, syncExtraImapOptions(acc.id))
+            const r = await syncMailAccount(accessToken, id, undefined, syncExtraImapOptions(id))
             notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
           } catch {
-            /* ignorer */
+            /* erreur réseau / IMAP : on continue les autres comptes */
           }
         }
         lastSyncAtRef.current = Date.now()
@@ -1304,13 +1584,65 @@ export default function MailPage() {
         try {
           await refetchMessagesRef.current()
         } catch {
-          /* ignorer */
+          /* refetch peut échouer si la requête est désactivée */
         }
-      })()
+        return true
+      } finally {
+        backgroundSyncRunningRef.current = false
+        setAutoSyncRunning(false)
+      }
+    },
+    [accessToken, queryClient, syncExtraImapOptions]
+  )
+
+  useEffect(() => {
+    setSelectedMessageId((prev) => (prev == null ? prev : null))
+    setSelectedMessageAccountId((prev) => (prev == null ? prev : null))
+    setMessagePage((prev) => (prev === 0 ? prev : 0))
+    setMailSelectionMode((prev) => (prev ? false : prev))
+    setListMsgSelection((prev) =>
+      prev.ids.length === 0 && Object.keys(prev.accountById).length === 0 ? prev : { ids: [], accountById: {} }
+    )
+  }, [effectiveAccountId, activeFolder])
+
+  /** À l'ouverture de la boîte mail (ou au changement de compte), sync IMAP puis rafraîchir la liste. */
+  useEffect(() => {
+    if (!accessToken || effectiveAccountId == null) return
+    let cancelled = false
+    void runMailSyncBatch([effectiveAccountId], { force: true }).then(() => {
+      if (cancelled) return
+    })
+    return () => { cancelled = true }
+  }, [effectiveAccountId, accessToken, runMailSyncBatch])
+
+  /**
+   * Polling IMAP : le backend synchronise **inbox, sent, drafts, spam, trash** (dont corbeille IMAP Gmail/OVH/etc.).
+   * Les messages mis en corbeille uniquement depuis l’app restent en `folder=trash` en base ; la sync fusionne avec le dossier Trash IMAP (UID).
+   * invalidateQueries(['mail','messages']) invalide toutes les listes React Query ; refetchMessages() met à jour le dossier ouvert.
+   */
+  useEffect(() => {
+    if (!accessToken || accountIdsFingerprint === '') return
+    const tick = async () => {
+      if (document.visibilityState !== 'visible') return
+      if (syncingAccountId !== null) return
+      await runMailSyncBatch(accountsRef.current.map((a) => a.id))
+    }
+    const id = window.setInterval(tick, MAIL_BACKGROUND_SYNC_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [accessToken, accountIdsFingerprint, runMailSyncBatch, syncingAccountId])
+
+  /** Au retour sur l'onglet : sync toutes les boîtes si le dernier sync date un peu. */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || !accessToken) return
+      if (Date.now() - lastSyncAtRef.current < MAIL_VISIBILITY_SYNC_MIN_GAP_MS) return
+      const list = accountsRef.current
+      if (list.length === 0) return
+      void runMailSyncBatch(list.map((a) => a.id))
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [accessToken, queryClient, syncExtraImapOptions])
+  }, [accessToken, runMailSyncBatch])
 
   useEffect(() => {
     if (!contextMenuMessage) return
@@ -1571,7 +1903,7 @@ export default function MailPage() {
   /** Sync IMAP pour une boîte donnée (mot de passe serveur déjà stocké si besoin). Rafraîchit les caches de cette boîte. */
   const handleSyncOneAccount = useCallback(
     (accountId: number) => {
-      if (!accessToken || syncingAccountId !== null) return
+      if (!accessToken || syncingAccountId !== null || backgroundSyncRunningRef.current) return
       setSyncingAccountId(accountId)
       syncMailAccount(accessToken, accountId, undefined, syncExtraImapOptions(accountId))
         .then((r) => {
@@ -1582,7 +1914,7 @@ export default function MailPage() {
             void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
             void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
             void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
-            refetchMessages()
+            void refetchMessagesRef.current()
           }
           const acc = accountsRef.current.find((a) => a.id === accountId)
           if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
@@ -1592,7 +1924,7 @@ export default function MailPage() {
         .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation'))
         .finally(() => setSyncingAccountId(null))
     },
-    [accessToken, syncingAccountId, queryClient, refetchMessages, syncExtraImapOptions, effectiveAccountId]
+    [accessToken, syncingAccountId, queryClient, syncExtraImapOptions, effectiveAccountId]
   )
 
   /** Synchronisation IMAP manuelle du compte affiché (toutes les boîtes connues + dossiers LIST). */
@@ -1696,67 +2028,17 @@ export default function MailPage() {
     }
   }, [accessToken, effectiveAccountId, imapDeleteTarget, activeFolder, queryClient])
 
-  const mailBreadcrumbMenu = useMemo(
-    () => (
-      <div className="inline-flex items-center gap-0.5 shrink-0">
-        <button
-          type="button"
-          onClick={() => setShowMailSettings(true)}
-          className="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
-          title="Paramètres Mail"
-          aria-label="Paramètres Mail"
-        >
-          <Settings className="h-4 w-4 shrink-0" aria-hidden />
-        </button>
-        <MailAppBreadcrumbMenu
-          onOpenSettings={() => setShowMailSettings(true)}
-          onConnectGoogle={() => void handleConnectGoogle()}
-          onAddAccount={() => setShowConnectEmail(true)}
-          onRefresh={() => handleRefreshFromServer()}
-          googleConnecting={googleConnecting}
-          syncLocked={syncingAccountId !== null}
-          refreshSpinning={syncingAccountId === effectiveAccountId}
-          refreshDisabled={effectiveAccountId == null}
-        />
-      </div>
-    ),
-    [
-      googleConnecting,
-      syncingAccountId,
-      effectiveAccountId,
-      handleConnectGoogle,
-      handleRefreshFromServer,
-    ]
-  )
-
   useEffect(() => {
+    // Garde-fou anti-boucle React : on neutralise le bridge AppPageChrome tant que
+    // le warning "Maximum update depth exceeded" est en cours d'investigation.
     if (!appPageChrome) return
-    appPageChrome.setBreadcrumbActions(mailBreadcrumbMenu)
+    appPageChrome.setBreadcrumbActions(null)
+    appPageChrome.setShellSearchAdjacent(null)
     return () => {
       appPageChrome.setBreadcrumbActions(null)
+      appPageChrome.setShellSearchAdjacent(null)
     }
-  }, [appPageChrome, mailBreadcrumbMenu])
-
-  useEffect(() => {
-    if (!appPageChrome) return undefined
-    appPageChrome.setShellSearchAdjacent(
-      <button
-        type="button"
-        onClick={() => handleRefreshFromServer()}
-        disabled={effectiveAccountId == null || syncingAccountId !== null}
-        className="p-2 rounded-lg text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-slate-200 disabled:opacity-40"
-        title="Actualiser les boîtes (IMAP)"
-        aria-label="Actualiser les boîtes (IMAP)"
-      >
-        {syncingAccountId === effectiveAccountId ? (
-          <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
-        ) : (
-          <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
-        )}
-      </button>
-    )
-    return () => appPageChrome.setShellSearchAdjacent(null)
-  }, [appPageChrome, handleRefreshFromServer, syncingAccountId, effectiveAccountId])
+  }, [appPageChrome])
 
   useEffect(() => {
     if (!imapFolderCtx) return undefined
@@ -1767,6 +2049,14 @@ export default function MailPage() {
       document.removeEventListener('mousedown', close)
     }
   }, [imapFolderCtx])
+
+  const [mailReadToggleHighlightId, setMailReadToggleHighlightId] = useState<number | null>(null)
+  const mailReadHighlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (mailReadHighlightTimerRef.current) clearTimeout(mailReadHighlightTimerRef.current)
+    }
+  }, [])
 
   const [movingMessageId, setMovingMessageId] = useState<number | null>(null)
   const handleMoveToFolder = useCallback(
@@ -1793,6 +2083,68 @@ export default function MailPage() {
     },
     [effectiveAccountId, accessToken, queryClient, selectedMessageId]
   )
+
+  const handleMarkMessageReadState = useCallback(
+    async (messageId: number, accountId: number, read: boolean) => {
+      if (!accessToken) return
+      try {
+        await markMailMessageRead(accessToken, accountId, messageId, read)
+        queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        if (mailReadHighlightTimerRef.current) clearTimeout(mailReadHighlightTimerRef.current)
+        setMailReadToggleHighlightId(messageId)
+        mailReadHighlightTimerRef.current = setTimeout(() => {
+          setMailReadToggleHighlightId(null)
+          mailReadHighlightTimerRef.current = null
+        }, 2800)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur')
+      }
+    },
+    [accessToken, queryClient]
+  )
+
+  const openMailRuleAssistantFromMessage = useCallback(
+    (payload: { account_id: number; from?: string; subject?: string; folder?: string }) => {
+      const email = extractEmailFromSender(payload.from) || payload.from?.trim() || ''
+      const subj = (payload.subject ?? '').trim()
+      if (!email && !subj) {
+        toast.error('Impossible de préremplir la règle (expéditeur et objet vides).')
+        return
+      }
+      setSelectedAccountId(payload.account_id)
+      const subjPat = subj.length > 120 ? `${subj.slice(0, 120)}…` : subj
+      setNewRuleFromPattern(email)
+      setNewRuleFromDomainPattern(extractDomainFromSender(payload.from))
+      setNewRuleRecipientPattern('')
+      setNewRuleHasTagId(null)
+      setNewRuleAddTagId(null)
+      setNewRuleSubjectPattern(subjPat)
+      setNewRuleName(
+        email
+          ? `Depuis ${email}${subjPat ? ` — ${subjPat.slice(0, 48)}${subjPat.length > 48 ? '…' : ''}` : ''}`.slice(0, 120)
+          : `Objet : ${subjPat.slice(0, 80)}${subjPat.length > 80 ? '…' : ''}`
+      )
+      setNewRuleActionFolder(ruleAssistantDefaultActionFolder(payload.folder))
+      setNewRuleHasAttachmentsOnly(false)
+      setNewRuleMarkRead(false)
+        setNewRuleOrder('1000')
+      setContextMenuMessage(null)
+      setShowMailSettings(true)
+      window.setTimeout(() => {
+        document.getElementById('mail-settings-filter-rules')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      }, 120)
+      toast.success('Règle préremplie : choisissez le dossier cible puis « Ajouter la règle » (ou « Appliquer aux mails existants »).')
+    },
+    []
+  )
+
+  const openMailSettingsAtRules = useCallback(() => {
+    setShowMailSettings(true)
+    window.setTimeout(() => {
+      document.getElementById('mail-settings-filter-rules')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }, 120)
+  }, [])
 
   const toggleMessageSelected = useCallback((msg: MailMessageResponse) => {
     setListMsgSelection((s) => {
@@ -1898,18 +2250,86 @@ export default function MailPage() {
     })
   }, [messages])
 
+  const handleSelectAllMessagesInScope = useCallback(async () => {
+    if (!accessToken) return
+    if (!isUnifiedFolder && effectiveAccountId == null) return
+    if (messagesTotal <= 0) {
+      setListMsgSelection({ ids: [], accountById: {} })
+      setMailSelectionMode(false)
+      return
+    }
+    setSelectingAllInScope(true)
+    try {
+      const seen = new Set<number>()
+      const ids: number[] = []
+      const accountById: Record<number, number> = {}
+      const limit = 250
+      let offset = 0
+      let total = messagesTotal
+      while (offset < total) {
+        const page = isUnifiedFolder
+          ? await fetchUnifiedMailMessages(accessToken, {
+              limit,
+              offset,
+              ...(recipientAliasFilter ? { delivered_to: recipientAliasFilter } : {}),
+              ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
+              ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
+            })
+          : await fetchMailMessages(accessToken, effectiveAccountId!, activeFolder, {
+              limit,
+              offset,
+              ...(recipientAliasFilter ? { delivered_to: recipientAliasFilter } : {}),
+              ...(filterTagId ? { tag_id: filterTagId } : {}),
+              ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
+              ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
+            })
+        total = Math.max(0, page.total)
+        if (!Array.isArray(page.messages) || page.messages.length === 0) break
+        for (const m of page.messages) {
+          if (seen.has(m.id)) continue
+          seen.add(m.id)
+          ids.push(m.id)
+          accountById[m.id] = m.account_id
+        }
+        offset += page.messages.length
+      }
+      setListMsgSelection({ ids, accountById })
+      setMailSelectionMode(ids.length > 0)
+      toast.success(`${ids.length} message(s) sélectionné(s) dans le dossier`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Impossible de sélectionner tous les messages du dossier')
+    } finally {
+      setSelectingAllInScope(false)
+    }
+  }, [
+    accessToken,
+    isUnifiedFolder,
+    effectiveAccountId,
+    messagesTotal,
+    recipientAliasFilter,
+    conversationThreadKey,
+    mailServerSearchQ,
+    mailSearchSort,
+    activeFolder,
+    filterTagId,
+  ])
+
   const handleBulkMove = useCallback(
     async (folder: MailFolderId) => {
       if (!accessToken || selectedMessageIds.length === 0) return
       const n = selectedMessageIds.length
       setBulkWorking(true)
       try {
+        const byAccount = new Map<number, number[]>()
+        for (const id of selectedMessageIds) {
+          const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
+          if (aid == null) continue
+          const arr = byAccount.get(aid) ?? []
+          arr.push(id)
+          byAccount.set(aid, arr)
+        }
         await Promise.all(
-          selectedMessageIds.map((id) => {
-            const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
-            if (aid == null) return Promise.resolve()
-            return moveMailMessageToFolder(accessToken, aid, id, folder)
-          })
+          [...byAccount.entries()].map(([aid, ids]) => moveMailMessagesToFolderBulk(accessToken, aid, ids, folder))
         )
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
@@ -1932,12 +2352,16 @@ export default function MailPage() {
       if (!accessToken || selectedMessageIds.length === 0) return
       setBulkWorking(true)
       try {
+        const byAccount = new Map<number, number[]>()
+        for (const id of selectedMessageIds) {
+          const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
+          if (aid == null) continue
+          const arr = byAccount.get(aid) ?? []
+          arr.push(id)
+          byAccount.set(aid, arr)
+        }
         await Promise.all(
-          selectedMessageIds.map((id) => {
-            const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
-            if (aid == null) return Promise.resolve()
-            return markMailMessageRead(accessToken, aid, id, read)
-          })
+          [...byAccount.entries()].map(([aid, ids]) => markMailMessagesReadBulk(accessToken, aid, ids, read))
         )
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
@@ -1950,6 +2374,43 @@ export default function MailPage() {
     },
     [effectiveAccountId, accessToken, selectedMessageIds, selectionAccountByMessageId, queryClient]
   )
+
+  const handleBulkPermanentDelete = useCallback(async () => {
+    if (!accessToken || selectedMessageIds.length === 0) return
+    if (activeFolder !== 'trash') {
+      toast.error('La suppression définitive est disponible uniquement depuis la corbeille.')
+      return
+    }
+    const n = selectedMessageIds.length
+    if (!window.confirm(`Supprimer définitivement ${n} message(s) sélectionné(s) ? Cette action est irréversible.`)) return
+    setBulkWorking(true)
+    try {
+      await Promise.all(
+        selectedMessageIds.map((id) => {
+          const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
+          if (aid == null) return Promise.resolve()
+          return deleteMailMessagePermanently(accessToken, aid, id)
+        })
+      )
+      queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+      void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+      setListMsgSelection({ ids: [], accountById: {} })
+      setSelectedMessageId(null)
+      setSelectedMessageAccountId(null)
+      toast.success(`${n} message(s) supprimé(s) définitivement`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setBulkWorking(false)
+    }
+  }, [
+    activeFolder,
+    accessToken,
+    effectiveAccountId,
+    queryClient,
+    selectedMessageIds,
+    selectionAccountByMessageId,
+  ])
 
   const openEditAccountModal = useCallback(
     (accountId: number) => {
@@ -2323,7 +2784,7 @@ export default function MailPage() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-4 min-h-0 pb-6">
+    <div className="flex flex-col gap-2 min-h-0 h-full">
       {accounts.length > 0 && !is404 && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {effectiveAccountId != null && messages.length > 0 && (mailSelectionMode || selectedMessageIds.length > 0) ? (
@@ -2333,7 +2794,7 @@ export default function MailPage() {
                 <button
                   type="button"
                   onClick={handleToggleSelectAllOnPage}
-                  disabled={bulkWorking}
+                  disabled={bulkWorking || selectingAllInScope}
                   className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
                   aria-label="Tout sélectionner (page)"
                 >
@@ -2344,13 +2805,29 @@ export default function MailPage() {
                   <button
                     type="button"
                     onClick={handleInvertSelectionOnPage}
-                    disabled={bulkWorking}
+                    disabled={bulkWorking || selectingAllInScope}
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
                     aria-label="Inverser la sélection (page)"
                   >
                     Inverser la sélection
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (allMessagesSelectedInScope) {
+                      clearMessageSelection()
+                      return
+                    }
+                    void handleSelectAllMessagesInScope()
+                  }}
+                  disabled={bulkWorking || selectingAllInScope}
+                  className="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                  aria-label="Tout sélectionner (boîte entière)"
+                >
+                  {allMessagesSelectedInScope ? <CheckSquare className="h-4 w-4 text-brand-600" /> : <Square className="h-4 w-4 text-slate-400" />}
+                  {selectingAllInScope ? 'Sélection complète…' : allMessagesSelectedInScope ? 'Tout désélectionner (boîte)' : 'Tout sélectionner (boîte)'}
+                </button>
                 <button
                   type="button"
                   onClick={() => clearMessageSelection()}
@@ -2360,7 +2837,7 @@ export default function MailPage() {
                 </button>
                 {selectedMessageIds.length > 0 ? (
                   <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                    {selectedMessageIds.length} message(s) sélectionné(s)
+                    {selectedMessageIds.length} message(s) sélectionné(s){messagesTotal > 0 ? ` / ${messagesTotal}` : ''}
                   </span>
                 ) : (
                   <span className="text-xs text-slate-500 dark:text-slate-400 max-w-[20rem]">
@@ -2413,7 +2890,7 @@ export default function MailPage() {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[260px] max-h-[calc(100dvh-10.5rem)]">
+      <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[260px] flex-1">
         <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
           <aside
             className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 max-h-full overflow-y-auto overscroll-contain transition-[width] duration-150 ease-out gap-2 shrink-0 ${
@@ -2779,6 +3256,71 @@ export default function MailPage() {
                 )
               })}
             </div>
+            <div
+              className={`sticky bottom-0 z-10 mt-auto border-t border-slate-200 dark:border-slate-600 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm ${
+                sidebarCollapsed ? 'px-0.5 py-1.5' : 'px-1 py-2'
+              }`}
+            >
+              {sidebarCollapsed ? (
+                <div className="flex flex-col items-center gap-1">
+                  <span
+                    className={`inline-flex h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10 ${
+                      autoSyncRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-500'
+                    }`}
+                    title={autoSyncRunning ? 'Synchronisation auto en cours' : 'Synchronisation auto au repos'}
+                    aria-label={autoSyncRunning ? 'Synchronisation auto en cours' : 'Synchronisation auto au repos'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowMailSettings(true)}
+                    className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    title="Paramètres Mail"
+                    aria-label="Paramètres Mail"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openMailSettingsAtRules}
+                    className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    title="Filtres et règles Mail"
+                    aria-label="Filtres et règles Mail"
+                  >
+                    <Tag className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-1.5">
+                  <div className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/70 dark:bg-slate-700/60">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
+                      <span
+                        className={`h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10 ${
+                          autoSyncRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-500'
+                        }`}
+                        aria-hidden
+                      />
+                      {autoSyncRunning ? 'Sync auto en cours…' : 'Sync auto active'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowMailSettings(true)}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-700/70 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <Settings className="h-3.5 w-3.5 shrink-0" />
+                    Paramètres Mail
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openMailSettingsAtRules}
+                    className="flex items-center gap-2 rounded-lg border border-brand-200 dark:border-brand-700/60 bg-brand-50/80 dark:bg-brand-900/30 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/40"
+                  >
+                    <Tag className="h-3.5 w-3.5 shrink-0" />
+                    Filtres et règles
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               onClick={toggleSidebar}
@@ -2807,7 +3349,7 @@ export default function MailPage() {
                 Filtre par étiquette actif (dossier courant).
               </div>
             ) : null}
-            {conversationThreadKey ? (
+            {!mailCompactUi && conversationThreadKey ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-amber-50/50 dark:bg-amber-900/10">
                 <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
                   <MessagesSquare className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden />
@@ -2822,15 +3364,40 @@ export default function MailPage() {
                 </button>
               </div>
             ) : null}
+            {!mailCompactUi && similarSenderFilter ? (
+              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-blue-50/60 dark:bg-blue-900/10">
+                <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
+                  <Users className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-400" aria-hidden />
+                  Filtre messages similaires actif ({similarSenderFilter})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSimilarSenderFilter(null)}
+                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                >
+                  Afficher tout le dossier
+                </button>
+              </div>
+            ) : null}
             <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
               <div className="flex flex-col gap-2">
-                <input
-                  type="text"
-                  value={mailSearchText}
-                  onChange={(e) => setMailSearchText(e.target.value)}
-                  placeholder="Rechercher dans les mails de cette page (expéditeur, objet)"
-                  className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={mailSearchText}
+                    onChange={(e) => setMailSearchText(e.target.value)}
+                    placeholder="Recherche… (2+ car. : FR+EN + HTML léger, tri pertinence puis date)"
+                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMailCompactUi((v) => !v)}
+                    className="shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 px-2.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    title={mailCompactUi ? 'Afficher les panneaux d’aide' : 'Masquer les panneaux d’aide'}
+                  >
+                    {mailCompactUi ? 'Afficher aides' : 'Masquer aides'}
+                  </button>
+                </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
                   <label className="inline-flex items-center gap-1.5">
                     <input type="checkbox" checked={mailSearchSender} onChange={(e) => setMailSearchSender(e.target.checked)} />
@@ -2852,12 +3419,47 @@ export default function MailPage() {
                     />
                     Avec pièces jointes
                   </label>
+                  {mailServerSearchQ ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 bg-slate-50/80 dark:bg-slate-900/40">
+                      <span className="text-slate-500 dark:text-slate-400 px-1.5">Tri</span>
+                      <button
+                        type="button"
+                        onClick={() => setMailSearchSort('rank')}
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                          mailSearchSort === 'rank'
+                            ? 'bg-brand-600 text-white dark:bg-brand-500'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        Pertinence
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMailSearchSort('date')}
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                          mailSearchSort === 'date'
+                            ? 'bg-brand-600 text-white dark:bg-brand-500'
+                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        Date
+                      </button>
+                    </span>
+                  ) : null}
                   {mailSearchText.trim() ? (
                     <span className="text-slate-500 dark:text-slate-400">
-                      {visibleMessages.length} résultat(s) sur {messages.length}
+                      {visibleMessages.length} résultat(s)
+                      {mailServerSearchQ
+                        ? ` · ${messagesTotal} au total (recherche)`
+                        : ` sur ${messages.length} (page)`}
                     </span>
                   ) : null}
                 </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Raccourcis : <code>#etiquette</code>, <code>$expediteur</code>, <code>is:unread</code>, <code>has:pj</code>. Mots simples (2+) :{' '}
+                  <span className="font-medium text-slate-600 dark:text-slate-300">FTS français + anglais</span> (objet, exp., corps texte + texte dérivé du HTML),{' '}
+                  <span className="font-medium text-slate-600 dark:text-slate-300">tri par pertinence</span> puis date.
+                </p>
               </div>
             </div>
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
@@ -2890,6 +3492,17 @@ export default function MailPage() {
                       >
                         <Trash2 className="h-4 w-4 shrink-0" /> Corbeille
                       </button>
+                      {activeFolder === 'trash' ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleBulkPermanentDelete()}
+                          disabled={bulkWorking}
+                          aria-label="Suppression définitive en masse"
+                          className="rounded-lg border border-red-400/60 dark:border-red-700 px-3 py-1.5 text-sm font-medium text-red-800 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-950/45 disabled:opacity-50 flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4 shrink-0" /> Supprimer définitivement
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => handleBulkMove('spam')}
@@ -2949,10 +3562,21 @@ export default function MailPage() {
               >
                 {visibleMessages.length > 0 ? (
                   <>
-                    <ul className="divide-y divide-slate-200 dark:divide-slate-600 min-h-0 overflow-y-auto flex-1 overscroll-contain">
+                    <ul className="flex flex-col gap-1.5 px-1 py-2 min-h-0 overflow-y-auto flex-1 overscroll-contain">
                       {visibleMessages.map((msg) => {
                         const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
                         const rowContact = senderKey ? contactsByEmail.get(senderKey) ?? null : null
+                        const isUnread = !msg.is_read
+                        const isSelected = selectedMessageId === msg.id
+                        const isReadToggleFlash = mailReadToggleHighlightId === msg.id
+                        const rowSurface = isUnread
+                          ? mailUnreadListRowSurface(isSelected)
+                          : isSelected
+                            ? 'border border-brand-200/90 dark:border-brand-700/45 bg-brand-50 dark:bg-brand-900/25'
+                            : 'border border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                        const rowFlash = isReadToggleFlash
+                          ? 'ring-2 ring-brand-500/80 dark:ring-brand-400/70 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900 shadow-lg shadow-brand-500/15'
+                          : ''
                         return (
                         <li
                           key={msg.id}
@@ -2974,13 +3598,15 @@ export default function MailPage() {
                               account_id: msg.account_id,
                               x: p.x,
                               y: p.y,
+                              is_read: msg.is_read,
                               from: msg.from,
+                              subject: msg.subject,
                               folder: msg.folder,
                               tag_ids: msg.tag_ids,
                               thread_key: msg.thread_key,
                             })
                           }}
-                          className={`relative px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer flex flex-col gap-0.5 group ${selectedMessageId === msg.id ? 'bg-brand-50 dark:bg-brand-900/20' : ''}`}
+                          className={`relative rounded-xl px-4 py-3 transition-[background-color,box-shadow,border-color,ring-color] duration-200 cursor-pointer flex flex-col gap-0.5 group ${rowSurface} ${rowFlash}`}
                         >
                           <div className="flex items-start gap-2 min-w-0">
                             <div
@@ -3111,7 +3737,9 @@ export default function MailPage() {
                                       account_id: msg.account_id,
                                       x,
                                       y,
+                                      is_read: msg.is_read,
                                       from: msg.from,
+                                      subject: msg.subject,
                                       folder: msg.folder,
                                       tag_ids: msg.tag_ids,
                                       thread_key: msg.thread_key,
@@ -3381,17 +4009,45 @@ export default function MailPage() {
                               </label>
                             </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedMessageId(null)
-                              setSelectedMessageAccountId(null)
-                            }}
-                            className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
-                            aria-label="Fermer l’aperçu"
-                          >
-                            Fermer
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                const { x, y } = mailActionMenuPositionBelowButton(rect)
+                                setContextMenuMessage({
+                                  id: selectedMessageDetail.id,
+                                  account_id: selectedMessageDetail.account_id,
+                                  x,
+                                  y,
+                                  is_read: selectedMessageDetail.is_read,
+                                  from: selectedMessageDetail.from,
+                                  subject: selectedMessageDetail.subject,
+                                  folder: selectedMessageDetail.folder,
+                                  tag_ids: selectedMessageDetail.tag_ids,
+                                  thread_key: selectedMessageDetail.thread_key,
+                                })
+                              }}
+                              className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600"
+                              title="Actions (identique au clic droit sur la liste)"
+                              aria-label="Menu actions message"
+                              aria-expanded={contextMenuMessage?.id === selectedMessageDetail.id}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedMessageId(null)
+                                setSelectedMessageAccountId(null)
+                              }}
+                              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700 border border-transparent hover:border-slate-300 dark:hover:border-slate-600"
+                              aria-label="Fermer l’aperçu"
+                            >
+                              Fermer
+                            </button>
+                          </div>
                         </div>
                         {showFullMailHeaders ? (
                           <div className="px-4 pb-3 md:px-5 border-b border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50">
@@ -3696,7 +4352,7 @@ export default function MailPage() {
                         </div>
                         {al.deliver_target_email ? (
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={al.deliver_target_email}>
-                            → {al.deliver_target_email}
+                            → {passAliasTargetLabel(al.deliver_target_email, passVaults)}
                           </p>
                         ) : null}
                         {editingAliasCibleId === al.id ? (
@@ -3708,15 +4364,29 @@ export default function MailPage() {
                               placeholder="ex. ma-boite-reelle@domaine.com"
                               className="flex-1 min-w-[140px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-0.5 text-[11px]"
                             />
+                            {aliasCibleDraftError ? (
+                              <p className="w-full text-[10px] text-red-600 dark:text-red-400">{aliasCibleDraftError}</p>
+                            ) : null}
                             <button
                               type="button"
                               className="text-[11px] text-brand-600 dark:text-brand-400 font-medium"
-                              disabled={aliasMutation.isPending}
+                              disabled={aliasMutation.isPending || !!aliasCibleDraftError}
                               onClick={() =>
                                 aliasMutation.mutate({ type: 'patch', id: al.id, deliver_target_email: aliasCibleDraft.trim() })
                               }
                             >
                               Enregistrer
+                            </button>
+                            <button
+                              type="button"
+                              className="text-[11px] text-brand-600 dark:text-brand-400"
+                              disabled={aliasTargetVaultId == null || aliasTargetItemId == null}
+                              onClick={() => {
+                                if (aliasTargetVaultId == null || aliasTargetItemId == null) return
+                                setAliasCibleDraft(`pass://vault/${aliasTargetVaultId}/item/${aliasTargetItemId}`)
+                              }}
+                            >
+                              Utiliser Pass
                             </button>
                             <button
                               type="button"
@@ -3735,7 +4405,13 @@ export default function MailPage() {
                             className="text-[11px] text-left text-brand-600 dark:text-brand-400 hover:underline w-fit"
                             onClick={() => {
                               setEditingAliasCibleId(al.id)
-                              setAliasCibleDraft(al.deliver_target_email ?? '')
+                              const target = al.deliver_target_email ?? ''
+                              setAliasCibleDraft(target)
+                              const parsed = parsePassAliasTarget(target)
+                              if (parsed) {
+                                setAliasTargetVaultId(parsed.vaultId)
+                                setAliasTargetItemId(parsed.itemId)
+                              }
                             }}
                           >
                             {al.deliver_target_email ? 'Modifier la cible' : 'Définir la cible (Pass / transfert)'}
@@ -3768,9 +4444,50 @@ export default function MailPage() {
                       placeholder="Cible de livraison (optionnel) — ex. boîte réelle ou note Pass"
                       className="w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
                     />
+                    {newAliasDeliverTargetError ? (
+                      <p className="text-[10px] text-red-600 dark:text-red-400">{newAliasDeliverTargetError}</p>
+                    ) : null}
+                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-1.5">
+                      <select
+                        value={aliasTargetVaultId ?? ''}
+                        onChange={(e) => {
+                          const n = e.target.value ? Number(e.target.value) : null
+                          setAliasTargetVaultId(n)
+                          setAliasTargetItemId(null)
+                        }}
+                        className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-[11px]"
+                      >
+                        <option value="">Choisir un coffre Pass</option>
+                        {passVaults.map((v) => (
+                          <option key={`alias-pass-v-${v.id}`} value={v.id}>{v.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={aliasTargetItemId ?? ''}
+                        onChange={(e) => setAliasTargetItemId(e.target.value ? Number(e.target.value) : null)}
+                        className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-[11px]"
+                        disabled={aliasTargetVaultId == null}
+                      >
+                        <option value="">Entrée Pass</option>
+                        {(passVaultItems as PassItemResponse[]).map((it) => (
+                          <option key={`alias-pass-item-${it.id}`} value={it.id}>Entrée #{it.id}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={aliasTargetVaultId == null || aliasTargetItemId == null}
+                        onClick={() => {
+                          if (aliasTargetVaultId == null || aliasTargetItemId == null) return
+                          setNewAliasDeliverTarget(`pass://vault/${aliasTargetVaultId}/item/${aliasTargetItemId}`)
+                        }}
+                        className="rounded border border-brand-300 dark:border-brand-700 px-2 py-1 text-[11px] font-medium text-brand-700 dark:text-brand-300 disabled:opacity-50"
+                      >
+                        Lier Pass
+                      </button>
+                    </div>
                     <button
                       type="button"
-                      disabled={aliasMutation.isPending || !newAliasEmail.trim()}
+                      disabled={aliasMutation.isPending || !newAliasEmail.trim() || !!newAliasDeliverTargetError}
                       onClick={() => aliasMutation.mutate({ type: 'add' })}
                       className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50 w-fit"
                     >
@@ -3780,7 +4497,232 @@ export default function MailPage() {
                 </div>
               )}
 
-              <p className="text-xs text-slate-500 dark:text-slate-400">Règles et dossiers personnalisés : à venir.</p>
+              {effectiveAccountId != null ? (
+                <div
+                  id="mail-settings-filter-rules"
+                  className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 p-3 space-y-3 scroll-mt-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">Règles automatiques (tri)</h3>
+                    <button
+                      type="button"
+                      onClick={() => mailRulesMutation.mutate({ type: 'apply' })}
+                      disabled={mailRulesMutation.isPending}
+                      className="rounded-lg border border-brand-300 dark:border-brand-700 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-brand-950/40 disabled:opacity-50"
+                    >
+                      Appliquer aux mails existants
+                    </button>
+                  </div>
+                  {safeMailRules.length === 0 ? (
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Aucune règle pour cette boîte.</p>
+                  ) : (
+                    <ul className="space-y-2 max-h-40 overflow-y-auto">
+                      {safeMailRules.map((r) => (
+                        <li key={r.id} className="rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">{r.name}</p>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400">ordre {r.rule_order ?? 1000}</span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRuleId(r.id)
+                                  setNewRuleName(r.name || 'Règle automatique')
+                                  setNewRuleFromPattern(r.from_pattern || '')
+                                  setNewRuleFromDomainPattern(r.from_domain_pattern || '')
+                                  setNewRuleRecipientPattern(r.recipient_pattern || '')
+                                  setNewRuleHasTagId(r.has_tag_id ?? null)
+                                  setNewRuleAddTagId(r.add_tag_id ?? null)
+                                  setNewRuleSubjectPattern(r.subject_pattern || '')
+                                  setNewRuleActionFolder((r.action_folder || 'inbox') as MailFolderId)
+                                  setNewRuleHasAttachmentsOnly(Boolean(r.has_attachments))
+                                  setNewRuleMarkRead(Boolean(r.mark_read))
+                                  setNewRuleOrder(String(r.rule_order ?? 1000))
+                                }}
+                                disabled={mailRulesMutation.isPending}
+                                className="text-[11px] text-brand-600 dark:text-brand-400 disabled:opacity-50"
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => mailRulesMutation.mutate({ type: 'patch', id: r.id, enabledOnly: true })}
+                                disabled={mailRulesMutation.isPending}
+                                className="text-[11px] text-amber-700 dark:text-amber-300 disabled:opacity-50"
+                              >
+                                {r.enabled ? 'Désactiver' : 'Activer'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => mailRulesMutation.mutate({ type: 'del', id: r.id })}
+                                disabled={mailRulesMutation.isPending}
+                                className="text-[11px] text-red-600 dark:text-red-400 disabled:opacity-50"
+                              >
+                                Supprimer
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            {[
+                              r.from_pattern ? `from contient « ${r.from_pattern} »` : null,
+                              r.from_domain_pattern ? `domaine « ${r.from_domain_pattern} »` : null,
+                              r.recipient_pattern ? `destinataire « ${r.recipient_pattern} »` : null,
+                              r.has_tag_id ? `a l’étiquette #${mailTags.find((t) => t.id === r.has_tag_id)?.name || r.has_tag_id}` : null,
+                              r.subject_pattern ? `sujet « ${r.subject_pattern} »` : null,
+                              r.has_attachments ? 'avec PJ' : null,
+                              r.add_tag_id ? `ajoute #${mailTags.find((t) => t.id === r.add_tag_id)?.name || r.add_tag_id}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' ; ') || 'Sans condition texte'}
+                            {' → '}
+                            dossier « {folderDisplayLabel(r.action_folder, imapLabelByPath)} »{r.mark_read ? ' + marquer lu' : ''}{r.enabled ? '' : ' · désactivée'}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={newRuleName}
+                      onChange={(e) => setNewRuleName(e.target.value)}
+                      placeholder="Nom règle (optionnel)"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={newRuleOrder}
+                      onChange={(e) => setNewRuleOrder(e.target.value)}
+                      placeholder="Ordre (0 = priorité haute)"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={newRuleFromPattern}
+                      onChange={(e) => setNewRuleFromPattern(e.target.value)}
+                      placeholder="From contient (ex: newsletter@)"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={newRuleFromDomainPattern}
+                      onChange={(e) => setNewRuleFromDomainPattern(e.target.value)}
+                      placeholder="Domaine expéditeur (ex: example.com) — distinct du champ « From »"
+                      title="Correspond au domaine après @ ; combiné en ET avec « From contient » si les deux sont remplis."
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs sm:col-span-2"
+                    />
+                    <input
+                      type="text"
+                      value={newRuleRecipientPattern}
+                      onChange={(e) => setNewRuleRecipientPattern(e.target.value)}
+                      placeholder="Destinataire contient (ex: compta@ ou @client.fr)"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs sm:col-span-2"
+                    />
+                    <input
+                      type="text"
+                      value={newRuleSubjectPattern}
+                      onChange={(e) => setNewRuleSubjectPattern(e.target.value)}
+                      placeholder="Sujet contient (ex: facture)"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    />
+                    <select
+                      value={newRuleActionFolder}
+                      onChange={(e) => setNewRuleActionFolder(e.target.value as MailFolderId)}
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    >
+                      <optgroup label="Standards">
+                        {FOLDERS.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {customImapSidebarRows.length > 0 ? (
+                        <optgroup label="Dossiers IMAP">
+                          {customImapSidebarRows.map((row) => (
+                            <option key={`rule-imap-${row.imap_path}`} value={row.imap_path}>
+                              {row.label?.trim() || row.imap_path}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ) : null}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select
+                      value={newRuleHasTagId ?? ''}
+                      onChange={(e) => setNewRuleHasTagId(e.target.value ? Number(e.target.value) : null)}
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    >
+                      <option value="">Condition étiquette (optionnel)</option>
+                      {mailTags.map((t) => (
+                        <option key={`cond-tag-${t.id}`} value={t.id}>#{t.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={newRuleAddTagId ?? ''}
+                      onChange={(e) => setNewRuleAddTagId(e.target.value ? Number(e.target.value) : null)}
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                    >
+                      <option value="">Action ajouter étiquette (optionnel)</option>
+                      {mailTags.map((t) => (
+                        <option key={`action-tag-${t.id}`} value={t.id}>#{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700 dark:text-slate-300">
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={newRuleHasAttachmentsOnly}
+                        onChange={(e) => setNewRuleHasAttachmentsOnly(e.target.checked)}
+                      />
+                      Uniquement avec PJ
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input type="checkbox" checked={newRuleMarkRead} onChange={(e) => setNewRuleMarkRead(e.target.checked)} />
+                      Marquer comme lu
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        mailRulesMutation.mutate(
+                          editingRuleId != null ? { type: 'patch', id: editingRuleId } : { type: 'add' }
+                        )
+                      }
+                      disabled={mailRulesMutation.isPending}
+                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                    >
+                      {editingRuleId != null ? 'Enregistrer les modifications' : 'Ajouter la règle'}
+                    </button>
+                    {editingRuleId != null ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingRuleId(null)
+                          setNewRuleName('')
+                          setNewRuleFromPattern('')
+                          setNewRuleFromDomainPattern('')
+                          setNewRuleRecipientPattern('')
+                          setNewRuleHasTagId(null)
+                          setNewRuleAddTagId(null)
+                          setNewRuleSubjectPattern('')
+                          setNewRuleActionFolder('inbox')
+                          setNewRuleHasAttachmentsOnly(false)
+                          setNewRuleMarkRead(false)
+                          setNewRuleOrder('1000')
+                        }}
+                        className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200"
+                      >
+                        Annuler
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-600 shrink-0">
               <button
@@ -4280,6 +5222,22 @@ export default function MailPage() {
             type="button"
             role="menuitem"
             onClick={() => {
+              void handleMarkMessageReadState(
+                contextMenuMessage.id,
+                contextMenuMessage.account_id,
+                !Boolean(contextMenuMessage.is_read)
+              )
+              setContextMenuMessage(null)
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <MailOpen className="h-4 w-4 shrink-0" />
+            {contextMenuMessage.is_read ? 'Marquer comme non lu' : 'Marquer comme lu'}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
               handleOpenContactFromMail(contextMenuMessage.from)
               setContextMenuMessage(null)
             }}
@@ -4297,6 +5255,39 @@ export default function MailPage() {
             className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
           >
             <UserPlus className="h-4 w-4 shrink-0" /> Ajouter aux contacts
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              const sender = extractEmailFromSender(contextMenuMessage.from) || contextMenuMessage.from?.trim() || ''
+              if (!sender) {
+                toast.error('Expéditeur introuvable pour filtrer')
+                setContextMenuMessage(null)
+                return
+              }
+              setSimilarSenderFilter(sender.toLowerCase())
+              setContextMenuMessage(null)
+              setMessagePage(0)
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <Users className="h-4 w-4 shrink-0" /> Filtrer les messages similaires
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              openMailRuleAssistantFromMessage({
+                account_id: contextMenuMessage.account_id,
+                from: contextMenuMessage.from,
+                subject: contextMenuMessage.subject,
+                folder: contextMenuMessage.folder,
+              })
+            }}
+            className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+          >
+            <Layers className="h-4 w-4 shrink-0" /> Créer une règle à partir de ce message…
           </button>
           {contextMenuMessage.thread_key ? (
             <button
