@@ -18,6 +18,20 @@
 
 **Cohérence** : la liste **Priorités actuelles** ci-dessous est le **pivot quotidien** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → …) vit dans **VISION-SUITE.md** avec l’**état réel** du dépôt (Mail déjà largement livré, Photos en cours, etc.). **BACKLOG.md** condense les cases à cocher ; **STATUS.md** détaille l’avancement.
 
+## Prochaines étapes — synthèse (quoi faire ensuite)
+
+Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TESTS**, **PLAN** (pas seulement la boussole **VISION-SUITE**) :
+
+1. **Mail (web)** — pousser le « quotidien » : **stabilité React** (`Maximum update depth` — audit effets AppChrome / MailPage), **sous-dossiers IMAP `CREATE`**, **threads / conversations**, PJ liste/tailles/sync **multi-boîtes**, **snooze** plus tard ; **recherche cross-apps** au hub (**BACKLOG**). Tenir **PLAN.md** pour console / dates corbeille.
+2. **Mail (suite doc)** — aligner **BACKLOG** : règles = **MVP livré** ; reste **tests API/E2E** combinés et polish.
+3. **Photos** — **création d’album** (API + UI), purge corbeille depuis Photos, **archivé**, ajustement barre bas si sidebar `w-14` (**TODO** § Photos web).
+4. **Alias mail** — MVP boîte OK ; **système complet** expiration / vue globale / DNS (**SYNC-BACKLOG §2**, **ROADMAP APP-04**).
+5. **Pass** — densifier MVP (TOTP, etc. selon **ROADMAP**).
+6. **Drive / recherche** — E2E, ZIP/PPT serveur ; recherche **globale** Mail + Pass (**TESTS.md** § 4).
+7. **Qualité** — **`make test`** (Docker) avant merge ; compléter les lignes **TESTS.md** § 4 pour les trous connus.
+
+**PLAN.md** = dépannage et sync par boîte (déjà livré § 9), pas la liste produit prioritaire.
+
 ## Priorités actuelles
 
 - **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.

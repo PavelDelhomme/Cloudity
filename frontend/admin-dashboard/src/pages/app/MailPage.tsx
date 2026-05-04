@@ -4182,9 +4182,27 @@ export default function MailPage() {
                                   {selectedMessageDetail.body_plain}
                                 </div>
                               )
+                            ) : selectedMessagePending || selectedMessageFetching ? (
+                              <div className="px-5 py-10 flex flex-col items-center justify-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+                                <Loader2 className="h-8 w-8 animate-spin text-brand-500" aria-hidden />
+                                <p className="text-center">Récupération du corps du message…</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 text-center max-w-sm">
+                                  Si le serveur doit aller chercher le message sur IMAP, cela peut prendre quelques secondes.
+                                </p>
+                              </div>
                             ) : (
-                              <div className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400 italic">
-                                Corps du message vide pour l’instant. Utilisez « Menu Mail » → « Actualiser (IMAP) » ou rouvrez le message après synchronisation.
+                              <div className="px-5 py-8 text-center space-y-3">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                                  Corps du message indisponible. Réessayez ou lancez une synchronisation depuis « Menu Mail ».
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => void refetchSelectedMessageDetail()}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-500 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+                                >
+                                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                                  Recharger le message
+                                </button>
                               </div>
                             )}
                           </article>
