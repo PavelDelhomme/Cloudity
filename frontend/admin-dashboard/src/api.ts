@@ -622,7 +622,8 @@ export async function markMailMessageRead(
 }
 
 export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'archive' | 'spam' | 'trash'
-/** Dossier standard, vue agrégée `all`, vue multi-boîtes `unified`, ou chemin IMAP synchronisé (même valeur qu’en base). */
+/** Dossier standard, vue agrégée `all`, vue multi-boîtes `unified`, ou chemin IMAP synchronisé (même valeur qu’en base). `string & {}` : pattern TS pour ne pas absorber les littéraux dans le union. */
+// eslint-disable-next-line @typescript-eslint/ban-types -- voir jsdoc ci-dessus
 export type MailFolderId = MailStandardFolderId | 'all' | 'unified' | (string & {})
 
 export async function moveMailMessageToFolder(

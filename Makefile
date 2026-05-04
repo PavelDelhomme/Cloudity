@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -40,11 +40,14 @@ help: ## Affiche ce message d'aide
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
 	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
+	@echo '  make test-dashboard-one FILE=src/... - Un seul fichier Vitest dans le conteneur (ex. MailPage.test.tsx)'
+	@echo '  make test-dashboard-lint - ESLint admin-dashboard dans le conteneur'
 	@echo '  make test-auth      - Smoke : go test auth-service seul (Docker --no-deps)'
 	@echo '  make test-go-one SERVICE=drive-service - Smoke Go pour UN service (nom = clé docker-compose.yml)'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
 	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
+	@echo '  make test-e2e-playwright-mail - E2E Playwright, fichier e2e/mail.spec.ts uniquement (stabilité React § TESTS 4.8)'
 	@echo '  make dashboard-npm-ci - npm ci dans frontend/admin-dashboard (valide le lockfile, comme le Dockerfile)'
 	@echo '  make dashboard-npm-install - npm install dashboard (après changement de package.json)'
 	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
@@ -314,6 +317,22 @@ test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-de
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tests dashboard OK."
 
+test-dashboard-lint: ## ESLint admin-dashboard dans le conteneur (npm install + npm run lint)
+	@echo "🧪 ESLint dashboard (Docker)..."
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && npm run lint" || exit 1
+	@echo "✅ ESLint dashboard OK."
+
+test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/MailPage.test.tsx make test-dashboard-one
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx"; \
+		exit 1; \
+	fi
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
+	@echo "🧪 Vitest (Docker) — $(FILE)..."
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && npx vitest run $(FILE)" || exit 1
+	@echo "✅ Vitest $(FILE) OK."
+
 # Smoke Go : un service à la fois (même flags que la première étape de make test)
 test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service (clé = nom du service dans docker-compose.yml)
 	@if [ -z "$(SERVICE)" ]; then \
@@ -368,6 +387,11 @@ test-e2e-playwright-calendar: ## E2E Playwright — calendrier uniquement (e2e/c
 	@echo "🎭 Tests E2E Playwright — Calendrier..."
 	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/calendar.spec.ts
 	@echo "✅ E2E Calendrier OK"
+
+test-e2e-playwright-mail: ## E2E Playwright — Mail uniquement (e2e/mail.spec.ts). Prérequis: make up, make seed-admin
+	@echo "🎭 Tests E2E Playwright — Mail..."
+	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/mail.spec.ts
+	@echo "✅ E2E Mail OK"
 
 dashboard-npm-ci: ## npm ci dans frontend/admin-dashboard (reproductible, comme l’étape Docker du build)
 	@echo "📦 npm ci — frontend/admin-dashboard..."

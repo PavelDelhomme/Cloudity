@@ -274,7 +274,9 @@ export default function AppLayout() {
       const next = !v
       try {
         localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next))
-      } catch (_) {}
+      } catch {
+        /* quota / mode privé : ignorer */
+      }
       return next
     })
   }

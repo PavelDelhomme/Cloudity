@@ -27,9 +27,9 @@
 ## 10. Mail web — boucle React "Maximum update depth" (avril 2026)
 
 - **Symptôme** : warning React `Maximum update depth exceeded` sur `MailPage`, navigation `/app/mail` instable (retours Drive/Hub perturbés).
-- **Cause probable** : effets qui poussent du chrome (`setBreadcrumbActions`, `setShellSearchAdjacent`) + dépendances instables, et setState inutile sur certains cycles.
-- **Correctifs appliqués** : garde anti-réécriture dans les effets AppChrome, suppression des mises à jour d’état inutiles (`setComposeSlots` quand inchangé), simplification avatar mail pour éviter cascade d’erreurs `onError`.
-- **Validation** : surveiller console après `make restart`, navigation `/app/mail` ↔ `/app/drive`, et `make mail-security-check`.
+- **Cause probable** : `MailPage` s’abonnait au **contexte AppPageChrome complet** : à chaque mise à jour de `breadcrumbActions`, la page se ré-rendait et pouvait repousser un nouveau nœud dans `setBreadcrumbActions` → boucle.
+- **Correctifs appliqués** : (1) **`appPageChromeContext.tsx`** : deux contextes — **setters stables** (`useAppPageChromeSetters`) vs **affichage** (`breadcrumbActions` / `shellSearchAdjacent`) ; les slots `BreadcrumbAppActionsSlot` / `ShellSearchAdjacentSlot` ne lisent que l’affichage. (2) **`MailPage.tsx`** : enregistre le breadcrumb via les setters uniquement ; nœud mémoïsé **`MailAppChromeMenu`** (`MailPageChrome.tsx`). (3) Historique : garde anti-réécriture effets, `setComposeSlots` conditionnel, avatar mail simplifié.
+- **Validation** : Vitest Docker (**`make test-dashboard-one …MailPage.test.tsx`**) ; Playwright **`make test-e2e-playwright-mail`** (6 tests : titre page, hub, fil d’Ariane, navigation Mail ↔ Drive + écoute **`Maximum update depth`**) — stack **`make up`** ; compte démo si DB vide (**`make seed-admin`**). Navigation manuelle optionnelle pour sessions longues.
 - **File d’attente** : une seule sync manuelle à la fois (évite la surcharge IMAP) ; le **polling ~25 s** continue d’actualiser **toutes** les boîtes en arrière-plan.
 
 ## 10. Tests Docker — smokes sans retaper `docker compose`

@@ -2,6 +2,16 @@
 
 **Objectif** : tout tester (API, frontend, E2E). Les tests unitaires/applicatifs passent par **`make test`**, exécutés **dans les images Docker** (même environnement que la stack). Les E2E sont **à part** : **`make test-e2e`** (après `make up`).
 
+**Convention Docker d’abord (alignement CI / équipe)** :
+
+| Domaine | Où ça tourne | Commande typique |
+|--------|----------------|------------------|
+| Go, pytest, **Vitest**, **ESLint** dashboard | **Conteneurs** (`docker compose run` / `exec`) | **`make test`**, **`make test-dashboard`**, **`make test-dashboard-lint`**, **`make test-dashboard-one FILE=…`** |
+| E2E health / proxy | Scripts + conteneurs | **`make test-e2e`** (stack **`make up`**) |
+| **Playwright** (navigateur) | **Hôte** : le binaire Playwright pilote le navigateur ; l’app reste servie par la stack Docker (**`make up`**) | **`make test-e2e-playwright`** |
+
+**Sur la machine hôte, Node / `npm` ne sont pas requis** pour valider le front : pas besoin de `cd frontend/... && npm test` si tu utilises les cibles **Make** ci-dessus. **Exception utile (optionnelle)** : **`make dashboard-npm-install`** ou **`cd frontend && npm install`** uniquement pour l’**IDE** (autocomplétion, TypeScript) — pas pour la barrière de merge.
+
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
 
 **Référence CI** : le workflow **`.github/workflows/docker-unit-tests.yml`** lance **`make test`** sur chaque push / PR vers `main` ou `master` : même batterie que en local **dans les conteneurs** (pas de « seulement npm test sur l’hôte » pour valider la fusion). Après un **`make up`** réussi, **`make test-docker`** rejoue Go / pytest / Vitest via **`docker compose exec`** sur les processus **déjà en cours d’exécution** (double vérif que ce qui tourne dans la stack est testable).
@@ -36,7 +46,8 @@
 | **`make test-go-one SERVICE=nom`** | Smoke **un** service Go (`api-gateway`, `mail-directory-service`, `drive-service`, …) — **`SERVICE`** = clé exacte dans **docker-compose.yml**. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make tests`** | **TOUT** : unit/app + E2E + **Playwright** + sécurité + **mobile Flutter Photos + Drive + Mail** (`test-mobile-suite`). Rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
-| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et `npx playwright` tournent en général sur la **machine hôte** (pas dans l’image Docker du dashboard) ; le reste de **`make test`** reste **Docker**. |
+| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office, Mail, etc. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et **`npx playwright`** tournent sur la **machine hôte** ; l’application testée est celle servie par **Docker** (`admin-dashboard` dans la stack). |
+| **`make test-e2e-playwright-mail`** | **Playwright — uniquement** **`e2e/mail.spec.ts`** (plus rapide ; inclut la non-régression **`Maximum update depth`**). Même prérequis que la ligne ci-dessus. |
 | **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`**. |
 | **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** : § **1b**. **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** → sans Drive ; **`CLOUDITY_SKIP_MOBILE_MAIL=1`** → sans Mail. |
 | **`make test-mobile-photos`** | Wrapper **`scripts/test-mobile-app.sh` photos** — **`mobile/photos`**. |
@@ -44,6 +55,30 @@
 | **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
+| **`make test-dashboard`** | **Vitest admin-dashboard seul**, dans l’image Docker (`npm install` + `npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
+| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/admin-dashboard/`. |
+| **`make test-dashboard-lint`** | **ESLint** du dashboard dans le conteneur (`npm run lint`). |
+
+### Admin-dashboard : chemin canonique = Docker
+
+**Référence** : la CI et **`make test`** installent les deps et lancent Vitest / ESLint **dans le conteneur** `admin-dashboard` (`npm install` dans le `run`, volume `node_modules` du projet). Ce flux est la **source de vérité** ; un échec de **`npm run test`** sur l’hôte sans `node_modules` **n’indique pas** une régression.
+
+| Besoin | Commande (racine du dépôt, Docker requis) |
+|--------|---------------------------------------------|
+| Toute la suite Vitest dashboard | **`make test-dashboard`** |
+| Un fichier (ex. Mail) | **`make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx`** |
+| Lint React/TS | **`make test-dashboard-lint`** |
+| Tout le dépôt (Go + pytest + Vitest) | **`make test`** |
+
+**Optionnel — hôte uniquement si tu veux un IDE confortable** : **`make dashboard-npm-install`** ou **`cd frontend && npm install`** pour autocomplétion / diagnostics dans Cursor ; **ce n’est pas** la voie attendue pour « est-ce que ça passe en CI ? ».
+
+**Équivalent sans Make** (toujours Docker, depuis la racine du repo) :
+
+```bash
+docker compose -f docker-compose.yml run --rm --no-deps admin-dashboard sh -c "npm install && npm run test"
+```
+
+**Dépannage `make test-dashboard-lint` → `eslint: not found`** : le **`package.json`** du dashboard doit lister **`eslint`** et les plugins (voir **`.eslintrc.cjs`**). En principe un simple **`make test-dashboard-lint`** refait un **`npm install`** dans le conteneur et récupère les paquets. **Sur l’hôte**, **`make dashboard-npm-ci`** ne sert qu’à aligner un poste de dev (IDE), pas à remplacer Docker pour la validation.
 
 **Smoke d’un seul service Go** (depuis la racine du dépôt) : privilégier **Make** (même `docker compose` que le reste du projet) :
 
@@ -259,9 +294,9 @@ Lancé par **`make test-e2e-playwright`** ou **`cd frontend/admin-dashboard && B
 
 Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion, navigation Hub → Drive / Office, création de fichier et de dossier, téléversement, ouverture d’un document dans l’éditeur.
 
-**Couvert actuellement** : login (succès / échec), Hub (liens Drive/Office, navigation), Drive (titre, menu Nouveau fichier, formulaire Nouveau dossier, Téléverser + overlay), **Office** (cartes colorées Nouveau document / Tableur / Présentation, Récemment modifiés), **Pass** (titre, Nouveau coffre, fil d’Ariane). Certains scénarios (création document/dossier depuis le navigateur, breadcrumb, suppression, sauvegarde éditeur) sont **skippés** en E2E quand l’API Drive n’est pas joignable depuis le navigateur (voir message de skip dans les specs).
+**Couvert actuellement** : login (succès / échec), Hub (liens Drive/Office, navigation), Drive (titre, menu Nouveau fichier, formulaire Nouveau dossier, Téléverser + overlay), **Office** (cartes colorées Nouveau document / Tableur / Présentation, Récemment modifiés), **Pass** (titre, Nouveau coffre, fil d’Ariane), **Mail** (page Mail, lien hub, fil d’Ariane, **navigation Mail ↔ Drive sans `Maximum update depth`** — voir **`e2e/mail.spec.ts`**). Certains scénarios (création document/dossier depuis le navigateur, breadcrumb, suppression, sauvegarde éditeur) sont **skippés** en E2E quand l’API Drive n’est pas joignable depuis le navigateur (voir message de skip dans les specs).
 
-**À couvrir plus tard (idées)** : Mail (domaines), création coffre Pass, réactiver les tests skippés quand l’env E2E permet les appels API.
+**À couvrir plus tard (idées)** : Mail (domaines, **Menu Mail** détaillé avec boîte démo garantie), création coffre Pass, réactiver les tests skippés quand l’env E2E permet les appels API.
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|
@@ -270,6 +305,7 @@ Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion,
 | **e2e/drive.spec.ts** | Titre, boutons ; menu Nouveau fichier ; formulaire Nouveau dossier ; **Téléverser puis nettoyage (sélection + suppression)** ; **breadcrumb + nettoyage (suppression dossier mocké)**. Tests skippés : Nouveau fichier → Document, suppression (API). |
 | **e2e/office.spec.ts** | Cartes colorées Nouveau document / Tableur / Présentation (data-testid office-card-*) ; section Récemment modifiés ou lien Drive. Test skippé : création document (API). |
 | **e2e/pass.spec.ts** | Titre Pass, bouton Nouveau coffre, fil d’Ariane (Tableau de bord, Pass). |
+| **e2e/mail.spec.ts** | Page **`/app/mail`** : titre document **`h1` « Mail »** (**`sr-only`**, comme le **`h1` Drive** à la racine) ; boîtes / chargement / Menu Mail ; lien **Mail** depuis le hub ; fil d’Ariane ; pas de message d’erreur réseau évident ; **navigation Mail → Drive → Mail** + écoute **`Maximum update depth`** (§ **4.8**). |
 | **e2e/editor.spec.ts** | **Ouverture éditeur par URL (mock)** : modale **Lien** (popup custom), modale **Tableau** ; **modale Quitter** (Annuler reste, Quitter redirige). Test skippé : sauvegarde manuelle. |
 
 Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/admin-dashboard/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
@@ -365,7 +401,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [ ] **API mail-directory-service** : test (ou scénario manuel) sync IMAP avec un fournisseur type OVH (ssl0.ovh.net) ; message d’erreur clair si identifiants invalides.
 - [ ] **Frontend MailPage** : tests unitaires (liste comptes, liste messages, bouton sync, formulaire envoi) ; E2E : ajouter une boîte (mock ou compte test), sync, affichage messages.
 - [x] **Frontend MailPage** : compléter les tests actions de masse (spam, non lu, remettre en boîte) sur sélection multiple (**routes batch `PATCH /messages/read` et `PATCH /messages/folder` couvertes**).
-- [ ] **Frontend MailPage** : test anti-régression `Maximum update depth exceeded` (montage page Mail + changements de chrome + navigation vers Drive puis retour sans warning console).
+- [x] **Frontend MailPage** : anti-régression **`Maximum update depth exceeded`** — correctif + **`h1` « Mail »** ; barrière **Vitest** (Docker) + **`make test-e2e-playwright-mail`** (6 tests). Checklist manuelle § **4.8** reste utile pour sessions longues / extensions.
 - [x] **Frontend MailPage** : test **sélection inversée (page)** sur sélection multiple.
 - [x] **Frontend MailPage** : test **pagination avec total** (`Page X / Y` + `N message(s)`).
 - [x] **Frontend MailPage** : ajout bouton **“Tout sélectionner (boîte entière)”** (toutes les pages) + actions de masse sur tous les messages de la boîte (pas seulement la page).
@@ -374,12 +410,40 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [ ] **Recherche avancée Mail** : tests unitaires filtres combinés + E2E recherche par période, expéditeur, sujet, texte.
 - [ ] **Édition compte mail relié** : tests unitaires + E2E (mot de passe modifiable ; **IMAP/SMTP en lecture seule pendant sync** ; re-sync après modification).
 
+### 4.8 Mail web — AppPageChrome, menu barre du haut, stabilité React (avril 2026)
+
+**Contexte produit** : actions **Nouveau** + **Menu Mail** (actualiser IMAP, paramètres, règles, Google, ajouter une boîte) dans la zone breadcrumb globale, sans provoquer de boucle de re-rendus React.
+
+**Déjà fait (implémentation)** :
+
+- Fichiers : **`frontend/admin-dashboard/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/admin-dashboard/src/pages/app/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
+- Documentation produit : **`STATUS.md`** (paragraphe d’en-tête), **`docs/PLAN.md`** § 10, **`BACKLOG.md`**, **`docs/TODO.md`**.
+
+**Tests automatisés — ordre recommandé** :
+
+1. **Docker (racine dépôt)** — **`make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx`** (**17 tests** typiques) ; **`make test-dashboard-lint`** ; puis **`make test`** ou **`make test-dashboard`** pour la suite Vitest complète.
+2. **Playwright (navigateur sur l’hôte, app = stack Docker)** — après **`make up`** et **`make seed-admin`** : **`make test-e2e-playwright`** ou **`make test-e2e-playwright-mail`** (uniquement **`e2e/mail.spec.ts`**). Ce fichier inclut un scénario **Mail ↔ Drive** qui échoue si la console ou une **`pageerror`** contient **`Maximum update depth`** (complément à la checklist manuelle).
+
+**Checklist manuelle (sessions longues, extensions — complément E2E)** :
+
+| # | Vérification | Critère de succès |
+|---|----------------|-------------------|
+| 1 | Console navigateur (F12 → Console) | Aucun **`Maximum update depth exceeded`** en restant sur `/app/mail` ≥ 30 s. |
+| 2 | Navigation SPA | Aller **Hub → Mail → Drive → Mail** (ou équivalent) ; console toujours sans cette erreur. *(Couvert en partie par Playwright § ci-dessus.)* |
+| 3 | Onglet Network (filtre `mail` ou XHR) | Les appels utiles (ex. comptes, messages, sync) restent en **2xx** quand l’API est saine. Les lignes gateway **`JWT … expired`** pendant des **POST …/sync** peuvent apparaître si plusieurs syncs partent avant **`/auth/refresh`** — à traiter en produit si trop fréquent. |
+| 4 | UI barre du haut sur `/app/mail` | Bouton **Nouveau** visible ; **Menu Mail** ouvre le menu ; **Actualiser (IMAP)** déclenche un sync (spinner / état busy cohérent). |
+| 5 | Quitter Mail | En naviguant vers une autre app, pas d’erreur rouge liée au breadcrumb ; au retour sur Mail, le menu réapparaît. |
+
+**À renforcer plus tard** : Vitest avec mock **`AppPageChromeProvider`** / assertion sur le nombre d’appels à **`setBreadcrumbActions`** ; E2E supplémentaire « ouvrir **Menu Mail** → fermer » lorsqu’une boîte de démo est garantie en CI.
+
 ---
 
 ## 5. Récap
 
 - **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](./ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit ; les chantiers **sécurité transverse** (phases, signatures, Zero Trust) : **[SECURITE.md](./SECURITE.md)** + **[BACKLOG.md](../BACKLOG.md)**.
 - **Lancer tous les tests** : **`make test`** (unit/app uniquement).
+- **Vitest / ESLint dashboard (Docker, pas de Node obligatoire sur l’hôte)** : **`make test-dashboard`** ; un fichier : **`make test-dashboard-one FILE=src/...`** ; lint : **`make test-dashboard-lint`** — § **1** (convention **Docker d’abord** + encadré admin-dashboard).
+- **Playwright** : navigateur sur l’**hôte**, app servie par Docker — **`make test-e2e-playwright`** (voir tableau en tête de ce fichier).
 - **Lancer tout (unit + E2E + E2E Playwright + sécurité)** : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport dans `reports/`) ou **`make test-all`**.
 - **Lancer tout + tests dans les conteneurs** : **`make test-full`** (stack up requise).
 - **Lancer les E2E seuls** : `make up` puis `make test-e2e`.

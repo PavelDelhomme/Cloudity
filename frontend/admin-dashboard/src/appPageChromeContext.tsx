@@ -1,15 +1,19 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
 
-type AppPageChromeContextValue = {
-  /** Contenu affiché à côté du fil d’Ariane (menu d’app : Mail, Calendar, …). */
+/** Contenu affiché dans la barre (fil d’Ariane, zone recherche) — seul ce contexte change quand le chrome est mis à jour. */
+export type AppPageChromeDisplayValue = {
   breadcrumbActions: React.ReactNode | null
-  setBreadcrumbActions: (node: React.ReactNode | null) => void
-  /** Contenu affiché juste avant la recherche globale (ex. bouton synchro Mail). */
   shellSearchAdjacent: React.ReactNode | null
+}
+
+/** Setters stables : les pages qui enregistrent le chrome s’y abonnent sans re-rendu quand le nœud affiché change. */
+export type AppPageChromeSettersValue = {
+  setBreadcrumbActions: (node: React.ReactNode | null) => void
   setShellSearchAdjacent: (node: React.ReactNode | null) => void
 }
 
-const AppPageChromeContext = createContext<AppPageChromeContextValue | null>(null)
+const AppPageChromeDisplayContext = createContext<AppPageChromeDisplayValue | null>(null)
+const AppPageChromeSettersContext = createContext<AppPageChromeSettersValue | null>(null)
 
 export function AppPageChromeProvider({ children }: { children: React.ReactNode }) {
   const [breadcrumbActions, setBreadcrumbActionsState] = useState<React.ReactNode | null>(null)
@@ -20,21 +24,37 @@ export function AppPageChromeProvider({ children }: { children: React.ReactNode 
   const setShellSearchAdjacent = useCallback((node: React.ReactNode | null) => {
     setShellSearchAdjacentState(node)
   }, [])
-  const value = useMemo(
-    () => ({ breadcrumbActions, setBreadcrumbActions, shellSearchAdjacent, setShellSearchAdjacent }),
-    [breadcrumbActions, setBreadcrumbActions, shellSearchAdjacent, setShellSearchAdjacent]
+  const settersValue = useMemo(
+    () => ({ setBreadcrumbActions, setShellSearchAdjacent }),
+    [setBreadcrumbActions, setShellSearchAdjacent]
   )
-  return <AppPageChromeContext.Provider value={value}>{children}</AppPageChromeContext.Provider>
+  const displayValue = useMemo(
+    () => ({ breadcrumbActions, shellSearchAdjacent }),
+    [breadcrumbActions, shellSearchAdjacent]
+  )
+  return (
+    <AppPageChromeSettersContext.Provider value={settersValue}>
+      <AppPageChromeDisplayContext.Provider value={displayValue}>{children}</AppPageChromeDisplayContext.Provider>
+    </AppPageChromeSettersContext.Provider>
+  )
 }
 
-/** Sous AppLayout uniquement ; hors provider (tests unitaires) → `null`. */
-export function useOptionalAppPageChrome(): AppPageChromeContextValue | null {
-  return useContext(AppPageChromeContext)
+/** Sous `AppPageChromeProvider` uniquement ; hors provider (tests) → `null`. */
+export function useAppPageChromeSetters(): AppPageChromeSettersValue | null {
+  return useContext(AppPageChromeSettersContext)
+}
+
+/**
+ * Contexte d’affichage uniquement. Pour pousser du chrome depuis une page, préférer `useAppPageChromeSetters`
+ * afin d’éviter de se ré-abonner à chaque changement de `breadcrumbActions`.
+ */
+export function useOptionalAppPageChrome(): AppPageChromeDisplayValue | null {
+  return useContext(AppPageChromeDisplayContext)
 }
 
 /** Emplacement réservé dans la barre du haut (AppLayout), après le fil d’Ariane. */
 export function BreadcrumbAppActionsSlot() {
-  const ctx = useContext(AppPageChromeContext)
+  const ctx = useContext(AppPageChromeDisplayContext)
   if (!ctx?.breadcrumbActions) return null
   return (
     <div className="flex items-center shrink-0 border-l border-gray-200 dark:border-slate-600 pl-2 ml-1 min-h-[2rem]">
@@ -45,7 +65,7 @@ export function BreadcrumbAppActionsSlot() {
 
 /** Emplacement avant la palette de recherche (barre du haut AppLayout). */
 export function ShellSearchAdjacentSlot() {
-  const ctx = useContext(AppPageChromeContext)
+  const ctx = useContext(AppPageChromeDisplayContext)
   if (!ctx?.shellSearchAdjacent) return null
   return <div className="flex items-center shrink-0 mr-0.5">{ctx.shellSearchAdjacent}</div>
 }

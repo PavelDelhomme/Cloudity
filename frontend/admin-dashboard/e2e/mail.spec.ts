@@ -40,4 +40,30 @@ test.describe('Mail (E2E)', () => {
     await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(/erreur 500|failed to fetch|network error/i)).not.toBeVisible({ timeout: 3000 })
   })
+
+  /** Non-régression AppPageChrome / MailPage — voir docs/TESTS.md § 4.8 */
+  test('navigation Mail ↔ Drive — pas de Maximum update depth (console / pageerror)', async ({ page }) => {
+    const depthLoop: string[] = []
+    page.on('console', (msg) => {
+      const t = msg.text()
+      if (t.includes('Maximum update depth')) depthLoop.push(`console[${msg.type()}]: ${t}`)
+    })
+    page.on('pageerror', (err) => {
+      if (err.message.includes('Maximum update depth')) depthLoop.push(`pageerror: ${err.message}`)
+    })
+
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
+    await page.waitForTimeout(600)
+
+    await page.goto('/app/drive')
+    await expect(page.getByRole('heading', { name: 'Drive' })).toBeVisible({ timeout: 15000 })
+    await page.waitForTimeout(400)
+
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
+    await page.waitForTimeout(600)
+
+    expect(depthLoop).toEqual([])
+  })
 })

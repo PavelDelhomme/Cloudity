@@ -48,7 +48,8 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
-import { useOptionalAppPageChrome } from '../../appPageChromeContext'
+import { useAppPageChromeSetters } from '../../appPageChromeContext'
+import { MailAppChromeMenu } from './MailPageChrome'
 import { useNotifications } from '../../notificationsContext'
 import {
   apiUrl,
@@ -884,7 +885,6 @@ export default function MailPage() {
   const { accessToken, email: authLoginEmail } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
-  const appPageChrome = useOptionalAppPageChrome()
   const [showConnectEmail, setShowConnectEmail] = useState(false)
   const [connectEmailValue, setConnectEmailValue] = useState('')
   const [connectPassword, setConnectPassword] = useState('')
@@ -2033,18 +2033,6 @@ export default function MailPage() {
   }, [accessToken, effectiveAccountId, imapDeleteTarget, activeFolder, queryClient])
 
   useEffect(() => {
-    // Garde-fou anti-boucle React : on neutralise le bridge AppPageChrome tant que
-    // le warning "Maximum update depth exceeded" est en cours d'investigation.
-    if (!appPageChrome) return
-    appPageChrome.setBreadcrumbActions(null)
-    appPageChrome.setShellSearchAdjacent(null)
-    return () => {
-      appPageChrome.setBreadcrumbActions(null)
-      appPageChrome.setShellSearchAdjacent(null)
-    }
-  }, [appPageChrome])
-
-  useEffect(() => {
     if (!imapFolderCtx) return undefined
     const close = () => setImapFolderCtx(null)
     const t = window.setTimeout(() => document.addEventListener('mousedown', close), 0)
@@ -2149,6 +2137,47 @@ export default function MailPage() {
       document.getElementById('mail-settings-filter-rules')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }, 120)
   }, [])
+
+  const openAddAccountPanel = useCallback(() => {
+    setShowConnectEmail(true)
+    setMailboxesListExpanded(true)
+  }, [])
+
+  const chromeSetters = useAppPageChromeSetters()
+
+  const mailAppChromeBreadcrumb = useMemo(() => {
+    if (accounts.length === 0) return null
+    return (
+      <MailAppChromeMenu
+        onNew={openNewCompose}
+        onRefresh={handleRefreshFromServer}
+        onOpenSettings={() => setShowMailSettings(true)}
+        onOpenRules={openMailSettingsAtRules}
+        onConnectGoogle={handleConnectGoogle}
+        onAddAccount={openAddAccountPanel}
+        refreshBusy={syncingAccountId !== null && syncingAccountId === effectiveAccountId}
+        googleBusy={googleConnecting}
+      />
+    )
+  }, [
+    accounts.length,
+    openNewCompose,
+    handleRefreshFromServer,
+    openMailSettingsAtRules,
+    handleConnectGoogle,
+    openAddAccountPanel,
+    syncingAccountId,
+    effectiveAccountId,
+    googleConnecting,
+  ])
+
+  useEffect(() => {
+    if (!chromeSetters) return
+    chromeSetters.setBreadcrumbActions(mailAppChromeBreadcrumb)
+    return () => {
+      chromeSetters.setBreadcrumbActions(null)
+    }
+  }, [chromeSetters, mailAppChromeBreadcrumb])
 
   const toggleMessageSelected = useCallback((msg: MailMessageResponse) => {
     setListMsgSelection((s) => {
@@ -2791,6 +2820,8 @@ export default function MailPage() {
 
   return (
     <div className="flex flex-col gap-2 min-h-0 h-full">
+      {/* Titre document (a11y + E2E) — aligné sur DrivePage (h1 sr-only) */}
+      <h1 className="sr-only">Mail</h1>
       {accounts.length > 0 && !is404 && (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {effectiveAccountId != null && messages.length > 0 && (mailSelectionMode || selectedMessageIds.length > 0) ? (
@@ -5249,7 +5280,7 @@ export default function MailPage() {
               void handleMarkMessageReadState(
                 contextMenuMessage.id,
                 contextMenuMessage.account_id,
-                !Boolean(contextMenuMessage.is_read)
+                !contextMenuMessage.is_read
               )
               setContextMenuMessage(null)
             }}
