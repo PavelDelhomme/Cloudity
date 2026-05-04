@@ -7,6 +7,7 @@
 | Fichier | Quand l’ouvrir |
 |---------|----------------|
 | **[TODO.md](./TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN ; § **Ordre de livraison** (web puis mobile) |
+| **[VISION-SUITE.md](./VISION-SUITE.md)** | Ordre produit **long terme** (Mail → Alias → Pass → …) + **état réel** du dépôt ; complète TODO/BACKLOG sans les remplacer |
 | **[MOBILES.md](./MOBILES.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
 | **[../BACKLOG.md](../BACKLOG.md)** | Cases à cocher produit condensées |
 | **[STATUS.md](../STATUS.md)** | Suivi détaillé apps, §1c Mail/Drive/… |
@@ -116,4 +117,4 @@ En vues **Corbeille** et **Spam**, le libellé détail sous la ligne n’est plu
 
 ---
 
-*Mise à jour 2026-04-11 : §8 inclut **PERFORMANCES.md** ; §8–11 (hub, sync par boîte, smokes, migrations / backlog admin) ; sections 1–7 = console / dates corbeille.*
+*Mise à jour 2026-04-30 : §8 inclut **VISION-SUITE.md** et **PERFORMANCES.md** ; §8–11 (hub, sync par boîte, smokes, migrations / backlog admin) ; sections 1–7 = console / dates corbeille.*

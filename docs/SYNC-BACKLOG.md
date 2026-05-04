@@ -2,7 +2,7 @@
 
 **Priorités globales et tableau condensé** : voir d’abord **[../BACKLOG.md](../BACKLOG.md)** à la racine du dépôt. **Confiance / E2EE / sync / Zero Trust (cadre)** : **[SECURITE.md](./SECURITE.md)**.
 
-Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](./ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). Mobile : **[MOBILES.md](./MOBILES.md)**. Tests : **[TESTS.md](./TESTS.md)**.
+Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](./ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). **Ordre suite & priorités** (sans remplacer ce fichier) : **[VISION-SUITE.md](./VISION-SUITE.md)**. Mobile : **[MOBILES.md](./MOBILES.md)**. Tests : **[TESTS.md](./TESTS.md)**.
 
 **Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](./BRANCHES.md)**.
 
@@ -17,14 +17,16 @@ Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobi
 
 ## Suite prioritaire (rappel)
 
+La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](./VISION-SUITE.md)**. Ici : **pistes techniques sync** alignées sur l’**exécution actuelle** du dépôt (plusieurs chantiers en parallèle).
+
 | Domaine | Pistes |
 |---------|--------|
-| **Photos** | **Priorité actuelle** : microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
-| **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; **suite web prioritaire : pièces jointes** (liste, tailles, téléchargement fiable multi-boîtes) ; archivage §1. |
+| **Photos** | Microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
+| **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; suite : **PJ** (liste/tailles/téléchargement fiable multi-boîtes), archivage §1, sous-dossiers IMAP **CREATE**. |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes ; **lien Mail ↔ fiches** (liaison produit complète) **après MVP Mail web** — accès contact depuis un message déjà partiel côté dashboard. |
 | **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
-| **Perf / observabilité** | Sync IMAP, gros volumes mail et uploads Drive : intérêt de **mesurer** latence et charge (gateway, workers) — voir **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; rester aligné **SECURITE.md** (pas d’optimisation qui affaiblit TLS, auth ou quotas). |
+| **Perf / observabilité** | Sync IMAP, gros volumes mail et uploads Drive : **mesurer** latence et charge — **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; alignement **SECURITE.md** (pas d’optimisation qui affaiblit TLS, auth ou quotas). |
 
 ---
 

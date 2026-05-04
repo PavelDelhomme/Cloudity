@@ -6,6 +6,7 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 
 | Fichier | Rôle |
 |---------|------|
+| **[VISION-SUITE.md](./VISION-SUITE.md)** | Ordre produit long terme (couches P0–P7, décisions, phases A–F), lien avec **PERFORMANCES** / **STATUS** — sans remplacer BACKLOG ni TODO |
 | **[ROADMAP.md](./ROADMAP.md)** | Fiches par application + transversal (sécurité, infra, API, monorepo) ; template nouvelle app |
 | **[MOBILES.md](./MOBILES.md)** | §0 **web puis mobile** ; matrice web vs mobile par produit ; admin mobile (ADM-02) |
 | **[TESTS.md](./TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, liste des tests à ajouter |
@@ -38,4 +39,4 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 
 ---
 
-*Index mis à jour : 2026-04-11 — **PERFORMANCES.md** (diagnostic, stack, leviers d’optimisation, explication des exports Profiler / Chrome Trace). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*
+*Index mis à jour : 2026-04-30 — **VISION-SUITE.md** (ordre produit & alignement dépôt) ; **PERFORMANCES.md** (diagnostic, stack, leviers). La racine du repo garde **README.md**, **STATUS.md** et **BACKLOG.md** comme `.md` d’entrée / suivi / backlog.*

@@ -14,6 +14,9 @@
 | Roadmap par app | **[ROADMAP.md](./ROADMAP.md)** |
 | Performances, stack, diagnostic, exports Profiler / Chrome | **[PERFORMANCES.md](./PERFORMANCES.md)** |
 | Index de tout `docs/` | **[README.md](./README.md)** |
+| Vision suite (ordre P0–P7, phases A–F, décisions produit) | **[VISION-SUITE.md](./VISION-SUITE.md)** |
+
+**Cohérence** : la liste **Priorités actuelles** ci-dessous est le **pivot quotidien** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → …) vit dans **VISION-SUITE.md** avec l’**état réel** du dépôt (Mail déjà largement livré, Photos en cours, etc.). **BACKLOG.md** condense les cases à cocher ; **STATUS.md** détaille l’avancement.
 
 ## Priorités actuelles
 

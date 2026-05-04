@@ -19,6 +19,8 @@
 
 **Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
 
+**Vision produit** : l’ordre stratégique des apps (Mail, Alias, Pass, Photos, …) est décrit dans **[VISION-SUITE.md](./VISION-SUITE.md)** ; les tests suivent les **fonctionnalités livrées** — nouvelle feature ⇒ ajouter les tests listés ici et dans **BACKLOG**.
+
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
 **Stratégie sécurité / confiance** : **[SECURITE.md](./SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
 **Autres guides** (éditeur, archi front, sécurité détaillée, notes dev) : **[README.md](./README.md)** (index de ce dossier).

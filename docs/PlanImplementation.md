@@ -3,6 +3,7 @@
 **Emplacement** : ce fichier est dans **`docs/`**. À la racine du dépôt : **`README.md`**, **`STATUS.md`** et **`BACKLOG.md`** (backlog condensé).
 
 **Référence au quotidien** : [STATUS.md](../STATUS.md) (suivi détaillé, checklist, ports 60XX, § 0b monorepo front).  
+**Vision suite & priorités P0–P7** : [VISION-SUITE.md](./VISION-SUITE.md) (complète ce plan sans le remplacer).  
 **Catalogue produits & chantiers transverses** : [ROADMAP.md](./ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  
 **Mobile (web vs natif, admin mobile)** : [MOBILES.md](./MOBILES.md).  
 **Tests** : [TESTS.md](./TESTS.md).  
@@ -21,7 +22,7 @@
 - **Pass** : Coffre-fort, table `pass_vaults` créée via migration.
 - **Navigation app** : Tableau de bord, **Drive**, **Office** (placeholder), **Pass**, **Mail**, **Calendar**, **Notes**, **Tasks**, **Contacts** (placeholder), **Photos** (placeholder), Administration, Paramètres.
 
-**À faire (priorité)** : Suite Office (éditeur de documents **maison** : TipTap, Luckysheet, intégrés au Drive) ; app **Contacts** ; app **Photos** ; **alias mail** (API + UI) ; application mobile (Drive, Office, etc.) ; téléversement Drive à valider en conditions réelles après correctifs CORS.
+**À faire (priorité)** — le détail à jour est dans **[STATUS.md](../STATUS.md)** et **[TODO.md](./TODO.md)** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](./VISION-SUITE.md)**. Ce fichier historique listait encore Office, Contacts, Photos, alias : plusieurs de ces chantiers sont **désormais partiellement ou fortement livrés** — ne pas se fier uniquement au paragraphe ci-dessous sans relire **STATUS**.
 
 **Détail par produit** : voir **[ROADMAP.md](./ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](./PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILES.md](./MOBILES.md)**.
 

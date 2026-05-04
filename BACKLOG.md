@@ -2,6 +2,8 @@
 
 **Rôle** : liste **actionnable** des prochaines livraisons et dettes connues. Pour le détail sync / mobile / session / archivage mail, voir **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**. Pour les fiches par application (**APP-01** … **TR-07**), voir **[docs/ROADMAP.md](./docs/ROADMAP.md)**. **Sécurité & confiance (vision, phases, Zero Trust, signatures, WAF)** : **[docs/SECURITE.md](./docs/SECURITE.md)**. **Suivi quotidien** : **[STATUS.md](./STATUS.md)**. **Tests** : **[docs/TESTS.md](./docs/TESTS.md)**.
 
+**Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/VISION-SUITE.md](./docs/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
+
 **Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (date + § pertinents).
 
 ---
@@ -22,7 +24,10 @@
 
 ---
 
-## Priorités (ordre indicatif — avril 2026)
+## Priorités — deux niveaux (à lire ensemble)
+
+1. **Stratégie long terme** (*quoi valoriser en premier comme suite*) : **[docs/VISION-SUITE.md](./docs/VISION-SUITE.md)** — Mail → Alias → Pass → Photos → Drive → Contacts/Calendar → Office, avec fondation transverse (perf **PERFORMANCES.md**, sécu **SECURITE.md**, recherche).
+2. **Backlog exécutable ci-dessous** — ordre **pratique avril 2026** sur le dépôt : chantiers **parallèles** (Mail déjà très avancé, Photos mobile + web, Pass, Drive…) tel que **STATUS** et **TODO**.
 
 | # | Sujet | Détail / lien |
 |---|--------|----------------|
