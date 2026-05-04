@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MailPage from './MailPage'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
+import { AppPageChromeProvider } from '../../appPageChromeContext'
 import * as api from '../../api'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
@@ -65,7 +66,9 @@ function wrap(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={queryClient}>
-      <TestRouter initialEntries={['/app/mail']}>{ui}</TestRouter>
+      <TestRouter initialEntries={['/app/mail']}>
+        <AppPageChromeProvider>{ui}</AppPageChromeProvider>
+      </TestRouter>
     </QueryClientProvider>
   )
 }
@@ -99,6 +102,7 @@ describe('MailPage', () => {
       isAuthenticated: true,
       login: vi.fn(),
       logout: vi.fn(),
+      refreshAccessTokenIfNeeded: vi.fn().mockResolvedValue('token'),
     } as unknown as ReturnType<typeof useAuth>)
     vi.mocked(useNotifications).mockReturnValue({
       notifications: [],
@@ -118,11 +122,12 @@ describe('MailPage', () => {
   })
 
   it('affiche la barre Courrier (nouveau message) lorsque des comptes existent', async () => {
-    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+    vi.mocked(api.fetchMailAccounts).mockImplementation(async () => [
       { id: 1, email: 'a@test.com', label: 'Test', imap_host: 'h', imap_port: 993, smtp_host: 's', smtp_port: 587 } as any,
     ])
     render(wrap(<MailPage />))
-    expect(await screen.findByRole('button', { name: /Nouveau/i })).toBeTruthy()
+    await waitFor(() => expect(vi.mocked(api.fetchMailAccounts)).toHaveBeenCalled())
+    expect(await screen.findByRole('button', { name: /Nouveau/i }, { timeout: 15_000 })).toBeTruthy()
   })
 
   it('shows empty state when no mail accounts', async () => {

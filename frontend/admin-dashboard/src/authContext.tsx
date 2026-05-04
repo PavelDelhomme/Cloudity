@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { refreshAuth } from './api'
 
 import { AUTH_STORAGE_KEY as STORAGE_KEY } from './lib/cloudityCore'
+import { isAccessTokenUsable } from './lib/jwtExpiry'
 
 export type AuthState = {
   accessToken: string | null
@@ -51,6 +52,8 @@ type AuthContextValue = AuthState & {
   isAuthenticated: boolean
   login: (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => void
   logout: () => void
+  /** Si le JWT d’accès expire bientôt, tente un refresh (dédupliqué) avant syncs batch / IMAP. */
+  refreshAccessTokenIfNeeded: () => Promise<string | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -60,6 +63,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
   const refreshTokenRef = useRef<string | null>(null)
   refreshTokenRef.current = state.refreshToken
+  const accessTokenRef = useRef<string | null>(null)
+  accessTokenRef.current = state.accessToken
+  const refreshInFlightRef = useRef<Promise<string | null> | null>(null)
+
+  const refreshAccessTokenIfNeeded = useCallback(async (): Promise<string | null> => {
+    const rt = refreshTokenRef.current
+    const current = accessTokenRef.current
+    if (!current) return null
+    if (isAccessTokenUsable(current, 90_000)) return current
+    if (!rt) return null
+    if (refreshInFlightRef.current) return refreshInFlightRef.current
+    const task = (async (): Promise<string | null> => {
+      try {
+        const res = await refreshAuth(rt)
+        setState((prev) => ({
+          ...prev,
+          accessToken: res.access_token,
+          refreshToken: res.refresh_token,
+        }))
+        return res.access_token
+      } catch {
+        return null
+      } finally {
+        refreshInFlightRef.current = null
+      }
+    })()
+    refreshInFlightRef.current = task
+    return task
+  }, [])
 
   useEffect(() => {
     saveToStorage(state)
@@ -177,8 +209,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(state.accessToken && state.tenantId != null),
       login,
       logout,
+      refreshAccessTokenIfNeeded,
     }),
-    [state, login, logout]
+    [state, login, logout, refreshAccessTokenIfNeeded]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

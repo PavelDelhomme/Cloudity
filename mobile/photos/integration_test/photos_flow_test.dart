@@ -65,7 +65,14 @@ void main() {
         if (_onTimeline(tester)) break;
       }
 
-      expect(find.byKey(kTimeline), findsOneWidget);
+      expect(
+        find.byKey(kTimeline),
+        findsOneWidget,
+        reason:
+            'Timeline absente : API injoignable depuis l’appareil (gateway $kE2eGateway). '
+            'Même Wi‑Fi que le PC, stack `make up` + seed-admin, firewall. '
+            'Sans téléphone / hors LAN : CLOUDITY_SKIP_DEVICE_INTEGRATION=1',
+      );
     },
     skip: kE2eGateway.isEmpty || kE2eEmail.isEmpty || kE2ePassword.isEmpty,
   );

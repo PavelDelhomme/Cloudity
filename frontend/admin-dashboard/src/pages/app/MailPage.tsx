@@ -882,7 +882,7 @@ function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResp
 
 export default function MailPage() {
   const navigate = useNavigate()
-  const { accessToken, email: authLoginEmail } = useAuth()
+  const { accessToken, email: authLoginEmail, refreshAccessTokenIfNeeded } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
   const [showConnectEmail, setShowConnectEmail] = useState(false)
@@ -1007,7 +1007,7 @@ export default function MailPage() {
   const [imapDeleteTarget, setImapDeleteTarget] = useState<null | { imap_path: string; label: string }>(null)
   const [imapDeleteWorking, setImapDeleteWorking] = useState(false)
 
-  const { data: accountsData, isLoading: accountsLoading, isError: accountsError, error: accountsErrorDetail } = useQuery({
+  const { data: accountsData, isPending: accountsPending, isError: accountsError, error: accountsErrorDetail } = useQuery({
     queryKey: ['mail', 'accounts'],
     queryFn: () => fetchMailAccounts(accessToken!),
     enabled: !!accessToken,
@@ -1571,11 +1571,13 @@ export default function MailPage() {
       setAutoSyncRunning(true)
       lastBackgroundSyncStartAtRef.current = now
       try {
+        const token = await refreshAccessTokenIfNeeded()
+        if (!token) return false
         for (const id of ids) {
           const acc = accountsRef.current.find((a) => a.id === id)
           if (!acc) continue
           try {
-            const r = await syncMailAccount(accessToken, id, undefined, syncExtraImapOptions(id))
+            const r = await syncMailAccount(token, id, undefined, syncExtraImapOptions(id))
             notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
           } catch {
             /* erreur réseau / IMAP : on continue les autres comptes */
@@ -1596,7 +1598,7 @@ export default function MailPage() {
         setAutoSyncRunning(false)
       }
     },
-    [accessToken, queryClient, syncExtraImapOptions]
+    [accessToken, queryClient, syncExtraImapOptions, refreshAccessTokenIfNeeded]
   )
 
   useEffect(() => {
@@ -1852,7 +1854,12 @@ export default function MailPage() {
       })
       setSelectedAccountId(created.id)
       // Utiliser le même mot de passe que à la création pour la 1ère sync (évite un round-trip chiffrement/déchiffrement)
-      const syncRes = await syncMailAccount(accessToken, created.id, password)
+      const tokenForSync = await refreshAccessTokenIfNeeded()
+      if (!tokenForSync) {
+        toast.error('Session invalide. Reconnectez-vous.')
+        return
+      }
+      const syncRes = await syncMailAccount(tokenForSync, created.id, password)
       queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
       void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
       toast.success(syncRes.synced > 0 ? `${syncRes.synced} message(s) récupéré(s)` : syncRes.message)
@@ -1861,7 +1868,7 @@ export default function MailPage() {
     } finally {
       setConnectingAndSyncing(false)
     }
-  }, [connectEmailValue, connectPassword, connectLabel, accessToken, queryClient, notifications])
+  }, [connectEmailValue, connectPassword, connectLabel, accessToken, queryClient, notifications, refreshAccessTokenIfNeeded])
 
   const handleDisconnectAccount = useCallback(
     (accountId: number, email: string) => {
@@ -1890,8 +1897,15 @@ export default function MailPage() {
   const handleSyncAccount = useCallback(() => {
     if (!syncAccountId || !accessToken) return
     setSyncing(true)
-    syncMailAccount(accessToken, syncAccountId, syncPassword.trim() || undefined, syncExtraImapOptions(syncAccountId))
-      .then((r) => {
+    void (async () => {
+      const token = await refreshAccessTokenIfNeeded()
+      if (!token) {
+        toast.error('Session invalide. Reconnectez-vous.')
+        setSyncing(false)
+        return
+      }
+      try {
+        const r = await syncMailAccount(token, syncAccountId, syncPassword.trim() || undefined, syncExtraImapOptions(syncAccountId))
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
@@ -1899,18 +1913,28 @@ export default function MailPage() {
         setShowSyncModal(false)
         setSyncAccountId(null)
         setSyncPassword('')
-      })
-      .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur de synchronisation'))
-      .finally(() => setSyncing(false))
-  }, [syncAccountId, syncPassword, accessToken, queryClient, syncExtraImapOptions])
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur de synchronisation')
+      } finally {
+        setSyncing(false)
+      }
+    })()
+  }, [syncAccountId, syncPassword, accessToken, queryClient, syncExtraImapOptions, refreshAccessTokenIfNeeded])
 
   /** Sync IMAP pour une boîte donnée (mot de passe serveur déjà stocké si besoin). Rafraîchit les caches de cette boîte. */
   const handleSyncOneAccount = useCallback(
     (accountId: number) => {
       if (!accessToken || syncingAccountId !== null || backgroundSyncRunningRef.current) return
       setSyncingAccountId(accountId)
-      syncMailAccount(accessToken, accountId, undefined, syncExtraImapOptions(accountId))
-        .then((r) => {
+      void (async () => {
+        const token = await refreshAccessTokenIfNeeded()
+        if (!token) {
+          toast.error('Session invalide. Reconnectez-vous.')
+          setSyncingAccountId(null)
+          return
+        }
+        try {
+          const r = await syncMailAccount(token, accountId, undefined, syncExtraImapOptions(accountId))
           void queryClient.invalidateQueries({ queryKey: ['mail', 'messages', accountId] })
           void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary', accountId] })
           void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', accountId] })
@@ -1924,11 +1948,14 @@ export default function MailPage() {
           if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
           const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
           toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
-        })
-        .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation'))
-        .finally(() => setSyncingAccountId(null))
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation')
+        } finally {
+          setSyncingAccountId(null)
+        }
+      })()
     },
-    [accessToken, syncingAccountId, queryClient, syncExtraImapOptions, effectiveAccountId]
+    [accessToken, syncingAccountId, queryClient, syncExtraImapOptions, effectiveAccountId, refreshAccessTokenIfNeeded]
   )
 
   /** Synchronisation IMAP manuelle du compte affiché (toutes les boîtes connues + dossiers LIST). */
@@ -2896,14 +2923,14 @@ export default function MailPage() {
         </div>
       )}
 
-      {accountsLoading && !is404 && (
+      {accountsPending && !is404 && (
         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Chargement des comptes…</span>
         </div>
       )}
 
-      {!accountsLoading && !is404 && accounts.length === 0 && (
+      {!accountsPending && !is404 && accounts.length === 0 && (
         <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-amber-800 dark:text-amber-200 font-medium">Aucune boîte mail reliée à ce compte.</p>
           <div className="flex flex-wrap gap-2">

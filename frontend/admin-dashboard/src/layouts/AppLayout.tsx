@@ -128,7 +128,7 @@ function notifyNewMailForAccountGlobal(
 
 /** Sync mail globale hors page Mail pour garder les notifications actives dans toute l'app. */
 function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
-  const { accessToken } = useAuth()
+  const { accessToken, refreshAccessTokenIfNeeded } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
   const accountsRef = useRef<MailAccountResponse[]>([])
@@ -154,9 +154,11 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
   useEffect(() => {
     if (!accessToken || disabled) return
     const tick = async () => {
+      const token = await refreshAccessTokenIfNeeded()
+      if (!token) return
       for (const acc of accountsRef.current) {
         try {
-          const r = await syncMailAccount(accessToken, acc.id)
+          const r = await syncMailAccount(token, acc.id)
           notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
         } catch {
           // On continue sur les autres comptes.
@@ -169,7 +171,7 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
     }
     const id = window.setInterval(tick, GLOBAL_MAIL_SYNC_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [accessToken, disabled, queryClient])
+  }, [accessToken, disabled, queryClient, refreshAccessTokenIfNeeded])
 
   useEffect(() => {
     if (!accessToken || disabled) return
@@ -179,9 +181,11 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
       const list = accountsRef.current
       if (list.length === 0) return
       void (async () => {
+        const token = await refreshAccessTokenIfNeeded()
+        if (!token) return
         for (const acc of list) {
           try {
-            const r = await syncMailAccount(accessToken, acc.id)
+            const r = await syncMailAccount(token, acc.id)
             notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
           } catch {
             // Ignorer.
@@ -195,7 +199,7 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [accessToken, disabled, queryClient])
+  }, [accessToken, disabled, queryClient, refreshAccessTokenIfNeeded])
 
   return null
 }
