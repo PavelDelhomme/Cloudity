@@ -22,7 +22,7 @@
 - **Colonne « Boîtes mail »** : à droite de chaque boîte, une icône **↻** lance **`POST /mail/me/accounts/:id/sync`** pour **cette boîte uniquement** (mot de passe déjà stocké côté serveur si besoin). Panneau réduit : icône sous l’icône enveloppe.
 - **En-tête de liste** : **« Actualiser cette boîte »** = même sync pour la boîte **actuellement affichée**.
 - **Paramètres Mail** : **« Sync maintenant »** (rapide) vs **« Sync avec mot de passe… »** (modale si le serveur exige une resaisie).
-- **Polling auto** : batch unique (toutes boîtes) avec garde **anti-chevauchement**, **anti-rafale**, et **pause si onglet non visible** ; badge visuel en bas de la sidebar (`Sync auto en cours…`).
+- **Polling auto** : batch unique (toutes boîtes) avec garde **anti-chevauchement**, **anti-rafale**, et **pause si onglet non visible** ; badge visuel en bas de la sidebar (`Sync auto en cours…`). **Cadence (2026-04)** : sur `/app/mail` (onglet visible) tick **~12 s** ; watcher **hors** page Mail **~18 s** ; **sync forcée** après **envoi** d’un message. Sans push IMAP, les arrivées restent dépendantes du polling — réduire encore = plus de charge serveur / fournisseur.
 
 ## 10. Mail web — boucle React "Maximum update depth" (avril 2026)
 

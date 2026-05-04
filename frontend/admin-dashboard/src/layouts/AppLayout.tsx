@@ -99,8 +99,9 @@ function NotificationBell() {
   )
 }
 
-const GLOBAL_MAIL_SYNC_INTERVAL_MS = 25_000
-const GLOBAL_MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
+/** Un peu plus fréquent que 25 s pour que les notifs « nouveau mail » hors page Mail restent acceptables. */
+const GLOBAL_MAIL_SYNC_INTERVAL_MS = 18_000
+const GLOBAL_MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 14_000
 
 function notifyNewMailForAccountGlobal(
   notificationsCtx: ReturnType<typeof useNotifications>,

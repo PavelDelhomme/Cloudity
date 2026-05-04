@@ -118,10 +118,14 @@ const STORAGE_DRAFT_PREFIX = 'cloudity_mail_draft_'
 const MESSAGES_PAGE_SIZE = 25
 /** Aligné sur le backend : pièces jointes au-delà ne sont pas mises en cache en base. */
 const MAIL_INLINE_ATTACHMENT_MAX_BYTES = 512 * 1024
-/** Sync IMAP en arrière-plan : toutes les boîtes reliées. */
-const MAIL_BACKGROUND_SYNC_INTERVAL_MS = 25_000
+/**
+ * Sync IMAP en arrière-plan sur la page Mail : toutes les boîtes reliées.
+ * Plus court que l’ancien 25 s pour voir les messages entrants sans attendre une minute ;
+ * reste compatible avec MAIL_AUTO_SYNC_MIN_GAP_MS (anti-chevauchement).
+ */
+const MAIL_BACKGROUND_SYNC_INTERVAL_MS = 12_000
 /** Évite de relancer une sync complète au retour sur l’onglet juste après un tick de fond. */
-const MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 22_000
+const MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 14_000
 /** Anti-rafale : délai mini entre deux batches auto (polling/visible). */
 const MAIL_AUTO_SYNC_MIN_GAP_MS = 12_000
 
@@ -2751,6 +2755,7 @@ export default function MailPage() {
           from_email: slot.fromAddress.trim() || undefined,
         })
         toast.success('Message envoyé')
+        void runMailSyncBatch([sendAcc], { force: true })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         closeSlot(slot.id)
       } catch (e) {
@@ -2759,7 +2764,7 @@ export default function MailPage() {
         setSending(false)
       }
     },
-    [activeSlot, composeSlots, effectiveAccountId, accessToken, closeSlot, queryClient]
+    [activeSlot, composeSlots, effectiveAccountId, accessToken, closeSlot, queryClient, runMailSyncBatch]
   )
 
   const tagMenuAccountMatches = useCallback(
