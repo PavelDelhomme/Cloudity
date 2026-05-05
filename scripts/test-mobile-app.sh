@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Tests Flutter Cloudity (Photos, Drive, Mail) : widget hôte + integration_test ADB si dispo.
+# CLOUDITY_KEEP_APP_OPEN=1 : après integration_test OK, lance l'app en "flutter run" (garde l'application ouverte).
 # Usage : ./scripts/test-mobile-app.sh photos|drive|mail
 # Variables : identiques à test-mobile-photos historique (voir scripts/mobile-test-common.inc.sh).
 set -euo pipefail
@@ -115,3 +116,9 @@ fi
 
 flutter test "$INT_FILE" -d "$SERIAL" "${DEFS[@]}"
 echo "✅ test-mobile-app ${APP_LABEL} : integration_test device OK."
+
+if [[ "${CLOUDITY_KEEP_APP_OPEN:-}" == "1" ]]; then
+  echo "ℹ️  CLOUDITY_KEEP_APP_OPEN=1 — lancement interactif de l'app (${APP_LABEL}) sur ${SERIAL}."
+  echo "    (Comportement normal : flutter test ferme l'app à la fin ; ce mode relance l'app et la laisse ouverte.)"
+  exec flutter run -d "$SERIAL" "${DEFS[@]}"
+fi

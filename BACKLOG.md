@@ -55,6 +55,7 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### Sécurité & infra (voir **SECURITE.md**)
 
+- [ ] **Remédiation dépendances front (suite `make test-security`)** : traiter les vulnérabilités `npm audit` de `frontend/admin-dashboard` (**axios**, `@xmldom/xmldom`, `picomatch`, `postcss`, `follow-redirects`) avec MAJ contrôlées + revalidation `make test` / Playwright ; cas **`xlsx` sans correctif** : statuer mitigation/remplacement.
 - [ ] **Phase 1** : versioning Drive + corbeille unifiée (si pas déjà complet côté produit) ; politique **snapshots** à trancher.
 - [ ] **Signatures applicatives** : spec canonical request + nonces pour **exports**, **admin critique**, webhooks ; pas sur toute l’API.
 - [ ] **Zero Trust incrémental** : scopes JWT par route ; mTLS ou tokens service inter-microservices documentés.

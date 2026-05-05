@@ -24,6 +24,7 @@
 Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TESTS**, **PLAN** (pas seulement la boussole **VISION-SUITE**) :
 
 1. **Mail (web)** — pousser le « quotidien » : **stabilité React** — livré + **E2E** `make test-e2e-playwright-mail` ; enchaîner **sous-dossiers IMAP `CREATE`**, **threads / conversations**, PJ liste/tailles/sync **multi-boîtes**, **snooze** ; **recherche cross-apps** au hub (**BACKLOG**). Tenir **PLAN.md** pour console / dates corbeille.
+   - **Progression 2026-05-05** : opérateurs de recherche ajoutés (`from:`, `subject:`, `tag:`) + tests Vitest ; **E2E Mail règles** ajoutés (création combinée + rétro-application `rules/apply`) dans `e2e/mail.spec.ts`.
 2. **Mail (suite doc)** — aligner **BACKLOG** : règles = **MVP livré** ; reste **tests API/E2E** combinés et polish.
 3. **Photos** — **création d’album** (API + UI), purge corbeille depuis Photos, **archivé**, ajustement barre bas si sidebar `w-14` (**TODO** § Photos web).
 4. **Alias mail** — MVP boîte OK ; **système complet** expiration / vue globale / DNS (**SYNC-BACKLOG §2**, **ROADMAP APP-04**).
@@ -34,6 +35,17 @@ Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TEST
 **PLAN.md** = dépannage et sync par boîte (déjà livré § 9), pas la liste produit prioritaire.
 
 ## Priorités actuelles
+
+- **Sécurité dépendances (suite à `make test-security`)** : traiter les alertes **npm audit** de `frontend/admin-dashboard` avec un lot dédié.
+  - **Progression 2026-05-05** : lot initial appliqué (`npm install` ciblé + `npm audit fix`) ; passage de **10 vulnérabilités** à **5** dans `admin-dashboard`.
+  - **Progression 2026-05-05 (suite)** : migration contrôlée **`vite@8` + `vitest@4` + plugin SWC** effectuée ; audit ramené à **1 vulnérabilité high** restante (`xlsx`, pas de fix upstream).
+  - **Reste à traiter** : stratégie `xlsx` (remplacement, sandbox stricte, ou isolation fonctionnelle).
+  - `axios` (high, fix disponible) : mettre à jour et revalider `make test` + `make test-e2e-playwright`.
+  - `@xmldom/xmldom` (high, transitive, fix disponible) : mise à jour lockfile / dépendance parente.
+  - `picomatch` (high, transitive, fix disponible) : remonter via mises à jour `vite`/tooling.
+  - `xlsx` (high, **pas de fix upstream**) : décider mitigation produit (sandbox stricte, limitation source/type, ou remplacement bibliothèque).
+  - `esbuild` / `vite` / `vitest` (moderate + upgrade majeur potentiel) : ouvrir lot de migration contrôlée pour éviter `npm audit fix --force` aveugle.
+  - `govulncheck` (signalétique sur services Go) : revue manuelle des rapports `reports/govulncheck-*.txt`, qualifier exploitabilité réelle puis créer tickets de MAJ ciblées par service.
 
 - **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
 

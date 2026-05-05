@@ -636,4 +636,98 @@ describe('MailPage', () => {
     },
     15_000
   )
+
+  it('filtre la liste avec les opérateurs from: et subject:', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 71,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'Alice Example <alice@test.com>',
+          to: 'user@test.com',
+          subject: 'Facture avril 2026',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+        {
+          id: 72,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'Bob <bob@test.com>',
+          to: 'user@test.com',
+          subject: 'Réunion équipe',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Facture avril 2026')
+    await screen.findByText('Réunion équipe')
+
+    const input = screen.getByPlaceholderText(/opérateurs: from:/i)
+    fireEvent.change(input, { target: { value: 'from:alice subject:facture' } })
+
+    await screen.findByText('Facture avril 2026')
+    expect(screen.queryByText('Réunion équipe')).toBeNull()
+  })
+
+  it('filtre la liste avec has:attachment et is:unread', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 81,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'sender@test.com',
+          to: 'user@test.com',
+          subject: 'PJ + non lu',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          attachment_count: 1,
+        },
+        {
+          id: 82,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'sender@test.com',
+          to: 'user@test.com',
+          subject: 'Sans PJ',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          attachment_count: 0,
+        },
+        {
+          id: 83,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'sender@test.com',
+          to: 'user@test.com',
+          subject: 'PJ mais lu',
+          created_at: new Date().toISOString(),
+          is_read: true,
+          attachment_count: 1,
+        },
+      ],
+      total: 3,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('PJ + non lu')
+    const input = screen.getByPlaceholderText(/opérateurs: from:/i)
+    fireEvent.change(input, { target: { value: 'has:attachment is:unread' } })
+
+    await screen.findByText('PJ + non lu')
+    expect(screen.queryByText('Sans PJ')).toBeNull()
+    expect(screen.queryByText('PJ mais lu')).toBeNull()
+  })
 })

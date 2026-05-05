@@ -1,6 +1,58 @@
 import { test, expect } from '@playwright/test'
 import { login } from './fixtures/auth'
 
+async function mockMailRulesStack(page: import('@playwright/test').Page) {
+  await page.route('**/mail/me/accounts', async (route, request) => {
+    if (request.method() !== 'GET') return route.continue()
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([
+        { id: 1, user_id: 1, tenant_id: 1, email: 'admin@cloudity.local', label: 'Démo', imap_host: 'h', imap_port: 993, smtp_host: 's', smtp_port: 587 },
+      ]),
+    })
+  })
+  await page.route('**/mail/me/accounts/1/messages?*', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ messages: [], total: 0 }) })
+  )
+  await page.route('**/mail/me/accounts/1/aliases', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  )
+  await page.route('**/mail/me/accounts/1/imap-folders', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  )
+  await page.route('**/mail/me/accounts/1/folder-summary', async (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        inbox: { total: 0, unread: 0 },
+        sent: { total: 0, unread: 0 },
+        drafts: { total: 0, unread: 0 },
+        archive: { total: 0, unread: 0 },
+        spam: { total: 0, unread: 0 },
+        trash: { total: 0, unread: 0 },
+        extra: [],
+      }),
+    })
+  )
+  await page.route('**/mail/me/accounts/1/tags', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  )
+  await page.route('**/mail/me/accounts/1/rules', async (route, request) => {
+    if (request.method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    }
+    return route.continue()
+  })
+  await page.route('**/contacts', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  )
+  await page.route('**/pass/vaults', async (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+  )
+}
+
 test.describe('Mail (E2E)', () => {
   test.beforeEach(async ({ page }) => {
     await login(page)
@@ -65,5 +117,55 @@ test.describe('Mail (E2E)', () => {
     await page.waitForTimeout(600)
 
     expect(depthLoop).toEqual([])
+  })
+
+  test('règles Mail : création combinée (from + subject + PJ) envoie le bon payload', async ({ page }) => {
+    await mockMailRulesStack(page)
+    let captured: any = null
+    await page.route('**/mail/me/accounts/1/rules', async (route, request) => {
+      if (request.method() !== 'POST') return route.continue()
+      captured = request.postDataJSON()
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, id: 99 }) })
+    })
+
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: /Filtres et règles/i }).first().click()
+    await expect(page.getByRole('heading', { name: /Paramètres Mail/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Règles automatiques \(tri\)/i })).toBeVisible()
+
+    await page.getByPlaceholder('Nom règle (optionnel)').fill('Règle combinée E2E')
+    await page.getByPlaceholder('From contient (ex: newsletter@)').fill('newsletter@')
+    await page.getByPlaceholder('Sujet contient (ex: facture)').fill('facture')
+    await page.getByLabel('Uniquement avec PJ').check()
+    await page.getByRole('button', { name: /Ajouter la règle/i }).click()
+
+    await expect.poll(() => captured).not.toBeNull()
+    expect(captured).toMatchObject({
+      name: 'Règle combinée E2E',
+      from_pattern: 'newsletter@',
+      subject_pattern: 'facture',
+      has_attachments: true,
+      action_folder: 'inbox',
+      enabled: true,
+    })
+  })
+
+  test('règles Mail : rétro-application appelle /rules/apply', async ({ page }) => {
+    await mockMailRulesStack(page)
+    let applyCalls = 0
+    await page.route('**/mail/me/accounts/1/rules/apply', async (route, request) => {
+      if (request.method() !== 'POST') return route.continue()
+      applyCalls += 1
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, affected: 3 }) })
+    })
+
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: /Filtres et règles/i }).first().click()
+    await expect(page.getByRole('button', { name: /Appliquer aux mails existants/i })).toBeVisible()
+    await page.getByRole('button', { name: /Appliquer aux mails existants/i }).click()
+
+    await expect.poll(() => applyCalls).toBe(1)
   })
 })

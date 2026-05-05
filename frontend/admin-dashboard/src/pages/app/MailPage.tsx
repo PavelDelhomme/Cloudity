@@ -772,6 +772,7 @@ function parseMailSearchQuery(raw: string): {
   plainTerms: string[]
   tagTerms: string[]
   senderTerms: string[]
+  subjectTerms: string[]
   unreadOnly: boolean
   readOnly: boolean
   withAttachmentsOnly: boolean
@@ -784,6 +785,7 @@ function parseMailSearchQuery(raw: string): {
   const plainTerms: string[] = []
   const tagTerms: string[] = []
   const senderTerms: string[] = []
+  const subjectTerms: string[] = []
   let unreadOnly = false
   let readOnly = false
   let withAttachmentsOnly = false
@@ -796,6 +798,18 @@ function parseMailSearchQuery(raw: string): {
     }
     if (t.startsWith('$') && t.length > 1) {
       senderTerms.push(t.slice(1).toLowerCase())
+      continue
+    }
+    if (low.startsWith('from:') && low.length > 'from:'.length) {
+      senderTerms.push(low.slice('from:'.length))
+      continue
+    }
+    if (low.startsWith('subject:') && low.length > 'subject:'.length) {
+      subjectTerms.push(low.slice('subject:'.length))
+      continue
+    }
+    if (low.startsWith('tag:') && low.length > 'tag:'.length) {
+      tagTerms.push(low.slice('tag:'.length))
       continue
     }
     if (low === 'is:unread' || low === 'is:nonlu') {
@@ -812,7 +826,7 @@ function parseMailSearchQuery(raw: string): {
     }
     plainTerms.push(low)
   }
-  return { plainTerms, tagTerms, senderTerms, unreadOnly, readOnly, withAttachmentsOnly }
+  return { plainTerms, tagTerms, senderTerms, subjectTerms, unreadOnly, readOnly, withAttachmentsOnly }
 }
 
 function sanitizeMailHtmlUnsafeInput(raw: string): string {
@@ -1408,6 +1422,8 @@ export default function MailPage() {
 
       const senderValue = (m.from || '').toLowerCase()
       if (parsed.senderTerms.some((term) => !senderValue.includes(term))) return false
+      const subjectValue = (m.subject || '').toLowerCase()
+      if (parsed.subjectTerms.some((term) => !subjectValue.includes(term))) return false
 
       if (parsed.tagTerms.length > 0) {
         const names = (m.tag_ids ?? [])
@@ -1418,7 +1434,6 @@ export default function MailPage() {
 
       if (!mailServerSearchQ) {
         if (parsed.plainTerms.length === 0) return true
-        const subjectValue = (m.subject || '').toLowerCase()
         return parsed.plainTerms.every((term) => {
           const inSubject = (mailSearchSubject || !fieldsEnabled) && subjectValue.includes(term)
           const inSender = (mailSearchSender || !fieldsEnabled) && senderValue.includes(term)
@@ -3450,7 +3465,7 @@ export default function MailPage() {
                     type="text"
                     value={mailSearchText}
                     onChange={(e) => setMailSearchText(e.target.value)}
-                    placeholder="Recherche… (2+ car. : FR+EN + HTML léger, tri pertinence puis date)"
+                    placeholder="Recherche… opérateurs: from:, subject:, tag:, has:attachment, is:unread"
                     className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
                   />
                   <button
