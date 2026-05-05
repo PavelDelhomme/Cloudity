@@ -575,7 +575,7 @@ export default function DocumentEditorPage() {
         setName(newName)
       } else if (name.toLowerCase().endsWith('.xlsx')) {
         const { gridToXlsxBlob } = await import('../../utils/exportOffice')
-        const blob = gridToXlsxBlob(gridRows)
+        const blob = await gridToXlsxBlob(gridRows)
         await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       } else {
         const toSave = name.toLowerCase().endsWith('.csv')
@@ -723,10 +723,10 @@ export default function DocumentEditorPage() {
     const text = !rich && textareaRef.current ? textareaRef.current.value : content
     try {
       const { csvToXlsxDownload } = await import('../../utils/exportOffice')
-      csvToXlsxDownload(text || '', name || 'tableur')
+      await csvToXlsxDownload(text || '', name || 'tableur')
       toast.success('Export .xlsx téléchargé')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Erreur export .xlsx. Installez le paquet xlsx (npm install).')
+      toast.error(e instanceof Error ? e.message : 'Erreur export .xlsx.')
     }
   }, [rich, content, name])
 
@@ -736,8 +736,9 @@ export default function DocumentEditorPage() {
     const t = setInterval(() => {
       if (name.toLowerCase().endsWith('.xlsx')) {
         import('../../utils/exportOffice').then(({ gridToXlsxBlob }) => {
-          const blob = gridToXlsxBlob(gridRows)
-          putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+          gridToXlsxBlob(gridRows).then((blob) =>
+            putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+          )
             .then(() => { setDirty(false); toast.success('Sauvegardé automatiquement') })
             .catch(() => {})
         })

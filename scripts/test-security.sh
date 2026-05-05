@@ -58,10 +58,10 @@ echo "  [govulncheck] backends Go (Docker)..."
 {
   echo "Cloudity — pistes de remédiation (automatique, à valider manuellement)"
   echo ""
-  echo "- Go stdlib : govulncheck signale souvent des correctifs livrés dans une version ultérieure du toolchain (ex. Go 1.25.x). Planifier la montée de version des images Docker Go quand elle est disponible et testée."
+  echo "- Go stdlib : exécuter govulncheck avec un toolchain Go patché (ex. Go 1.25.9) pour éviter les faux positifs liés à une image locale obsolète."
   echo "- Modules directs : mettre à jour jwt/v5, go-redis, etc. dans les go.mod concernés (go get -u=patch ou version fix indiquée par pkg.go.dev/vuln)."
-  echo "- Frontend : xlsx (SheetJS) peut rester sans correctif npm ; isoler l’usage (fichiers de confiance uniquement) ou envisager un fork/mainteneur alternatif à moyen terme."
-  echo "- esbuild/vite : souvent lié à l’outil de dev ; une montée majeure de Vite peut être nécessaire — évaluer séparément du runtime production."
+  echo "- Frontend : maintenir npm audit en vert (lot xlsx déjà migré) et surveiller les transitive deps au fil des updates."
+  echo "- Tooling front : évaluer les migrations majeures séparément du runtime production."
   echo ""
 } >"$REMEDIATION_FILE"
 
@@ -84,7 +84,11 @@ for dir in backend/auth-service backend/api-gateway backend/password-manager bac
     *) continue ;;
   esac
   logf="$ROOT/reports/govulncheck-${name}.txt"
-  if $COMPOSE $COMPOSE_FILES run --rm "$svc" sh -c "export PATH=\$PATH:/go/bin && go install golang.org/x/vuln/cmd/govulncheck@latest 2>/dev/null && govulncheck ./..." >"$logf" 2>&1; then
+  if docker run --rm \
+    -v "$ROOT/$dir:/src" \
+    -w /src \
+    golang:1.25.9-alpine \
+    sh -c "apk add --no-cache git >/dev/null 2>&1 && go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1 && /go/bin/govulncheck ./..." >"$logf" 2>&1; then
     echo "  ✅ govulncheck $name OK"
   else
     echo "  ⚠️  govulncheck $name : signalétique — détail : $logf"

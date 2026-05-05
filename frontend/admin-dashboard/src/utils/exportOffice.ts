@@ -11,7 +11,8 @@ import {
   TextRun,
   HeadingLevel,
 } from 'docx'
-import * as XLSX from 'xlsx'
+import writeExcelFile from 'write-excel-file/browser'
+import { readSheet } from 'read-excel-file/browser'
 
 type ParagraphOpt = { children: import('docx').TextRun[]; heading?: import('docx').HeadingLevel }
 
@@ -101,7 +102,7 @@ export function downloadDocx(blob: Blob, baseName: string): void {
 }
 
 /** Parse CSV texte en tableau de lignes/colonnes et télécharge en .xlsx. */
-export function csvToXlsxDownload(csvText: string, baseName: string): void {
+export async function csvToXlsxDownload(csvText: string, baseName: string): Promise<void> {
   const lines = csvText.split(/\r?\n/).filter((l) => l.length > 0)
   const rows = lines.map((line) => {
     const row: string[] = []
@@ -121,39 +122,35 @@ export function csvToXlsxDownload(csvText: string, baseName: string): void {
     row.push(cur.trim())
     return row
   })
-  const ws = XLSX.utils.aoa_to_sheet(rows.length ? rows : [['']])
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Feuille 1')
+  const safeRows = rows.length ? rows : [['']]
   const name = baseName.replace(/\.csv$/i, '') + '.xlsx'
-  XLSX.writeFile(wb, name)
+  await writeExcelFile(safeRows).toFile(name)
 }
 
 /** Blob .xlsx vide (une feuille, une cellule). */
-export function emptyXlsxBlob(): Blob {
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['']]), 'Feuille 1')
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+export async function emptyXlsxBlob(): Promise<Blob> {
+  return gridToXlsxBlob([['']])
 }
 
 /** Grille (string[][]) vers blob .xlsx. */
-export function gridToXlsxBlob(grid: string[][]): Blob {
+export async function gridToXlsxBlob(grid: string[][]): Promise<Blob> {
   const rows = grid.length ? grid : [['']]
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Feuille 1')
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-  return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  return writeExcelFile(rows).toBlob()
 }
 
 /** Blob .xlsx vers grille string[][]. */
 export async function xlsxBlobToGrid(blob: Blob): Promise<string[][]> {
-  const buf = await blob.arrayBuffer()
-  const wb = XLSX.read(buf, { type: 'array' })
-  const first = wb.SheetNames[0]
-  if (!first) return [['']]
-  const ws = wb.Sheets[first]
-  const aoa = XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1 })
-  const grid = (aoa.length ? aoa : [['']]).map((row) => row.map((c) => String(c ?? '')))
-  return grid
+  const sheetData = await readSheet(blob)
+  const grid = sheetData.map((row) => row.map((c) => String(c ?? '')))
+  const normalized = grid.map((row) => {
+    let last = row.length - 1
+    while (last >= 0 && row[last] === '') last--
+    return row.slice(0, last + 1)
+  })
+  const nonEmpty = normalized.filter((r) => r.some((c) => c !== ''))
+  const width = nonEmpty.reduce((m, r) => Math.max(m, r.length), 0)
+  const finalRows = (nonEmpty.length ? nonEmpty : [['']]).map((r) =>
+    width > 0 ? [...r, ...Array(Math.max(0, width - r.length)).fill('')] : r
+  )
+  return finalRows
 }

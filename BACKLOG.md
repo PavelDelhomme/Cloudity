@@ -55,7 +55,8 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### Sécurité & infra (voir **SECURITE.md**)
 
-- [ ] **Remédiation dépendances front (suite `make test-security`)** : traiter les vulnérabilités `npm audit` de `frontend/admin-dashboard` (**axios**, `@xmldom/xmldom`, `picomatch`, `postcss`, `follow-redirects`) avec MAJ contrôlées + revalidation `make test` / Playwright ; cas **`xlsx` sans correctif** : statuer mitigation/remplacement.
+- [x] **Remédiation dépendances front (suite `make test-security`)** : lot `admin-dashboard` traité (MAJ contrôlées tooling + dépendances). **`xlsx` retiré** au profit de `read-excel-file` / `write-excel-file` dans l’éditeur Office ; revalidation Vitest/Playwright OK, audit npm dashboard à 0 vulnérabilité.
+- [x] **Qualification/remédiation `govulncheck` (services Go)** : standardisation du scan sécurité sur toolchain patchée (`golang:1.25.9-alpine`) + MAJ `golang.org/x/net` sur `photos-service` + alignement des images Go dev (`1.25`) ; `make test-security` vert côté govulncheck.
 - [ ] **Phase 1** : versioning Drive + corbeille unifiée (si pas déjà complet côté produit) ; politique **snapshots** à trancher.
 - [ ] **Signatures applicatives** : spec canonical request + nonces pour **exports**, **admin critique**, webhooks ; pas sur toute l’API.
 - [ ] **Zero Trust incrémental** : scopes JWT par route ; mTLS ou tokens service inter-microservices documentés.

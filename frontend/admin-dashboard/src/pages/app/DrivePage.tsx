@@ -2312,7 +2312,7 @@ export default function DrivePage() {
     try {
       const { id, name } = await createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre.xlsx')
       const { emptyXlsxBlob } = await import('../../utils/exportOffice')
-      const blob = emptyXlsxBlob()
+      const blob = await emptyXlsxBlob()
       await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       if (name !== 'Sans titre.xlsx') {
         toast.success(`Un tableur existait déjà à ce nom. Créé sous « ${name} ».`)

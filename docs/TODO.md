@@ -38,14 +38,11 @@ Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TEST
 
 - **Sécurité dépendances (suite à `make test-security`)** : traiter les alertes **npm audit** de `frontend/admin-dashboard` avec un lot dédié.
   - **Progression 2026-05-05** : lot initial appliqué (`npm install` ciblé + `npm audit fix`) ; passage de **10 vulnérabilités** à **5** dans `admin-dashboard`.
-  - **Progression 2026-05-05 (suite)** : migration contrôlée **`vite@8` + `vitest@4` + plugin SWC** effectuée ; audit ramené à **1 vulnérabilité high** restante (`xlsx`, pas de fix upstream).
-  - **Reste à traiter** : stratégie `xlsx` (remplacement, sandbox stricte, ou isolation fonctionnelle).
-  - `axios` (high, fix disponible) : mettre à jour et revalider `make test` + `make test-e2e-playwright`.
-  - `@xmldom/xmldom` (high, transitive, fix disponible) : mise à jour lockfile / dépendance parente.
-  - `picomatch` (high, transitive, fix disponible) : remonter via mises à jour `vite`/tooling.
-  - `xlsx` (high, **pas de fix upstream**) : décider mitigation produit (sandbox stricte, limitation source/type, ou remplacement bibliothèque).
-  - `esbuild` / `vite` / `vitest` (moderate + upgrade majeur potentiel) : ouvrir lot de migration contrôlée pour éviter `npm audit fix --force` aveugle.
-  - `govulncheck` (signalétique sur services Go) : revue manuelle des rapports `reports/govulncheck-*.txt`, qualifier exploitabilité réelle puis créer tickets de MAJ ciblées par service.
+  - **Progression 2026-05-05 (suite)** : migration contrôlée **`vite@8` + `vitest@4` + plugin SWC** effectuée.
+  - **Progression 2026-05-05 (xlsx)** : remplacement de `xlsx` par `read-excel-file` + `write-excel-file` dans `exportOffice.ts` ; audit npm dashboard = **0 vulnérabilité**.
+  - **Progression 2026-05-05 (govulncheck)** : qualification + remédiation appliquée (Go images dev en `1.25`, `photos-service` aligné sur `golang.org/x/net@v0.38.0`, script `test-security` durci pour scanner avec toolchain patchée `golang:1.25.9-alpine`).
+  - **État courant** : `make test-security` vert (`npm audit` high OK, `safety` OK, `govulncheck` OK sur les services Go).
+  - **Reste à traiter** : maintenir ce niveau dans la durée (routine CI + mises à jour patch régulières).
 
 - **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
 
