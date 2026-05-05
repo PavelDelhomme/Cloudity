@@ -46,6 +46,24 @@ Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TEST
 
 - **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
 
+## Extensions apps (catalogue cadré)
+
+Objectif: garder le **catalogue etendu** visible, mais le placer explicitement **apres** les priorites coeur.
+
+Ordre de livraison confirme:
+1. **Maintenant**: Drive, Mail, Photos, Password Manager.
+2. **Ensuite**: Calendar, Notes, Tasks, Contacts.
+3. **En dernier**: catalogue d'apps additionnelles (ci-dessous), par vagues.
+
+- **Vague catalogue A (les plus logiques plus tard)** : Bookmarks/Read later, Wiki/Knowledge Base, Kanban/Boards, Forms/Surveys, Sites/Pages, Journal/Daily log, Habits/Routines, Snippets/Templates, Knowledge/Web clipper backend, Receipts/Documents perso, RSS/News reader, Scanner documents.
+- **Vague catalogue B (apres A)** : PKM/Knowledge graph, Whiteboard/Canvas, PDF reader/annotation, Reference manager, Clipboard sync, File requests/Collect, Vault documents sensibles, Activity timeline globale, Workflow/automations, Universal search, Developer hub, Secure share center, Backup center, Device center, App launcher/command palette.
+- **Vague catalogue B (suite vie perso/media)** : Budget/depenses, Subscriptions manager, Travel/trips, Home inventory, Pantry/stock cuisine, Shopping list, Recipes/Cookbook, Meal planner, Family/household board, Library/ebooks/docs reader, Watch later/media tracker, Moodboards.
+- **Vague catalogue C (long terme)** : Chat/Team messaging, Meet/Calls, Admin/Vault/Security center avance, App marketplace/automations avancees, CRM leger, No-code tables, Home automation dashboard, E-signature, Assistant IA transversal.
+
+Regle: ces vagues ne demarrent pas tant que le socle Drive/Mail/Photos/Pass puis Calendar/Notes/Tasks/Contacts n'est pas juge stable (qualite + docs + tests).
+
+Suivi detaille et decoupage par phases : **`BACKLOG.md`** (cases), **`STATUS.md`** (etat), **`SYNC-BACKLOG.md`** (impacts sync/mobile), **`TESTS.md`** (barriere qualite).
+
 ### Photos web — suite produit (à faire)
 
 - **Albums** : navigation **dans** un album (**livré** : URL **`/app/photos?tab=albums&album=<id>`**, grille images + lightbox, retour liste) ; **création d’album** (API + UI) ; couverture / titre ; cartes liste **mode sombre** (contraste, bordures — itéré avril 2026).

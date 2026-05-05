@@ -908,6 +908,8 @@ export default function MailPage() {
   const [filterTagId, setFilterTagId] = useState<number | null>(null)
   /** Filtre liste : même `thread_key` que le serveur (conversation). */
   const [conversationThreadKey, setConversationThreadKey] = useState<string | null>(null)
+  /** Regroupe la liste par fil (1 ligne par conversation) sans changer les appels API. */
+  const [conversationListMode, setConversationListMode] = useState(false)
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
@@ -1453,6 +1455,30 @@ export default function MailPage() {
     similarSenderFilter,
     mailTags,
   ])
+  const threadCountByKey = useMemo(() => {
+    const byKey = new Map<string, number>()
+    for (const m of visibleMessages) {
+      const key = (m.thread_key || '').trim() || `msg:${m.id}`
+      byKey.set(key, (byKey.get(key) ?? 0) + 1)
+    }
+    return byKey
+  }, [visibleMessages])
+  const listMessages = useMemo(() => {
+    if (!conversationListMode || conversationThreadKey) return visibleMessages
+    const bestByKey = new Map<string, (typeof visibleMessages)[number]>()
+    for (const m of visibleMessages) {
+      const key = (m.thread_key || '').trim() || `msg:${m.id}`
+      const prev = bestByKey.get(key)
+      if (!prev) {
+        bestByKey.set(key, m)
+        continue
+      }
+      const prevDate = Date.parse(prev.date_at ?? prev.created_at ?? '') || 0
+      const curDate = Date.parse(m.date_at ?? m.created_at ?? '') || 0
+      if (curDate >= prevDate) bestByKey.set(key, m)
+    }
+    return Array.from(bestByKey.values())
+  }, [visibleMessages, conversationListMode, conversationThreadKey])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
@@ -1983,9 +2009,10 @@ export default function MailPage() {
     handleSyncOneAccount(effectiveAccountId)
   }, [effectiveAccountId, handleSyncOneAccount, syncingAccountId])
 
-  const openCreateImapFolderModal = useCallback(() => {
+  const openCreateImapFolderModal = useCallback((parentImapPath?: string) => {
     setNewImapFolderPathInput('')
-    setNewImapFolderParentPath('INBOX')
+    const parent = (parentImapPath ?? '').trim()
+    setNewImapFolderParentPath(parent || 'INBOX')
     setNewImapFolderColor('')
     setNewImapFolderIcon('')
     setShowCreateImapFolderModal(true)
@@ -3212,7 +3239,7 @@ export default function MailPage() {
                   {effectiveAccountId != null ? (
                     <button
                       type="button"
-                      onClick={openCreateImapFolderModal}
+                      onClick={() => openCreateImapFolderModal()}
                       className="p-1 rounded-md text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 shrink-0"
                       aria-label="Créer un dossier"
                       title="Créer un dossier IMAP"
@@ -3470,6 +3497,18 @@ export default function MailPage() {
                   />
                   <button
                     type="button"
+                    onClick={() => setConversationListMode((v) => !v)}
+                    className={`shrink-0 rounded-lg border px-2.5 py-2 text-xs font-medium ${
+                      conversationListMode
+                        ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
+                        : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                    title="Regrouper en conversations (1 ligne par fil)"
+                  >
+                    Conversations
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setMailCompactUi((v) => !v)}
                     className="shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 px-2.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
                     title={mailCompactUi ? 'Afficher les panneaux d’aide' : 'Masquer les panneaux d’aide'}
@@ -3527,10 +3566,10 @@ export default function MailPage() {
                   ) : null}
                   {mailSearchText.trim() ? (
                     <span className="text-slate-500 dark:text-slate-400">
-                      {visibleMessages.length} résultat(s)
+                      {listMessages.length} résultat(s)
                       {mailServerSearchQ
                         ? ` · ${messagesTotal} au total (recherche)`
-                        : ` sur ${messages.length} (page)`}
+                        : ` sur ${listMessages.length} (page)`}
                     </span>
                   ) : null}
                 </div>
@@ -3639,10 +3678,12 @@ export default function MailPage() {
                     : undefined
                 }
               >
-                {visibleMessages.length > 0 ? (
+                {listMessages.length > 0 ? (
                   <>
                     <ul className="flex flex-col gap-1.5 px-1 py-2 min-h-0 overflow-y-auto flex-1 overscroll-contain">
-                      {visibleMessages.map((msg) => {
+                      {listMessages.map((msg) => {
+                        const threadKey = (msg.thread_key || '').trim() || `msg:${msg.id}`
+                        const threadCount = threadCountByKey.get(threadKey) ?? 1
                         const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
                         const rowContact = senderKey ? contactsByEmail.get(senderKey) ?? null : null
                         const isUnread = !msg.is_read
@@ -3774,6 +3815,11 @@ export default function MailPage() {
                                           />
                                         ) : null
                                       })}
+                                    </span>
+                                  ) : null}
+                                  {conversationListMode && threadCount > 1 ? (
+                                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100">
+                                      {threadCount} messages
                                     </span>
                                   ) : null}
                                 </p>
@@ -4989,6 +5035,21 @@ export default function MailPage() {
           role="menu"
           onMouseDown={(e) => e.stopPropagation()}
         >
+          {!imapSpecialRoleBlocksSubfolderCreation(imapFolderCtx.row.imap_special_use) ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-sm text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700/80"
+              onClick={() => {
+                openCreateImapFolderModal(imapFolderCtx.row.imap_path)
+                setImapFolderCtx(null)
+              }}
+            >
+              Créer un sous-dossier…
+            </button>
+          ) : (
+            <p className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">Sous-dossier non autorisé pour ce dossier spécial IMAP.</p>
+          )}
           {imapFolderCtx.row.user_created ? (
             <>
               <button

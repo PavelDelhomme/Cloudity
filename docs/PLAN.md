@@ -17,6 +17,16 @@
 | **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme |
 | **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack, conteneurs, techno par couche ; diagnostic ; leviers et alternatives ; explication `profiling-data*` / `Trace-*` |
 
+## 8bis. Catalogue apps (cadre de decision)
+
+Le catalogue "100+ idees d'apps" est retenu comme reservoir produit, avec une regle simple:
+
+1. **Priorite immediate**: Drive, Mail, Photos, Password Manager.
+2. **Priorite suivante**: Calendar, Notes, Tasks, Contacts.
+3. **Catalogue additionnel en dernier**: Bookmarks/Read later, Wiki, Kanban, Forms, Sites, Journal/Habits, Snippets, RSS/Scanner, Receipts, PKM/Graph, Whiteboard, PDF annotation, Workflow automation, Activity stream, Developer hub, Secure share center, Backup/Device center, etc.
+4. **Reporter les blocs a tres forte complexite** (chat temps reel complet, visio complete, CRM/no-code/home automation/e-signature/marketplace/assistant IA transversal).
+5. **Ne pas dupliquer les suivis**: execution dans **`TODO.md`** / **`BACKLOG.md`**, etat dans **`STATUS.md`**, sync/offline dans **`SYNC-BACKLOG.md`**, couverture dans **`TESTS.md`**.
+
 ## 9. Mail web — synchronisation par boîte (livré)
 
 - **Colonne « Boîtes mail »** : à droite de chaque boîte, une icône **↻** lance **`POST /mail/me/accounts/:id/sync`** pour **cette boîte uniquement** (mot de passe déjà stocké côté serveur si besoin). Panneau réduit : icône sous l’icône enveloppe.

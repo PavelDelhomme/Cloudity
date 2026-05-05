@@ -72,6 +72,13 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 - [ ] Hub : recherche cross-apps (alignée ROADMAP).
 - [ ] Playwright : scénario ouverture palette recherche + `?q=` sur Drive (optionnel).
 
+### Catalogue apps (hors coeur deja suivi)
+
+- [ ] **Gate priorite** : ne lancer ce catalogue qu'apres stabilisation des blocs coeur (Drive/Mail/Photos/Pass), puis Calendar/Notes/Tasks/Contacts.
+- [ ] **Vague A (catalogue tardif mais logique)** : Bookmarks/Read later, Wiki/Knowledge Base, Kanban/Boards, Forms/Surveys, Sites/Pages, Journal/Daily log, Habits/Routines, Snippets/Templates, Web clipper, Receipts/Documents perso, RSS/News reader, Scanner documents.
+- [ ] **Vague B (apres Vague A)** : PKM/Knowledge graph, Whiteboard/Canvas, PDF annotation, Reference manager, Clipboard sync, File requests/Collect, Vault documents sensibles, Workflow automation transversal, Activity stream global, Universal search, Secure share center, Developer hub, Backup center, Device center, App launcher.
+- [ ] **Vague C (long terme, complexite elevee)** : Chat/Team messaging, Meet/Calls, Security/Admin center avance (gouvernance, retention, legal hold), marketplace d'integrations, mini CRM/client portal, no-code tables, home automation, e-signature, assistant IA transversal.
+
 ### Mobile
 
 - [x] **Drive** Flutter (`mobile/drive`) : liste fichiers — **`make test-mobile-drive`** / suite — **MOBILES.md**.

@@ -730,4 +730,94 @@ describe('MailPage', () => {
     expect(screen.queryByText('Sans PJ')).toBeNull()
     expect(screen.queryByText('PJ mais lu')).toBeNull()
   })
+
+  it('crée un sous-dossier IMAP depuis le menu contextuel d’un dossier', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.fetchMailImapFolders).mockResolvedValue([
+      {
+        imap_path: 'INBOX.Projets',
+        parent_imap_path: 'INBOX',
+        label: 'Projets',
+        delimiter: '.',
+        user_created: true,
+      },
+    ] as any)
+
+    render(wrap(<MailPage />))
+    const folderBtn = await screen.findByRole('button', { name: /Projets/i })
+    fireEvent.contextMenu(folderBtn, { clientX: 120, clientY: 120 })
+
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Créer un sous-dossier/i }))
+    const parentInput = await screen.findByLabelText('Dossier parent')
+    expect((parentInput as HTMLInputElement).value).toBe('INBOX.Projets')
+
+    fireEvent.change(screen.getByLabelText('Nom ou chemin'), { target: { value: '2026' } })
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Créer' }))[1])
+
+    await waitFor(() => {
+      expect(api.createMailImapFolder).toHaveBeenCalledWith(
+        'token',
+        1,
+        expect.objectContaining({
+          parent_imap_path: 'INBOX.Projets',
+          label: '2026',
+        })
+      )
+    })
+  })
+
+  it('mode Conversations regroupe les messages d’un même thread', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 501,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'user@test.com',
+          subject: 'Sujet thread',
+          created_at: '2026-05-05T08:00:00.000Z',
+          is_read: false,
+          thread_key: '<thread-1@test>',
+        },
+        {
+          id: 502,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'user@test.com',
+          subject: 'Sujet thread',
+          created_at: '2026-05-05T09:00:00.000Z',
+          is_read: true,
+          thread_key: '<thread-1@test>',
+        },
+        {
+          id: 503,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'b@test.com',
+          to: 'user@test.com',
+          subject: 'Sujet isolé',
+          created_at: '2026-05-05T10:00:00.000Z',
+          is_read: false,
+          thread_key: '<thread-2@test>',
+        },
+      ],
+      total: 3,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Sujet thread')
+    await screen.findByText('Sujet isolé')
+    expect(screen.queryByText('2 messages')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Conversations' }))
+    expect(await screen.findByText('2 messages')).toBeTruthy()
+  })
 })

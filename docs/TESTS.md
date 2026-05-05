@@ -322,6 +322,20 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [x] **Tests Vitest GlobalSearchPalette** : navigation Drive / Contacts, raccourci, Échap (`GlobalSearchPalette.test.tsx`).
 - [x] **API + UI recherche nom sur tout le Drive** : **GET /drive/nodes/search** ; **`fetchDriveSearch`** ; **DrivePage** avec **`?q=`** non vide (tests Go, Vitest `api` / `DrivePage`).
 - [ ] **Recherche Drive / globale (suite)** : **E2E** (saisie palette → liste puis navigation) ; **API** recherche cross-apps (Mail, Pass…) ; affinements **Vitest** (clic résultat recherche → breadcrumb / aperçu).
+
+### 4.0bis Extensions apps (nouveau catalogue)
+
+- [ ] **Gate priorite** : ne lancer cette section qu'apres stabilisation des suites coeur (Drive/Mail/Photos/Pass puis Calendar/Notes/Tasks/Contacts).
+- [ ] **Shell suite** : tests integration pour Notifications Center, Activity timeline, Trash Center, Share Center (droits + filtrage tenant/user).
+- [ ] **Boards / Whiteboard / Forms** : tests unitaires autosave, conflits edition, restauration version; E2E creation/modification/partage.
+- [ ] **Wiki / PKM / Clipper / Bookmarks** : tests indexation/recherche, import, dedup, permissions lecture/ecriture.
+- [ ] **RSS / Read later / PDF annotation / Reference manager** : tests sync etat de lecture, highlights, annotations, export/import.
+- [ ] **Scanner / Receipts / Vault docs sensibles** : tests pipeline upload->OCR->classement, chiffrement, restauration.
+- [ ] **Clipboard sync / File requests** : tests expiration, quotas, anti-abus, droits inter-appareils.
+- [ ] **Guest/Shared inbox/Client portal** : E2E liens externes expires, acces invite, scopes limites, journalisation audit.
+- [ ] **Developer Hub / API keys / Webhooks** : tests revocation/rotation, signature webhook, retries idempotents, logs d'execution.
+- [ ] **Backup/Device/Session center** : tests politique retention, restauration, invalidation session/appareil a chaud.
+- [ ] **Chat/Meet/Marketplace/No-code/CRM (long terme)** : plan de tests uniquement quand decision produit validee.
 - [ ] **Visualisation PDF** : unit (composant viewer) ; E2E (ouvrir un PDF depuis le Drive).
 - [ ] **Extracteur d’archives** : API Go (endpoint extract, structure dossiers) ; E2E (upload archive → extraction → structure).
 - [ ] **Éditeur : renommer document** : unit (renommage + sync nom) ; E2E (créer doc → ouvrir → renommer → vérifier Drive).

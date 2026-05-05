@@ -152,6 +152,17 @@ Section pour **avancer concrètement** : cocher au fur et à mesure. **Backlog c
 | 5 | **Recherche** : API arborescente / cross-apps (au-delà du MVP `?q=` + palette) | **BACKLOG**, **TESTS** §4.0 |
 | 6 | **Sécurité** : suivre phases **docs/SECURITE.md** + durcissement **SECURITE-DONNEES.md** | **SECURITE.md** |
 
+### Extensions applicatives (vision elargie, sans doublons coeur)
+
+Etat: **cadre ajuste**. Priorite reaffirmee:
+1) Drive/Mail/Photos/Pass, 2) Calendar/Notes/Tasks/Contacts, 3) catalogue additionnel.
+
+| Vague | Cibles |
+|------|--------|
+| **Vague A (quand coeur stabilise)** | Dashboard/Home, Search globale, Notifications/Activity/Trash/Share center, Bookmarks/Read later, Wiki, Kanban, Forms, Sites/Pages, Journal, Habits, Snippets/Templates, RSS/Scanner, Receipts/Documents perso |
+| **Vague B (apres A)** | PKM/Graph, Whiteboard/Canvas, PDF annotation, Reference manager, Web clipper backend, Clipboard sync, Secure drop, Guest portal, Workflow automation, Universal search, Developer hub, Backup/Device center |
+| **Vague C (long terme)** | Chat/Team messaging, Meet/Calls, Security/Admin center avance, marketplace integrations, CRM/client portal, no-code DB, home automation, e-signature, assistant IA transversal |
+
 ### Immédiat (base actuelle)
 
 - [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6080/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d'env soit bien utilisée.)

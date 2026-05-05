@@ -28,6 +28,26 @@ La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …
 | **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
 | **Perf / observabilité** | Sync IMAP, gros volumes mail et uploads Drive : **mesurer** latence et charge — **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; alignement **SECURITE.md** (pas d’optimisation qui affaiblit TLS, auth ou quotas). |
 
+## Extensions apps — impacts sync/mobile a anticiper
+
+Cette section recense les nouvelles familles d'apps proposees, en se limitant aux impacts techniques sync/offline/mobile (pas au design produit detaille).
+
+Rappel priorite: ce bloc vient **apres** Drive/Mail/Photos/Pass puis Calendar/Notes/Tasks/Contacts.
+
+| Famille | Impacts sync/offline |
+|--------|-----------------------|
+| **Boards / Whiteboard / Forms** | Offline-first, resolution de conflits, autosave frequente, versioning fin, snapshots/restauration. |
+| **Wiki / PKM / Clipper / Bookmarks** | Indexation cross-app, dedup contenus, import web, mode lecture offline, strategie cache long terme. |
+| **RSS / Read later / PDF annotation / Reference** | Sync feed et etat lu/non lu, caching offline, highlights, extraction notes, dedup et retention. |
+| **Scanner / Receipts / Docs perso / Vault sensible** | Upload mobile resilient, OCR asynchrone, classement auto, chiffrement renforce, politiques de retention/restauration. |
+| **Notifications / Activity / Share / Trash Center** | Flux unifies multi-apps, pagination/retention, events idempotents, droits et filtrage par tenant/user. |
+| **Clipboard / File requests / Collect** | Sync multi-appareils faible latence, expiration, quotas, anti-abus et anti-exfiltration. |
+| **Guest Portal / Shared Inbox / Client Portal** | Partage externe securise, scopes fins, expiration de liens, audit trail, anti-abus/rate limiting. |
+| **Developer Hub / Webhooks / API Keys** | Secrets management, rotation/revocation, replay-safe webhooks, observabilite des executions. |
+| **Backup Center / Device Center / Session manager** | Inventaire appareils/sessions, revocation immediate, politiques retention backups, chiffrement/restauration. |
+
+**A retarder (complexite forte)** : chat temps reel complet, visio complete, CRM/no-code, home automation, e-signature, marketplace full, assistant IA transversal.
+
 ---
 
 ## 0d. Migrations PostgreSQL — commandes & vision admin
