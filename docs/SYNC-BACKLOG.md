@@ -26,7 +26,7 @@ La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes ; **lien Mail ↔ fiches** (liaison produit complète) **après MVP Mail web** — accès contact depuis un message déjà partiel côté dashboard. |
 | **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
-| **Perf / observabilité** | Sync IMAP, gros volumes mail et uploads Drive : **mesurer** latence et charge — **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; alignement **SECURITE.md** (pas d’optimisation qui affaiblit TLS, auth ou quotas). |
+| **Perf / observabilité** | **Base livrée** : `/admin/performance/overview` + dashboard admin (snapshot CPU/Mémoire/IO). Suite : métriques historiques multi-services + tests/E2E/mobile tracés et comparables ; voir **[PERFORMANCES.md](./PERFORMANCES.md)** et **TR-06**. |
 
 ## Extensions apps — impacts sync/mobile a anticiper
 
@@ -73,6 +73,11 @@ Rappel priorite: ce bloc vient **apres** Drive/Mail/Photos/Pass puis Calendar/No
 Les lignes **Vite**, les **CSS « Declaration dropped »** sur propriétés `-webkit-*` / `mso-*`, les **GET 200** vers `/mail/…`, et les **301 / 404** vers les services **favicon Google** sont en grande partie **normaux en dev** ou **bruit d’affichage HTML mail** — voir le guide **[PLAN.md](./PLAN.md)** (sections 1 à 5) avant de diagnostiquer une « erreur » bloquante. **Dates fausses en corbeille** : voir **PLAN §5** et correctif sync **`date_at`** dans **mail-directory-service**.
 
 ## 0. Réponses rapides (comportement actuel Mail web)
+
+### Mise à jour 2026-05-06 (Mail/Gateway)
+
+- **Gateway** : routes admin Mail (`/mail/domains*`, `/mail/mailboxes*`, `/mail/aliases*`) verrouillées côté gateway (rôle admin requis).
+- **Mail web UX** : suppression des actions en doublon dans la sidebar, fermeture des modales au clic extérieur, compose enrichi (formatage HTML de base) et modale dédiée pour la programmation d’envoi.
 
 | Question | Réponse |
 |----------|---------|

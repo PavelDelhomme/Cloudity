@@ -57,3 +57,35 @@ class DashboardStats(BaseModel):
     active_tenants: int
     total_users: int
     api_calls_today: int
+
+
+class ContainerPerformanceSample(BaseModel):
+    name: str
+    cpu_percent: float | None = None
+    memory_usage_bytes: int | None = None
+    memory_limit_bytes: int | None = None
+    memory_percent: float | None = None
+    net_io: str | None = None
+    block_io: str | None = None
+    pids: int | None = None
+
+
+class HostPerformanceSample(BaseModel):
+    loadavg_1m: float | None = None
+    loadavg_5m: float | None = None
+    loadavg_15m: float | None = None
+    cgroup_cpu_usage_usec: int | None = None
+    cgroup_cpu_user_usec: int | None = None
+    cgroup_cpu_system_usec: int | None = None
+    cgroup_memory_current_bytes: int | None = None
+    cgroup_memory_peak_bytes: int | None = None
+    cgroup_io_read_bytes: int | None = None
+    cgroup_io_write_bytes: int | None = None
+
+
+class PerformanceOverview(BaseModel):
+    timestamp_utc: str
+    source: str
+    host: HostPerformanceSample
+    containers: list[ContainerPerformanceSample] = []
+    notes: list[str] = []

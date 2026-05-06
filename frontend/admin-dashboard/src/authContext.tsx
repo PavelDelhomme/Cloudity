@@ -200,7 +200,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     setState(defaultState)
-    navigate('/login', { replace: true })
+    const returnTo =
+      typeof window !== 'undefined'
+        ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+        : '/app'
+    navigate(`/login?next=${encodeURIComponent(returnTo)}`, { replace: true, state: { returnTo } })
   }, [navigate])
 
   const value = useMemo<AuthContextValue>(

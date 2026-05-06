@@ -65,12 +65,24 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### UX / Suite web (`frontend/admin-dashboard`)
 
+- [x] **Mail web — rationalisation actions latérales** : suppression des doublons (`Nouveau`, `Recharger`, `Paramètres Mail`, `Filtres et règles`) quand déjà présents dans `Menu Mail`.
+- [x] **Mail web — compose riche** : barre de formatage de base (gras/italique/souligné/listes/lien), transfert en HTML lisible et titre compose explicite.
+- [x] **Mail web — programmer l’envoi** : remplacer la popup navigateur par une modale interne date/heure.
+- [x] **Gateway — contrôle d’accès admin-only** : verrouiller `/mail/domains*`, `/mail/mailboxes*`, `/mail/aliases*` côté gateway avec tests unitaires.
 - [ ] **Mail web — doc & robustesse** : console navigateur (Vite, CSS mail HTML, favicons) et **dates liste corbeille** — voir **`docs/PLAN.md`** ; sync **`date_at`** sans `time.Now()` si enveloppe IMAP sans date (**mail-directory-service**). **Livré** : sync auto anti-rafale (batch unique, anti-chevauchement, pause onglet caché) + indicateur sidebar. Alias boîte **MVP** ; système **complet** (expiration, vue globale, DNS) : **SYNC-BACKLOG §2**, **STATUS** Phase 3, **ROADMAP APP-04**.
 - [x] **Mail web — stabilité React** : correctif **setters / affichage** + **`MailAppChromeMenu`** ; **`make test`** + **`make test-dashboard-one …MailPage.test.tsx`** + **`make test-e2e-playwright-mail`** (écoute console / navigation Mail ↔ Drive). **Optionnel** : garde manuelle longue session / multi-onglets ; réduire bruit **`JWT expired`** sur batch sync (file d’attente côté front).
 - [ ] **Mail — règles de tri (type Proton)** : **MVP livré** (CRUD, critères étendus, réconciliation IMAP). **Reste** : tests API / E2E (conditions combinées, application rétroactive scénarisée), polish UX ; tracking **STATUS §0b A3.2**, **SYNC-BACKLOG §0b**.
 - [ ] Recherche globale **API** cross-apps (Mail, Pass…) — **Drive** : recherche nom sur **tout l’arborescence** via **`GET /drive/nodes/search`** quand **`?q=`** est renseigné dans le dashboard ; navigation **Contacts** inchangée.
 - [ ] Hub : recherche cross-apps (alignée ROADMAP).
 - [ ] Playwright : scénario ouverture palette recherche + `?q=` sur Drive (optionnel).
+
+### Observabilité / Performance (TR-06)
+
+- [x] Endpoint admin runtime de base : `GET /admin/performance/overview` (snapshot cgroup + docker stats si disponible) + rendu dashboard admin.
+- [ ] Collecte métriques **par service** (gateway + microservices + front) : latence p50/p95/p99, erreurs, CPU/Mémoire/IO.
+- [ ] Historisation métriques + exploration dans l’admin (filtres service/route/période).
+- [ ] Traçabilité des exécutions CI/dev (`make test`, E2E, mobile) avec empreinte ressources.
+- [ ] Budgets et seuils automatiques (alerte / fail pipeline) pour éviter les régressions CPU/Mémoire/IO.
 
 ### Catalogue apps (hors coeur deja suivi)
 

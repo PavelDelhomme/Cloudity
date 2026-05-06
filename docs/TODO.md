@@ -21,6 +21,22 @@
 
 ## Prochaines étapes — synthèse (quoi faire ensuite)
 
+### Mise à jour 2026-05-06 (Mail UX + gateway)
+
+- [x] Mail web : suppression des doublons d’actions dans la colonne gauche (`Nouveau`, `Recharger`, boutons `Paramètres Mail`/`Filtres et règles` sous `Sync auto`).
+- [x] Mail web : popup `Paramètres Mail` + popup `Ajouter une boîte` fermables au clic extérieur.
+- [x] Mail web : composer amélioré (barre de formatage gras/italique/souligné/listes/lien), transfert avec titre explicite `Transférer le message` et contenu transféré en HTML lisible.
+- [x] Mail web : remplacement de la popup navigateur de programmation d’envoi par une modale interne.
+- [x] Gateway : verrouillage admin-only des routes `/mail/domains*`, `/mail/mailboxes*`, `/mail/aliases*`.
+
+### Mise à jour 2026-05-06 (Performance / traçabilité)
+
+- [x] Ajouter une base de snapshot runtime dans l’admin : endpoint `GET /admin/performance/overview` + affichage Dashboard.
+- [ ] Étendre la collecte à **tous** les services de la stack avec métriques homogènes (CPU/Mémoire/Disque IO/latence/erreurs).
+- [ ] Historiser les séries (pas seulement snapshot) et exposer tableaux + graphiques dans le backoffice admin.
+- [ ] Tracer et publier les métriques d’exécution des pipelines (`make test`, E2E, sécurité, mobile) dans un historique consultable.
+- [ ] Définir des budgets de ressources (CPU/Mémoire/IO) par service et des seuils d’alerte.
+
 Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TESTS**, **PLAN** (pas seulement la boussole **VISION-SUITE**) :
 
 1. **Mail (web)** — pousser le « quotidien » : **stabilité React** — livré + **E2E** `make test-e2e-playwright-mail` ; enchaîner **sous-dossiers IMAP `CREATE`**, **threads / conversations**, PJ liste/tailles/sync **multi-boîtes**, **snooze** ; **recherche cross-apps** au hub (**BACKLOG**). Tenir **PLAN.md** pour console / dates corbeille.

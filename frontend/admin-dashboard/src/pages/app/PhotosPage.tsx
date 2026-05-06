@@ -20,6 +20,7 @@ import { useAuth } from '../../authContext'
 import { PhotosBottomNav } from '../../components/PhotosBottomNav'
 import type { PhotosTab } from './photosTypes'
 import {
+  createDriveFolder,
   deleteDriveNode,
   downloadDriveFile,
   fetchDriveNodes,
@@ -428,9 +429,13 @@ export default function PhotosPage() {
       if (!accessToken) throw new Error('Non connecté')
       const list = Array.from(files).filter(isImageFile)
       if (!list.length) throw new Error('Aucun fichier image dans la sélection')
+      const rootNodes = await fetchDriveNodes(accessToken, null)
+      const photosFolder =
+        rootNodes.find((n) => n.is_folder && n.name.trim().toLowerCase() === 'photos') ??
+        (await createDriveFolder(accessToken, null, 'Photos'))
       for (const file of list) {
         await new Promise<void>((resolve, reject) => {
-          uploadDriveFileWithProgress(accessToken, null, file, undefined, false)
+          uploadDriveFileWithProgress(accessToken, photosFolder.id, file, undefined, false)
             .then(() => resolve())
             .catch(reject)
         })

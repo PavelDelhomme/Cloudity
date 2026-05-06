@@ -281,9 +281,35 @@ func authMiddleware(next http.Handler) http.Handler {
 				r.Header.Set("X-Tenant-ID", strconv.Itoa(int(n)))
 			}
 		}
+		if isAdminOnlyMailRoute(r.URL.Path) && !tokenHasAdminRole(claims) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte(`{"error":"admin role required"}`))
+			return
+		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func isAdminOnlyMailRoute(path string) bool {
+	return strings.HasPrefix(path, "/mail/domains") ||
+		strings.HasPrefix(path, "/mail/mailboxes") ||
+		strings.HasPrefix(path, "/mail/aliases")
+}
+
+func tokenHasAdminRole(claims jwt.MapClaims) bool {
+	if role, ok := claims["role"].(string); ok && strings.EqualFold(strings.TrimSpace(role), "admin") {
+		return true
+	}
+	if roles, ok := claims["roles"].([]interface{}); ok {
+		for _, raw := range roles {
+			if s, ok := raw.(string); ok && strings.EqualFold(strings.TrimSpace(s), "admin") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // logResponseWriter capture le code HTTP final pour les journaux de latence (TR-06 / PERFORMANCES.md).

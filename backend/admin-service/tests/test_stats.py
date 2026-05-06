@@ -33,3 +33,17 @@ def test_stats_counts_non_negative():
     assert data["active_tenants"] >= 0
     assert data["total_users"] >= 0
     assert data["api_calls_today"] >= 0
+
+
+def test_performance_overview_returns_200_and_shape():
+    r = client.get("/admin/performance/overview")
+    assert r.status_code == 200
+    data = r.json()
+    assert "timestamp_utc" in data
+    assert "source" in data
+    assert "host" in data
+    assert "containers" in data
+    assert "notes" in data
+    assert isinstance(data["host"], dict)
+    assert isinstance(data["containers"], list)
+    assert isinstance(data["notes"], list)

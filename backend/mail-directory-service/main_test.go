@@ -80,6 +80,83 @@ func TestMailDomainsAliasesInvalidID(t *testing.T) {
 	}
 }
 
+func TestMailDomainsPatchInvalidID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/0", strings.NewReader(`{"is_active":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/domains/0: got %d", w.Code)
+	}
+}
+
+func TestMailDomainsDeleteInvalidID(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodDelete, "/mail/domains/0", nil)
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("DELETE /mail/domains/0: got %d", w.Code)
+	}
+}
+
+func TestMailDomainsPatchMailboxInvalidIDs(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/mailboxes/0", strings.NewReader(`{"quota_mb": 100}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/domains/1/mailboxes/0: got %d", w.Code)
+	}
+}
+
+func TestMailDomainsPatchMailboxInvalidBody(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/mailboxes/1", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/domains/1/mailboxes/1 empty body: got %d", w.Code)
+	}
+}
+
+func TestMailDomainsPatchAliasInvalidIDs(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/aliases/0", strings.NewReader(`{"destination":"a@b.com"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/domains/1/aliases/0: got %d", w.Code)
+	}
+}
+
+func TestMailDomainsPatchAliasInvalidDestination(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/aliases/1", strings.NewReader(`{"destination":"invalid"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("PATCH /mail/domains/1/aliases/1 invalid destination: got %d", w.Code)
+	}
+}
+
 func TestMailMeAccountsRequiresTenantID(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)
@@ -183,8 +260,16 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		mail.PATCH("/me/accounts/:id/messages/folder", h.moveMessagesToFolderBulk)
 		mail.GET("/domains", h.listDomains)
 		mail.POST("/domains", h.createDomain)
+		mail.PATCH("/domains/:id", h.patchDomain)
+		mail.DELETE("/domains/:id", h.deleteDomain)
 		mail.GET("/domains/:id/mailboxes", h.listMailboxes)
+		mail.POST("/domains/:id/mailboxes", h.createMailbox)
+		mail.PATCH("/domains/:id/mailboxes/:mailboxId", h.patchMailbox)
+		mail.DELETE("/domains/:id/mailboxes/:mailboxId", h.deleteMailbox)
 		mail.GET("/domains/:id/aliases", h.listAliases)
+		mail.POST("/domains/:id/aliases", h.createAlias)
+		mail.PATCH("/domains/:id/aliases/:aliasId", h.patchAlias)
+		mail.DELETE("/domains/:id/aliases/:aliasId", h.deleteAlias)
 	}
 	return r
 }

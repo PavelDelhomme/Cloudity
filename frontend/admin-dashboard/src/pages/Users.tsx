@@ -1,9 +1,10 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../authContext'
 import { fetchUsers, updateUser } from '../api'
 import { PageLayout, Card, TableWrapper, TableHead, Th, TBody, Td, Badge } from '../components/PageLayout'
+import { PaginationControls } from '../components/PaginationControls'
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split('@')
@@ -20,10 +21,16 @@ export default function Users() {
   const [editingUserId, setEditingUserId] = useState<number | null>(null)
   const [editingEmail, setEditingEmail] = useState('')
   const [showEmails, setShowEmails] = useState(false)
+  const [page, setPage] = useState(0)
+  const pageSize = 25
+
+  useEffect(() => {
+    setPage(0)
+  }, [tenantId])
 
   const { data: users, isLoading, error } = useQuery({
-    queryKey: ['users', tenantId ?? 0],
-    queryFn: () => fetchUsers(tenantId!, accessToken!),
+    queryKey: ['users', tenantId ?? 0, page, pageSize],
+    queryFn: () => fetchUsers(tenantId!, accessToken!, { skip: page * pageSize, limit: pageSize }),
     enabled: Boolean(accessToken && tenantId != null),
   })
 
@@ -66,6 +73,8 @@ export default function Users() {
   }
 
   const list = users ?? []
+  const canPrev = page > 0
+  const canNext = list.length >= pageSize
 
   return (
     <PageLayout
@@ -164,6 +173,13 @@ export default function Users() {
             )}
           </TBody>
         </TableWrapper>
+        <PaginationControls
+          page={page}
+          canPrev={canPrev}
+          canNext={canNext}
+          onPrev={() => setPage((p) => Math.max(0, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+        />
       </Card>
     </PageLayout>
   )

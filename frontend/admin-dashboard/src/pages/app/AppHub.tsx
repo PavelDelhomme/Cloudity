@@ -300,12 +300,12 @@ export default function AppHub() {
 
   function previewForApp(app: AppItem): React.ReactNode {
     if (!accessToken) {
-      return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Connectez-vous pour voir les aperçus.</p>
+      return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Connectez-vous.</p>
     }
     if (app.href === '/app/drive') {
       if (driveLoading) return <p className="text-xs text-slate-400 mt-2">Chargement…</p>
       if (driveFilesRecent.length === 0) {
-        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun fichier récent — uploadez dans le Drive.</p>
+        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun fichier récent.</p>
       }
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
@@ -321,9 +321,7 @@ export default function AppHub() {
       if (driveLoading) return <p className="text-xs text-slate-400 mt-2">Chargement…</p>
       if (officeRecent.length === 0) {
         return (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-            Pas de document récent détecté — les fichiers Office viennent du Drive.
-          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun document récent.</p>
         )
       }
       return (
@@ -353,7 +351,7 @@ export default function AppHub() {
     }
     if (app.href === '/app/mail') {
       if (mailAccounts.length === 0) {
-        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Reliez une boîte mail pour voir les non lus.</p>
+        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucune boîte mail reliée.</p>
       }
       const mailStillLoading = mailUnreadByAccount.some((q) => q.isLoading)
       if (mailStillLoading && hubUnreadMailRows.length === 0) {
@@ -361,9 +359,7 @@ export default function AppHub() {
       }
       if (hubUnreadMailRows.length === 0) {
         return (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-            Aucun message non lu dans vos boîtes (aperçu toutes les boîtes reliées).
-          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun message non lu.</p>
         )
       }
       return (
@@ -383,7 +379,7 @@ export default function AppHub() {
       )
     }
     if (app.href === '/app/pass') {
-      return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aperçu mots de passe — à venir (chiffrement local).</p>
+      return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Ouvrir Pass.</p>
     }
     if (app.href === '/app/calendar') {
       if (upcomingEvents.length === 0) {
@@ -401,7 +397,7 @@ export default function AppHub() {
     }
     if (app.href === '/app/notes') {
       if (recentNotes.length === 0) {
-        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucune note — créez-en une.</p>
+        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucune note.</p>
       }
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
@@ -415,7 +411,7 @@ export default function AppHub() {
     }
     if (app.href === '/app/tasks') {
       if (openTasks.length === 0) {
-        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Toutes les tâches sont cochées — ou liste vide.</p>
+        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucune tâche ouverte.</p>
       }
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
@@ -430,7 +426,7 @@ export default function AppHub() {
     }
     if (app.href === '/app/contacts') {
       if (topContacts.length === 0) {
-        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun contact — les plus consultés apparaîtront ici.</p>
+        return <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucun contact.</p>
       }
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
@@ -446,14 +442,12 @@ export default function AppHub() {
       if (driveLoading) return <p className="text-xs text-slate-400 mt-2">Chargement…</p>
       if (photoRecent.length === 0) {
         return (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-            Galerie « Photos » à venir — voici les dernières images du Drive.
-          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Aucune image récente.</p>
         )
       }
       return (
         <div className="mt-2 space-y-0.5 border-t border-slate-100 dark:border-slate-600/80 pt-2">
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">Dernières images · Drive (app Photos à venir)</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">Dernières images</p>
           <HubPreviewLine to="/app/photos">Ouvrir l’app Photos</HubPreviewLine>
           {photoRecent.map((n) => (
             <HubPreviewLine key={n.id} to="/app/drive">
@@ -470,9 +464,6 @@ export default function AppHub() {
     <div className="flex flex-col gap-8 min-h-0">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Tableau de bord</h1>
-        <p className="mt-1 text-slate-600 dark:text-slate-400">
-          Choisissez une application par catégorie — aperçus des derniers contenus lorsque c’est possible.
-        </p>
       </div>
       <div className="flex flex-col gap-6 min-h-0">
         {categories.map((cat) => (

@@ -32,6 +32,9 @@ func normalizeMailFolderQuery(folder string) string {
 	if lf == "all" {
 		return "all"
 	}
+	if lf == "scheduled" {
+		return "scheduled"
+	}
 	if isStandardMailFolder(lf) {
 		return lf
 	}
@@ -81,6 +84,14 @@ func (h *Handler) folderAllowed(accountID int, folder string) bool {
 		return false
 	}
 	if strings.EqualFold(folder, "all") {
+		var dummy int
+		err := h.db.QueryRow(`
+			SELECT 1 FROM user_email_accounts
+			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		`, accountID).Scan(&dummy)
+		return err == nil
+	}
+	if strings.EqualFold(folder, "scheduled") {
 		var dummy int
 		err := h.db.QueryRow(`
 			SELECT 1 FROM user_email_accounts
@@ -342,6 +353,42 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 		mid := normalizeMessageID(msg.Envelope.MessageId)
 		irt := normalizeMessageID(msg.Envelope.InReplyTo)
 		tk := mid
+		if mid != "" {
+			var keepID int
+			err := h.db.QueryRow(`
+				SELECT id
+				FROM mail_messages
+				WHERE account_id = $1 AND internet_msg_id = $2
+				ORDER BY id DESC
+				LIMIT 1
+			`, accountID, mid).Scan(&keepID)
+			if err == nil && keepID > 0 {
+				_, _ = h.db.Exec(`
+					DELETE FROM mail_messages
+					WHERE account_id = $1 AND internet_msg_id = $2 AND id <> $3
+				`, accountID, mid, keepID)
+				_, upErr := h.db.Exec(`
+					UPDATE mail_messages
+					SET folder = $2,
+						message_uid = $3,
+						from_addr = $4,
+						to_addrs = $5,
+						subject = $6,
+						date_at = COALESCE($7, date_at),
+						in_reply_to = CASE WHEN $8 <> '' THEN $8 ELSE in_reply_to END,
+						thread_key = CASE
+							WHEN thread_key <> '' THEN thread_key
+							WHEN $9 <> '' THEN $9
+							ELSE thread_key
+						END
+					WHERE id = $1
+				`, keepID, dbFolder, msg.Uid, fromAddr, toAddrs, subject, dateAt, irt, tk)
+				if upErr == nil {
+					continue
+				}
+				log.Printf("[mail] reconcile message-id %q: %v", mid, upErr)
+			}
+		}
 		var xmax int64
 		upsertErr := h.db.QueryRow(`
 			INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at, internet_msg_id, in_reply_to, thread_key)

@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MailPage from './MailPage'
 import { useAuth } from '../../authContext'
 import { useNotifications } from '../../notificationsContext'
-import { AppPageChromeProvider } from '../../appPageChromeContext'
+import { AppPageChromeProvider, ShellSearchAdjacentSlot } from '../../appPageChromeContext'
 import * as api from '../../api'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
@@ -67,7 +67,10 @@ function wrap(ui: React.ReactElement) {
   return (
     <QueryClientProvider client={queryClient}>
       <TestRouter initialEntries={['/app/mail']}>
-        <AppPageChromeProvider>{ui}</AppPageChromeProvider>
+        <AppPageChromeProvider>
+          <ShellSearchAdjacentSlot />
+          {ui}
+        </AppPageChromeProvider>
       </TestRouter>
     </QueryClientProvider>
   )
@@ -671,7 +674,7 @@ describe('MailPage', () => {
     await screen.findByText('Facture avril 2026')
     await screen.findByText('Réunion équipe')
 
-    const input = screen.getByPlaceholderText(/opérateurs: from:/i)
+    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
     fireEvent.change(input, { target: { value: 'from:alice subject:facture' } })
 
     await screen.findByText('Facture avril 2026')
@@ -723,12 +726,48 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
     await screen.findByText('PJ + non lu')
-    const input = screen.getByPlaceholderText(/opérateurs: from:/i)
+    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
     fireEvent.change(input, { target: { value: 'has:attachment is:unread' } })
 
     await screen.findByText('PJ + non lu')
     expect(screen.queryByText('Sans PJ')).toBeNull()
     expect(screen.queryByText('PJ mais lu')).toBeNull()
+  })
+
+  it('ignore un opérateur incomplet (from:) et n’envoie pas de q FTS', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 91,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'sender@test.com',
+          to: 'user@test.com',
+          subject: 'Message 1',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 1,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Message 1')
+
+    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    fireEvent.change(input, { target: { value: 'from:' } })
+
+    await waitFor(() => {
+      expect(api.fetchMailMessages).toHaveBeenLastCalledWith(
+        'token',
+        1,
+        'inbox',
+        expect.not.objectContaining({ q: expect.anything() })
+      )
+    })
   })
 
   it('crée un sous-dossier IMAP depuis le menu contextuel d’un dossier', async () => {
@@ -813,7 +852,7 @@ describe('MailPage', () => {
     } as any)
 
     render(wrap(<MailPage />))
-    await screen.findByText('Sujet thread')
+    await screen.findAllByText('Sujet thread')
     await screen.findByText('Sujet isolé')
     expect(screen.queryByText('2 messages')).toBeNull()
 

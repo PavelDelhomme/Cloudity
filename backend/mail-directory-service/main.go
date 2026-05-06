@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -17,6 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/emersion/go-imap"
@@ -281,11 +283,22 @@ func main() {
 		mail.PATCH("/me/accounts/:id/messages/folder", h.moveMessagesToFolderBulk)
 		mail.DELETE("/me/accounts/:id/messages/:msgId/permanent", h.deleteMessagePermanently)
 		mail.POST("/me/accounts/:id/sync", h.syncAccountIMAP)
+		mail.POST("/me/send/schedule", h.scheduleMessageSMTP)
+		mail.POST("/me/accounts/:id/messages/:msgId/schedule/cancel", h.cancelScheduledMessage)
+		mail.POST("/me/accounts/:id/messages/:msgId/schedule/send-now", h.sendScheduledMessageNow)
 		mail.POST("/me/send", h.sendMessageSMTP)
 		mail.GET("/domains", h.listDomains)
 		mail.POST("/domains", h.createDomain)
+		mail.PATCH("/domains/:id", h.patchDomain)
+		mail.DELETE("/domains/:id", h.deleteDomain)
 		mail.GET("/domains/:id/mailboxes", h.listMailboxes)
+		mail.POST("/domains/:id/mailboxes", h.createMailbox)
+		mail.PATCH("/domains/:id/mailboxes/:mailboxId", h.patchMailbox)
+		mail.DELETE("/domains/:id/mailboxes/:mailboxId", h.deleteMailbox)
 		mail.GET("/domains/:id/aliases", h.listAliases)
+		mail.POST("/domains/:id/aliases", h.createAlias)
+		mail.PATCH("/domains/:id/aliases/:aliasId", h.patchAlias)
+		mail.DELETE("/domains/:id/aliases/:aliasId", h.deleteAlias)
 	}
 
 	port := os.Getenv("PORT")
@@ -293,6 +306,7 @@ func main() {
 		port = defaultPort
 	}
 	log.Println("Mail directory service listening on", port)
+	go h.startScheduledSenderWorker()
 	r.Run(":" + port)
 }
 
@@ -405,11 +419,36 @@ type Domain struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+func parsePagination(c *gin.Context, defaultLimit int, maxLimit int) (int, int) {
+	skip := 0
+	limit := defaultLimit
+	if v := strings.TrimSpace(c.Query("skip")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			skip = n
+		}
+	}
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			if n < 1 {
+				n = 1
+			}
+			if n > maxLimit {
+				n = maxLimit
+			}
+			limit = n
+		}
+	}
+	return skip, limit
+}
+
 func (h *Handler) listDomains(c *gin.Context) {
+	skip, limit := parsePagination(c, 50, 200)
+
 	rows, err := h.db.Query(`
 		SELECT id, tenant_id, domain, is_active, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_domains ORDER BY domain
-	`)
+		OFFSET $1 LIMIT $2
+	`, skip, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -462,6 +501,55 @@ func (h *Handler) createDomain(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"id": id, "domain": body.Domain})
 }
 
+func (h *Handler) patchDomain(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	var body struct {
+		IsActive *bool `json:"is_active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if body.IsActive == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
+		return
+	}
+	res, err := h.db.Exec(`UPDATE mail_domains SET is_active = $1 WHERE id = $2`, *body.IsActive, domainID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "domain not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) deleteDomain(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	res, err := h.db.Exec(`DELETE FROM mail_domains WHERE id = $1`, domainID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "domain not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 type Mailbox struct {
 	ID        int    `json:"id"`
 	DomainID  int    `json:"domain_id"`
@@ -479,10 +567,12 @@ func (h *Handler) listMailboxes(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
 		return
 	}
+	skip, limit := parsePagination(c, 50, 200)
 	rows, err := h.db.Query(`
 		SELECT id, domain_id, local_part, quota_mb, is_active, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_mailboxes WHERE domain_id = $1 ORDER BY local_part
-	`, domainID)
+		OFFSET $2 LIMIT $3
+	`, domainID, skip, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -504,6 +594,136 @@ func (h *Handler) listMailboxes(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+func hashMailboxPassword(raw string) string {
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}
+
+func (h *Handler) createMailbox(c *gin.Context) {
+	id := c.Param("id")
+	domainID, err := strconv.Atoi(id)
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	var body struct {
+		LocalPart string `json:"local_part" binding:"required"`
+		Password  string `json:"password"`
+		QuotaMb   int    `json:"quota_mb"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "local_part required"})
+		return
+	}
+	lp := strings.TrimSpace(strings.ToLower(body.LocalPart))
+	if lp == "" || strings.Contains(lp, "@") || strings.Contains(lp, " ") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "local_part invalid"})
+		return
+	}
+	pw := strings.TrimSpace(body.Password)
+	if pw == "" {
+		pw = "cloudity-temp-password"
+	}
+	quota := body.QuotaMb
+	if quota < 0 {
+		quota = 0
+	}
+	var newID int
+	err = h.db.QueryRow(`
+		INSERT INTO mail_mailboxes (domain_id, local_part, password_hash, quota_mb)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id
+	`, domainID, lp, hashMailboxPassword(pw), quota).Scan(&newID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
+			c.JSON(http.StatusConflict, gin.H{"error": "mailbox already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": newID, "local_part": lp})
+}
+
+func (h *Handler) deleteMailbox(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	mailboxID, err := strconv.Atoi(c.Param("mailboxId"))
+	if err != nil || mailboxID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid mailbox id"})
+		return
+	}
+	res, err := h.db.Exec(`DELETE FROM mail_mailboxes WHERE id = $1 AND domain_id = $2`, mailboxID, domainID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "mailbox not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) patchMailbox(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	mailboxID, err := strconv.Atoi(c.Param("mailboxId"))
+	if err != nil || mailboxID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid mailbox id"})
+		return
+	}
+	var body struct {
+		QuotaMb  *int  `json:"quota_mb"`
+		IsActive *bool `json:"is_active"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if body.QuotaMb == nil && body.IsActive == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
+		return
+	}
+	var setParts []string
+	var args []interface{}
+	i := 1
+	if body.QuotaMb != nil {
+		q := *body.QuotaMb
+		if q < 0 {
+			q = 0
+		}
+		setParts = append(setParts, fmt.Sprintf("quota_mb = $%d", i))
+		args = append(args, q)
+		i++
+	}
+	if body.IsActive != nil {
+		setParts = append(setParts, fmt.Sprintf("is_active = $%d", i))
+		args = append(args, *body.IsActive)
+		i++
+	}
+	args = append(args, mailboxID, domainID)
+	q := fmt.Sprintf("UPDATE mail_mailboxes SET %s WHERE id = $%d AND domain_id = $%d", strings.Join(setParts, ", "), i, i+1)
+	res, err := h.db.Exec(q, args...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "mailbox not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
 type Alias struct {
 	ID          int    `json:"id"`
 	DomainID    int    `json:"domain_id"`
@@ -521,10 +741,12 @@ func (h *Handler) listAliases(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
 		return
 	}
+	skip, limit := parsePagination(c, 50, 200)
 	rows, err := h.db.Query(`
 		SELECT id, domain_id, source_local, destination, expires_at::text, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_aliases WHERE domain_id = $1 ORDER BY source_local
-	`, domainID)
+		OFFSET $2 LIMIT $3
+	`, domainID, skip, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -548,6 +770,111 @@ func (h *Handler) listAliases(c *gin.Context) {
 		list = append(list, a)
 	}
 	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) createAlias(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	var body struct {
+		SourceLocal string `json:"source_local" binding:"required"`
+		Destination string `json:"destination" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source_local and destination required"})
+		return
+	}
+	src := strings.TrimSpace(strings.ToLower(body.SourceLocal))
+	dst := strings.TrimSpace(strings.ToLower(body.Destination))
+	if src == "" || strings.Contains(src, "@") || strings.Contains(src, " ") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source_local invalid"})
+		return
+	}
+	if dst == "" || !strings.Contains(dst, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "destination invalid"})
+		return
+	}
+	var newID int
+	err = h.db.QueryRow(`
+		INSERT INTO mail_aliases (domain_id, source_local, destination)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, domainID, src, dst).Scan(&newID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "duplicate") || strings.Contains(strings.ToLower(err.Error()), "unique") {
+			c.JSON(http.StatusConflict, gin.H{"error": "alias already exists"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": newID, "source_local": src, "destination": dst})
+}
+
+func (h *Handler) deleteAlias(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	aliasID, err := strconv.Atoi(c.Param("aliasId"))
+	if err != nil || aliasID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		return
+	}
+	res, err := h.db.Exec(`DELETE FROM mail_aliases WHERE id = $1 AND domain_id = $2`, aliasID, domainID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) patchAlias(c *gin.Context) {
+	domainID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || domainID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
+		return
+	}
+	aliasID, err := strconv.Atoi(c.Param("aliasId"))
+	if err != nil || aliasID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
+		return
+	}
+	var body struct {
+		Destination *string `json:"destination"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
+		return
+	}
+	if body.Destination == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
+		return
+	}
+	dst := strings.TrimSpace(strings.ToLower(*body.Destination))
+	if dst == "" || !strings.Contains(dst, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "destination invalid"})
+		return
+	}
+	res, err := h.db.Exec(`UPDATE mail_aliases SET destination = $1 WHERE id = $2 AND domain_id = $3`, dst, aliasID, domainID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "alias not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 type UserEmailAccount struct {
@@ -2360,10 +2687,17 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id et to requis"})
 		return
 	}
-	to := strings.TrimSpace(strings.ToLower(body.To))
-	if to == "" || !strings.Contains(to, "@") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "destinataire invalide"})
+	if err := h.sendMessageSMTPWithPayload(body.AccountID, body.Password, body.To, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "message envoyé"})
+}
+
+func (h *Handler) sendMessageSMTPWithPayload(accountID int, passwordInput, toInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
+	to := strings.TrimSpace(strings.ToLower(toInput))
+	if to == "" || !strings.Contains(to, "@") {
+		return fmt.Errorf("destinataire invalide")
 	}
 	var email string
 	var passwordEnc, oauthRefreshEnc sql.NullString
@@ -2373,17 +2707,15 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, smtp_host, smtp_port
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.AccountID).Scan(&email, &passwordEnc, &oauthRefreshEnc, &dbSmtpHost, &dbSmtpPort)
+	`, accountID).Scan(&email, &passwordEnc, &oauthRefreshEnc, &dbSmtpHost, &dbSmtpPort)
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": "compte non trouvé"})
-		return
+		return fmt.Errorf("compte non trouvé")
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return err
 	}
-	host := strings.TrimSpace(body.SmtpHost)
-	port := body.SmtpPort
+	host := strings.TrimSpace(smtpHostInput)
+	port := smtpPortInput
 	if host == "" && dbSmtpHost.Valid && strings.TrimSpace(dbSmtpHost.String) != "" {
 		host = strings.TrimSpace(dbSmtpHost.String)
 	}
@@ -2399,27 +2731,24 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 	if useOAuth {
 		refreshTok, decErr := decryptPassword(oauthRefreshEnc.String)
 		if decErr != nil || refreshTok == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "compte OAuth : reconnectez avec Google pour envoyer."})
-			return
+			return fmt.Errorf("compte OAuth : reconnectez avec Google pour envoyer")
 		}
 		accessToken, tokErr := getGoogleAccessToken(refreshTok)
 		if tokErr != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "OAuth expiré. Reconnectez la boîte avec Google."})
-			return
+			return fmt.Errorf("OAuth expiré. Reconnectez la boîte avec Google")
 		}
 		auth = &smtpXOAUTH2Auth{email: email, accessToken: accessToken}
 	} else {
-		password := strings.TrimSpace(body.Password)
+		password := strings.TrimSpace(passwordInput)
 		if password == "" && passwordEnc.Valid && passwordEnc.String != "" {
 			password, _ = decryptPassword(passwordEnc.String)
 		}
 		if password == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "mot de passe requis pour l'envoi (saisissez-le dans le formulaire ou reconnectez la boîte en le renseignant)"})
-			return
+			return fmt.Errorf("mot de passe requis pour l'envoi (saisissez-le dans le formulaire ou reconnectez la boîte en le renseignant)")
 		}
 		auth = smtp.PlainAuth("", email, password, host)
 	}
-	displayFrom := strings.TrimSpace(body.FromEmail)
+	displayFrom := strings.TrimSpace(fromEmailInput)
 	if displayFrom == "" {
 		displayFrom = email
 	} else {
@@ -2431,21 +2760,19 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 				INNER JOIN user_email_accounts u ON u.id = a.account_id
 				WHERE a.account_id = $1 AND LOWER(a.alias_email) = $2
 				AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
-			`, body.AccountID, dfLower).Scan(&canon)
+			`, accountID, dfLower).Scan(&canon)
 			if aerr == sql.ErrNoRows || strings.TrimSpace(canon) == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "from_email doit être l’adresse du compte ou un alias enregistré pour cette boîte"})
-				return
+				return fmt.Errorf("from_email doit être l’adresse du compte ou un alias enregistré pour cette boîte")
 			}
 			if aerr != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": aerr.Error()})
-				return
+				return aerr
 			}
 			displayFrom = strings.TrimSpace(canon)
 		} else {
 			displayFrom = email
 		}
 	}
-	subject := body.Subject
+	subject := subjectInput
 	if subject == "" {
 		subject = "(sans objet)"
 	}
@@ -2453,12 +2780,170 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		"To: " + to + "\r\n" +
 		"Subject: " + subject + "\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
-		"\r\n" + body.Body)
+		"\r\n" + bodyInput)
 	// Enveloppe SMTP : compte authentifié (évite les rejets si l’alias n’est pas autorisé comme MAIL FROM).
 	if err := smtp.SendMail(addr, auth, email, []string{to}, msg); err != nil {
 		log.Printf("[mail] SMTP send: %v", err)
-		c.JSON(http.StatusBadGateway, gin.H{"error": "envoi SMTP échoué: " + err.Error()})
+		return fmt.Errorf("envoi SMTP échoué: %w", err)
+	}
+	return nil
+}
+
+func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
+	var body struct {
+		AccountID       int    `json:"account_id" binding:"required"`
+		To              string `json:"to" binding:"required"`
+		Subject         string `json:"subject"`
+		Body            string `json:"body"`
+		FromEmail       string `json:"from_email"`
+		ScheduledSendAt string `json:"scheduled_send_at" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id, to et scheduled_send_at requis"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "message envoyé"})
+	sendAt, err := time.Parse(time.RFC3339, strings.TrimSpace(body.ScheduledSendAt))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "scheduled_send_at doit être en RFC3339"})
+		return
+	}
+	if sendAt.Before(time.Now().Add(30 * time.Second)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "la date programmée doit être dans le futur"})
+		return
+	}
+	to := strings.TrimSpace(strings.ToLower(body.To))
+	if to == "" || !strings.Contains(to, "@") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "destinataire invalide"})
+		return
+	}
+	subject := strings.TrimSpace(body.Subject)
+	if subject == "" {
+		subject = "(sans objet)"
+	}
+	var msgID int
+	messageUID := -time.Now().UnixNano()
+	if err := h.db.QueryRow(`
+		INSERT INTO mail_messages (
+			account_id, folder, message_uid, from_addr, to_addrs, subject, body_plain, date_at,
+			is_read, scheduled_send_at, scheduled_status
+		)
+		VALUES ($1, 'scheduled', $2, $3, $4, $5, NULLIF($6, ''), $7, true, $7, 'scheduled')
+		RETURNING id
+	`, body.AccountID, messageUID, strings.TrimSpace(body.FromEmail), to, subject, body.Body, sendAt.UTC()).Scan(&msgID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "impossible de programmer cet envoi"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"ok": true, "id": msgID, "scheduled_send_at": sendAt.UTC().Format(time.RFC3339)})
+}
+
+func (h *Handler) cancelScheduledMessage(c *gin.Context) {
+	accountID, _ := strconv.Atoi(c.Param("id"))
+	msgID, _ := strconv.Atoi(c.Param("msgId"))
+	if accountID <= 0 || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
+		return
+	}
+	res, err := h.db.Exec(`
+		UPDATE mail_messages
+		SET folder='drafts', scheduled_status='cancelled', scheduled_send_at=NULL
+		WHERE id=$1 AND account_id=$2 AND LOWER(TRIM(folder))='scheduled' AND COALESCE(scheduled_status, '')='scheduled'
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, msgID, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	aff, _ := res.RowsAffected()
+	if aff == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "message programmé introuvable"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *Handler) sendScheduledMessageNow(c *gin.Context) {
+	accountID, _ := strconv.Atoi(c.Param("id"))
+	msgID, _ := strconv.Atoi(c.Param("msgId"))
+	if accountID <= 0 || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
+		return
+	}
+	if err := h.sendOneScheduledMessage(msgID, accountID); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "message": "message envoyé"})
+}
+
+func (h *Handler) startScheduledSenderWorker() {
+	tk := time.NewTicker(30 * time.Second)
+	defer tk.Stop()
+	for range tk.C {
+		if err := h.processDueScheduledSends(20); err != nil {
+			log.Printf("[mail] scheduled worker: %v", err)
+		}
+	}
+}
+
+func (h *Handler) processDueScheduledSends(limit int) error {
+	rows, err := h.db.Query(`
+		SELECT id, account_id
+		FROM mail_messages
+		WHERE LOWER(TRIM(folder))='scheduled'
+			AND COALESCE(scheduled_status, '')='scheduled'
+			AND scheduled_send_at IS NOT NULL
+			AND scheduled_send_at <= NOW()
+		ORDER BY scheduled_send_at ASC, id ASC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type dueItem struct{ id, accountID int }
+	list := make([]dueItem, 0, limit)
+	for rows.Next() {
+		var it dueItem
+		if scanErr := rows.Scan(&it.id, &it.accountID); scanErr == nil {
+			list = append(list, it)
+		}
+	}
+	for _, it := range list {
+		if err := h.sendOneScheduledMessage(it.id, it.accountID); err != nil {
+			log.Printf("[mail] scheduled send id=%d account=%d: %v", it.id, it.accountID, err)
+		}
+	}
+	return nil
+}
+
+func (h *Handler) sendOneScheduledMessage(messageID, accountID int) error {
+	var toAddrs, subject, bodyPlain, fromAddr string
+	var userID int
+	err := h.db.QueryRow(`
+		SELECT m.to_addrs, m.subject, COALESCE(m.body_plain, ''), COALESCE(m.from_addr, ''), u.user_id
+		FROM mail_messages m
+		INNER JOIN user_email_accounts u ON u.id = m.account_id
+		WHERE m.id=$1 AND m.account_id=$2
+			AND LOWER(TRIM(m.folder))='scheduled'
+			AND COALESCE(m.scheduled_status, '')='scheduled'
+	`, messageID, accountID).Scan(&toAddrs, &subject, &bodyPlain, &fromAddr, &userID)
+	if err != nil {
+		return err
+	}
+	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
+		return err
+	}
+	if err := h.sendMessageSMTPWithPayload(accountID, "", toAddrs, subject, bodyPlain, "", 0, fromAddr); err != nil {
+		return err
+	}
+	_, _ = h.db.Exec(`
+		UPDATE mail_messages
+		SET folder='sent',
+			scheduled_status='sent',
+			scheduled_send_at=NULL,
+			date_at=NOW(),
+			is_read=true
+		WHERE id=$1 AND account_id=$2
+	`, messageID, accountID)
+	return nil
 }

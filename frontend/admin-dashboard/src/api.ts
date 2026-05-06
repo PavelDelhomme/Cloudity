@@ -13,8 +13,14 @@ export type TenantResponse = {
   updated_at: string | null
 }
 
-export async function fetchTenants(token: string): Promise<TenantResponse[]> {
-  const url = apiUrl('/admin/tenants')
+export async function fetchTenants(
+  token: string,
+  options?: { skip?: number; limit?: number }
+): Promise<TenantResponse[]> {
+  const params = new URLSearchParams()
+  if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
+  if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
+  const url = apiUrl(`/admin/tenants${params.toString() ? `?${params.toString()}` : ''}`)
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -45,9 +51,13 @@ export type UserUpdatePayload = {
 
 export async function fetchUsers(
   tenantId: number,
-  token: string
+  token: string,
+  options?: { skip?: number; limit?: number }
 ): Promise<UserResponse[]> {
-  const url = apiUrl(`/admin/tenants/${tenantId}/users`)
+  const params = new URLSearchParams()
+  if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
+  if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
+  const url = apiUrl(`/admin/tenants/${tenantId}/users${params.toString() ? `?${params.toString()}` : ''}`)
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -82,6 +92,38 @@ export type DashboardStatsResponse = {
   api_calls_today: number
 }
 
+export type PerformanceContainerResponse = {
+  name: string
+  cpu_percent?: number | null
+  memory_usage_bytes?: number | null
+  memory_limit_bytes?: number | null
+  memory_percent?: number | null
+  net_io?: string | null
+  block_io?: string | null
+  pids?: number | null
+}
+
+export type PerformanceHostResponse = {
+  loadavg_1m?: number | null
+  loadavg_5m?: number | null
+  loadavg_15m?: number | null
+  cgroup_cpu_usage_usec?: number | null
+  cgroup_cpu_user_usec?: number | null
+  cgroup_cpu_system_usec?: number | null
+  cgroup_memory_current_bytes?: number | null
+  cgroup_memory_peak_bytes?: number | null
+  cgroup_io_read_bytes?: number | null
+  cgroup_io_write_bytes?: number | null
+}
+
+export type PerformanceOverviewResponse = {
+  timestamp_utc: string
+  source: string
+  host: PerformanceHostResponse
+  containers: PerformanceContainerResponse[]
+  notes: string[]
+}
+
 export async function fetchDashboardStats(token: string): Promise<DashboardStatsResponse> {
   const url = apiUrl('/admin/stats')
   const res = await fetch(url, {
@@ -92,6 +134,18 @@ export async function fetchDashboardStats(token: string): Promise<DashboardStats
   })
   if (!res.ok) throw new Error(`Stats: ${res.status}`)
   return res.json() as Promise<DashboardStatsResponse>
+}
+
+export async function fetchPerformanceOverview(token: string): Promise<PerformanceOverviewResponse> {
+  const url = apiUrl('/admin/performance/overview')
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) throw new Error(`Performance overview: ${res.status}`)
+  return res.json() as Promise<PerformanceOverviewResponse>
 }
 
 // Pass / Vaults (password-manager)
@@ -160,8 +214,14 @@ export type MailDomainResponse = {
   updated_at: string
 }
 
-export async function fetchDomains(token: string): Promise<MailDomainResponse[]> {
-  const url = apiUrl('/mail/domains')
+export async function fetchDomains(
+  token: string,
+  options?: { skip?: number; limit?: number }
+): Promise<MailDomainResponse[]> {
+  const params = new URLSearchParams()
+  if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
+  if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
+  const url = apiUrl(`/mail/domains${params.toString() ? `?${params.toString()}` : ''}`)
   const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -184,6 +244,175 @@ export async function createDomain(token: string, domain: string): Promise<{ id:
   })
   if (!res.ok) throw new Error(`Create domain: ${res.status}`)
   return res.json() as Promise<{ id: number; domain: string }>
+}
+
+export async function patchDomain(
+  token: string,
+  domainId: number,
+  patch: { is_active?: boolean }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`Patch domain: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
+}
+
+export async function deleteDomain(token: string, domainId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete domain: ${res.status}`)
+}
+
+export type MailboxResponse = {
+  id: number
+  domain_id: number
+  local_part: string
+  quota_mb: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchDomainMailboxes(
+  token: string,
+  domainId: number,
+  options?: { skip?: number; limit?: number }
+): Promise<MailboxResponse[]> {
+  const params = new URLSearchParams()
+  if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
+  if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
+  const url = apiUrl(`/mail/domains/${domainId}/mailboxes${params.toString() ? `?${params.toString()}` : ''}`)
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) throw new Error(`Mailboxes: ${res.status}`)
+  return res.json() as Promise<MailboxResponse[]>
+}
+
+export async function createDomainMailbox(
+  token: string,
+  domainId: number,
+  payload: { local_part: string; password?: string; quota_mb?: number }
+): Promise<{ id: number; local_part: string }> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes`), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Create mailbox: ${res.status}`)
+  return res.json() as Promise<{ id: number; local_part: string }>
+}
+
+export async function deleteDomainMailbox(token: string, domainId: number, mailboxId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete mailbox: ${res.status}`)
+}
+
+export async function patchDomainMailbox(
+  token: string,
+  domainId: number,
+  mailboxId: number,
+  patch: { quota_mb?: number; is_active?: boolean }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`Patch mailbox: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
+}
+
+export type DomainAliasResponse = {
+  id: number
+  domain_id: number
+  source_local: string
+  destination: string
+  expires_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export async function fetchDomainAliases(
+  token: string,
+  domainId: number,
+  options?: { skip?: number; limit?: number }
+): Promise<DomainAliasResponse[]> {
+  const params = new URLSearchParams()
+  if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
+  if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
+  const url = apiUrl(`/mail/domains/${domainId}/aliases${params.toString() ? `?${params.toString()}` : ''}`)
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  })
+  if (!res.ok) throw new Error(`Aliases: ${res.status}`)
+  return res.json() as Promise<DomainAliasResponse[]>
+}
+
+export async function createDomainAlias(
+  token: string,
+  domainId: number,
+  payload: { source_local: string; destination: string }
+): Promise<{ id: number; source_local: string; destination: string }> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases`), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Create domain alias: ${res.status}`)
+  return res.json() as Promise<{ id: number; source_local: string; destination: string }>
+}
+
+export async function deleteDomainAlias(token: string, domainId: number, aliasId: number): Promise<void> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Delete domain alias: ${res.status}`)
+}
+
+export async function patchDomainAlias(
+  token: string,
+  domainId: number,
+  aliasId: number,
+  patch: { destination: string }
+): Promise<{ ok: boolean }> {
+  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) throw new Error(`Patch domain alias: ${res.status}`)
+  return res.json() as Promise<{ ok: boolean }>
 }
 
 // Comptes mail reliés par l'utilisateur (user_email_accounts)
@@ -419,7 +648,7 @@ export async function updateMailAccount(
   return res.json() as Promise<{ ok: boolean }>
 }
 
-export type MailAliasResponse = {
+export type MailAccountAliasResponse = {
   id: number
   account_id: number
   alias_email: string
@@ -429,13 +658,13 @@ export type MailAliasResponse = {
   created_at: string
 }
 
-export async function fetchMailAliases(token: string, accountId: number): Promise<MailAliasResponse[]> {
+export async function fetchMailAliases(token: string, accountId: number): Promise<MailAccountAliasResponse[]> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`Mail aliases: ${res.status}`)
   const data = (await res.json()) as unknown
-  return Array.isArray(data) ? (data as MailAliasResponse[]) : []
+  return Array.isArray(data) ? (data as MailAccountAliasResponse[]) : []
 }
 
 export async function fetchMailFilterRules(token: string, accountId: number): Promise<MailFilterRuleResponse[]> {
@@ -991,11 +1220,56 @@ export async function sendMailMessage(
   return res.json() as Promise<{ message: string }>
 }
 
+export async function scheduleMailMessage(
+  token: string,
+  payload: {
+    account_id: number
+    to: string
+    subject: string
+    body: string
+    from_email?: string
+    scheduled_send_at: string
+  }
+): Promise<{ ok: boolean; id: number; scheduled_send_at: string }> {
+  const res = await fetch(apiUrl('/mail/me/send/schedule'), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    try {
+      const j = JSON.parse(t) as { error?: string }
+      throw new Error(j.error || t)
+    } catch {
+      throw new Error(t || `Schedule send: ${res.status}`)
+    }
+  }
+  return res.json() as Promise<{ ok: boolean; id: number; scheduled_send_at: string }>
+}
+
 export type LoginBody = { email: string; password: string; tenant_id?: number }
 export type LoginResponse = {
   access_token: string
   refresh_token?: string
   requires_2fa?: boolean
+}
+
+function parseApiErrorMessage(raw: string, fallback: string): string {
+  const t = raw.trim()
+  if (!t) return fallback
+  try {
+    const parsed = JSON.parse(t) as { error?: string; message?: string }
+    const msg = (parsed.error || parsed.message || '').trim().toLowerCase()
+    if (msg === 'invalid credentials') return 'Identifiants invalides. Vérifiez votre email et votre mot de passe.'
+    if (msg === 'invalid or expired token') return 'Session expirée. Reconnectez-vous.'
+    return parsed.error || parsed.message || fallback
+  } catch {
+    return t
+  }
 }
 
 export async function login(body: LoginBody): Promise<LoginResponse> {
@@ -1007,7 +1281,7 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   })
   if (!res.ok) {
     const t = await res.text()
-    throw new Error(t || `Login: ${res.status}`)
+    throw new Error(parseApiErrorMessage(t, `Connexion impossible (${res.status})`))
   }
   return res.json() as Promise<LoginResponse>
 }

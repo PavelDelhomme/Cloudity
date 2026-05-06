@@ -45,6 +45,13 @@ import {
   ShoppingCart,
   Home,
   CalendarPlus,
+  CalendarClock,
+  Bold,
+  Italic,
+  Underline,
+  List,
+  ListOrdered,
+  Link2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
@@ -68,6 +75,7 @@ import {
   deleteMailMessagePermanently,
   syncMailAccount,
   sendMailMessage,
+  scheduleMailMessage,
   getMailGoogleOAuthRedirectUrl,
   fetchContacts,
   createCalendarEvent,
@@ -101,6 +109,7 @@ import {
   type ContactResponse,
   type MailImapFolderRow,
   type MailFilterRuleResponse,
+  type MailAccountAliasResponse,
   type VaultResponse,
   type PassItemResponse,
 } from '../../api'
@@ -111,6 +120,7 @@ const STORAGE_SIDEBAR_COLLAPSED = 'cloudity_mail_sidebar_collapsed'
 const STORAGE_SIDEBAR_WIDTH_PX = 'cloudity_mail_sidebar_width_px'
 const STORAGE_LIST_SPLIT_PCT = 'cloudity_mail_list_split_pct'
 const STORAGE_MAIL_SHOW_FULL_HEADERS = 'cloudity_mail_show_full_headers'
+const STORAGE_MAIL_BULK_TAG_SELECTION = 'cloudity_mail_bulk_tag_selection'
 const MAIL_SIDEBAR_MIN_PX = 200
 const MAIL_SIDEBAR_MAX_PX = 560
 const MAIL_LIST_PREVIEW_MIN_PCT = 12
@@ -275,11 +285,12 @@ function loadDraftLocal(accountId: number | null): DraftLocal | null {
 
 function saveDraftLocal(
   accountId: number | null,
-  draft: { to: string; subject: string; body: string; fromAddress?: string } | null
+  draft: { to: string; subject: string; body: string; fromAddress?: string } | null,
+  options?: { keepEmpty?: boolean }
 ): void {
   try {
     const key = getDraftKey(accountId)
-    if (!draft || (!draft.to.trim() && !draft.subject.trim() && !draft.body.trim())) {
+    if (!draft || (!options?.keepEmpty && !draft.to.trim() && !draft.subject.trim() && !draft.body.trim())) {
       localStorage.removeItem(key)
       return
     }
@@ -421,6 +432,8 @@ function folderDisplayLabel(folder: string | undefined, imapLabels: Map<string, 
       return 'Spam'
     case 'trash':
       return 'Corbeille'
+    case 'scheduled':
+      return 'Programmée'
     default: {
       if (f.endsWith('.trash') || f.endsWith('/trash') || f === 'inbox.trash') return 'Corbeille'
       const fromMap = raw ? imapLabels.get(raw) : undefined
@@ -499,6 +512,7 @@ function shouldHideImapFolderFromSidebar(row: MailImapFolderRow): boolean {
   const sp = (row.imap_special_use ?? '').trim().toLowerCase()
   if (['trash', 'spam', 'drafts', 'sent', 'archive'].includes(sp)) return true
   const p = row.imap_path.trim()
+  if (p.toLowerCase() === 'scheduled') return true
   if (p.toLowerCase() === 'inbox') return true
   return isReservedImapPathForSidebar(p)
 }
@@ -516,11 +530,19 @@ function isMailboxSameAsLoginEmail(mailboxEmail: string, loginEmail: string | nu
   return m !== '' && u !== '' && m === u
 }
 
-function folderSidebarBadge(id: MailStandardFolderId, summary: MailFolderSummaryResponse | undefined): string | null {
+function folderSidebarBadge(
+  id: MailStandardFolderId,
+  summary: MailFolderSummaryResponse | undefined,
+  localDraftsCount = 0
+): string | null {
   const s = summary?.[id]
+  if (id === 'drafts') {
+    const total = Math.max(s?.total ?? 0, localDraftsCount)
+    return total > 0 ? String(total) : null
+  }
   if (!s) return null
   if (id === 'inbox' || id === 'spam') return s.unread > 0 ? String(s.unread) : null
-  if (id === 'drafts' || id === 'trash') return s.total > 0 ? String(s.total) : null
+  if (id === 'trash') return s.total > 0 ? String(s.total) : null
   if (id === 'sent' || id === 'archive') return s.total > 0 ? String(s.total) : null
   return null
 }
@@ -535,10 +557,18 @@ function extraFolderSidebarBadge(imapPath: string, summary: MailFolderSummaryRes
   return null
 }
 
+function scheduledFolderSidebarBadge(summary: MailFolderSummaryResponse | undefined): string | null {
+  const row = summary?.extra?.find((e) => e.folder.trim().toLowerCase() === 'scheduled')
+  if (!row) return null
+  const t = row.total ?? 0
+  return t > 0 ? String(t) : null
+}
+
 type AttachmentFromDrive = { nodeId: number; name: string; size: number }
 
 export type ComposeSlot = {
   id: string
+  title: string
   /** Adresse d’affichage « De » (boîte principale ou alias enregistré). */
   fromAddress: string
   /** Compte d’envoi (réponse depuis une autre boîte, ex. vue unifiée). */
@@ -548,6 +578,21 @@ export type ComposeSlot = {
   body: string
   minimized: boolean
   attachments: AttachmentFromDrive[]
+  /** Position horizontale depuis la droite (desktop), pour glisser la fenêtre en bas. */
+  xOffsetPx: number
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function plainTextToHtml(s: string): string {
+  return escapeHtml(s).replace(/\r?\n/g, '<br>')
 }
 
 function getRecentRecipients(): string[] {
@@ -567,6 +612,21 @@ function addRecentRecipient(email: string) {
   const recent = getRecentRecipients().filter((r) => r.toLowerCase() !== e.toLowerCase())
   recent.unshift(e)
   localStorage.setItem(STORAGE_RECENT_RECIPIENTS, JSON.stringify(recent.slice(0, 20)))
+}
+
+function getSavedBulkTagSelection(): number[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_MAIL_BULK_TAG_SELECTION)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((x) => Number.parseInt(String(x), 10))
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .slice(0, 20)
+  } catch {
+    return []
+  }
 }
 
 /** Extrait l'adresse email depuis "Name <email>" ou renvoie la chaîne si déjà une adresse. */
@@ -792,6 +852,11 @@ function parseMailSearchQuery(raw: string): {
 
   for (const t of tokens) {
     const low = t.toLowerCase()
+    if (/^[a-z][a-z0-9_-]*:$/.test(low)) {
+      // Opérateur incomplet (`from:`, `subject:`, `tag:`...) :
+      // ne pas l'envoyer en FTS serveur, sinon résultats bruités/non pertinents.
+      continue
+    }
     if (t.startsWith('#') && t.length > 1) {
       tagTerms.push(t.slice(1).toLowerCase())
       continue
@@ -913,6 +978,8 @@ export default function MailPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
+  const [scheduleModalForSlotId, setScheduleModalForSlotId] = useState<string | null>(null)
+  const [scheduledLocalDateTime, setScheduledLocalDateTime] = useState('')
   const [showDrivePicker, setShowDrivePicker] = useState(false)
   const [drivePickerParentId, setDrivePickerParentId] = useState<number | null>(null)
   const [drivePickerPath, setDrivePickerPath] = useState<{ id: number; name: string }[]>([])
@@ -931,6 +998,9 @@ export default function MailPage() {
   const [mailSearchWithAttachmentsOnly, setMailSearchWithAttachmentsOnly] = useState(false)
   /** Avec recherche serveur (`q`) : tri par pertinence (défaut) ou date pure. */
   const [mailSearchSort, setMailSearchSort] = useState<'rank' | 'date'>('rank')
+  const [mailSearchPopoverOpen, setMailSearchPopoverOpen] = useState(false)
+  const mailSearchPopoverRef = useRef<HTMLDivElement | null>(null)
+  const mailSearchInputRef = useRef<HTMLInputElement | null>(null)
   const [similarSenderFilter, setSimilarSenderFilter] = useState<string | null>(null)
   const [mailCompactUi, setMailCompactUi] = useState(false)
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null)
@@ -950,6 +1020,13 @@ export default function MailPage() {
     sidebarWidthPxRef.current = sidebarWidthPx
   }, [sidebarWidthPx])
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
+  const composeDragRef = useRef<{
+    id: string
+    startClientX: number
+    startOffset: number
+    moved: boolean
+  } | null>(null)
+  const composeDragIgnoreClickRef = useRef(false)
   const [mailSignature, setMailSignature] = useState(getMailSignature())
   const [contextMenuMessage, setContextMenuMessage] = useState<{
     id: number
@@ -973,6 +1050,9 @@ export default function MailPage() {
   const selectedMessageIds = listMsgSelection.ids
   const selectionAccountByMessageId = listMsgSelection.accountById
   const [bulkWorking, setBulkWorking] = useState(false)
+  const [bulkTagPickerOpen, setBulkTagPickerOpen] = useState(false)
+  const [bulkTagSelection, setBulkTagSelection] = useState<number[]>(getSavedBulkTagSelection)
+  const bulkTagPickerRef = useRef<HTMLDivElement | null>(null)
   const [selectingAllInScope, setSelectingAllInScope] = useState(false)
   const [showEditAccountModal, setShowEditAccountModal] = useState(false)
   const [editAccountId, setEditAccountId] = useState<number | null>(null)
@@ -1007,6 +1087,21 @@ export default function MailPage() {
   const [newRuleMarkRead, setNewRuleMarkRead] = useState(false)
   const [newRuleOrder, setNewRuleOrder] = useState('1000')
   const [editingRuleId, setEditingRuleId] = useState<number | null>(null)
+  const canSubmitRule = useMemo(() => {
+    const fromPattern = newRuleFromPattern.trim()
+    const fromDomainPattern = newRuleFromDomainPattern.trim()
+    const recipientPattern = newRuleRecipientPattern.trim()
+    const subjectPattern = newRuleSubjectPattern.trim()
+    const hasTagId = newRuleHasTagId && newRuleHasTagId > 0
+    return Boolean(fromPattern || fromDomainPattern || recipientPattern || subjectPattern || newRuleHasAttachmentsOnly || hasTagId)
+  }, [
+    newRuleFromPattern,
+    newRuleFromDomainPattern,
+    newRuleRecipientPattern,
+    newRuleSubjectPattern,
+    newRuleHasTagId,
+    newRuleHasAttachmentsOnly,
+  ])
   const [showFullMailHeaders, setShowFullMailHeaders] = useState(getMailShowFullHeaders)
   /** Liste des boîtes repliée : une ligne pour la boîte active ; dépliée pour changer de compte. */
   const [mailboxesListExpanded, setMailboxesListExpanded] = useState(false)
@@ -1064,7 +1159,7 @@ export default function MailPage() {
     return { extra_imap_folders: [f] }
   }, [])
 
-  const { data: accountAliases = [] } = useQuery({
+  const { data: accountAliases = [] } = useQuery<MailAccountAliasResponse[]>({
     queryKey: ['mail', 'aliases', effectiveAccountId],
     queryFn: () => fetchMailAliases(accessToken!, effectiveAccountId!),
     enabled: !!accessToken && effectiveAccountId != null,
@@ -1099,7 +1194,7 @@ export default function MailPage() {
     for (const id of inAllView) {
       n += folderSummary[id]?.total ?? 0
     }
-    const excluded = new Set(['trash', 'spam', 'drafts'])
+    const excluded = new Set(['trash', 'spam', 'drafts', 'scheduled'])
     for (const e of folderSummary.extra ?? []) {
       if (excluded.has(e.folder.trim().toLowerCase())) continue
       n += e.total ?? 0
@@ -1203,6 +1298,31 @@ export default function MailPage() {
   useEffect(() => {
     setMessagePage((prev) => (prev === 0 ? prev : 0))
   }, [recipientAliasFilter])
+
+  useEffect(() => {
+    if (!mailSelectionMode && selectedMessageIds.length === 0) {
+      setBulkTagPickerOpen(false)
+    }
+  }, [mailSelectionMode, selectedMessageIds.length])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_MAIL_BULK_TAG_SELECTION, JSON.stringify(bulkTagSelection.slice(0, 20)))
+    } catch {
+      /* ignore */
+    }
+  }, [bulkTagSelection])
+
+  useEffect(() => {
+    if (!bulkTagPickerOpen) return
+    const onDown = (ev: MouseEvent) => {
+      const root = bulkTagPickerRef.current
+      if (!root) return
+      if (!root.contains(ev.target as Node)) setBulkTagPickerOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [bulkTagPickerOpen])
 
   const aliasMutation = useMutation({
     mutationFn: async (
@@ -1368,6 +1488,19 @@ export default function MailPage() {
   }, [mailSearchParsed])
 
   const isUnifiedFolder = activeFolder === 'unified'
+  useEffect(() => {
+    if (activeFolder === 'unified' && accounts.length < 2) {
+      setActiveFolder('all')
+    }
+  }, [activeFolder, accounts.length])
+
+  const resetMailFilters = useCallback(() => {
+    setMailSearchText('')
+    setFilterTagId(null)
+    setRecipientAliasFilter(null)
+    setConversationThreadKey(null)
+    setSimilarSenderFilter(null)
+  }, [])
   const { data: messagesData, refetch: refetchMessages } = useQuery({
     queryKey: [
       'mail',
@@ -1710,7 +1843,7 @@ export default function MailPage() {
   const activeSlot = composeSlots.find((s) => s.id === activeComposeId) ?? composeSlots[composeSlots.length - 1] ?? null
 
   const openNewCompose = useCallback(
-    (initial?: { to?: string; subject?: string; body?: string; fromAddress?: string; accountId?: number }) => {
+    (initial?: { to?: string; subject?: string; body?: string; fromAddress?: string; accountId?: number; title?: string }) => {
       const composeAccountId = initial?.accountId ?? effectiveAccountId
       const primary = accounts.find((a) => a.id === composeAccountId)?.email ?? ''
       const allowedFrom = new Set<string>()
@@ -1718,7 +1851,12 @@ export default function MailPage() {
       if (composeAccountId === effectiveAccountId) {
         for (const a of accountAliases) allowedFrom.add(a.alias_email.toLowerCase())
       }
+      const maxSlots = typeof window === 'undefined' ? 1 : Math.max(1, Math.floor((window.innerWidth - 40) / 320))
       setComposeSlots((prev) => {
+        if (prev.length >= maxSlots) {
+          toast.error(`Trop de fenêtres ouvertes pour la largeur actuelle (${maxSlots} max).`)
+          return prev
+        }
         const wasEmpty = prev.length === 0
         const draft = wasEmpty && composeAccountId != null ? loadDraftLocal(composeAccountId) : null
         let fromAddress = primary
@@ -1727,6 +1865,7 @@ export default function MailPage() {
         const id = `compose-${Date.now()}-${Math.random().toString(36).slice(2)}`
         const slot: ComposeSlot = {
           id,
+          title: initial?.title?.trim() || 'Nouveau message',
           fromAddress,
           sendAccountId: initial?.accountId,
           to: initial?.to ?? draft?.to ?? '',
@@ -1734,9 +1873,17 @@ export default function MailPage() {
           body: initial?.body ?? draft?.body ?? '',
           minimized: false,
           attachments: [],
+          xOffsetPx: 24 + (prev.length % 5) * 28,
         }
         setActiveComposeId(id)
-        return [...prev, slot]
+        if (composeAccountId != null) {
+          saveDraftLocal(
+            composeAccountId,
+            { to: slot.to, subject: slot.subject, body: slot.body, fromAddress: slot.fromAddress },
+            { keepEmpty: true }
+          )
+        }
+        return [...prev.map((s) => ({ ...s, minimized: true })), slot]
       })
     },
     [effectiveAccountId, accounts, accountAliases]
@@ -1775,6 +1922,25 @@ export default function MailPage() {
     setActiveComposeId(id)
     setComposeSlots((prev) => prev.map((s) => ({ ...s, minimized: s.id === id ? false : s.minimized })))
   }, [])
+  const minimizeComposeSlot = useCallback((id: string) => {
+    updateSlot(id, { minimized: true })
+  }, [updateSlot])
+
+  const toggleComposeFromChrome = useCallback(() => {
+    const target =
+      (activeComposeId ? composeSlots.find((s) => s.id === activeComposeId) : null) ??
+      composeSlots[composeSlots.length - 1] ??
+      null
+    if (!target) {
+      openNewCompose()
+      return
+    }
+    if (target.minimized) {
+      setActiveAndExpand(target.id)
+      return
+    }
+    minimizeComposeSlot(target.id)
+  }, [activeComposeId, composeSlots, minimizeComposeSlot, openNewCompose, setActiveAndExpand])
 
   // Auto-save brouillon du slot actif toutes les 3 s
   useEffect(() => {
@@ -1798,6 +1964,72 @@ export default function MailPage() {
     activeSlot?.body,
     activeSlot?.fromAddress,
   ])
+
+  useEffect(() => {
+    const onPointerMove = (e: PointerEvent) => {
+      const drag = composeDragRef.current
+      if (!drag) return
+      const delta = e.clientX - drag.startClientX
+      if (Math.abs(delta) > 3) drag.moved = true
+      const maxOffset = Math.max(16, window.innerWidth - 340)
+      const next = Math.min(maxOffset, Math.max(16, Math.round(drag.startOffset - delta)))
+      setComposeSlots((prev) => prev.map((s) => (s.id === drag.id ? { ...s, xOffsetPx: next } : s)))
+    }
+    const onPointerUp = () => {
+      if (composeDragRef.current?.moved) composeDragIgnoreClickRef.current = true
+      composeDragRef.current = null
+    }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const activeEl = document.activeElement as HTMLElement | null
+      if (activeEl?.closest('[data-compose-slot="true"]')) return
+      if (selectedMessageId == null) return
+      setSelectedMessageId(null)
+      setSelectedMessageAccountId(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [selectedMessageId])
+
+  const onComposeHeaderPointerDown = useCallback((id: string, e: React.PointerEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-compose-header-action="true"]')) return
+    if (e.button !== 0) return
+    const slot = composeSlots.find((s) => s.id === id)
+    if (!slot) return
+    composeDragRef.current = {
+      id,
+      startClientX: e.clientX,
+      startOffset: slot.xOffsetPx ?? 24,
+      moved: false,
+    }
+  }, [composeSlots])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const activeEl = document.activeElement as HTMLElement | null
+      const inCompose = !!activeEl?.closest('[data-compose-slot="true"]')
+      if (!inCompose) return
+      const target =
+        (activeComposeId ? composeSlots.find((s) => s.id === activeComposeId) : null) ??
+        composeSlots[composeSlots.length - 1] ??
+        null
+      if (!target || target.minimized) return
+      e.preventDefault()
+      minimizeComposeSlot(target.id)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [activeComposeId, composeSlots, minimizeComposeSlot])
 
   /** Si la boîte ou les alias changent, corriger un « De » devenu invalide. */
   useEffect(() => {
@@ -2121,28 +2353,40 @@ export default function MailPage() {
 
   const [movingMessageId, setMovingMessageId] = useState<number | null>(null)
   const handleMoveToFolder = useCallback(
-    async (messageId: number, folder: MailFolderId, messageAccountId?: number) => {
+    async (messageId: number, folder: MailFolderId, messageAccountId?: number, threadKey?: string | null) => {
       const accId = messageAccountId ?? effectiveAccountId
       if (!accId || !accessToken) return
       setMovingMessageId(messageId)
       try {
-        await moveMailMessageToFolder(accessToken, accId, messageId, folder)
+        const isConversationAction = conversationListMode && !!threadKey?.trim()
+        const conversationIds = isConversationAction
+          ? visibleMessages
+              .filter((m) => m.account_id === accId && (m.thread_key ?? '') === threadKey)
+              .map((m) => m.id)
+          : []
+        if (conversationIds.length > 1) {
+          await moveMailMessagesToFolderBulk(accessToken, accId, conversationIds, folder)
+        } else {
+          await moveMailMessageToFolder(accessToken, accId, messageId, folder)
+        }
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void runMailSyncBatch([accId], { force: true })
         if (selectedMessageId === messageId) {
           setSelectedMessageId(null)
           setSelectedMessageAccountId(null)
         }
         const label = FOLDERS.find((f) => f.id === folder)?.label ?? folder
 
-        toast.success(`Message déplacé vers ${label}`)
+        if (conversationIds.length > 1) toast.success(`Conversation déplacée vers ${label}`)
+        else toast.success(`Message déplacé vers ${label}`)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Erreur')
       } finally {
         setMovingMessageId(null)
       }
     },
-    [effectiveAccountId, accessToken, queryClient, selectedMessageId]
+    [effectiveAccountId, accessToken, queryClient, selectedMessageId, conversationListMode, visibleMessages, runMailSyncBatch]
   )
 
   const handleMarkMessageReadState = useCallback(
@@ -2214,11 +2458,59 @@ export default function MailPage() {
 
   const chromeSetters = useAppPageChromeSetters()
 
+  useEffect(() => {
+    if (!mailSearchPopoverOpen) return
+    const onDocPointerDown = (e: MouseEvent) => {
+      if (mailSearchPopoverRef.current && !mailSearchPopoverRef.current.contains(e.target as Node)) {
+        setMailSearchPopoverOpen(false)
+      }
+    }
+    const onDocKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMailSearchPopoverOpen(false)
+    }
+    document.addEventListener('mousedown', onDocPointerDown)
+    document.addEventListener('keydown', onDocKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocPointerDown)
+      document.removeEventListener('keydown', onDocKeyDown)
+    }
+  }, [mailSearchPopoverOpen])
+
+  const appendSearchToken = useCallback((token: string) => {
+    setMailSearchText((prev) => {
+      const base = prev.trim()
+      if (!base) return token
+      return `${base} ${token}`
+    })
+    requestAnimationFrame(() => {
+      const input = mailSearchInputRef.current
+      if (!input) return
+      input.focus()
+      const len = input.value.length
+      input.setSelectionRange(len, len)
+    })
+  }, [])
+
+  const clearMailSearch = useCallback(() => {
+    setMailSearchText('')
+    setMailSearchPopoverOpen(false)
+    setMailSearchUnreadOnly(false)
+    setMailSearchWithAttachmentsOnly(false)
+    setSimilarSenderFilter(null)
+    setConversationThreadKey(null)
+    setMessagePage(0)
+    requestAnimationFrame(() => {
+      const input = mailSearchInputRef.current
+      if (!input) return
+      input.focus()
+    })
+  }, [])
+
   const mailAppChromeBreadcrumb = useMemo(() => {
     if (accounts.length === 0) return null
     return (
       <MailAppChromeMenu
-        onNew={openNewCompose}
+        onNew={toggleComposeFromChrome}
         onRefresh={handleRefreshFromServer}
         onOpenSettings={() => setShowMailSettings(true)}
         onOpenRules={openMailSettingsAtRules}
@@ -2230,7 +2522,7 @@ export default function MailPage() {
     )
   }, [
     accounts.length,
-    openNewCompose,
+    toggleComposeFromChrome,
     handleRefreshFromServer,
     openMailSettingsAtRules,
     handleConnectGoogle,
@@ -2240,6 +2532,96 @@ export default function MailPage() {
     googleConnecting,
   ])
 
+  const mailAppChromeSearch = useMemo(
+    () => (
+      <div ref={mailSearchPopoverRef} className="relative w-full min-w-0 flex items-center gap-2">
+        <input
+          ref={mailSearchInputRef}
+          type="text"
+          value={mailSearchText}
+          onChange={(e) => setMailSearchText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              setMailSearchPopoverOpen(false)
+              e.currentTarget.blur()
+            }
+          }}
+          onFocus={() => setMailSearchPopoverOpen(true)}
+          onClick={() => setMailSearchPopoverOpen(true)}
+          placeholder="Mail: from:, subject:, tag:, has:attachment, is:unread"
+          className="w-full min-w-[14rem] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 pr-10 text-sm"
+        />
+        {mailSearchText.trim() ? (
+          <button
+            type="button"
+            onClick={clearMailSearch}
+            className="absolute right-[3.15rem] h-7 w-7 inline-flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+            title="Effacer la recherche"
+            aria-label="Effacer la recherche"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setConversationListMode((v) => !v)}
+          className={`shrink-0 rounded-lg border px-2.5 py-2 text-xs font-medium ${
+            conversationListMode
+              ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
+              : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+          }`}
+          title="Regrouper en conversations (1 ligne par fil)"
+        >
+          Conversations
+        </button>
+        {mailSearchPopoverOpen ? (
+          <div className="absolute z-30 top-[calc(100%+0.35rem)] left-0 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl p-2.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Filtres rapides</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => appendSearchToken('from:')}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Expéditeur
+              </button>
+              <button
+                type="button"
+                onClick={() => appendSearchToken('subject:')}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Objet
+              </button>
+              <button
+                type="button"
+                onClick={() => appendSearchToken('is:unread')}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Non lu
+              </button>
+              <button
+                type="button"
+                onClick={() => appendSearchToken('has:attachment')}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Pièces jointes
+              </button>
+              <button
+                type="button"
+                onClick={() => appendSearchToken('tag:')}
+                className="rounded-lg border border-slate-200 dark:border-slate-600 px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
+                Tag
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    ),
+    [appendSearchToken, clearMailSearch, conversationListMode, mailSearchPopoverOpen, mailSearchText]
+  )
+
   useEffect(() => {
     if (!chromeSetters) return
     chromeSetters.setBreadcrumbActions(mailAppChromeBreadcrumb)
@@ -2247,6 +2629,14 @@ export default function MailPage() {
       chromeSetters.setBreadcrumbActions(null)
     }
   }, [chromeSetters, mailAppChromeBreadcrumb])
+
+  useEffect(() => {
+    if (!chromeSetters) return
+    chromeSetters.setShellSearchAdjacent(mailAppChromeSearch)
+    return () => {
+      chromeSetters.setShellSearchAdjacent(null)
+    }
+  }, [chromeSetters, mailAppChromeSearch])
 
   const toggleMessageSelected = useCallback((msg: MailMessageResponse) => {
     setListMsgSelection((s) => {
@@ -2326,7 +2716,6 @@ export default function MailPage() {
         const ids = s.ids.filter((id) => !pageSet.has(id))
         const accountById = { ...s.accountById }
         for (const m of messages) delete accountById[m.id]
-        if (ids.length === 0) queueMicrotask(() => setMailSelectionMode(false))
         return { ids, accountById }
       })
     } else {
@@ -2347,10 +2736,14 @@ export default function MailPage() {
       }
       const other = s.ids.filter((id) => !pageIds.includes(id))
       const ids = [...other, ...newIdsOnPage]
-      if (ids.length === 0) queueMicrotask(() => setMailSelectionMode(false))
       return { ids, accountById }
     })
   }, [messages])
+
+  const clearSelectionButKeepMode = useCallback(() => {
+    setListMsgSelection({ ids: [], accountById: {} })
+    setMailSelectionMode(true)
+  }, [])
 
   const handleSelectAllMessagesInScope = useCallback(async () => {
     if (!accessToken) return
@@ -2435,6 +2828,7 @@ export default function MailPage() {
         )
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void runMailSyncBatch([...byAccount.keys()], { force: true })
         setListMsgSelection({ ids: [], accountById: {} })
         setSelectedMessageId(null)
         setSelectedMessageAccountId(null)
@@ -2446,7 +2840,99 @@ export default function MailPage() {
         setBulkWorking(false)
       }
     },
-    [effectiveAccountId, accessToken, selectedMessageIds, selectionAccountByMessageId, queryClient]
+    [effectiveAccountId, accessToken, selectedMessageIds, selectionAccountByMessageId, queryClient, runMailSyncBatch]
+  )
+
+  const handleBulkApplyTag = useCallback(
+    async (mode: 'add' | 'remove' | 'replace') => {
+      if (!accessToken || selectedMessageIds.length === 0 || bulkTagSelection.length === 0) return
+      setBulkWorking(true)
+      try {
+        const byAccount = new Map<number, number[]>()
+        for (const id of selectedMessageIds) {
+          const aid = selectionAccountByMessageId[id] ?? effectiveAccountId
+          if (aid == null) continue
+          const arr = byAccount.get(aid) ?? []
+          arr.push(id)
+          byAccount.set(aid, arr)
+        }
+        const expandedByAccount = new Map<number, number[]>()
+        let targetConversations = 0
+        for (const [aid, ids] of byAccount.entries()) {
+          const out = new Set(ids)
+          if (conversationListMode && !conversationThreadKey) {
+            for (const id of ids) {
+              const seed = visibleMessages.find((m) => m.id === id && m.account_id === aid)
+              const tk = (seed?.thread_key ?? '').trim()
+              if (!tk) continue
+              for (const m of visibleMessages) {
+                if (m.account_id === aid && (m.thread_key ?? '').trim() === tk) out.add(m.id)
+              }
+            }
+          }
+          const convKeys = new Set(
+            [...out]
+              .map((id) => visibleMessages.find((m) => m.id === id && m.account_id === aid)?.thread_key?.trim() || '')
+              .filter(Boolean)
+          )
+          targetConversations += convKeys.size
+          expandedByAccount.set(aid, [...out])
+        }
+        const targetMessages = [...expandedByAccount.values()].reduce((acc, x) => acc + x.length, 0)
+        const modeLabel = mode === 'add' ? 'ajouter' : mode === 'remove' ? 'retirer' : 'remplacer'
+        const tagsLabel = bulkTagSelection
+          .map((id) => mailTags.find((t) => t.id === id)?.name)
+          .filter((x): x is string => Boolean(x))
+          .join(', ')
+        if (
+          !window.confirm(
+            `Confirmer ${modeLabel} des tags (${tagsLabel || bulkTagSelection.length}) sur ${targetMessages} message(s)` +
+              (targetConversations > 0 ? ` / ${targetConversations} conversation(s)` : '') +
+              ' ?'
+          )
+        ) {
+          return
+        }
+
+        let changed = 0
+        for (const [aid, ids] of expandedByAccount.entries()) {
+          for (const id of ids) {
+            const m = visibleMessages.find((x) => x.id === id && x.account_id === aid)
+            const cur = new Set<number>(m?.tag_ids ?? [])
+            if (mode === 'replace') {
+              cur.clear()
+              for (const tid of bulkTagSelection) cur.add(tid)
+            } else if (mode === 'add') {
+              for (const tid of bulkTagSelection) cur.add(tid)
+            } else {
+              for (const tid of bulkTagSelection) cur.delete(tid)
+            }
+            const next = [...cur].sort((a, b) => a - b)
+            await putMailMessageTags(accessToken, aid, id, next)
+            changed++
+          }
+        }
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        const actionLabel = mode === 'add' ? 'Étiquette(s) ajoutée(s)' : mode === 'remove' ? 'Étiquette(s) retirée(s)' : 'Étiquettes remplacées'
+        toast.success(`${actionLabel} sur ${changed} message(s)`)
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur étiquettes')
+      } finally {
+        setBulkWorking(false)
+      }
+    },
+    [
+      accessToken,
+      selectedMessageIds,
+      bulkTagSelection,
+      selectionAccountByMessageId,
+      effectiveAccountId,
+      conversationListMode,
+      conversationThreadKey,
+      visibleMessages,
+      mailTags,
+      queryClient,
+    ]
   )
 
   const handleBulkMarkRead = useCallback(
@@ -2631,6 +3117,26 @@ export default function MailPage() {
     clearMessageLongPressTimer()
   }, [clearMessageLongPressTimer])
 
+  useEffect(() => {
+    if (!mailSelectionMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearMessageSelection()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mailSelectionMode, clearMessageSelection])
+
+  useEffect(() => {
+    if (!similarSenderFilter) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setSimilarSenderFilter(null)
+      setMessagePage(0)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [similarSenderFilter])
+
   const handleSelectMessage = useCallback(
     (msg: MailMessageResponse) => {
       if (longPressRef.current.fired) {
@@ -2677,7 +3183,13 @@ export default function MailPage() {
   const canSelectNextMessageInList = messages.length > 0 && (messageListNavIdx < 0 || messageListNavIdx < messages.length - 1)
 
   const toggleTagOnMessage = useCallback(
-    async (messageId: number, tagId: number, currentIds: number[] | undefined, messageAccountId?: number) => {
+    async (
+      messageId: number,
+      tagId: number,
+      currentIds: number[] | undefined,
+      messageAccountId?: number,
+      threadKey?: string | null
+    ) => {
       const aid = messageAccountId ?? effectiveAccountId
       if (!accessToken || aid == null) return
       const nextSet = new Set(currentIds ?? [])
@@ -2685,13 +3197,24 @@ export default function MailPage() {
       else nextSet.add(tagId)
       const next = Array.from(nextSet).sort((a, b) => a - b)
       try {
-        await putMailMessageTags(accessToken, aid, messageId, next)
+        const isConversationAction = conversationListMode && !!threadKey?.trim()
+        const conversationIds = isConversationAction
+          ? visibleMessages
+              .filter((m) => m.account_id === aid && (m.thread_key ?? '') === threadKey)
+              .map((m) => m.id)
+          : []
+        if (conversationIds.length > 1) {
+          await Promise.all(conversationIds.map((id) => putMailMessageTags(accessToken, aid, id, next)))
+          toast.success('Étiquette appliquée à la conversation')
+        } else {
+          await putMailMessageTags(accessToken, aid, messageId, next)
+        }
         void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Étiquettes')
       }
     },
-    [accessToken, effectiveAccountId, queryClient]
+    [accessToken, effectiveAccountId, queryClient, conversationListMode, visibleMessages]
   )
 
   const toggleSidebar = useCallback(() => {
@@ -2806,15 +3329,16 @@ export default function MailPage() {
   const handleForward = useCallback(() => {
     if (!selectedMessageDetail) return
     const subj = selectedMessageDetail.subject || ''
-    const body = selectedMessageDetail.body_plain || selectedMessageDetail.body_html || ''
-    const fwd = body
-      ? `\n\n---------- Message transféré ----------\nDe : ${selectedMessageDetail.from || ''}\nÀ : ${selectedMessageDetail.to || ''}\nDate : ${selectedMessageDetail.date_at ? new Date(selectedMessageDetail.date_at).toLocaleString('fr-FR') : ''}\nObjet : ${selectedMessageDetail.subject || ''}\n\n${body}`
+    const sourceHtml = selectedMessageDetail.body_html?.trim() || plainTextToHtml(selectedMessageDetail.body_plain || '')
+    const fwd = sourceHtml
+      ? `<br><br><hr><p><strong>Message transféré</strong></p><p><strong>De :</strong> ${escapeHtml(selectedMessageDetail.from || '')}<br><strong>À :</strong> ${escapeHtml(selectedMessageDetail.to || '')}<br><strong>Date :</strong> ${escapeHtml(selectedMessageDetail.date_at ? new Date(selectedMessageDetail.date_at).toLocaleString('fr-FR') : '')}<br><strong>Objet :</strong> ${escapeHtml(selectedMessageDetail.subject || '')}</p><blockquote style="margin:0;padding-left:12px;border-left:3px solid #94a3b8;">${sourceHtml}</blockquote>`
       : ''
     openNewCompose({
       to: '',
       subject: subj.startsWith('Fwd:') ? subj : `Fwd: ${subj}`,
       body: fwd,
       accountId: selectedMessageDetail.account_id,
+      title: 'Transférer le message',
     })
   }, [selectedMessageDetail, openNewCompose])
 
@@ -2837,12 +3361,12 @@ export default function MailPage() {
         let body = slot.body
         const sig = getMailSignature()
         if (sig && !body.trim().endsWith(sig.trim())) {
-          body = body.trimEnd() + (body.trim() ? '\n\n' : '') + sig
+          body = body.trimEnd() + (body.trim() ? '<br><br>' : '') + plainTextToHtml(sig)
         }
         if (slot.attachments.length > 0) {
-          body += '\n\n--- Pièces jointes (Drive) ---\n'
+          body += '<br><br>--- Pièces jointes (Drive) ---<br>'
           slot.attachments.forEach((a) => {
-            body += `• ${a.name} (${(a.size / 1024).toFixed(1)} Ko) — lien de téléchargement à configurer côté serveur\n`
+            body += `• ${escapeHtml(a.name)} (${(a.size / 1024).toFixed(1)} Ko) — lien de téléchargement à configurer côté serveur<br>`
           })
         }
         await sendMailMessage(accessToken, {
@@ -2864,6 +3388,70 @@ export default function MailPage() {
     },
     [activeSlot, composeSlots, effectiveAccountId, accessToken, closeSlot, queryClient, runMailSyncBatch]
   )
+
+  const handleScheduleMessage = useCallback(
+    async (slotId?: string, scheduledAtOverride?: string) => {
+      const slot = slotId ? composeSlots.find((s) => s.id === slotId) : activeSlot
+      if (!slot) return
+      if (!slot.to.trim()) {
+        toast.error('Indiquez un destinataire')
+        return
+      }
+      const sendAcc = slot.sendAccountId ?? effectiveAccountId
+      if (!sendAcc || !accessToken) {
+        toast.error('Aucun compte mail sélectionné')
+        return
+      }
+      const localDate = new Date(scheduledAtOverride ?? '')
+      if (Number.isNaN(localDate.getTime())) {
+        toast.error('Date invalide')
+        return
+      }
+      if (localDate.getTime() <= Date.now() + 30_000) {
+        toast.error("Choisissez une date d'envoi dans le futur")
+        return
+      }
+      setSending(true)
+      try {
+        addRecentRecipient(slot.to.trim())
+        let body = slot.body
+        const sig = getMailSignature()
+        if (sig && !body.trim().endsWith(sig.trim())) {
+          body = body.trimEnd() + (body.trim() ? '<br><br>' : '') + plainTextToHtml(sig)
+        }
+        await scheduleMailMessage(accessToken, {
+          account_id: sendAcc,
+          to: slot.to.trim(),
+          subject: slot.subject,
+          body,
+          from_email: slot.fromAddress.trim() || undefined,
+          scheduled_send_at: localDate.toISOString(),
+        })
+        toast.success('Envoi programmé')
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        closeSlot(slot.id)
+        setScheduleModalForSlotId(null)
+        setScheduledLocalDateTime('')
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur de programmation')
+      } finally {
+        setSending(false)
+      }
+    },
+    [activeSlot, composeSlots, effectiveAccountId, accessToken, queryClient, closeSlot]
+  )
+
+  const openScheduleModal = useCallback((slotId: string) => {
+    const defaultLocal = new Date(Date.now() + 60 * 60 * 1000)
+    const yyyy = defaultLocal.getFullYear()
+    const mm = String(defaultLocal.getMonth() + 1).padStart(2, '0')
+    const dd = String(defaultLocal.getDate()).padStart(2, '0')
+    const hh = String(defaultLocal.getHours()).padStart(2, '0')
+    const mi = String(defaultLocal.getMinutes()).padStart(2, '0')
+    setScheduledLocalDateTime(`${yyyy}-${mm}-${dd}T${hh}:${mi}`)
+    setScheduleModalForSlotId(slotId)
+  }, [])
 
   const tagMenuAccountMatches = useCallback(
     () => activeFolder !== 'unified' && contextMenuMessage?.account_id === effectiveAccountId,
@@ -2922,7 +3510,7 @@ export default function MailPage() {
                   type="button"
                   onClick={() => {
                     if (allMessagesSelectedInScope) {
-                      clearMessageSelection()
+                      clearSelectionButKeepMode()
                       return
                     }
                     void handleSelectAllMessagesInScope()
@@ -2937,10 +3525,88 @@ export default function MailPage() {
                 <button
                   type="button"
                   onClick={() => clearMessageSelection()}
-                  className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
                 >
                   Terminer
                 </button>
+                <div className="inline-flex items-center gap-1.5">
+                  <div className="relative" ref={bulkTagPickerRef}>
+                    <button
+                      type="button"
+                      onClick={() => setBulkTagPickerOpen((v) => !v)}
+                      disabled={bulkWorking}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                      title="Choisir des étiquettes"
+                    >
+                      Étiquettes ({bulkTagSelection.length})
+                    </button>
+                    {bulkTagPickerOpen && (
+                      <div className="absolute z-20 mt-1 w-56 max-h-56 overflow-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg p-2 space-y-1">
+                        {mailTags.length === 0 ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 px-1 py-1">Aucune étiquette</p>
+                        ) : (
+                          mailTags.map((t) => {
+                            const checked = bulkTagSelection.includes(t.id)
+                            return (
+                              <label
+                                key={t.id}
+                                className="flex items-center gap-2 rounded px-1.5 py-1 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    setBulkTagSelection((prev) =>
+                                      prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                                    )
+                                  }
+                                  className="rounded border-slate-300 dark:border-slate-600"
+                                />
+                                <span className="truncate">{t.name}</span>
+                              </label>
+                            )
+                          })
+                        )}
+                        {mailTags.length > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setBulkTagSelection([])}
+                            className="w-full mt-1 text-xs text-slate-500 dark:text-slate-400 hover:underline"
+                          >
+                            Réinitialiser la sélection
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkApplyTag('add')}
+                    disabled={bulkWorking || bulkTagSelection.length === 0}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                    title="Ajouter l’étiquette à la sélection"
+                  >
+                    + Tags
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkApplyTag('remove')}
+                    disabled={bulkWorking || bulkTagSelection.length === 0}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                    title="Retirer l’étiquette de la sélection"
+                  >
+                    - Tags
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkApplyTag('replace')}
+                    disabled={bulkWorking || bulkTagSelection.length === 0}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50"
+                    title="Remplacer les étiquettes de la sélection"
+                  >
+                    Remplacer tags
+                  </button>
+                </div>
                 {selectedMessageIds.length > 0 ? (
                   <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                     {selectedMessageIds.length} message(s) sélectionné(s){messagesTotal > 0 ? ` / ${messagesTotal}` : ''}
@@ -3051,6 +3717,15 @@ export default function MailPage() {
                       />
                       <span className="min-w-0 flex-1">
                         {(() => {
+                          const unifiedScope = activeFolder === 'unified' && accounts.length > 1
+                          if (unifiedScope) {
+                            return (
+                              <span className="flex flex-col min-w-0">
+                                <span className="truncate font-semibold text-brand-800 dark:text-brand-100">Unifié</span>
+                                <span className="truncate text-[10px] text-brand-700 dark:text-brand-300">Toutes les boîtes</span>
+                              </span>
+                            )
+                          }
                           const acc = accounts.find((a) => a.id === effectiveAccountId) ?? accounts[0]
                           if (!acc) return <span className="text-slate-500">—</span>
                           return (
@@ -3067,42 +3742,46 @@ export default function MailPage() {
                   ) : null}
                   {mailboxesListExpanded && accounts.length > 0 ? (
                     <div className="flex flex-col gap-1.5">
-                      {accounts.map((acc) => (
-                        <button
-                          key={acc.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedAccountId(acc.id)
-                            setActiveFolder('inbox')
-                            setRecipientAliasFilter(null)
-                            setMailboxesListExpanded(false)
-                          }}
-                          className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 w-full text-left px-3 py-2 ${
-                            effectiveAccountId === acc.id
-                              ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
-                              : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
-                          }`}
-                          title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
-                        >
-                          <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
-                            <span className="truncate w-full">{acc.label || acc.email}</span>
-                            {acc.label ? (
-                              <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
-                            ) : null}
-                          </span>
-                        </button>
-                      ))}
+                      {accounts.map((acc) => {
+                        const isUnifiedScope = activeFolder === 'unified' && accounts.length > 1
+                        const isAccountSelected = !isUnifiedScope && effectiveAccountId === acc.id
+                        return (
+                          <button
+                            key={acc.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedAccountId(acc.id)
+                              setActiveFolder('inbox')
+                              setRecipientAliasFilter(null)
+                              setMailboxesListExpanded(false)
+                            }}
+                            className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 w-full text-left px-3 py-2 ${
+                              isAccountSelected
+                                ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
+                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                            }`}
+                            title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
+                          >
+                            <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
+                              <span className="truncate w-full">{acc.label || acc.email}</span>
+                              {acc.label ? (
+                                <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
+                              ) : null}
+                            </span>
+                          </button>
+                        )
+                      })}
                       {accounts.length > 1 ? (
                         <button
                           type="button"
                           onClick={() => {
                             setActiveFolder('unified')
-                            setRecipientAliasFilter(null)
+                            resetMailFilters()
                             setMailboxesListExpanded(false)
                           }}
-                          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-[11px] font-medium transition-colors ${
+                          className={`flex w-full items-center justify-center gap-1.5 rounded-lg border py-2 text-[11px] font-semibold transition-colors ${
                             activeFolder === 'unified'
-                              ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/50 text-brand-800 dark:text-brand-100'
+                              ? 'border-brand-500 bg-brand-100 text-brand-900 dark:border-brand-400 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/40 dark:ring-brand-300/40'
                               : 'border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/80'
                           }`}
                           title="Courrier de toutes les boîtes (hors corbeille, spam et brouillons)"
@@ -3129,7 +3808,7 @@ export default function MailPage() {
                       <button
                         type="button"
                         onClick={() => setRecipientAliasFilter(null)}
-                        className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-slate-200/80 dark:bg-slate-600 text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                          className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                       >
                         Toutes les adresses
                       </button>
@@ -3138,7 +3817,7 @@ export default function MailPage() {
                           key={al.id}
                           type="button"
                           onClick={() => setRecipientAliasFilter(al.alias_email)}
-                          className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/80 dark:bg-brand-900/50 text-brand-900 dark:text-brand-100' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+                          className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                         >
                           {al.label?.trim() ? `${al.label} · ${al.alias_email}` : al.alias_email}
                         </button>
@@ -3150,31 +3829,6 @@ export default function MailPage() {
             </div>
             {!sidebarCollapsed && effectiveAccountId != null ? (
               <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-white/70 dark:bg-slate-800/40 p-2.5 space-y-2">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openNewCompose()}
-                    className="inline-flex items-center gap-2 rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-slate-600"
-                    title="Rédiger un nouveau message"
-                  >
-                    <PenLine className="h-3.5 w-3.5 shrink-0" />
-                    Nouveau
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRefreshFromServer()}
-                    disabled={syncingAccountId !== null}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-500 px-2 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40"
-                    title="Actualiser (IMAP)"
-                  >
-                    {syncingAccountId === effectiveAccountId ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" aria-hidden />
-                    ) : (
-                      <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                    )}
-                    Recharger
-                  </button>
-                </div>
                 {activeFolder !== 'unified' ? (
                   <div className="space-y-1.5">
                     <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Étiquettes</p>
@@ -3184,7 +3838,7 @@ export default function MailPage() {
                         onClick={() => setFilterTagId(null)}
                         className={`text-[11px] rounded-full px-2 py-1 font-medium ${
                           filterTagId == null
-                            ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                            ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
                             : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                         }`}
                       >
@@ -3197,7 +3851,7 @@ export default function MailPage() {
                           onClick={() => setFilterTagId(filterTagId === t.id ? null : t.id)}
                           className={`text-[11px] rounded-full px-2 py-1 font-medium ${
                             filterTagId === t.id
-                              ? 'bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100'
+                              ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
                               : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                           }`}
                         >
@@ -3251,10 +3905,13 @@ export default function MailPage() {
               )}
               <button
                 type="button"
-                onClick={() => setActiveFolder('all')}
+                onClick={() => {
+                  setActiveFolder('all')
+                  resetMailFilters()
+                }}
                 className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
                   activeFolder === 'all'
-                    ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                    ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
                 }`}
                 title={
@@ -3279,14 +3936,14 @@ export default function MailPage() {
                 ) : null}
               </button>
               {FOLDERS.map(({ id, label, icon: Icon }) => {
-                const badge = folderSidebarBadge(id, folderSummary)
+                const badge = folderSidebarBadge(id, folderSummary, composeSlots.length)
                 return (
                   <button
                     key={id}
                     type="button"
                     onClick={() => setActiveFolder(id)}
                     className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
-                      activeFolder === id ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                      activeFolder === id ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
                     }`}
                     title={
                       sidebarCollapsed
@@ -3304,6 +3961,29 @@ export default function MailPage() {
                   </button>
                 )
               })}
+              {(() => {
+                const badge = scheduledFolderSidebarBadge(folderSummary)
+                return (
+                  <button
+                    type="button"
+                    onClick={() => setActiveFolder('scheduled')}
+                    className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
+                      activeFolder === 'scheduled'
+                        ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
+                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                    }`}
+                    title={sidebarCollapsed ? `Programmée${badge ? ` (${badge})` : ''}` : undefined}
+                  >
+                    <CalendarClock className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span className="flex-1 text-left truncate">Programmée</span>}
+                    {!sidebarCollapsed && badge ? (
+                      <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
+                        {badge}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })()}
               {!sidebarCollapsed && customImapSidebarRows.length > 0 ? (
                 <p className="px-2 mt-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   Autres dossiers (IMAP)
@@ -3327,7 +4007,7 @@ export default function MailPage() {
                     }}
                     className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2'} ${
                       activeFolder === row.imap_path
-                        ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                        ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
                     }`}
                     title={sidebarCollapsed ? row.imap_path : undefined}
@@ -3379,20 +4059,11 @@ export default function MailPage() {
                   <button
                     type="button"
                     onClick={() => setShowMailSettings(true)}
-                    className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    className="rounded-lg p-1.5 text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
                     title="Paramètres Mail"
                     aria-label="Paramètres Mail"
                   >
                     <Settings className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openMailSettingsAtRules}
-                    className="rounded-lg p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                    title="Filtres et règles Mail"
-                    aria-label="Filtres et règles Mail"
-                  >
-                    <Tag className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
@@ -3411,18 +4082,10 @@ export default function MailPage() {
                   <button
                     type="button"
                     onClick={() => setShowMailSettings(true)}
-                    className="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white/80 dark:bg-slate-700/70 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-500 bg-white/80 dark:bg-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-600"
                   >
-                    <Settings className="h-3.5 w-3.5 shrink-0" />
+                    <Settings className="h-3.5 w-3.5" />
                     Paramètres Mail
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openMailSettingsAtRules}
-                    className="flex items-center gap-2 rounded-lg border border-brand-200 dark:border-brand-700/60 bg-brand-50/80 dark:bg-brand-900/30 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/40"
-                  >
-                    <Tag className="h-3.5 w-3.5 shrink-0" />
-                    Filtres et règles
                   </button>
                 </div>
               )}
@@ -3456,128 +4119,89 @@ export default function MailPage() {
               </div>
             ) : null}
             {!mailCompactUi && conversationThreadKey ? (
-              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-amber-50/50 dark:bg-amber-900/10">
-                <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
+              <div className="px-4 py-2 border-b border-amber-200/70 dark:border-amber-700/60 flex flex-wrap items-center justify-between gap-2 bg-amber-100/80 dark:bg-amber-900/30">
+                <span className="text-xs text-amber-900 dark:text-amber-100 inline-flex items-center gap-2">
                   <MessagesSquare className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-400" aria-hidden />
                   Filtre conversation actif
                 </span>
                 <button
                   type="button"
                   onClick={() => setConversationThreadKey(null)}
-                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                  className="text-xs font-medium text-amber-900 dark:text-amber-100 hover:underline"
                 >
                   Afficher tout le dossier
                 </button>
               </div>
             ) : null}
             {!mailCompactUi && similarSenderFilter ? (
-              <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 flex flex-wrap items-center justify-between gap-2 bg-blue-50/60 dark:bg-blue-900/10">
-                <span className="text-xs text-slate-600 dark:text-slate-300 inline-flex items-center gap-2">
+              <div className="px-4 py-2 border-b border-blue-200/70 dark:border-blue-700/60 flex flex-wrap items-center justify-between gap-2 bg-blue-100/80 dark:bg-blue-900/35">
+                <span className="text-xs text-blue-900 dark:text-blue-100 inline-flex items-center gap-2">
                   <Users className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-400" aria-hidden />
                   Filtre messages similaires actif ({similarSenderFilter})
                 </span>
                 <button
                   type="button"
                   onClick={() => setSimilarSenderFilter(null)}
-                  className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+                  className="text-xs font-medium text-blue-900 dark:text-blue-100 hover:underline"
                 >
                   Afficher tout le dossier
                 </button>
               </div>
             ) : null}
+            {similarSenderFilter ? (
+              <div className="px-4 py-1.5 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setSimilarSenderFilter(null)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 dark:border-blue-800 px-2.5 py-1 text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  title="Annuler le filtre de messages similaires"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Annuler filtre similaire
+                </button>
+              </div>
+            ) : null}
             <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={mailSearchText}
-                    onChange={(e) => setMailSearchText(e.target.value)}
-                    placeholder="Recherche… opérateurs: from:, subject:, tag:, has:attachment, is:unread"
-                    className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setConversationListMode((v) => !v)}
-                    className={`shrink-0 rounded-lg border px-2.5 py-2 text-xs font-medium ${
-                      conversationListMode
-                        ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
-                        : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                    title="Regrouper en conversations (1 ligne par fil)"
-                  >
-                    Conversations
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMailCompactUi((v) => !v)}
-                    className="shrink-0 rounded-lg border border-slate-200 dark:border-slate-600 px-2.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
-                    title={mailCompactUi ? 'Afficher les panneaux d’aide' : 'Masquer les panneaux d’aide'}
-                  >
-                    {mailCompactUi ? 'Afficher aides' : 'Masquer aides'}
-                  </button>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-                  <label className="inline-flex items-center gap-1.5">
-                    <input type="checkbox" checked={mailSearchSender} onChange={(e) => setMailSearchSender(e.target.checked)} />
-                    Expéditeur
-                  </label>
-                  <label className="inline-flex items-center gap-1.5">
-                    <input type="checkbox" checked={mailSearchSubject} onChange={(e) => setMailSearchSubject(e.target.checked)} />
-                    Objet
-                  </label>
-                  <label className="inline-flex items-center gap-1.5">
-                    <input type="checkbox" checked={mailSearchUnreadOnly} onChange={(e) => setMailSearchUnreadOnly(e.target.checked)} />
-                    Non lus uniquement
-                  </label>
-                  <label className="inline-flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={mailSearchWithAttachmentsOnly}
-                      onChange={(e) => setMailSearchWithAttachmentsOnly(e.target.checked)}
-                    />
-                    Avec pièces jointes
-                  </label>
-                  {mailServerSearchQ ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 bg-slate-50/80 dark:bg-slate-900/40">
-                      <span className="text-slate-500 dark:text-slate-400 px-1.5">Tri</span>
-                      <button
-                        type="button"
-                        onClick={() => setMailSearchSort('rank')}
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          mailSearchSort === 'rank'
-                            ? 'bg-brand-600 text-white dark:bg-brand-500'
-                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        Pertinence
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setMailSearchSort('date')}
-                        className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                          mailSearchSort === 'date'
-                            ? 'bg-brand-600 text-white dark:bg-brand-500'
-                            : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
-                        }`}
-                      >
-                        Date
-                      </button>
-                    </span>
-                  ) : null}
-                  {mailSearchText.trim() ? (
-                    <span className="text-slate-500 dark:text-slate-400">
-                      {listMessages.length} résultat(s)
-                      {mailServerSearchQ
-                        ? ` · ${messagesTotal} au total (recherche)`
-                        : ` sur ${listMessages.length} (page)`}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  Raccourcis : <code>#etiquette</code>, <code>$expediteur</code>, <code>is:unread</code>, <code>has:pj</code>. Mots simples (2+) :{' '}
-                  <span className="font-medium text-slate-600 dark:text-slate-300">FTS français + anglais</span> (objet, exp., corps texte + texte dérivé du HTML),{' '}
-                  <span className="font-medium text-slate-600 dark:text-slate-300">tri par pertinence</span> puis date.
-                </p>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                {mailServerSearchQ ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 bg-slate-50/80 dark:bg-slate-900/40">
+                    <span className="text-slate-500 dark:text-slate-400 px-1.5">Tri</span>
+                    <button
+                      type="button"
+                      onClick={() => setMailSearchSort('rank')}
+                      className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                        mailSearchSort === 'rank'
+                          ? 'bg-brand-600 text-white dark:bg-brand-500'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      Pertinence
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMailSearchSort('date')}
+                      className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                        mailSearchSort === 'date'
+                          ? 'bg-brand-600 text-white dark:bg-brand-500'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      Date
+                    </button>
+                  </span>
+                ) : null}
+                {mailSearchText.trim() ? (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    {listMessages.length} résultat(s)
+                    {mailServerSearchQ
+                      ? ` · ${messagesTotal} au total (recherche)`
+                      : ` sur ${listMessages.length} (page)`}
+                  </span>
+                ) : (
+                  <span className="text-slate-500 dark:text-slate-400">
+                    Raccourcis: <code>#etiquette</code>, <code>$expediteur</code>, <code>is:unread</code>, <code>has:pj</code>
+                  </span>
+                )}
               </div>
             </div>
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
@@ -3758,7 +4382,6 @@ export default function MailPage() {
                                         const ids = s.ids.filter((x) => x !== msg.id)
                                         const accountById = { ...s.accountById }
                                         delete accountById[msg.id]
-                                        if (ids.length === 0) queueMicrotask(() => setMailSelectionMode(false))
                                         return { ids, accountById }
                                       }
                                       return {
@@ -3885,7 +4508,7 @@ export default function MailPage() {
                                   {showMailArchiveAction(activeFolder, msg.folder) ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleMoveToFolder(msg.id, 'archive', msg.account_id)}
+                                      onClick={() => handleMoveToFolder(msg.id, 'archive', msg.account_id, msg.thread_key)}
                                       disabled={movingMessageId === msg.id}
                                       className="p-1.5 rounded-lg border border-sky-200 dark:border-sky-700 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 disabled:opacity-50"
                                       title="Archiver"
@@ -3897,7 +4520,7 @@ export default function MailPage() {
                                   {showMailTrashAction(activeFolder, msg.folder) ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleMoveToFolder(msg.id, 'trash', msg.account_id)}
+                                      onClick={() => handleMoveToFolder(msg.id, 'trash', msg.account_id, msg.thread_key)}
                                       disabled={movingMessageId === msg.id}
                                       className="p-1.5 rounded-lg border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/35 disabled:opacity-50"
                                       title="Déplacer vers la corbeille"
@@ -3909,7 +4532,7 @@ export default function MailPage() {
                                   {showMailSpamAction(activeFolder, msg.folder) ? (
                                     <button
                                       type="button"
-                                      onClick={() => handleMoveToFolder(msg.id, 'spam', msg.account_id)}
+                                      onClick={() => handleMoveToFolder(msg.id, 'spam', msg.account_id, msg.thread_key)}
                                       disabled={movingMessageId === msg.id}
                                       className="p-1.5 rounded-lg border border-orange-200 dark:border-orange-900/50 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 disabled:opacity-50"
                                       title="Signaler comme spam"
@@ -3927,7 +4550,7 @@ export default function MailPage() {
                                   showMailRestoreInboxAction(activeFolder, msg.folder))) && (
                                 <button
                                   type="button"
-                                  onClick={() => handleMoveToFolder(msg.id, 'inbox', msg.account_id)}
+                                  onClick={() => handleMoveToFolder(msg.id, 'inbox', msg.account_id, msg.thread_key)}
                                   disabled={movingMessageId === msg.id}
                                   className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-900/30 disabled:opacity-50"
                                   title="Remettre en boîte de réception"
@@ -4003,6 +4626,11 @@ export default function MailPage() {
                     <button type="button" onClick={() => openNewCompose()} className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
                       Écrire un message
                     </button>
+                    {(mailSearchText.trim() || filterTagId != null || recipientAliasFilter != null || conversationThreadKey || similarSenderFilter) ? (
+                      <button type="button" onClick={resetMailFilters} className="text-sm font-medium text-slate-700 dark:text-slate-200 hover:underline">
+                        Réinitialiser les filtres
+                      </button>
+                    ) : null}
                   </div>
                 </div>
                 )}
@@ -4343,8 +4971,8 @@ export default function MailPage() {
       </div>
 
       {showMailSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true" onClick={() => setShowMailSettings(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-lg max-h-[min(90vh,720px)] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="px-5 pt-5 pb-3 border-b border-slate-200 dark:border-slate-600 shrink-0">
               <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Paramètres Mail</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Signature et boîtes reliées.</p>
@@ -4379,7 +5007,7 @@ export default function MailPage() {
                       setShowMailSettings(false)
                       setShowConnectEmail(true)
                     }}
-                    className="inline-flex items-center gap-1 rounded-lg border border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-[11px] font-semibold text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50 shrink-0"
+                    className="inline-flex items-center gap-1 rounded-lg border border-brand-300 dark:border-brand-500 bg-brand-100 dark:bg-brand-700 px-2.5 py-1 text-[11px] font-semibold text-brand-900 dark:text-white hover:bg-brand-200 dark:hover:bg-brand-600 shrink-0"
                   >
                     <Plus className="h-3.5 w-3.5" aria-hidden />
                     Ajouter une boîte
@@ -4418,7 +5046,7 @@ export default function MailPage() {
                               handleSyncOneAccount(acc.id)
                             }}
                             disabled={syncingAccountId !== null}
-                            className="inline-flex items-center gap-1 rounded-lg border border-brand-200 dark:border-brand-700 bg-brand-50/80 dark:bg-brand-950/40 px-2.5 py-1.5 text-xs font-medium text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50 disabled:opacity-40"
+                            className="inline-flex items-center gap-1 rounded-lg border border-brand-300 dark:border-brand-500 bg-brand-100 dark:bg-brand-700 px-2.5 py-1.5 text-xs font-medium text-brand-900 dark:text-white hover:bg-brand-200 dark:hover:bg-brand-600 disabled:opacity-40"
                             title="Sync IMAP avec le mot de passe déjà enregistré (sans saisie)"
                           >
                             {syncingAccountId === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
@@ -4467,7 +5095,7 @@ export default function MailPage() {
                 <Link
                   to="/app/pass"
                   onClick={() => setShowMailSettings(false)}
-                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white text-xs font-medium px-3 py-2 hover:bg-brand-700 dark:hover:bg-brand-600"
+                  className="inline-flex items-center gap-2 rounded-lg border border-brand-400 dark:border-brand-500 bg-brand-700 dark:bg-brand-600 text-white text-xs font-semibold px-3 py-2 hover:bg-brand-800 dark:hover:bg-brand-500"
                 >
                   Ouvrir Coffre (Pass)
                 </Link>
@@ -4691,7 +5319,11 @@ export default function MailPage() {
                                 type="button"
                                 onClick={() => mailRulesMutation.mutate({ type: 'patch', id: r.id, enabledOnly: true })}
                                 disabled={mailRulesMutation.isPending}
-                                className="text-[11px] text-amber-700 dark:text-amber-300 disabled:opacity-50"
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border disabled:opacity-50 ${
+                                  r.enabled
+                                    ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200'
+                                    : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200'
+                                }`}
                               >
                                 {r.enabled ? 'Désactiver' : 'Activer'}
                               </button>
@@ -4725,55 +5357,75 @@ export default function MailPage() {
                     </ul>
                   )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={newRuleName}
-                      onChange={(e) => setNewRuleName(e.target.value)}
-                      placeholder="Nom règle (optionnel)"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    />
-                    <input
-                      type="number"
-                      min={0}
-                      value={newRuleOrder}
-                      onChange={(e) => setNewRuleOrder(e.target.value)}
-                      placeholder="Ordre (0 = priorité haute)"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    />
-                    <input
-                      type="text"
-                      value={newRuleFromPattern}
-                      onChange={(e) => setNewRuleFromPattern(e.target.value)}
-                      placeholder="From contient (ex: newsletter@)"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    />
-                    <input
-                      type="text"
-                      value={newRuleFromDomainPattern}
-                      onChange={(e) => setNewRuleFromDomainPattern(e.target.value)}
-                      placeholder="Domaine expéditeur (ex: example.com) — distinct du champ « From »"
-                      title="Correspond au domaine après @ ; combiné en ET avec « From contient » si les deux sont remplis."
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs sm:col-span-2"
-                    />
-                    <input
-                      type="text"
-                      value={newRuleRecipientPattern}
-                      onChange={(e) => setNewRuleRecipientPattern(e.target.value)}
-                      placeholder="Destinataire contient (ex: compta@ ou @client.fr)"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs sm:col-span-2"
-                    />
-                    <input
-                      type="text"
-                      value={newRuleSubjectPattern}
-                      onChange={(e) => setNewRuleSubjectPattern(e.target.value)}
-                      placeholder="Sujet contient (ex: facture)"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    />
-                    <select
-                      value={newRuleActionFolder}
-                      onChange={(e) => setNewRuleActionFolder(e.target.value as MailFolderId)}
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    >
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Nom de la règle
+                      <input
+                        type="text"
+                        value={newRuleName}
+                        onChange={(e) => setNewRuleName(e.target.value)}
+                        placeholder="Nom règle (optionnel)"
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Ordre / priorité (0 = prioritaire)
+                      <input
+                        type="number"
+                        min={0}
+                        value={newRuleOrder}
+                        onChange={(e) => setNewRuleOrder(e.target.value)}
+                        placeholder="Ordre"
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Expéditeur contient
+                      <input
+                        type="text"
+                        value={newRuleFromPattern}
+                        onChange={(e) => setNewRuleFromPattern(e.target.value)}
+                        placeholder="ex: newsletter@"
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300 sm:col-span-2">
+                      Domaine expéditeur
+                      <input
+                        type="text"
+                        value={newRuleFromDomainPattern}
+                        onChange={(e) => setNewRuleFromDomainPattern(e.target.value)}
+                        placeholder="ex: example.com"
+                        title="Correspond au domaine après @ ; combiné en ET avec « Expéditeur contient »."
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300 sm:col-span-2">
+                      Destinataire contient
+                      <input
+                        type="text"
+                        value={newRuleRecipientPattern}
+                        onChange={(e) => setNewRuleRecipientPattern(e.target.value)}
+                        placeholder="ex: compta@ ou @client.fr"
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Sujet contient
+                      <input
+                        type="text"
+                        value={newRuleSubjectPattern}
+                        onChange={(e) => setNewRuleSubjectPattern(e.target.value)}
+                        placeholder="ex: facture"
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Action : déplacer vers
+                      <select
+                        value={newRuleActionFolder}
+                        onChange={(e) => setNewRuleActionFolder(e.target.value as MailFolderId)}
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      >
                       <optgroup label="Standards">
                         {FOLDERS.map((f) => (
                           <option key={f.id} value={f.id}>
@@ -4790,41 +5442,49 @@ export default function MailPage() {
                           ))}
                         </optgroup>
                       ) : null}
-                    </select>
+                      </select>
+                    </label>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <select
-                      value={newRuleHasTagId ?? ''}
-                      onChange={(e) => setNewRuleHasTagId(e.target.value ? Number(e.target.value) : null)}
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    >
-                      <option value="">Condition étiquette (optionnel)</option>
-                      {mailTags.map((t) => (
-                        <option key={`cond-tag-${t.id}`} value={t.id}>#{t.name}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={newRuleAddTagId ?? ''}
-                      onChange={(e) => setNewRuleAddTagId(e.target.value ? Number(e.target.value) : null)}
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
-                    >
-                      <option value="">Action ajouter étiquette (optionnel)</option>
-                      {mailTags.map((t) => (
-                        <option key={`action-tag-${t.id}`} value={t.id}>#{t.name}</option>
-                      ))}
-                    </select>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Condition : étiquette présente
+                      <select
+                        value={newRuleHasTagId ?? ''}
+                        onChange={(e) => setNewRuleHasTagId(e.target.value ? Number(e.target.value) : null)}
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      >
+                        <option value="">Aucune</option>
+                        {mailTags.map((t) => (
+                          <option key={`cond-tag-${t.id}`} value={t.id}>#{t.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="block text-[11px] font-medium text-slate-700 dark:text-slate-300">
+                      Action : ajouter étiquette
+                      <select
+                        value={newRuleAddTagId ?? ''}
+                        onChange={(e) => setNewRuleAddTagId(e.target.value ? Number(e.target.value) : null)}
+                        className="mt-1 w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                      >
+                        <option value="">Aucune</option>
+                        {mailTags.map((t) => (
+                          <option key={`action-tag-${t.id}`} value={t.id}>#{t.name}</option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700 dark:text-slate-300">
-                    <label className="inline-flex items-center gap-1.5">
+                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 bg-white/70 dark:bg-slate-800/70">
                       <input
                         type="checkbox"
                         checked={newRuleHasAttachmentsOnly}
                         onChange={(e) => setNewRuleHasAttachmentsOnly(e.target.checked)}
+                        className="h-4 w-4 accent-brand-600 dark:accent-brand-400"
                       />
                       Uniquement avec PJ
                     </label>
-                    <label className="inline-flex items-center gap-1.5">
-                      <input type="checkbox" checked={newRuleMarkRead} onChange={(e) => setNewRuleMarkRead(e.target.checked)} />
+                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-300 dark:border-slate-600 px-2 py-1 bg-white/70 dark:bg-slate-800/70">
+                      <input type="checkbox" checked={newRuleMarkRead} onChange={(e) => setNewRuleMarkRead(e.target.checked)} className="h-4 w-4 accent-brand-600 dark:accent-brand-400" />
                       Marquer comme lu
                     </label>
                   </div>
@@ -4836,8 +5496,8 @@ export default function MailPage() {
                           editingRuleId != null ? { type: 'patch', id: editingRuleId } : { type: 'add' }
                         )
                       }
-                      disabled={mailRulesMutation.isPending}
-                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-50"
+                      disabled={mailRulesMutation.isPending || !canSubmitRule}
+                      className="rounded-lg bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 text-xs px-3 py-1.5 font-medium disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       {editingRuleId != null ? 'Enregistrer les modifications' : 'Ajouter la règle'}
                     </button>
@@ -5150,8 +5810,8 @@ export default function MailPage() {
       ) : null}
 
       {showConnectEmail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true" onClick={() => setShowConnectEmail(false)}>
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Ajouter une boîte mail</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
               Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP).
@@ -5213,22 +5873,30 @@ export default function MailPage() {
       {composeSlots.map((slot, index) => (
         <div
           key={slot.id}
-          className={`fixed right-0 flex flex-col md:left-auto md:right-6 md:max-w-2xl md:w-[600px] left-0 md:left-auto ${slot.minimized ? 'rounded-t-xl md:max-h-[52px] max-h-[48px]' : 'left-4 right-4 md:max-h-[85vh] max-h-[90vh] rounded-t-xl'} shadow-2xl border border-b-0 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800`}
-          style={{ bottom: index * 52, zIndex: 50 + index }}
+          data-compose-slot="true"
+          className={`fixed right-0 flex flex-col md:left-auto md:right-[var(--compose-right)] md:max-w-2xl md:w-[600px] left-0 md:left-auto ${slot.minimized ? 'rounded-t-xl md:max-h-[52px] max-h-[48px]' : 'left-4 right-4 md:max-h-[85vh] max-h-[90vh] rounded-t-xl'} shadow-2xl border border-b-0 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800`}
+          style={{ bottom: index * 52, zIndex: 50 + index, ['--compose-right' as string]: `${slot.xOffsetPx ?? 24}px` }}
           role="dialog"
           aria-modal="true"
           aria-labelledby={`compose-title-${slot.id}`}
         >
           <div
             className={`flex items-center border-b border-slate-200 dark:border-slate-600 shrink-0 ${slot.minimized ? 'px-3 py-1.5' : 'px-4 py-2'} cursor-pointer`}
-            onClick={() => slot.minimized && setActiveAndExpand(slot.id)}
+            onPointerDown={(e) => onComposeHeaderPointerDown(slot.id, e)}
+            onClick={() => {
+              if (composeDragIgnoreClickRef.current) {
+                composeDragIgnoreClickRef.current = false
+                return
+              }
+              slot.minimized ? setActiveAndExpand(slot.id) : minimizeComposeSlot(slot.id)
+            }}
           >
-            <h2 id={`compose-title-${slot.id}`} className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate flex-1">Nouveau message</h2>
+            <h2 id={`compose-title-${slot.id}`} className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate flex-1">{slot.title || 'Nouveau message'}</h2>
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <button type="button" onClick={() => updateSlot(slot.id, { minimized: !slot.minimized })} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title={slot.minimized ? 'Agrandir' : 'Réduire en barre'}>
+              <button data-compose-header-action="true" type="button" onClick={() => updateSlot(slot.id, { minimized: !slot.minimized })} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title={slot.minimized ? 'Agrandir' : 'Réduire en barre'}>
                 {slot.minimized ? <Maximize2 className="h-5 w-5" /> : <Minimize2 className="h-5 w-5" />}
               </button>
-              <button type="button" onClick={() => closeSlot(slot.id)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer">
+              <button data-compose-header-action="true" type="button" onClick={() => closeSlot(slot.id)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -5317,13 +5985,29 @@ export default function MailPage() {
                       ))}
                     </div>
                   )}
-                  <textarea
+                  <div className="mb-2 flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/30 p-1">
+                    <button type="button" onClick={() => document.execCommand('bold')} className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700" title="Gras"><Bold className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => document.execCommand('italic')} className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700" title="Italique"><Italic className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => document.execCommand('underline')} className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700" title="Souligné"><Underline className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => document.execCommand('insertUnorderedList')} className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700" title="Liste à puces"><List className="h-3.5 w-3.5" /></button>
+                    <button type="button" onClick={() => document.execCommand('insertOrderedList')} className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700" title="Liste numérotée"><ListOrdered className="h-3.5 w-3.5" /></button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = window.prompt('URL du lien', 'https://')
+                        if (url) document.execCommand('createLink', false, url)
+                      }}
+                      className="rounded px-2 py-1 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      title="Insérer un lien"
+                    ><Link2 className="h-3.5 w-3.5" /></button>
+                  </div>
+                  <div
                     id={`mail-body-${slot.id}`}
-                    value={slot.body}
-                    onChange={(e) => updateSlot(slot.id, { body: e.target.value })}
-                    placeholder="Saisissez votre message…"
-                    rows={6}
-                    className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-y"
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => updateSlot(slot.id, { body: e.currentTarget.innerHTML })}
+                    dangerouslySetInnerHTML={{ __html: slot.body }}
+                    className="min-h-[160px] w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent overflow-auto"
                   />
               {getMailSignature() && (
                 <p className="text-xs text-slate-500 dark:text-slate-400">La signature sera ajoutée en bas du message à l’envoi.</p>
@@ -5334,6 +6018,9 @@ export default function MailPage() {
               <div className="flex gap-2 justify-end px-4 py-3 border-t border-slate-200 dark:border-slate-600 shrink-0">
                 <button type="button" onClick={() => closeSlot(slot.id)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                   Annuler
+                </button>
+                <button type="button" onClick={() => openScheduleModal(slot.id)} disabled={sending} className="px-4 py-2 rounded-lg border border-brand-300 dark:border-brand-500 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-slate-700 disabled:opacity-50">
+                  Programmer
                 </button>
                 <button type="button" onClick={() => handleSendMessage(slot.id)} disabled={sending} className="px-4 py-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50">
                   {sending ? 'Envoi…' : 'Envoyer'}
@@ -5350,6 +6037,46 @@ export default function MailPage() {
           )}
         </div>
       ))}
+
+      {scheduleModalForSlotId && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setScheduleModalForSlotId(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-2">Programmer l'envoi</h2>
+            <p className="text-xs text-slate-700 dark:text-slate-300 mb-3">Choisissez la date et l'heure d'envoi du message.</p>
+            <input
+              type="datetime-local"
+              value={scheduledLocalDateTime}
+              onChange={(e) => setScheduledLocalDateTime(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setScheduleModalForSlotId(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={!scheduledLocalDateTime || sending}
+                onClick={() => void handleScheduleMessage(scheduleModalForSlotId, scheduledLocalDateTime)}
+                className="px-3 py-1.5 rounded-lg bg-brand-600 dark:bg-brand-500 text-white disabled:opacity-50"
+              >
+                Confirmer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {contextMenuMessage && (
         <div
@@ -5466,7 +6193,7 @@ export default function MailPage() {
               type="button"
               role="menuitem"
               onClick={() => {
-                handleMoveToFolder(contextMenuMessage.id, 'archive', contextMenuMessage.account_id)
+                handleMoveToFolder(contextMenuMessage.id, 'archive', contextMenuMessage.account_id, contextMenuMessage.thread_key)
                 setContextMenuMessage(null)
               }}
               disabled={movingMessageId === contextMenuMessage.id}
@@ -5488,7 +6215,8 @@ export default function MailPage() {
                       contextMenuMessage.id,
                       t.id,
                       contextMenuMessage.tag_ids,
-                      contextMenuMessage.account_id
+                      contextMenuMessage.account_id,
+                      contextMenuMessage.thread_key
                     )
                   }
                   className="w-full px-3 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
@@ -5517,7 +6245,7 @@ export default function MailPage() {
                   role="menuitem"
                   disabled={movingMessageId === contextMenuMessage.id || contextMenuMessage.folder === row.imap_path}
                   onClick={() => {
-                    handleMoveToFolder(contextMenuMessage.id, row.imap_path, contextMenuMessage.account_id)
+                    handleMoveToFolder(contextMenuMessage.id, row.imap_path, contextMenuMessage.account_id, contextMenuMessage.thread_key)
                     setContextMenuMessage(null)
                   }}
                   className="w-full px-3 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-40"
@@ -5536,7 +6264,7 @@ export default function MailPage() {
                 type="button"
                 role="menuitem"
                 onClick={() => {
-                  handleMoveToFolder(contextMenuMessage.id, 'trash', contextMenuMessage.account_id)
+                  handleMoveToFolder(contextMenuMessage.id, 'trash', contextMenuMessage.account_id, contextMenuMessage.thread_key)
                   setContextMenuMessage(null)
                 }}
                 disabled={movingMessageId === contextMenuMessage.id}
@@ -5549,7 +6277,7 @@ export default function MailPage() {
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    handleMoveToFolder(contextMenuMessage.id, 'spam', contextMenuMessage.account_id)
+                    handleMoveToFolder(contextMenuMessage.id, 'spam', contextMenuMessage.account_id, contextMenuMessage.thread_key)
                     setContextMenuMessage(null)
                   }}
                   disabled={movingMessageId === contextMenuMessage.id}
@@ -5569,7 +6297,7 @@ export default function MailPage() {
               type="button"
               role="menuitem"
               onClick={() => {
-                handleMoveToFolder(contextMenuMessage.id, 'inbox', contextMenuMessage.account_id)
+                handleMoveToFolder(contextMenuMessage.id, 'inbox', contextMenuMessage.account_id, contextMenuMessage.thread_key)
                 setContextMenuMessage(null)
               }}
               disabled={movingMessageId === contextMenuMessage.id}

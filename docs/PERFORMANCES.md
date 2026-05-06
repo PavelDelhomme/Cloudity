@@ -2,7 +2,20 @@
 
 **Rôle** : inventaire **factuel** de la stack actuelle (langages, conteneurs, services), **objectifs** (léger, rapide, observable) et **pistes** (y compris alternatives « gros gains ») **sans sacrifier la sécurité** ni une **UX** digne d’une suite grand public. Ce document est une **feuille de route technique** : rien n’y est entièrement « livré » côté observabilité produit tant que le backlog associé ([BACKLOG.md](../BACKLOG.md), **TR-06** dans [ROADMAP.md](./ROADMAP.md)) n’est pas coché.
 
-**Dernière mise à jour** : 2026-04-11.
+**Dernière mise à jour** : 2026-05-06.
+
+## Mise à jour 2026-05-06 — base admin runtime
+
+- **Livré (base opérationnelle)** : nouvel endpoint admin **`GET /admin/performance/overview`** (admin-service) avec snapshot runtime :
+  - **Host/cgroup** : load avg, CPU usage/user/system (`cpu.stat`), mémoire (`memory.current` / `memory.peak`), IO lecture/écriture (`io.stat`).
+  - **Conteneurs** : tentative de snapshot **`docker stats --no-stream`** quand le binaire Docker est disponible dans le runtime ; fallback documenté sinon.
+  - **Backoffice** : affichage des métriques runtime dans le dashboard admin (rafraîchissement périodique).
+- **Limite actuelle** : la vue conteneurs dépend de la disponibilité de Docker côté runtime admin-service. Sans Docker, on garde les métriques cgroup du service courant.
+- **Prochaine phase (obligatoire pour “tous les cas imaginables”)** :
+  1. instrumentation standardisée par service (latence route, CPU/mémoire process, IO, erreurs) ;
+  2. agrégation centralisée (Prometheus/Loki/OTel collector) ;
+  3. historisation + graphiques dans l’admin (pas seulement snapshot) ;
+  4. budgets automatiques sur `make test`, E2E et mobile (gates de perf).
 
 ---
 

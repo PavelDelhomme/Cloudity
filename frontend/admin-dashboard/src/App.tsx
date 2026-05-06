@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, Navigate, Outlet, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth, Global401Handler } from './authContext'
@@ -41,13 +41,24 @@ const queryClient = new QueryClient({
 
 function RequireAuth({ children, to = '/login' }: { children: React.ReactNode; to?: string }) {
   const { isAuthenticated } = useAuth()
-  if (!isAuthenticated) return <Navigate to={to} replace />
+  const location = useLocation()
+  if (!isAuthenticated) {
+    const returnTo = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to={`${to}?next=${encodeURIComponent(returnTo)}`} replace state={{ returnTo }} />
+  }
   return <>{children}</>
 }
 
 function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; to?: string }) {
   const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <Navigate to={to} replace />
+  const location = useLocation()
+  if (isAuthenticated) {
+    const nextParam = new URLSearchParams(location.search).get('next')
+    const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo
+    const target = nextParam ?? stateReturnTo ?? to
+    const safeTarget = target.startsWith('/app') || target.startsWith('/admin') ? target : to
+    return <Navigate to={safeTarget} replace />
+  }
   return <>{children}</>
 }
 

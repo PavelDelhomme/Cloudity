@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestHealthEndpoint(t *testing.T) {
@@ -129,5 +131,34 @@ func TestMailMeAccountsRouted(t *testing.T) {
 	// Gateway doit transmettre : 401 (token invalide) ou 502/503 (mail service down), pas 404
 	if w.Code == http.StatusNotFound {
 		t.Errorf("GET /mail/me/accounts: got 404, route /mail/* must forward to mail service")
+	}
+}
+
+func TestIsAdminOnlyMailRoute(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{path: "/mail/domains", want: true},
+		{path: "/mail/mailboxes/1", want: true},
+		{path: "/mail/aliases", want: true},
+		{path: "/mail/me/accounts", want: false},
+	}
+	for _, tc := range cases {
+		if got := isAdminOnlyMailRoute(tc.path); got != tc.want {
+			t.Fatalf("isAdminOnlyMailRoute(%q)=%v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
+func TestTokenHasAdminRole(t *testing.T) {
+	if !tokenHasAdminRole(jwt.MapClaims{"role": "admin"}) {
+		t.Fatal("tokenHasAdminRole should accept role=admin")
+	}
+	if !tokenHasAdminRole(jwt.MapClaims{"roles": []interface{}{"user", "admin"}}) {
+		t.Fatal("tokenHasAdminRole should accept roles[]=admin")
+	}
+	if tokenHasAdminRole(jwt.MapClaims{"role": "user"}) {
+		t.Fatal("tokenHasAdminRole should reject non-admin role")
 	}
 }

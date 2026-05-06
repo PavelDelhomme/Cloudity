@@ -29,6 +29,12 @@
 
 **Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
 
+### Mise à jour 2026-05-06 — traçabilité runtime/tests
+
+- **Base livrée** : endpoint admin `GET /admin/performance/overview` (snapshot CPU/Mémoire/IO) visible dans le dashboard admin.
+- **À faire** : exporter aussi les métriques d’exécution des campagnes `make test`, `make test-e2e*`, `make test-mobile-*` pour conserver un historique comparable par run.
+- **Objectif** : chaque run test devra produire un artefact perf (CPU max, mémoire max, IO total, durée) réinjecté dans le backoffice admin.
+
 **Vision produit** : l’ordre stratégique des apps (Mail, Alias, Pass, Photos, …) est décrit dans **[VISION-SUITE.md](./VISION-SUITE.md)** ; les tests suivent les **fonctionnalités livrées** — nouvelle feature ⇒ ajouter les tests listés ici et dans **BACKLOG**.
 
 **Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  

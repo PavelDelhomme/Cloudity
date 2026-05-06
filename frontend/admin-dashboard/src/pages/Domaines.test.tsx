@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Domaines from './Domaines'
@@ -10,6 +10,16 @@ vi.mock('../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../api', () => ({
   fetchDomains: vi.fn(),
   createDomain: vi.fn(),
+  patchDomain: vi.fn(),
+  deleteDomain: vi.fn(),
+  fetchDomainMailboxes: vi.fn(),
+  fetchDomainAliases: vi.fn(),
+  createDomainMailbox: vi.fn(),
+  deleteDomainMailbox: vi.fn(),
+  createDomainAlias: vi.fn(),
+  deleteDomainAlias: vi.fn(),
+  patchDomainMailbox: vi.fn(),
+  patchDomainAlias: vi.fn(),
 }))
 
 const mockDomains = [
@@ -71,5 +81,24 @@ describe('DomainesPage', () => {
       expect(screen.getByPlaceholderText(/exemple.com/)).toBeTruthy()
     })
     expect(screen.getByRole('button', { name: /Ajouter/ })).toBeTruthy()
+  })
+
+  it('opens details panel and shows tabs', async () => {
+    vi.mocked(api.fetchDomains).mockResolvedValue(mockDomains)
+    vi.mocked(api.fetchDomainMailboxes).mockResolvedValue([])
+    vi.mocked(api.fetchDomainAliases).mockResolvedValue([])
+    render(wrap(<Domaines />))
+
+    await waitFor(() => {
+      expect(screen.getByText('example.com')).toBeTruthy()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /Voir détails/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Détails du domaine/)).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Boîtes mail/ })).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Aliases/ })).toBeTruthy()
+    })
   })
 })

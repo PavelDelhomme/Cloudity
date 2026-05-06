@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -64,6 +64,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
+	@echo '  make clean-test-tenants APPLY=1 - Nettoyage safe tenants (backup + confirmation, dry-run sinon)'
 	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
 	@echo '  make mobile-devices - Liste les appareils ADB'
 	@echo '  make mobile-adb-authorize - Redémarre ADB et aide à autoriser le téléphone'
@@ -788,6 +789,14 @@ mail-clean-dev: ## Supprime tous les comptes mail (et messages) du compte démo 
 	@echo "🧹 Nettoyage des comptes mail du compte démo (user_id=1)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -c "DELETE FROM user_email_accounts WHERE user_id = 1;" 2>/dev/null || true
 	@echo "✅ Comptes mail supprimés. Vous restez connecté ; rechargez la page Mail (ou l'app) puis ajoutez votre boîte à nouveau."
+
+clean-test-tenants: ## Nettoie les tenants de test connus (APPLY=1 pour suppression réelle)
+	@chmod +x scripts/cleanup-test-tenants.sh
+	@if [ "$(APPLY)" = "1" ]; then \
+		./scripts/cleanup-test-tenants.sh --apply; \
+	else \
+		./scripts/cleanup-test-tenants.sh; \
+	fi
 
 setup-infra-only: ## Démarre uniquement Postgres + Redis
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis

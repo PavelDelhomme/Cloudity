@@ -3,13 +3,16 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../authContext'
 import { fetchTenants } from '../api'
 import { PageLayout, Card, TableWrapper, TableHead, Th, TBody, Td, Badge, Button } from '../components/PageLayout'
+import { PaginationControls } from '../components/PaginationControls'
 
 export default function Tenants() {
   const { accessToken } = useAuth()
+  const [page, setPage] = React.useState(0)
+  const pageSize = 20
 
   const { data: tenants, isLoading, error } = useQuery({
-    queryKey: ['tenants'],
-    queryFn: () => fetchTenants(accessToken!),
+    queryKey: ['tenants', page, pageSize],
+    queryFn: () => fetchTenants(accessToken!, { skip: page * pageSize, limit: pageSize }),
     enabled: Boolean(accessToken),
   })
 
@@ -41,6 +44,8 @@ export default function Tenants() {
   }
 
   const list = tenants ?? []
+  const canPrev = page > 0
+  const canNext = list.length >= pageSize
 
   return (
     <PageLayout
@@ -84,6 +89,13 @@ export default function Tenants() {
             )}
           </TBody>
         </TableWrapper>
+        <PaginationControls
+          page={page}
+          canPrev={canPrev}
+          canNext={canNext}
+          onPrev={() => setPage((p) => Math.max(0, p - 1))}
+          onNext={() => setPage((p) => p + 1)}
+        />
       </Card>
     </PageLayout>
   )

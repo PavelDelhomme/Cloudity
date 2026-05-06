@@ -29,6 +29,23 @@ Le catalogue "100+ idees d'apps" est retenu comme reservoir produit, avec une re
 
 ## 9. Mail web — synchronisation par boîte (livré)
 
+## 9bis. Performance & traçabilité globale (lancé)
+
+- **Base livrée** : endpoint admin **`/admin/performance/overview`** + carte dashboard admin pour consulter CPU/Mémoire/IO runtime.
+- **Interprétation** : c’est un **snapshot** (instantané), pas encore une courbe historique multi-services.
+- **Objectif phase suivante** : observabilité systématique (services + tests + tâches background) :
+  - métriques normalisées par service (latence/erreurs/CPU/Mémoire/IO) ;
+  - stockage séries temporelles ;
+  - visualisation dans l’admin ;
+  - budgets et alertes de non-régression ressources.
+
+### Mise à jour 2026-05-06 — ergonomie compose & popups
+
+- Le compose mail utilise maintenant une zone riche HTML (`contentEditable`) avec actions rapides (gras, italique, souligné, listes, lien).
+- Le transfert ouvre un compose intitulé `Transférer le message`, avec reprise du message source en HTML.
+- La programmation d’envoi n’utilise plus `window.prompt` : une modale dédiée date/heure est utilisée.
+- Les modales `Paramètres Mail` et `Ajouter une boîte mail` se ferment au clic en dehors de la fenêtre.
+
 - **Colonne « Boîtes mail »** : à droite de chaque boîte, une icône **↻** lance **`POST /mail/me/accounts/:id/sync`** pour **cette boîte uniquement** (mot de passe déjà stocké côté serveur si besoin). Panneau réduit : icône sous l’icône enveloppe.
 - **En-tête de liste** : **« Actualiser cette boîte »** = même sync pour la boîte **actuellement affichée**.
 - **Paramètres Mail** : **« Sync maintenant »** (rapide) vs **« Sync avec mot de passe… »** (modale si le serveur exige une resaisie).

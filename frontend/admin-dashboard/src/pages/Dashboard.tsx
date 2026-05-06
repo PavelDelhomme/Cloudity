@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../authContext'
-import { fetchDashboardStats } from '../api'
+import { fetchDashboardStats, fetchPerformanceOverview } from '../api'
 import { PageLayout, Card } from '../components/PageLayout'
 import { Users, Building2, Activity } from 'lucide-react'
 
@@ -16,6 +16,12 @@ export default function Dashboard() {
     queryKey: ['dashboard-stats'],
     queryFn: () => fetchDashboardStats(accessToken!),
     enabled: Boolean(accessToken),
+  })
+  const { data: perf } = useQuery({
+    queryKey: ['dashboard-performance-overview'],
+    queryFn: () => fetchPerformanceOverview(accessToken!),
+    enabled: Boolean(accessToken),
+    refetchInterval: 15_000,
   })
 
   if (!accessToken) {
@@ -96,6 +102,43 @@ export default function Dashboard() {
           )
         })}
       </div>
+      <Card className="p-6 mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Performance runtime (snapshot)</h3>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {perf?.timestamp_utc ? new Date(perf.timestamp_utc).toLocaleString('fr-FR') : '—'}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            <p className="text-slate-500 dark:text-slate-400">Load avg (1m)</p>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold">{perf?.host?.loadavg_1m?.toFixed?.(2) ?? '—'}</p>
+          </div>
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            <p className="text-slate-500 dark:text-slate-400">Mémoire cgroup</p>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold">
+              {perf?.host?.cgroup_memory_current_bytes != null ? `${(perf.host.cgroup_memory_current_bytes / (1024 * 1024)).toFixed(1)} MiB` : '—'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            <p className="text-slate-500 dark:text-slate-400">IO lecture cgroup</p>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold">
+              {perf?.host?.cgroup_io_read_bytes != null ? `${(perf.host.cgroup_io_read_bytes / (1024 * 1024)).toFixed(1)} MiB` : '—'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+            <p className="text-slate-500 dark:text-slate-400">IO écriture cgroup</p>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold">
+              {perf?.host?.cgroup_io_write_bytes != null ? `${(perf.host.cgroup_io_write_bytes / (1024 * 1024)).toFixed(1)} MiB` : '—'}
+            </p>
+          </div>
+        </div>
+        {perf?.notes?.length ? (
+          <div className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+            {perf.notes.map((n, i) => <p key={`perf-note-${i}`}>• {n}</p>)}
+          </div>
+        ) : null}
+      </Card>
     </PageLayout>
   )
 }

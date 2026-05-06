@@ -67,5 +67,5 @@ export function BreadcrumbAppActionsSlot() {
 export function ShellSearchAdjacentSlot() {
   const ctx = useContext(AppPageChromeDisplayContext)
   if (!ctx?.shellSearchAdjacent) return null
-  return <div className="flex items-center shrink-0 mr-0.5">{ctx.shellSearchAdjacent}</div>
+  return <div className="flex items-center min-w-0">{ctx.shellSearchAdjacent}</div>
 }

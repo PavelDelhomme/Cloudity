@@ -426,8 +426,8 @@ export default function AppLayout() {
         <AppPageChromeProvider>
         <NotificationsProvider>
           <GlobalMailSyncWatcher disabled={isMailRoute} />
-          <div className="shrink-0 flex items-center justify-between gap-4 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="shrink-0 flex items-center justify-between gap-3 py-2 px-4 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <div className="flex items-center gap-2 min-w-0 shrink-0">
               <button
                 type="button"
                 onClick={toggleSidebar}
@@ -453,8 +453,10 @@ export default function AppLayout() {
               </nav>
               <BreadcrumbAppActionsSlot />
             </div>
-            <div className="flex items-center gap-0.5 shrink-0">
+            <div className="flex-1 min-w-0 px-1 md:px-2">
               <ShellSearchAdjacentSlot />
+            </div>
+            <div className="flex items-center gap-0.5 shrink-0">
               <GlobalSearchPalette />
               <NotificationBell />
             </div>
