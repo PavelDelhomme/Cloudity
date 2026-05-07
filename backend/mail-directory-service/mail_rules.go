@@ -413,6 +413,9 @@ func ruleFromDomainMatches(fromHeader, patternNorm string) bool {
 		return true
 	}
 	dom := strings.TrimSpace(strings.ToLower(spamExtractEmailDomain(strings.ToLower(fromHeader))))
+	// `spamExtractEmailDomain` peut laisser un `>` ou des espaces collés quand le from
+	// est au format `Display <addr@dom>` ; on nettoie ici pour le matching de règles.
+	dom = strings.TrimRight(dom, " \t>")
 	if dom == "" {
 		return false
 	}
@@ -420,6 +423,61 @@ func ruleFromDomainMatches(fromHeader, patternNorm string) bool {
 		return true
 	}
 	return strings.HasSuffix(dom, "."+patternNorm)
+}
+
+// ruleMatchCriteria — conditions pures d'une règle de tri Mail, testables sans DB.
+//
+// Utilisé par `applyMailRulesForAccount` au moment de décider si une règle s'applique à un
+// message donné, et exposé pour les tests (`mail_rules_test.go`). Toutes les chaînes patterns
+// sont attendues telles qu'enregistrées (le helper applique lui-même la mise en minuscule
+// nécessaire). Les pointeurs représentent des conditions optionnelles : `nil` = ignoré.
+type ruleMatchCriteria struct {
+	FromPattern      string
+	FromDomainNorm   string // résultat de normalizeFromDomainPattern
+	RecipientPattern string
+	SubjectPattern   string
+	HasAttachments   *bool
+	HasTagID         *int
+}
+
+type messageForRules struct {
+	FromAddr        string
+	ToAddrs         string
+	Subject         string
+	AttachmentCount int
+	TagIDs          map[int]struct{}
+}
+
+func ruleMatches(rule ruleMatchCriteria, msg messageForRules) bool {
+	fromLower := strings.ToLower(msg.FromAddr)
+	toLower := strings.ToLower(msg.ToAddrs)
+	subjLower := strings.ToLower(msg.Subject)
+	if rule.FromPattern != "" && !strings.Contains(fromLower, strings.ToLower(rule.FromPattern)) {
+		return false
+	}
+	if !ruleFromDomainMatches(msg.FromAddr, rule.FromDomainNorm) {
+		return false
+	}
+	if rule.RecipientPattern != "" && !strings.Contains(toLower, strings.ToLower(rule.RecipientPattern)) {
+		return false
+	}
+	if rule.SubjectPattern != "" && !strings.Contains(subjLower, strings.ToLower(rule.SubjectPattern)) {
+		return false
+	}
+	if rule.HasAttachments != nil {
+		if (msg.AttachmentCount > 0) != *rule.HasAttachments {
+			return false
+		}
+	}
+	if rule.HasTagID != nil {
+		if msg.TagIDs == nil {
+			return false
+		}
+		if _, ok := msg.TagIDs[*rule.HasTagID]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
@@ -506,36 +564,30 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 		if err := msgRows.Scan(&msgID, &fromAddr, &toAddrs, &subject, &attachmentCount, &folder, &isRead, &messageUID); err != nil {
 			continue
 		}
-		fromLower := strings.ToLower(fromAddr)
-		toLower := strings.ToLower(toAddrs)
-		subjLower := strings.ToLower(subject)
 		for _, rule := range rules {
-			if rule.fromPattern != "" && !strings.Contains(fromLower, strings.ToLower(rule.fromPattern)) {
-				continue
-			}
-			if !ruleFromDomainMatches(fromAddr, rule.fromDomainNorm) {
-				continue
-			}
-			if rule.recipientPattern != "" && !strings.Contains(toLower, strings.ToLower(rule.recipientPattern)) {
-				continue
-			}
-			if rule.hasTagID.Valid {
-				tags := msgTagSet[msgID]
-				if tags == nil {
-					continue
-				}
-				if _, ok := tags[int(rule.hasTagID.Int64)]; !ok {
-					continue
-				}
-			}
-			if rule.subjectPattern != "" && !strings.Contains(subjLower, strings.ToLower(rule.subjectPattern)) {
-				continue
+			crit := ruleMatchCriteria{
+				FromPattern:      rule.fromPattern,
+				FromDomainNorm:   rule.fromDomainNorm,
+				RecipientPattern: rule.recipientPattern,
+				SubjectPattern:   rule.subjectPattern,
 			}
 			if rule.hasAttachments.Valid {
-				hasAtt := attachmentCount > 0
-				if hasAtt != rule.hasAttachments.Bool {
-					continue
-				}
+				v := rule.hasAttachments.Bool
+				crit.HasAttachments = &v
+			}
+			if rule.hasTagID.Valid {
+				v := int(rule.hasTagID.Int64)
+				crit.HasTagID = &v
+			}
+			msgInput := messageForRules{
+				FromAddr:        fromAddr,
+				ToAddrs:         toAddrs,
+				Subject:         subject,
+				AttachmentCount: attachmentCount,
+				TagIDs:          msgTagSet[msgID],
+			}
+			if !ruleMatches(crit, msgInput) {
+				continue
 			}
 			newFolder := strings.TrimSpace(rule.actionFolder)
 			if isStandardMailFolder(newFolder) {
