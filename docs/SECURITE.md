@@ -118,7 +118,65 @@ Documenter pour chaque feature **ce que le serveur voit**.
 
 ---
 
-## 8. Liens utiles
+## 8. Post-quantique (PQ) — cible et migration
+
+**Pourquoi maintenant** : un attaquant peut **archiver** aujourd’hui un trafic chiffré (« *harvest now, decrypt later* ») et le **déchiffrer plus tard** quand un ordinateur quantique utile existera. Tout secret avec une **valeur > 5–10 ans** (vault **Pass**, **mail** E2E, **Drive privé**, exports légaux) doit donc déjà migrer vers un schéma **résistant PQ** — sans casser les clients existants.
+
+**Bonne nouvelle / mauvaise nouvelle** :
+
+- **Symétrique** (AES-256-GCM, ChaCha20-Poly1305) et **hash** (SHA-256, SHA-3, BLAKE2, Argon2id) sont **déjà PQ-safe** (Grover ⇒ AES-256 ≈ 128 bits PQ, encore confortable).  
+- **Asymétrique** (RSA, DH, ECDH/ECDSA, EdDSA) **tombe** face à Shor : c’est sur le **KEM** (échange de clés TLS / enveloppes E2EE) et les **signatures** (JWT, certificats, OpenPGP) qu’il faut agir.
+
+### 8.1 Standards de référence (FIPS 2024 / IETF)
+
+| Famille | Standard PQ | Usage prévu Cloudity |
+|---------|-------------|----------------------|
+| **KEM** (échange de clés) | **ML-KEM** (= **CRYSTALS-Kyber**) — **FIPS 203** | TLS 1.3 hybride, enveloppes E2EE Pass / Drive / Mail |
+| **Signatures** | **ML-DSA** (= **CRYSTALS-Dilithium**) — **FIPS 204** | JWT, certificats internes, futures signatures applicatives |
+| **Signatures (hash-based)** | **SLH-DSA** (= **SPHINCS+**) — **FIPS 205** | racine de confiance / signatures rares mais ultra-conservatives |
+| **Signatures (compactes)** | **FN-DSA** (= **Falcon**) — en cours NIST | option si tailles ML-DSA gênent (certs en ligne) |
+
+**Principe d’implémentation** : **hybride**, **toujours** — *classique ⊕ PQ*. Tant que les implémentations PQ ne sont pas auditées sur la durée, on garde une **couche classique** en parallèle (ex. **`X25519 + ML-KEM-768`**), de sorte qu’une faille d’un seul des deux ne casse pas la confidentialité.
+
+### 8.2 Application par couche
+
+| Couche | Aujourd’hui | Cible PQ | Action repo |
+|--------|-------------|----------|-------------|
+| **TLS externe** (browser ↔ gateway) | TLS 1.3 (cible) | **TLS 1.3 hybride** `X25519MLKEM768` | choix **reverse proxy** (Caddy 2.8+ / nginx + OpenSSL 3.5+ / BoringSSL / AWS-LC) ; **aucun changement code applicatif** |
+| **mTLS interne** | inexistant | mTLS **classique** d’abord, puis certs **hybrides ML-DSA + ECDSA** | introduire **step-ca** / **cert-manager** ; PQ vient après |
+| **JWT** | **RS256 / RSA-2048** | palier **Ed25519** → cible **ML-DSA-65** ou **JWT hybride** | dépend de `golang-jwt` + clients ; commencer par **Ed25519** dès stable |
+| **Vault Pass (E2EE client)** | non implémenté | enveloppe **hybride** : contenu en `ChaCha20-Poly1305` + clé encapsulée en **`X25519 ⊕ ML-KEM-768`**, KDF **Argon2id** + **HKDF-SHA-256** | **figer le format dès le MVP** Pass pour éviter une migration de tous les coffres |
+| **Mail E2E** | non implémenté | **PQ/T hybrid OpenPGP** (drafts IETF `crypto-refresh` + `pq`) | choisir lib alignée (rPGP, futurs binds Go) |
+| **Drive / Photos privés** | non chiffrés app | chunks **AES-256-GCM** / **XChaCha20-Poly1305** + clé fichier par destinataire en **`X25519 + ML-KEM-768`** | les **chunks** sont déjà PQ-safe — l’**enveloppe** est ce qu’il faut hybrider |
+| **Backups** | non implémentés | **restic** (AES-256-GCM) / **borg** (ChaCha20-Poly1305) ; passphrase via **Argon2id** | déjà PQ-safe pour le contenu |
+| **Refresh tokens** | aléa CSPRNG 256 bits + **SHA-256** | identique | rien à changer ; vérifier seulement qu’on **ne descend jamais** sous 256 bits |
+| **Hash mot de passe** | **Argon2id** | identique | ajuster paramètres tous les **18–24 mois** |
+
+### 8.3 Plan de migration pragmatique
+
+1. **Court terme — durcir l’existant avant le PQ**  
+   - **HSTS** + **CSP** au reverse proxy ; **cookies** httpOnly/Secure/SameSite ; sortir le JWT du `localStorage`.  
+   - **TLS 1.3 strict** en prod (désactiver TLS 1.0/1.1).  
+   - **mTLS interne classique** (étape **avant** tout PQ inter-services).
+2. **Moyen terme — premières briques PQ**  
+   - Activer **`X25519MLKEM768`** au reverse proxy quand la chaîne TLS le supporte (déjà répandu côté navigateurs : Chrome/Firefox/Edge 2024–2025, Cloudflare, AWS).  
+   - **Ed25519** pour les nouveaux JWT (palier intermédiaire avant ML-DSA).  
+   - **Vault Pass** : format **hybride dès la v1** (X25519 + ML-KEM-768 sur la clé d’enveloppe).
+3. **Long terme — bascule complète**  
+   - **JWT hybrides** ou **ML-DSA-65** quand `golang-jwt` + clients suivent.  
+   - **OpenPGP PQ/T hybrid** pour le mail E2E.  
+   - **CA interne hybride** ML-DSA + ECDSA pour le mTLS / certs services.
+
+### 8.4 Règle d’or
+
+> **Tout secret chiffré aujourd’hui pour 10 ans doit déjà être encapsulé en hybride.**  
+> À défaut, prévoir une **migration ciphertext** côté serveur (réécriture coffres/blobs) — coûteuse, irréversible si la clé maître a fuité.
+
+Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../STATUS.md)** § 2.3 + sous-section *Cible post-quantique*.
+
+---
+
+## 9. Liens utiles
 
 | Document | Contenu |
 |----------|---------|

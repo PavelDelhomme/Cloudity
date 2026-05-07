@@ -392,6 +392,43 @@ Le tout **dockerisé**, derrière Nginx Proxy Manager (prod) ou Nginx/Traefik en
 - **JWT** : RS256 ou Ed25519.  
 - **Mail E2E** : OpenPGP. **Backups** : restic/borg avec chiffrement intégré.
 
+#### Cible **post-quantique** (résistance « harvest now, decrypt later »)
+
+Tout ce qui est confidentiel **au-delà de 5–10 ans** (vault **Pass**, **mail** chiffré, **Drive** privé, exports légaux) doit migrer en **hybride classique + PQ** **avant** que les ordinateurs quantiques utiles existent. Les **primitives symétriques** restent solides (Grover ⇒ AES-256 ≈ 128 bits PQ) — l’effort porte sur **clés** (KEM) et **signatures**.
+
+**Standards de référence (FIPS 2024, IETF)** :
+
+| Famille | Standard PQ | Note |
+|---------|-------------|------|
+| **KEM** (échange de clés) | **ML-KEM** (= **CRYSTALS-Kyber**) — **FIPS 203** | tailles ML-KEM-512 / 768 / 1024 selon niveau |
+| **Signatures (générales)** | **ML-DSA** (= **CRYSTALS-Dilithium**) — **FIPS 204** | ML-DSA-44 / 65 / 87 |
+| **Signatures (conservatives, hash-based)** | **SLH-DSA** (= **SPHINCS+**) — **FIPS 205** | gros mais audit minimal |
+| **Signatures (compactes)** | **FN-DSA** (= **Falcon**) — en cours NIST | utile pour certs / JWT |
+| **Symétrique** | **AES-256-GCM**, **ChaCha20-Poly1305** | déjà PQ-safe |
+| **Hash** | **SHA-256 / SHA-3 / BLAKE2** | déjà PQ-safe |
+
+**Application Cloudity, par couche** :
+
+| Couche | Cible PQ-safe | Comment / quand |
+|--------|---------------|------------------|
+| **TLS externe** (browser ↔ gateway) | **TLS 1.3 hybride** `X25519 + ML-KEM-768` (groupe `X25519MLKEM768`) | uniquement choix de **reverse proxy** (Caddy 2.8+, nginx + OpenSSL 3.5+, AWS-LC, BoringSSL) ; **rien dans le code applicatif**. |
+| **mTLS interne** (services ↔ services) | démarrer **mTLS classique** (step-ca / cert-manager), basculer vers **certs hybrides ML-DSA + ECDSA** quand la PKI le permet | prérequis : commencer **mTLS aujourd’hui** ; PQ vient après. |
+| **JWT signature** | aujourd’hui **RS256 (RSA-2048)** → palier **Ed25519** ; cible PQ **ML-DSA-65** ou **JWT hybride** (deux signatures vérifiées) | dépend de `golang-jwt` + supports clients ; commencer par **Ed25519** quand prêt. |
+| **Vault Pass** (E2EE client) | enveloppe **hybride** : `ChaCha20-Poly1305` (contenu) + clé encapsulée en **X25519 ⊕ ML-KEM-768** ; KDF **Argon2id** + **HKDF-SHA-256** | format à **figer dès le MVP Pass** pour éviter une migration de tous les coffres ensuite. |
+| **Mail E2E** | **OpenPGP** classique aujourd’hui ; cible **PQ/T hybrid OpenPGP** (draft IETF `crypto-refresh` + `pq`) | choisir lib qui suit le draft (rPGP, futurs binds Go). |
+| **Drive / Photos privés** | chunks **AES-256-GCM** ou **XChaCha20-Poly1305** + clé fichier chiffrée par destinataire en **X25519 + ML-KEM-768** | les **chunks** sont déjà PQ-safe — c’est l’**enveloppe** qu’il faut hybrider. |
+| **Backups** | **restic** (AES-256-GCM) ou **borg** (ChaCha20-Poly1305) ; passphrase via **Argon2id** | déjà PQ-safe pour le contenu. |
+| **Refresh tokens** | aléa **CSPRNG** ≥ 256 bits + **SHA-256** | déjà PQ-safe (état actuel auth-service). |
+| **Hash mot de passe** | **Argon2id** | déjà PQ-safe ; ajuster paramètres tous les 18–24 mois. |
+
+**Priorisation pragmatique** :
+
+1. **Court terme (avant PQ)** : **HSTS + CSP** au reverse-proxy, cookies httpOnly/Secure/SameSite, TLS 1.3 strict en prod, **mTLS interne** classique (step-ca).  
+2. **Moyen terme** : activer **`X25519MLKEM768`** au reverse proxy dès qu’il est disponible dans la chaîne TLS utilisée ; **Ed25519** pour les nouveaux JWT ; **format vault Pass** déjà en enveloppe hybride.  
+3. **Long terme** : **JWT hybrides / ML-DSA-65** quand `golang-jwt` + clients suivent ; **OpenPGP PQ/T hybrid** pour mail E2E ; **certs CA internes hybrides** ML-DSA + ECDSA.
+
+**Règle d’or** : ce qui est **chiffré aujourd’hui pour 10 ans** doit déjà être **encapsulé en hybride** — sinon, prévoir une **migration ciphertext** côté serveur (réécriture des coffres / blobs) qui peut coûter cher.
+
 ### 2.4 Plan DNS (production)
 
 En production, exposer les services via un reverse proxy (Nginx Proxy Manager, Nginx ou Traefik) avec TLS. Plan DNS recommandé (exemple avec un domaine `cloudity.example.com`) :
