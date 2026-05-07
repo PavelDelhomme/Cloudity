@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   apiUrl,
+  apiFetch,
+  apiJson,
   fetchTenants,
   fetchTenantsPage,
   fetchUsers,
@@ -49,6 +51,85 @@ describe('api', () => {
     })
     it('returns path for /photos/timeline (microservice photos via gateway)', () => {
       expect(apiUrl('/photos/timeline')).toContain('/photos/timeline')
+    })
+  })
+
+  describe('apiFetch', () => {
+    it('combines apiUrl + Bearer + JSON content-type by default (no body init)', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) } as Response)
+      await apiFetch('tok', '/admin/foo')
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/admin/foo'),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            Authorization: 'Bearer tok',
+            'Content-Type': 'application/json',
+          }),
+        })
+      )
+    })
+    it('omits Content-Type when json:false (e.g. DELETE / blob upload)', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({ ok: true } as Response)
+      await apiFetch('tok', '/admin/foo', { method: 'DELETE', json: false })
+      const call = mockFetch.mock.calls.at(-1)?.[1] as RequestInit
+      expect((call.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+      expect((call.headers as Record<string, string>)['Authorization']).toBe('Bearer tok')
+      expect(call.method).toBe('DELETE')
+    })
+    it('merges custom headers over getAuthHeaders', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) } as Response)
+      await apiFetch('tok', '/x', { headers: { 'X-Foo': 'bar', Accept: 'image/*' } })
+      const call = mockFetch.mock.calls.at(-1)?.[1] as RequestInit
+      expect(call.headers).toMatchObject({
+        Authorization: 'Bearer tok',
+        'X-Foo': 'bar',
+        Accept: 'image/*',
+      })
+    })
+    it('omits Authorization when token is empty', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({}) } as Response)
+      await apiFetch('', '/auth/login', { method: 'POST', body: '{}' })
+      const call = mockFetch.mock.calls.at(-1)?.[1] as RequestInit
+      expect((call.headers as Record<string, string>)['Authorization']).toBeUndefined()
+    })
+  })
+
+  describe('apiJson', () => {
+    it('parses JSON when ok', async () => {
+      const mockFetch = vi.mocked(fetch)
+      mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ a: 1 }) } as Response)
+      const out = await apiJson<{ a: number }>('tok', '/x')
+      expect(out).toEqual({ a: 1 })
+    })
+    it('throws "<prefix>: <status>" by default on !ok with non-JSON body', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new Error('not json')),
+      } as unknown as Response)
+      await expect(apiJson('tok', '/x', undefined, 'Foo')).rejects.toThrow('Foo: 500')
+    })
+    it('extracts FastAPI `detail` from JSON error body', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: () => Promise.resolve({ detail: 'Cannot delete default tenant' }),
+      } as Response)
+      await expect(apiJson('tok', '/admin/tenants/1', { method: 'DELETE', json: false })).rejects.toThrow(
+        'Cannot delete default tenant'
+      )
+    })
+    it('extracts Go-style `error` field if `detail` is missing', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ error: 'invalid credentials' }),
+      } as Response)
+      await expect(apiJson('tok', '/auth/login')).rejects.toThrow('invalid credentials')
     })
   })
 

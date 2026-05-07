@@ -1,6 +1,6 @@
-import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders } from '@cloudity/shared'
+import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson } from '@cloudity/shared'
 
-export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders }
+export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson }
 
 export type TenantResponse = {
   id: number
@@ -21,10 +21,8 @@ export async function fetchTenants(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   if (options?.domainContains?.trim()) params.set('domain_contains', options.domainContains.trim())
-  const url = apiUrl(`/admin/tenants${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, { headers: getAuthHeaders(token) })
-  if (!res.ok) throw new Error(`Tenants: ${res.status}`)
-  return res.json() as Promise<TenantResponse[]>
+  const path = `/admin/tenants${params.toString() ? `?${params.toString()}` : ''}`
+  return apiJson<TenantResponse[]>(token, path, undefined, 'Tenants')
 }
 
 /** Liste paginée : une ligne de plus est demandée pour savoir s'il existe une page suivante. */
@@ -68,10 +66,8 @@ export async function fetchUsers(
   const params = new URLSearchParams()
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
-  const url = apiUrl(`/admin/tenants/${tenantId}/users${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, { headers: getAuthHeaders(token) })
-  if (!res.ok) throw new Error(`Users: ${res.status}`)
-  return res.json() as Promise<UserResponse[]>
+  const path = `/admin/tenants/${tenantId}/users${params.toString() ? `?${params.toString()}` : ''}`
+  return apiJson<UserResponse[]>(token, path, undefined, 'Users')
 }
 
 export async function fetchUsersPage(
@@ -86,11 +82,7 @@ export async function fetchUsersPage(
 }
 
 export async function deleteTenant(tenantId: number, token: string): Promise<void> {
-  const url = apiUrl(`/admin/tenants/${tenantId}`)
-  const res = await fetch(url, {
-    method: 'DELETE',
-    headers: getAuthHeaders(token),
-  })
+  const res = await apiFetch(token, `/admin/tenants/${tenantId}`, { method: 'DELETE', json: false })
   if (!res.ok) {
     let detail = `Suppression tenant: ${res.status}`
     try {
@@ -108,14 +100,12 @@ export async function updateUser(
   payload: UserUpdatePayload,
   token: string
 ): Promise<UserResponse> {
-  const url = apiUrl(`/admin/users/${userId}`)
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Update user: ${res.status}`)
-  return res.json() as Promise<UserResponse>
+  return apiJson<UserResponse>(
+    token,
+    `/admin/users/${userId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    'Update user'
+  )
 }
 
 export type DashboardStatsResponse = {
