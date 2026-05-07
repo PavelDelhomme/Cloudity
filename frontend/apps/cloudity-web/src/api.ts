@@ -229,6 +229,44 @@ export async function recordPerformanceSnapshot(token: string): Promise<{ id: nu
   )
 }
 
+/** Rapport CVE/OSV (admin) — source api.osv.dev, cache optionnel côté admin-service. */
+export type CveVulnEntryResponse = {
+  osv_id: string
+  summary?: string | null
+  modified?: string | null
+  cve_aliases: string[]
+}
+
+export type CveFindingResponse = {
+  ecosystem: string
+  package: string
+  version: string
+  vulns: CveVulnEntryResponse[]
+}
+
+export type CveReportResponse = {
+  scanned_at: string
+  source: string
+  packages_scanned: number
+  packages_with_vulns: number
+  vuln_entries_total: number
+  findings: CveFindingResponse[]
+  notes: string[]
+  summary: Record<string, unknown>
+  error?: string | null
+  from_cache: boolean
+  snapshot_id?: number | null
+}
+
+export async function fetchCveReport(token: string, refresh = false): Promise<CveReportResponse> {
+  const q = refresh ? 'refresh=true' : 'refresh=false'
+  return apiJson<CveReportResponse>(token, `/admin/security/cve-report?${q}`, undefined, 'CVE report')
+}
+
+export async function refreshCveReport(token: string): Promise<CveReportResponse> {
+  return apiJson<CveReportResponse>(token, '/admin/security/cve-report/refresh', { method: 'POST' }, 'CVE refresh')
+}
+
 // Pass / Vaults (password-manager)
 export type VaultResponse = {
   id: number

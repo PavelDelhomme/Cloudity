@@ -1122,6 +1122,8 @@ export default function MailPage() {
     queryKey: ['mail', 'accounts'],
     queryFn: () => fetchMailAccounts(accessToken!),
     enabled: !!accessToken,
+    staleTime: 180_000,
+    placeholderData: (prev: MailAccountResponse[] | undefined) => prev,
     retry: (_, err) => {
       const msg = err instanceof Error ? err.message : String(err)
       return !msg.includes('401') && !msg.includes('404')
@@ -1619,6 +1621,7 @@ export default function MailPage() {
   /** ID de la boîte en cours de sync manuelle (null = idle). Une seule sync à la fois pour éviter la surcharge IMAP. */
   const [syncingAccountId, setSyncingAccountId] = useState<number | null>(null)
   const [autoSyncRunning, setAutoSyncRunning] = useState(false)
+  const autoSyncEnabled = accounts.length > 0 && !!accessToken
   const lastSyncAtRef = useRef<number>(0)
   const backgroundSyncRunningRef = useRef(false)
   const lastBackgroundSyncStartAtRef = useRef<number>(0)
@@ -3635,12 +3638,17 @@ export default function MailPage() {
         <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Chargement des comptes…</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">(réutilise le cache du tableau de bord quand disponible)</span>
         </div>
       )}
 
       {!accountsPending && !is404 && accounts.length === 0 && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-3">
           <p className="text-amber-800 dark:text-amber-200 font-medium">Aucune boîte mail reliée à ce compte.</p>
+          <p className="text-sm text-amber-900/90 dark:text-amber-100/90">
+            Le compte <code className="rounded bg-amber-100/80 dark:bg-amber-950/50 px-1">seed-admin</code> ne crée pas de boîte IMAP : il faut en ajouter une (Google OAuth ou IMAP/SMTP). Si vous avez exécuté{' '}
+            <code className="rounded bg-amber-100/80 dark:bg-amber-950/50 px-1">make mail-clean-dev</code>, tous les comptes mail du user démo (id&nbsp;1) ont été supprimés de la base — reconnectez une boîte pour retrouver le courrier synchronisé.
+          </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -4051,10 +4059,26 @@ export default function MailPage() {
                 <div className="flex flex-col items-center gap-1">
                   <span
                     className={`inline-flex h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10 ${
-                      autoSyncRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-500'
+                      autoSyncRunning
+                        ? 'bg-emerald-500 animate-pulse'
+                        : autoSyncEnabled
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-300 dark:bg-slate-500'
                     }`}
-                    title={autoSyncRunning ? 'Synchronisation auto en cours' : 'Synchronisation auto au repos'}
-                    aria-label={autoSyncRunning ? 'Synchronisation auto en cours' : 'Synchronisation auto au repos'}
+                    title={
+                      autoSyncRunning
+                        ? 'Synchronisation auto en cours'
+                        : autoSyncEnabled
+                          ? 'Synchronisation auto active (repos)'
+                          : 'Aucune boîte : sync auto inactive'
+                    }
+                    aria-label={
+                      autoSyncRunning
+                        ? 'Synchronisation auto en cours'
+                        : autoSyncEnabled
+                          ? 'Synchronisation auto active'
+                          : 'Synchronisation auto inactive'
+                    }
                   />
                   <button
                     type="button"
@@ -4072,11 +4096,19 @@ export default function MailPage() {
                     <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300">
                       <span
                         className={`h-2.5 w-2.5 rounded-full ring-1 ring-black/10 dark:ring-white/10 ${
-                          autoSyncRunning ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-500'
+                          autoSyncRunning
+                            ? 'bg-emerald-500 animate-pulse'
+                            : autoSyncEnabled
+                              ? 'bg-emerald-500'
+                              : 'bg-slate-300 dark:bg-slate-500'
                         }`}
                         aria-hidden
                       />
-                      {autoSyncRunning ? 'Sync auto en cours…' : 'Sync auto active'}
+                      {autoSyncRunning
+                        ? 'Sync auto en cours…'
+                        : autoSyncEnabled
+                          ? 'Sync auto active'
+                          : 'Sync auto (ajoutez une boîte)'}
                     </span>
                   </div>
                   <button

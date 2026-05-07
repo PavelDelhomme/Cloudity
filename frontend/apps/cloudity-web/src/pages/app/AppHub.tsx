@@ -171,7 +171,7 @@ export default function AppHub() {
   const trashNodes = ensureArray(trashNodesRaw)
 
   const { data: mailAccountsRaw } = useQuery({
-    queryKey: ['hub', 'mail-accounts'],
+    queryKey: ['mail', 'accounts'],
     queryFn: () => fetchMailAccounts(accessToken!),
     enabled: !!accessToken,
     staleTime: 120_000,

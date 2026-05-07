@@ -143,14 +143,17 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
     let cancelled = false
     fetchMailAccounts(accessToken)
       .then((rows) => {
-        if (!cancelled) accountsRef.current = rows
+        if (!cancelled) {
+          accountsRef.current = rows
+          void queryClient.setQueryData(['mail', 'accounts'], rows)
+        }
       })
       .catch(() => {})
     return () => {
       cancelled = true
       accountsRef.current = []
     }
-  }, [accessToken, disabled])
+  }, [accessToken, disabled, queryClient])
 
   useEffect(() => {
     if (!accessToken || disabled) return

@@ -9,8 +9,7 @@ import {
   fetchPipelineRuns,
   recordPerformanceSnapshot,
 } from '../api'
-import { PageLayout, Card } from '@cloudity/shared'
-import { Users, Building2, Activity, AlertTriangle, Database, History } from 'lucide-react'
+import { PageLayout, Card, adminUiPath } from '@cloudity/shared'
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
@@ -136,6 +135,27 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      <Card className="p-4 mt-6 border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <Shield className="w-5 h-5 text-brand-600 dark:text-brand-400 shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Vulnérabilités des dépendances (CVE / OSV)</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                Analyse automatique des go.mod, npm et requirements via l’API publique OSV (alignée NVD/CVE).
+              </p>
+            </div>
+          </div>
+          <Link
+            to={adminUiPath('securite-cve')}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600"
+          >
+            Ouvrir le rapport CVE
+          </Link>
+        </div>
+      </Card>
+
       {budgetStatus?.violations?.length ? (
         <Card className="p-6 mt-6 border-red-300 dark:border-red-800 bg-red-50/80 dark:bg-red-950/30">
           <div className="flex items-start gap-2">

@@ -11,6 +11,7 @@ import UsersPage from './pages/Users'
 import SettingsPage from './pages/Settings'
 import VaultsPage from './pages/Vaults'
 import DomainesPage from './pages/Domaines'
+import SecurityCvePage from './pages/SecurityCvePage'
 import { AdminAccessGate } from './AdminAccessGate'
 
 const queryClient = new QueryClient({
@@ -48,6 +49,7 @@ export function AdminAppRoutes() {
           <Route path="users" element={<UsersPage />} />
           <Route path="vaults" element={<VaultsPage />} />
           <Route path="domaines" element={<DomainesPage />} />
+          <Route path="securite-cve" element={<SecurityCvePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route path="/admin/*" element={<RedirectLegacyAdminToObfuscated />} />

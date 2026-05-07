@@ -2,18 +2,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router-dom'
 import Dashboard from './Dashboard'
 import { useAuth } from '../authContext'
 import * as api from '../api'
 
 vi.mock('../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../api', () => ({ fetchDashboardStats: vi.fn() }))
+vi.mock('../api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../api')>()
+  return {
+    ...actual,
+    fetchDashboardStats: vi.fn(),
+  }
+})
 
 const mockStats = { active_tenants: 5, total_users: 10, api_calls_today: 3421 }
 
 function wrap(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+  return (
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>
+    </MemoryRouter>
+  )
 }
 
 describe('Dashboard', () => {

@@ -165,8 +165,12 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - PYTHON_ENV=development
+      # Scan CVE (OSV) : racine du dépôt en lecture seule pour go.mod / package-lock / requirements
+      - CVE_SCAN_REPO_ROOT=/cloudity-repo
+      - CVE_SCAN_CACHE_HOURS=24
     volumes:
       - ./backend/admin-service:/app:cached
+      - .:/cloudity-repo:ro
       - python_cache:/root/.cache/pip
     depends_on:
       postgres:

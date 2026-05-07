@@ -153,3 +153,33 @@ class BudgetStatusResponse(BaseModel):
     source_snapshot: str
     violations: list[BudgetViolation]
     budgets: dict[str, float | str]
+
+
+class CveVulnEntry(BaseModel):
+    osv_id: str
+    summary: str | None = None
+    modified: str | None = None
+    cve_aliases: list[str] = Field(default_factory=list)
+
+
+class CveFinding(BaseModel):
+    ecosystem: str
+    package: str
+    version: str
+    vulns: list[CveVulnEntry]
+
+
+class CveReportResponse(BaseModel):
+    """Rapport agrégé OSV (aligné CVE) pour le panneau admin."""
+
+    scanned_at: str
+    source: str = "osv.dev"
+    packages_scanned: int = 0
+    packages_with_vulns: int = 0
+    vuln_entries_total: int = 0
+    findings: list[CveFinding] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    summary: Dict = Field(default_factory=dict)
+    error: str | None = None
+    from_cache: bool = False
+    snapshot_id: int | None = None
