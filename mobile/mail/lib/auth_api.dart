@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import 'http_helpers.dart';
+
 /// Appels HTTP vers le **api-gateway** (auth + mail).
 class AuthApi {
   AuthApi(String gatewayBase)
@@ -125,7 +127,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/auth/validate');
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     return res.statusCode == 200;
   }
@@ -136,7 +138,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/mail/me/accounts');
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
@@ -175,7 +177,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages').replace(queryParameters: params);
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
@@ -212,7 +214,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/mail/me/accounts/$accountId/folders/summary');
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
@@ -235,7 +237,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/mail/me/accounts/$accountId/sync');
     final res = await http.post(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
@@ -264,7 +266,7 @@ class AuthApi {
     );
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
@@ -291,10 +293,7 @@ class AuthApi {
     );
     final res = await http.patch(
       uri,
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json',
-      },
+      headers: authHeaders(accessToken),
       body: jsonEncode({'read': read}),
     );
     if (res.statusCode == 401) {
@@ -318,10 +317,7 @@ class AuthApi {
     );
     final res = await http.patch(
       uri,
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json',
-      },
+      headers: authHeaders(accessToken),
       body: jsonEncode({'folder': folder}),
     );
     if (res.statusCode == 401) {
@@ -354,10 +350,7 @@ class AuthApi {
     }
     final res = await http.post(
       uri,
-      headers: {
-        'Authorization': 'Bearer $accessToken',
-        'Content-Type': 'application/json',
-      },
+      headers: authHeaders(accessToken),
       body: jsonEncode(payload),
     );
     if (res.statusCode == 401) {
@@ -381,7 +374,7 @@ class AuthApi {
     );
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');

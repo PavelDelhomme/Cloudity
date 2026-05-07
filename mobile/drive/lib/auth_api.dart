@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'http_helpers.dart';
+
 /// Appels HTTP vers le **api-gateway** (auth + drive…).
 class AuthApi {
   AuthApi(String gatewayBase) : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
@@ -18,7 +20,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/auth/login');
     final res = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: authHeaders(null),
       body: jsonEncode({
         'email': email,
         'password': password,
@@ -49,7 +51,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/auth/refresh');
     final res = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: authHeaders(null),
       body: jsonEncode({'refresh_token': refreshToken}),
     );
     final body = res.body.isEmpty ? '{}' : res.body;
@@ -82,7 +84,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/auth/validate');
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     return res.statusCode == 200;
   }
@@ -96,7 +98,7 @@ class AuthApi {
     final uri = Uri.parse('$_base/drive/nodes$q');
     final res = await http.get(
       uri,
-      headers: {'Authorization': 'Bearer $accessToken'},
+      headers: authHeaders(accessToken, json: false),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
+import 'http_helpers.dart';
 import 'user_session.dart';
 
 const _pageSize = 48;
@@ -256,9 +257,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                                       child: Image.network(
                                         _thumbUrl(id),
                                         fit: BoxFit.cover,
-                                        headers: {
-                                          'Authorization': 'Bearer ${widget.session.accessToken}',
-                                        },
+                                        headers: authHeaders(widget.session.accessToken, json: false),
                                         loadingBuilder: (_, child, prog) {
                                           if (prog == null) return child;
                                           return const Center(
