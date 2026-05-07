@@ -97,9 +97,58 @@ volumes:
 | Étape | Outil | Détail |
 |-------|-------|--------|
 | **Boot service** | `step-cli` (ou client ACME Go) | demande un cert avec **provisioner JWT** scopé au nom du service. |
-| **Renew** | sidecar **`step ca renew`** (ou worker en goroutine) | renew **avant 2/3 de la durée**. |
+| **Renew** | sidecar **[`scripts/security/step-renew.sh`](../scripts/security/step-renew.sh)** | bootstrap + boucle `step ca renew --force --expires-in $RENEW_AT`, renew **avant 1/3 de TTL** (par défaut 8 h sur des certs 24 h). |
 | **Stockage cert** | tmpfs (`/run/step/<service>/`) | jamais sur volume persistant. |
-| **Reload TLS** | `tls.Config.GetCertificate` lit le fichier à chaque handshake | pas de redémarrage. |
+| **Reload TLS** | `tls.Config.GetCertificate` lit le fichier à chaque handshake (cf. `internalsec.ServerTLS` qui utilise un `atomic.Pointer[tls.Certificate]`) | pas de redémarrage. |
+
+### 3.5 Exemple d'intégration en compose (sidecar pour un service)
+
+```yaml
+services:
+  password-manager:
+    # ... existant ...
+    volumes:
+      - pass_step_runtime:/run/step/password-manager:rw,tmpfs
+    environment:
+      - MTLS_MODE=permissive
+      - MTLS_CERT_FILE=/run/step/password-manager/cert.pem
+      - MTLS_KEY_FILE=/run/step/password-manager/key.pem
+      - MTLS_CA_FILE=/run/step/password-manager/ca.pem
+    depends_on:
+      step-renew-pass:
+        condition: service_healthy
+
+  step-renew-pass:
+    image: smallstep/step-cli:latest
+    container_name: cloudity-step-renew-pass
+    entrypoint: /scripts/step-renew.sh
+    environment:
+      - STEP_CA_URL=https://step-ca:9000
+      - STEP_CA_FINGERPRINT=${STEP_CA_FINGERPRINT}
+      - SVC_NAME=password-manager
+      - SPIFFE_ID=spiffe://cloudity.local/ns/default/sa/password-manager
+      - CERT_TTL=24h
+      - RENEW_AT=8h
+    volumes:
+      - ./scripts/security/step-renew.sh:/scripts/step-renew.sh:ro
+      - pass_step_runtime:/run/step/password-manager
+      - ./infrastructure/step-ca/secrets:/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /run/step/password-manager/cert.pem"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+    networks:
+      - cloudity-network
+
+volumes:
+  pass_step_runtime:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+```
+
+> Le **fingerprint** de la racine s'obtient via `make mtls-status` (ou `step certificate fingerprint /home/step/certs/root_ca.crt`) et se passe en `STEP_CA_FINGERPRINT` dans `.env`.
 
 ---
 

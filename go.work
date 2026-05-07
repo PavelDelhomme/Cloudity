@@ -1,0 +1,27 @@
+go 1.24
+
+// Workspace mono-repo : permet aux outils Go locaux (IDE, `go build` à la
+// racine, `go test ./...`) de résoudre les imports inter-modules sans publier
+// internalsec sur un dépôt distant.
+//
+// IMPORTANT : Docker build de chaque service utilise `./backend/<svc>` comme
+// contexte et IGNORE go.work (file is repo-root only). Un service qui doit
+// importer internalsec dans le conteneur devra :
+//   1) ajouter `replace github.com/pavel/cloudity/internalsec => ../internalsec`
+//      (ou un path absolu si l'image le copie ailleurs) dans son `go.mod`,
+//   2) ajuster son Dockerfile pour COPY le code de `internalsec` au bon endroit.
+// Voir docs/MTLS-INTERNE.md § 4 pour le pattern complet.
+
+use (
+	./backend/api-gateway
+	./backend/auth-service
+	./backend/calendar-service
+	./backend/contacts-service
+	./backend/drive-service
+	./backend/internalsec
+	./backend/mail-directory-service
+	./backend/notes-service
+	./backend/password-manager
+	./backend/photos-service
+	./backend/tasks-service
+)

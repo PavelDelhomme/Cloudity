@@ -173,6 +173,15 @@ Le serveur **doit** savoir :
 - la **taille** et la **date** des ciphertext (pour quotas / sync).  
 - une **étiquette de version de format** (`v: 1`, `v: 2` …) en clair pour permettre l’audit (« combien d’items en `v: 1` à migrer »).
 
+### 7.1 Endpoints actuels
+
+| Méthode + chemin | Rôle | Notes |
+|------------------|------|-------|
+| `POST /pass/vaults/:id/items` | client | accepte `format_version` (défaut **`currentFormatVersion = 1`**, borné `[0..32767]`). |
+| `PUT /pass/items/:id` | client | idem ; renvoie la `format_version` enregistrée. |
+| `GET /pass/vaults/:id/items` | client | liste avec `format_version` par item. |
+| **`GET /pass/admin/format-versions`** | **admin** | distribution `format_version → count` pour piloter la migration. Source : fonction Postgres `pass_format_version_stats()` **`SECURITY DEFINER`** (count uniquement, jamais le ciphertext). Garde double : rôle admin **côté gateway** + en-tête `X-Admin-Role: admin` revérifié **côté service**. |
+
 Endpoint actuel `pass_items` :
 
 ```168:209:backend/password-manager/main.go

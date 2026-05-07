@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -32,6 +33,16 @@ func main() {
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "password-manager"}) })
+
+	// Routes admin-only sous /pass/admin/* : la gateway garantit le rôle admin
+	// (cf. backend/api-gateway/main.go isAdminOnlyPassRoute) et propage X-User-ID.
+	// On exige X-Admin-Role: admin en défense en profondeur.
+	adminPass := r.Group("/pass/admin")
+	adminPass.Use(h.requireAdminRole)
+	{
+		adminPass.GET("/format-versions", h.adminFormatVersions)
+	}
+
 	r.Use(h.requireUserID)
 
 	pass := r.Group("/pass")
@@ -75,6 +86,17 @@ func (h *Handler) requireUserID(c *gin.Context) {
 	_, err = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
+		return
+	}
+	c.Next()
+}
+
+// requireAdminRole protège les routes /pass/admin/*. Le contrôle autoritatif
+// est côté gateway (rôle JWT admin) ; ici on exige explicitement la propagation
+// de l'en-tête X-Admin-Role: admin en défense en profondeur.
+func (h *Handler) requireAdminRole(c *gin.Context) {
+	if !strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Admin-Role")), "admin") {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin role required"})
 		return
 	}
 	c.Next()
@@ -281,6 +303,39 @@ func (h *Handler) updateItem(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"id": iid, "format_version": fv})
+}
+
+// adminFormatVersions renvoie la distribution des items par version d'enveloppe
+// Pass-Crypto pour piloter la migration côté client (cf. docs/PASS-CRYPTO.md
+// § 9). Source : fonction Postgres pass_format_version_stats() (SECURITY
+// DEFINER, contourne RLS pour count uniquement, jamais les ciphertext).
+func (h *Handler) adminFormatVersions(c *gin.Context) {
+	rows, err := h.db.Query(`SELECT format_version, item_count FROM pass_format_version_stats()`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	type row struct {
+		FormatVersion int   `json:"format_version"`
+		ItemCount     int64 `json:"item_count"`
+	}
+	out := make([]row, 0, 8)
+	var total int64
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.FormatVersion, &r.ItemCount); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		out = append(out, r)
+		total += r.ItemCount
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"current_format_version": currentFormatVersion,
+		"total_items":            total,
+		"versions":               out,
+	})
 }
 
 func (h *Handler) deleteItem(c *gin.Context) {

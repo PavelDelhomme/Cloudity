@@ -382,11 +382,16 @@ func authMiddleware(next http.Handler) http.Handler {
 				r.Header.Set("X-Tenant-ID", strconv.Itoa(int(n)))
 			}
 		}
-		if isAdminOnlyMailRoute(r.URL.Path) && !tokenHasAdminRole(claims) {
+		adminOnly := isAdminOnlyMailRoute(r.URL.Path) || isAdminOnlyPassRoute(r.URL.Path)
+		if adminOnly && !tokenHasAdminRole(claims) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(`{"error":"admin role required"}`))
 			return
+		}
+		if adminOnly {
+			// Défense en profondeur : le service downstream peut revérifier ce header.
+			r.Header.Set("X-Admin-Role", "admin")
 		}
 
 		next.ServeHTTP(w, r)
@@ -397,6 +402,13 @@ func isAdminOnlyMailRoute(path string) bool {
 	return strings.HasPrefix(path, "/mail/domains") ||
 		strings.HasPrefix(path, "/mail/mailboxes") ||
 		strings.HasPrefix(path, "/mail/aliases")
+}
+
+// isAdminOnlyPassRoute regroupe les routes Pass réservées aux admins (stats
+// internes, migrations format-version). Le rôle admin est exigé côté gateway,
+// puis revérifié par le password-manager via X-Admin-Role.
+func isAdminOnlyPassRoute(path string) bool {
+	return strings.HasPrefix(path, "/pass/admin")
 }
 
 func tokenHasAdminRole(claims jwt.MapClaims) bool {

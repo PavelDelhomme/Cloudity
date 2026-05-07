@@ -178,6 +178,23 @@ func TestIsAdminOnlyMailRoute(t *testing.T) {
 	}
 }
 
+func TestIsAdminOnlyPassRoute(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{path: "/pass/admin/format-versions", want: true},
+		{path: "/pass/admin", want: true},
+		{path: "/pass/vaults", want: false},
+		{path: "/pass/items/42", want: false},
+	}
+	for _, tc := range cases {
+		if got := isAdminOnlyPassRoute(tc.path); got != tc.want {
+			t.Fatalf("isAdminOnlyPassRoute(%q)=%v, want %v", tc.path, got, tc.want)
+		}
+	}
+}
+
 func TestTokenHasAdminRole(t *testing.T) {
 	if !tokenHasAdminRole(jwt.MapClaims{"role": "admin"}) {
 		t.Fatal("tokenHasAdminRole should accept role=admin")

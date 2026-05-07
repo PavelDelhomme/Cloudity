@@ -92,3 +92,36 @@ func TestCurrentFormatVersionIsEnvelopeV1(t *testing.T) {
 	}
 }
 
+func TestRequireAdminRole_RejectsWithoutHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &Handler{db: nil}
+	r := gin.New()
+	r.Use(h.requireAdminRole)
+	r.GET("/pass/admin/format-versions", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/pass/admin/format-versions", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("requireAdminRole sans header: status %d, want 403", w.Code)
+	}
+}
+
+func TestRequireAdminRole_AcceptsAdminHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &Handler{db: nil}
+	r := gin.New()
+	r.Use(h.requireAdminRole)
+	r.GET("/pass/admin/ping", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+
+	req := httptest.NewRequest(http.MethodGet, "/pass/admin/ping", nil)
+	req.Header.Set("X-Admin-Role", "Admin") // case-insensitive
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("requireAdminRole avec header: status %d, want 200", w.Code)
+	}
+}
+
