@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -48,6 +48,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
 	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
 	@echo '  make test-e2e-playwright-mail - E2E Playwright, fichier e2e/mail.spec.ts uniquement (stabilité React § TESTS 4.8)'
+	@echo '  make test-e2e-playwright-admin - E2E Playwright, fichier e2e/admin.spec.ts uniquement (smoke /4dm1n connexion admin -> back-office)'
 	@echo '  make dashboard-npm-ci - npm ci à la racine frontend/ (workspaces, comme le Dockerfile prod)'
 	@echo '  make dashboard-npm-install - npm install dans apps/cloudity-web (ou utiliser frontend-install à la racine)'
 	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
@@ -399,6 +400,11 @@ test-e2e-playwright-mail: ## E2E Playwright — Mail uniquement (e2e/mail.spec.t
 	@echo "🎭 Tests E2E Playwright — Mail..."
 	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/mail.spec.ts
 	@echo "✅ E2E Mail OK"
+
+test-e2e-playwright-admin: ## E2E Playwright — back-office /4dm1n uniquement (e2e/admin.spec.ts). Prérequis: make up, make seed-admin
+	@echo "🎭 Tests E2E Playwright — Back-office /4dm1n..."
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/admin.spec.ts
+	@echo "✅ E2E Admin OK"
 
 dashboard-npm-ci: ## npm ci à la racine frontend/ (workspaces : apps/* + packages/*)
 	@echo "📦 npm ci — frontend/ (workspaces)..."
