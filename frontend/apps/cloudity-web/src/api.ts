@@ -159,10 +159,7 @@ export type PerformanceOverviewResponse = {
 export async function fetchDashboardStats(token: string): Promise<DashboardStatsResponse> {
   const url = apiUrl('/admin/stats')
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Stats: ${res.status}`)
   return res.json() as Promise<DashboardStatsResponse>
@@ -171,10 +168,7 @@ export async function fetchDashboardStats(token: string): Promise<DashboardStats
 export async function fetchPerformanceOverview(token: string): Promise<PerformanceOverviewResponse> {
   const url = apiUrl('/admin/performance/overview')
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Performance overview: ${res.status}`)
   return res.json() as Promise<PerformanceOverviewResponse>
@@ -227,10 +221,7 @@ export type BudgetStatusResponse = {
 export async function fetchPerformanceHistory(token: string, limit = 24): Promise<PerformanceHistoryResponse> {
   const url = apiUrl(`/admin/performance/history?limit=${encodeURIComponent(String(limit))}`)
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Performance history: ${res.status}`)
   return res.json() as Promise<PerformanceHistoryResponse>
@@ -239,10 +230,7 @@ export async function fetchPerformanceHistory(token: string, limit = 24): Promis
 export async function fetchPipelineRuns(token: string, limit = 40): Promise<PipelineRunsResponse> {
   const url = apiUrl(`/admin/performance/pipeline-runs?limit=${encodeURIComponent(String(limit))}`)
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Pipeline runs: ${res.status}`)
   return res.json() as Promise<PipelineRunsResponse>
@@ -251,10 +239,7 @@ export async function fetchPipelineRuns(token: string, limit = 40): Promise<Pipe
 export async function fetchBudgetStatus(token: string): Promise<BudgetStatusResponse> {
   const url = apiUrl('/admin/performance/budget-status')
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Budget status: ${res.status}`)
   return res.json() as Promise<BudgetStatusResponse>
@@ -264,10 +249,7 @@ export async function recordPerformanceSnapshot(token: string): Promise<{ id: nu
   const url = apiUrl('/admin/performance/record')
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Performance record: ${res.status}`)
   return res.json() as Promise<{ id: number; recorded_at: string }>
@@ -294,10 +276,7 @@ export type PassItemResponse = {
 export async function fetchVaults(token: string): Promise<VaultResponse[]> {
   const url = apiUrl('/pass/vaults')
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Vaults: ${res.status}`)
   return res.json() as Promise<VaultResponse[]>
@@ -307,10 +286,7 @@ export async function createVault(token: string, name: string): Promise<{ id: nu
   const url = apiUrl('/pass/vaults')
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ name: name || 'Default' }),
   })
   if (!res.ok) throw new Error(`Create vault: ${res.status}`)
@@ -320,10 +296,7 @@ export async function createVault(token: string, name: string): Promise<{ id: nu
 export async function fetchVaultItems(token: string, vaultId: number): Promise<PassItemResponse[]> {
   const url = apiUrl(`/pass/vaults/${vaultId}/items`)
   const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) throw new Error(`Vault items: ${res.status}`)
   return res.json() as Promise<PassItemResponse[]>
@@ -557,7 +530,7 @@ export type MailAccountResponse = {
 
 export async function fetchMailAccounts(token: string): Promise<MailAccountResponse[]> {
   const res = await fetch(apiUrl('/mail/me/accounts'), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail accounts: ${res.status}`)
   return res.json() as Promise<MailAccountResponse[]>
@@ -577,10 +550,7 @@ export async function createMailAccount(
   }
   const res = await fetch(apiUrl('/mail/me/accounts'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (res.status === 409) throw new Error('Cette adresse est déjà reliée')
@@ -591,7 +561,7 @@ export async function createMailAccount(
 export async function deleteMailAccount(token: string, accountId: number): Promise<void> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (res.ok) return
   const t = await res.text()
@@ -698,7 +668,7 @@ export async function fetchMailMessages(
   if (options?.q?.trim()) params.set('q', options.q.trim())
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail messages: ${res.status}`)
   const data = (await res.json()) as MailMessageResponse[] | MailMessagesPageResponse
@@ -733,7 +703,7 @@ export async function fetchUnifiedMailMessages(
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
   const q = params.toString()
   const res = await fetch(apiUrl(`/mail/me/messages/unified${q ? `?${q}` : ''}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail messages unifiés: ${res.status}`)
   const data = (await res.json()) as MailMessagesPageResponse
@@ -759,10 +729,7 @@ export async function updateMailAccount(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) {
@@ -784,7 +751,7 @@ export type MailAccountAliasResponse = {
 
 export async function fetchMailAliases(token: string, accountId: number): Promise<MailAccountAliasResponse[]> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail aliases: ${res.status}`)
   const data = (await res.json()) as unknown
@@ -793,7 +760,7 @@ export async function fetchMailAliases(token: string, accountId: number): Promis
 
 export async function fetchMailFilterRules(token: string, accountId: number): Promise<MailFilterRuleResponse[]> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail rules: ${res.status}`)
   return res.json() as Promise<MailFilterRuleResponse[]>
@@ -819,10 +786,7 @@ export async function createMailFilterRule(
 ): Promise<{ ok: boolean; id: number }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Create mail rule: ${res.status}`)
@@ -851,10 +815,7 @@ export async function patchMailFilterRule(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) throw new Error(`Patch mail rule: ${res.status}`)
@@ -864,7 +825,7 @@ export async function patchMailFilterRule(
 export async function deleteMailFilterRule(token: string, accountId: number, ruleId: number): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete mail rule: ${res.status}`)
   return res.json() as Promise<{ ok: boolean }>
@@ -873,7 +834,7 @@ export async function deleteMailFilterRule(token: string, accountId: number, rul
 export async function applyMailFilterRules(token: string, accountId: number): Promise<{ ok: boolean; affected: number }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/apply`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Apply mail rules: ${res.status}`)
   return res.json() as Promise<{ ok: boolean; affected: number }>
@@ -886,7 +847,7 @@ export async function createMailAlias(
 ): Promise<{ id: number; alias_email: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -908,7 +869,7 @@ export async function patchMailAlias(
   if (patch.deliver_target_email !== undefined) body.deliver_target_email = patch.deliver_target_email
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -921,7 +882,7 @@ export async function patchMailAlias(
 export async function deleteMailAlias(token: string, accountId: number, aliasId: number): Promise<void> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete alias: ${res.status}`)
 }
@@ -932,7 +893,7 @@ export async function fetchMailMessage(
   messageId: number
 ): Promise<MailMessageDetailResponse> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail message: ${res.status}`)
   return res.json() as Promise<MailMessageDetailResponse>
@@ -947,7 +908,7 @@ export async function downloadMailAttachment(
 ): Promise<Blob> {
   const res = await fetch(
     apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/attachments/${attachmentId}`),
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: getAuthHeaders(token, { json: false }) }
   )
   if (!res.ok) {
     const t = await res.text()
@@ -964,10 +925,7 @@ export async function markMailMessageRead(
 ): Promise<{ ok: boolean; read: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/read`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ read }),
   })
   if (!res.ok) throw new Error(`Mark read: ${res.status}`)
@@ -987,10 +945,7 @@ export async function moveMailMessageToFolder(
 ): Promise<{ ok: boolean; folder: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/folder`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ folder }),
   })
   if (!res.ok) throw new Error(`Move message: ${res.status}`)
@@ -1006,10 +961,7 @@ export async function markMailMessagesReadBulk(
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/read`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ message_ids: ids, read }),
   })
   if (!res.ok) throw new Error(`Bulk mark read: ${res.status}`)
@@ -1025,10 +977,7 @@ export async function moveMailMessagesToFolderBulk(
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/folder`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ message_ids: ids, folder }),
   })
   if (!res.ok) throw new Error(`Bulk move messages: ${res.status}`)
@@ -1042,9 +991,7 @@ export async function deleteMailMessagePermanently(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/permanent`), {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Permanent delete message: ${res.status}`)
   return res.json() as Promise<{ ok: boolean }>
@@ -1053,7 +1000,7 @@ export async function deleteMailMessagePermanently(
 /** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */
 export async function getMailGoogleOAuthRedirectUrl(token: string): Promise<{ redirect_url: string }> {
   const res = await fetch(apiUrl('/mail/me/oauth/google/authorize'), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) {
     const t = await res.text()
@@ -1083,10 +1030,7 @@ export async function syncMailAccount(
   }
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/sync`), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -1122,7 +1066,7 @@ export async function fetchMailFolderSummary(
   accountId: number
 ): Promise<MailFolderSummaryResponse> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/folders/summary`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail folder summary: ${res.status}`)
   const raw = (await res.json()) as Record<string, unknown>
@@ -1171,7 +1115,7 @@ export type MailImapFolderRow = {
 /** Arborescence dossiers telle que renvoyée par IMAP LIST (après sync). */
 export async function fetchMailImapFolders(token: string, accountId: number): Promise<MailImapFolderRow[]> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail IMAP folders: ${res.status}`)
   const data = (await res.json()) as unknown
@@ -1193,7 +1137,7 @@ export async function createMailImapFolder(
 ): Promise<{ ok: boolean; imap_path: string; parent_imap_path?: string; label?: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({
       parent_imap_path: payload.parent_imap_path ?? 'INBOX',
       label: payload.label ?? '',
@@ -1223,7 +1167,7 @@ export async function renameMailImapFolder(
 ): Promise<{ ok: boolean; imap_path: string }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/rename`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ imap_path: payload.imap_path, new_label: payload.new_label }),
   })
   if (!res.ok) {
@@ -1247,7 +1191,7 @@ export async function deleteMailImapFolder(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/delete`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ imap_path: payload.imap_path }),
   })
   if (!res.ok) {
@@ -1274,7 +1218,7 @@ export type MailTagResponse = {
 
 export async function fetchMailTags(token: string, accountId: number): Promise<MailTagResponse[]> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Mail tags: ${res.status}`)
   const data = (await res.json()) as unknown
@@ -1288,7 +1232,7 @@ export async function createMailTag(
 ): Promise<{ id: number; name: string; existed?: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Create mail tag: ${res.status}`)
@@ -1303,7 +1247,7 @@ export async function putMailMessageTags(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/tags`), {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ tag_ids: tagIds }),
   })
   if (!res.ok) throw new Error(`Put message tags: ${res.status}`)
@@ -1326,10 +1270,7 @@ export async function sendMailMessage(
 ): Promise<{ message: string }> {
   const res = await fetch(apiUrl('/mail/me/send'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -1357,10 +1298,7 @@ export async function scheduleMailMessage(
 ): Promise<{ ok: boolean; id: number; scheduled_send_at: string }> {
   const res = await fetch(apiUrl('/mail/me/send/schedule'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -1482,7 +1420,7 @@ export async function fetchDriveNodes(
   const base = apiUrl('/drive/nodes')
   const url = parentId == null ? base : `${base}?parent_id=${parentId}`
   const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Drive: ${res.status}`)
   return res.json() as Promise<DriveNode[]>
@@ -1503,7 +1441,7 @@ export async function fetchDriveSearch(
     params.set('parent_id', String(opts.parent_id))
   }
   const res = await fetch(apiUrl(`/drive/nodes/search?${params.toString()}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Drive search: ${res.status}`)
   return res.json() as Promise<DriveNode[]>
@@ -1515,7 +1453,7 @@ export async function fetchDriveRecentFiles(
   limit = 20
 ): Promise<DriveNode[]> {
   const res = await fetch(apiUrl(`/drive/nodes/recent?limit=${limit}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Drive recent: ${res.status}`)
   return res.json() as Promise<DriveNode[]>
@@ -1537,7 +1475,7 @@ export async function fetchDrivePhotosTimeline(
   const offset = opts?.offset ?? 0
   const res = await fetch(
     apiUrl(`/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: getAuthHeaders(token, { json: false }) }
   )
   if (!res.ok) throw new Error(`Photos timeline: ${res.status}`)
   return res.json() as Promise<DrivePhotosTimelinePage>
@@ -1550,10 +1488,7 @@ export async function createDriveFolder(
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
   const res = await fetch(apiUrl('/drive/nodes'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ parent_id: parentId, name, is_folder: true }),
   })
   if (res.status === 409) {
@@ -1579,10 +1514,7 @@ export async function createDriveFile(
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
   const res = await fetch(apiUrl('/drive/nodes'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ parent_id: parentId, name, is_folder: false }),
   })
   if (res.status === 409) {
@@ -1651,10 +1583,7 @@ export async function renameDriveNode(
 ): Promise<{ id: number; name: string }> {
   const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ name }),
   })
   if (!res.ok) throw new Error(`Rename: ${res.status}`)
@@ -1669,10 +1598,7 @@ export async function moveDriveNode(
 ): Promise<{ id: number; name: string; parent_id: number | null }> {
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}`), {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ parent_id: parentId === null || parentId === 0 ? 0 : parentId }),
   })
   if (!res.ok) throw new Error(`Move: ${res.status}`)
@@ -1683,7 +1609,7 @@ export async function moveDriveNode(
 export async function deleteDriveNode(token: string, id: number): Promise<void> {
   const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete: ${res.status}`)
 }
@@ -1691,7 +1617,7 @@ export async function deleteDriveNode(token: string, id: number): Promise<void> 
 /** Liste les nœuds en corbeille. */
 export async function fetchDriveTrash(token: string): Promise<DriveNode[]> {
   const res = await fetch(apiUrl('/drive/nodes/trash'), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Trash: ${res.status}`)
   return res.json() as Promise<DriveNode[]>
@@ -1701,7 +1627,7 @@ export async function fetchDriveTrash(token: string): Promise<DriveNode[]> {
 export async function restoreDriveNode(token: string, id: number): Promise<void> {
   const res = await fetch(apiUrl(`/drive/nodes/${id}/restore`), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Restore: ${res.status}`)
 }
@@ -1710,7 +1636,7 @@ export async function restoreDriveNode(token: string, id: number): Promise<void>
 export async function purgeDriveNode(token: string, id: number): Promise<void> {
   const res = await fetch(apiUrl(`/drive/nodes/trash/${id}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Purge: ${res.status}`)
 }
@@ -1722,7 +1648,7 @@ export async function downloadDriveFile(
 ): Promise<Blob> {
   const q = options?.inline ? '?inline=1' : ''
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content${q}`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Download: ${res.status}`)
   const blob = await res.blob()
@@ -1743,7 +1669,7 @@ export async function downloadDriveFolderAsZip(
   folderId: number
 ): Promise<Blob> {
   const res = await fetch(apiUrl(`/drive/nodes/${folderId}/zip`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Download folder: ${res.status}`)
   return res.blob()
@@ -1757,7 +1683,7 @@ export async function fetchDriveZipEntries(
   nodeId: number
 ): Promise<DriveZipEntry[]> {
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/archive/entries`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Zip entries: ${res.status}`)
   const data = await res.json()
@@ -1771,10 +1697,7 @@ export async function downloadDriveArchive(
 ): Promise<Blob> {
   const res = await fetch(apiUrl('/drive/nodes/archive'), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ node_ids: nodeIds }),
   })
   if (!res.ok) throw new Error(`Archive: ${res.status}`)
@@ -1787,7 +1710,7 @@ export async function getDriveNodeContentAsText(
   nodeId: number
 ): Promise<string> {
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Content: ${res.status}`)
   return res.text()
@@ -1802,10 +1725,7 @@ export async function putDriveNodeContent(
 ): Promise<{ id: number; size: number }> {
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': mimeType,
-    },
+    headers: getAuthHeaders(token, { json: false, extra: { 'Content-Type': mimeType } }),
     body: content,
   })
   if (!res.ok) throw new Error(`Save content: ${res.status}`)
@@ -1821,10 +1741,7 @@ export async function putDriveNodeContentBlob(
 ): Promise<{ id: number; size: number }> {
   const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': mimeType,
-    },
+    headers: getAuthHeaders(token, { json: false, extra: { 'Content-Type': mimeType } }),
     body: blob,
   })
   if (!res.ok) throw new Error(`Save content: ${res.status}`)
@@ -1919,7 +1836,7 @@ export type UserCalendar = {
 }
 
 export async function fetchUserCalendars(token: string): Promise<UserCalendar[]> {
-  const res = await fetch(apiUrl('/calendar/calendars'), { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(apiUrl('/calendar/calendars'), { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Calendars: ${res.status}`)
   const data: unknown = await res.json()
   return Array.isArray(data) ? (data as UserCalendar[]) : []
@@ -1931,7 +1848,7 @@ export async function createUserCalendar(
 ): Promise<{ id: number; name: string; color_hex: string }> {
   const res = await fetch(apiUrl('/calendar/calendars'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Create calendar: ${res.status}`)
@@ -1955,7 +1872,7 @@ export type CalendarEvent = {
 
 export async function fetchCalendarEvents(token: string, calendarId?: number | null): Promise<CalendarEvent[]> {
   const q = calendarId != null && calendarId > 0 ? `?calendar_id=${calendarId}` : ''
-  const res = await fetch(apiUrl(`/calendar/events${q}`), { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(apiUrl(`/calendar/events${q}`), { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Calendar: ${res.status}`)
   const data: unknown = await res.json()
   return Array.isArray(data) ? (data as CalendarEvent[]) : []
@@ -1975,7 +1892,7 @@ export async function createCalendarEvent(
 ): Promise<{ id: number; title: string; calendar_id?: number }> {
   const res = await fetch(apiUrl('/calendar/events'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error(`Create event: ${res.status}`)
@@ -1997,7 +1914,7 @@ export async function updateCalendarEvent(
 ): Promise<{ id: number }> {
   const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) throw new Error(`Update event: ${res.status}`)
@@ -2007,7 +1924,7 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(token: string, eventId: number): Promise<void> {
   const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok && res.status !== 404) throw new Error(`Delete event: ${res.status}`)
 }
@@ -2024,7 +1941,7 @@ export type Note = {
 }
 
 export async function fetchNotes(token: string): Promise<Note[]> {
-  const res = await fetch(apiUrl('/notes'), { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(apiUrl('/notes'), { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Notes: ${res.status}`)
   return res.json() as Promise<Note[]>
 }
@@ -2032,7 +1949,7 @@ export async function fetchNotes(token: string): Promise<Note[]> {
 export async function createNote(token: string, title: string, content: string): Promise<{ id: number; title: string }> {
   const res = await fetch(apiUrl('/notes'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ title, content }),
   })
   if (!res.ok) throw new Error(`Create note: ${res.status}`)
@@ -2057,14 +1974,14 @@ export type Task = {
 }
 
 export async function fetchTaskLists(token: string): Promise<TaskList[]> {
-  const res = await fetch(apiUrl('/tasks/lists'), { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(apiUrl('/tasks/lists'), { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Task lists: ${res.status}`)
   return res.json() as Promise<TaskList[]>
 }
 
 export async function fetchTasks(token: string, listId?: number | null): Promise<Task[]> {
   const url = listId != null ? `${apiUrl('/tasks')}?list_id=${listId}` : apiUrl('/tasks')
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(url, { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Tasks: ${res.status}`)
   const data: unknown = await res.json()
   return Array.isArray(data) ? (data as Task[]) : []
@@ -2073,7 +1990,7 @@ export async function fetchTasks(token: string, listId?: number | null): Promise
 export async function createTaskList(token: string, name: string): Promise<{ id: number; name: string }> {
   const res = await fetch(apiUrl('/tasks/lists'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ name }),
   })
   if (!res.ok) throw new Error(`Create task list: ${res.status}`)
@@ -2086,7 +2003,7 @@ export async function createTask(
 ): Promise<{ id: number; title: string }> {
   const res = await fetch(apiUrl('/tasks'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({
       title: payload.title,
       list_id: payload.list_id ?? undefined,
@@ -2111,7 +2028,7 @@ export type ContactResponse = {
 }
 
 export async function fetchContacts(token: string): Promise<ContactResponse[]> {
-  const res = await fetch(apiUrl('/contacts'), { headers: { Authorization: `Bearer ${token}` } })
+  const res = await fetch(apiUrl('/contacts'), { headers: getAuthHeaders(token, { json: false }) })
   if (!res.ok) throw new Error(`Contacts: ${res.status}`)
   return res.json() as Promise<ContactResponse[]>
 }
@@ -2122,7 +2039,7 @@ export async function createContact(
 ): Promise<{ id: number; name: string; email: string }> {
   const res = await fetch(apiUrl('/contacts'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -2144,7 +2061,7 @@ export async function updateContact(
 ): Promise<{ id: number }> {
   const res = await fetch(apiUrl(`/contacts/${id}`), {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Update contact: ${res.status}`)
@@ -2154,7 +2071,7 @@ export async function updateContact(
 export async function deleteContact(token: string, id: number): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/contacts/${id}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete contact: ${res.status}`)
   return res.json() as Promise<{ ok: boolean }>
@@ -2175,7 +2092,7 @@ export async function importContacts(
 ): Promise<ContactImportResult> {
   const res = await fetch(apiUrl('/contacts/import'), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ contacts, on_duplicate: onDuplicate }),
   })
   if (!res.ok) {
@@ -2204,7 +2121,7 @@ export async function updateTask(
   if (patch.repeat_rule !== undefined) body.repeat_rule = patch.repeat_rule === null ? '' : patch.repeat_rule
   const res = await fetch(apiUrl(`/tasks/${id}`), {
     method: 'PUT',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`Update task: ${res.status}`)
@@ -2217,7 +2134,7 @@ export async function updateTaskCompleted(token: string, id: number, completed: 
 export async function deleteTask(token: string, id: number): Promise<void> {
   const res = await fetch(apiUrl(`/tasks/${id}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok && res.status !== 204) throw new Error(`Delete task: ${res.status}`)
 }
