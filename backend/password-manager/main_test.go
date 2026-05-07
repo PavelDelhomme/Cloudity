@@ -65,3 +65,30 @@ func TestPassVaultsRejectsInvalidUserID(t *testing.T) {
 	}
 }
 
+func TestValidateFormatVersion(t *testing.T) {
+	cases := []struct {
+		in     int
+		want   int
+		wantOK bool
+	}{
+		{0, 0, true},
+		{1, 1, true},
+		{2, 2, true},
+		{32767, 32767, true},
+		{-1, 0, false},
+		{32768, 0, false},
+	}
+	for _, c := range cases {
+		got, ok := validateFormatVersion(c.in)
+		if ok != c.wantOK || got != c.want {
+			t.Errorf("validateFormatVersion(%d) = (%d,%v), want (%d,%v)", c.in, got, ok, c.want, c.wantOK)
+		}
+	}
+}
+
+func TestCurrentFormatVersionIsEnvelopeV1(t *testing.T) {
+	if currentFormatVersion != 1 {
+		t.Errorf("currentFormatVersion = %d ; doit valoir 1 (EnvelopeV1, voir docs/PASS-CRYPTO.md)", currentFormatVersion)
+	}
+}
+

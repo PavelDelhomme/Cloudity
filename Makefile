@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status internalsec-test preprod-up preprod-down preprod-status
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -430,6 +430,73 @@ frontend-install: ## npm install à la racine frontend/ (workspaces)
 test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@chmod +x scripts/ci/test-security.sh
 	@./scripts/ci/test-security.sh
+
+# === mTLS interne (step-ca) ============================================
+# Voir docs/MTLS-INTERNE.md, infrastructure/step-ca/README.md.
+COMPOSE_SECURITY = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.security.yml
+
+mtls-up: ## Démarre step-ca (PKI interne, optionnel — voir docs/MTLS-INTERNE.md)
+	@if [ ! -f infrastructure/step-ca/secrets/ca-password ]; then \
+	  echo "⚠️  infrastructure/step-ca/secrets/ca-password manquant. Création (random 32 bytes)..."; \
+	  if command -v openssl >/dev/null 2>&1; then \
+	    openssl rand -base64 32 > infrastructure/step-ca/secrets/ca-password; \
+	  else \
+	    head -c 32 /dev/urandom | base64 > infrastructure/step-ca/secrets/ca-password; \
+	  fi; \
+	  chmod 600 infrastructure/step-ca/secrets/ca-password; \
+	  echo "🔐 Mot de passe CA généré (NE PAS committer ce fichier)."; \
+	fi
+	@$(COMPOSE_SECURITY) up -d step-ca
+	@echo "✅ step-ca démarré (https://localhost:6443). Lancer 'make seed-mtls' la première fois."
+
+mtls-down: ## Arrête step-ca (les volumes ne sont pas supprimés)
+	@$(COMPOSE_SECURITY) stop step-ca
+	@echo "ℹ️  step-ca arrêté (données conservées dans le volume cloudity-step-ca-data)."
+
+seed-mtls: ## Initialise la PKI interne (à lancer une fois après mtls-up)
+	@echo "🔐 Initialisation step-ca (mot de passe lu depuis /secrets/ca-password)..."
+	@$(COMPOSE_SECURITY) exec step-ca step ca init \
+	  --name "Cloudity Internal" \
+	  --dns step-ca,localhost \
+	  --address ":9000" \
+	  --provisioner cloudity-jwt \
+	  --password-file /secrets/ca-password \
+	  --provisioner-password-file /secrets/ca-password \
+	  || echo "ℹ️  CA déjà initialisée (rerun safe)."
+	@echo "📜 Fingerprint racine :"
+	@$(COMPOSE_SECURITY) exec step-ca step certificate fingerprint /home/step/certs/root_ca.crt || true
+
+mtls-status: ## Affiche l'état de step-ca + fingerprint root
+	@$(COMPOSE_SECURITY) ps step-ca || true
+	@echo ""
+	@$(COMPOSE_SECURITY) exec -T step-ca step certificate fingerprint /home/step/certs/root_ca.crt 2>/dev/null \
+	  | sed 's/^/Fingerprint root CA : /' \
+	  || echo "ℹ️  Pas encore initialisé. Lancer make mtls-up puis make seed-mtls."
+
+internalsec-test: ## Lance les tests unitaires du package backend/internalsec
+	@cd backend/internalsec && go test -race -count=1 ./...
+# =======================================================================
+
+# === Pré-prod edge (Caddy : TLS 1.3 + HSTS + CSP + cible PQ) ==========
+# Voir docs/REVERSE-PROXY.md, infrastructure/reverse-proxy/README.md.
+COMPOSE_PREPROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.preprod.yml
+
+preprod-up: ## Démarre la stack + Caddy (https://app.cloudity.local, https://api.cloudity.local)
+	@grep -qE '(^|\s)app\.cloudity\.local' /etc/hosts 2>/dev/null \
+	  && grep -qE '(^|\s)api\.cloudity\.local' /etc/hosts 2>/dev/null \
+	  || echo "ℹ️  Ajouter à /etc/hosts :  127.0.0.1  app.cloudity.local  api.cloudity.local"
+	@$(COMPOSE_PREPROD) up -d
+	@echo "✅ Pré-prod up. Tester : curl -kI https://app.cloudity.local | grep -iE 'strict-transport|content-security'"
+
+preprod-down: ## Arrête uniquement Caddy (le reste de la stack continue)
+	@$(COMPOSE_PREPROD) stop caddy
+	@echo "ℹ️  Caddy arrêté."
+
+preprod-status: ## En-têtes Caddy renvoyés sur app.cloudity.local
+	@curl -kI https://app.cloudity.local 2>/dev/null \
+	  | grep -iE 'http/|strict-transport|content-security|x-content-type|permissions-policy|cross-origin' \
+	  || echo "ℹ️  Caddy ne répond pas. Lancer make preprod-up."
+# =======================================================================
 
 test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). Pytest/Vitest en run. Vérifie les binaires en cours d’exécution.
 	@echo "🧪 Tests dans les conteneurs déjà up (exec Go + run admin)..."

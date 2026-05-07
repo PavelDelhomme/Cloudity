@@ -1,0 +1,46 @@
+# Couche sécurité Cloudity (optionnelle) :
+#   - step-ca : PKI interne pour le mTLS entre microservices.
+# Activée via `make mtls-up`. Voir docs/MTLS-INTERNE.md pour le plan complet.
+#
+# Usage manuel :
+#   docker compose -f docker-compose.yml -f docker-compose.security.yml up -d step-ca
+#
+# Le mot de passe de la CA est lu depuis ./infrastructure/step-ca/secrets/ca-password
+# (ignoré par git). Tant qu'il n'existe pas, `step ca init` échoue : faire :
+#   echo "$(openssl rand -base64 32)" > infrastructure/step-ca/secrets/ca-password
+
+services:
+  step-ca:
+    image: smallstep/step-ca:latest
+    container_name: cloudity-step-ca
+    restart: unless-stopped
+    environment:
+      DOCKER_STEPCA_INIT_NAME: "Cloudity Internal"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "step-ca,localhost"
+      DOCKER_STEPCA_INIT_PROVISIONER_NAME: "cloudity-jwt"
+      DOCKER_STEPCA_INIT_PASSWORD_FILE: "/secrets/ca-password"
+    volumes:
+      - step_ca_data:/home/step
+      - ./infrastructure/step-ca/secrets:/secrets:ro
+    ports:
+      # Exposé uniquement en dev/preprod ; en prod, garder accessible
+      # uniquement via le réseau Docker.
+      - "6443:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "step ca health --ca-url https://localhost:9000 --root /home/step/certs/root_ca.crt | grep -q ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - cloudity-network
+
+volumes:
+  step_ca_data:
+    driver: local
+    name: cloudity-step-ca-data
+
+networks:
+  cloudity-network:
+    external: true
+    name: cloudity-network

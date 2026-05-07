@@ -1,0 +1,83 @@
+# Caddyfile pré-prod Cloudity — termine TLS 1.3 (avec hybride PQ quand la build le supporte)
+# devant la stack Docker (api-gateway:8000, cloudity-web:3000).
+#
+# Ce fichier est utilisé par docker-compose.preprod.yml.
+# En LOCAL : Caddy émet ses propres certs auto-signés (`tls internal`) sur des
+# domaines `*.cloudity.local` pointant vers 127.0.0.1 (à ajouter dans /etc/hosts).
+# En vraie pré-prod : remplacer `tls internal` par `tls ops@cloudity.example.com`
+# pour ACME (Let's Encrypt), et changer les hostnames.
+
+{
+    # Email pour Let's Encrypt (ignoré si `tls internal`).
+    email ops@cloudity.example.com
+    # En local on force "internal" sur les domaines .local — pas d'ACME public.
+    auto_https disable_redirects
+    servers {
+        protocols h1 h2 h3
+    }
+    # Caddy 2.8+ active automatiquement le groupe hybride X25519MLKEM768
+    # (ou X25519Kyber768Draft00 selon version) si la chaîne TLS le supporte.
+}
+
+# === Snippets réutilisables ===========================================
+(security_headers) {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        # Ajouter "; preload" + soumettre à hstspreload.org après stabilisation :
+        # Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()"
+        Cross-Origin-Opener-Policy "same-origin"
+        Cross-Origin-Resource-Policy "same-origin"
+        # COEP : casse les ressources tierces non opt-in. Activer une fois tout en self.
+        # Cross-Origin-Embedder-Policy "require-corp"
+        -Server
+        -X-Powered-By
+    }
+}
+
+(local_tls) {
+    tls internal
+}
+# =====================================================================
+
+# --- API gateway -----------------------------------------------------
+api.cloudity.local {
+    import local_tls
+    import security_headers
+
+    # CSP minimaliste pour l'API (pas de HTML servi).
+    header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'"
+
+    @options method OPTIONS
+    handle @options {
+        respond "" 204
+    }
+
+    reverse_proxy http://api-gateway:8000 {
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For {remote}
+    }
+}
+
+# --- App web (SPA + admin /4dm1n) ------------------------------------
+app.cloudity.local {
+    import local_tls
+    import security_headers
+
+    # CSP report-only en pré-prod. Les violations sont POSTées sur la gateway,
+    # qui les logge en JSON (route /csp-report).
+    header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.local; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri https://api.cloudity.local/csp-report"
+
+    # En enforce :
+    # header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.local; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+
+    encode zstd gzip
+
+    reverse_proxy http://cloudity-web:3000 {
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For {remote}
+    }
+}

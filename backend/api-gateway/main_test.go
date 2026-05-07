@@ -1,12 +1,39 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+func TestCSPReport_Accepts204AndStripsBody(t *testing.T) {
+	handler := NewHandler()
+	payload := []byte(`{"csp-report":{"document-uri":"https://app.cloudity.local/","violated-directive":"script-src 'self'"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/csp-report", bytes.NewReader(payload))
+	req.Header.Set("Content-Type", "application/csp-report")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("POST /csp-report: got %d, want 204", w.Code)
+	}
+	if body := strings.TrimSpace(w.Body.String()); body != "" {
+		t.Errorf("POST /csp-report: body must be empty, got %q", body)
+	}
+}
+
+func TestCSPReport_MethodGetNotAllowed(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/csp-report", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET /csp-report: got %d, want 405", w.Code)
+	}
+}
 
 func TestHealthEndpoint(t *testing.T) {
 	handler := NewHandler()

@@ -147,11 +147,27 @@ func (h *Handler) createVault(c *gin.Context) {
 }
 
 type Item struct {
-	ID         int    `json:"id"`
-	VaultID    int    `json:"vault_id"`
-	Ciphertext string `json:"ciphertext"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
+	ID            int    `json:"id"`
+	VaultID       int    `json:"vault_id"`
+	Ciphertext    string `json:"ciphertext"`
+	FormatVersion int    `json:"format_version"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+// currentFormatVersion est la version cible du format d'enveloppe Pass-Crypto
+// (cf. docs/PASS-CRYPTO.md). Le serveur n'ouvre jamais le blob ciphertext,
+// il étiquette uniquement la version déclarée par le client. 0 = legacy,
+// 1 = EnvelopeV1 (Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768).
+const currentFormatVersion = 1
+
+// validateFormatVersion borne la valeur acceptée par le serveur (defense
+// en profondeur — la migration SQL contraint déjà SMALLINT).
+func validateFormatVersion(v int) (int, bool) {
+	if v < 0 || v > 32767 {
+		return 0, false
+	}
+	return v, true
 }
 
 func (h *Handler) listItems(c *gin.Context) {
@@ -162,7 +178,7 @@ func (h *Handler) listItems(c *gin.Context) {
 		return
 	}
 	rows, err := h.db.Query(`
-		SELECT id, vault_id, ciphertext, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, vault_id, ciphertext, COALESCE(format_version, 0), created_at::text, COALESCE(updated_at::text, '')
 		FROM pass_items WHERE vault_id = $1 ORDER BY created_at DESC
 	`, vid)
 	if err != nil {
@@ -174,7 +190,7 @@ func (h *Handler) listItems(c *gin.Context) {
 	for rows.Next() {
 		var it Item
 		var uat string
-		if err := rows.Scan(&it.ID, &it.VaultID, &it.Ciphertext, &it.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&it.ID, &it.VaultID, &it.Ciphertext, &it.FormatVersion, &it.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -194,18 +210,28 @@ func (h *Handler) addItem(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Ciphertext string `json:"ciphertext"`
+		Ciphertext    string `json:"ciphertext"`
+		FormatVersion *int   `json:"format_version,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Ciphertext == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ciphertext required"})
 		return
 	}
+	fv := currentFormatVersion
+	if body.FormatVersion != nil {
+		v, ok := validateFormatVersion(*body.FormatVersion)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format_version"})
+			return
+		}
+		fv = v
+	}
 	var id int
 	err = h.db.QueryRow(`
-		INSERT INTO pass_items (vault_id, ciphertext)
-		SELECT $1, $2 FROM pass_vaults WHERE id = $1 AND user_id = current_setting('app.current_user_id')::int
+		INSERT INTO pass_items (vault_id, ciphertext, format_version)
+		SELECT $1, $2, $3 FROM pass_vaults WHERE id = $1 AND user_id = current_setting('app.current_user_id')::int
 		RETURNING id
-	`, vid, body.Ciphertext).Scan(&id)
+	`, vid, body.Ciphertext, fv).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "vault not found"})
@@ -214,7 +240,7 @@ func (h *Handler) addItem(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	c.JSON(http.StatusCreated, gin.H{"id": id, "format_version": fv})
 }
 
 func (h *Handler) updateItem(c *gin.Context) {
@@ -225,16 +251,26 @@ func (h *Handler) updateItem(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Ciphertext string `json:"ciphertext"`
+		Ciphertext    string `json:"ciphertext"`
+		FormatVersion *int   `json:"format_version,omitempty"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Ciphertext == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ciphertext required"})
 		return
 	}
+	fv := currentFormatVersion
+	if body.FormatVersion != nil {
+		v, ok := validateFormatVersion(*body.FormatVersion)
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid format_version"})
+			return
+		}
+		fv = v
+	}
 	res, err := h.db.Exec(`
-		UPDATE pass_items SET ciphertext = $2, updated_at = CURRENT_TIMESTAMP
+		UPDATE pass_items SET ciphertext = $2, format_version = $3, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND vault_id IN (SELECT id FROM pass_vaults WHERE user_id = current_setting('app.current_user_id')::int)
-	`, iid, body.Ciphertext)
+	`, iid, body.Ciphertext, fv)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -244,7 +280,7 @@ func (h *Handler) updateItem(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "item not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": iid})
+	c.JSON(http.StatusOK, gin.H{"id": iid, "format_version": fv})
 }
 
 func (h *Handler) deleteItem(c *gin.Context) {

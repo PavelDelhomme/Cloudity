@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -20,6 +22,10 @@ import (
 	"github.com/rs/cors"
 	"golang.org/x/time/rate"
 )
+
+// maxCSPReportBytes plafonne la taille acceptée pour un rapport CSP
+// (les navigateurs envoient quelques Ko ; 64 KiB couvre largement).
+const maxCSPReportBytes = 64 * 1024
 
 type Service struct {
 	Name   string
@@ -106,6 +112,12 @@ func NewHandler() http.Handler {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"healthy"}`))
 	}).Methods("GET")
+
+	// CSP violation report endpoint — voir docs/REVERSE-PROXY.md § 6.
+	// Le navigateur envoie le rapport en `application/csp-report` ou
+	// `application/reports+json` selon le standard utilisé. On loggue tout
+	// ce qui arrive en JSON minifié, on répond 204.
+	r.HandleFunc("/csp-report", handleCSPReport).Methods("POST")
 
 	for _, svc := range services {
 		serviceURL, _ := url.Parse(svc.URL)
@@ -237,7 +249,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/auth/register") ||
 			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
-			r.URL.Path == "/health" {
+			r.URL.Path == "/health" ||
+			r.URL.Path == "/csp-report" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -438,4 +451,41 @@ func getEnv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// handleCSPReport reçoit un rapport de violation CSP émis par le navigateur
+// (Content-Security-Policy-Report-Only ou Reporting API). On loggue le payload
+// JSON minifié et on répond 204 — pas d'authentification ni de stockage en DB
+// pour rester aussi minimal qu'utile en pré-prod (cf. docs/REVERSE-PROXY.md § 6).
+func handleCSPReport(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxCSPReportBytes+1))
+	defer r.Body.Close()
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if len(body) > maxCSPReportBytes {
+		log.Printf("[gateway] csp-report: payload too large (%d bytes)", len(body))
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return
+	}
+	body = []byte(strings.TrimSpace(string(body)))
+	if len(body) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	// Minifier en re-sérialisant si possible (sinon on logge brut, tronqué).
+	var parsed interface{}
+	if err := json.Unmarshal(body, &parsed); err == nil {
+		if b, err := json.Marshal(parsed); err == nil {
+			log.Printf("[gateway] csp-report ua=%q %s", r.UserAgent(), string(b))
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+	if len(body) > 2048 {
+		body = body[:2048]
+	}
+	log.Printf("[gateway] csp-report (raw) ua=%q %s", r.UserAgent(), string(body))
+	w.WriteHeader(http.StatusNoContent)
 }

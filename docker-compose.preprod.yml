@@ -1,0 +1,45 @@
+# Pré-prod Cloudity : ajoute un reverse-proxy Caddy devant `cloudity-web` et
+# `api-gateway`. Termine TLS 1.3 (avec hybride PQ X25519MLKEM768 quand la build
+# le supporte) et applique HSTS, CSP, Permissions-Policy.
+#
+# Usage :
+#   make preprod-up      # démarre la stack + Caddy
+#   make preprod-down    # arrête uniquement Caddy
+#   make preprod-status  # ports, certs internes, en-têtes
+#
+# Hostnames locaux (à ajouter dans /etc/hosts) :
+#   127.0.0.1  app.cloudity.local  api.cloudity.local
+#
+# Voir docs/REVERSE-PROXY.md pour la version vraie pré-prod (ACME) et la cible PQ.
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: cloudity-caddy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "443:443/udp"  # HTTP/3
+      - "80:80"
+    volumes:
+      - ./infrastructure/reverse-proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+      - cloudity-web
+    networks:
+      - cloudity-network
+
+volumes:
+  caddy_data:
+    driver: local
+    name: cloudity-caddy-data
+  caddy_config:
+    driver: local
+    name: cloudity-caddy-config
+
+networks:
+  cloudity-network:
+    external: true
+    name: cloudity-network

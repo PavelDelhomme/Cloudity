@@ -13,6 +13,8 @@ dist/
 **/dist/
 backend/api-gateway/tmp/
 backend/drive-service/drive-service
+backend/password-manager/password-manager
+backend/mail-directory-service/mail-directory-service
 
 # Fichiers .html de test ou brouillons (création rapide de docs)
 test.html
