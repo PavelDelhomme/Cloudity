@@ -35,8 +35,8 @@ type mockUserStore struct {
 }
 
 type userRow struct {
-	userID, passwordHash, totpSecret string
-	is2FAEnabled                     bool
+	userID, passwordHash, totpSecret, role string
+	is2FAEnabled                           bool
 }
 
 func newMockUserStore() *mockUserStore {
@@ -56,25 +56,57 @@ func (m *mockUserStore) CreateUser(email, passwordHash, tenantID string) (string
 	}
 	userID := fmtID(m.nextID)
 	m.nextID++
-	m.users[email][tenantID] = userRow{userID: userID, passwordHash: passwordHash}
+	m.users[email][tenantID] = userRow{userID: userID, passwordHash: passwordHash, role: "user"}
 	return userID, nil
 }
 
 func fmtID(n int) string { return fmt.Sprintf("%d", n) }
 
-func (m *mockUserStore) GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret string, is2FAEnabled bool, err error) {
+func (m *mockUserStore) GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.users[email] == nil {
-		return "", "", "", false, errUserNotFound
+		return "", "", "", "", false, errUserNotFound
 	}
 	row, ok := m.users[email][tenantID]
 	if !ok {
-		return "", "", "", false, errUserNotFound
+		return "", "", "", "", false, errUserNotFound
 	}
 	secret := m.totpSecrets[row.userID]
 	twoFA := m.twoFA[row.userID]
-	return row.userID, row.passwordHash, secret, twoFA, nil
+	roleVal := row.role
+	if roleVal == "" {
+		roleVal = "user"
+	}
+	return row.userID, row.passwordHash, secret, roleVal, twoFA, nil
+}
+
+// promoteUser passe un utilisateur en `admin` dans le mock store (pour tests).
+func (m *mockUserStore) promoteUser(email, tenantID, role string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	row, ok := m.users[email][tenantID]
+	if !ok {
+		return
+	}
+	row.role = role
+	m.users[email][tenantID] = row
+}
+
+func (m *mockUserStore) GetUserRoleByID(userID string) (string, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, byTenant := range m.users {
+		for _, row := range byTenant {
+			if row.userID == userID {
+				if row.role == "" {
+					return "user", nil
+				}
+				return row.role, nil
+			}
+		}
+	}
+	return "", errUserNotFound
 }
 
 func (m *mockUserStore) UpdateTOTPSecret(userID, secret string) error {
@@ -189,7 +221,7 @@ func TestHashPasswordAndCompare(t *testing.T) {
 
 func TestGenerateAndParseAccessToken(t *testing.T) {
 	svc := newTestAuthService()
-	token, err := svc.generateAccessToken("1", "1", "u@test.com")
+	token, err := svc.generateAccessToken("1", "1", "u@test.com", "user")
 	if err != nil {
 		t.Fatalf("generateAccessToken: %v", err)
 	}
@@ -202,6 +234,55 @@ func TestGenerateAndParseAccessToken(t *testing.T) {
 	}
 	if claims.UserID != "1" || claims.Email != "u@test.com" {
 		t.Errorf("claims: user_id=%q email=%q", claims.UserID, claims.Email)
+	}
+	if claims.Role != "user" {
+		t.Errorf("claims.Role = %q, want %q", claims.Role, "user")
+	}
+}
+
+func TestGenerateAccessToken_AdminRoleClaim(t *testing.T) {
+	svc := newTestAuthService()
+	token, err := svc.generateAccessToken("1", "1", "admin@test.com", "admin")
+	if err != nil {
+		t.Fatalf("generateAccessToken: %v", err)
+	}
+	claims, err := svc.parseAccessToken(token)
+	if err != nil {
+		t.Fatalf("parseAccessToken: %v", err)
+	}
+	if claims.Role != "admin" {
+		t.Errorf("claims.Role = %q, want %q", claims.Role, "admin")
+	}
+}
+
+func TestLoginHandler_AdminRoleInToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newTestAuthService()
+	mockUser := svc.userStore.(*mockUserStore)
+	_, _ = mockUser.CreateUser("admin@cloudity.local", mustHash(svc, "Admin123!"), "1")
+	mockUser.promoteUser("admin@cloudity.local", "1", "admin")
+
+	r := gin.New()
+	r.POST("/auth/login", svc.Login)
+	body := `{"email":"admin@cloudity.local","password":"Admin123!","tenant_id":"1"}`
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("Login admin: got %d body %s", w.Code, w.Body.String())
+	}
+	var res map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&res); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	at, _ := res["access_token"].(string)
+	claims, err := svc.parseAccessToken(at)
+	if err != nil {
+		t.Fatalf("parseAccessToken: %v", err)
+	}
+	if claims.Role != "admin" {
+		t.Errorf("admin login: role=%q, want admin", claims.Role)
 	}
 }
 
@@ -296,7 +377,7 @@ func TestLoginHandler_InvalidPassword(t *testing.T) {
 func TestValidateTokenHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := newTestAuthService()
-	token, _ := svc.generateAccessToken("42", "1", "validate@test.com")
+	token, _ := svc.generateAccessToken("42", "1", "validate@test.com", "user")
 
 	r := gin.New()
 	r.GET("/auth/validate", svc.ValidateToken)
@@ -385,7 +466,7 @@ func TestClaims_RegisteredClaims(t *testing.T) {
 func TestEnable2FAHandler_ReturnsSecret(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := newTestAuthService()
-	token, _ := svc.generateAccessToken("1", "1", "twofa@test.com")
+	token, _ := svc.generateAccessToken("1", "1", "twofa@test.com", "user")
 
 	r := gin.New()
 	r.POST("/auth/2fa/enable", svc.Enable2FA)

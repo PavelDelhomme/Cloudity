@@ -51,7 +51,8 @@ func parseAccessTokenDurationMinutes() time.Duration {
 // UserStore abstrait l'accès aux utilisateurs (pour tests).
 type UserStore interface {
 	CreateUser(email, passwordHash, tenantID string) (userID string, err error)
-	GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret string, is2FAEnabled bool, err error)
+	GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error)
+	GetUserRoleByID(userID string) (role string, err error)
 	UpdateTOTPSecret(userID, secret string) error
 	Set2FAEnabled(userID string, enabled bool) error
 }
@@ -75,6 +76,7 @@ type Claims struct {
 	UserID   string `json:"user_id"`
 	TenantID string `json:"tenant_id"`
 	Email    string `json:"email"`
+	Role     string `json:"role,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -150,15 +152,24 @@ func (p *postgresUserStore) CreateUser(email, passwordHash, tenantID string) (st
 	return userID, err
 }
 
-func (p *postgresUserStore) GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret string, is2FAEnabled bool, err error) {
+func (p *postgresUserStore) GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error) {
 	err = p.db.QueryRow(`
-		SELECT id::text, password_hash, COALESCE(totp_secret,''), is_2fa_enabled
+		SELECT id::text, password_hash, COALESCE(totp_secret,''), COALESCE(role,'user'), is_2fa_enabled
 		FROM users WHERE email = $1 AND tenant_id::text = $2 AND is_active = true
-	`, email, tenantID).Scan(&userID, &passwordHash, &totpSecret, &is2FAEnabled)
+	`, email, tenantID).Scan(&userID, &passwordHash, &totpSecret, &role, &is2FAEnabled)
 	if err != nil {
-		return "", "", "", false, err
+		return "", "", "", "", false, err
 	}
-	return userID, passwordHash, totpSecret, is2FAEnabled, nil
+	return userID, passwordHash, totpSecret, role, is2FAEnabled, nil
+}
+
+func (p *postgresUserStore) GetUserRoleByID(userID string) (string, error) {
+	var role string
+	err := p.db.QueryRow(`SELECT COALESCE(role,'user') FROM users WHERE id::text = $1 AND is_active = true`, userID).Scan(&role)
+	if err != nil {
+		return "", err
+	}
+	return role, nil
 }
 
 func (p *postgresUserStore) UpdateTOTPSecret(userID, secret string) error {
@@ -200,11 +211,15 @@ func (r *redisSessionStore) DeleteRefresh(ctx context.Context, tokenHash string)
 
 // --- JWT ---
 
-func (a *AuthService) generateAccessToken(userID, tenantID, email string) (string, error) {
+func (a *AuthService) generateAccessToken(userID, tenantID, email, role string) (string, error) {
+	if strings.TrimSpace(role) == "" {
+		role = "user"
+	}
 	claims := Claims{
 		UserID:   userID,
 		TenantID: tenantID,
 		Email:    email,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessTokenDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -262,7 +277,8 @@ func (a *AuthService) Register(c *gin.Context) {
 		return
 	}
 
-	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email)
+	role, _ := a.userStore.GetUserRoleByID(userID)
+	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
 	ctx := c.Request.Context()
@@ -287,7 +303,7 @@ func (a *AuthService) Login(c *gin.Context) {
 		return
 	}
 
-	userID, passwordHash, _, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userID, passwordHash, _, role, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
 	if err == sql.ErrNoRows || err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
@@ -307,7 +323,7 @@ func (a *AuthService) Login(c *gin.Context) {
 		return
 	}
 
-	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email)
+	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
 	ctx := c.Request.Context()
@@ -340,7 +356,8 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 
 	_ = a.sessionStore.DeleteRefresh(ctx, refreshHash) // rotation
 
-	accessToken, _ := a.generateAccessToken(userID, tenantID, email)
+	role, _ := a.userStore.GetUserRoleByID(userID)
+	accessToken, _ := a.generateAccessToken(userID, tenantID, email, role)
 	newRefresh := generateRandomToken()
 	newHash := hashRefreshToken(newRefresh)
 	_ = a.sessionStore.SetRefresh(ctx, newHash, userID, tenantID, email, refreshTokenDuration)
@@ -373,6 +390,7 @@ func (a *AuthService) ValidateToken(c *gin.Context) {
 		"user_id":   claims.UserID,
 		"tenant_id": claims.TenantID,
 		"email":     claims.Email,
+		"role":      claims.Role,
 		"valid":     true,
 	})
 }
@@ -420,7 +438,7 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	userID, _, totpSecret, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userID, _, totpSecret, role, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
 	if err != nil || totpSecret == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user or 2FA not set up"})
 		return
@@ -432,7 +450,7 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 	if !is2FAEnabled {
 		_ = a.userStore.Set2FAEnabled(userID, true)
 	}
-	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email)
+	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
 	ctx := c.Request.Context()

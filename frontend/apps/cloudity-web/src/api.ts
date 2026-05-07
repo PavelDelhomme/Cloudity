@@ -1,6 +1,6 @@
-import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY } from '@cloudity/shared'
+import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders } from '@cloudity/shared'
 
-export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY }
+export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders }
 
 export type TenantResponse = {
   id: number
@@ -22,12 +22,7 @@ export async function fetchTenants(
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   if (options?.domainContains?.trim()) params.set('domain_contains', options.domainContains.trim())
   const url = apiUrl(`/admin/tenants${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  const res = await fetch(url, { headers: getAuthHeaders(token) })
   if (!res.ok) throw new Error(`Tenants: ${res.status}`)
   return res.json() as Promise<TenantResponse[]>
 }
@@ -74,12 +69,7 @@ export async function fetchUsers(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const url = apiUrl(`/admin/tenants/${tenantId}/users${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  const res = await fetch(url, { headers: getAuthHeaders(token) })
   if (!res.ok) throw new Error(`Users: ${res.status}`)
   return res.json() as Promise<UserResponse[]>
 }
@@ -99,10 +89,7 @@ export async function deleteTenant(tenantId: number, token: string): Promise<voi
   const url = apiUrl(`/admin/tenants/${tenantId}`)
   const res = await fetch(url, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
   })
   if (!res.ok) {
     let detail = `Suppression tenant: ${res.status}`
@@ -124,10 +111,7 @@ export async function updateUser(
   const url = apiUrl(`/admin/users/${userId}`)
   const res = await fetch(url, {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Update user: ${res.status}`)
@@ -363,12 +347,7 @@ export async function fetchDomains(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const url = apiUrl(`/mail/domains${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  const res = await fetch(url, { headers: getAuthHeaders(token) })
   if (!res.ok) throw new Error(`Domains: ${res.status}`)
   return res.json() as Promise<MailDomainResponse[]>
 }
@@ -387,10 +366,7 @@ export async function createDomain(token: string, domain: string): Promise<{ id:
   const url = apiUrl('/mail/domains')
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify({ domain }),
   })
   if (!res.ok) throw new Error(`Create domain: ${res.status}`)
@@ -404,10 +380,7 @@ export async function patchDomain(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) throw new Error(`Patch domain: ${res.status}`)
@@ -417,7 +390,7 @@ export async function patchDomain(
 export async function deleteDomain(token: string, domainId: number): Promise<void> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete domain: ${res.status}`)
 }
@@ -441,12 +414,7 @@ export async function fetchDomainMailboxes(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const url = apiUrl(`/mail/domains/${domainId}/mailboxes${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  const res = await fetch(url, { headers: getAuthHeaders(token) })
   if (!res.ok) throw new Error(`Mailboxes: ${res.status}`)
   return res.json() as Promise<MailboxResponse[]>
 }
@@ -469,10 +437,7 @@ export async function createDomainMailbox(
 ): Promise<{ id: number; local_part: string }> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes`), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Create mailbox: ${res.status}`)
@@ -482,7 +447,7 @@ export async function createDomainMailbox(
 export async function deleteDomainMailbox(token: string, domainId: number, mailboxId: number): Promise<void> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete mailbox: ${res.status}`)
 }
@@ -495,10 +460,7 @@ export async function patchDomainMailbox(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) throw new Error(`Patch mailbox: ${res.status}`)
@@ -524,12 +486,7 @@ export async function fetchDomainAliases(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const url = apiUrl(`/mail/domains/${domainId}/aliases${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-  })
+  const res = await fetch(url, { headers: getAuthHeaders(token) })
   if (!res.ok) throw new Error(`Aliases: ${res.status}`)
   return res.json() as Promise<DomainAliasResponse[]>
 }
@@ -552,10 +509,7 @@ export async function createDomainAlias(
 ): Promise<{ id: number; source_local: string; destination: string }> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases`), {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) throw new Error(`Create domain alias: ${res.status}`)
@@ -565,7 +519,7 @@ export async function createDomainAlias(
 export async function deleteDomainAlias(token: string, domainId: number, aliasId: number): Promise<void> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
     method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: getAuthHeaders(token, { json: false }),
   })
   if (!res.ok) throw new Error(`Delete domain alias: ${res.status}`)
 }
@@ -578,10 +532,7 @@ export async function patchDomainAlias(
 ): Promise<{ ok: boolean }> {
   const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
     method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
+    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) throw new Error(`Patch domain alias: ${res.status}`)

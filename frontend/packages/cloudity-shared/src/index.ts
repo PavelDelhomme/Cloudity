@@ -1,4 +1,6 @@
 export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY } from './cloudityCore'
+export { getAuthHeaders } from './authHeaders'
+export type { AuthHeadersOptions } from './authHeaders'
 export { ADMIN_UI_BASE_PATH, adminUiPath, isAdminUiReturnPath, normalizePostLoginPath } from './adminUiPath'
 export { getJwtPayloadExpMs, isAccessTokenUsable } from './jwtExpiry'
 export { parseJwtPayload, jwtPayloadHasAdminRole, accessTokenHasAdminRole } from './jwtRole'

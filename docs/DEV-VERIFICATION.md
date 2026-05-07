@@ -8,6 +8,8 @@
 - **Stack complète unitaire** : `make test` (Go, pytest, Vitest dans le service **`cloudity-web`**).
 - **E2E** (stack déjà up + compte démo) : `make up`, `make seed-admin`, attendre ~30 s, puis **`make test-e2e`** et **`make test-e2e-playwright`**.
 
+> **Important — accès admin (`/4dm1n`)** : la **gateway** et le **`AdminAccessGate`** front exigent désormais un **claim `role: "admin"`** dans le JWT. **`make seed-admin`** crée le compte **`admin@cloudity.local` / `Admin123!`** et **promeut** le user en `role='admin'` dans la BDD. Si tu étais déjà connecté avec un ancien JWT (sans `role`), **déconnecte-toi puis reconnecte-toi** (ou attends un refresh) pour récupérer un token avec le claim. Dans le cas contraire, l’UI redirige vers `/app` et l’API gateway répond `403 admin role required`.
+
 ## 2. Comportement attendu dans le navigateur
 
 Après **`make up`**, vérifier manuellement ou avec l’outil navigateur :
