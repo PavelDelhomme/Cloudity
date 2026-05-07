@@ -12,9 +12,17 @@ node_modules/
 dist/
 **/dist/
 backend/api-gateway/tmp/
+# Binaires Go produits par `go build` dans chaque service (mêmes nom que le dossier)
+backend/auth-service/auth-service
+backend/api-gateway/api-gateway
+backend/calendar-service/calendar-service
+backend/contacts-service/contacts-service
 backend/drive-service/drive-service
-backend/password-manager/password-manager
 backend/mail-directory-service/mail-directory-service
+backend/notes-service/notes-service
+backend/password-manager/password-manager
+backend/photos-service/photos-service
+backend/tasks-service/tasks-service
 
 # Fichiers .html de test ou brouillons (création rapide de docs)
 test.html
