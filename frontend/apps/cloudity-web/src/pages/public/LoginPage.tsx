@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { login as apiLogin } from '../../api'
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
+import { navigateAfterAuth } from '../../postAuthNavigate'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
@@ -34,7 +35,16 @@ export default function LoginPage() {
       }
       setAuth(res.access_token, res.refresh_token ?? undefined, 1, email.trim())
       toast.success('Connexion réussie')
-      navigate(returnTo, { replace: true })
+      // Lire `next` au moment du submit (évite course avec RedirectIfAuth / flush React où
+      // `location.search` peut ne plus refléter l’URL courante avant navigation).
+      const q = typeof window !== 'undefined' ? window.location.search : location.search
+      const p = new URLSearchParams(q)
+      const next = p.get('next')
+      const stateRt = (location.state as { returnTo?: string })?.returnTo
+      const raw = next ?? stateRt ?? '/app'
+      const dest =
+        raw.startsWith('/app') || isAdminUiReturnPath(raw) ? normalizePostLoginPath(raw) : '/app'
+      navigateAfterAuth(navigate, dest)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur de connexion')
     } finally {

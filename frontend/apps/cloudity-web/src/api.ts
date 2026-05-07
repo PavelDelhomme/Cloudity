@@ -1,6 +1,6 @@
-import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson } from '@cloudity/shared'
+import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson, apiJsonOk } from '@cloudity/shared'
 
-export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson }
+export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson, apiJsonOk }
 
 export type TenantResponse = {
   id: number
@@ -309,7 +309,7 @@ export async function patchDomain(
   domainId: number,
   patch: { is_active?: boolean }
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/domains/${domainId}`,
     { method: 'PATCH', body: JSON.stringify(patch) },
@@ -382,7 +382,7 @@ export async function patchDomainMailbox(
   mailboxId: number,
   patch: { quota_mb?: number; is_active?: boolean }
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/domains/${domainId}/mailboxes/${mailboxId}`,
     { method: 'PATCH', body: JSON.stringify(patch) },
@@ -450,7 +450,7 @@ export async function patchDomainAlias(
   aliasId: number,
   patch: { destination: string }
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/domains/${domainId}/aliases/${aliasId}`,
     { method: 'PATCH', body: JSON.stringify(patch) },
@@ -725,7 +725,7 @@ export async function createMailFilterRule(
     rule_order?: number
   }
 ): Promise<{ ok: boolean; id: number }> {
-  return apiJson<{ ok: boolean; id: number }>(
+  return apiJsonOk<{ ok: boolean; id: number }>(
     token,
     `/mail/me/accounts/${accountId}/rules`,
     { method: 'POST', body: JSON.stringify(payload) },
@@ -753,7 +753,7 @@ export async function patchMailFilterRule(
     rule_order?: number
   }
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/me/accounts/${accountId}/rules/${ruleId}`,
     { method: 'PATCH', body: JSON.stringify(patch) },
@@ -762,7 +762,7 @@ export async function patchMailFilterRule(
 }
 
 export async function deleteMailFilterRule(token: string, accountId: number, ruleId: number): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/me/accounts/${accountId}/rules/${ruleId}`,
     { method: 'DELETE', json: false },
@@ -771,7 +771,7 @@ export async function deleteMailFilterRule(token: string, accountId: number, rul
 }
 
 export async function applyMailFilterRules(token: string, accountId: number): Promise<{ ok: boolean; affected: number }> {
-  return apiJson<{ ok: boolean; affected: number }>(
+  return apiJsonOk<{ ok: boolean; affected: number }>(
     token,
     `/mail/me/accounts/${accountId}/rules/apply`,
     { method: 'POST', json: false },
@@ -862,7 +862,7 @@ export async function markMailMessageRead(
   messageId: number,
   read: boolean
 ): Promise<{ ok: boolean; read: boolean }> {
-  return apiJson<{ ok: boolean; read: boolean }>(
+  return apiJsonOk<{ ok: boolean; read: boolean }>(
     token,
     `/mail/me/accounts/${accountId}/messages/${messageId}/read`,
     { method: 'PATCH', body: JSON.stringify({ read }) },
@@ -881,7 +881,7 @@ export async function moveMailMessageToFolder(
   messageId: number,
   folder: string
 ): Promise<{ ok: boolean; folder: string }> {
-  return apiJson<{ ok: boolean; folder: string }>(
+  return apiJsonOk<{ ok: boolean; folder: string }>(
     token,
     `/mail/me/accounts/${accountId}/messages/${messageId}/folder`,
     { method: 'PATCH', body: JSON.stringify({ folder }) },
@@ -896,7 +896,7 @@ export async function markMailMessagesReadBulk(
   read: boolean
 ): Promise<{ ok: boolean; updated: number; requested: number; read: boolean }> {
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
-  return apiJson<{ ok: boolean; updated: number; requested: number; read: boolean }>(
+  return apiJsonOk<{ ok: boolean; updated: number; requested: number; read: boolean }>(
     token,
     `/mail/me/accounts/${accountId}/messages/read`,
     { method: 'PATCH', body: JSON.stringify({ message_ids: ids, read }) },
@@ -911,7 +911,7 @@ export async function moveMailMessagesToFolderBulk(
   folder: string
 ): Promise<{ ok: boolean; updated: number; requested: number; folder: string }> {
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
-  return apiJson<{ ok: boolean; updated: number; requested: number; folder: string }>(
+  return apiJsonOk<{ ok: boolean; updated: number; requested: number; folder: string }>(
     token,
     `/mail/me/accounts/${accountId}/messages/folder`,
     { method: 'PATCH', body: JSON.stringify({ message_ids: ids, folder }) },
@@ -924,7 +924,7 @@ export async function deleteMailMessagePermanently(
   accountId: number,
   messageId: number
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/me/accounts/${accountId}/messages/${messageId}/permanent`,
     { method: 'DELETE', json: false },
@@ -1176,7 +1176,7 @@ export async function putMailMessageTags(
   messageId: number,
   tagIds: number[]
 ): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/mail/me/accounts/${accountId}/messages/${messageId}/tags`,
     { method: 'PUT', body: JSON.stringify({ tag_ids: tagIds }) },
@@ -1936,7 +1936,7 @@ export async function updateContact(
 }
 
 export async function deleteContact(token: string, id: number): Promise<{ ok: boolean }> {
-  return apiJson<{ ok: boolean }>(
+  return apiJsonOk(
     token,
     `/contacts/${id}`,
     { method: 'DELETE', json: false },

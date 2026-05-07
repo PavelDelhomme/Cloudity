@@ -1,11 +1,7 @@
-/// Helpers HTTP partagés (équivalent Dart de `getAuthHeaders` côté `@cloudity/shared`).
+/// Helpers HTTP partagés (équivalent Dart de `getAuthHeaders` dans `@cloudity/shared`).
 ///
 /// Centralise la construction des entêtes d'autorisation/JSON pour éviter la duplication
-/// de `'Authorization': 'Bearer …'` dans `auth_api.dart` et les écrans.
-///
-/// NOTE: dupliqué volontairement dans chaque app mobile (mail/drive/photos) car les
-/// projets Flutter sont indépendants (pas de package Dart partagé `pubspec` à ce jour).
-/// Si on introduit `mobile/cloudity_shared` plus tard, déplacer ce fichier dedans.
+/// de `'Authorization': 'Bearer …'` dans les clients HTTP des apps mobiles.
 library;
 
 /// Construit les en-têtes pour un appel API authentifié.

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-import 'http_helpers.dart';
+import 'package:cloudity_shared/http_helpers.dart';
 
 /// Appels HTTP vers le **api-gateway** (auth + mail).
 class AuthApi {

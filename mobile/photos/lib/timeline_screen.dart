@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
-import 'http_helpers.dart';
+import 'package:cloudity_shared/http_helpers.dart';
 import 'user_session.dart';
 
 const _pageSize = 48;

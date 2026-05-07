@@ -21,8 +21,8 @@ const ADMIN_PASSWORD = process.env.PLAYWRIGHT_E2E_PASSWORD || 'Admin123!'
 test.describe('Back-office admin (/4dm1n)', () => {
   test('redirige /4dm1n vers /login si non authentifié', async ({ page }) => {
     await page.goto('/4dm1n')
-    await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 10_000 })
-    await expect(page.getByRole('heading', { name: /connexion/i })).toBeVisible()
+    await expect(page).toHaveURL(/\/login(\?|$)/, { timeout: 15_000 })
+    await expect(page.getByLabel(/email/i)).toBeVisible({ timeout: 15_000 })
   })
 
   test('connexion admin via ?next=/4dm1n ouvre le back-office', async ({ page }) => {

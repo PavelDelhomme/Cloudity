@@ -403,6 +403,7 @@ test-e2e-playwright-mail: ## E2E Playwright — Mail uniquement (e2e/mail.spec.t
 
 test-e2e-playwright-admin: ## E2E Playwright — back-office /4dm1n uniquement (e2e/admin.spec.ts). Prérequis: make up, make seed-admin
 	@echo "🎭 Tests E2E Playwright — Back-office /4dm1n..."
+	@cd frontend && ./node_modules/.bin/playwright install chromium 2>/dev/null || true
 	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/admin.spec.ts
 	@echo "✅ E2E Admin OK"
 

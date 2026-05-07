@@ -1,0 +1,12 @@
+name: cloudity_shared
+description: >
+  Bibliothèque Dart partagée pour les apps Flutter Cloudity (mail, drive, photos…).
+  Contient notamment les helpers HTTP alignés sur `getAuthHeaders` côté web.
+publish_to: 'none'
+
+version: 0.0.1
+
+environment:
+  sdk: ^3.11.4
+
+# Pas de dépendance runtime : helpers purs (Map / String).

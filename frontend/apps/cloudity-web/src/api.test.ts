@@ -3,6 +3,7 @@ import {
   apiUrl,
   apiFetch,
   apiJson,
+  apiJsonOk,
   fetchTenants,
   fetchTenantsPage,
   fetchUsers,
@@ -130,6 +131,25 @@ describe('api', () => {
         json: () => Promise.resolve({ error: 'invalid credentials' }),
       } as Response)
       await expect(apiJson('tok', '/auth/login')).rejects.toThrow('invalid credentials')
+    })
+  })
+
+  describe('apiJsonOk', () => {
+    it('parses { ok: true } with default generic', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve({ ok: true }) } as Response)
+      const out = await apiJsonOk('tok', '/x/patch', { method: 'PATCH', body: '{}' })
+      expect(out).toEqual({ ok: true })
+    })
+    it('parses extended ok body', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ ok: true, affected: 3 }),
+      } as Response)
+      const out = await apiJsonOk<{ ok: boolean; affected: number }>('tok', '/mail/rules/apply', {
+        method: 'POST',
+        json: false,
+      })
+      expect(out).toEqual({ ok: true, affected: 3 })
     })
   })
 

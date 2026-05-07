@@ -23,6 +23,7 @@ import PhotosPage from './pages/app/PhotosPage'
 import AppSettingsPage from './pages/app/AppSettingsPage'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
+import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,11 +48,15 @@ function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; 
   const { isAuthenticated } = useAuth()
   const location = useLocation()
   if (isAuthenticated) {
-    const nextParam = new URLSearchParams(location.search).get('next')
+    const q = typeof window !== 'undefined' ? window.location.search : location.search
+    const nextParam = new URLSearchParams(q).get('next')
     const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo
     const target = nextParam ?? stateReturnTo ?? to
     const safeTarget =
       target.startsWith('/app') || isAdminUiReturnPath(target) ? normalizePostLoginPath(target) : to
+    if (isAdminUiSpaPath(safeTarget)) {
+      return <FullPageRedirect href={safeTarget} />
+    }
     return <Navigate to={safeTarget} replace />
   }
   return <>{children}</>

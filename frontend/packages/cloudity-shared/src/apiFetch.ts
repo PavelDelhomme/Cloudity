@@ -70,3 +70,21 @@ export async function apiJson<T = unknown>(
   }
   return res.json() as Promise<T>
 }
+
+/**
+ * Variante typée pour les réponses JSON qui incluent au minimum `{ ok: boolean }`
+ * (très fréquent côté microservices Go / routes utilitaires).
+ *
+ * Exemple : `apiJsonOk(token, '/mail/...', { method: 'PATCH', body: … }, 'Patch')`
+ * ou `apiJsonOk<{ ok: boolean; affected: number }>(...)`.
+ */
+export type ApiOkJson = { ok: boolean }
+
+export async function apiJsonOk<T extends ApiOkJson = ApiOkJson>(
+  token: string | null | undefined,
+  path: string,
+  init?: ApiFetchInit,
+  errorPrefix = 'HTTP'
+): Promise<T> {
+  return apiJson<T>(token, path, init, errorPrefix)
+}
