@@ -147,21 +147,11 @@ export type PerformanceOverviewResponse = {
 }
 
 export async function fetchDashboardStats(token: string): Promise<DashboardStatsResponse> {
-  const url = apiUrl('/admin/stats')
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Stats: ${res.status}`)
-  return res.json() as Promise<DashboardStatsResponse>
+  return apiJson<DashboardStatsResponse>(token, '/admin/stats', undefined, 'Stats')
 }
 
 export async function fetchPerformanceOverview(token: string): Promise<PerformanceOverviewResponse> {
-  const url = apiUrl('/admin/performance/overview')
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Performance overview: ${res.status}`)
-  return res.json() as Promise<PerformanceOverviewResponse>
+  return apiJson<PerformanceOverviewResponse>(token, '/admin/performance/overview', undefined, 'Performance overview')
 }
 
 export type PerformanceHistoryItemResponse = {
@@ -209,40 +199,34 @@ export type BudgetStatusResponse = {
 }
 
 export async function fetchPerformanceHistory(token: string, limit = 24): Promise<PerformanceHistoryResponse> {
-  const url = apiUrl(`/admin/performance/history?limit=${encodeURIComponent(String(limit))}`)
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Performance history: ${res.status}`)
-  return res.json() as Promise<PerformanceHistoryResponse>
+  return apiJson<PerformanceHistoryResponse>(
+    token,
+    `/admin/performance/history?limit=${encodeURIComponent(String(limit))}`,
+    undefined,
+    'Performance history'
+  )
 }
 
 export async function fetchPipelineRuns(token: string, limit = 40): Promise<PipelineRunsResponse> {
-  const url = apiUrl(`/admin/performance/pipeline-runs?limit=${encodeURIComponent(String(limit))}`)
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Pipeline runs: ${res.status}`)
-  return res.json() as Promise<PipelineRunsResponse>
+  return apiJson<PipelineRunsResponse>(
+    token,
+    `/admin/performance/pipeline-runs?limit=${encodeURIComponent(String(limit))}`,
+    undefined,
+    'Pipeline runs'
+  )
 }
 
 export async function fetchBudgetStatus(token: string): Promise<BudgetStatusResponse> {
-  const url = apiUrl('/admin/performance/budget-status')
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Budget status: ${res.status}`)
-  return res.json() as Promise<BudgetStatusResponse>
+  return apiJson<BudgetStatusResponse>(token, '/admin/performance/budget-status', undefined, 'Budget status')
 }
 
 export async function recordPerformanceSnapshot(token: string): Promise<{ id: number; recorded_at: string }> {
-  const url = apiUrl('/admin/performance/record')
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Performance record: ${res.status}`)
-  return res.json() as Promise<{ id: number; recorded_at: string }>
+  return apiJson<{ id: number; recorded_at: string }>(
+    token,
+    '/admin/performance/record',
+    { method: 'POST' },
+    'Performance record'
+  )
 }
 
 // Pass / Vaults (password-manager)
@@ -264,32 +248,20 @@ export type PassItemResponse = {
 }
 
 export async function fetchVaults(token: string): Promise<VaultResponse[]> {
-  const url = apiUrl('/pass/vaults')
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Vaults: ${res.status}`)
-  return res.json() as Promise<VaultResponse[]>
+  return apiJson<VaultResponse[]>(token, '/pass/vaults', undefined, 'Vaults')
 }
 
 export async function createVault(token: string, name: string): Promise<{ id: number; name: string }> {
-  const url = apiUrl('/pass/vaults')
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ name: name || 'Default' }),
-  })
-  if (!res.ok) throw new Error(`Create vault: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string }>
+  return apiJson<{ id: number; name: string }>(
+    token,
+    '/pass/vaults',
+    { method: 'POST', body: JSON.stringify({ name: name || 'Default' }) },
+    'Create vault'
+  )
 }
 
 export async function fetchVaultItems(token: string, vaultId: number): Promise<PassItemResponse[]> {
-  const url = apiUrl(`/pass/vaults/${vaultId}/items`)
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token),
-  })
-  if (!res.ok) throw new Error(`Vault items: ${res.status}`)
-  return res.json() as Promise<PassItemResponse[]>
+  return apiJson<PassItemResponse[]>(token, `/pass/vaults/${vaultId}/items`, undefined, 'Vault items')
 }
 
 // Mail / Domaines (mail-directory-service)
@@ -309,10 +281,8 @@ export async function fetchDomains(
   const params = new URLSearchParams()
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
-  const url = apiUrl(`/mail/domains${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, { headers: getAuthHeaders(token) })
-  if (!res.ok) throw new Error(`Domains: ${res.status}`)
-  return res.json() as Promise<MailDomainResponse[]>
+  const path = `/mail/domains${params.toString() ? `?${params.toString()}` : ''}`
+  return apiJson<MailDomainResponse[]>(token, path, undefined, 'Domains')
 }
 
 export async function fetchDomainsPage(
@@ -326,14 +296,12 @@ export async function fetchDomainsPage(
 }
 
 export async function createDomain(token: string, domain: string): Promise<{ id: number; domain: string }> {
-  const url = apiUrl('/mail/domains')
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ domain }),
-  })
-  if (!res.ok) throw new Error(`Create domain: ${res.status}`)
-  return res.json() as Promise<{ id: number; domain: string }>
+  return apiJson<{ id: number; domain: string }>(
+    token,
+    '/mail/domains',
+    { method: 'POST', body: JSON.stringify({ domain }) },
+    'Create domain'
+  )
 }
 
 export async function patchDomain(
@@ -341,20 +309,16 @@ export async function patchDomain(
   domainId: number,
   patch: { is_active?: boolean }
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) throw new Error(`Patch domain: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/domains/${domainId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+    'Patch domain'
+  )
 }
 
 export async function deleteDomain(token: string, domainId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/mail/domains/${domainId}`, { method: 'DELETE', json: false })
   if (!res.ok) throw new Error(`Delete domain: ${res.status}`)
 }
 
@@ -376,10 +340,8 @@ export async function fetchDomainMailboxes(
   const params = new URLSearchParams()
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
-  const url = apiUrl(`/mail/domains/${domainId}/mailboxes${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, { headers: getAuthHeaders(token) })
-  if (!res.ok) throw new Error(`Mailboxes: ${res.status}`)
-  return res.json() as Promise<MailboxResponse[]>
+  const path = `/mail/domains/${domainId}/mailboxes${params.toString() ? `?${params.toString()}` : ''}`
+  return apiJson<MailboxResponse[]>(token, path, undefined, 'Mailboxes')
 }
 
 export async function fetchDomainMailboxesPage(
@@ -398,19 +360,18 @@ export async function createDomainMailbox(
   domainId: number,
   payload: { local_part: string; password?: string; quota_mb?: number }
 ): Promise<{ id: number; local_part: string }> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes`), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Create mailbox: ${res.status}`)
-  return res.json() as Promise<{ id: number; local_part: string }>
+  return apiJson<{ id: number; local_part: string }>(
+    token,
+    `/mail/domains/${domainId}/mailboxes`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Create mailbox'
+  )
 }
 
 export async function deleteDomainMailbox(token: string, domainId: number, mailboxId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
+  const res = await apiFetch(token, `/mail/domains/${domainId}/mailboxes/${mailboxId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
+    json: false,
   })
   if (!res.ok) throw new Error(`Delete mailbox: ${res.status}`)
 }
@@ -421,13 +382,12 @@ export async function patchDomainMailbox(
   mailboxId: number,
   patch: { quota_mb?: number; is_active?: boolean }
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/mailboxes/${mailboxId}`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) throw new Error(`Patch mailbox: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/domains/${domainId}/mailboxes/${mailboxId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+    'Patch mailbox'
+  )
 }
 
 export type DomainAliasResponse = {
@@ -448,10 +408,8 @@ export async function fetchDomainAliases(
   const params = new URLSearchParams()
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
-  const url = apiUrl(`/mail/domains/${domainId}/aliases${params.toString() ? `?${params.toString()}` : ''}`)
-  const res = await fetch(url, { headers: getAuthHeaders(token) })
-  if (!res.ok) throw new Error(`Aliases: ${res.status}`)
-  return res.json() as Promise<DomainAliasResponse[]>
+  const path = `/mail/domains/${domainId}/aliases${params.toString() ? `?${params.toString()}` : ''}`
+  return apiJson<DomainAliasResponse[]>(token, path, undefined, 'Aliases')
 }
 
 export async function fetchDomainAliasesPage(
@@ -470,19 +428,18 @@ export async function createDomainAlias(
   domainId: number,
   payload: { source_local: string; destination: string }
 ): Promise<{ id: number; source_local: string; destination: string }> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases`), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Create domain alias: ${res.status}`)
-  return res.json() as Promise<{ id: number; source_local: string; destination: string }>
+  return apiJson<{ id: number; source_local: string; destination: string }>(
+    token,
+    `/mail/domains/${domainId}/aliases`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Create domain alias'
+  )
 }
 
 export async function deleteDomainAlias(token: string, domainId: number, aliasId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
+  const res = await apiFetch(token, `/mail/domains/${domainId}/aliases/${aliasId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
+    json: false,
   })
   if (!res.ok) throw new Error(`Delete domain alias: ${res.status}`)
 }
@@ -493,13 +450,12 @@ export async function patchDomainAlias(
   aliasId: number,
   patch: { destination: string }
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/domains/${domainId}/aliases/${aliasId}`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) throw new Error(`Patch domain alias: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/domains/${domainId}/aliases/${aliasId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+    'Patch domain alias'
+  )
 }
 
 // Comptes mail reliés par l'utilisateur (user_email_accounts)
@@ -519,11 +475,7 @@ export type MailAccountResponse = {
 }
 
 export async function fetchMailAccounts(token: string): Promise<MailAccountResponse[]> {
-  const res = await fetch(apiUrl('/mail/me/accounts'), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail accounts: ${res.status}`)
-  return res.json() as Promise<MailAccountResponse[]>
+  return apiJson<MailAccountResponse[]>(token, '/mail/me/accounts', { json: false }, 'Mail accounts')
 }
 
 export async function createMailAccount(
@@ -538,9 +490,8 @@ export async function createMailAccount(
   if (options?.password != null && options.password.trim() !== '') {
     body.password = options.password.trim()
   }
-  const res = await fetch(apiUrl('/mail/me/accounts'), {
+  const res = await apiFetch(token, '/mail/me/accounts', {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (res.status === 409) throw new Error('Cette adresse est déjà reliée')
@@ -549,10 +500,7 @@ export async function createMailAccount(
 }
 
 export async function deleteMailAccount(token: string, accountId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}`, { method: 'DELETE', json: false })
   if (res.ok) return
   const t = await res.text()
   let msg = t
@@ -657,11 +605,12 @@ export async function fetchMailMessages(
   if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
   if (options?.q?.trim()) params.set('q', options.q.trim())
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages?${params}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail messages: ${res.status}`)
-  const data = (await res.json()) as MailMessageResponse[] | MailMessagesPageResponse
+  const data = await apiJson<MailMessageResponse[] | MailMessagesPageResponse>(
+    token,
+    `/mail/me/accounts/${accountId}/messages?${params}`,
+    { json: false },
+    'Mail messages'
+  )
   if (Array.isArray(data)) {
     return { messages: data, total: data.length }
   }
@@ -692,11 +641,12 @@ export async function fetchUnifiedMailMessages(
   if (options?.q?.trim()) params.set('q', options.q.trim())
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
   const q = params.toString()
-  const res = await fetch(apiUrl(`/mail/me/messages/unified${q ? `?${q}` : ''}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail messages unifiés: ${res.status}`)
-  const data = (await res.json()) as MailMessagesPageResponse
+  const data = await apiJson<MailMessagesPageResponse>(
+    token,
+    `/mail/me/messages/unified${q ? `?${q}` : ''}`,
+    { json: false },
+    'Mail messages unifiés'
+  )
   const messages = Array.isArray(data.messages) ? data.messages : []
   const total = typeof data.total === 'number' ? data.total : messages.length
   return { messages, total }
@@ -717,9 +667,8 @@ export async function updateMailAccount(
   accountId: number,
   patch: MailAccountUpdatePayload
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}`, {
     method: 'PATCH',
-    headers: getAuthHeaders(token),
     body: JSON.stringify(patch),
   })
   if (!res.ok) {
@@ -740,20 +689,22 @@ export type MailAccountAliasResponse = {
 }
 
 export async function fetchMailAliases(token: string, accountId: number): Promise<MailAccountAliasResponse[]> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail aliases: ${res.status}`)
-  const data = (await res.json()) as unknown
+  const data = await apiJson<unknown>(
+    token,
+    `/mail/me/accounts/${accountId}/aliases`,
+    { json: false },
+    'Mail aliases'
+  )
   return Array.isArray(data) ? (data as MailAccountAliasResponse[]) : []
 }
 
 export async function fetchMailFilterRules(token: string, accountId: number): Promise<MailFilterRuleResponse[]> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail rules: ${res.status}`)
-  return res.json() as Promise<MailFilterRuleResponse[]>
+  return apiJson<MailFilterRuleResponse[]>(
+    token,
+    `/mail/me/accounts/${accountId}/rules`,
+    { json: false },
+    'Mail rules'
+  )
 }
 
 export async function createMailFilterRule(
@@ -774,13 +725,12 @@ export async function createMailFilterRule(
     rule_order?: number
   }
 ): Promise<{ ok: boolean; id: number }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules`), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Create mail rule: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; id: number }>
+  return apiJson<{ ok: boolean; id: number }>(
+    token,
+    `/mail/me/accounts/${accountId}/rules`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Create mail rule'
+  )
 }
 
 
@@ -803,31 +753,30 @@ export async function patchMailFilterRule(
     rule_order?: number
   }
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) throw new Error(`Patch mail rule: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/rules/${ruleId}`,
+    { method: 'PATCH', body: JSON.stringify(patch) },
+    'Patch mail rule'
+  )
 }
 
 export async function deleteMailFilterRule(token: string, accountId: number, ruleId: number): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/${ruleId}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Delete mail rule: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/rules/${ruleId}`,
+    { method: 'DELETE', json: false },
+    'Delete mail rule'
+  )
 }
 
 export async function applyMailFilterRules(token: string, accountId: number): Promise<{ ok: boolean; affected: number }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/rules/apply`), {
-    method: 'POST',
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Apply mail rules: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; affected: number }>
+  return apiJson<{ ok: boolean; affected: number }>(
+    token,
+    `/mail/me/accounts/${accountId}/rules/apply`,
+    { method: 'POST', json: false },
+    'Apply mail rules'
+  )
 }
 
 export async function createMailAlias(
@@ -835,9 +784,8 @@ export async function createMailAlias(
   accountId: number,
   payload: { alias_email: string; label?: string; deliver_target_email?: string }
 ): Promise<{ id: number; alias_email: string }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/aliases`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify(payload),
   })
   if (!res.ok) {
@@ -857,9 +805,8 @@ export async function patchMailAlias(
   const body: Record<string, string> = {}
   if (patch.label !== undefined) body.label = patch.label
   if (patch.deliver_target_email !== undefined) body.deliver_target_email = patch.deliver_target_email
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/aliases/${aliasId}`, {
     method: 'PATCH',
-    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -870,9 +817,9 @@ export async function patchMailAlias(
 }
 
 export async function deleteMailAlias(token: string, accountId: number, aliasId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/aliases/${aliasId}`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/aliases/${aliasId}`, {
     method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
+    json: false,
   })
   if (!res.ok) throw new Error(`Delete alias: ${res.status}`)
 }
@@ -882,11 +829,12 @@ export async function fetchMailMessage(
   accountId: number,
   messageId: number
 ): Promise<MailMessageDetailResponse> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail message: ${res.status}`)
-  return res.json() as Promise<MailMessageDetailResponse>
+  return apiJson<MailMessageDetailResponse>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}`,
+    { json: false },
+    'Mail message'
+  )
 }
 
 /** Télécharge le fichier d’une pièce jointe (Bearer requis — ouvrir via blob côté UI). */
@@ -896,9 +844,10 @@ export async function downloadMailAttachment(
   messageId: number,
   attachmentId: number
 ): Promise<Blob> {
-  const res = await fetch(
-    apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/attachments/${attachmentId}`),
-    { headers: getAuthHeaders(token, { json: false }) }
+  const res = await apiFetch(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/attachments/${attachmentId}`,
+    { json: false }
   )
   if (!res.ok) {
     const t = await res.text()
@@ -913,13 +862,12 @@ export async function markMailMessageRead(
   messageId: number,
   read: boolean
 ): Promise<{ ok: boolean; read: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/read`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ read }),
-  })
-  if (!res.ok) throw new Error(`Mark read: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; read: boolean }>
+  return apiJson<{ ok: boolean; read: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/read`,
+    { method: 'PATCH', body: JSON.stringify({ read }) },
+    'Mark read'
+  )
 }
 
 export type MailStandardFolderId = 'inbox' | 'sent' | 'drafts' | 'archive' | 'spam' | 'trash'
@@ -933,13 +881,12 @@ export async function moveMailMessageToFolder(
   messageId: number,
   folder: string
 ): Promise<{ ok: boolean; folder: string }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/folder`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ folder }),
-  })
-  if (!res.ok) throw new Error(`Move message: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; folder: string }>
+  return apiJson<{ ok: boolean; folder: string }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/folder`,
+    { method: 'PATCH', body: JSON.stringify({ folder }) },
+    'Move message'
+  )
 }
 
 export async function markMailMessagesReadBulk(
@@ -949,13 +896,12 @@ export async function markMailMessagesReadBulk(
   read: boolean
 ): Promise<{ ok: boolean; updated: number; requested: number; read: boolean }> {
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/read`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ message_ids: ids, read }),
-  })
-  if (!res.ok) throw new Error(`Bulk mark read: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; updated: number; requested: number; read: boolean }>
+  return apiJson<{ ok: boolean; updated: number; requested: number; read: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/read`,
+    { method: 'PATCH', body: JSON.stringify({ message_ids: ids, read }) },
+    'Bulk mark read'
+  )
 }
 
 export async function moveMailMessagesToFolderBulk(
@@ -965,13 +911,12 @@ export async function moveMailMessagesToFolderBulk(
   folder: string
 ): Promise<{ ok: boolean; updated: number; requested: number; folder: string }> {
   const ids = [...new Set(messageIds.filter((x) => Number.isFinite(x) && x > 0))]
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/folder`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ message_ids: ids, folder }),
-  })
-  if (!res.ok) throw new Error(`Bulk move messages: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean; updated: number; requested: number; folder: string }>
+  return apiJson<{ ok: boolean; updated: number; requested: number; folder: string }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/folder`,
+    { method: 'PATCH', body: JSON.stringify({ message_ids: ids, folder }) },
+    'Bulk move messages'
+  )
 }
 
 export async function deleteMailMessagePermanently(
@@ -979,19 +924,17 @@ export async function deleteMailMessagePermanently(
   accountId: number,
   messageId: number
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/permanent`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Permanent delete message: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/permanent`,
+    { method: 'DELETE', json: false },
+    'Permanent delete message'
+  )
 }
 
 /** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */
 export async function getMailGoogleOAuthRedirectUrl(token: string): Promise<{ redirect_url: string }> {
-  const res = await fetch(apiUrl('/mail/me/oauth/google/authorize'), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, '/mail/me/oauth/google/authorize', { json: false })
   if (!res.ok) {
     const t = await res.text()
     try {
@@ -1018,9 +961,8 @@ export async function syncMailAccount(
   if (options?.extra_imap_folders != null && options.extra_imap_folders.length > 0) {
     body.extra_imap_folders = options.extra_imap_folders
   }
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/sync`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/sync`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -1055,11 +997,12 @@ export async function fetchMailFolderSummary(
   token: string,
   accountId: number
 ): Promise<MailFolderSummaryResponse> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/folders/summary`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail folder summary: ${res.status}`)
-  const raw = (await res.json()) as Record<string, unknown>
+  const raw = await apiJson<Record<string, unknown>>(
+    token,
+    `/mail/me/accounts/${accountId}/folders/summary`,
+    { json: false },
+    'Mail folder summary'
+  )
   const stat = (k: string): MailFolderFolderStat => {
     const v = raw[k]
     if (v && typeof v === 'object' && 'total' in v && 'unread' in v) {
@@ -1104,11 +1047,12 @@ export type MailImapFolderRow = {
 
 /** Arborescence dossiers telle que renvoyée par IMAP LIST (après sync). */
 export async function fetchMailImapFolders(token: string, accountId: number): Promise<MailImapFolderRow[]> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail IMAP folders: ${res.status}`)
-  const data = (await res.json()) as unknown
+  const data = await apiJson<unknown>(
+    token,
+    `/mail/me/accounts/${accountId}/imap-folders`,
+    { json: false },
+    'Mail IMAP folders'
+  )
   return Array.isArray(data) ? (data as MailImapFolderRow[]) : []
 }
 
@@ -1125,9 +1069,8 @@ export async function createMailImapFolder(
     ui_icon?: string
   }
 ): Promise<{ ok: boolean; imap_path: string; parent_imap_path?: string; label?: string }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/imap-folders`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({
       parent_imap_path: payload.parent_imap_path ?? 'INBOX',
       label: payload.label ?? '',
@@ -1155,9 +1098,8 @@ export async function renameMailImapFolder(
   accountId: number,
   payload: { imap_path: string; new_label: string }
 ): Promise<{ ok: boolean; imap_path: string }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/rename`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/imap-folders/rename`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ imap_path: payload.imap_path, new_label: payload.new_label }),
   })
   if (!res.ok) {
@@ -1179,9 +1121,8 @@ export async function deleteMailImapFolder(
   accountId: number,
   payload: { imap_path: string }
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/imap-folders/delete`), {
+  const res = await apiFetch(token, `/mail/me/accounts/${accountId}/imap-folders/delete`, {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ imap_path: payload.imap_path }),
   })
   if (!res.ok) {
@@ -1207,11 +1148,12 @@ export type MailTagResponse = {
 }
 
 export async function fetchMailTags(token: string, accountId: number): Promise<MailTagResponse[]> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Mail tags: ${res.status}`)
-  const data = (await res.json()) as unknown
+  const data = await apiJson<unknown>(
+    token,
+    `/mail/me/accounts/${accountId}/tags`,
+    { json: false },
+    'Mail tags'
+  )
   return Array.isArray(data) ? (data as MailTagResponse[]) : []
 }
 
@@ -1220,13 +1162,12 @@ export async function createMailTag(
   accountId: number,
   payload: { name: string; color?: string }
 ): Promise<{ id: number; name: string; existed?: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/tags`), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Create mail tag: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string; existed?: boolean }>
+  return apiJson<{ id: number; name: string; existed?: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/tags`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Create mail tag'
+  )
 }
 
 export async function putMailMessageTags(
@@ -1235,13 +1176,12 @@ export async function putMailMessageTags(
   messageId: number,
   tagIds: number[]
 ): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/mail/me/accounts/${accountId}/messages/${messageId}/tags`), {
-    method: 'PUT',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ tag_ids: tagIds }),
-  })
-  if (!res.ok) throw new Error(`Put message tags: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/tags`,
+    { method: 'PUT', body: JSON.stringify({ tag_ids: tagIds }) },
+    'Put message tags'
+  )
 }
 
 export async function sendMailMessage(
@@ -1258,11 +1198,7 @@ export async function sendMailMessage(
     from_email?: string
   }
 ): Promise<{ message: string }> {
-  const res = await fetch(apiUrl('/mail/me/send'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
+  const res = await apiFetch(token, '/mail/me/send', { method: 'POST', body: JSON.stringify(payload) })
   if (!res.ok) {
     const t = await res.text()
     try {
@@ -1286,11 +1222,7 @@ export async function scheduleMailMessage(
     scheduled_send_at: string
   }
 ): Promise<{ ok: boolean; id: number; scheduled_send_at: string }> {
-  const res = await fetch(apiUrl('/mail/me/send/schedule'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
+  const res = await apiFetch(token, '/mail/me/send/schedule', { method: 'POST', body: JSON.stringify(payload) })
   if (!res.ok) {
     const t = await res.text()
     try {
@@ -1325,10 +1257,8 @@ function parseApiErrorMessage(raw: string, fallback: string): string {
 }
 
 export async function login(body: LoginBody): Promise<LoginResponse> {
-  const url = apiUrl('/auth/login')
-  const res = await fetch(url, {
+  const res = await apiFetch(null, '/auth/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
   })
   if (!res.ok) {
@@ -1346,10 +1276,8 @@ export type RefreshResponse = {
 
 /** Rafraîchit la session avec le refresh token (rotation côté serveur). À appeler avant expiration du access token. */
 export async function refreshAuth(refreshToken: string): Promise<RefreshResponse> {
-  const url = apiUrl('/auth/refresh')
-  const res = await fetch(url, {
+  const res = await apiFetch(null, '/auth/refresh', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
   if (!res.ok) {
@@ -1368,10 +1296,8 @@ export type RegisterResponse = {
 }
 
 export async function register(body: RegisterBody): Promise<RegisterResponse> {
-  const url = apiUrl('/auth/register')
-  const res = await fetch(url, {
+  const res = await apiFetch(null, '/auth/register', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
   })
   if (!res.ok) {
@@ -1407,13 +1333,8 @@ export async function fetchDriveNodes(
   token: string,
   parentId: number | null
 ): Promise<DriveNode[]> {
-  const base = apiUrl('/drive/nodes')
-  const url = parentId == null ? base : `${base}?parent_id=${parentId}`
-  const res = await fetch(url, {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Drive: ${res.status}`)
-  return res.json() as Promise<DriveNode[]>
+  const path = parentId == null ? '/drive/nodes' : `/drive/nodes?parent_id=${parentId}`
+  return apiJson<DriveNode[]>(token, path, { json: false }, 'Drive')
 }
 
 /** Recherche par nom sur tout le Drive (ou sous-arbre si `parent_id` est défini). */
@@ -1430,11 +1351,12 @@ export async function fetchDriveSearch(
   if (opts?.parent_id != null && opts.parent_id !== undefined) {
     params.set('parent_id', String(opts.parent_id))
   }
-  const res = await fetch(apiUrl(`/drive/nodes/search?${params.toString()}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Drive search: ${res.status}`)
-  return res.json() as Promise<DriveNode[]>
+  return apiJson<DriveNode[]>(
+    token,
+    `/drive/nodes/search?${params.toString()}`,
+    { json: false },
+    'Drive search'
+  )
 }
 
 /** Liste les fichiers récemment modifiés (tous dossiers confondus). */
@@ -1442,11 +1364,7 @@ export async function fetchDriveRecentFiles(
   token: string,
   limit = 20
 ): Promise<DriveNode[]> {
-  const res = await fetch(apiUrl(`/drive/nodes/recent?limit=${limit}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Drive recent: ${res.status}`)
-  return res.json() as Promise<DriveNode[]>
+  return apiJson<DriveNode[]>(token, `/drive/nodes/recent?limit=${limit}`, { json: false }, 'Drive recent')
 }
 
 /** Réponse paginée : toutes les images du Drive (tous dossiers), tri récent d’abord. */
@@ -1463,12 +1381,12 @@ export async function fetchDrivePhotosTimeline(
 ): Promise<DrivePhotosTimelinePage> {
   const limit = opts?.limit ?? 48
   const offset = opts?.offset ?? 0
-  const res = await fetch(
-    apiUrl(`/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`),
-    { headers: getAuthHeaders(token, { json: false }) }
+  return apiJson<DrivePhotosTimelinePage>(
+    token,
+    `/photos/timeline?limit=${encodeURIComponent(String(limit))}&offset=${encodeURIComponent(String(offset))}`,
+    { json: false },
+    'Photos timeline'
   )
-  if (!res.ok) throw new Error(`Photos timeline: ${res.status}`)
-  return res.json() as Promise<DrivePhotosTimelinePage>
 }
 
 export async function createDriveFolder(
@@ -1476,9 +1394,8 @@ export async function createDriveFolder(
   parentId: number | null,
   name: string
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
-  const res = await fetch(apiUrl('/drive/nodes'), {
+  const res = await apiFetch(token, '/drive/nodes', {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ parent_id: parentId, name, is_folder: true }),
   })
   if (res.status === 409) {
@@ -1502,9 +1419,8 @@ export async function createDriveFile(
   parentId: number | null,
   name: string
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
-  const res = await fetch(apiUrl('/drive/nodes'), {
+  const res = await apiFetch(token, '/drive/nodes', {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ parent_id: parentId, name, is_folder: false }),
   })
   if (res.status === 409) {
@@ -1571,13 +1487,12 @@ export async function renameDriveNode(
   id: number,
   name: string
 ): Promise<{ id: number; name: string }> {
-  const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
-    method: 'PUT',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ name }),
-  })
-  if (!res.ok) throw new Error(`Rename: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string }>
+  return apiJson<{ id: number; name: string }>(
+    token,
+    `/drive/nodes/${id}`,
+    { method: 'PUT', body: JSON.stringify({ name }) },
+    'Rename'
+  )
 }
 
 /** Déplace un nœud (dossier ou fichier) vers un autre dossier. parentId = 0 ou null pour la racine. */
@@ -1586,48 +1501,37 @@ export async function moveDriveNode(
   nodeId: number,
   parentId: number | null
 ): Promise<{ id: number; name: string; parent_id: number | null }> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}`), {
-    method: 'PUT',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ parent_id: parentId === null || parentId === 0 ? 0 : parentId }),
-  })
-  if (!res.ok) throw new Error(`Move: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string; parent_id: number | null }>
+  return apiJson<{ id: number; name: string; parent_id: number | null }>(
+    token,
+    `/drive/nodes/${nodeId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ parent_id: parentId === null || parentId === 0 ? 0 : parentId }),
+    },
+    'Move'
+  )
 }
 
 /** Suppression (soft delete) : déplace en corbeille. */
 export async function deleteDriveNode(token: string, id: number): Promise<void> {
-  const res = await fetch(apiUrl(`/drive/nodes/${id}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/${id}`, { method: 'DELETE', json: false })
   if (!res.ok) throw new Error(`Delete: ${res.status}`)
 }
 
 /** Liste les nœuds en corbeille. */
 export async function fetchDriveTrash(token: string): Promise<DriveNode[]> {
-  const res = await fetch(apiUrl('/drive/nodes/trash'), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Trash: ${res.status}`)
-  return res.json() as Promise<DriveNode[]>
+  return apiJson<DriveNode[]>(token, '/drive/nodes/trash', { json: false }, 'Trash')
 }
 
 /** Restaure un nœud depuis la corbeille. */
 export async function restoreDriveNode(token: string, id: number): Promise<void> {
-  const res = await fetch(apiUrl(`/drive/nodes/${id}/restore`), {
-    method: 'POST',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/${id}/restore`, { method: 'POST', json: false })
   if (!res.ok) throw new Error(`Restore: ${res.status}`)
 }
 
 /** Supprime définitivement un nœud (corbeille uniquement). */
 export async function purgeDriveNode(token: string, id: number): Promise<void> {
-  const res = await fetch(apiUrl(`/drive/nodes/trash/${id}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/trash/${id}`, { method: 'DELETE', json: false })
   if (!res.ok) throw new Error(`Purge: ${res.status}`)
 }
 
@@ -1637,9 +1541,7 @@ export async function downloadDriveFile(
   options?: { inline?: boolean }
 ): Promise<Blob> {
   const q = options?.inline ? '?inline=1' : ''
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content${q}`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/content${q}`, { json: false })
   if (!res.ok) throw new Error(`Download: ${res.status}`)
   const blob = await res.blob()
   const hdr = res.headers.get('Content-Type')?.split(';')[0]?.trim()
@@ -1658,9 +1560,7 @@ export async function downloadDriveFolderAsZip(
   token: string,
   folderId: number
 ): Promise<Blob> {
-  const res = await fetch(apiUrl(`/drive/nodes/${folderId}/zip`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/${folderId}/zip`, { json: false })
   if (!res.ok) throw new Error(`Download folder: ${res.status}`)
   return res.blob()
 }
@@ -1672,12 +1572,13 @@ export async function fetchDriveZipEntries(
   token: string,
   nodeId: number
 ): Promise<DriveZipEntry[]> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/archive/entries`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Zip entries: ${res.status}`)
-  const data = await res.json()
-  return Array.isArray(data.entries) ? data.entries : []
+  const data = await apiJson<{ entries?: unknown }>(
+    token,
+    `/drive/nodes/${nodeId}/archive/entries`,
+    { json: false },
+    'Zip entries'
+  )
+  return Array.isArray(data.entries) ? (data.entries as DriveZipEntry[]) : []
 }
 
 /** Crée une archive ZIP à partir des nœuds sélectionnés (fichiers + dossiers). */
@@ -1685,9 +1586,8 @@ export async function downloadDriveArchive(
   token: string,
   nodeIds: number[]
 ): Promise<Blob> {
-  const res = await fetch(apiUrl('/drive/nodes/archive'), {
+  const res = await apiFetch(token, '/drive/nodes/archive', {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ node_ids: nodeIds }),
   })
   if (!res.ok) throw new Error(`Archive: ${res.status}`)
@@ -1699,9 +1599,7 @@ export async function getDriveNodeContentAsText(
   token: string,
   nodeId: number
 ): Promise<string> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/content`, { json: false })
   if (!res.ok) throw new Error(`Content: ${res.status}`)
   return res.text()
 }
@@ -1713,9 +1611,10 @@ export async function putDriveNodeContent(
   content: string,
   mimeType = 'text/plain'
 ): Promise<{ id: number; size: number }> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/content`, {
     method: 'PUT',
-    headers: getAuthHeaders(token, { json: false, extra: { 'Content-Type': mimeType } }),
+    json: false,
+    headers: { 'Content-Type': mimeType },
     body: content,
   })
   if (!res.ok) throw new Error(`Save content: ${res.status}`)
@@ -1729,9 +1628,10 @@ export async function putDriveNodeContentBlob(
   blob: Blob,
   mimeType: string
 ): Promise<{ id: number; size: number }> {
-  const res = await fetch(apiUrl(`/drive/nodes/${nodeId}/content`), {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/content`, {
     method: 'PUT',
-    headers: getAuthHeaders(token, { json: false, extra: { 'Content-Type': mimeType } }),
+    json: false,
+    headers: { 'Content-Type': mimeType },
     body: blob,
   })
   if (!res.ok) throw new Error(`Save content: ${res.status}`)
@@ -1826,9 +1726,7 @@ export type UserCalendar = {
 }
 
 export async function fetchUserCalendars(token: string): Promise<UserCalendar[]> {
-  const res = await fetch(apiUrl('/calendar/calendars'), { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Calendars: ${res.status}`)
-  const data: unknown = await res.json()
+  const data = await apiJson<unknown>(token, '/calendar/calendars', { json: false }, 'Calendars')
   return Array.isArray(data) ? (data as UserCalendar[]) : []
 }
 
@@ -1836,13 +1734,12 @@ export async function createUserCalendar(
   token: string,
   payload: { name: string; color_hex?: string }
 ): Promise<{ id: number; name: string; color_hex: string }> {
-  const res = await fetch(apiUrl('/calendar/calendars'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Create calendar: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string; color_hex: string }>
+  return apiJson<{ id: number; name: string; color_hex: string }>(
+    token,
+    '/calendar/calendars',
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Create calendar'
+  )
 }
 
 export type CalendarEvent = {
@@ -1862,9 +1759,7 @@ export type CalendarEvent = {
 
 export async function fetchCalendarEvents(token: string, calendarId?: number | null): Promise<CalendarEvent[]> {
   const q = calendarId != null && calendarId > 0 ? `?calendar_id=${calendarId}` : ''
-  const res = await fetch(apiUrl(`/calendar/events${q}`), { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Calendar: ${res.status}`)
-  const data: unknown = await res.json()
+  const data = await apiJson<unknown>(token, `/calendar/events${q}`, { json: false }, 'Calendar')
   return Array.isArray(data) ? (data as CalendarEvent[]) : []
 }
 
@@ -1880,13 +1775,12 @@ export async function createCalendarEvent(
     calendar_id?: number
   }
 ): Promise<{ id: number; title: string; calendar_id?: number }> {
-  const res = await fetch(apiUrl('/calendar/events'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`Create event: ${res.status}`)
-  return res.json() as Promise<{ id: number; title: string; calendar_id?: number }>
+  return apiJson<{ id: number; title: string; calendar_id?: number }>(
+    token,
+    '/calendar/events',
+    { method: 'POST', body: JSON.stringify(data) },
+    'Create event'
+  )
 }
 
 export async function updateCalendarEvent(
@@ -1902,20 +1796,16 @@ export async function updateCalendarEvent(
     calendar_id: number
   }>
 ): Promise<{ id: number }> {
-  const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
-    method: 'PUT',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(patch),
-  })
-  if (!res.ok) throw new Error(`Update event: ${res.status}`)
-  return res.json() as Promise<{ id: number }>
+  return apiJson<{ id: number }>(
+    token,
+    `/calendar/events/${eventId}`,
+    { method: 'PUT', body: JSON.stringify(patch) },
+    'Update event'
+  )
 }
 
 export async function deleteCalendarEvent(token: string, eventId: number): Promise<void> {
-  const res = await fetch(apiUrl(`/calendar/events/${eventId}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/calendar/events/${eventId}`, { method: 'DELETE', json: false })
   if (!res.ok && res.status !== 404) throw new Error(`Delete event: ${res.status}`)
 }
 
@@ -1931,19 +1821,16 @@ export type Note = {
 }
 
 export async function fetchNotes(token: string): Promise<Note[]> {
-  const res = await fetch(apiUrl('/notes'), { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Notes: ${res.status}`)
-  return res.json() as Promise<Note[]>
+  return apiJson<Note[]>(token, '/notes', { json: false }, 'Notes')
 }
 
 export async function createNote(token: string, title: string, content: string): Promise<{ id: number; title: string }> {
-  const res = await fetch(apiUrl('/notes'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ title, content }),
-  })
-  if (!res.ok) throw new Error(`Create note: ${res.status}`)
-  return res.json() as Promise<{ id: number; title: string }>
+  return apiJson<{ id: number; title: string }>(
+    token,
+    '/notes',
+    { method: 'POST', body: JSON.stringify({ title, content }) },
+    'Create note'
+  )
 }
 
 // Tasks — listes et tâches
@@ -1964,45 +1851,42 @@ export type Task = {
 }
 
 export async function fetchTaskLists(token: string): Promise<TaskList[]> {
-  const res = await fetch(apiUrl('/tasks/lists'), { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Task lists: ${res.status}`)
-  return res.json() as Promise<TaskList[]>
+  return apiJson<TaskList[]>(token, '/tasks/lists', { json: false }, 'Task lists')
 }
 
 export async function fetchTasks(token: string, listId?: number | null): Promise<Task[]> {
-  const url = listId != null ? `${apiUrl('/tasks')}?list_id=${listId}` : apiUrl('/tasks')
-  const res = await fetch(url, { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Tasks: ${res.status}`)
-  const data: unknown = await res.json()
+  const path = listId != null ? `/tasks?list_id=${listId}` : '/tasks'
+  const data = await apiJson<unknown>(token, path, { json: false }, 'Tasks')
   return Array.isArray(data) ? (data as Task[]) : []
 }
 
 export async function createTaskList(token: string, name: string): Promise<{ id: number; name: string }> {
-  const res = await fetch(apiUrl('/tasks/lists'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({ name }),
-  })
-  if (!res.ok) throw new Error(`Create task list: ${res.status}`)
-  return res.json() as Promise<{ id: number; name: string }>
+  return apiJson<{ id: number; name: string }>(
+    token,
+    '/tasks/lists',
+    { method: 'POST', body: JSON.stringify({ name }) },
+    'Create task list'
+  )
 }
 
 export async function createTask(
   token: string,
   payload: { title: string; list_id?: number | null; due_at?: string | null; repeat_rule?: string | null }
 ): Promise<{ id: number; title: string }> {
-  const res = await fetch(apiUrl('/tasks'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify({
-      title: payload.title,
-      list_id: payload.list_id ?? undefined,
-      due_at: payload.due_at ?? undefined,
-      repeat_rule: payload.repeat_rule ?? undefined,
-    }),
-  })
-  if (!res.ok) throw new Error(`Create task: ${res.status}`)
-  return res.json() as Promise<{ id: number; title: string }>
+  return apiJson<{ id: number; title: string }>(
+    token,
+    '/tasks',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        title: payload.title,
+        list_id: payload.list_id ?? undefined,
+        due_at: payload.due_at ?? undefined,
+        repeat_rule: payload.repeat_rule ?? undefined,
+      }),
+    },
+    'Create task'
+  )
 }
 
 // Contacts — carnet d'adresses (suggestions Mail, etc.)
@@ -2018,20 +1902,14 @@ export type ContactResponse = {
 }
 
 export async function fetchContacts(token: string): Promise<ContactResponse[]> {
-  const res = await fetch(apiUrl('/contacts'), { headers: getAuthHeaders(token, { json: false }) })
-  if (!res.ok) throw new Error(`Contacts: ${res.status}`)
-  return res.json() as Promise<ContactResponse[]>
+  return apiJson<ContactResponse[]>(token, '/contacts', { json: false }, 'Contacts')
 }
 
 export async function createContact(
   token: string,
   payload: { name?: string; email: string; phone?: string }
 ): Promise<{ id: number; name: string; email: string }> {
-  const res = await fetch(apiUrl('/contacts'), {
-    method: 'POST',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
+  const res = await apiFetch(token, '/contacts', { method: 'POST', body: JSON.stringify(payload) })
   if (!res.ok) {
     const t = await res.text()
     try {
@@ -2049,22 +1927,21 @@ export async function updateContact(
   id: number,
   payload: { name?: string; email?: string; phone?: string }
 ): Promise<{ id: number }> {
-  const res = await fetch(apiUrl(`/contacts/${id}`), {
-    method: 'PATCH',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error(`Update contact: ${res.status}`)
-  return res.json() as Promise<{ id: number }>
+  return apiJson<{ id: number }>(
+    token,
+    `/contacts/${id}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    'Update contact'
+  )
 }
 
 export async function deleteContact(token: string, id: number): Promise<{ ok: boolean }> {
-  const res = await fetch(apiUrl(`/contacts/${id}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
-  if (!res.ok) throw new Error(`Delete contact: ${res.status}`)
-  return res.json() as Promise<{ ok: boolean }>
+  return apiJson<{ ok: boolean }>(
+    token,
+    `/contacts/${id}`,
+    { method: 'DELETE', json: false },
+    'Delete contact'
+  )
 }
 
 export type ContactImportResult = {
@@ -2080,9 +1957,8 @@ export async function importContacts(
   contacts: { name: string; email: string; phone?: string }[],
   onDuplicate: 'skip' | 'update'
 ): Promise<ContactImportResult> {
-  const res = await fetch(apiUrl('/contacts/import'), {
+  const res = await apiFetch(token, '/contacts/import', {
     method: 'POST',
-    headers: getAuthHeaders(token),
     body: JSON.stringify({ contacts, on_duplicate: onDuplicate }),
   })
   if (!res.ok) {
@@ -2109,11 +1985,7 @@ export async function updateTask(
   if (patch.completed !== undefined) body.completed = patch.completed
   if (patch.due_at !== undefined) body.due_at = patch.due_at === null ? '' : patch.due_at
   if (patch.repeat_rule !== undefined) body.repeat_rule = patch.repeat_rule === null ? '' : patch.repeat_rule
-  const res = await fetch(apiUrl(`/tasks/${id}`), {
-    method: 'PUT',
-    headers: getAuthHeaders(token),
-    body: JSON.stringify(body),
-  })
+  const res = await apiFetch(token, `/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) })
   if (!res.ok) throw new Error(`Update task: ${res.status}`)
 }
 
@@ -2122,9 +1994,6 @@ export async function updateTaskCompleted(token: string, id: number, completed: 
 }
 
 export async function deleteTask(token: string, id: number): Promise<void> {
-  const res = await fetch(apiUrl(`/tasks/${id}`), {
-    method: 'DELETE',
-    headers: getAuthHeaders(token, { json: false }),
-  })
+  const res = await apiFetch(token, `/tasks/${id}`, { method: 'DELETE', json: false })
   if (!res.ok && res.status !== 204) throw new Error(`Delete task: ${res.status}`)
 }
