@@ -9,7 +9,7 @@
 - **Authentification** : JWT / refresh côté API ; session stockée côté client de façon contrôlée (`localStorage` aujourd’hui — à durcir avec httpOnly cookies si besoin).  
 - **Renouvellement JWT (UX liée)** : le front rafraîchit le token au focus ; les **aperçus Drive** (PDF, médias) utilisent une **ref** sur le token dans les effets de chargement pour ne pas **révoquer/recharger** le blob à chaque rotation d’accès si le fichier affiché est inchangé (comportement perçu comme « rechargement au changement d’app »).  
 - **CORS** : limité par l’API Gateway (`CORS_ORIGINS`, réseau local en dev).  
-- **En-têtes HTTP (nginx `admin-dashboard`)** : `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` sur l’image de production.
+- **En-têtes HTTP (image nginx du service `cloudity-web`)** : `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` sur l’image de production.
 
 ## Pistes d’amélioration (priorisées)
 

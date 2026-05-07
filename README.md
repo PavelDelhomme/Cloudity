@@ -17,7 +17,7 @@ make help  # Liste des commandes
 
 L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UNSAFE_PORT). En Docker, `VITE_API_URL=http://localhost:6080` est défini automatiquement. Si vous aviez une config avec 6000, mettez à jour votre `.env` vers `VITE_API_URL=http://localhost:6080`.
 
-Première fois : `./scripts/setup.sh` ou `make init` puis `make up`.  
+Première fois : `./scripts/dev/setup.sh` ou `make init` puis `make up`. (Index des scripts : `scripts/README.md`.)  
 
 **Convention documentation** : à la **racine** du dépôt, **`README.md`** (cette page), **`STATUS.md`** (suivi quotidien) et **`BACKLOG.md`** (priorités / backlog condensé). Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
 

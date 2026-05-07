@@ -4,15 +4,17 @@
 
 ## État actuel (monolithique)
 
-**Workspaces npm (A1)** : la racine **`frontend/package.json`** déclare des workspaces (**`admin-dashboard`**, **`packages/*`**) avec un lockfile **`frontend/package-lock.json`** ; en local : **`make frontend-install`** ou **`cd frontend && npm install`**. Le build **Docker** du service **admin-dashboard** utilise encore le contexte **`./frontend/admin-dashboard`** et **`npm ci`** sur ce dossier (reproductible sans monter tout le monorepo) — unification du contexte **`./frontend`** = backlog **STATUS §0b A8**.
+**Workspaces npm** : racine **`frontend/package.json`** (`apps/*`, `packages/*`), lockfile **`frontend/package-lock.json`** ; app principale **`@cloudity/web`** dans **`frontend/apps/cloudity-web`** ; partagé **`@cloudity/shared`** (`packages/cloudity-shared`). En local : **`make frontend-install`** ou **`cd frontend && npm install`**. Le service Compose **`cloudity-web`** build avec le contexte **`./frontend`** et le Dockerfile **`apps/cloudity-web/Dockerfile`** (prod) ou **`Dockerfile.dev`** (dev).
 
-Aujourd’hui, **une seule application Vite/React** (`frontend/admin-dashboard`) sert :
+**Une seule application Vite/React** (**`frontend/apps/cloudity-web`**) sert encore :
 
 - le site public (landing, login, inscription) ;
 - l’**espace utilisateur** (`/app`, Drive, Mail, Calendrier, etc.) ;
-- l’**administration** (`/admin`).
+- l’**administration** (UI **`/4dm1n`** ; les appels REST admin restent **`/admin/*`** sur la gateway).
 
 C’est volontairement **simple à déployer** (un conteneur, un build) et cohérent avec une **API Gateway** unique qui route vers les microservices (mail, drive, calendrier, …).
+
+**Prochaine étape (cible)** : scinder en **`apps/web-shell`**, **`apps/web-admin`**, etc., en réutilisant et enrichissant **`@cloudity/shared`** (ou un futur **`packages/cloudity-ui`**) pour éviter de dupliquer chrome métier entre apps.
 
 ## Objectif « multi-apps » (web + mobile)
 
@@ -44,7 +46,7 @@ Tu vises :
 
 ### Point d’entrée HTTP
 
-- **Développement Docker** : `http://localhost:6001` → Vite ou nginx selon le service `admin-dashboard`.  
+- **Développement Docker** : `http://localhost:6001` → Vite ou nginx selon le service **`cloudity-web`**.  
 - Les routes **`/app/...`** sont des routes **SPA** (React Router) : le serveur doit toujours renvoyer **`index.html`** sauf pour les fichiers statiques existants (`nginx.conf` avec `try_files`).
 
 Pour une future **app Mail seule**, tu pourrais exposer `https://mail.cloudity.example` avec la même API et un build `apps/web-mail` minimal.

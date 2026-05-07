@@ -7,7 +7,7 @@ Ce dossier contient les **migrations incrémentales** appliquées **automatiquem
 Dans `docker-compose.yml`, **`db-migrate`** n’est **pas** un serveur qui tourne en permanence : c’est un **conteneur one-shot** (image `postgres:15-alpine`) qui :
 
 - attend que **Postgres** soit *healthy* ;
-- exécute le script **`scripts/migrate-db.sh`** monté en lecture seule ;
+- exécute le script **`scripts/db/migrate-db.sh`** monté en lecture seule ;
 - se termine avec succès (`condition: service_completed_successfully`) ;
 - permet aux autres services (**auth-service**, **mail-directory-service**, etc.) de démarrer **après** que le schéma soit à jour.
 

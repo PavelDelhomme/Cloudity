@@ -29,11 +29,13 @@
 | **Arrêter la stack** | `make down` |
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
-| **Première fois** | **`make setup`** puetis **`make up-full`** |
+| **Première fois** | **`make setup`** puis **`make up-full`** |
 | **Migrations SQL** | **`make migrate`** (racine, Docker) — applique **`infrastructure/postgresql/migrations/`**. Inclus aussi dans **`make rebuild`** / chaîne **`make up`** via le service **`db-migrate`**. Détail **[docs/TESTS.md](./docs/TESTS.md)** (Migrations). |
 | **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/MOBILES.md](./docs/MOBILES.md)** § 5 |
 
-**URLs (dev, HTTP)** : App principale http://localhost:6001 | Admin http://localhost:6001/admin | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084 — **HTTPS en production** (terminaison TLS sur LB / ingress) : voir **[docs/SECURITE.md](./docs/SECURITE.md)** et **§ TLS & scans** ci-dessous ; dev local en **https://** = chantier optionnel (mkcert + Vite ou proxy).
+**URLs (dev, HTTP)** : App principale http://localhost:6001 | **Back-office** http://localhost:6001/4dm1n (l’ancien chemin **`/admin`** redirige vers **`/4dm1n`** pour limiter l’énumération ; les API restent **`/admin/*`** sur la gateway) | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084 — **HTTPS en production** (terminaison TLS sur LB / ingress) : voir **[docs/SECURITE.md](./docs/SECURITE.md)** et **§ TLS & scans** ci-dessous ; dev local en **https://** = chantier optionnel (mkcert + Vite ou proxy).
+
+**Redis (logs « Memory overcommit must be enabled »)** : paramètre **hôte** `vm.overcommit_memory=1` — **[docs/DEVELOPMENT-HOST.md](./docs/DEVELOPMENT-HOST.md)** ; **`make host-redis-sysctl`** puis éventuellement **`make host-redis-sysctl APPLY=1`**.
 
 **Session web** : JWT d’accès **60 min** par défaut (`ACCESS_TOKEN_DURATION_MINUTES` sur **auth-service** dans `docker-compose`) ; refresh **30 j** avec rotation ; le front **rafraîchit** le token toutes les **10 min** et **au retour sur l’onglet** pour éviter les déconnexions quand le navigateur ralentit les timers en arrière-plan.
 
@@ -53,7 +55,7 @@
 | **`make test-e2e`** | **Tests E2E à part** : vérifie que les services répondent (health, gateway proxy). **Prérequis : `make up`** avant, puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make tests`** | **Batterie complète** avec rapport dans `reports/` : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`** (Flutter **Photos + Drive + Mail** : hôte + `integration_test` sur ADB si SDK inscriptible). Prérequis : stack + **`make seed-admin`** pour les phases web ; voir **[docs/TESTS.md](./docs/TESTS.md)** § 1b. |
 | **`make test-all`** | Même enchaînement que **`make tests`** sans fichier de rapport : **`make test`**, **`test-e2e`**, **`test-e2e-playwright`**, **`test-security`**, **`test-mobile-suite`**. |
-| **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** (`scripts/test-mobile-suite.sh`). Variables **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`** pour sauter une app. |
+| **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** (`scripts/mobile/test-mobile-suite.sh`). Variables **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`** pour sauter une app. |
 | **`make test-mobile-photos`** | Uniquement **`mobile/photos`** : `flutter test` (hôte) + **`integration_test`** sur un appareil **ADB** si disponible (menu de choix si plusieurs). |
 | **`make test-security`** | Audits de dépendances (npm, pip safety, govulncheck) + checks auth (401 sans token / token invalide sur `/auth/validate`). |
 | **`make test-docker`** | **`exec`** dans la stack **déjà démarrée** (`make up`) — vérifie les binaires en cours d’exécution. |
@@ -64,7 +66,7 @@
 **Important** : Pour **tout** vérifier (unit/app + E2E web + Playwright + sécurité + **mobile P+D+M**) : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport) ou **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
 **Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
-**Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **admin-dashboard** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**.
+**Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **cloudity-web** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**. Checklist post-modif : **[docs/DEV-VERIFICATION.md](./docs/DEV-VERIFICATION.md)**.
 
 **Règle** : pour chaque fonctionnalité implémentée, ajouter des tests exécutables via `make test`. Ne pas merger une feature sans tests associés.
 
@@ -90,7 +92,7 @@
 | Sujet | Réponse |
 |--------|---------|
 | **`http://localhost:6001/app` en dev** | Normal : la stack Docker sert le dashboard en **HTTP** sur la machine hôte. **« Sécurité de zinzin »** en prod = **TLS** (LB / ingress), **HSTS**, cookies **Secure**, politique CSP, pas de mix **HTTP**/**HTTPS**. Passer **tout** le dev local en **https://** = chantier dédié (certificats **mkcert** + **Vite `server.https`** ou reverse proxy type **Caddy**) — backlog **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)** § **0c**. |
-| **Détecter les failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety sur admin-service, **govulncheck** sur chaque service Go), checks **401** sur `/auth/validate`. Rapports : `reports/security-*.txt`, `reports/govulncheck-*.txt`. Remédiation : monter **pytest** ≥ 9.0.3 (CVE-2025-71176), traiter les **npm audit** high sur admin-dashboard, suivre les sorties govulncheck. |
+| **Détecter les failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety sur admin-service, **govulncheck** sur chaque service Go), checks **401** sur `/auth/validate`. Rapports : `reports/security-*.txt`, `reports/govulncheck-*.txt`. Remédiation : monter **pytest** ≥ 9.0.3 (CVE-2025-71176), traiter les **npm audit** high sur le frontend (**service cloudity-web**), suivre les sorties govulncheck. |
 | **OpenClaw / ClawSecure** | Outils **tiers** pour auditer des *skills* / agents **IA** (OWASP ASI), ex. [ClawSecure OpenClaw](https://github.com/ClawSecure/clawsecure-openclaw-security) — **pas** un remplacement du durcissement applicatif Cloudity ; utile si vous versionnez des *Cursor skills* sensibles **à part**. |
 
 **État (2026-02)** : **Migrations DB** au `make up`. **Drive** : opérationnel. **Éditeur document** : **fil d'Ariane** (Drive > nom), **renommer** (bouton à côté du titre), **barre de menus** (Fichier, Édition, Affichage, Insertion, Format), **barre de formatage** (gras, titres, listes, tableau, lien, citation), mode Markdown, sauvegarde .docx/.xlsx ; **drawer** sidebar (nav gauche masquable, `cloudity_sidebar_visible`). Objectif : éditeur maison complet (Word/Excel/PowerPoint niveau Google Docs et au-delà). **JWT** : clés RSA persistées (private.pem + public.pem) pour éviter l'invalidation des tokens au redémarrage. **API** : le dashboard en Docker utilise `VITE_API_URL=http://localhost:6080` (port 6080 car Chrome bloque 6000 — ERR_UNSAFE_PORT). En cas de 401, vérifier que vous êtes bien connecté ou faire **make setup** puis **make up**.
@@ -113,19 +115,19 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 | ID | Tâche | Détail / livrable | Statut |
 |----|--------|-------------------|--------|
 | **A0** | **Documentation & alignement** | Ce fichier (§ 0b), noms des apps/packages figés en équipe | 🟡 En cours |
-| **A1** | **Workspaces frontend** | **Phase 1 livrée** : racine **`frontend/package.json`** + **`frontend/package-lock.json`**, workspaces **`admin-dashboard`** + **`packages/*`** (placeholder **`packages/workspace-meta`**). Commandes : **`make frontend-install`** / **`make frontend-npm-ci`**. L’image Docker **admin-dashboard** build toujours depuis **`frontend/admin-dashboard`** + son lockfile (chantier **A8** : contexte `frontend/` unifié). | 🟢 Phase 1 |
+| **A1** | **Workspaces frontend** | **À jour** : racine **`frontend/package.json`**, workspaces **`apps/*`** + **`packages/*`** (**`@cloudity/web`**, **`@cloudity/shared`**). Docker : service **`cloudity-web`**, contexte **`./frontend`**, lockfile racine. | 🟢 |
 | **A2** | **Package auth partagé** | Clé **`AUTH_STORAGE_KEY`** dans **`cloudityCore.ts`** (auth aligné) ; suite : helpers **`Authorization`** / **`X-Tenant-ID`** extraits des appels **`fetch`** | 🟡 Minimal |
-| **A3** | **Package client API partagé** | **`admin-dashboard/src/lib/cloudityCore.ts`** : `apiUrl`, `getApiBaseUrl`, `AUTH_STORAGE_KEY` — consommé par **`api.ts`** et **`authContext.tsx`** ; prochaine étape : déplacer vers **`frontend/packages/*`** quand **A8** (build Docker depuis **`./frontend`**) sera fait | 🟡 Minimal |
+| **A3** | **Package client API partagé** | **`packages/cloudity-shared`** (`cloudityCore.ts`, `jwtRole.ts`, …) — consommé par **`@cloudity/web`** ; suite : **`getAuthHeaders`**, types API, réduction des imports directs depuis l’app | 🟡 Minimal |
 | **A3.1** | **Mail IMAP ↔ BDD & dossiers** | Sync IMAP reste source des en-têtes ; **`mail_messages`** = cache/query côté Cloudity. **À faire** : création **sous-dossiers** sous INBOX (IMAP `CREATE` + ligne **`mail_imap_folders`**), déplacement message = **IMAP COPY/APPEND + expunge** + **UPDATE** BDD ; vue **`folder=all`** exclut **trash/spam/drafts** (API + badge UI) ; barre latérale sans doublon **Trash** vs **Corbeille** (filtre `imap_special_use` + chemins réservés). Livré partiellement : filtre **`folder=all`**, UI dossiers / libellés. | 🟡 Partiel |
 | **A3.2** | **Règles de tri Mail (type Proton)** | **Livré partiellement** : assistant **« créer une règle à partir de ce message »** (⋯ liste + détail), **édition + activer/désactiver** des règles, critères **from / domaine / destinataire / sujet / PJ / étiquette**, actions dossier standard **ou dossier IMAP personnalisé** + marquer lu + **ajout d’étiquette**, **appliquer aux existants** ; recherche liste **FTS** (FR+EN, HTML léger, **`sort=date`** ou **`sort=rank`** (défaut)); stockage **JSON** (`criteria_json`, `actions_json`) + **ordre d’exécution** (`rule_order`) livré ; **réconciliation IMAP** à l’application des règles (move + `\\Seen`, best-effort) livrée. Voir **SYNC-BACKLOG** §0b. | 🟡 Partiel |
 | **A4** | **Package UI optionnel** | Composants réutilisables (boutons, layout partiel) si duplication constatée entre apps | ⬜ |
 | **A5** | **App suite utilisateur** | Projet Vite dédié : hub + produits ; **aucune** route admin métier ; consomme A2/A3 | ⬜ |
 | **A6** | **App admin-console** | Projet Vite dédié : login (même JWT), Tenants, Users, Domaines, Settings admin uniquement | ⬜ |
 | **A7** | **URLs & ports dev** | Ex. `localhost:6001` = suite, `localhost:6002` = admin — ou sous-domaines locaux (`app.cloudity.test` / `admin.cloudity.test`) + proxy | ⬜ |
-| **A8** | **Docker / Make** | Services `docker-compose` ou cibles `Makefile` pour builder/servir chaque app ; `VITE_API_URL` par app | ⬜ |
+| **A8** | **Docker / Make** | **Partiel** : service **`cloudity-web`**, contexte **`./frontend`**, **`npm install`** au run + Vitest/Playwright côté Makefile ; reste : apps séparées (ports / images distincts) si scission **A5/A6** | 🟡 |
 | **A9** | **CORS gateway** | Liste d’origines autorisées incluant **toutes** les URLs des apps front (dev + prod) | ⬜ |
-| **A10** | **CI / `make test`** | Installation workspaces + tests Vitest (et E2E) par app ou globaux sans régression | ⬜ |
-| **A11** | **Migration du code existant** | Déplacer routes/pages par blocs ; garder l’app historique **verte** à chaque merge ; renommage du dossier `admin-dashboard` seulement quand stable | ⬜ |
+| **A10** | **CI / `make test`** | Vitest **`cloudity-web`** dans Docker ; E2E Playwright sur hôte — **OK** ; à suivre si multi-apps | 🟡 |
+| **A11** | **Migration du code existant** | Dossier historique **`admin-dashboard`** → **`apps/cloudity-web`** (**fait**) ; suite : extraire pages par blocs vers futures **`apps/*`** sans casser les routes | 🟡 |
 | **A12** | **Playwright** | Projects ou profils séparés (suite utilisateur vs admin) si deux apps | ⬜ |
 | **A13** | **Prod / reverse proxy** | Nginx ou Traefik : `app.*` vs `admin.*` (ou chemins distincts) vers les bons conteneurs | ⬜ |
 
@@ -133,9 +135,10 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 
 ### Étape technique immédiate (après A0)
 
-1. ~~**A1**~~ — **Phase 1** : workspaces npm à la racine **`frontend/`** (voir tableau **A1**). Prochain pas structurel optionnel : dossier physique **`frontend/apps/…`** (aligné doc historique) lors de **A11** si besoin.  
-2. **A2 + A3 (minimal)** — **`admin-dashboard/src/lib/cloudityCore.ts`** (pas de paquet npm **`@cloudity/*`** tant que le build Docker n’utilise pas le monorepo racine **A8**) ; poursuivre extraction (**`getAuthHeaders`**, types) + **A3.1** / **A3.2**.  
-3. Ensuite seulement **A6** (nouvelle app admin) ou **A5** (scission suite), selon priorité produit.
+1. ~~**A1**~~ — Workspaces **`frontend/`** + app **`@cloudity/web`**. ~~**A11** (renommage dossier)~~ — **`apps/cloudity-web`**.  
+2. **A2 + A3 (minimal)** — Poursuivre depuis **`@cloudity/shared`** : helpers **`Authorization`** / **`getAuthHeaders`**, types partagés ; **A3.1** / **A3.2** (Mail IMAP + règles) selon **SYNC-BACKLOG**.  
+3. **A8** — Finaliser la **scission déploiement** (images ou ports distincts **suite** vs **admin**) seulement si besoin produit ; sinon rester sur **`cloudity-web`** unifié.  
+4. **Produit (STATUS § « Prochaine étape »)** : admin (pagination listes, outil tenants de test) → stabilisation web Mail/Photos → mobile/desktop.
 
 **Rappel** : les backends et routes gateway (`/mail/*`, `/drive/*`, …) **restent** tels quels au début ; on ajoute surtout de la **structure front** et du **partage de code**.
 
@@ -173,7 +176,7 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 
 - [x] **Vérifier la stack** : `make up` puis ouvrir http://localhost:6001 et http://localhost:6080/health ; Redis healthy, tous les services démarrent. (Correction Redis : mot de passe passé via shell pour que la variable d'env soit bien utilisée.)
 - [x] **Consolider l'auth** : Argon2id pour les mots de passe, refresh tokens avec rotation, 2FA TOTP opérationnel (auth-service). Tests associés (main_test.go).
-- [x] **Renforcer admin** : admin-service (CRUD users, rôles, CRUD tenants) ; admin-dashboard (écrans Tenants, Users, Settings reliés à l'API, logout branché). Tests : pytest (health, tenants, users), vitest (App, Tenants, Users, Settings).
+- [x] **Renforcer admin** : admin-service (CRUD users, rôles, CRUD tenants) ; **`@cloudity/web`** (écrans Tenants, Users, Settings reliés à l'API, logout branché). Tests : pytest (health, tenants, users), vitest (App, Tenants, Users, Settings).
 
 ### Phase 1 — Password Manager MVP
 
@@ -189,8 +192,8 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 - [x] **Schéma DB mail** : `03-schema-mail.sql` (mail_domains, mail_mailboxes, mail_aliases).
 - [ ] **mail-client-api** : *optionnel* — wrapper IMAP/SMTP si on extrait la logique hors **mail-directory-service** ; sinon reporter après stabilisation **§1c**.
 - [ ] **Client mail Flutter** (web + Linux) : lecture/envoi, dossiers, étiquettes.
-- [x] **Client mail web (admin-dashboard)** : envoi, sync IMAP, plusieurs boîtes, dossiers standard, pièces jointes en partie, polling / actualisation — **voir §1c M*** pour la suite (dossiers perso, règles, recherche full-text). *Un **mail-client-api** dédié reste optionnel* tant que l’UI parle au **mail-directory-service** via la gateway.
-- [x] **Page Domaines** (admin-dashboard) : liste + création domaines mail, API /mail/domains.
+- [x] **Client mail web (`@cloudity/web`)** : envoi, sync IMAP, plusieurs boîtes, dossiers standard, pièces jointes en partie, polling / actualisation — **voir §1c M*** pour la suite (dossiers perso, règles, recherche full-text). *Un **mail-client-api** dédié reste optionnel* tant que l’UI parle au **mail-directory-service** via la gateway.
+- [x] **Page Domaines** (`@cloudity/web`) : liste + création domaines mail, API /mail/domains.
 
 ### Phase 3 — Alias + intégration
 
@@ -394,7 +397,7 @@ En production, exposer les services via un reverse proxy (Nginx Proxy Manager, N
 | Sous-domaine | Service | Rôle |
 |--------------|---------|------|
 | **api.cloudity.example.com** | api-gateway (6080) | API unifiée (auth, admin, pass, mail). |
-| **app.cloudity.example.com** | admin-dashboard (6001) | App web : landing, login, hub Drive/Pass/Mail, admin. |
+| **app.cloudity.example.com** | cloudity-web (6001) | App web : landing, login, hub Drive/Pass/Mail, admin UI **`/4dm1n`**. |
 | **auth.cloudity.example.com** | (optionnel) auth-service direct | Si accès direct auth utile (sinon tout via api.). |
 | **mail.cloudity.example.com** | (Phase 2) Webmail / client | Client mail. |
 | **pass.cloudity.example.com** | (optionnel) App Pass web | App Pass Flutter web. |
@@ -437,7 +440,7 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 | **api-gateway** | **6080** | 8000 | **API principale** : `http://localhost:6080` (à mettre dans `VITE_API_URL` ; Chrome bloque 6000, ERR_UNSAFE_PORT). |
 | admin-service | 6082 | 8082 | Direct (débogage) ; en prod via gateway `/admin/*`. |
 | password-manager | 6051 | 8051 | Direct (débogage) ; en prod via gateway `/pass/*`. |
-| **admin-dashboard** | **6001** | 3000 | **App web** : `http://localhost:6001` (/, /login, /register, /app, /admin). |
+| **cloudity-web** | **6001** | 3000 | **App web** : `http://localhost:6001` (/, /login, /register, /app, **`/4dm1n`** admin). |
 | Adminer (profil dev) | 6083 | 8080 | `http://localhost:6083` |
 | Redis Commander (profil dev) | 6084 | 8081 | `http://localhost:6084` |
 
@@ -467,7 +470,7 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 
 ### 4.5 Frontend & applications web (port 6001)
 
-**Transition** : aujourd’hui une **seule app React** (`frontend/admin-dashboard`) sert l’accueil public, l’espace utilisateur et l’admin ; la cible est décrite en **§ 0b** (plusieurs apps + packages partagés, admin séparé).
+**Transition** : aujourd’hui une **seule app React** (**`frontend/apps/cloudity-web`**, **`@cloudity/web`**) sert l’accueil public, l’espace utilisateur et l’admin (**`/4dm1n`**) ; la cible est décrite en **§ 0b** (plusieurs apps + packages partagés, admin déployable à part).
 
 Actuellement, cette app unique couvre :
 
@@ -486,17 +489,17 @@ Actuellement, cette app unique couvre :
 | **/app/photos** | Galerie timeline (API photos-service) | ✅ (MVP) |
 | **/app/corbeille** | Corbeille Drive (vue dédiée) | ✅ |
 | **/app/settings** | Paramètres utilisateur (session) ; à enrichir (profil, préférences) | ✅ |
-| **/admin** | Administration : tableau de bord, Tenants, Users, Vaults, Domaines mail, Settings | ✅ |
+| **/4dm1n** | Administration (UI) : tableau de bord, Tenants, Users, Vaults, Domaines mail, Settings — **`/admin` → redirection** | ✅ |
 
 **Connexion** : l'utilisateur se connecte avec **email + mot de passe** uniquement. Le frontend envoie `tenant_id: 1` par défaut à l'API (backend actuel exige encore `tenant_id`). Une évolution backend (ex. résolution du tenant par domaine email ou endpoint dédié) permettra de supprimer complètement la notion de tenant côté utilisateur.
 
 **Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l'admin.
 
-**Applications web comme modules** : Drive, Pass, Mail, Office, Agenda, Notes, Tâches, Contacts, Photos et Admin sont des **modules** dans **admin-dashboard** (`/app/*`, `/admin`), chacun derrière la gateway (`/drive/*`, `/mail/*`, `/photos/*`, …). Le shell fournit auth, layout, **recherche MVP** (palette globale) et notifications. Pour étendre : route + page (+ service + préfixe gateway si nouveau domaine). Clients **Flutter** / PWA réutilisent les mêmes APIs — voir **MOBILES.md**.
+**Applications web comme modules** : Drive, Pass, Mail, Office, Agenda, Notes, Tâches, Contacts, Photos et Admin sont des **modules** dans **`@cloudity/web`** (`/app/*`, **`/4dm1n`** pour l’UI admin), chacun derrière la gateway (`/drive/*`, `/mail/*`, `/photos/*`, …). Le shell fournit auth, layout, **recherche MVP** (palette globale) et notifications. Pour étendre : route + page (+ service + préfixe gateway si nouveau domaine). Clients **Flutter** / PWA réutilisent les mêmes APIs — voir **MOBILES.md**. *Cible long terme* : extraire le hub utilisateur et le back-office en apps dédiées — voir **docs/ARCHITECTURE-FRONTENDS.md** (**`@cloudity/shared`** déjà en place).
 
 | App / cible | Stack | Statut | Détail |
 |-------------|--------|--------|--------|
-| **App web unifiée** (6001) | React (Vite, TanStack Query, Tailwind) | ✅ OK | Suite **§4.5** (Hub, Drive, Mail, Office, Pass, Agenda, Notes, Tâches, Contacts, Photos) + **/admin**. |
+| **App web unifiée** (6001) | React (Vite, TanStack Query, Tailwind) | ✅ OK | Suite **§4.5** (Hub, Drive, Mail, Office, Pass, Agenda, Notes, Tâches, Contacts, Photos) + **`/4dm1n`**. |
 | Mail (web/desktop) | Flutter | ❌ À faire | Phase 2 (client riche). |
 | Password Manager (desktop) | Flutter | ❌ À faire | Phase 1 (optionnel si web Pass suffit). |
 | Extensions navigateur (Pass) | JS/TS Manifest v3 | ❌ À faire | Phase 1 (MVP) puis Phase 3 (alias). |
@@ -505,17 +508,14 @@ Actuellement, cette app unique couvre :
 
 ### 4.6 Scripts et outillage
 
-- `scripts/setup.sh` : setup initial (dossiers, .env, clés, deps) → puis `make up`.
-- `scripts/setup-dev.sh` : deps locales pour dev (Go, Node, Python).
-- `scripts/diagnose.sh` : vérification structure + ports 60XX.
-- `scripts/fix-project.sh` : réparation .env, go.mod, frontend minimal.
+Index : **`scripts/README.md`** (`db/`, `mobile/`, `ci/`, `dev/`). Exemples : **`scripts/dev/setup.sh`**, **`scripts/dev/diagnose.sh`**, **`scripts/db/migrate-db.sh`** (monté dans **db-migrate**).
 - **Migrations** : dossier **`infrastructure/postgresql/migrations/`** + service **db-migrate** au `make up` — outil externe type golang-migrate **optionnel** si besoin de versioning plus strict.
 
 ### 4.7 Base pour avancer (à étendre)
 
 | Composant | Rôle | Prochaine étape |
 |-----------|------|------------------|
-| **admin-dashboard** (React/Vite) | UI admin actuelle | Renforcer (tenants, users, settings) ; servir de modèle pour Mail/Pass UI. |
+| **`@cloudity/web`** (React/Vite) | Suite + admin UI | Renforcer (tenants, users, settings) ; servir de modèle pour Mail/Pass UI. |
 | **admin-service** (FastAPI) | CRUD tenants, API admin | Étendre (users, rôles) ; même pattern pour mail-directory et password-manager. |
 | **auth-service** (Go) | Login, register, JWT, 2FA | Consolider (Argon2id, refresh tokens) puis brancher tous les fronts. |
 | **api-gateway** (Go) | Reverse proxy + CORS | Routes **/mail**, **/pass**, **/drive**, **/calendar**, **/notes**, **/tasks**, **/photos** déjà branchées ; étendre pour nouveaux services. |

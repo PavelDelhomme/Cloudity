@@ -1,0 +1,12 @@
+{
+  "name": "@cloudity/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}

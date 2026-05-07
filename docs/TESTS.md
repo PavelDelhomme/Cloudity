@@ -43,16 +43,18 @@
 
 ---
 
+**Checklist post-modif (build, E2E, UI)** : **[DEV-VERIFICATION.md](./DEV-VERIFICATION.md)**.
+
 ## 1. Commandes
 
 | Commande | Rôle |
 |----------|------|
-| **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **admin-dashboard** : `compose run --no-deps` + Vitest. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
+| **`make test`** | **Uniquement** tests unitaires + applicatifs (pas d’E2E), **tout dans Docker** : `docker compose run --rm --no-deps <service> go test` pour chaque service Go ; **admin-service** : `exec` si la stack est déjà up (évite un 2e Postgres sur le port hôte), sinon `compose run` avec Postgres ; **cloudity-web** (app **@cloudity/web**) : `compose run --no-deps` + **`cd /ws && npm install`** + Vitest dans **`apps/cloudity-web`**. **Prérequis** : démon Docker. **Pas besoin de `make up`** pour les parties Go seules. |
 | **`make test-auth`** | Smoke **auth-service** seul (`go test -v -count=1 ./...` dans le conteneur). Pratique pour valider Docker sans lancer toute la batterie. |
 | **`make test-go-one SERVICE=nom`** | Smoke **un** service Go (`api-gateway`, `mail-directory-service`, `drive-service`, …) — **`SERVICE`** = clé exacte dans **docker-compose.yml**. |
 | **`make test-e2e`** | **Tests E2E séparés.** Vérifie que les services répondent (health, gateway proxy, dashboard). **Prérequis : `make up`** puis **attendre 20-30 s** que tous les services soient healthy. |
 | **`make tests`** | **TOUT** : unit/app + E2E + **Playwright** + sécurité + **mobile Flutter Photos + Drive + Mail** (`test-mobile-suite`). Rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
-| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office, Mail, etc. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et **`npx playwright`** tournent sur la **machine hôte** ; l’application testée est celle servie par **Docker** (`admin-dashboard` dans la stack). |
+| **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office, Mail, etc. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et **`npx playwright`** tournent sur la **machine hôte** ; l’application testée est celle servie par **Docker** (service compose **`cloudity-web`**, image **@cloudity/web**). |
 | **`make test-e2e-playwright-mail`** | **Playwright — uniquement** **`e2e/mail.spec.ts`** (plus rapide ; inclut la non-régression **`Maximum update depth`**). Même prérequis que la ligne ci-dessus. |
 | **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`**. |
 | **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** : § **1b**. **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** → sans Drive ; **`CLOUDITY_SKIP_MOBILE_MAIL=1`** → sans Mail. |
@@ -61,13 +63,13 @@
 | **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
-| **`make test-dashboard`** | **Vitest admin-dashboard seul**, dans l’image Docker (`npm install` + `npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
-| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/admin-dashboard/`. |
+| **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
+| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/apps/cloudity-web/`. |
 | **`make test-dashboard-lint`** | **ESLint** du dashboard dans le conteneur (`npm run lint`). |
 
-### Admin-dashboard : chemin canonique = Docker
+### Frontend web (@cloudity/web) : chemin canonique = Docker
 
-**Référence** : la CI et **`make test`** installent les deps et lancent Vitest / ESLint **dans le conteneur** `admin-dashboard` (`npm install` dans le `run`, volume `node_modules` du projet). Ce flux est la **source de vérité** ; un échec de **`npm run test`** sur l’hôte sans `node_modules` **n’indique pas** une régression.
+**Référence** : la CI et **`make test`** installent les deps à **`/ws`** (racine `frontend/` montée dans le conteneur) puis lancent Vitest dans **`apps/cloudity-web`**. Ce flux est la **source de vérité** ; un échec de **`npm run test`** sur l’hôte sans `node_modules` **n’indique pas** une régression.
 
 | Besoin | Commande (racine du dépôt, Docker requis) |
 |--------|---------------------------------------------|
@@ -81,7 +83,7 @@
 **Équivalent sans Make** (toujours Docker, depuis la racine du repo) :
 
 ```bash
-docker compose -f docker-compose.yml run --rm --no-deps admin-dashboard sh -c "npm install && npm run test"
+docker compose -f docker-compose.yml run --rm --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run test"
 ```
 
 **Dépannage `make test-dashboard-lint` → `eslint: not found`** : le **`package.json`** du dashboard doit lister **`eslint`** et les plugins (voir **`.eslintrc.cjs`**). En principe un simple **`make test-dashboard-lint`** refait un **`npm install`** dans le conteneur et récupère les paquets. **Sur l’hôte**, **`make dashboard-npm-ci`** ne sert qu’à aligner un poste de dev (IDE), pas à remplacer Docker pour la validation.
@@ -201,11 +203,11 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **photos-service** | API (Go) | idem | `backend/photos-service/main_test.go` | 2 |
 | **drive-service** | API (Go) | idem | `backend/drive-service/main_test.go` | 10 |
 | **admin-service** | API (Python) | `pytest tests/` | `backend/admin-service/tests/*.py` | 21 |
-| **admin-dashboard** | Frontend (Vitest) | `npm run test` | **26+ fichiers** (dont **GlobalSearchPalette.test.tsx**, AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~210** (+ 3 skippés) — lancer **`make test`** pour le total exact |
+| **cloudity-web** | Frontend (Vitest) | `npm run test` | **26+ fichiers** (dont **GlobalSearchPalette.test.tsx**, AppHub, AppLayout, CalendarPage, DocumentEditorPage, DrivePage, **PhotosPage**, MailPage, api, …) | **~210** (+ 3 skippés) — lancer **`make test`** pour le total exact |
 
-**Total** : lancer **`make test`** pour le cumul à jour (tous les services Go, pytest admin-service, Vitest admin-dashboard).
+**Total** : lancer **`make test`** pour le cumul à jour (tous les services Go, pytest admin-service, Vitest **@cloudity/web**).
 
-**Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/admin-dashboard` ou **`make test-e2e-playwright`** depuis la racine.
+**Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/apps/cloudity-web` ou **`make test-e2e-playwright`** depuis la racine.
 
 **401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
 
@@ -213,7 +215,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 
 **Messages proxy / « no such host » pendant `make test` (api-gateway)** : les tests (`TestAuthPrefixRouted`, etc.) lancent le **handler** gateway dans le **conteneur** `api-gateway` avec **`--no-deps`** : les autres microservices ne sont **pas** démarrés sur le réseau du projet, donc le reverse proxy peut journaliser des erreurs de connexion vers `auth-service`, `mail-directory-service`, etc. Les tests **passent** car ils vérifient surtout l’**absence de 404** sur les préfixes routés. Pour un test **contre la stack réelle**, utiliser **`make test-docker`** après **`make up`** (**`exec`** dans les conteneurs déjà liés).
 
-**`db-migrate` (exit 1) pendant `make test` (admin-service) ou `make test-security` (safety)** : le script **`scripts/migrate-db.sh`** retente la connexion **PostgreSQL** jusqu’à ~30 s (réseau Docker au démarrage). Si l’échec persiste, consulter **`docker compose logs db-migrate`** ou lancer **`docker compose run --rm db-migrate`** pour voir l’erreur SQL exacte (`psql`). En local, vérifier que **`cloudity-postgres`** est **healthy** avant les tests.
+**`db-migrate` (exit 1) pendant `make test` (admin-service) ou `make test-security` (safety)** : le script **`scripts/db/migrate-db.sh`** retente la connexion **PostgreSQL** jusqu’à ~30 s (réseau Docker au démarrage). Si l’échec persiste, consulter **`docker compose logs db-migrate`** ou lancer **`docker compose run --rm db-migrate`** pour voir l’erreur SQL exacte (`psql`). En local, vérifier que **`cloudity-postgres`** est **healthy** avant les tests.
 
 **E2E Playwright — éditeur (contenteditable)** : attendre **`data-testid="editor-save-state"`** visible avant de simuler la frappe (chargement terminé, même rendu que pour l’utilisateur). Le HTML chargé depuis l’API est injecté dans la zone d’édition **après** la disparition du spinner.
 
@@ -242,11 +244,11 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **tests/test_tenants.py** | Liste tenants (skip/limit) ; get by id 404 ; create (validation, champs manquants, succès) ; delete 404. |
 | **tests/test_users.py** | Liste users par tenant (skip/limit) ; get user 404 ; update (validation, payload valide, body vide, is_active). |
 
-### 3.3 Frontend — admin-dashboard (Vitest)
+### 3.3 Frontend — @cloudity/web (Vitest)
 
-**Workspaces (STATUS §0b A1)** : le dépôt peut avoir une racine **`frontend/package.json`** (workspaces **`admin-dashboard`** + **`packages/*`**). **`make test`** lance toujours Vitest **dans le conteneur** avec le contexte **`frontend/admin-dashboard`** (`npm install` + `npm run test`) ; en développement hôte : **`make frontend-install`** ou **`cd frontend && npm install`**, puis **`npm run test -w admin-dashboard`** (ou **`cd frontend/admin-dashboard && npm run test`**).
+**Workspaces** : racine **`frontend/package.json`** (`apps/*`, `packages/*`). Paquet web : **`@cloudity/web`** dans **`frontend/apps/cloudity-web`** ; partagé : **`@cloudity/shared`** (`packages/cloudity-shared`). **`make test`** : **`cd /ws && npm install && cd apps/cloudity-web && npm run test`** dans le service **`cloudity-web`**. En local : **`cd frontend && npm install`** puis **`npm run test -w @cloudity/web`** (ou **`cd frontend/apps/cloudity-web && npm run test`**).
 
-**Si `docker compose … admin-dashboard` échoue avec `npm error 404 … @cloudity/cloudity-core`** : ce paquet **n’existe pas** sur le registre npm ; le code utilise **`admin-dashboard/src/lib/cloudityCore.ts`**. Supprimer toute entrée **`packages/cloudity-core`** / **`@cloudity/cloudity-core`** obsolète dans **`frontend/package-lock.json`**, exécuter **`cd frontend && npm install`**, puis **`docker compose build --no-cache admin-dashboard`** (voir aussi **SYNC-BACKLOG §0b**).
+**Si `docker compose … cloudity-web` échoue sur les deps** : **`@cloudity/shared`** est référencé en **`file:../../packages/cloudity-shared`** (évite les erreurs **`workspace:*`** avec un lockfile / npm incohérents). **`npm install`** doit toujours être lancé depuis **`frontend/`** (racine monorepo) ou par la commande du service Docker. Puis **`docker compose build --no-cache cloudity-web`**.
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|
@@ -297,7 +299,7 @@ Lancé par **`make test-e2e`** (stack up requise).
 
 ### 3.5 E2E — Playwright (navigateur)
 
-Lancé par **`make test-e2e-playwright`** ou **`cd frontend/admin-dashboard && BASE_URL=http://localhost:6001 npm run test:e2e`**. **Prérequis** : stack up (**`make up`**), compte démo créé (**`make seed-admin`**), attendre 20-30 s.
+Lancé par **`make test-e2e-playwright`** ou **`cd frontend/apps/cloudity-web && BASE_URL=http://localhost:6001 npm run test:e2e`**. **Prérequis** : stack up (**`make up`**), compte démo créé (**`make seed-admin`**), attendre 20-30 s.
 
 Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion, navigation Hub → Drive / Office, création de fichier et de dossier, téléversement, ouverture d’un document dans l’éditeur.
 
@@ -315,7 +317,7 @@ Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion,
 | **e2e/mail.spec.ts** | Page **`/app/mail`** : titre document **`h1` « Mail »** (**`sr-only`**, comme le **`h1` Drive** à la racine) ; boîtes / chargement / Menu Mail ; lien **Mail** depuis le hub ; fil d’Ariane ; pas de message d’erreur réseau évident ; **navigation Mail → Drive → Mail** + écoute **`Maximum update depth`** (§ **4.8**). |
 | **e2e/editor.spec.ts** | **Ouverture éditeur par URL (mock)** : modale **Lien** (popup custom), modale **Tableau** ; **modale Quitter** (Annuler reste, Quitter redirige). Test skippé : sauvegarde manuelle. |
 
-Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/admin-dashboard/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
+Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/apps/cloudity-web/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
 
 ## 4. Tests à faire / à ajouter au fur et à mesure
 
@@ -357,7 +359,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [ ] **password-manager** : test listVaults avec DB (intégration) ; test createVault ; test listItems / addItem / deleteItem (avec mock DB ou testcontainer).
 - [ ] **admin-service** : test GET /admin/tenants avec header Authorization (si ajout auth) ; test edge cases sur stats (audit_logs vide).
 
-### 4.2 Frontend (admin-dashboard)
+### 4.2 Frontend (@cloudity/web)
 
 - [x] **api.test.ts** : `fetchVaultItems` (GET /pass/vaults/:id/items) ; erreur 404.
 - [ ] **Vaults.test.tsx** : clic sur un coffre → chargement des items ; création coffre → liste mise à jour (mutation).
@@ -380,7 +382,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.5 Tests sécurité (`make test-security`)
 
-- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur admin-dashboard), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, **contacts-service**, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
+- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur **cloudity-web**, racine **`/ws`**), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, **contacts-service**, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 
@@ -437,7 +439,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 **Déjà fait (implémentation)** :
 
-- Fichiers : **`frontend/admin-dashboard/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/admin-dashboard/src/pages/app/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
+- Fichiers : **`frontend/apps/cloudity-web/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/apps/cloudity-web/src/pages/app/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
 - Documentation produit : **`STATUS.md`** (paragraphe d’en-tête), **`docs/PLAN.md`** § 10, **`BACKLOG.md`**, **`docs/TODO.md`**.
 
 **Tests automatisés — ordre recommandé** :
@@ -463,7 +465,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 - **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](./ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit ; les chantiers **sécurité transverse** (phases, signatures, Zero Trust) : **[SECURITE.md](./SECURITE.md)** + **[BACKLOG.md](../BACKLOG.md)**.
 - **Lancer tous les tests** : **`make test`** (unit/app uniquement).
-- **Vitest / ESLint dashboard (Docker, pas de Node obligatoire sur l’hôte)** : **`make test-dashboard`** ; un fichier : **`make test-dashboard-one FILE=src/...`** ; lint : **`make test-dashboard-lint`** — § **1** (convention **Docker d’abord** + encadré admin-dashboard).
+- **Vitest / ESLint dashboard (Docker, pas de Node obligatoire sur l’hôte)** : **`make test-dashboard`** ; un fichier : **`make test-dashboard-one FILE=src/...`** (relatif à **`frontend/apps/cloudity-web`**) ; lint : **`make test-dashboard-lint`** — § **1** (convention **Docker d’abord** + monorepo **`/ws`**).
 - **Playwright** : navigateur sur l’**hôte**, app servie par Docker — **`make test-e2e-playwright`** (voir tableau en tête de ce fichier).
 - **Lancer tout (unit + E2E + E2E Playwright + sécurité)** : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport dans `reports/`) ou **`make test-all`**.
 - **Lancer tout + tests dans les conteneurs** : **`make test-full`** (stack up requise).

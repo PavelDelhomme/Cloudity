@@ -2,17 +2,17 @@
   "name": "cloudity-frontend",
   "private": true,
   "version": "0.0.0",
-  "description": "Racine workspaces npm — STATUS.md §0b A1. L’image Docker admin-dashboard build encore depuis frontend/admin-dashboard seul.",
+  "description": "Monorepo frontend : @cloudity/web (SPA utilisateur + bundle admin) et @cloudity/shared.",
   "workspaces": [
-    "admin-dashboard",
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w admin-dashboard",
-    "build": "npm run build -w admin-dashboard",
-    "test": "npm run test -w admin-dashboard",
-    "lint": "npm run lint -w admin-dashboard",
-    "preview": "npm run preview -w admin-dashboard"
+    "dev": "npm run dev -w @cloudity/web",
+    "build": "npm run build -w @cloudity/web",
+    "test": "npm run test -w @cloudity/web",
+    "lint": "npm run lint -w @cloudity/web",
+    "preview": "npm run preview -w @cloudity/web"
   },
   "engines": {
     "node": ">=20"

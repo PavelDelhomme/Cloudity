@@ -13,7 +13,7 @@
 | Étape | Action |
 |-------|--------|
 | 0 | *(Optionnel mais recommandé)* Lire **[docs/SECURITE.md](./docs/SECURITE.md)** pour le cadre *Google + Proton* et les phases |
-| 1 | **`make setup`** (ou `./scripts/setup.sh`) si première machine |
+| 1 | **`make setup`** (ou `./scripts/dev/setup.sh`) si première machine |
 | 2 | **`make up`** ou **`make up-full`** (seed démo : **admin@cloudity.local** / **Admin123!**) |
 | 2b | Quand de nouveaux **`infrastructure/postgresql/migrations/*.sql`** apparaissent (sync du dépôt ou branche) : **`make migrate`** ou **`make rebuild`** — **TESTS.md** (Migrations) |
 | 3 | Attendre **20–30 s** puis ouvrir http://localhost:6001 |
@@ -63,7 +63,7 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 - [ ] **WAF** : eval NGINX + ModSecurity + CRS (mode détection) devant gateway ; tuning faux positifs.
 - [ ] **Audit log** utilisateur / admin (actions sensibles) — lié **SECURITE-DONNEES.md** moyen terme.
 
-### UX / Suite web (`frontend/admin-dashboard`)
+### UX / Suite web (`frontend/apps/cloudity-web`, **`@cloudity/web`**)
 
 - [x] **Mail web — rationalisation actions latérales** : suppression des doublons (`Nouveau`, `Recharger`, `Paramètres Mail`, `Filtres et règles`) quand déjà présents dans `Menu Mail`.
 - [x] **Mail web — compose riche** : barre de formatage de base (gras/italique/souligné/listes/lien), transfert en HTML lisible et titre compose explicite.
@@ -100,7 +100,7 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### Backend / infra
 
-- [x] **contacts-service** : **`main_test.go`** (health, 401 sans `X-User-ID`, liste vide si DB absente) — inclus dans **`make test`** / **`make test-docker`** / **govulncheck** (`scripts/test-security.sh`).
+- [x] **contacts-service** : **`main_test.go`** (health, 401 sans `X-User-ID`, liste vide si DB absente) — inclus dans **`make test`** / **`make test-docker`** / **govulncheck** (`scripts/ci/test-security.sh`).
 - [x] **Mail + gateway — bruit `make logs`** : SELECT IMAP sur noms absents (multi-fournisseur) sans log `[mail] sync select` ; ordre candidats **archive** (Gmail en dernier) ; **api-gateway** : **context.Canceled** sur reverse proxy sans spam — **SYNC-BACKLOG §0b** (paragraphe logs), **`mail-directory-service/imap_folders.go`**, **`api-gateway/main.go`**.
 - [ ] Mail archivage longue durée + full-text — **SYNC-BACKLOG** §1, **ROADMAP APP-01**.
 

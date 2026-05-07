@@ -43,10 +43,10 @@ services:
     environment:
       - PYTHON_ENV=production
 
-  admin-dashboard:
+  cloudity-web:
     build:
-      context: ./frontend/admin-dashboard
-      dockerfile: Dockerfile.dev
+      context: ./frontend
+      dockerfile: apps/cloudity-web/Dockerfile
     restart: always
     ports:
       - "6001:3000"

@@ -1,0 +1,25 @@
+# Build depuis la racine monorepo : docker compose avec context ./frontend
+FROM node:20-alpine
+
+RUN apk add --no-cache curl \
+  && npm install -g npm@11.13.0 \
+  && npm --version
+
+WORKDIR /ws
+
+# Copier le monorepo minimal puis installer (workspace:* / file: nécessite les dossiers présents).
+COPY package.json package-lock.json* ./
+COPY packages ./packages
+COPY apps/cloudity-web ./apps/cloudity-web
+
+RUN npm install
+
+WORKDIR /ws/apps/cloudity-web
+
+ENV NODE_ENV=development
+ENV CHOKIDAR_USEPOLLING=true
+ENV WATCHPACK_POLLING=true
+
+EXPOSE 3000
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]

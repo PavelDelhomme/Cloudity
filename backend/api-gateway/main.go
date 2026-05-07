@@ -208,8 +208,30 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// adminAPIRequiresSession indique si la gateway doit exiger un JWT valide avec rôle admin
+// (le service admin-service ne vérifie pas le JWT : la sécurité repose sur la gateway + réseau interne).
+func adminAPIRequiresSession(path string, method string) bool {
+	if method == http.MethodOptions {
+		return false
+	}
+	if !strings.HasPrefix(path, "/admin") {
+		return false
+	}
+	// Ingestion CI / scripts : jeton dédié côté admin-service (X-Cloudity-Perf-Ingest).
+	if method == http.MethodPost && path == "/admin/performance/pipeline-run" {
+		return false
+	}
+	return true
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Préflight CORS : ne pas exiger de Bearer (le navigateur n'envoie souvent pas Authorization sur OPTIONS).
+		if r.Method == http.MethodOptions {
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		// Skip auth for public endpoints
 		if strings.HasPrefix(r.URL.Path, "/auth/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/register") ||
@@ -221,6 +243,72 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		authHeader := r.Header.Get("Authorization")
+
+		// API admin : JWT obligatoire + rôle admin (sauf exceptions ci-dessus).
+		if adminAPIRequiresSession(r.URL.Path, r.Method) {
+			if authHeader == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"authentication required for admin API"}`))
+				return
+			}
+			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+			tokenString = strings.TrimSpace(tokenString)
+			if tokenString == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"authentication required for admin API"}`))
+				return
+			}
+			pubKey := loadPublicKey()
+			if pubKey == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"auth key not ready"}`))
+				return
+			}
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				return pubKey, nil
+			})
+			if err != nil || token == nil || !token.Valid {
+				if err != nil {
+					log.Printf("[gateway] JWT invalid for %s: %v", r.URL.Path, err)
+					if strings.Contains(err.Error(), "signature") || strings.Contains(err.Error(), "verification error") {
+						invalidatePublicKey()
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				w.Write([]byte(`{"error":"invalid or expired token"}`))
+				return
+			}
+			claims, ok := token.Claims.(jwt.MapClaims)
+			if !ok || !tokenHasAdminRole(claims) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				w.Write([]byte(`{"error":"admin role required"}`))
+				return
+			}
+			if userID, _ := claims["user_id"].(string); userID != "" {
+				r.Header.Set("X-User-ID", userID)
+			}
+			if tenantID, _ := claims["tenant_id"].(string); tenantID != "" {
+				r.Header.Set("X-Tenant-ID", tenantID)
+			}
+			if r.Header.Get("X-User-ID") == "" {
+				if n, ok := claims["user_id"].(float64); ok && n >= 1 {
+					r.Header.Set("X-User-ID", strconv.Itoa(int(n)))
+				}
+			}
+			if r.Header.Get("X-Tenant-ID") == "" {
+				if n, ok := claims["tenant_id"].(float64); ok && n >= 1 {
+					r.Header.Set("X-Tenant-ID", strconv.Itoa(int(n)))
+				}
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+
 		if authHeader == "" {
 			next.ServeHTTP(w, r)
 			return

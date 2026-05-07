@@ -28,5 +28,6 @@ backend/auth-service/private.pem
 # Build / cache auth-service
 backend/auth-service/tmp/
 
-# Dossier storage local (scripts ne le créent plus ; volumes Docker pour postgres/redis)
-storage/
+# Dossier storage local (volumes Docker pour postgres/redis par défaut) — versionner seulement la notice.
+storage/*
+!storage/README.txt

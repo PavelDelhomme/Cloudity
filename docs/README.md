@@ -19,6 +19,8 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[PHOTOS.md](./PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie |
 | **[BRANCHES.md](./BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité |
 | **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf / alternatives, artefacts `Trace-*` / `profiling-data*` |
+| **[DEVELOPMENT-HOST.md](./DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur seul |
+| **[DEV-VERIFICATION.md](./DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker) |
 
 **Mobile** : `make run-mobile APP=Admin` (ou `APP=Mail`, etc. — voir message script si pas encore scaffold) ; détail [MOBILES.md](./MOBILES.md) § 5.
 

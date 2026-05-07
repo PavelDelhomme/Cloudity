@@ -10,7 +10,7 @@ Document court pour **faire grandir** le projet (API, services, web, mobile) san
 |------|------|
 | `backend/api-gateway` | Point d’entrée HTTP unique (ports exposés côté client), routage vers les microservices. |
 | `backend/*-service` | Un service = un domaine (auth, drive, mail, pass, …). Base Postgres partagée, schémas isolés par migrations. |
-| `frontend/admin-dashboard` | SPA React ; appelle le **gateway** (`VITE_API_URL`), pas les services en direct. |
+| `frontend/apps/cloudity-web` (@cloudity/web) | SPA / MPA React ; appelle le **gateway** (`VITE_API_URL`), pas les services en direct. |
 | `infrastructure/postgresql/migrations` | Scripts SQL versionnés ; appliqués par le conteneur `db-migrate` au `docker compose up`. |
 
 **Mobile / autre client** : même contrat que le dashboard — **JWT** + appels HTTPS vers le gateway (ou une variante `api.mobile.*` plus tard). Pas besoin de dupliquer la logique métier : tout reste côté services.

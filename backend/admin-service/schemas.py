@@ -89,3 +89,67 @@ class PerformanceOverview(BaseModel):
     host: HostPerformanceSample
     containers: list[ContainerPerformanceSample] = []
     notes: list[str] = []
+
+
+class PerformanceHistoryItem(BaseModel):
+    id: int
+    recorded_at: datetime
+    source: str
+    overview_timestamp_utc: str | None = None
+    containers_count: int = 0
+
+
+class PerformanceHistoryResponse(BaseModel):
+    items: list[PerformanceHistoryItem]
+    storage_ready: bool
+
+
+class PerformanceSnapshotRecordResponse(BaseModel):
+    id: int
+    recorded_at: datetime
+
+
+class PipelineRunIngest(BaseModel):
+    pipeline_kind: str = Field(..., min_length=1, max_length=64)
+    run_id: str | None = Field(None, max_length=256)
+    success: bool | None = None
+    duration_ms: int | None = Field(None, ge=0)
+    cpu_pct_max: float | None = None
+    mem_peak_mb: float | None = None
+    meta: Dict = Field(default_factory=dict)
+
+
+class PipelineRunItem(BaseModel):
+    id: int
+    recorded_at: datetime
+    pipeline_kind: str
+    run_id: str | None = None
+    success: bool | None = None
+    duration_ms: int | None = None
+    cpu_pct_max: float | None = None
+    mem_peak_mb: float | None = None
+    meta: Dict = Field(default_factory=dict)
+
+
+class PipelineRunsResponse(BaseModel):
+    items: list[PipelineRunItem]
+    storage_ready: bool
+
+
+class PipelineRunCreatedResponse(BaseModel):
+    id: int
+    recorded_at: datetime
+
+
+class BudgetViolation(BaseModel):
+    key: str
+    threshold: float | str
+    observed: float | str
+    message: str
+
+
+class BudgetStatusResponse(BaseModel):
+    evaluated_at: str
+    source_snapshot: str
+    violations: list[BudgetViolation]
+    budgets: dict[str, float | str]

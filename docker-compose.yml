@@ -23,6 +23,8 @@ services:
       - cloudity-network
 
   # Redis pour cache et sessions (mot de passe développé via shell)
+  # Si les logs affichent « Memory overcommit must be enabled » : réglage noyau HÔTE
+  # (vm.overcommit_memory=1), pas dans ce fichier — voir docs/DEVELOPMENT-HOST.md et make host-redis-sysctl.
   redis:
     image: redis:7-alpine
     container_name: cloudity-redis
@@ -57,7 +59,7 @@ services:
     volumes:
       - ./scripts:/scripts:ro
       - ./infrastructure/postgresql/migrations:/migrations:ro
-    command: ["/bin/sh", "/scripts/migrate-db.sh"]
+    command: ["/bin/sh", "/scripts/db/migrate-db.sh"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -437,11 +439,11 @@ services:
     networks:
       - cloudity-network
 
-  admin-dashboard:
+  cloudity-web:
     build:
-      context: ./frontend/admin-dashboard
-      dockerfile: Dockerfile.dev
-    container_name: cloudity-main-frontend
+      context: ./frontend
+      dockerfile: apps/cloudity-web/Dockerfile.dev
+    container_name: cloudity-web
     restart: unless-stopped
     ports:
       - "6001:3000"
@@ -454,8 +456,24 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
-      - ./frontend/admin-dashboard:/app:cached
-      - node_modules_cache:/app/node_modules
+      - ./frontend:/ws:cached
+      # Volume dédié : évite d’écraser les node_modules Linux avec ceux de l’hôte.
+      # Il faut donc lancer **npm install à la racine /ws au démarrage** (voir command).
+      - node_modules_cache:/ws/node_modules
+    working_dir: /ws
+    # Sans install monorepo, /ws/node_modules (volume) est vide → Vite ne démarre pas → :6001 cassé.
+    command:
+      [
+        "sh",
+        "-c",
+        "cd /ws && npm install && exec npm run dev -w @cloudity/web -- --host 0.0.0.0 --port 3000",
+      ]
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 25
+      start_period: 180s
     depends_on:
       - api-gateway
     networks:

@@ -1,18 +1,29 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Tenant
+from models import Tenant, User
 from schemas import TenantCreate, TenantResponse, TenantUpdate
 
 router = APIRouter(prefix="/admin", tags=["tenants"])
 
+DEFAULT_TENANT_ID = 1
+
 
 @router.get("/tenants", response_model=List[TenantResponse])
-async def get_tenants(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    tenants = db.query(Tenant).offset(skip).limit(limit).all()
+async def get_tenants(
+    skip: int = 0,
+    limit: int = 100,
+    domain_contains: Optional[str] = Query(None, description="Filtre insensible à la casse sur le domaine (ILIKE %valeur%)"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(Tenant)
+    if domain_contains and domain_contains.strip():
+        needle = f"%{domain_contains.strip()}%"
+        q = q.filter(Tenant.domain.ilike(needle))
+    tenants = q.offset(skip).limit(limit).all()
     return tenants
 
 
@@ -49,10 +60,14 @@ async def update_tenant(tenant_id: int, tenant: TenantUpdate, db: Session = Depe
 
 @router.delete("/tenants/{tenant_id}")
 async def delete_tenant(tenant_id: int, db: Session = Depends(get_db)):
+    if tenant_id == DEFAULT_TENANT_ID:
+        raise HTTPException(status_code=403, detail="Cannot delete default tenant")
+
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
 
+    db.query(User).filter(User.tenant_id == tenant_id).delete(synchronize_session=False)
     db.delete(tenant)
     db.commit()
     return {"message": "Tenant deleted successfully"}

@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -39,17 +39,17 @@ help: ## Affiche ce message d'aide
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
-	@echo '  make test-dashboard - Vitest admin-dashboard **dans le conteneur** (compose run). Pour toute la batterie: make test.'
+	@echo '  make test-dashboard - Vitest @cloudity/web **dans le conteneur** (monorepo frontend/). Pour toute la batterie: make test.'
 	@echo '  make test-dashboard-one FILE=src/... - Un seul fichier Vitest dans le conteneur (ex. MailPage.test.tsx)'
-	@echo '  make test-dashboard-lint - ESLint admin-dashboard dans le conteneur'
+	@echo '  make test-dashboard-lint - ESLint @cloudity/web dans le conteneur'
 	@echo '  make test-auth      - Smoke : go test auth-service seul (Docker --no-deps)'
 	@echo '  make test-go-one SERVICE=drive-service - Smoke Go pour UN service (nom = clé docker-compose.yml)'
 	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
 	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
 	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
 	@echo '  make test-e2e-playwright-mail - E2E Playwright, fichier e2e/mail.spec.ts uniquement (stabilité React § TESTS 4.8)'
-	@echo '  make dashboard-npm-ci - npm ci dans frontend/admin-dashboard (valide le lockfile, comme le Dockerfile)'
-	@echo '  make dashboard-npm-install - npm install dashboard (après changement de package.json)'
+	@echo '  make dashboard-npm-ci - npm ci à la racine frontend/ (workspaces, comme le Dockerfile prod)'
+	@echo '  make dashboard-npm-install - npm install dans apps/cloudity-web (ou utiliser frontend-install à la racine)'
 	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
 	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down)'
@@ -74,6 +74,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make mobile-logcat-mail - Suit logcat filtré Cloudity/Mail/Flutter'
 	@echo '  make mobile-mail-debug - Session complète: clear logcat + test mobile mail + export logs'
 	@echo '  make mail-security-check - Vérifie sécurité Mail (PJ sans auth + HTML sanitizé)'
+	@echo '  make host-redis-sysctl - Warning Redis overcommit : sysctl hôte (APPLY=1 pour sudo sysctl session)'
 	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/BRANCHES.md)'
 	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
 	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
@@ -81,8 +82,8 @@ help: ## Affiche ce message d'aide
 
 feature-finish: ## Commit final + push + renommage feat/finish-… : make feature-finish MSG="message de commit"
 	@if [ -z "$(MSG)" ]; then echo '❌ Indiquez MSG="votre message" (ex. make feature-finish MSG="feat(mail): PJ liste")'; exit 1; fi
-	@chmod +x scripts/feature-finish.sh
-	@MSG="$(MSG)" NO_RENAME="$(NO_RENAME)" ALLOW_MAIN="$(ALLOW_MAIN)" ./scripts/feature-finish.sh
+	@chmod +x scripts/dev/feature-finish.sh
+	@MSG="$(MSG)" NO_RENAME="$(NO_RENAME)" ALLOW_MAIN="$(ALLOW_MAIN)" ./scripts/dev/feature-finish.sh
 
 git-fetch-prune: ## git fetch origin --prune (refs distantes alignées après suppressions sur GitHub)
 	@git fetch origin --prune
@@ -95,8 +96,8 @@ git-delete-remote-branch: ## Supprime une branche sur origin : make git-delete-r
 	@echo "✅ Branche distante supprimée : $(BRANCH)"
 
 run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/MOBILES.md
-	@chmod +x scripts/run-mobile.sh 2>/dev/null || true
-	@APP="$(APP)" ./scripts/run-mobile.sh
+	@chmod +x scripts/mobile/run-mobile.sh 2>/dev/null || true
+	@APP="$(APP)" ./scripts/mobile/run-mobile.sh
 
 mobile-devices: ## Liste les appareils ADB détectés
 	@adb devices -l
@@ -108,8 +109,8 @@ mobile-adb-authorize: ## Redémarre ADB puis affiche les devices (autorisation U
 	@adb devices -l
 
 mobile-doctor: ## Vérifie Flutter/ADB et fallback SDK local
-	@chmod +x scripts/mobile-doctor.sh scripts/mobile-flutter-env.sh scripts/check-flutter-sdk-writable.sh
-	@./scripts/mobile-doctor.sh
+	@chmod +x scripts/mobile/mobile-doctor.sh scripts/mobile/mobile-flutter-env.sh scripts/mobile/check-flutter-sdk-writable.sh
+	@./scripts/mobile/mobile-doctor.sh
 
 mobile-logcat-clear: ## Vide logcat du device ADB (ADB_SERIAL optionnel)
 	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -c
@@ -122,18 +123,23 @@ mobile-logcat-mail: ## Suit logcat filtré Mail/Cloudity/Flutter (ADB_SERIAL opt
 	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -v time | rg --line-buffered -i "cloudity|mail|flutter|dart|imap|notification"
 
 mobile-mail-debug: ## Session debug Mail mobile: clear logcat + test + export logs
-	@chmod +x scripts/mobile-mail-debug.sh scripts/mobile-test-common.inc.sh scripts/test-mobile-mail.sh scripts/test-mobile-app.sh
-	@ADB_SERIAL="$(ADB_SERIAL)" ./scripts/mobile-mail-debug.sh
+	@chmod +x scripts/mobile/mobile-mail-debug.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/test-mobile-mail.sh scripts/mobile/test-mobile-app.sh
+	@ADB_SERIAL="$(ADB_SERIAL)" ./scripts/mobile/mobile-mail-debug.sh
 
 mail-security-check: ## Vérifie sécurité Mail: PJ non accessible sans auth + sanitation HTML
-	@chmod +x scripts/mail-security-check.sh
-	@./scripts/mail-security-check.sh
+	@chmod +x scripts/dev/mail-security-check.sh
+	@./scripts/dev/mail-security-check.sh
+
+host-redis-sysctl: ## Vérifie vm.overcommit_memory (warning Redis) ; APPLY=1 pour sudo sysctl (hôte Linux)
+	@chmod +x scripts/dev/redis-host-sysctl.sh
+	@APPLY="$(APPLY)" ./scripts/dev/redis-host-sysctl.sh
 
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
 	@echo "✅ Stack démarrée. Accès:"
-	@echo "   Dashboard:  http://localhost:$(PORT_DASHBOARD)"
+	@echo "   Dashboard:  http://localhost:$(PORT_DASHBOARD)  (1er démarrage : npm install dans le conteneur → peut prendre 1–3 min ; logs: docker compose logs -f cloudity-web)"
+	@echo "   Quand :$(PORT_DASHBOARD) répond :  make wait-for-dashboard   (optionnel, timeout ~4 min)"
 	@echo "   API:        http://localhost:$(PORT_GATEWAY)"
 	@echo "   Auth:       http://localhost:$(PORT_AUTH)"
 	@echo "   Admin API:  http://localhost:$(PORT_ADMIN)"
@@ -146,16 +152,16 @@ up-full: down up wait-for-services seed seed-admin test ## Tout-en-un : down, up
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
-	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down --remove-orphans
 	@echo "✅ Stack arrêtée."
 
 install: ## Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets (ex. docx, xlsx).
-	@chmod +x scripts/install-deps.sh 2>/dev/null || true
-	@./scripts/install-deps.sh
+	@chmod +x scripts/dev/install-deps.sh 2>/dev/null || true
+	@./scripts/dev/install-deps.sh
 
 setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis lancer make up-full.
-	@if [ ! -f scripts/setup.sh ]; then echo "❌ scripts/setup.sh introuvable."; exit 1; fi
-	@./scripts/setup.sh
+	@if [ ! -f scripts/dev/setup.sh ]; then echo "❌ scripts/dev/setup.sh introuvable."; exit 1; fi
+	@./scripts/dev/setup.sh
 	@echo ""
 	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
 
@@ -205,7 +211,7 @@ create-react-project: ## Initialise le projet React
 	@if [ -f frontend/package.json ]; then \
 		cd frontend && npm install 2>/dev/null || true; \
 	else \
-		cd frontend/admin-dashboard && npm install 2>/dev/null || true; \
+		cd frontend && npm install 2>/dev/null || true; \
 	fi
 	@echo "✅ Projet React initialisé"
 
@@ -221,7 +227,7 @@ create-flutter-project: ## Initialise le projet Flutter
 setup-infrastructure: ## Configure l'infrastructure
 	@echo "🏗️  Configuration de l'infrastructure..."
 	@mkdir -p storage/postgres storage/redis storage/logs storage/backups
-	@chmod +x scripts/*.sh 2>/dev/null || true
+	@find scripts -type f -name '*.sh' -exec chmod +x {} \; 2>/dev/null || true
 	@echo "✅ Infrastructure configurée"
 
 dev: ## Démarre l'environnement de développement (équivalent à make up)
@@ -239,7 +245,7 @@ infrastructure-only: ## Démarre uniquement l'infrastructure (DB, Redis)
 
 frontend-only: ## Démarre uniquement le frontend
 	@echo "🎨 Démarrage du frontend..."
-	@$(COMPOSE) $(COMPOSE_FILES) up -d admin-dashboard
+	@$(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web
 	@echo "✅ Frontend lancé!"
 
 prod: ## Démarre l'environnement de production
@@ -271,7 +277,7 @@ build-admin: ## Build uniquement le service admin
 	@$(COMPOSE) $(COMPOSE_FILES) build admin-service
 
 build-dashboard: ## Build uniquement le dashboard
-	@$(COMPOSE) $(COMPOSE_FILES) build admin-dashboard
+	@$(COMPOSE) $(COMPOSE_FILES) build cloudity-web
 
 # make test = unitaires + applicatifs uniquement (PAS les E2E), **dans Docker** (sauf Playwright E2E = host).
 # Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
@@ -307,21 +313,21 @@ test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vite
 		echo "    → compose run (démarre Postgres / Redis / migrate pour pytest)"; \
 		$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1; \
 	fi
-	@echo "  [admin-dashboard]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
+	@echo "  [cloudity-web]"
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tous les tests sont passés."
 
 # Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
-test-dashboard: ## Vitest admin-dashboard dans le conteneur (compose run --no-deps)
+test-dashboard: ## Vitest @cloudity/web dans le conteneur (compose run --no-deps, monorepo /ws)
 	@echo "🧪 Tests dashboard (Vitest via Docker)..."
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && FORCE_COLOR=1 npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test" || exit 1
 	@echo "✅ Tests dashboard OK."
 
-test-dashboard-lint: ## ESLint admin-dashboard dans le conteneur (npm install + npm run lint)
+test-dashboard-lint: ## ESLint @cloudity/web dans le conteneur (npm install racine + lint app)
 	@echo "🧪 ESLint dashboard (Docker)..."
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && npm run lint" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run lint" || exit 1
 	@echo "✅ ESLint dashboard OK."
 
 test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/MailPage.test.tsx make test-dashboard-one
@@ -331,7 +337,7 @@ test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/MailPage.test.tsx 
 	fi
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
 	@echo "🧪 Vitest (Docker) — $(FILE)..."
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps admin-dashboard sh -c "npm install && npx vitest run $(FILE)" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npx vitest run $(FILE)" || exit 1
 	@echo "✅ Vitest $(FILE) OK."
 
 # Smoke Go : un service à la fois (même flags que la première étape de make test)
@@ -354,57 +360,57 @@ test-auth: ## Raccourci : go test auth-service seul dans Docker (équivalent à 
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
 tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos+Drive+Mail), sortie en direct + rapport dans reports/
-	@chmod +x scripts/run-tests-with-report.sh
-	@./scripts/run-tests-with-report.sh
+	@chmod +x scripts/ci/run-tests-with-report.sh
+	@./scripts/ci/run-tests-with-report.sh
 
 test-mobile-suite: ## Flutter Photos → Drive → Mail : hôte + integration_test ADB (gateway auto). SKIP: CLOUDITY_SKIP_MOBILE_DRIVE / CLOUDITY_SKIP_MOBILE_MAIL
-	@chmod +x scripts/test-mobile-suite.sh scripts/test-mobile-app.sh scripts/test-mobile-mail.sh scripts/mobile-test-common.inc.sh
-	@./scripts/test-mobile-suite.sh
+	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/test-mobile-mail.sh scripts/mobile/mobile-test-common.inc.sh
+	@./scripts/mobile/test-mobile-suite.sh
 
 test-mobile-photos: ## Flutter mobile/photos uniquement (wrapper test-mobile-app.sh photos)
-	@chmod +x scripts/test-mobile-photos.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
-	@./scripts/test-mobile-photos.sh
+	@chmod +x scripts/mobile/test-mobile-photos.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh
+	@./scripts/mobile/test-mobile-photos.sh
 
 test-mobile-drive: ## Flutter mobile/drive uniquement (wrapper test-mobile-app.sh drive)
-	@chmod +x scripts/test-mobile-drive.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
-	@./scripts/test-mobile-drive.sh
+	@chmod +x scripts/mobile/test-mobile-drive.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh
+	@./scripts/mobile/test-mobile-drive.sh
 
 test-mobile-mail: ## Flutter mobile/mail uniquement (wrapper test-mobile-app.sh mail)
-	@chmod +x scripts/test-mobile-mail.sh scripts/test-mobile-app.sh scripts/mobile-test-common.inc.sh
-	@./scripts/test-mobile-mail.sh
+	@chmod +x scripts/mobile/test-mobile-mail.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh
+	@./scripts/mobile/test-mobile-mail.sh
 
 test-all: test test-e2e test-e2e-playwright test-security test-mobile-suite ## TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile P+D+M (stack up + seed-admin pour E2E web)
 
 test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
-	@chmod +x scripts/test-e2e.sh
-	@./scripts/test-e2e.sh
+	@chmod +x scripts/ci/test-e2e.sh
+	@./scripts/ci/test-e2e.sh
 
 test-e2e-playwright: ## Tests E2E navigateur (Playwright). Prérequis: make up, make seed-admin, attendre 20-30 s
 	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office, Mail, Pass, Calendrier)..."
-	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test
 	@echo "✅ E2E Playwright OK"
 
 test-e2e-playwright-calendar: ## E2E Playwright — calendrier uniquement (e2e/calendar.spec.ts). Prérequis: make up, make seed-admin
 	@echo "🎭 Tests E2E Playwright — Calendrier..."
-	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/calendar.spec.ts
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/calendar.spec.ts
 	@echo "✅ E2E Calendrier OK"
 
 test-e2e-playwright-mail: ## E2E Playwright — Mail uniquement (e2e/mail.spec.ts). Prérequis: make up, make seed-admin
 	@echo "🎭 Tests E2E Playwright — Mail..."
-	@cd frontend/admin-dashboard && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/mail.spec.ts
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) npx playwright test e2e/mail.spec.ts
 	@echo "✅ E2E Mail OK"
 
-dashboard-npm-ci: ## npm ci dans frontend/admin-dashboard (reproductible, comme l’étape Docker du build)
-	@echo "📦 npm ci — frontend/admin-dashboard..."
-	@(cd frontend/admin-dashboard && npm ci)
+dashboard-npm-ci: ## npm ci à la racine frontend/ (workspaces : apps/* + packages/*)
+	@echo "📦 npm ci — frontend/ (workspaces)..."
+	@(cd frontend && npm ci)
 	@echo "✅ dashboard-npm-ci OK"
 
-dashboard-npm-install: ## npm install dans le dashboard (met à jour node_modules / lock après ajout de paquets)
-	@echo "📦 npm install — frontend/admin-dashboard..."
-	@(cd frontend/admin-dashboard && npm install)
+dashboard-npm-install: ## npm install racine frontend/ (workspaces) ou apps/cloudity-web seul si besoin
+	@echo "📦 npm install — frontend/ (workspaces)..."
+	@(cd frontend && npm install)
 	@echo "✅ dashboard-npm-install OK"
 
-frontend-npm-ci: ## npm ci à la racine frontend/ (workspaces : admin-dashboard + packages/*) — STATUS §0b A1
+frontend-npm-ci: ## npm ci à la racine frontend/ (workspaces : @cloudity/web + @cloudity/shared)
 	@echo "📦 npm ci — frontend/ (workspaces)..."
 	@(cd frontend && npm ci)
 	@echo "✅ frontend-npm-ci OK"
@@ -415,8 +421,8 @@ frontend-install: ## npm install à la racine frontend/ (workspaces)
 	@echo "✅ frontend-install OK"
 
 test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
-	@chmod +x scripts/test-security.sh
-	@./scripts/test-security.sh
+	@chmod +x scripts/ci/test-security.sh
+	@./scripts/ci/test-security.sh
 
 test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). Pytest/Vitest en run. Vérifie les binaires en cours d’exécution.
 	@echo "🧪 Tests dans les conteneurs déjà up (exec Go + run admin)..."
@@ -431,7 +437,7 @@ test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). 
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T photos-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T drive-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T admin-service python -m pytest tests/ -v --tb=short || exit 1
-	@$(COMPOSE) $(COMPOSE_FILES) exec -T admin-dashboard sh -c "cd /app && npm install && npm run test" || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run test" || exit 1
 	@echo "✅ Tests Docker terminés."
 
 test-full: test-all test-docker ## TOUT + tests dans les conteneurs (make up avant, puis 20-30 s)
@@ -465,7 +471,7 @@ logs-admin: ## Logs du service admin
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f admin-service
 
 logs-dashboard: ## Logs du dashboard
-	@$(COMPOSE) $(COMPOSE_FILES) logs -f admin-dashboard
+	@$(COMPOSE) $(COMPOSE_FILES) logs -f cloudity-web
 
 logs-db: ## Logs PostgreSQL
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f postgres
@@ -483,7 +489,7 @@ shell-admin: ## Shell dans le service admin
 	@$(COMPOSE) $(COMPOSE_FILES) exec admin-service bash
 
 shell-dashboard: ## Shell dans le dashboard
-	@$(COMPOSE) $(COMPOSE_FILES) exec admin-dashboard sh
+	@$(COMPOSE) $(COMPOSE_FILES) exec cloudity-web sh
 
 psql: ## Se connecte à PostgreSQL
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity
@@ -510,6 +516,7 @@ health: ## Vérifie la santé des services (ports 60XX)
 	@curl -s -f http://localhost:$(PORT_AUTH)/health >/dev/null && echo "  ✅ Auth Service (6081): OK" || echo "  ❌ Auth Service (6081): FAIL"
 	@curl -s -f http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin Service (6082): OK" || echo "  ❌ Admin Service (6082): FAIL"
 	@curl -s -f http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard (6001): FAIL"
+	@curl -sf http://localhost:$(PORT_DASHBOARD)/4dm1n | grep -q 'main-admin' && echo "  ✅ Back-office /4dm1n (6001): OK" || echo "  ❌ Back-office /4dm1n (6001): FAIL"
 
 backup: ## Sauvegarde la base de données
 	@echo "💾 Sauvegarde de la base de données..."
@@ -539,14 +546,14 @@ format: ## Formate le code de tous les services
 	@$(COMPOSE) $(COMPOSE_FILES) exec auth-service go fmt ./... 2>/dev/null || echo "⚠️  Formatage Go auth-service échoué"
 	@$(COMPOSE) $(COMPOSE_FILES) exec api-gateway go fmt ./... 2>/dev/null || echo "⚠️  Formatage Go api-gateway échoué"
 	@$(COMPOSE) $(COMPOSE_FILES) exec admin-service black . 2>/dev/null || echo "⚠️  Formatage Python échoué"
-	@$(COMPOSE) $(COMPOSE_FILES) exec admin-dashboard npm run format 2>/dev/null || echo "⚠️  Formatage React échoué"
+	@$(COMPOSE) $(COMPOSE_FILES) exec cloudity-web npm run format 2>/dev/null || echo "⚠️  Formatage React échoué"
 	@echo "✅ Formatage terminé!"
 
 update-deps: ## Met à jour les dépendances
 	@echo "🔄 Mise à jour des dépendances..."
 	@cd backend/auth-service && go mod tidy && go get -u ./... 2>/dev/null || true
 	@cd backend/api-gateway && go mod tidy && go get -u ./... 2>/dev/null || true
-	@cd frontend/admin-dashboard && npm update 2>/dev/null || true
+	@cd frontend && npm update 2>/dev/null || true
 	@cd mobile/admin_app && flutter pub upgrade 2>/dev/null || true
 	@echo "✅ Dépendances mises à jour!"
 
@@ -559,13 +566,13 @@ reset: ## Reset complet (clean + init + up)
 
 diagnose: ## Lance le diagnostic complet du projet
 	@echo "🔍 Diagnostic Cloudity..."
-	@chmod +x scripts/diagnose.sh
-	@./scripts/diagnose.sh
+	@chmod +x scripts/dev/diagnose.sh
+	@./scripts/dev/diagnose.sh
 
 fix-project: ## Répare automatiquement les problèmes du projet
 	@echo "🔧 Réparation automatique..."
-	@chmod +x scripts/fix-project.sh
-	@./scripts/fix-project.sh
+	@chmod +x scripts/dev/fix-project.sh
+	@./scripts/dev/fix-project.sh
 
 step-by-step: ## Démarrage étape par étape (recommandé pour premier run)
 	@echo "🏗️  Démarrage étape par étape..."
@@ -587,6 +594,7 @@ quick-check: ## Test rapide de tous les services (ports 60XX). Lancer après: ma
 	@curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && echo "  ✅ API Gateway (6080): OK" || echo "  ❌ API Gateway: FAIL"
 	@curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null && echo "  ✅ Admin (6082): OK" || echo "  ❌ Admin: FAIL"
 	@curl -sf http://localhost:$(PORT_DASHBOARD) >/dev/null && echo "  ✅ Dashboard (6001): OK" || echo "  ❌ Dashboard: FAIL"
+	@curl -sf http://localhost:$(PORT_DASHBOARD)/4dm1n | grep -q 'main-admin' && echo "  ✅ Back-office /4dm1n (6001): OK" || echo "  ❌ Back-office /4dm1n: FAIL (attend admin.html + bundle admin)"
 	@curl -sf http://localhost:6084 >/dev/null && echo "  ✅ Redis Commander (6084): OK" || echo "  ⚠️  Redis Commander (6084): non démarré (make up avec profil dev)"
 	@curl -sf http://localhost:6083 >/dev/null && echo "  ✅ Adminer (6083): OK" || echo "  ⚠️  Adminer (6083): non démarré (make up avec profil dev)"
 
@@ -611,7 +619,7 @@ debug-logs: ## Affiche les logs des services qui posent problème
 	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=20 admin-service 2>/dev/null || echo "Admin service non démarré"
 	@echo ""
 	@echo "=== Frontend Logs ==="
-	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=20 admin-dashboard 2>/dev/null || echo "Frontend non démarré"
+	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=20 cloudity-web 2>/dev/null || echo "Frontend non démarré"
 
 rebuild-force: ## Rebuild complet sans cache
 	@echo "🔨 Rebuild forcé de tous les services..."
@@ -621,45 +629,62 @@ rebuild-force: ## Rebuild complet sans cache
 	@echo "✅ Rebuild terminé!"
 
 status: ## Affiche services, port, URL et état (Up vert / Down rouge), ordre logique
-	@chmod +x scripts/status.sh 2>/dev/null || true
-	@./scripts/status.sh
+	@chmod +x scripts/dev/status.sh 2>/dev/null || true
+	@./scripts/dev/status.sh
 
 # Recettes explicites : évite les pièges de « cible sans recette » et des fichiers locaux nommés statys/stats.
 statys stats stat: ## Alias de make status (ex. faute « statys » ou raccourci « stat »)
 	@$(MAKE) --no-print-directory status
 
 status-watch: ## Rafraîchit make status toutes les 10 s (`watch -c` + couleurs forcées). Prérequis : procps-ng / watch
-	@chmod +x scripts/status.sh 2>/dev/null || true
+	@chmod +x scripts/dev/status.sh 2>/dev/null || true
 	@if command -v watch >/dev/null 2>&1; then \
 		if watch -h 2>&1 | grep -q -- '--color'; then \
-			watch -n 10 -c -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+			watch -n 10 -c -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
 		else \
-			watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/status.sh'; \
+			watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
 		fi; \
 	else \
 		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou : while sleep 10; do clear; CLOUDITY_STATUS_FORCE_COLOR=1 make status; done"; \
 		exit 1; \
 	fi
 
-wait-for-services: ## Attend que les services soient prêts (ports 60XX)
-	@echo "⏳ Attente des services (60XX)..."
+wait-for-backends: ## Attend auth + gateway + admin-service (sans front)
+	@echo "⏳ Attente des backends (auth, gateway, admin-service)..."
 	@timeout=120; \
 	while [ $$timeout -gt 0 ]; do \
 		if curl -sf http://localhost:$(PORT_AUTH)/health >/dev/null && \
 		   curl -sf http://localhost:$(PORT_GATEWAY)/health >/dev/null && \
 		   curl -sf http://localhost:$(PORT_ADMIN)/health >/dev/null; then \
-			echo "✅ Services prêts."; \
-			break; \
+			echo "✅ Backends prêts."; \
+			exit 0; \
 		fi; \
-		echo "Attente... ($$timeout s)"; \
+		echo "Attente backends... ($$timeout s)"; \
 		sleep 5; \
 		timeout=$$((timeout-5)); \
 	done; \
-	if [ $$timeout -eq 0 ]; then make debug-logs; fi
+	echo "❌ Timeout backends."; make debug-logs; exit 1
+
+wait-for-dashboard: ## Attend Vite sur PORT_DASHBOARD (cloudity-web : npm install au 1er run)
+	@echo "⏳ Attente du front Vite (cloudity-web, 1er démarrage souvent 1–3 min)..."
+	@timeout=240; \
+	while [ $$timeout -gt 0 ]; do \
+		if curl -sf http://localhost:$(PORT_DASHBOARD)/ >/dev/null; then \
+			echo "✅ Dashboard http://localhost:$(PORT_DASHBOARD) prêt."; \
+			exit 0; \
+		fi; \
+		echo "Attente :$(PORT_DASHBOARD)... ($$timeout s) — logs: docker compose logs -f cloudity-web"; \
+		sleep 5; \
+		timeout=$$((timeout-5)); \
+	done; \
+	echo "❌ Timeout dashboard (:$(PORT_DASHBOARD)). Logs: docker compose logs cloudity-web"; \
+	exit 1
+
+wait-for-services: wait-for-backends wait-for-dashboard ## Backends + dashboard (pour up-full / tests manuels)
 
 backend-only: ## Lance uniquement les services backend (sans frontend)
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis auth-service api-gateway admin-service
-	@make wait-for-services
+	@make wait-for-backends
 
 test-api: ## Test les API (ports 60XX)
 	@echo "🧪 Test des API..."
@@ -706,10 +731,10 @@ check-dockerfiles: ## Vérifie la présence et le contenu des Dockerfiles
 	else \
 		echo "✅ backend/admin-service/Dockerfile.dev OK"; \
 	fi
-	@if [ ! -s frontend/admin-dashboard/Dockerfile.dev ]; then \
-		echo "⚠️  frontend/admin-dashboard/Dockerfile.dev est vide ou n'existe pas"; \
+	@if [ ! -s frontend/apps/cloudity-web/Dockerfile.dev ]; then \
+		echo "⚠️  frontend/apps/cloudity-web/Dockerfile.dev est vide ou n'existe pas"; \
 	else \
-		echo "✅ frontend/admin-dashboard/Dockerfile.dev OK"; \
+		echo "✅ frontend/apps/cloudity-web/Dockerfile.dev OK"; \
 	fi
 
 # Créer/corriger les Dockerfiles manquants
@@ -727,9 +752,8 @@ fix-dockerfiles: ## Répare ou crée les Dockerfiles manquants
 		echo "FROM python:3.11-slim\n\nENV PYTHONUNBUFFERED=1\nENV PYTHONDONTWRITEBYTECODE=1\nENV PIP_NO_CACHE_DIR=1\n\nRUN apt-get update && apt-get install -y \\\n    curl \\\n    gcc \\\n    libpq-dev \\\n    && rm -rf /var/lib/apt/lists/*\n\nWORKDIR /app\n\nRUN pip install uvicorn[standard] watchfiles\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE 8082\n\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8082\", \"--reload\", \"--reload-dir\", \"/app\"]" > backend/admin-service/Dockerfile.dev; \
 		echo "✅ backend/admin-service/Dockerfile.dev créé"; \
 	fi
-	@if [ ! -s frontend/admin-dashboard/Dockerfile.dev ]; then \
-		echo "FROM node:18-alpine\n\nWORKDIR /app\n\nCOPY package.json package-lock.json* ./\nRUN npm install\n\nCOPY . .\n\nEXPOSE 3000\n\nCMD [\"npm\", \"run\", \"dev\", \"--\", \"--host\", \"0.0.0.0\"]" > frontend/admin-dashboard/Dockerfile.dev; \
-		echo "✅ frontend/admin-dashboard/Dockerfile.dev créé"; \
+	@if [ ! -s frontend/apps/cloudity-web/Dockerfile.dev ]; then \
+		echo "Voir frontend/apps/cloudity-web/Dockerfile.dev (monorepo : contexte ./frontend)"; \
 	fi
 
 # Reconstruire un service spécifique
@@ -738,7 +762,7 @@ rebuild-service: ## Menu pour reconstruire un service spécifique
 	@echo "1) auth-service"
 	@echo "2) api-gateway"
 	@echo "3) admin-service"
-	@echo "4) admin-dashboard"
+	@echo "4) cloudity-web"
 	@echo "5) drive-service"
 	@read -p "Choisir un service (1-5): " choice; \
 	case $$choice in \
@@ -759,8 +783,8 @@ rebuild-gateway: ## Reconstruit api-gateway
 rebuild-admin: ## Reconstruit admin-service
 	@$(COMPOSE) $(COMPOSE_FILES) stop admin-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache admin-service && $(COMPOSE) $(COMPOSE_FILES) up -d admin-service && echo "✅ admin-service OK"
 
-rebuild-dashboard: ## Reconstruit admin-dashboard
-	@$(COMPOSE) $(COMPOSE_FILES) stop admin-dashboard 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache admin-dashboard && $(COMPOSE) $(COMPOSE_FILES) up -d admin-dashboard && echo "✅ admin-dashboard OK"
+rebuild-dashboard: ## Reconstruit cloudity-web
+	@$(COMPOSE) $(COMPOSE_FILES) stop cloudity-web 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache cloudity-web && $(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web && echo "✅ cloudity-web OK"
 
 rebuild-drive: ## Reconstruit drive-service
 	@$(COMPOSE) $(COMPOSE_FILES) stop drive-service 2>/dev/null; $(COMPOSE) $(COMPOSE_FILES) build --no-cache drive-service && $(COMPOSE) $(COMPOSE_FILES) up -d drive-service && echo "✅ drive-service OK"
@@ -791,11 +815,11 @@ mail-clean-dev: ## Supprime tous les comptes mail (et messages) du compte démo 
 	@echo "✅ Comptes mail supprimés. Vous restez connecté ; rechargez la page Mail (ou l'app) puis ajoutez votre boîte à nouveau."
 
 clean-test-tenants: ## Nettoie les tenants de test connus (APPLY=1 pour suppression réelle)
-	@chmod +x scripts/cleanup-test-tenants.sh
+	@chmod +x scripts/dev/cleanup-test-tenants.sh
 	@if [ "$(APPLY)" = "1" ]; then \
-		./scripts/cleanup-test-tenants.sh --apply; \
+		./scripts/dev/cleanup-test-tenants.sh --apply; \
 	else \
-		./scripts/cleanup-test-tenants.sh; \
+		./scripts/dev/cleanup-test-tenants.sh; \
 	fi
 
 setup-infra-only: ## Démarre uniquement Postgres + Redis
@@ -807,7 +831,7 @@ start-service: ## Démarre un service spécifique
 	@echo "1) auth-service"
 	@echo "2) api-gateway"
 	@echo "3) admin-service" 
-	@echo "4) admin-dashboard"
+	@echo "4) cloudity-web"
 	@echo "5) postgres"
 	@echo "6) redis"
 	@read -p "Choisir un service (1-6): " choice; \
@@ -815,7 +839,7 @@ start-service: ## Démarre un service spécifique
 		1) docker compose up -d auth-service ;; \
 		2) docker compose up -d api-gateway ;; \
 		3) docker compose up -d admin-service ;; \
-		4) docker compose up -d admin-dashboard ;; \
+		4) docker compose up -d cloudity-web ;; \
 		5) docker compose up -d postgres ;; \
 		6) docker compose up -d redis ;; \
 		*) echo "Choix invalide" ;; \
@@ -832,7 +856,7 @@ stop-service: ## Arrête un service spécifique
 	@echo "1) auth-service"
 	@echo "2) api-gateway"
 	@echo "3) admin-service" 
-	@echo "4) admin-dashboard"
+	@echo "4) cloudity-web"
 	@echo "5) postgres"
 	@echo "6) redis"
 	@echo "7) tous les services"
@@ -841,7 +865,7 @@ stop-service: ## Arrête un service spécifique
 		1) docker compose stop auth-service ;; \
 		2) docker compose stop api-gateway ;; \
 		3) docker compose stop admin-service ;; \
-		4) docker compose stop admin-dashboard ;; \
+		4) docker compose stop cloudity-web ;; \
 		5) docker compose stop postgres ;; \
 		6) docker compose stop redis ;; \
 		7) docker compose stop ;; \
@@ -853,7 +877,7 @@ restart-service: ## Redémarre un service spécifique
 	@echo "1) auth-service"
 	@echo "2) api-gateway"
 	@echo "3) admin-service" 
-	@echo "4) admin-dashboard"
+	@echo "4) cloudity-web"
 	@echo "5) postgres"
 	@echo "6) redis"
 	@echo "7) tous les services"
@@ -862,7 +886,7 @@ restart-service: ## Redémarre un service spécifique
 		1) docker compose restart auth-service ;; \
 		2) docker compose restart api-gateway ;; \
 		3) docker compose restart admin-service ;; \
-		4) docker compose restart admin-dashboard ;; \
+		4) docker compose restart cloudity-web ;; \
 		5) docker compose restart postgres ;; \
 		6) docker compose restart redis ;; \
 		7) docker compose restart ;; \
@@ -874,7 +898,7 @@ logs-service: ## Affiche les logs d'un service spécifique
 	@echo "1) auth-service"
 	@echo "2) api-gateway"
 	@echo "3) admin-service" 
-	@echo "4) admin-dashboard"
+	@echo "4) cloudity-web"
 	@echo "5) postgres"
 	@echo "6) redis"
 	@echo "7) tous les services"
@@ -883,7 +907,7 @@ logs-service: ## Affiche les logs d'un service spécifique
 		1) docker compose logs -f auth-service ;; \
 		2) docker compose logs -f api-gateway ;; \
 		3) docker compose logs -f admin-service ;; \
-		4) docker compose logs -f admin-dashboard ;; \
+		4) docker compose logs -f cloudity-web ;; \
 		5) docker compose logs -f postgres ;; \
 		6) docker compose logs -f redis ;; \
 		7) docker compose logs -f ;; \
@@ -919,7 +943,7 @@ build-mobile: ## Build toutes les applications mobiles
 		echo "⚠️  Flutter non installé, applications mobiles ignorées"; \
 	fi
 
-# run-mobile : voir en tête du Makefile (scripts/run-mobile.sh + APP=…). Ancienne recette interactive retirée car elle écrasait cette cible.
+# run-mobile : voir en tête du Makefile (scripts/mobile/run-mobile.sh + APP=…). Ancienne recette interactive retirée car elle écrasait cette cible.
 
 # Gestion de l'infrastructure
 create-volume: ## Crée un volume Docker
@@ -996,17 +1020,17 @@ restore-latest: ## Restaure la dernière sauvegarde
 # Gestion du frontend
 frontend-menu: ## Menu des services frontend
 	@echo "🎨 Services frontend"
-	@echo "1) Démarrer admin-dashboard"
+	@echo "1) Démarrer cloudity-web"
 	@echo "2) Démarrer tous les frontends"
-	@echo "3) Arrêter admin-dashboard"
+	@echo "3) Arrêter cloudity-web"
 	@echo "4) Arrêter tous les frontends"
-	@echo "5) Rebuild admin-dashboard"
+	@echo "5) Rebuild cloudity-web"
 	@read -p "Choisir une action (1-5): " choice; \
 	case $$choice in \
-		1) docker compose up -d admin-dashboard ;; \
-		2) docker compose up -d admin-dashboard ;; \
-		3) docker compose stop admin-dashboard ;; \
-		4) docker compose stop admin-dashboard ;; \
+		1) docker compose up -d cloudity-web ;; \
+		2) docker compose up -d cloudity-web ;; \
+		3) docker compose stop cloudity-web ;; \
+		4) docker compose stop cloudity-web ;; \
 		5) make rebuild-dashboard ;; \
 		*) echo "Choix invalide" ;; \
 	esac
@@ -1015,12 +1039,12 @@ create-frontend: ## Crée un nouveau service frontend
 	@echo "🎨 Création d'un nouveau service frontend..."
 	@read -p "Nom du service (ex: user-dashboard): " name; \
 	if [ -n "$$name" ]; then \
-		mkdir -p frontend/$$name/src; \
-		cp -r frontend/admin-dashboard/Dockerfile* frontend/$$name/; \
-		cp frontend/admin-dashboard/package.json frontend/admin-dashboard/vite.config.js frontend/$$name/; \
-		cp -r frontend/admin-dashboard/src/App.tsx frontend/admin-dashboard/src/main.tsx frontend/$$name/src/; \
-		cp frontend/admin-dashboard/index.html frontend/$$name/; \
-		sed -i "s/admin-dashboard/$$name/g" frontend/$$name/package.json; \
+		mkdir -p frontend/apps/$$name/src; \
+		cp -r frontend/apps/cloudity-web/Dockerfile.dev frontend/apps/$$name/ 2>/dev/null || true; \
+		cp frontend/apps/cloudity-web/package.json frontend/apps/cloudity-web/vite.config.js frontend/apps/$$name/; \
+		cp -r frontend/apps/cloudity-web/src/App.tsx frontend/apps/cloudity-web/src/main.tsx frontend/apps/$$name/src/; \
+		cp frontend/apps/cloudity-web/index.html frontend/apps/$$name/; \
+		sed -i "s/@cloudity\\/web/$$name/g" frontend/apps/$$name/package.json; \
 		echo "✅ Service frontend $$name créé"; \
 	else \
 		echo "⚠️  Nom de service requis"; \

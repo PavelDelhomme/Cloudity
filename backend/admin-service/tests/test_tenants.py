@@ -33,6 +33,26 @@ def test_get_tenants_list_with_skip_limit():
         assert len(data) <= 10
 
 
+def test_get_tenants_domain_contains_filter():
+    """GET /admin/tenants?domain_contains=… : 200 et domaines qui matchent."""
+    r = client.get("/admin/tenants?domain_contains=local&limit=100")
+    if r.status_code == 500:
+        pytest.skip("DB non disponible")
+    assert r.status_code == 200
+    data = r.json()
+    assert isinstance(data, list)
+    for row in data:
+        assert "local" in row["domain"].lower()
+
+
+def test_delete_default_tenant_forbidden():
+    """DELETE /admin/tenants/1 : 403 (tenant par défaut non supprimable)."""
+    r = client.delete("/admin/tenants/1")
+    _skip_if_db_unavailable(r)
+    assert r.status_code == 403
+    assert "default" in r.json().get("detail", "").lower()
+
+
 def test_get_tenant_by_id_not_found():
     """GET /admin/tenants/999999 retourne 404."""
     r = client.get("/admin/tenants/999999")
