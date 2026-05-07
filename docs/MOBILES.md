@@ -71,6 +71,7 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 - **Push** : service notifications (à ajouter infra) pour Mail, Calendar, Tasks.
 - **Deep links** : `cloudity://mail/...` ou Universal Links pour ouvrir le bon écran depuis une notification.
 - **Tests** : **Vitest** (dashboard web) + **Flutter** — **`make test-mobile-suite`** = **Photos** → **Drive** → **Mail** : `flutter test` (hôte) + **`integration_test`** sur **ADB** si appareil + SDK inscriptible (gateway **auto**, compte démo par défaut). **`make test-mobile-{photos,drive,mail}`** pour une app. **Phase 5** **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b. **Stockage partagé** `cloudity_suite_*` (Photos, Drive, Mail).
+- **Package Dart partagé `mobile/cloudity_shared`** : helpers HTTP communs (`http_helpers.dart` — `getAuthHeaders`, headers `application/json`, etc.) consommés par **`mobile/mail`**, **`mobile/drive`** et **`mobile/photos`** via une dépendance `path: ../cloudity_shared`. Ajouter ici toute logique mobile **transverse pure Dart** (parsing, formats, sémantique JWT) ; éviter d’y mettre du Flutter widget ou du runtime spécifique à une app. Import : `package:cloudity_shared/http_helpers.dart` (ou le barrel `package:cloudity_shared/cloudity_shared.dart`). Pendant lié côté web : **`@cloudity/web/apiFetch`** (`apiJson`, `apiJsonOk`).
 
 ---
 
