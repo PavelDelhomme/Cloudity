@@ -15,7 +15,10 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[PLAN.md](./PLAN.md)** | Dépannage **dev** : console navigateur (Mail, Vite), favicons, dates corbeille, liens vers backlog |
 | **[MAIL-GMAIL-OAUTH.md](./MAIL-GMAIL-OAUTH.md)** | Configurer OAuth Google (Gmail « en un clic ») côté hébergeur |
 | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | Sync Mail/Drive/Calendar/…, `make run-mobile`, session longue, archivage mail serveur |
-| **[SECURITE.md](./SECURITE.md)** | Vision Google + Proton, phases, signatures requêtes, Zero Trust, WAF ; complète SECURITE-DONNEES |
+| **[SECURITE.md](./SECURITE.md)** | Vision Google + Proton, phases, signatures requêtes, Zero Trust, WAF, **post-quantique** (§ 8) ; complète SECURITE-DONNEES |
+| **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** | Edge prod : gabarits **Caddy / nginx / Traefik** (TLS 1.3 strict, HSTS, CSP, hybride **`X25519MLKEM768`**) |
+| **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** | mTLS entre microservices avec **step-ca**, patterns Go, plan de migration `off → permissive → strict` |
+| **[PASS-CRYPTO.md](./PASS-CRYPTO.md)** | Format de chiffrement du **Vault Pass** (Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**) |
 | **[PHOTOS.md](./PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie |
 | **[BRANCHES.md](./BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité |
 | **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf / alternatives, artefacts `Trace-*` / `profiling-data*` |

@@ -2,6 +2,8 @@
 
 **Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](./ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](./PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](./TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](./DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service).
 
+**Documents d’implémentation associés** : **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](./PASS-CRYPTO.md)** (format hybride PQ du Vault Pass).
+
 **Branche de référence** (fin 2025 / 2026) : `feat/photos-gallery-mobile-sync-security` — l’état **réel** du code reste la source de vérité ; ce document fixe les **objectifs** et l’**ordre d’implémentation**.
 
 ---
@@ -173,6 +175,14 @@ Documenter pour chaque feature **ce que le serveur voit**.
 > À défaut, prévoir une **migration ciphertext** côté serveur (réécriture coffres/blobs) — coûteuse, irréversible si la clé maître a fuité.
 
 Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../STATUS.md)** § 2.3 + sous-section *Cible post-quantique*.
+
+### 8.5 Documents d’implémentation
+
+| Périmètre | Document |
+|-----------|----------|
+| **Edge / TLS public** | **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
+| **mTLS interne** | **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
+| **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](./PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
 
 ---
 
