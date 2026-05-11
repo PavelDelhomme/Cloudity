@@ -44,9 +44,28 @@ func TestHealthEndpoint(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("GET /health: got status %d, want %d", w.Code, http.StatusOK)
 	}
+	if got := w.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Errorf("GET /health: X-Content-Type-Options=%q, want nosniff", got)
+	}
 	body := w.Body.String()
 	if body != `{"status":"healthy"}` {
 		t.Errorf("GET /health: got body %q, want %q", body, `{"status":"healthy"}`)
+	}
+}
+
+func TestUnknownPath_Returns404JSON(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/this-route-should-not-exist-9f3a2c1b", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("unknown path: status %d, want 404", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Errorf("unknown path: Content-Type=%q, want JSON", ct)
+	}
+	if !strings.Contains(w.Body.String(), "not found") {
+		t.Errorf("unknown path: body=%q", w.Body.String())
 	}
 }
 

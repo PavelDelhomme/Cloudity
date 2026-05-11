@@ -104,6 +104,21 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 
 *Sujet distinct* des signatures **applicatives** §4 : le WAF protège le **périmètre** ; les signatures de requêtes protègent la **logique d’API critique** derrière TLS.
 
+### 6.1 Énumération d’URLs, d’emails et scanners
+
+**Objectif** : limiter ce qu’un acteur distant peut inférer en **probing** HTTP (chemins, méthodes, codes, corps, délais).
+
+| Risque | Mitigation Cloudity (code / doc) |
+|--------|----------------------------------|
+| **Découverte de chemins** (`/admin`, `/debug`, versions d’API) | UI admin sous chemin **non trivial** (`/4dm1n`, bundle `admin.html`) — voir **AUDIT-SECURITE-ADMIN-API.md** ; **API gateway** : routes inconnues → **404 JSON** uniforme `{"error":"not found"}` (pas de page HTML d’erreur serveur) ; méthode HTTP interdite → **405 JSON** `{"error":"method not allowed"}`. |
+| **Credential stuffing / bruteforce login** | Rate limit **global** sur la gateway + **fenêtre plus stricte** sur `POST /auth/login` et `POST /auth/register` ; en prod compléter par **WAF / reverse proxy** (limite par IP, captcha, géo) — §6. |
+| **Énumération d’emails à l’inscription** | Conflit d’unicité (email déjà pris) : réponse **409** avec message **générique** (`registration could not be completed`) — ne pas renvoyer « email déjà enregistré » qui confirme l’existence du compte. |
+| **Énumération login** (utilisateur inconnu vs mauvais mot de passe) | Déjà : même message **`invalid credentials`** et même code **401** ; **normalisation grossière du temps de réponse** sur `/auth/login` (plancher ~70 ms) pour réduire un canal **timing** (pas une garantie absolue — le réseau domine souvent). |
+| **Fuites via en-têtes** | Gateway : **`X-Content-Type-Options: nosniff`**, **`X-Frame-Options: DENY`**, **`Referrer-Policy`**, **`Permissions-Policy`** sur les réponses API ; le reste (HSTS, CSP strict) reste au **reverse proxy** — **REVERSE-PROXY.md**, **SECURITE-DONNEES.md**. |
+| **ID séquentiels** (deviner `/drive/nodes/123`) | Contrôle d’accès **métier** + RLS côté PG ; à terme identifiants **opaque** (UUID) pour ressources sensibles si le produit le permet. |
+
+**Limites** : un attaquant peut toujours distinguer « route existe » vs « 404 » si le comportement applicatif diffère (taille de corps, latence backend). L’alignement **404/405** et les messages **génériques** réduisent la surface ; la **défense principale** reste l’**auth forte**, les **logs**, le **WAF** et la **segmentation réseau**.
+
 ---
 
 ## 7. Recherche vs confidentialité

@@ -31,6 +31,20 @@ var accessTokenDuration time.Duration
 
 const refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
 
+// loginResponseFloor borne inférieure sur la durée des réponses /auth/login (hors erreur
+// de parsing JSON 400) pour atténuer un canal auxiliaire « user inconnu » vs « mauvais mot de passe »
+// (comparaison de temps réseau — pas une garantie cryptographique).
+const loginResponseFloor = 70 * time.Millisecond
+
+func padLoginResponse(start time.Time) {
+	if start.IsZero() {
+		return
+	}
+	if elapsed := time.Since(start); elapsed < loginResponseFloor {
+		time.Sleep(loginResponseFloor - elapsed)
+	}
+}
+
 func init() {
 	accessTokenDuration = parseAccessTokenDurationMinutes()
 }
@@ -270,7 +284,8 @@ func (a *AuthService) Register(c *gin.Context) {
 	userID, err := a.userStore.CreateUser(req.Email, hashedPassword, req.TenantID)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			c.JSON(http.StatusConflict, gin.H{"error": "email already registered for this tenant"})
+			// Message volontairement générique : ne pas confirmer à distance qu’un email existe déjà (énumération).
+			c.JSON(http.StatusConflict, gin.H{"error": "registration could not be completed"})
 			return
 		}
 		c.JSON(500, gin.H{"error": "Failed to create user"})
@@ -302,19 +317,23 @@ func (a *AuthService) Login(c *gin.Context) {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
+	start := time.Now()
 
 	userID, passwordHash, _, role, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
 	if err == sql.ErrNoRows || err != nil {
+		padLoginResponse(start)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	if !a.comparePassword(req.Password, passwordHash) {
+		padLoginResponse(start)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	if is2FAEnabled {
+		padLoginResponse(start)
 		c.JSON(200, gin.H{
 			"requires_2fa": true,
 			"user_id":      userID,
@@ -329,6 +348,7 @@ func (a *AuthService) Login(c *gin.Context) {
 	ctx := c.Request.Context()
 	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, req.TenantID, req.Email, refreshTokenDuration)
 
+	padLoginResponse(start)
 	c.JSON(200, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,

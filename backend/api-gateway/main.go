@@ -48,6 +48,11 @@ var services = []Service{
 
 var limiter = rate.NewLimiter(10, 20) // 10 requests per second, burst of 20
 
+// loginRegisterLimiter : plafond plus strict sur POST /auth/login et /auth/register
+// (bruteforce credentials, énumération d’emails à grande vitesse). Indépendant du
+// limiteur global pour qu’un flood ciblé ne vide pas tout le budget API.
+var loginRegisterLimiter = rate.NewLimiter(3, 12) // ~3 req/s en moyenne, rafale 12
+
 var (
 	publicKeyMu  sync.RWMutex
 	publicKeyVal interface{}
@@ -104,6 +109,17 @@ func loadPublicKey() interface{} {
 // NewHandler construit le handler HTTP (utilisé par main et par les tests).
 func NewHandler() http.Handler {
 	r := mux.NewRouter()
+	r.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"not found"}`))
+	})
+	r.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = w.Write([]byte(`{"error":"method not allowed"}`))
+	})
+	r.Use(securityHeadersMiddleware)
 	r.Use(rateLimitMiddleware)
 	r.Use(authMiddleware)
 	r.Use(loggingMiddleware)
@@ -200,6 +216,18 @@ func NewHandler() http.Handler {
 	return corsHandler
 }
 
+// securityHeadersMiddleware ajoute des en-têtes de durcissement navigateur sur toutes
+// les réponses API (complète le reverse proxy en prod — voir REVERSE-PROXY.md).
+func securityHeadersMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		w.Header().Set("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
@@ -213,8 +241,18 @@ func main() {
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !limiter.Allow() {
-			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"error":"too many requests"}`))
 			return
+		}
+		if r.Method == http.MethodPost && (r.URL.Path == "/auth/login" || r.URL.Path == "/auth/register") {
+			if !loginRegisterLimiter.Allow() {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusTooManyRequests)
+				_, _ = w.Write([]byte(`{"error":"too many requests"}`))
+				return
+			}
 		}
 		next.ServeHTTP(w, r)
 	})
