@@ -59,13 +59,20 @@ export default function AdminLayout() {
           })}
         </nav>
         <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-0.5 shrink-0">
-          <Link
-            to="/app"
+          {/* `/app` est servi par `index.html` (bundle utilisateur), pas par le bundle admin
+              `admin.html` : navigation pleine page obligatoire — on force `window.location.assign`
+              pour qu'un clic programmatique (Playwright/MCP) charge bien le bon bundle. */}
+          <a
+            href="/app"
+            onClick={(e) => {
+              e.preventDefault()
+              window.location.assign('/app')
+            }}
             className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
           >
             <ArrowLeft className="w-4 h-4" />
             Retour à l’app
-          </Link>
+          </a>
           <button
             type="button"
             onClick={logout}

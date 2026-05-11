@@ -1,0 +1,17 @@
+# Cloudity — règles d'indexation pour les robots conformes (Googlebot, Bingbot…).
+# Ce fichier réduit la visibilité publique des chemins d'authentification et de
+# l'UI d'administration. Ce n'est *pas* un contrôle d'accès — il dépend de la
+# bonne foi du crawler. La protection repose sur :
+#  * l'authentification (JWT + rôle admin) ;
+#  * le rate limiting et 404/405 JSON homogènes au gateway ;
+#  * le reverse proxy en production (HSTS, IP allowlist, CSP, WAF).
+
+User-agent: *
+Disallow: /4dm1n
+Disallow: /4dm1n/
+Disallow: /admin
+Disallow: /admin/
+Disallow: /auth/
+Disallow: /api/
+Disallow: /pass/
+Disallow: /admin.html

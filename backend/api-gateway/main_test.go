@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/time/rate"
 )
 
 func TestCSPReport_Accepts204AndStripsBody(t *testing.T) {
@@ -66,6 +67,51 @@ func TestUnknownPath_Returns404JSON(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "not found") {
 		t.Errorf("unknown path: body=%q", w.Body.String())
+	}
+}
+
+// drainAndRestoreLimiters vide les deux rate-limiters globaux pour forcer une
+// réponse 429 synchrone (évite le timeout DNS du proxy en test) et installe
+// de nouveaux limiteurs frais avant de rendre la main pour ne pas pénaliser
+// les tests suivants.
+func drainAndRestoreLimiters(t *testing.T) {
+	t.Helper()
+	for i := 0; i < 200; i++ {
+		_ = limiter.Allow()
+		_ = loginRegisterLimiter.Allow()
+	}
+	t.Cleanup(func() {
+		limiter = rate.NewLimiter(10, 20)
+		loginRegisterLimiter = rate.NewLimiter(3, 12)
+	})
+}
+
+// Les réponses sur /auth/* ne doivent JAMAIS être mises en cache (tokens, hashes…).
+func TestSensitivePath_NoStoreCacheControl(t *testing.T) {
+	drainAndRestoreLimiters(t)
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if got := w.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("POST /auth/login: Cache-Control=%q, want no-store", got)
+	}
+}
+
+// Le rate limiter dédié login/register doit répondre 429 dès que son bucket est vide.
+func TestLoginRateLimit_Returns429(t *testing.T) {
+	drainAndRestoreLimiters(t)
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("got %d, want 429 (login rate limiter inactive)", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), "too many requests") {
+		t.Errorf("body=%q, want JSON {\"error\":\"too many requests\"}", w.Body.String())
 	}
 }
 

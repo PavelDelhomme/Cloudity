@@ -371,15 +371,23 @@ export default function AppLayout() {
               )
             })}
             <div className="pt-2 mt-2 border-t border-gray-100 dark:border-slate-700">
-              <Link
-                to={ADMIN_UI_BASE_PATH}
-                onClick={() => setSidebarVisible(false)}
+              {/* `/4dm1n` est servi par un bundle distinct (`admin.html`), pas par App.tsx :
+                  navigation pleine page obligatoire. On force `window.location.assign` côté
+                  JS (compatible clics programmatiques type Playwright/MCP) ; le `href` reste
+                  pour middle-click / Ctrl+clic / lecteurs d'écran. */}
+              <a
+                href={ADMIN_UI_BASE_PATH}
+                onClick={(e) => {
+                  e.preventDefault()
+                  setSidebarVisible(false)
+                  window.location.assign(ADMIN_UI_BASE_PATH)
+                }}
                 className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
                 title={!sidebarVisible ? 'Administration' : undefined}
               >
                 <Shield className="w-4 h-4 shrink-0" />
                 {sidebarVisible && <><span className="whitespace-nowrap">Administration</span><ChevronRight className="w-4 h-4 ml-auto opacity-50" /></>}
-              </Link>
+              </a>
             </div>
           </nav>
           <div className="p-2 border-t border-gray-100 dark:border-slate-700 space-y-0.5 shrink-0 bg-gray-50/50 dark:bg-slate-800/80">

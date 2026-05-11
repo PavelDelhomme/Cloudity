@@ -218,14 +218,30 @@ func NewHandler() http.Handler {
 
 // securityHeadersMiddleware ajoute des en-têtes de durcissement navigateur sur toutes
 // les réponses API (complète le reverse proxy en prod — voir REVERSE-PROXY.md).
+//
+// `Cache-Control: no-store` est forcé sur les chemins sensibles
+// (`/auth/*`, `/pass/*`) : tokens, hashes, contenu déchiffré ne doivent jamais
+// être mémorisés par un cache intermédiaire ou le bfcache navigateur.
 func securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Permissions-Policy", "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()")
+		if isSensitivePath(r.URL.Path) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Pragma", "no-cache")
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isSensitivePath identifie les chemins dont les réponses ne doivent jamais
+// être mises en cache (tokens, secrets, données déchiffrées côté client).
+func isSensitivePath(path string) bool {
+	return strings.HasPrefix(path, "/auth/") ||
+		strings.HasPrefix(path, "/pass/") ||
+		strings.HasPrefix(path, "/admin/")
 }
 
 func main() {
