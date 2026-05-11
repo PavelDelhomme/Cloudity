@@ -11,7 +11,7 @@ echo "==========================================="
 # Go (tous les services backend qui ont go.mod)
 for dir in backend/auth-service backend/api-gateway backend/calendar-service \
   backend/notes-service backend/tasks-service backend/photos-service backend/drive-service \
-  backend/password-manager backend/mail-directory-service; do
+  backend/passwords-service backend/mail-directory-service; do
   if [ -f "$dir/go.mod" ]; then
     echo "  Go: $dir"
     (cd "$dir" && go mod tidy) || true

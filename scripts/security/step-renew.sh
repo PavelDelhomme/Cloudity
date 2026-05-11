@@ -6,9 +6,9 @@
 #
 #   STEP_CA_URL=https://step-ca:9000 \
 #   STEP_CA_FINGERPRINT=$(cat /run/step/ca-fingerprint) \
-#   SVC_NAME=password-manager \
-#   SPIFFE_ID=spiffe://cloudity.local/ns/default/sa/password-manager \
-#   CERT_DIR=/run/step/password-manager \
+#   SVC_NAME=passwords-service \
+#   SPIFFE_ID=spiffe://cloudity.local/ns/default/sa/passwords-service \
+#   CERT_DIR=/run/step/passwords-service \
 #   CERT_TTL=24h \
 #   RENEW_AT=8h \
 #   /scripts/security/step-renew.sh

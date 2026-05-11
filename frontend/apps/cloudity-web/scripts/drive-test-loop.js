@@ -18,7 +18,7 @@ function runVitest() {
     const start = Date.now()
     const child = spawn(
       'npx',
-      ['vitest', 'run', 'src/pages/app/DrivePage.test.tsx'],
+      ['vitest', 'run', 'src/pages/app/drive/DrivePage.test.tsx'],
       { cwd: path.join(__dirname, '..'), stdio: 'inherit' }
     )
     child.on('close', (code, signal) => {

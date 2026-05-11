@@ -66,7 +66,7 @@
 | **`make test-go-one SERVICE=nom`** | Idem pour **un** service Go (`api-gateway`, `mail-directory-service`, `drive-service`, …) — **`SERVICE`** = nom du service dans **docker-compose.yml**. |
 
 **Important** : Pour **tout** vérifier (unit/app + E2E web + Playwright + sécurité + **mobile P+D+M**) : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (rapport) ou **`make test-all`**. Pour inclure aussi les tests dans les conteneurs : **`make test-full`**.  
-**Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **password-manager** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
+**Pourquoi attendre ?** Le **gateway** ne démarre qu'une fois **auth-service**, **admin-service** et **passwords-service** déclarés **healthy** par Docker (depends_on + healthcheck). Après un `make up`, Postgres/Redis puis les backends passent healthy en ~20-30 s, ensuite le gateway et le dashboard.
 
 **Ce que `make test` exécute (résumé)** : services Go en **`docker compose run --rm --no-deps … go test`** ; **admin-service** en **`exec`** si conteneur déjà up (sinon `compose run` avec Postgres) ; **cloudity-web** Vitest en **`compose run --no-deps`**. Détail et comptes : **[docs/TESTS.md](./docs/TESTS.md)**. Checklist post-modif : **[docs/DEV-VERIFICATION.md](./docs/DEV-VERIFICATION.md)**.
 
@@ -182,7 +182,7 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 
 ### Phase 1 — Password Manager MVP
 
-- [x] **Backend password-manager** (Go) : API REST (auth via gateway), CRUD vault/items, stockage blobs chiffrés côté client (serveur ne voit que ciphertext). Port 6051, route `/pass/*`.
+- [x] **Backend passwords-service** (Go) : API REST (auth via gateway), CRUD vault/items, stockage blobs chiffrés côté client (serveur ne voit que ciphertext). Port 6051, route `/pass/*`.
 - [x] **Schéma DB** : tables/schema `pass` (pass_vaults, pass_items) dans `infrastructure/postgresql/init/02-schema-pass.sql`.
 - [ ] **App Flutter** (web + desktop Linux) : liste/CRUD mots de passe, déchiffrement côté client.
 - [ ] **Extension navigateur** (Brave/Chrome, Manifest v3) : lecture/ajout, auto-fill simple.
@@ -230,7 +230,7 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 | # | Tâche | Livrable | Tests |
 |---|--------|-----------|--------|
 | 1 | ~~**Schéma DB pass**~~ | ~~`02-schema-pass.sql`~~ | ✅ Fait. |
-| 2 | ~~**Backend password-manager**~~ | ~~Service 6051, CRUD vaults/items~~ | ✅ Fait (3 tests). |
+| 2 | ~~**Backend passwords-service**~~ | ~~Service 6051, CRUD vaults/items~~ | ✅ Fait (3 tests). |
 | 3 | ~~**Intégration stack**~~ | ~~docker-compose, gateway `/pass`, make test~~ | ✅ Fait. |
 | 3b | ~~**Dashboard : page Vaults**~~ | ~~Liste coffres, création, entrées (chiffrées)~~ | ✅ Fait (Vaults.tsx + tests). |
 | 4 | **App Flutter Pass** (MVP) | App web + desktop Linux : login Cloudity, liste vaults/items, déchiffrement côté client. | Tests manuels ou intégration. |
@@ -478,7 +478,7 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 | auth-service | 6081 | 8081 | Direct (débogage) ; en prod tout passe par la gateway. |
 | **api-gateway** | **6080** | 8000 | **API principale** : `http://localhost:6080` (à mettre dans `VITE_API_URL` ; Chrome bloque 6000, ERR_UNSAFE_PORT). |
 | admin-service | 6082 | 8082 | Direct (débogage) ; en prod via gateway `/admin/*`. |
-| password-manager | 6051 | 8051 | Direct (débogage) ; en prod via gateway `/pass/*`. |
+| passwords-service | 6051 | 8051 | Direct (débogage) ; en prod via gateway `/pass/*`. |
 | **cloudity-web** | **6001** | 3000 | **App web** : `http://localhost:6001` (/, /login, /register, /app, **`/4dm1n`** admin). |
 | Adminer (profil dev) | 6083 | 8080 | `http://localhost:6083` |
 | Redis Commander (profil dev) | 6084 | 8081 | `http://localhost:6084` |
@@ -498,7 +498,7 @@ Tous les **ports exposés sur l'hôte** sont en **60XX** pour éviter les confli
 | auth-service | Go (Gin) | ✅ OK | Health, Register/Login/Refresh/Validate, 2FA TOTP ; Argon2id, refresh avec rotation, JWT ; tests unitaires (main_test.go). |
 | api-gateway | Go (Gorilla mux) | ✅ OK | Proxy **auth**, **admin**, **pass**, **mail**, **drive**, **calendar**, **notes**, **tasks**, **photos** ; CORS ; host **6080**. |
 | admin-service | Python (FastAPI) | ✅ OK | CRUD tenants, CRUD users, **GET /admin/stats** (dashboard), health ; exposé host **6082** ; tests pytest (health, **stats**, tenants, users) — 21 tests. |
-| **password-manager** | Go (Gin) | ✅ OK | Health, CRUD vaults, CRUD items (ciphertext uniquement) ; auth via X-User-ID / X-Tenant-ID (gateway) ; port **6051**, route gateway `/pass/*` ; tests Go (health, auth requis) — 3 tests. |
+| **passwords-service** | Go (Gin) | ✅ OK | Health, CRUD vaults, CRUD items (ciphertext uniquement) ; auth via X-User-ID / X-Tenant-ID (gateway) ; port **6051**, route gateway `/pass/*` ; tests Go (health, auth requis) — 3 tests. |
 | mail-directory-service | Go (Gin) | ✅ OK | Domaines, comptes, alias, sync IMAP, messages (API). Port **6050**, route gateway `/mail/*`. |
 | mail-client-api | — | ⬜ Optionnel | Couche REST dédiée si besoin ; l’UI **Mail** utilise déjà **`/mail/*`** via la gateway. |
 | calendar-service | Go (Gin) | ✅ OK | Événements (calendar_events). Port **6052**, route gateway `/calendar/*`. DB + auth X-User-ID. CRUD events. |
@@ -555,12 +555,12 @@ Index : **`scripts/README.md`** (`db/`, `mobile/`, `ci/`, `dev/`). Exemples : **
 | Composant | Rôle | Prochaine étape |
 |-----------|------|------------------|
 | **`@cloudity/web`** (React/Vite) | Suite + admin UI | Renforcer (tenants, users, settings) ; servir de modèle pour Mail/Pass UI. |
-| **admin-service** (FastAPI) | CRUD tenants, API admin | Étendre (users, rôles) ; même pattern pour mail-directory et password-manager. |
+| **admin-service** (FastAPI) | CRUD tenants, API admin | Étendre (users, rôles) ; même pattern pour mail-directory et passwords-service. |
 | **auth-service** (Go) | Login, register, JWT, 2FA | Consolider (Argon2id, refresh tokens) puis brancher tous les fronts. |
 | **api-gateway** (Go) | Reverse proxy + CORS | Routes **/mail**, **/pass**, **/drive**, **/calendar**, **/notes**, **/tasks**, **/photos** déjà branchées ; étendre pour nouveaux services. |
 
 Pour **Mail Core** : ajouter Postfix, Dovecot, Rspamd + **mail-directory-service** (Go) + schéma DB mail.  
-Pour **Password Manager** : ajouter **password-manager-service** (Go) + schéma pass + app Flutter + extension navigateur.  
+Pour **Password Manager** : consolider **passwords-service** (Go) + schéma pass + app Flutter + extension navigateur.  
 Voir checklist Phase 1 et Phase 2 ci-dessous.
 
 ---

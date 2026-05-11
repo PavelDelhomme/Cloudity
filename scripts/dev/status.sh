@@ -40,7 +40,7 @@ ORDER=(
   postgres redis
   db-migrate
   auth-service api-gateway admin-service
-  mail-directory password-manager
+  mail-directory passwords-service
   drive-service photos-service calendar-service notes-service tasks-service contacts-service
   cloudity-web
   adminer redis-commander

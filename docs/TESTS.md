@@ -64,7 +64,7 @@
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 | **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
-| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/apps/cloudity-web/`. |
+| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/apps/cloudity-web/`. |
 | **`make test-dashboard-lint`** | **ESLint** du dashboard dans le conteneur (`npm run lint`). |
 
 ### Frontend web (@cloudity/web) : chemin canonique = Docker
@@ -74,7 +74,7 @@
 | Besoin | Commande (racine du dépôt, Docker requis) |
 |--------|---------------------------------------------|
 | Toute la suite Vitest dashboard | **`make test-dashboard`** |
-| Un fichier (ex. Mail) | **`make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx`** |
+| Un fichier (ex. Mail) | **`make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx`** |
 | Lint React/TS | **`make test-dashboard-lint`** |
 | Tout le dépôt (Go + pytest + Vitest) | **`make test`** |
 
@@ -104,7 +104,7 @@ docker compose -f docker-compose.yml run --rm --no-deps auth-service go test -co
 
 Pour tout valider avant merge : **`make test`** (tous les services + dashboard).
 
-**Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **password-manager**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
+**Pourquoi attendre 20-30 s après `make up` ?** Le **api-gateway** a un `depends_on` avec **condition: service_healthy** sur **auth-service**, **admin-service** et **passwords-service**. Docker ne démarre le gateway qu'une fois ces trois services healthy. Comptez ~20-30 s après le démarrage pour que tout soit prêt.
 
 **En résumé** : **`make tests`** ou **`make test-all`** = test + E2E + E2E Playwright + sécurité + **`test-mobile-suite`** (P+D+M). **`make test-full`** = test-all + test-docker. Pour tout lancer : **`make up`**, **`make seed-admin`**, attendre 20-30 s, puis **`make tests`** (avec rapport) ou **`make test-all`**.
 
@@ -194,7 +194,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 |---------|------|----------|----------|------------------|
 | **auth-service** | API (Go) | `go test ./...` (image Docker) | `backend/auth-service/main_test.go` | 15 |
 | **api-gateway** | API (Go) | idem | `backend/api-gateway/main_test.go` | 11 |
-| **password-manager** | API (Go) | idem | `backend/password-manager/main_test.go` | 3 |
+| **passwords-service** | API (Go) | idem | `backend/passwords-service/main_test.go` | 3 |
 | **mail-directory-service** | API (Go) | idem | `backend/mail-directory-service/main_test.go` | 8 |
 | **calendar-service** | API (Go) | idem | `backend/calendar-service/main_test.go` | 2 |
 | **contacts-service** | API (Go) | idem | `backend/contacts-service/main_test.go` | 3 |
@@ -229,7 +229,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 |---------|-------------------|
 | **auth-service/main_test.go** | Health ; hash mot de passe (Argon2id/bcrypt) ; JWT generate/parse ; register ; login succès/échec ; validate token ; refresh ; 2FA enable/verify (**verify avec code invalide → 401**) ; **loadRSAKeys écrit public.pem quand clé générée en dev**. |
 | **api-gateway/main_test.go** | Health (GET, method, OPTIONS) ; routage `/auth/*`, `/admin/*`, `/pass/*`, **`/mail/*`**, **`/photos/*`**, **`/drive/nodes/search`** (pas 404) ; **CORS** (Origin → Access-Control-Allow-Origin). |
-| **password-manager/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
+| **passwords-service/main_test.go** | Health ; `/pass/vaults` sans `X-User-ID` → 401 ; `X-User-ID` invalide → 401. |
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401 ; routes batch Mail (`PATCH /messages/read`, `PATCH /messages/folder`) : auth requise + payload invalide → 400. |
 | **contacts-service/main_test.go** | Health (`/health`, `/contacts/health`) ; **GET /contacts sans `X-User-ID` → 401** ; GET /contacts avec `X-User-ID` et **DB absente** → 200 liste vide. |
 | **photos-service/main_test.go** | Health ; **GET /photos/timeline sans X-User-ID → 401**. |
@@ -255,23 +255,23 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **src/api.test.ts** | `apiUrl` ; `fetchTenants`, … ; **`createDriveFile`**, **`createDriveFileWithUniqueName`** (retry 409 et 500 duplicate → nom unique), **`getDriveNodeContentAsText`**, **`fetchDriveRecentFiles`**, **`fetchDriveSearch`**, **`putDriveNodeContent`**, … ; **`moveDriveNode`**. |
 | **src/authContext.test.tsx** | `isAuthenticated` sans storage ; bouton Logout ; restauration auth depuis `localStorage`. |
 | **src/App.test.tsx** | Rendu login si non authentifié ; logout → login + clear storage ; hub /app ; routes /app/calendar, /app/notes, /app/tasks (titres **Agenda**, **Notes**, **Tâches** + sous-titres statiques). |
-| **src/pages/app/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
-| **src/pages/app/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
-| **src/pages/app/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
-| **src/pages/app/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
-| **src/pages/app/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage, marquer lu) avec appels **batch** ; **sélection inversée (page)** ; **menu actions message** (bouton `…` + clic droit) : un seul `role="menu"`, fermeture au second clic sur `…`. |
-| **src/pages/app/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
-| **src/pages/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
-| **src/pages/Login.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
-| **src/pages/Tenants.test.tsx** | Chargement puis liste tenants ; non authentifié ; erreur fetch. |
-| **src/pages/Users.test.tsx** | Liste users ; non authentifié ; erreur. |
-| **src/pages/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
-| **src/pages/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
-| **src/pages/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
-| **src/pages/app/DrivePage.test.tsx** | Titre Drive (**`h1` racine en `sr-only`**), breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). **`?q=`** : avec terme non vide → **`fetchDriveSearch`** (recherche API sur tout le Drive) ; sans **`q`** ou dossier courant seul → filtre client sur la liste chargée par **`fetchDriveNodes`**. |
+| **src/pages/app/hub/AppHub.test.tsx** | Titre et sous-titre ; 6 cartes (Drive, Pass, Mail, Calendar, Notes, Tasks) ; liens vers les bonnes routes ; textes « à venir » pour Calendar, Notes, Tasks. |
+| **src/pages/app/calendar/CalendarPage.test.tsx** | Titre **Agenda**, breadcrumb Tableau de bord ; état vide « Aucun événement » (mock useAuth + API). |
+| **src/pages/app/notes/NotesPage.test.tsx** | Titre **Notes**, breadcrumb Tableau de bord ; état vide « Aucune note » (mock useAuth + API). |
+| **src/pages/app/contacts/ContactsPage.test.tsx** | Titre **Contacts**, bouton Nouveau contact ; état vide « Aucun contact » ; liste de contacts quand l’API en renvoie (mock useAuth + API). |
+| **src/pages/app/mail/MailPage.test.tsx** | Titre **Mail** ; état vide « Aucune boîte mail » ; **à l’ouverture d’une boîte** (un compte), **sync IMAP** appelé ; **notification** lorsque le sync renvoie des nouveaux messages (1 ou N) ; **pagination** (`Page X / Y`) ; **multi-sélection** + actions de masse (corbeille, archivage, marquer lu) avec appels **batch** ; **sélection inversée (page)** ; **menu actions message** (bouton `…` + clic droit) : un seul `role="menu"`, fermeture au second clic sur `…`. |
+| **src/pages/app/tasks/TasksPage.test.tsx** | Titre **Tâches**, breadcrumb Tableau de bord ; état vide « Aucune tâche » (mock useAuth + API). |
+| **src/pages/admin/Dashboard.test.tsx** | Titre ; chargement puis stats (active_tenants, total_users, api_calls_today) ; non authentifié ; erreur. |
+| **src/pages/public/LoginPage.test.tsx** | Formulaire (email, password, tenant) ; appel login + setAuth en succès ; pas d’appel si tenant invalide. |
+| **src/pages/admin/Tenants.test.tsx** | Chargement puis liste tenants ; non authentifié ; erreur fetch. |
+| **src/pages/admin/Users.test.tsx** | Liste users ; non authentifié ; erreur. |
+| **src/pages/admin/Settings.test.tsx** | Rendu Settings ; non authentifié ; erreur. |
+| **src/pages/admin/Vaults.test.tsx** | Titre Vaults ; chargement puis liste coffres ; non authentifié ; champ + bouton création. |
+| **src/pages/admin/Domaines.test.tsx** | Titre Domaines mail ; chargement puis liste domaines ; non authentifié ; champ + bouton Ajouter. |
+| **src/pages/app/drive/DrivePage.test.tsx** | Titre Drive (**`h1` racine en `sr-only`**), breadcrumb, Téléverser, **Nouveau fichier** (menu Document / Tableur / Présentation), Nouveau dossier ; formulaire Nouveau dossier ; **création dossier** (nom + Créer → createDriveFolder) ; **création sous-dossier** (dans un dossier, Nouveau dossier → createDriveFolder avec parent_id) ; état vide ; chaîne avec AppLayout (inputs fichier/dossier, overlay) ; **clic sur nom de fichier éditable (.txt/.md/.html/.csv) ouvre l’éditeur**. Trois tests skippés : menu trois points (Télécharger, Renommer, Corbeille) et modale Corbeille / Renommer — menu rendu en portal (document.body), non affiché en jsdom. **Récents** : bouton Récents, section à la racine (une ligne, toggle, cartes), vue Récents (sous-catégorie, regroupement par jour). **`?q=`** : avec terme non vide → **`fetchDriveSearch`** (recherche API sur tout le Drive) ; sans **`q`** ou dossier courant seul → filtre client sur la liste chargée par **`fetchDriveNodes`**. |
 | **src/layouts/AppLayout.test.tsx** | **getAppBreadcrumb** : sur l’éditeur renvoie « Tableau de bord > Drive » (pas Office ni Éditeur) ; sur /app/drive et /app. |
 | **src/components/GlobalSearchPalette.test.tsx** | Ouverture modale (loupe), submit → **`/app/drive?q=`** (terme non vide) ou **`/app/drive`** sans query, bouton Contacts → **`/app/contacts?q=`**, Échap, **Ctrl+K**, pas de toggle depuis un input externe. |
-| **src/pages/app/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
+| **src/pages/app/office/DocumentEditorPage.test.tsx** | Identifiant invalide ; fil d'Ariane (Drive, nom, Renommer) ; barre menus ; Renommer/Supprimer ; **modales Lien, Tableau, Quitter (sans enregistrer)** ; Fermer depuis Office/Drive ; helpers. |
 | **src/performance.test.tsx** | Rendu DrivePage avec ~80 nœuds ; AppHub ; clic Nouveau dossier réactif ; clic Téléverser. |
 
 **Comportement Mail (actualisation et notifications)** : à chaque ouverture de la boîte mail (ou changement de compte), un **sync IMAP** est lancé puis la liste des messages est rafraîchie ; un **polling** (~25 s) refait un sync et affiche une notification en cas de nouveaux messages ; au **retour sur l’onglet** (visibility), un sync est lancé (throttle) avec notification si nouveaux messages. Le polling auto passe désormais par un **batch unique** (anti-chevauchement + anti-rafale + pause onglet caché). Les tests unitaires **MailPage.test.tsx** vérifient le sync à l’ouverture et l’appel à la notification.
@@ -356,7 +356,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 - [x] **auth-service** : test refresh token rotation (déjà dans TestRefreshTokenHandler) ; **test 2FA verify avec code invalide**.
 - [x] **api-gateway** : **test CORS** (header Origin) ; test 401 sur `/admin/*` sans token (si applicable).
-- [ ] **password-manager** : test listVaults avec DB (intégration) ; test createVault ; test listItems / addItem / deleteItem (avec mock DB ou testcontainer).
+- [ ] **passwords-service** : test listVaults avec DB (intégration) ; test createVault ; test listItems / addItem / deleteItem (avec mock DB ou testcontainer).
 - [ ] **admin-service** : test GET /admin/tenants avec header Authorization (si ajout auth) ; test edge cases sur stats (audit_logs vide).
 
 ### 4.2 Frontend (@cloudity/web)
@@ -382,7 +382,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ### 4.5 Tests sécurité (`make test-security`)
 
-- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur **cloudity-web**, racine **`/ws`**), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, password-manager, mail-directory-service, calendar-service, **contacts-service**, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
+- [x] **scripts/test-security.sh** : exécute **dans Docker** — **npm audit** (conteneur **cloudity-web**, racine **`/ws`**), **safety** (conteneur admin-service, avec `pip install safety` si besoin), **govulncheck** (conteneurs Go : auth-service, api-gateway, passwords-service, mail-directory-service, calendar-service, **contacts-service**, notes-service, tasks-service, photos-service, drive-service). Aucune installation sur la machine hôte n’est requise.
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 
@@ -439,12 +439,12 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 **Déjà fait (implémentation)** :
 
-- Fichiers : **`frontend/apps/cloudity-web/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/apps/cloudity-web/src/pages/app/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
+- Fichiers : **`frontend/apps/cloudity-web/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/apps/cloudity-web/src/pages/app/mail/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`mail/MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
 - Documentation produit : **`STATUS.md`** (paragraphe d’en-tête), **`docs/PLAN.md`** § 10, **`BACKLOG.md`**, **`docs/TODO.md`**.
 
 **Tests automatisés — ordre recommandé** :
 
-1. **Docker (racine dépôt)** — **`make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx`** (**17 tests** typiques) ; **`make test-dashboard-lint`** ; puis **`make test`** ou **`make test-dashboard`** pour la suite Vitest complète.
+1. **Docker (racine dépôt)** — **`make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx`** (**17 tests** typiques) ; **`make test-dashboard-lint`** ; puis **`make test`** ou **`make test-dashboard`** pour la suite Vitest complète.
 2. **Playwright (navigateur sur l’hôte, app = stack Docker)** — après **`make up`** et **`make seed-admin`** : **`make test-e2e-playwright`** ou **`make test-e2e-playwright-mail`** (uniquement **`e2e/mail.spec.ts`**). Ce fichier inclut un scénario **Mail ↔ Drive** qui échoue si la console ou une **`pageerror`** contient **`Maximum update depth`** (complément à la checklist manuelle).
 
 **Checklist manuelle (sessions longues, extensions — complément E2E)** :
@@ -473,7 +473,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - **Lancer les E2E navigateur (Playwright)** : `make up`, `make seed-admin`, attendre 20-30 s, puis **`make test-e2e-playwright`**.
 - **Sécurité** : `make test-security`.
 - **Ajouter un test** : créer ou modifier le fichier de test du bon service, puis vérifier que `make test` le prend en compte.
-- **Nouveau backend** : ajouter une cible dans le Makefile (ex. `password-manager` déjà présent) et documenter ici.
+- **Nouveau backend** : ajouter une cible dans le Makefile (ex. `passwords-service` déjà présent) et documenter ici.
 - **Nouveau frontend** : ajouter les fichiers `*.test.ts` / `*.test.tsx` dans le projet Vitest existant (ou équivalent) et garder `make test` qui lance `npm run test` pour ce frontend.
 
 *Fichier : `docs/TESTS.md` (référence unique des tests ; pas de copie à la racine). Mettre à jour les comptes et les cases quand des tests sont ajoutés.*

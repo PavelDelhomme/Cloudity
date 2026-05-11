@@ -267,7 +267,7 @@ export async function refreshCveReport(token: string): Promise<CveReportResponse
   return apiJson<CveReportResponse>(token, '/admin/security/cve-report/refresh', { method: 'POST' }, 'CVE refresh')
 }
 
-// Pass / Vaults (password-manager)
+// Pass / Vaults (passwords-service)
 export type VaultResponse = {
   id: number
   user_id: number

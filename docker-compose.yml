@@ -132,7 +132,7 @@ services:
         condition: service_healthy
       admin-service:
         condition: service_healthy
-      password-manager:
+      passwords-service:
         condition: service_healthy
       mail-directory-service:
         condition: service_healthy
@@ -189,11 +189,11 @@ services:
       - cloudity-network
 
   # Password Manager (Phase 1) — vaults/items chiffrés côté client
-  password-manager:
+  passwords-service:
     build:
-      context: ./backend/password-manager
+      context: ./backend/passwords-service
       dockerfile: Dockerfile.dev
-    container_name: cloudity-password-manager
+    container_name: cloudity-passwords-service
     restart: unless-stopped
     ports:
       - "6051:8051"
@@ -203,7 +203,7 @@ services:
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:
-      - ./backend/password-manager:/app:cached
+      - ./backend/passwords-service:/app:cached
       - go_mod_cache_pass:/go/pkg/mod
     depends_on:
       postgres:

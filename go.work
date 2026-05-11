@@ -21,7 +21,7 @@ use (
 	./backend/internalsec
 	./backend/mail-directory-service
 	./backend/notes-service
-	./backend/password-manager
+	./backend/passwords-service
 	./backend/photos-service
 	./backend/tasks-service
 )

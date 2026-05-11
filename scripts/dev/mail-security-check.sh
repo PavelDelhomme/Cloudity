@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MAIL_PAGE="${ROOT}/frontend/apps/cloudity-web/src/pages/app/MailPage.tsx"
+MAIL_PAGE="${ROOT}/frontend/apps/cloudity-web/src/pages/app/mail/MailPage.tsx"
 
 ok=0
 ko=0

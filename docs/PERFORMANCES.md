@@ -60,7 +60,7 @@
 | **auth-service** | Go (Gin), `GIN_MODE=release` en image | JWT, Redis ; point critique auth sur chaque requête gateway. |
 | **api-gateway** | Go | Proxy, validation JWT, fan-out vers services ; **chemin critique** global. |
 | **admin-service** | Python (Flask) | Admin ; volume moindre que le dashboard utilisateur mais à surveiller (cold start, GIL si CPU-bound). |
-| **password-manager** | *(stack du service)* | Pass ; sensibilité sécurité > micro-optimisations naïves. |
+| **passwords-service** | *(stack du service)* | Pass ; sensibilité sécurité > micro-optimisations naïves. |
 | **mail-directory-service** | Go | IMAP + SQL ; sync et listes : **candidates** profiling SQL + goroutines. |
 | **calendar-service**, **notes-service**, **tasks-service** | Go | CRUD + Postgres. |
 | **drive-service** | Go | Fichiers, métadonnées ; IO et requêtes liste. |

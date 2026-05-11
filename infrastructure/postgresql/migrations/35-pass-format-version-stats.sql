@@ -1,7 +1,7 @@
 -- Fonction agrégée pass_format_version_stats() — donne le nombre d'items par
 -- version d'enveloppe Pass-Crypto (cf. docs/PASS-CRYPTO.md § 9). SERVICE
 -- DEFINER + recherche bornée pour pouvoir contourner RLS en lecture seule
--- depuis le password-manager, sans exposer les ciphertext.
+-- depuis le passwords-service, sans exposer les ciphertext.
 --
 -- Utilisée par GET /pass/admin/format-versions (réservée aux admins via la
 -- gateway, cf. backend/api-gateway/main.go isAdminOnlyPassRoute).

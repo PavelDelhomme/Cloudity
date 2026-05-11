@@ -290,8 +290,8 @@ test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vite
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps auth-service go test -v -count=1 ./... || exit 1
 	@echo "  [api-gateway]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps api-gateway go test -v -count=1 ./... || exit 1
-	@echo "  [password-manager]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps password-manager go test -v -count=1 ./... || exit 1
+	@echo "  [passwords-service]"
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps passwords-service go test -v -count=1 ./... || exit 1
 	@echo "  [mail-directory-service]"
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
 	@echo "  [calendar-service]"
@@ -331,9 +331,9 @@ test-dashboard-lint: ## ESLint @cloudity/web dans le conteneur (npm install raci
 	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run lint" || exit 1
 	@echo "✅ ESLint dashboard OK."
 
-test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/MailPage.test.tsx make test-dashboard-one
+test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/mail/MailPage.test.tsx make test-dashboard-one
 	@if [ -z "$(FILE)" ]; then \
-		echo "Usage: make test-dashboard-one FILE=src/pages/app/MailPage.test.tsx"; \
+		echo "Usage: make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx"; \
 		exit 1; \
 	fi
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
@@ -502,7 +502,7 @@ test-docker: ## go test via **exec** dans la stack déjà démarrée (make up). 
 	@echo "🧪 Tests dans les conteneurs déjà up (exec Go + run admin)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T auth-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T api-gateway go test -v ./... || exit 1
-	@$(COMPOSE) $(COMPOSE_FILES) exec -T password-manager go test -v ./... || exit 1
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T passwords-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T mail-directory-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T calendar-service go test -v ./... || exit 1
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T contacts-service go test -v ./... || exit 1
@@ -680,7 +680,7 @@ quick-check: ## Test rapide de tous les services (ports 60XX). Lancer après: ma
 debug-logs: ## Affiche les logs des services qui posent problème
 	@echo "🐛 Debug des services..."
 	@echo "=== Password Manager (souvent bloquant pour le gateway) ==="
-	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=40 password-manager 2>/dev/null || echo "password-manager non démarré"
+	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=40 passwords-service 2>/dev/null || echo "passwords-service non démarré"
 	@echo ""
 	@echo "=== Drive Service ==="
 	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=40 drive-service 2>/dev/null || echo "drive-service non démarré"

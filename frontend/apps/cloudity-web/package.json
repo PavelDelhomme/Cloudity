@@ -14,7 +14,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:drive": "vitest run src/pages/app/DrivePage.test.tsx",
+    "test:drive": "vitest run src/pages/app/drive/DrivePage.test.tsx",
     "test:drive:loop": "node scripts/drive-test-loop.js",
     "test:e2e": "playwright test",
     "test:e2e:drive": "playwright test e2e/drive.spec.ts"

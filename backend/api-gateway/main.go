@@ -36,7 +36,7 @@ type Service struct {
 var services = []Service{
 	{Name: "auth", URL: "http://auth-service:8081", Prefix: "/auth"},
 	{Name: "admin", URL: "http://admin-service:8082", Prefix: "/admin"},
-	{Name: "pass", URL: "http://password-manager:8051", Prefix: "/pass"},
+	{Name: "pass", URL: "http://passwords-service:8051", Prefix: "/pass"},
 	{Name: "mail", URL: getEnv("MAIL_DIRECTORY_SERVICE_URL", "http://mail-directory-service:8050"), Prefix: "/mail"},
 	{Name: "calendar", URL: "http://calendar-service:8052", Prefix: "/calendar"},
 	{Name: "notes", URL: "http://notes-service:8053", Prefix: "/notes"},
@@ -460,7 +460,7 @@ func isAdminOnlyMailRoute(path string) bool {
 
 // isAdminOnlyPassRoute regroupe les routes Pass réservées aux admins (stats
 // internes, migrations format-version). Le rôle admin est exigé côté gateway,
-// puis revérifié par le password-manager via X-Admin-Role.
+// puis revérifié par le passwords-service via X-Admin-Role.
 func isAdminOnlyPassRoute(path string) bool {
 	return strings.HasPrefix(path, "/pass/admin")
 }

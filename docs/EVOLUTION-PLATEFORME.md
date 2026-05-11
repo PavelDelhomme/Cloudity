@@ -32,9 +32,9 @@ Document court pour **faire grandir** le projet (API, services, web, mobile) san
 
 ## Si `make up-full` échoue (healthchecks)
 
-1. `make debug-logs` — en tête : **password-manager** et **drive-service**.
+1. `make debug-logs` — en tête : **passwords-service** et **drive-service**.
 2. Vérifier `.env` : `POSTGRES_PASSWORD` sans caractères non encodés dans une URL si vous construisez `DATABASE_URL` à la main (`@`, `#`, `:` → encodage ou guillemets).
-3. Après changement de Dockerfile : `docker compose build --no-cache drive-service password-manager` puis `make up`.
+3. Après changement de Dockerfile : `docker compose build --no-cache drive-service passwords-service` puis `make up`.
 4. Premier démarrage : les services Go en mode `go run` peuvent prendre **1–3 minutes** ; les healthchecks ont une **période de grâce** (`start_period`) pour éviter les faux « unhealthy ».
 
 ## Prochaines briques possibles

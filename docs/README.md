@@ -33,7 +33,9 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 |---------|---------|
 | **[editeur-docs.md](./editeur-docs.md)** | Éditeur de documents maison (Drive / Office) |
 | **[ARCHITECTURE-FRONTENDS.md](./ARCHITECTURE-FRONTENDS.md)** | Mono-SPA → multi-apps ; lien STATUS § 0b, ROADMAP TR-05 |
+| **[FRONTEND-LAYOUT.md](./FRONTEND-LAYOUT.md)** | Arborescence **`src/pages/`** (`public`, `auth`, `admin`, `app/<domaine>/`) — cloudity-web |
 | **[EVOLUTION-PLATEFORME.md](./EVOLUTION-PLATEFORME.md)** | Nouveau microservice, migrations, `make up` |
+| **[BACKEND-LAYOUT.md](./BACKEND-LAYOUT.md)** | Nommage `*-service`, `passwords-service`, `internalsec` (lib), structure Go cible, note `dbpin` / Docker |
 | **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** | Chiffrement, durcissement HTTP ; complète ROADMAP TR-01 — voir aussi **[SECURITE.md](./SECURITE.md)** (vision longue) |
 | **[TODO.md](./TODO.md)** | Notes de développement (perf Drive, HMR) — priorités produit : ROADMAP / STATUS |
 

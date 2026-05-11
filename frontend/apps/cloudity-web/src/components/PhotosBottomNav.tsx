@@ -1,6 +1,6 @@
 import React from 'react'
 import { Image as ImageIcon, FolderOpen, Archive, Trash2, Lock } from 'lucide-react'
-import type { PhotosTab } from '../pages/app/photosTypes'
+import type { PhotosTab } from '../pages/app/photos/photosTypes'
 
 const NAV: { id: PhotosTab; label: string; icon: React.ElementType }[] = [
   { id: 'timeline', label: 'Photos', icon: ImageIcon },

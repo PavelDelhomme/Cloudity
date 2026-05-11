@@ -148,7 +148,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Objectif** | Gestionnaire de secrets de confiance. |
 | **Plateformes** | Web ; extension navigateur ; mobile (MOBILES.md). |
 | **Fonctionnalités** | CRUD vaults/items ; **à faire** : auto-fill extension ; **création d’alias mail** depuis Pass (lien APP-01). |
-| **Backend** | `password-manager`, `/pass/*`. |
+| **Backend** | `passwords-service`, `/pass/*`. |
 | **Statut** | MVP web. |
 
 ### APP-05 — Calendar

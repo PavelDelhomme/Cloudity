@@ -1,8 +1,8 @@
 # Cloudity Pass — format de chiffrement (cible **hybride post-quantique**)
 
-> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/password-manager`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../STATUS.md)** § 2.3. Court terme produit : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)**.
+> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/passwords-service`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../STATUS.md)** § 2.3. Court terme produit : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)**.
 
-**État repo** : `pass_items.ciphertext` est aujourd’hui une **chaîne opaque** côté serveur (`backend/password-manager/main.go`). Le serveur **ne chiffre / déchiffre rien** — toute la crypto vit côté **client**.
+**État repo** : `pass_items.ciphertext` est aujourd’hui une **chaîne opaque** côté serveur (`backend/passwords-service/main.go`). Le serveur **ne chiffre / déchiffre rien** — toute la crypto vit côté **client**.
 
 ---
 
@@ -161,7 +161,7 @@ Quand un utilisateur **enrôle un nouvel appareil** (téléphone), il faut trans
 
 ---
 
-## 7. Côté serveur (`backend/password-manager`)
+## 7. Côté serveur (`backend/passwords-service`)
 
 Le serveur **ne doit pas** savoir :
 - déchiffrer le contenu d’un item ;
@@ -184,7 +184,7 @@ Le serveur **doit** savoir :
 
 Endpoint actuel `pass_items` :
 
-```168:209:backend/password-manager/main.go
+```168:209:backend/passwords-service/main.go
 		SELECT id, vault_id, ciphertext, created_at::text, COALESCE(updated_at::text, '')
 		// ...
 	}{}

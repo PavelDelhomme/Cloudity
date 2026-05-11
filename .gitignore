@@ -20,7 +20,7 @@ backend/contacts-service/contacts-service
 backend/drive-service/drive-service
 backend/mail-directory-service/mail-directory-service
 backend/notes-service/notes-service
-backend/password-manager/password-manager
+backend/passwords-service/passwords-service
 backend/photos-service/photos-service
 backend/tasks-service/tasks-service
 # Logs internes Air / outillage

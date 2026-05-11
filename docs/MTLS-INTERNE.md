@@ -1,6 +1,6 @@
 # mTLS interne — défense en profondeur entre microservices Cloudity
 
-> **Rôle** : plan d’**activation progressive** du mTLS entre l’`api-gateway` et les services Go (`auth-service`, `password-manager`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 5 (Zero Trust). État actuel : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit admin : **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)**. Cible **post-quantique** : **[STATUS.md](../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
+> **Rôle** : plan d’**activation progressive** du mTLS entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 5 (Zero Trust). État actuel : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit admin : **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)**. Cible **post-quantique** : **[STATUS.md](../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
 
 **Pourquoi avant le PQ** : le mTLS classique est un **prérequis**. On stabilise la **PKI interne**, la **rotation**, l’**audit** et les **patterns de code** d’abord ; on bascule en **certs hybrides ML-DSA + ECDSA** ensuite, quand la chaîne (`crypto/x509`, `tls`, `step-ca`, OpenSSL) supporte les algos PQ.
 
@@ -105,15 +105,15 @@ volumes:
 
 ```yaml
 services:
-  password-manager:
+  passwords-service:
     # ... existant ...
     volumes:
-      - pass_step_runtime:/run/step/password-manager:rw,tmpfs
+      - pass_step_runtime:/run/step/passwords-service:rw,tmpfs
     environment:
       - MTLS_MODE=permissive
-      - MTLS_CERT_FILE=/run/step/password-manager/cert.pem
-      - MTLS_KEY_FILE=/run/step/password-manager/key.pem
-      - MTLS_CA_FILE=/run/step/password-manager/ca.pem
+      - MTLS_CERT_FILE=/run/step/passwords-service/cert.pem
+      - MTLS_KEY_FILE=/run/step/passwords-service/key.pem
+      - MTLS_CA_FILE=/run/step/passwords-service/ca.pem
     depends_on:
       step-renew-pass:
         condition: service_healthy
@@ -125,16 +125,16 @@ services:
     environment:
       - STEP_CA_URL=https://step-ca:9000
       - STEP_CA_FINGERPRINT=${STEP_CA_FINGERPRINT}
-      - SVC_NAME=password-manager
-      - SPIFFE_ID=spiffe://cloudity.local/ns/default/sa/password-manager
+      - SVC_NAME=passwords-service
+      - SPIFFE_ID=spiffe://cloudity.local/ns/default/sa/passwords-service
       - CERT_TTL=24h
       - RENEW_AT=8h
     volumes:
       - ./scripts/security/step-renew.sh:/scripts/step-renew.sh:ro
-      - pass_step_runtime:/run/step/password-manager
+      - pass_step_runtime:/run/step/passwords-service
       - ./infrastructure/step-ca/secrets:/secrets:ro
     healthcheck:
-      test: ["CMD-SHELL", "test -s /run/step/password-manager/cert.pem"]
+      test: ["CMD-SHELL", "test -s /run/step/passwords-service/cert.pem"]
       interval: 30s
       timeout: 5s
       retries: 10

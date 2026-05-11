@@ -139,7 +139,7 @@ if [ $failed -eq 1 ]; then
   echo ""
   echo "💡 Assurez-vous que la stack est up : make up"
   echo "   Puis attendez 20-30 s que tous les services soient healthy (docker compose ps)."
-  echo "   Le gateway attend auth-service, admin-service, password-manager et mail-directory-service avant de démarrer."
+  echo "   Le gateway attend auth-service, admin-service, passwords-service et mail-directory-service avant de démarrer."
   exit 1
 fi
 echo ""
