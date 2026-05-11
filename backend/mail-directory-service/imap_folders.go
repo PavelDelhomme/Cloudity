@@ -467,11 +467,14 @@ func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
+	// Cf. accountFolderSummary : on bind X-User-ID en paramètre pour ne pas dépendre
+	// d'une variable de session (set_config) sur une connexion potentiellement différente.
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	var dummy int
 	if err := h.db.QueryRow(`
 		SELECT 1 FROM user_email_accounts
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&dummy); err == sql.ErrNoRows {
+		WHERE id = $1 AND user_id = $2
+	`, accountID, userID).Scan(&dummy); err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
 		return
 	} else if err != nil {

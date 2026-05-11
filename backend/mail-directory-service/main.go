@@ -894,10 +894,15 @@ type UserEmailAccount struct {
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
+	// SÉCU : filtrer par user_id, sinon fuite cross-user (le set_config posé en middleware
+	// peut tomber sur une autre conn du pool, ce qui désactivait silencieusement la RLS éventuelle).
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	rows, err := h.db.Query(`
 		SELECT id, user_id, tenant_id, email, label, imap_host, imap_port, smtp_host, smtp_port, created_at::text, COALESCE(updated_at::text, '')
-		FROM user_email_accounts ORDER BY created_at DESC
-	`)
+		FROM user_email_accounts
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+	`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1501,11 +1506,16 @@ func (h *Handler) accountFolderSummary(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
+	// On bind directement user_id depuis le header (déjà validé par le middleware/Gateway).
+	// Ne pas dépendre de current_setting('app.current_user_id') ici : le pool *sql.DB de
+	// lib/pq peut servir une autre connexion que celle où le middleware a posé set_config,
+	// ce qui ferait échouer le check (NULL → WHERE user_id = NULL → 0 row → 404 visible).
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	var dummy int
 	err = h.db.QueryRow(`
 		SELECT 1 FROM user_email_accounts
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&dummy)
+		WHERE id = $1 AND user_id = $2
+	`, accountID, userID).Scan(&dummy)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
 		return
@@ -2497,6 +2507,9 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		return
 	}
 	password := strings.TrimSpace(body.Password)
+	// Cf. accountFolderSummary : on bind X-User-ID directement (le pool *sql.DB ne garantit
+	// pas que la conn courante voie le set_config posé par le middleware).
+	userIDInt, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
 	var dbImapHost sql.NullString
@@ -2504,8 +2517,8 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	err = h.db.QueryRow(`
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
 		FROM user_email_accounts
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&email, &enc, &oauthRefreshEnc, &dbImapHost, &dbImapPort)
+		WHERE id = $1 AND user_id = $2
+	`, accountID, userIDInt).Scan(&email, &enc, &oauthRefreshEnc, &dbImapHost, &dbImapPort)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "account not found"})
 		return

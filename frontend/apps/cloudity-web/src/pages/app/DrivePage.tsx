@@ -1887,14 +1887,15 @@ export default function DrivePage() {
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
   })
-  const { data: recentNodes = [] } = useQuery({
+  const { data: recentNodesRaw } = useQuery({
     queryKey: ['drive', 'recent', 'ribbon'],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 24),
     enabled: Boolean(accessToken) && viewMode === 'drive' && currentParentId == null && !isGlobalSearch,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
-  const { data: recentNodesFull = [], isLoading: isRecentFullLoading } = useQuery({
+  const recentNodes = recentNodesRaw ?? []
+  const { data: recentNodesFullRaw, isLoading: isRecentFullLoading } = useQuery({
     queryKey: ['drive', 'recent', 'full', 500],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 500),
     enabled: Boolean(accessToken) && viewMode === 'recent',
@@ -1902,6 +1903,7 @@ export default function DrivePage() {
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
+  const recentNodesFull = recentNodesFullRaw ?? []
   const [recentSectionVisible, setRecentSectionVisible] = useState(() => {
     try { return localStorage.getItem('cloudity_drive_recent_visible') !== 'false' } catch { return true }
   })
