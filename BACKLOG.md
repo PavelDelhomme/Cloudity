@@ -47,6 +47,23 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ---
 
+## Architecture multi-repos GitHub (à trancher)
+
+Cible discutée : casser le monorepo en **dépôts GitHub indépendants** (un par service / app / lib partagée) regroupés sous un **meta-repo** `cloudity` qui garde `docker-compose.yml`, `infrastructure/`, docs transverses, E2E.
+
+**Plan détaillé** : **[docs/MULTI-REPO-LAYOUT.md](./docs/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
+
+- [ ] **Décisions § 10 du document** : option A/C/D, granularité backend (1 repo par service vs 3 groupes), granularité mobile, registry packages, sort de `infrastructure/`, organisation CI, stacks NPM/Portainer, conteneur backup, calendrier (lancer Phase 0 maintenant ou après stabilisation Mail/Photos/Pass).
+- [ ] **Phase 0 — sans scission** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
+- [ ] **Phase 0 — sans scission** : tagger `internalsec` `v0.1.0`, publier `@cloudity/shared` `v0.1.0`, tagger `cloudity_shared` Dart `v0.1.0`.
+- [ ] **Phase 0 — sans scission** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin) pour figer le contrat avant scission.
+- [ ] **Production** : retoucher **REVERSE-PROXY.md** pour intégrer le scénario **NPM** (subdomains `api.`, `app.`, `admin.` → conteneurs) + checklist Portainer (mono-stack vs multi-stacks par domaine).
+- [ ] **Backup / résilience UI** : conception du panneau `/4dm1n/backups` (Restic + snapshots PG, plan quotidien, restauration 1 clic) + healthchecks/replicas Compose pour la résilience.
+
+> Tant que ces décisions ne sont pas prises, **aucune** scission n’est lancée : on continue à livrer dans le monorepo.
+
+---
+
 ## Sprint fin mai 2026 — cible migration type Proton
 
 Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Photos** ; **Pass** au minimum **web** fiable ; **app Pass mobile** et **extension navigateur Pass** dès que le contrat API / UX web est figé.
