@@ -11,9 +11,9 @@ Voir le détail des options dans **[QUESTIONNAIRE.md](QUESTIONNAIRE.md)**.
 Remplace les `?` par la lettre choisie. Pour Q9 : indique aussi la stack desktop (`T1` / `T2` / `T3`).
 
 ```
-Q1=?
-Q2=?
-Q3=?
+Q1=A
+Q2=D
+Q3=A
 Q4=?
 Q5=?
 Q6=?

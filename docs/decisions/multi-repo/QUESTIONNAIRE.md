@@ -8,7 +8,7 @@
 
 ## Q1 — Stratégie de dépôts (court / moyen terme)
 
-- [ ] **A** — Polyrepo : **meta-repo** + sous-dépôts reliés par **`git submodule`** (un commit figé par sous-projet ; `git clone --recurse-submodules`).
+- [x] **A** — Polyrepo : **meta-repo** + sous-dépôts reliés par **`git submodule`** (un commit figé par sous-projet ; `git clone --recurse-submodules`).
 - [ ] **B** — Polyrepo : meta-repo + sous-dépôts reliés par **`git subtree`** (copie importée ; pas de sous-module à l’usage quotidien).
 - [ ] **C** — Polyrepo : meta-repo + outil **manifeste** (`meta`, `mu-repo`, `repo` Google, etc.) — pas de submodule Git natif.
 - [ ] **D** — **Rester en monorepo** pour l’instant : `CODEOWNERS`, CI par chemins, branches par domaine ; scission **plus tard** quand les libs sont versionnées.
@@ -20,13 +20,13 @@
 - [ ] **A** — **Un dépôt par microservice** (~11 dépôts : gateway, auth, passwords, mail-directory, drive, photos, calendar, contacts, notes, tasks, admin-service).
 - [ ] **B** — **Trois regroupements** : (1) `auth` + `passwords` ; (2) `mail-directory` + `contacts` + `calendar` + `notes` + `tasks` ; (3) `drive` + `photos` ; **gateway** et **admin-service** restent séparés (total ~6 dépôts métier + gateway + admin).
 - [ ] **C** — **Deux regroupements** : « **comm** » (mail + contacts + calendar + notes + tasks) et « **fichiers** » (drive + photos + pass côté API si un jour fusionné — **non recommandé** tant que Pass est un service distinct) — à n’utiliser que si tu acceptes des PR plus larges.
-- [ ] **D** — **Monorepo backend** (`cloudity-backend`) avec dossiers par service ; scission uniquement **front** / **mobile** / **extensions**.
+- [x] **D** — **Monorepo backend** (`cloudity-backend`) avec dossiers par service ; scission uniquement **front** / **mobile** / **extensions**.
 
 ---
 
 ## Q3 — Granularité des dépôts **mobile** (Flutter)
 
-- [ ] **A** — **Un dépôt par application** (`cloudity-mobile-mail`, `…-drive`, `…-photos`, `…-pass`, `…-admin`, etc.).
+- [x] **A** — **Un dépôt par application** (`cloudity-mobile-mail`, `…-drive`, `…-photos`, `…-pass`, `…-admin`, etc.).
 - [ ] **B** — **Un seul dépôt** `cloudity-mobile` avec `apps/mail`, `apps/drive`, `apps/photos`, … et package partagé en workspace interne.
 - [ ] **C** — **Hybride** : apps « matures » (mail, drive, photos) en repos séparés ; apps naissantes (pass, futur hub) dans un repo `cloudity-mobile-incubator` jusqu’à stabilisation.
 
