@@ -36,7 +36,8 @@ Ce dossier regroupe la **documentation produit**, les **tests** (référence), l
 | **[FRONTEND-LAYOUT.md](./FRONTEND-LAYOUT.md)** | Arborescence **`src/pages/`** (`public`, `auth`, `admin`, `app/<domaine>/`) — cloudity-web |
 | **[EVOLUTION-PLATEFORME.md](./EVOLUTION-PLATEFORME.md)** | Nouveau microservice, migrations, `make up` |
 | **[BACKEND-LAYOUT.md](./BACKEND-LAYOUT.md)** | Nommage `*-service`, `passwords-service`, `internalsec` (lib), structure Go cible, note `dbpin` / Docker |
-| **[MULTI-REPO-LAYOUT.md](./MULTI-REPO-LAYOUT.md)** | Plan : éclatement monorepo → repos GitHub indépendants + meta-repo ; libs partagées versionnées ; production Portainer + nginx-proxy-manager ; tests par niveau ; questions à trancher |
+| **[MULTI-REPO-LAYOUT.md](./MULTI-REPO-LAYOUT.md)** | Plan : éclatement monorepo → repos GitHub indépendants + meta-repo ; libs partagées versionnées ; production Portainer + nginx-proxy-manager ; tests par niveau |
+| **[MULTI-REPO-QUESTIONNAIRE.md](./MULTI-REPO-QUESTIONNAIRE.md)** | QCM + synthèse une ligne + texte libre court (5 lignes) pour trancher avant Phase 0 — voir **MULTI-REPO-LAYOUT.md** § 10 |
 | **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** | Chiffrement, durcissement HTTP ; complète ROADMAP TR-01 — voir aussi **[SECURITE.md](./SECURITE.md)** (vision longue) |
 | **[TODO.md](./TODO.md)** | Notes de développement (perf Drive, HMR) — priorités produit : ROADMAP / STATUS |
 

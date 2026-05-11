@@ -53,7 +53,9 @@ Cible discutée : casser le monorepo en **dépôts GitHub indépendants** (un pa
 
 **Plan détaillé** : **[docs/MULTI-REPO-LAYOUT.md](./docs/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
 
-- [ ] **Décisions § 10 du document** : option A/C/D, granularité backend (1 repo par service vs 3 groupes), granularité mobile, registry packages, sort de `infrastructure/`, organisation CI, stacks NPM/Portainer, conteneur backup, calendrier (lancer Phase 0 maintenant ou après stabilisation Mail/Photos/Pass).
+**Questionnaire (QCM + texte libre court)** : **[docs/MULTI-REPO-QUESTIONNAIRE.md](./docs/MULTI-REPO-QUESTIONNAIRE.md)** — à remplir pour trancher Q1–Q10 avant Phase 0.
+
+- [ ] **Décisions** : remplir le questionnaire (ou la ligne « Synthèse rapide » `Q1=? … Q10=?`) puis cocher ici.
 - [ ] **Phase 0 — sans scission** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
 - [ ] **Phase 0 — sans scission** : tagger `internalsec` `v0.1.0`, publier `@cloudity/shared` `v0.1.0`, tagger `cloudity_shared` Dart `v0.1.0`.
 - [ ] **Phase 0 — sans scission** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin) pour figer le contrat avant scission.

@@ -274,30 +274,10 @@ Même chose pour la **résilience** (réplication PG, multi-instances services G
 
 ## 10. Questions à trancher (avant exécution)
 
-> Réponse attendue de toi pour engager Phase 0 → Phase 5.
+> **Questionnaire à choix multiple** (une option par question + court texte libre en fin) : **[MULTI-REPO-QUESTIONNAIRE.md](./MULTI-REPO-QUESTIONNAIRE.md)**.  
+> Renseigne les Q1–Q10 (ou la ligne « Synthèse rapide » du questionnaire), puis on enchaîne avec la **Phase 0** § 4.
 
-1. **Stratégie de scission** :
-   - **D** (rester monorepo + `CODEOWNERS`) — **0 risque, 0 nouveau dépôt**.
-   - **A** (polyrepo + submodules dans meta-repo).
-   - **C** (polyrepo + manifeste `meta`/`mu-repo`).
-2. **Granularité backend** :
-   - Un repo par service Go (~10 dépôts) ou regrouper en **3 dépôts** (`auth+pass`, `mail+contacts+calendar+notes+tasks`, `drive+photos`) ?
-3. **Granularité mobile** :
-   - Un repo par app Flutter (Mail, Drive, Photos, Pass…) **ou** un seul repo `cloudity-mobile` avec un dossier par app ?
-4. **Registry packages** :
-   - **GitHub Packages** (privé tant que Cloudity n’est pas open source) ou **npm public + pub.dev + tags Go** ?
-5. **`infrastructure/`** :
-   - Reste dans le meta-repo, ou repo `cloudity-infra` séparé (plus propre pour la prod / accès restreint) ?
-6. **CI** :
-   - GitHub Actions par dépôt + un workflow meta qui orchestre, **ou** un seul workflow meta qui clone/teste tout ?
-7. **Production NPM/Portainer** :
-   - Mono-stack ou stacks **par domaine** (Mail / Drive / Pass / Photos / Office / Comm / Identity / Infra) ?
-8. **Backups** :
-   - **Restic** géré par un conteneur dédié `cloudity-backup`, contrôlé via API par l’admin-service ?
-9. **Extension Pass / Desktop Linux** :
-   - **Quand** les démarrer ? Avant ou après scission ? Stack desktop : **Tauri** (Rust, léger) ou **Electron** ?
-10. **Calendrier** :
-    - Phase 0 (extraction `pkg/dbpin` + versionnage des libs) **maintenant** ou **après** stabilisation Mail/Photos/Pass ?
+Résumé des thèmes couverts : stratégie de scission (A/B/C/D), granularité backend / mobile, registry packages, emplacement `infrastructure/`, CI, Portainer/NPM, backups, extension Pass + desktop Linux (quand + Tauri/Electron), calendrier Phase 0.
 
 ---
 
@@ -318,4 +298,4 @@ Même chose pour la **résilience** (réplication PG, multi-instances services G
 
 ---
 
-*Document à mettre à jour quand une question § 10 est tranchée ou quand une phase change.*
+*Document à mettre à jour quand le **[MULTI-REPO-QUESTIONNAIRE.md](./MULTI-REPO-QUESTIONNAIRE.md)** est rempli ou quand une phase change.*
