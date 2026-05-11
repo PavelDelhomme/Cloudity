@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { refreshAuth } from './api'
 
-import { AUTH_STORAGE_KEY as STORAGE_KEY } from '@cloudity/shared'
+import { AUTH_STORAGE_KEY as STORAGE_KEY, ApiError } from '@cloudity/shared'
 import { isAccessTokenUsable } from '@cloudity/shared'
 
 export type AuthState = {
@@ -240,7 +240,11 @@ export function Global401Handler() {
       if (event?.type !== 'updated') return
       const q = event.query
       if (q.state.status !== 'error' || !(q.state.error instanceof Error)) return
-      if (!String(q.state.error.message).includes('401')) return
+      const err = q.state.error
+      const isUnauthorized =
+        (err instanceof ApiError && err.status === 401) ||
+        String(err.message).includes('401')
+      if (!isUnauthorized) return
 
       const tryRefresh = async () => {
         if (!refreshToken) {

@@ -25,6 +25,7 @@ backend/photos-service/photos-service
 backend/tasks-service/tasks-service
 # Logs internes Air / outillage
 backend/*/tmp/build-errors.log
+backend/*/tmp/main
 
 # Fichiers .html de test ou brouillons (création rapide de docs)
 test.html

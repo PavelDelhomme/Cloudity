@@ -1,7 +1,7 @@
 export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY } from './cloudityCore'
 export { getAuthHeaders } from './authHeaders'
 export type { AuthHeadersOptions } from './authHeaders'
-export { apiFetch, apiJson, apiJsonOk } from './apiFetch'
+export { apiFetch, apiJson, apiJsonOk, ApiError } from './apiFetch'
 export type { ApiFetchInit, ApiOkJson } from './apiFetch'
 export { ADMIN_UI_BASE_PATH, adminUiPath, isAdminUiReturnPath, normalizePostLoginPath } from './adminUiPath'
 export { getJwtPayloadExpMs, isAccessTokenUsable } from './jwtExpiry'

@@ -25,6 +25,27 @@ export type ApiFetchInit = Omit<RequestInit, 'headers'> & {
 }
 
 /**
+ * Erreur HTTP enrichie : expose `status` numérique pour que les handlers
+ * (ex. `Global401Handler`) puissent filtrer sans deviner via le texte.
+ * `message` conserve toujours le code HTTP, même quand le body contient
+ * `detail`/`error` — sinon `error.message.includes('401')` peut échouer
+ * silencieusement, laisser le frontend en boucle de retries et bloquer la
+ * redirection vers `/login` (cf. AUDIT-SECURITE-ADMIN-API.md).
+ */
+export class ApiError extends Error {
+  public readonly status: number
+  public readonly path: string
+  public readonly bodyDetail?: string
+  constructor(message: string, status: number, path: string, bodyDetail?: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.path = path
+    this.bodyDetail = bodyDetail
+  }
+}
+
+/**
  * Appel fetch authentifié vers `apiUrl(path)`.
  * - Renvoie la `Response` ; l'appelant choisit `.json()` / `.text()` / `.blob()`.
  * - Ne lève pas d'erreur HTTP (utiliser `apiJson` ou tester `res.ok` soi-même).
@@ -58,15 +79,17 @@ export async function apiJson<T = unknown>(
 ): Promise<T> {
   const res = await apiFetch(token, path, init)
   if (!res.ok) {
-    let message = `${errorPrefix}: ${res.status}`
+    let bodyDetail: string | undefined
     try {
       const body = (await res.json()) as { detail?: string; error?: string }
-      const extra = body.detail || body.error
-      if (extra) message = extra
+      bodyDetail = body.detail || body.error || undefined
     } catch {
-      /* body non JSON ou vide — on garde le message par défaut */
+      /* body non JSON ou vide */
     }
-    throw new Error(message)
+    const message = bodyDetail
+      ? `${errorPrefix}: ${res.status} — ${bodyDetail}`
+      : `${errorPrefix}: ${res.status}`
+    throw new ApiError(message, res.status, path, bodyDetail)
   }
   return res.json() as Promise<T>
 }
