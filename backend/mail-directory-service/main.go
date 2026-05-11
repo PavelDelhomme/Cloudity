@@ -310,8 +310,70 @@ func main() {
 	r.Run(":" + port)
 }
 
+// dbExec est l'abstraction commune entre *sql.DB (pool) et une *sql.Conn épinglée
+// (cf. requireTenantAndUser). Toutes les requêtes SQL d'un même handler HTTP doivent
+// passer par la même connexion pour voir le set_config('app.current_user_id', …)
+// posé en début de requête, sans quoi le pool peut servir une autre conn et la RLS
+// ainsi que les checks d'existence retournent 0 ligne (cf. bug 404 mail-directory de
+// la branche feat/photos-gallery-mobile-sync-security).
+type dbExec interface {
+	QueryRow(query string, args ...any) *sql.Row
+	Query(query string, args ...any) (*sql.Rows, error)
+	Exec(query string, args ...any) (sql.Result, error)
+	Begin() (*sql.Tx, error)
+}
+
+// pinnedConn adapte *sql.Conn vers dbExec en injectant un context.Context fixé
+// (celui de la requête HTTP). Les méthodes correspondent strictement à *sql.DB pour
+// permettre un drop-in via le helper Handler.dbex.
+type pinnedConn struct {
+	conn *sql.Conn
+	ctx  context.Context
+}
+
+func (p *pinnedConn) QueryRow(q string, args ...any) *sql.Row {
+	return p.conn.QueryRowContext(p.ctx, q, args...)
+}
+
+func (p *pinnedConn) Query(q string, args ...any) (*sql.Rows, error) {
+	return p.conn.QueryContext(p.ctx, q, args...)
+}
+
+func (p *pinnedConn) Exec(q string, args ...any) (sql.Result, error) {
+	return p.conn.ExecContext(p.ctx, q, args...)
+}
+
+func (p *pinnedConn) Begin() (*sql.Tx, error) {
+	return p.conn.BeginTx(p.ctx, nil)
+}
+
+// pinKey est la clé context.Context utilisée pour stocker la conn épinglée.
+// Type privé pour éviter toute collision avec d'autres packages.
+type pinKey struct{}
+
+// withPinnedConn renvoie une copie de ctx contenant la conn épinglée.
+func withPinnedConn(ctx context.Context, p *pinnedConn) context.Context {
+	return context.WithValue(ctx, pinKey{}, p)
+}
+
 type Handler struct {
 	db *sql.DB
+}
+
+// dbex retourne la conn épinglée présente dans le ctx (posée par le middleware
+// requireTenantAndUser), sinon le pool *sql.DB. Les helpers internes qui font
+// du SQL doivent recevoir ctx context.Context en premier paramètre et appeler
+// h.dbex(ctx) — JAMAIS h.db directement, sous peine de perdre le set_config
+// utilisateur et de basculer sur une autre connexion du pool.
+func (h *Handler) dbex(ctx context.Context) dbExec {
+	if ctx != nil {
+		if v := ctx.Value(pinKey{}); v != nil {
+			if p, ok := v.(*pinnedConn); ok {
+				return p
+			}
+		}
+	}
+	return h.db
 }
 
 func encryptPassword(plain string) (string, error) {
@@ -396,16 +458,27 @@ func (h *Handler) requireTenantAndUser(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, err = h.db.Exec("SELECT set_current_tenant($1)", tid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
 		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_current_tenant($1)", tid); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set tenant context"})
 			return
 		}
-		_, err = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID)
-		if err != nil {
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
 			return
 		}
+		// On épingle la conn dans le ctx Go : tous les helpers du Handler qui font
+		// du SQL utilisent h.dbex(ctx) et tombent sur cette conn pour la durée de
+		// la requête. Le defer conn.Close() ci-dessus la rend au pool une fois
+		// le handler retourné (gin: c.Next() bloque jusqu'à la fin du handler).
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -442,9 +515,10 @@ func parsePagination(c *gin.Context, defaultLimit int, maxLimit int) (int, int) 
 }
 
 func (h *Handler) listDomains(c *gin.Context) {
+	ctx := c.Request.Context()
 	skip, limit := parsePagination(c, 50, 200)
 
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, domain, is_active, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_domains ORDER BY domain
 		OFFSET $1 LIMIT $2
@@ -471,6 +545,7 @@ func (h *Handler) listDomains(c *gin.Context) {
 }
 
 func (h *Handler) createDomain(c *gin.Context) {
+	ctx := c.Request.Context()
 	var body struct {
 		Domain string `json:"domain" binding:"required"`
 	}
@@ -485,7 +560,7 @@ func (h *Handler) createDomain(c *gin.Context) {
 		return
 	}
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_domains (tenant_id, domain)
 		VALUES ($1, $2)
 		RETURNING id
@@ -502,6 +577,7 @@ func (h *Handler) createDomain(c *gin.Context) {
 }
 
 func (h *Handler) patchDomain(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -518,7 +594,7 @@ func (h *Handler) patchDomain(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
 		return
 	}
-	res, err := h.db.Exec(`UPDATE mail_domains SET is_active = $1 WHERE id = $2`, *body.IsActive, domainID)
+	res, err := h.dbex(ctx).Exec(`UPDATE mail_domains SET is_active = $1 WHERE id = $2`, *body.IsActive, domainID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -532,12 +608,13 @@ func (h *Handler) patchDomain(c *gin.Context) {
 }
 
 func (h *Handler) deleteDomain(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM mail_domains WHERE id = $1`, domainID)
+	res, err := h.dbex(ctx).Exec(`DELETE FROM mail_domains WHERE id = $1`, domainID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -561,6 +638,7 @@ type Mailbox struct {
 }
 
 func (h *Handler) listMailboxes(c *gin.Context) {
+	ctx := c.Request.Context()
 	id := c.Param("id")
 	domainID, err := strconv.Atoi(id)
 	if err != nil || domainID <= 0 {
@@ -568,7 +646,7 @@ func (h *Handler) listMailboxes(c *gin.Context) {
 		return
 	}
 	skip, limit := parsePagination(c, 50, 200)
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, domain_id, local_part, quota_mb, is_active, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_mailboxes WHERE domain_id = $1 ORDER BY local_part
 		OFFSET $2 LIMIT $3
@@ -600,6 +678,7 @@ func hashMailboxPassword(raw string) string {
 }
 
 func (h *Handler) createMailbox(c *gin.Context) {
+	ctx := c.Request.Context()
 	id := c.Param("id")
 	domainID, err := strconv.Atoi(id)
 	if err != nil || domainID <= 0 {
@@ -629,7 +708,7 @@ func (h *Handler) createMailbox(c *gin.Context) {
 		quota = 0
 	}
 	var newID int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_mailboxes (domain_id, local_part, password_hash, quota_mb)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id
@@ -646,6 +725,7 @@ func (h *Handler) createMailbox(c *gin.Context) {
 }
 
 func (h *Handler) deleteMailbox(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -656,7 +736,7 @@ func (h *Handler) deleteMailbox(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid mailbox id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM mail_mailboxes WHERE id = $1 AND domain_id = $2`, mailboxID, domainID)
+	res, err := h.dbex(ctx).Exec(`DELETE FROM mail_mailboxes WHERE id = $1 AND domain_id = $2`, mailboxID, domainID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -670,6 +750,7 @@ func (h *Handler) deleteMailbox(c *gin.Context) {
 }
 
 func (h *Handler) patchMailbox(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -711,7 +792,7 @@ func (h *Handler) patchMailbox(c *gin.Context) {
 	}
 	args = append(args, mailboxID, domainID)
 	q := fmt.Sprintf("UPDATE mail_mailboxes SET %s WHERE id = $%d AND domain_id = $%d", strings.Join(setParts, ", "), i, i+1)
-	res, err := h.db.Exec(q, args...)
+	res, err := h.dbex(ctx).Exec(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -735,6 +816,7 @@ type Alias struct {
 }
 
 func (h *Handler) listAliases(c *gin.Context) {
+	ctx := c.Request.Context()
 	id := c.Param("id")
 	domainID, err := strconv.Atoi(id)
 	if err != nil || domainID <= 0 {
@@ -742,7 +824,7 @@ func (h *Handler) listAliases(c *gin.Context) {
 		return
 	}
 	skip, limit := parsePagination(c, 50, 200)
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, domain_id, source_local, destination, expires_at::text, created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_aliases WHERE domain_id = $1 ORDER BY source_local
 		OFFSET $2 LIMIT $3
@@ -773,6 +855,7 @@ func (h *Handler) listAliases(c *gin.Context) {
 }
 
 func (h *Handler) createAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -797,7 +880,7 @@ func (h *Handler) createAlias(c *gin.Context) {
 		return
 	}
 	var newID int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_aliases (domain_id, source_local, destination)
 		VALUES ($1, $2, $3)
 		RETURNING id
@@ -814,6 +897,7 @@ func (h *Handler) createAlias(c *gin.Context) {
 }
 
 func (h *Handler) deleteAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -824,7 +908,7 @@ func (h *Handler) deleteAlias(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM mail_aliases WHERE id = $1 AND domain_id = $2`, aliasID, domainID)
+	res, err := h.dbex(ctx).Exec(`DELETE FROM mail_aliases WHERE id = $1 AND domain_id = $2`, aliasID, domainID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -838,6 +922,7 @@ func (h *Handler) deleteAlias(c *gin.Context) {
 }
 
 func (h *Handler) patchAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	domainID, err := strconv.Atoi(c.Param("id"))
 	if err != nil || domainID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid domain id"})
@@ -864,7 +949,7 @@ func (h *Handler) patchAlias(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "destination invalid"})
 		return
 	}
-	res, err := h.db.Exec(`UPDATE mail_aliases SET destination = $1 WHERE id = $2 AND domain_id = $3`, dst, aliasID, domainID)
+	res, err := h.dbex(ctx).Exec(`UPDATE mail_aliases SET destination = $1 WHERE id = $2 AND domain_id = $3`, dst, aliasID, domainID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -894,10 +979,11 @@ type UserEmailAccount struct {
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
+	ctx := c.Request.Context()
 	// SÉCU : filtrer par user_id, sinon fuite cross-user (le set_config posé en middleware
 	// peut tomber sur une autre conn du pool, ce qui désactivait silencieusement la RLS éventuelle).
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, user_id, tenant_id, email, label, imap_host, imap_port, smtp_host, smtp_port, created_at::text, COALESCE(updated_at::text, '')
 		FROM user_email_accounts
 		WHERE user_id = $1
@@ -954,6 +1040,7 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 }
 
 func (h *Handler) createUserAccount(c *gin.Context) {
+	ctx := c.Request.Context()
 	var body struct {
 		Email    string `json:"email" binding:"required"`
 		Label    string `json:"label"`
@@ -989,7 +1076,7 @@ func (h *Handler) createUserAccount(c *gin.Context) {
 		}
 	}
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO user_email_accounts (user_id, tenant_id, email, label, password_encrypted)
 		VALUES ($1, $2, $3, NULLIF(TRIM($4), ''), $5)
 		RETURNING id
@@ -1007,6 +1094,7 @@ func (h *Handler) createUserAccount(c *gin.Context) {
 
 // oauthGoogleAuthorize renvoie l'URL de redirection vers Google (connexion OAuth sans mot de passe d'application).
 func (h *Handler) oauthGoogleAuthorize(c *gin.Context) {
+	ctx := c.Request.Context()
 	clientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
 	redirectURI := os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")
@@ -1028,7 +1116,7 @@ func (h *Handler) oauthGoogleAuthorize(c *gin.Context) {
 		return
 	}
 	state := base64.URLEncoding.EncodeToString(stateBytes)[:32]
-	_, err := h.db.Exec(`
+	_, err := h.dbex(ctx).Exec(`
 		INSERT INTO mail_oauth_state (state, user_id, tenant_id) VALUES ($1, $2, $3)
 	`, state, uid, tid)
 	if err != nil {
@@ -1049,6 +1137,7 @@ func (h *Handler) oauthGoogleAuthorize(c *gin.Context) {
 
 // oauthGoogleCallback traite le retour Google, récupère les tokens et crée/met à jour le compte mail.
 func (h *Handler) oauthGoogleCallback(c *gin.Context) {
+	ctx := c.Request.Context()
 	state := c.Query("state")
 	code := c.Query("code")
 	frontendURL := os.Getenv("MAIL_OAUTH_FRONTEND_URL")
@@ -1062,7 +1151,7 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 		return
 	}
 	var uid, tid int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT user_id, tenant_id FROM mail_oauth_state WHERE state = $1
 	`, state).Scan(&uid, &tid)
 	if err == sql.ErrNoRows || err != nil {
@@ -1070,7 +1159,7 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 		c.Redirect(http.StatusFound, redirectFail)
 		return
 	}
-	_, _ = h.db.Exec(`DELETE FROM mail_oauth_state WHERE state = $1`, state)
+	_, _ = h.dbex(ctx).Exec(`DELETE FROM mail_oauth_state WHERE state = $1`, state)
 
 	clientID := os.Getenv("GOOGLE_OAUTH_CLIENT_ID")
 	clientSecret := os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")
@@ -1096,7 +1185,6 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 		log.Printf("[mail] oauth: no refresh_token (prompt=consent may be needed)")
 	}
 	// Récupérer l'email via Gmail API (profil) ou token ID
-	ctx := c.Request.Context()
 	client := conf.Client(ctx, tok)
 	svc, err := googleapi.NewService(ctx, option.WithHTTPClient(client))
 	if err != nil {
@@ -1122,7 +1210,7 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 		return
 	}
 	provider := "google"
-	_, err = h.db.Exec(`
+	_, err = h.dbex(ctx).Exec(`
 		INSERT INTO user_email_accounts (user_id, tenant_id, email, label, oauth_provider, oauth_refresh_token_encrypted)
 		VALUES ($1, $2, $3, NULL, $4, $5)
 		ON CONFLICT (user_id, email) DO UPDATE SET
@@ -1139,6 +1227,7 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 }
 
 func (h *Handler) deleteUserAccount(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
@@ -1146,7 +1235,7 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 		return
 	}
 	var accountEmail string
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT LOWER(TRIM(email)) FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, id).Scan(&accountEmail); err == sql.ErrNoRows {
@@ -1157,7 +1246,7 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 		return
 	}
 	var loginEmail sql.NullString
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT LOWER(TRIM(email)) FROM users WHERE id = current_setting('app.current_user_id', true)::INTEGER
 	`).Scan(&loginEmail); err != nil || !loginEmail.Valid || strings.TrimSpace(loginEmail.String) == "" {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "profil utilisateur introuvable"})
@@ -1170,7 +1259,7 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 		return
 	}
 	// CASCADE : messages, pièces jointes, dossiers IMAP, étiquettes, alias — tout ce qui référence account_id.
-	res, err := h.db.Exec(`DELETE FROM user_email_accounts WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	res, err := h.dbex(ctx).Exec(`DELETE FROM user_email_accounts WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1185,6 +1274,7 @@ func (h *Handler) deleteUserAccount(c *gin.Context) {
 
 // patchUserAccount met à jour libellé, mot de passe chiffré, hôtes IMAP/SMTP (synchronisation et envoi).
 func (h *Handler) patchUserAccount(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1208,7 +1298,7 @@ func (h *Handler) patchUserAccount(c *gin.Context) {
 		return
 	}
 	var exists int
-	checkErr := h.db.QueryRow(`
+	checkErr := h.dbex(ctx).QueryRow(`
 		SELECT 1 FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, accountID).Scan(&exists)
@@ -1285,7 +1375,7 @@ func (h *Handler) patchUserAccount(c *gin.Context) {
 	}
 	args = append(args, accountID)
 	q := "UPDATE user_email_accounts SET " + strings.Join(sets, ", ") + fmt.Sprintf(" WHERE id = $%d AND user_id = current_setting('app.current_user_id', true)::INTEGER", i)
-	res, execErr := h.db.Exec(q, args...)
+	res, execErr := h.dbex(ctx).Exec(q, args...)
 	if execErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
 		return
@@ -1308,13 +1398,14 @@ type MailAlias struct {
 }
 
 func (h *Handler) listAccountAliases(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT a.id, a.account_id, a.alias_email, a.label, a.deliver_target_email, a.created_at::text
 		FROM user_email_aliases a
 		INNER JOIN user_email_accounts u ON u.id = a.account_id
@@ -1351,6 +1442,7 @@ func (h *Handler) listAccountAliases(c *gin.Context) {
 }
 
 func (h *Handler) createAccountAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1379,7 +1471,7 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		dtArg = nil
 	}
 	var n int
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT COUNT(*) FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, accountID).Scan(&n); err != nil || n == 0 {
@@ -1387,7 +1479,7 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		return
 	}
 	var newID int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO user_email_aliases (account_id, alias_email, label, deliver_target_email)
 		VALUES ($1, $2, NULLIF(TRIM($3), ''), $4)
 		ON CONFLICT (account_id, alias_email) DO UPDATE SET
@@ -1403,6 +1495,7 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 }
 
 func (h *Handler) deleteAccountAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1414,7 +1507,7 @@ func (h *Handler) deleteAccountAlias(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM user_email_aliases a USING user_email_accounts u
 		WHERE a.id = $1 AND a.account_id = $2 AND u.id = a.account_id
 		AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -1432,6 +1525,7 @@ func (h *Handler) deleteAccountAlias(c *gin.Context) {
 }
 
 func (h *Handler) patchAccountAlias(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1485,7 +1579,7 @@ func (h *Handler) patchAccountAlias(c *gin.Context) {
 		WHERE a.id = $%d AND a.account_id = $%d AND a.account_id = u.id
 		AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, strings.Join(sets, ", "), p, p+1)
-	res, execErr := h.db.Exec(q, args...)
+	res, execErr := h.dbex(ctx).Exec(q, args...)
 	if execErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": execErr.Error()})
 		return
@@ -1500,6 +1594,7 @@ func (h *Handler) patchAccountAlias(c *gin.Context) {
 
 // GET /mail/me/accounts/:id/folders/summary — totaux et non-lus par dossier (badges UI).
 func (h *Handler) accountFolderSummary(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1512,7 +1607,7 @@ func (h *Handler) accountFolderSummary(c *gin.Context) {
 	// ce qui ferait échouer le check (NULL → WHERE user_id = NULL → 0 row → 404 visible).
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	var dummy int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT 1 FROM user_email_accounts
 		WHERE id = $1 AND user_id = $2
 	`, accountID, userID).Scan(&dummy)
@@ -1542,7 +1637,7 @@ func (h *Handler) accountFolderSummary(c *gin.Context) {
 		"trash":   folderStat{},
 		"extra":   []extraFolderStat{},
 	}
-	rows, qerr := h.db.Query(`
+	rows, qerr := h.dbex(ctx).Query(`
 		SELECT folder,
 			COUNT(*)::int,
 			COALESCE(SUM(CASE WHEN NOT COALESCE(is_read, false) THEN 1 ELSE 0 END), 0)::int
@@ -1628,6 +1723,7 @@ func parseMessageTagCSV(s string) []int {
 }
 
 func (h *Handler) listAccountMessages(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -1637,7 +1733,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	folder := normalizeMailFolderQuery(c.DefaultQuery("folder", "inbox"))
 	tagID, _ := strconv.Atoi(c.Query("tag_id"))
 	threadKey := strings.TrimSpace(c.Query("thread_key"))
-	if !h.folderAllowed(accountID, folder) {
+	if !h.folderAllowed(ctx, accountID, folder) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé"})
 		return
 	}
@@ -1696,7 +1792,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	}
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m%s WHERE m.account_id = $1%s%s%s`, tagJoin, folderSQL, allFolderExclude, extraWhere)
 	var total int
-	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
+	if countErr := h.dbex(ctx).QueryRow(countSQL, args...).Scan(&total); countErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
 		return
 	}
@@ -1716,7 +1812,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 			ORDER BY %s
 			LIMIT %s OFFSET %s
 		`, tagJoin, folderSQL, allFolderExclude, extraWhere, orderBy, limitPh, offsetPh)
-	rows, err := h.db.Query(selectSQL, argsSel...)
+	rows, err := h.dbex(ctx).Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1748,6 +1844,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 // utilisateur (même exclusion que folder=all : pas corbeille / spam / brouillons).
 // Les filtres tag_id ne s’appliquent pas ici (étiquettes par compte).
 func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
+	ctx := c.Request.Context()
 	limit := 25
 	if l := c.Query("limit"); l != "" {
 		if n, _ := strconv.Atoi(l); n > 0 && n <= 100 {
@@ -1792,7 +1889,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	whereClause := baseAcct + allFolderExclude + extraWhere
 	countSQL := fmt.Sprintf(`SELECT COUNT(*) FROM mail_messages m WHERE %s`, whereClause)
 	var total int
-	if countErr := h.db.QueryRow(countSQL, args...).Scan(&total); countErr != nil {
+	if countErr := h.dbex(ctx).QueryRow(countSQL, args...).Scan(&total); countErr != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": countErr.Error()})
 		return
 	}
@@ -1812,7 +1909,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 			ORDER BY %s
 			LIMIT %s OFFSET %s
 		`, whereClause, orderBy, limitPh, offsetPh)
-	rows, err := h.db.Query(selectSQL, argsSel...)
+	rows, err := h.dbex(ctx).Query(selectSQL, argsSel...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1841,6 +1938,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 }
 
 func (h *Handler) getAccountMessage(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	msgIdStr := c.Param("msgId")
 	accountID, err := strconv.Atoi(idStr)
@@ -1858,7 +1956,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	var bodyPlain, bodyHTML, rawHeadersDB sql.NullString
 	var isRead bool
 	var messageUID int64
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
 			raw_headers,
 			COALESCE(thread_key, ''), COALESCE(attachment_count, 0)
@@ -1898,7 +1996,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 				if len(hdr) > maxRawHeadersBytes {
 					hdr = hdr[:maxRawHeadersBytes]
 				}
-				if _, updErr := h.db.Exec(`
+				if _, updErr := h.dbex(ctx).Exec(`
 					UPDATE mail_messages SET raw_headers = $1
 					WHERE id = $2 AND account_id = $3
 					AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -1936,7 +2034,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 			}
 		}
 	}
-	m.Attachments = h.loadMessageAttachmentInfo(msgID)
+	m.Attachments = h.loadMessageAttachmentInfo(ctx, msgID)
 	m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 	c.JSON(http.StatusOK, m)
 }
@@ -1949,14 +2047,18 @@ func nullStr(s string) interface{} {
 }
 
 func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed *mailParsedResult) error {
+	ctx := c.Request.Context()
 	userID := c.GetHeader("X-User-ID")
 	if userID == "" {
 		return fmt.Errorf("X-User-ID required")
 	}
-	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+	// Note : le set_config est déjà posé par le middleware sur la conn pin (cf. dbex(ctx)).
+	// On le repose ici pour rester correct même si cette fonction est appelée depuis un
+	// chemin où le middleware n'aurait pas tourné (paranoïa raisonnable).
+	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
 		return err
 	}
-	tx, err := h.db.Begin()
+	tx, err := h.dbex(ctx).Begin()
 	if err != nil {
 		return err
 	}
@@ -2002,8 +2104,8 @@ func nullBytes(b []byte) interface{} {
 	return b
 }
 
-func (h *Handler) loadMessageAttachmentInfo(msgID int) []MailAttachmentInfo {
-	rows, err := h.db.Query(`
+func (h *Handler) loadMessageAttachmentInfo(ctx context.Context, msgID int) []MailAttachmentInfo {
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, filename, content_type, size_bytes, (content IS NOT NULL)
 		FROM mail_message_attachments WHERE message_id = $1 ORDER BY part_ordinal
 	`, msgID)
@@ -2029,18 +2131,19 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 			err = fmt.Errorf("IMAP (RFC822): %v", r)
 		}
 	}()
+	ctx := c.Request.Context()
 	userID := c.GetHeader("X-User-ID")
 	if userID == "" {
 		return nil, fmt.Errorf("X-User-ID required")
 	}
-	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
 		return nil, err
 	}
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
 	var dbImapHost sql.NullString
 	var dbImapPort sql.NullInt32
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -2093,7 +2196,7 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 			return nil, err
 		}
 	}
-	candidates := h.imapCandidatesForAccountFolder(accountID, folder)
+	candidates := h.imapCandidatesForAccountFolder(ctx, accountID, folder)
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("dossier IMAP introuvable pour %q", folder)
 	}
@@ -2144,6 +2247,7 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 }
 
 func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
+	ctx := c.Request.Context()
 	accStr, msgStr, attStr := c.Param("id"), c.Param("msgId"), c.Param("attId")
 	accountID, _ := strconv.Atoi(accStr)
 	msgID, _ := strconv.Atoi(msgStr)
@@ -2157,7 +2261,7 @@ func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "X-User-ID required"})
 		return
 	}
-	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
+	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -2166,7 +2270,7 @@ func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
 	var content []byte
 	var messageUID int64
 	var folder string
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT a.part_ordinal, a.filename, a.content_type, a.content, m.message_uid, m.folder
 		FROM mail_message_attachments a
 		INNER JOIN mail_messages m ON m.id = a.message_id
@@ -2210,6 +2314,7 @@ func (h *Handler) downloadMailAttachmentHTTP(c *gin.Context) {
 }
 
 func (h *Handler) markMessageRead(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	msgIdStr := c.Param("msgId")
 	accountID, err := strconv.Atoi(idStr)
@@ -2229,7 +2334,7 @@ func (h *Handler) markMessageRead(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"read\": true|false"})
 		return
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE mail_messages SET is_read = $1
 		WHERE id = $2 AND account_id = $3
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -2247,6 +2352,7 @@ func (h *Handler) markMessageRead(c *gin.Context) {
 }
 
 func (h *Handler) moveMessageToFolder(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	msgIdStr := c.Param("msgId")
 	accountID, err := strconv.Atoi(idStr)
@@ -2275,11 +2381,11 @@ func (h *Handler) moveMessageToFolder(c *gin.Context) {
 	if isStandardMailFolder(raw) {
 		folder = strings.ToLower(raw)
 	}
-	if !h.folderAllowed(accountID, folder) {
+	if !h.folderAllowed(ctx, accountID, folder) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé pour cette boîte"})
 		return
 	}
-	if err := h.imapMoveMessage(accountID, msgID, folder); err != nil {
+	if err := h.imapMoveMessage(ctx, accountID, msgID, folder); err != nil {
 		if errors.Is(err, errMailMessageNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 			return
@@ -2292,6 +2398,7 @@ func (h *Handler) moveMessageToFolder(c *gin.Context) {
 }
 
 func (h *Handler) markMessagesReadBulk(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -2324,7 +2431,7 @@ func (h *Handler) markMessagesReadBulk(c *gin.Context) {
 	}
 	updated := 0
 	for _, msgID := range ids {
-		res, execErr := h.db.Exec(`
+		res, execErr := h.dbex(ctx).Exec(`
 			UPDATE mail_messages SET is_read = $1
 			WHERE id = $2 AND account_id = $3
 			AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -2342,6 +2449,7 @@ func (h *Handler) markMessagesReadBulk(c *gin.Context) {
 }
 
 func (h *Handler) moveMessagesToFolderBulk(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -2365,7 +2473,7 @@ func (h *Handler) moveMessagesToFolderBulk(c *gin.Context) {
 	if isStandardMailFolder(raw) {
 		folder = strings.ToLower(raw)
 	}
-	if !h.folderAllowed(accountID, folder) {
+	if !h.folderAllowed(ctx, accountID, folder) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier inconnu ou non autorisé pour cette boîte"})
 		return
 	}
@@ -2387,7 +2495,7 @@ func (h *Handler) moveMessagesToFolderBulk(c *gin.Context) {
 	}
 	updated := 0
 	for _, msgID := range ids {
-		if moveErr := h.imapMoveMessage(accountID, msgID, folder); moveErr != nil {
+		if moveErr := h.imapMoveMessage(ctx, accountID, msgID, folder); moveErr != nil {
 			log.Printf("[mail] bulk move account=%d msg=%d -> %q: %v", accountID, msgID, folder, moveErr)
 			continue
 		}
@@ -2397,6 +2505,7 @@ func (h *Handler) moveMessagesToFolderBulk(c *gin.Context) {
 }
 
 func (h *Handler) deleteMessagePermanently(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	msgIdStr := c.Param("msgId")
 	accountID, err := strconv.Atoi(idStr)
@@ -2409,7 +2518,7 @@ func (h *Handler) deleteMessagePermanently(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
 		return
 	}
-	if err := h.imapDeleteMessagePermanently(accountID, msgID); err != nil {
+	if err := h.imapDeleteMessagePermanently(ctx, accountID, msgID); err != nil {
 		if errors.Is(err, errMailMessageNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 			return
@@ -2490,6 +2599,7 @@ func imapHostPort(email string) (host string, port int, useTLS bool) {
 }
 
 func (h *Handler) syncAccountIMAP(c *gin.Context) {
+	ctx := c.Request.Context()
 	idStr := c.Param("id")
 	accountID, err := strconv.Atoi(idStr)
 	if err != nil || accountID <= 0 {
@@ -2514,7 +2624,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	var enc, oauthRefreshEnc sql.NullString
 	var dbImapHost sql.NullString
 	var dbImapPort sql.NullInt32
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = $2
@@ -2616,28 +2726,28 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		{imapMailboxCandidatesForDbFolder("trash"), "trash"},
 	}
 	// LIST d’abord : SPECIAL-USE + heuristique → mail_imap_folders.imap_special_use (chemins OVH FR, Exchange, etc.)
-	h.refreshImapFolderList(accountID, imapClient)
+	h.refreshImapFolderList(ctx, accountID, imapClient)
 	var totalSynced int
 	for _, ft := range foldersToSync {
-		candidates := h.mergeImapFolderCandidates(accountID, ft.dbFolder, ft.imapNames)
+		candidates := h.mergeImapFolderCandidates(ctx, accountID, ft.dbFolder, ft.imapNames)
 		for _, imapName := range candidates {
-			n, ok := h.syncImapMailboxMessages(accountID, imapClient, imapName, ft.dbFolder)
+			n, ok := h.syncImapMailboxMessages(ctx, accountID, imapClient, imapName, ft.dbFolder)
 			if ok {
 				totalSynced += n
 				break
 			}
 		}
 	}
-	totalSynced += h.syncListedImapFoldersExtra(accountID, imapClient)
+	totalSynced += h.syncListedImapFoldersExtra(ctx, accountID, imapClient)
 	for _, p := range body.ExtraImapFolders {
 		path := strings.TrimSpace(p)
 		if path == "" {
 			continue
 		}
-		n, _ := h.syncImapMailboxMessages(accountID, imapClient, path, path)
+		n, _ := h.syncImapMailboxMessages(ctx, accountID, imapClient, path, path)
 		totalSynced += n
 	}
-	_, _ = h.applyMailRulesForAccount(accountID)
+	_, _ = h.applyMailRulesForAccount(ctx, accountID)
 	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})
 }
 
@@ -2685,6 +2795,7 @@ func smtpHostPort(email string) (host string, port int) {
 }
 
 func (h *Handler) sendMessageSMTP(c *gin.Context) {
+	ctx := c.Request.Context()
 	var body struct {
 		AccountID int    `json:"account_id" binding:"required"`
 		Password  string `json:"password"`
@@ -2700,14 +2811,14 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id et to requis"})
 		return
 	}
-	if err := h.sendMessageSMTPWithPayload(body.AccountID, body.Password, body.To, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, body.AccountID, body.Password, body.To, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "message envoyé"})
 }
 
-func (h *Handler) sendMessageSMTPWithPayload(accountID int, passwordInput, toInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
+func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int, passwordInput, toInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
 	to := strings.TrimSpace(strings.ToLower(toInput))
 	if to == "" || !strings.Contains(to, "@") {
 		return fmt.Errorf("destinataire invalide")
@@ -2716,7 +2827,7 @@ func (h *Handler) sendMessageSMTPWithPayload(accountID int, passwordInput, toInp
 	var passwordEnc, oauthRefreshEnc sql.NullString
 	var dbSmtpHost sql.NullString
 	var dbSmtpPort sql.NullInt32
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, smtp_host, smtp_port
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -2768,7 +2879,7 @@ func (h *Handler) sendMessageSMTPWithPayload(accountID int, passwordInput, toInp
 		dfLower := strings.ToLower(displayFrom)
 		if dfLower != strings.ToLower(strings.TrimSpace(email)) {
 			var canon string
-			aerr := h.db.QueryRow(`
+			aerr := h.dbex(ctx).QueryRow(`
 				SELECT a.alias_email FROM user_email_aliases a
 				INNER JOIN user_email_accounts u ON u.id = a.account_id
 				WHERE a.account_id = $1 AND LOWER(a.alias_email) = $2
@@ -2803,6 +2914,7 @@ func (h *Handler) sendMessageSMTPWithPayload(accountID int, passwordInput, toInp
 }
 
 func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
+	ctx := c.Request.Context()
 	var body struct {
 		AccountID       int    `json:"account_id" binding:"required"`
 		To              string `json:"to" binding:"required"`
@@ -2835,7 +2947,7 @@ func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
 	}
 	var msgID int
 	messageUID := -time.Now().UnixNano()
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_messages (
 			account_id, folder, message_uid, from_addr, to_addrs, subject, body_plain, date_at,
 			is_read, scheduled_send_at, scheduled_status
@@ -2850,13 +2962,14 @@ func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
 }
 
 func (h *Handler) cancelScheduledMessage(c *gin.Context) {
+	ctx := c.Request.Context()
 	accountID, _ := strconv.Atoi(c.Param("id"))
 	msgID, _ := strconv.Atoi(c.Param("msgId"))
 	if accountID <= 0 || msgID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
 		return
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE mail_messages
 		SET folder='drafts', scheduled_status='cancelled', scheduled_send_at=NULL
 		WHERE id=$1 AND account_id=$2 AND LOWER(TRIM(folder))='scheduled' AND COALESCE(scheduled_status, '')='scheduled'
@@ -2875,13 +2988,14 @@ func (h *Handler) cancelScheduledMessage(c *gin.Context) {
 }
 
 func (h *Handler) sendScheduledMessageNow(c *gin.Context) {
+	ctx := c.Request.Context()
 	accountID, _ := strconv.Atoi(c.Param("id"))
 	msgID, _ := strconv.Atoi(c.Param("msgId"))
 	if accountID <= 0 || msgID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "id invalide"})
 		return
 	}
-	if err := h.sendOneScheduledMessage(msgID, accountID); err != nil {
+	if err := h.sendOneScheduledMessage(ctx, msgID, accountID); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
@@ -2891,15 +3005,20 @@ func (h *Handler) sendScheduledMessageNow(c *gin.Context) {
 func (h *Handler) startScheduledSenderWorker() {
 	tk := time.NewTicker(30 * time.Second)
 	defer tk.Stop()
+	// Worker async sans request HTTP : pas de conn pin, on tape le pool *sql.DB.
+	// Les queries explicitent le filtre user/account dans le WHERE et n'ont donc
+	// pas besoin du set_config('app.current_user_id', …) pour la sécurité (il
+	// reste actif si lib/pq réutilise une conn ayant déjà ce contexte).
+	ctx := context.Background()
 	for range tk.C {
-		if err := h.processDueScheduledSends(20); err != nil {
+		if err := h.processDueScheduledSends(ctx, 20); err != nil {
 			log.Printf("[mail] scheduled worker: %v", err)
 		}
 	}
 }
 
-func (h *Handler) processDueScheduledSends(limit int) error {
-	rows, err := h.db.Query(`
+func (h *Handler) processDueScheduledSends(ctx context.Context, limit int) error {
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, account_id
 		FROM mail_messages
 		WHERE LOWER(TRIM(folder))='scheduled'
@@ -2922,17 +3041,17 @@ func (h *Handler) processDueScheduledSends(limit int) error {
 		}
 	}
 	for _, it := range list {
-		if err := h.sendOneScheduledMessage(it.id, it.accountID); err != nil {
+		if err := h.sendOneScheduledMessage(ctx, it.id, it.accountID); err != nil {
 			log.Printf("[mail] scheduled send id=%d account=%d: %v", it.id, it.accountID, err)
 		}
 	}
 	return nil
 }
 
-func (h *Handler) sendOneScheduledMessage(messageID, accountID int) error {
+func (h *Handler) sendOneScheduledMessage(ctx context.Context, messageID, accountID int) error {
 	var toAddrs, subject, bodyPlain, fromAddr string
 	var userID int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT m.to_addrs, m.subject, COALESCE(m.body_plain, ''), COALESCE(m.from_addr, ''), u.user_id
 		FROM mail_messages m
 		INNER JOIN user_email_accounts u ON u.id = m.account_id
@@ -2943,13 +3062,13 @@ func (h *Handler) sendOneScheduledMessage(messageID, accountID int) error {
 	if err != nil {
 		return err
 	}
-	if _, err := h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
+	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
 		return err
 	}
-	if err := h.sendMessageSMTPWithPayload(accountID, "", toAddrs, subject, bodyPlain, "", 0, fromAddr); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, accountID, "", toAddrs, subject, bodyPlain, "", 0, fromAddr); err != nil {
 		return err
 	}
-	_, _ = h.db.Exec(`
+	_, _ = h.dbex(ctx).Exec(`
 		UPDATE mail_messages
 		SET folder='sent',
 			scheduled_status='sent',

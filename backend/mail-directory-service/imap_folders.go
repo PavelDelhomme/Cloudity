@@ -78,14 +78,14 @@ func imapMailboxCandidatesForDbFolder(dbFolder string) []string {
 	}
 }
 
-func (h *Handler) folderAllowed(accountID int, folder string) bool {
+func (h *Handler) folderAllowed(ctx context.Context, accountID int, folder string) bool {
 	folder = strings.TrimSpace(folder)
 	if folder == "" {
 		return false
 	}
 	if strings.EqualFold(folder, "all") {
 		var dummy int
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			SELECT 1 FROM user_email_accounts
 			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 		`, accountID).Scan(&dummy)
@@ -93,7 +93,7 @@ func (h *Handler) folderAllowed(accountID int, folder string) bool {
 	}
 	if strings.EqualFold(folder, "scheduled") {
 		var dummy int
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			SELECT 1 FROM user_email_accounts
 			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 		`, accountID).Scan(&dummy)
@@ -103,7 +103,7 @@ func (h *Handler) folderAllowed(accountID int, folder string) bool {
 		return true
 	}
 	var n int
-	_ = h.db.QueryRow(`
+	_ = h.dbex(ctx).QueryRow(`
 		SELECT COUNT(*) FROM mail_imap_folders
 		WHERE account_id = $1 AND imap_path = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -197,7 +197,7 @@ func mergeUniqueImapPaths(first, second []string) []string {
 }
 
 // mergeImapFolderCandidates : chemins découverts (SPECIAL-USE / heuristique) en tête, puis liste statique.
-func (h *Handler) mergeImapFolderCandidates(accountID int, dbFolder string, static []string) []string {
+func (h *Handler) mergeImapFolderCandidates(ctx context.Context, accountID int, dbFolder string, static []string) []string {
 	role := strings.TrimSpace(strings.ToLower(dbFolder))
 	if role == "inbox" {
 		return static
@@ -212,7 +212,7 @@ func (h *Handler) mergeImapFolderCandidates(accountID int, dbFolder string, stat
 		}
 		return []string{p}
 	}
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT imap_path FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(TRIM(imap_special_use)) = $2
 		ORDER BY LENGTH(imap_path), imap_path
@@ -236,13 +236,13 @@ func (h *Handler) mergeImapFolderCandidates(accountID int, dbFolder string, stat
 	return mergeUniqueImapPaths(fromDB, static)
 }
 
-func (h *Handler) imapCandidatesForAccountFolder(accountID int, dbFolder string) []string {
+func (h *Handler) imapCandidatesForAccountFolder(ctx context.Context, accountID int, dbFolder string) []string {
 	static := imapMailboxCandidatesForDbFolder(dbFolder)
-	return h.mergeImapFolderCandidates(accountID, dbFolder, static)
+	return h.mergeImapFolderCandidates(ctx, accountID, dbFolder, static)
 }
 
 // refreshImapFolderList exécute IMAP LIST et met à jour mail_imap_folders (+ rôle SPECIAL-USE / heuristique).
-func (h *Handler) refreshImapFolderList(accountID int, ic *client.Client) {
+func (h *Handler) refreshImapFolderList(ctx context.Context, accountID int, ic *client.Client) {
 	ch := make(chan *imap.MailboxInfo, 128)
 	go func() {
 		if err := ic.List("", "*", ch); err != nil {
@@ -274,7 +274,7 @@ func (h *Handler) refreshImapFolderList(accountID int, ic *client.Client) {
 			special = inferSpecialUseFromPathAndLabel(path, label)
 		}
 		// NOT NULL sur imap_special_use : une chaîne vide « pas de rôle » doit rester '' (NULLIF('', '') = NULL en SQL).
-		_, err := h.db.Exec(`
+		_, err := h.dbex(ctx).Exec(`
 			INSERT INTO mail_imap_folders (account_id, imap_path, parent_imap_path, label, delimiter, imap_special_use)
 			VALUES ($1, $2, $3, $4, $5, COALESCE(NULLIF($6, ''), ''))
 			ON CONFLICT (account_id, imap_path) DO UPDATE SET
@@ -309,7 +309,7 @@ func isBenignImapSelectErr(err error) bool {
 }
 
 // syncImapMailboxMessages synchronise les en-têtes d’une boîte IMAP vers mail_messages (dbFolder = clé stockée en base).
-func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imapMailbox string, dbFolder string) (int, bool) {
+func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic *client.Client, imapMailbox string, dbFolder string) (int, bool) {
 	mbox, err := ic.Select(imapMailbox, false)
 	if err != nil {
 		if !isBenignImapSelectErr(err) {
@@ -355,7 +355,7 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 		tk := mid
 		if mid != "" {
 			var keepID int
-			err := h.db.QueryRow(`
+			err := h.dbex(ctx).QueryRow(`
 				SELECT id
 				FROM mail_messages
 				WHERE account_id = $1 AND internet_msg_id = $2
@@ -363,11 +363,11 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 				LIMIT 1
 			`, accountID, mid).Scan(&keepID)
 			if err == nil && keepID > 0 {
-				_, _ = h.db.Exec(`
+				_, _ = h.dbex(ctx).Exec(`
 					DELETE FROM mail_messages
 					WHERE account_id = $1 AND internet_msg_id = $2 AND id <> $3
 				`, accountID, mid, keepID)
-				_, upErr := h.db.Exec(`
+				_, upErr := h.dbex(ctx).Exec(`
 					UPDATE mail_messages
 					SET folder = $2,
 						message_uid = $3,
@@ -390,7 +390,7 @@ func (h *Handler) syncImapMailboxMessages(accountID int, ic *client.Client, imap
 			}
 		}
 		var xmax int64
-		upsertErr := h.db.QueryRow(`
+		upsertErr := h.dbex(ctx).QueryRow(`
 			INSERT INTO mail_messages (account_id, folder, message_uid, from_addr, to_addrs, subject, date_at, internet_msg_id, in_reply_to, thread_key)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 			ON CONFLICT (account_id, folder, message_uid) DO UPDATE SET
@@ -430,9 +430,9 @@ func standardImapPathsAlreadySyncedAsStandard() map[string]struct{} {
 }
 
 // syncListedImapFoldersExtra synchronise les en-têtes pour chaque dossier listé en mail_imap_folders hors boîtes standard.
-func (h *Handler) syncListedImapFoldersExtra(accountID int, ic *client.Client) int {
+func (h *Handler) syncListedImapFoldersExtra(ctx context.Context, accountID int, ic *client.Client) int {
 	skip := standardImapPathsAlreadySyncedAsStandard()
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT imap_path FROM mail_imap_folders
 		WHERE account_id = $1 AND COALESCE(imap_special_use, '') = ''
 	`, accountID)
@@ -454,7 +454,7 @@ func (h *Handler) syncListedImapFoldersExtra(accountID int, ic *client.Client) i
 		if _, ok := skip[strings.ToLower(path)]; ok {
 			continue
 		}
-		n, _ := h.syncImapMailboxMessages(accountID, ic, path, path)
+		n, _ := h.syncImapMailboxMessages(ctx, accountID, ic, path, path)
 		total += n
 	}
 	return total
@@ -467,11 +467,13 @@ func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	// Cf. accountFolderSummary : on bind X-User-ID en paramètre pour ne pas dépendre
-	// d'une variable de session (set_config) sur une connexion potentiellement différente.
+	ctx := c.Request.Context()
+	// X-User-ID est aussi posé par le middleware (cf. requireTenantAndUser),
+	// mais on garde la double protection : check explicite via $2 en plus de
+	// la conn épinglée (set_config app.current_user_id).
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	var dummy int
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT 1 FROM user_email_accounts
 		WHERE id = $1 AND user_id = $2
 	`, accountID, userID).Scan(&dummy); err == sql.ErrNoRows {
@@ -481,7 +483,7 @@ func (h *Handler) listImapFoldersHTTP(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT imap_path, parent_imap_path, label, delimiter, COALESCE(imap_special_use, ''),
 		       COALESCE(user_created, false), COALESCE(ui_color, ''), COALESCE(ui_icon, '')
 		FROM mail_imap_folders
@@ -525,7 +527,8 @@ func (h *Handler) listMailTagsHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT t.id, t.account_id, t.name, t.color, t.created_at::text
 		FROM mail_tags t
 		INNER JOIN user_email_accounts u ON u.id = t.account_id
@@ -557,6 +560,7 @@ func (h *Handler) createMailTagHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var body struct {
 		Name  string `json:"name" binding:"required"`
 		Color string `json:"color"`
@@ -575,14 +579,14 @@ func (h *Handler) createMailTagHTTP(c *gin.Context) {
 		color = "slate"
 	}
 	var newID int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_tags (account_id, name, color)
 		VALUES ($1, $2, $3)
 		RETURNING id
 	`, accountID, name, color).Scan(&newID)
 	if err != nil {
 		var existing int
-		if err2 := h.db.QueryRow(`
+		if err2 := h.dbex(ctx).QueryRow(`
 			SELECT id FROM mail_tags WHERE account_id = $1 AND LOWER(name) = LOWER($2)
 		`, accountID, name).Scan(&existing); err2 == nil {
 			c.JSON(http.StatusOK, gin.H{"id": existing, "name": name, "existed": true})
@@ -602,6 +606,7 @@ func (h *Handler) putMessageTagsHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var body struct {
 		TagIDs []int `json:"tag_ids"`
 	}
@@ -610,7 +615,7 @@ func (h *Handler) putMessageTagsHTTP(c *gin.Context) {
 		return
 	}
 	var owner int
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT m.id FROM mail_messages m
 		WHERE m.id = $1 AND m.account_id = $2
 		AND m.account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -621,7 +626,7 @@ func (h *Handler) putMessageTagsHTTP(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	tx, err := h.db.Begin()
+	tx, err := h.dbex(ctx).Begin()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

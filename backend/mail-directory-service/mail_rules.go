@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -40,7 +41,8 @@ func (h *Handler) listMailFilterRules(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, account_id, name, from_pattern, from_domain_pattern, recipient_pattern, has_tag_id, add_tag_id, subject_pattern, has_attachments, action_folder, mark_read, enabled, rule_order, criteria_json::text, actions_json::text, created_at::text, updated_at::text
 		FROM mail_filter_rules
 		WHERE account_id = $1
@@ -89,6 +91,7 @@ func (h *Handler) createMailFilterRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var body struct {
 		Name              string `json:"name"`
 		FromPattern       string `json:"from_pattern"`
@@ -114,7 +117,7 @@ func (h *Handler) createMailFilterRule(c *gin.Context) {
 	if isStandardMailFolder(actionFolder) {
 		actionFolder = strings.ToLower(actionFolder)
 	}
-	if !h.folderAllowed(accountID, actionFolder) {
+	if !h.folderAllowed(ctx, accountID, actionFolder) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dossier d'action invalide"})
 		return
 	}
@@ -136,14 +139,14 @@ func (h *Handler) createMailFilterRule(c *gin.Context) {
 	}
 	if body.HasTagID != nil && *body.HasTagID > 0 {
 		var okTag int
-		if err := h.db.QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.HasTagID, accountID).Scan(&okTag); err != nil {
+		if err := h.dbex(ctx).QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.HasTagID, accountID).Scan(&okTag); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "étiquette critère invalide"})
 			return
 		}
 	}
 	if body.AddTagID != nil && *body.AddTagID > 0 {
 		var okTag int
-		if err := h.db.QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.AddTagID, accountID).Scan(&okTag); err != nil {
+		if err := h.dbex(ctx).QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.AddTagID, accountID).Scan(&okTag); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "étiquette action invalide"})
 			return
 		}
@@ -171,7 +174,7 @@ func (h *Handler) createMailFilterRule(c *gin.Context) {
 	criteriaJSON, _ := json.Marshal(criteriaMap)
 	actionsJSON, _ := json.Marshal(actionsMap)
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO mail_filter_rules(account_id, name, from_pattern, from_domain_pattern, recipient_pattern, has_tag_id, add_tag_id, subject_pattern, has_attachments, action_folder, mark_read, enabled, rule_order, criteria_json, actions_json)
 		SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb, $15::jsonb
 		WHERE EXISTS (
@@ -202,6 +205,7 @@ func (h *Handler) patchMailFilterRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rule id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var body struct {
 		Name              *string `json:"name"`
 		FromPattern       *string `json:"from_pattern"`
@@ -222,14 +226,14 @@ func (h *Handler) patchMailFilterRule(c *gin.Context) {
 	}
 	if body.HasTagID != nil && *body.HasTagID > 0 {
 		var okTag int
-		if err := h.db.QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.HasTagID, accountID).Scan(&okTag); err != nil {
+		if err := h.dbex(ctx).QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.HasTagID, accountID).Scan(&okTag); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "étiquette critère invalide"})
 			return
 		}
 	}
 	if body.AddTagID != nil && *body.AddTagID > 0 {
 		var okTag int
-		if err := h.db.QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.AddTagID, accountID).Scan(&okTag); err != nil {
+		if err := h.dbex(ctx).QueryRow(`SELECT id FROM mail_tags WHERE id=$1 AND account_id=$2`, *body.AddTagID, accountID).Scan(&okTag); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "étiquette action invalide"})
 			return
 		}
@@ -301,7 +305,7 @@ func (h *Handler) patchMailFilterRule(c *gin.Context) {
 		if isStandardMailFolder(folder) {
 			folder = strings.ToLower(folder)
 		}
-		if !h.folderAllowed(accountID, folder) {
+		if !h.folderAllowed(ctx, accountID, folder) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dossier d'action invalide"})
 			return
 		}
@@ -334,7 +338,7 @@ func (h *Handler) patchMailFilterRule(c *gin.Context) {
 	}
 	set = append(set, "updated_at = CURRENT_TIMESTAMP")
 	args = append(args, ruleID, accountID)
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE mail_filter_rules
 		SET `+strings.Join(set, ", ")+`
 		WHERE id = $`+strconv.Itoa(idx)+` AND account_id = $`+strconv.Itoa(idx+1)+`
@@ -363,7 +367,8 @@ func (h *Handler) deleteMailFilterRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rule id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM mail_filter_rules
 		WHERE id = $1 AND account_id = $2
 		  AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -386,7 +391,7 @@ func (h *Handler) applyMailFilterRulesNow(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
 		return
 	}
-	affected, err := h.applyMailRulesForAccount(accountID)
+	affected, err := h.applyMailRulesForAccount(c.Request.Context(), accountID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -480,8 +485,8 @@ func ruleMatches(rule ruleMatchCriteria, msg messageForRules) bool {
 	return true
 }
 
-func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
-	rows, err := h.db.Query(`
+func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (int, error) {
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, from_pattern, from_domain_pattern, recipient_pattern, has_tag_id, add_tag_id, subject_pattern, has_attachments, action_folder, mark_read
 		FROM mail_filter_rules
 		WHERE account_id = $1 AND enabled = TRUE
@@ -516,7 +521,7 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 	if len(rules) == 0 {
 		return 0, nil
 	}
-	msgRows, err := h.db.Query(`
+	msgRows, err := h.dbex(ctx).Query(`
 		SELECT id, COALESCE(from_addr, ''), COALESCE(to_addrs, ''), COALESCE(subject, ''), COALESCE(attachment_count, 0), COALESCE(folder, ''), COALESCE(is_read, FALSE), COALESCE(message_uid, 0)
 		FROM mail_messages
 		WHERE account_id = $1
@@ -525,7 +530,7 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 		return 0, err
 	}
 	defer msgRows.Close()
-	tagRows, err := h.db.Query(`
+	tagRows, err := h.dbex(ctx).Query(`
 		SELECT mt.message_id, mt.tag_id
 		FROM mail_message_tags mt
 		INNER JOIN mail_messages m ON m.id = mt.message_id
@@ -593,14 +598,14 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 			if isStandardMailFolder(newFolder) {
 				newFolder = strings.ToLower(newFolder)
 			}
-			if !h.folderAllowed(accountID, newFolder) {
+			if !h.folderAllowed(ctx, accountID, newFolder) {
 				continue
 			}
 			newRead := isRead
 			if rule.markRead.Valid {
 				newRead = rule.markRead.Bool
 			}
-			res, err := h.db.Exec(`
+			res, err := h.dbex(ctx).Exec(`
 				UPDATE mail_messages
 				SET folder = $1, is_read = $2
 				WHERE id = $3 AND account_id = $4
@@ -613,7 +618,7 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 					readChanged := isRead != newRead
 					if messageUID > 0 && imapAvailable && (folderChanged || readChanged) {
 						if imapClientConn == nil {
-							_, ic, imapErr := h.imapDialAndLogin(accountID, "")
+							_, ic, imapErr := h.imapDialAndLogin(ctx, accountID, "")
 							if imapErr != nil {
 								imapAvailable = false
 								log.Printf("[mail-rules] IMAP indisponible pour réconciliation account=%d: %v", accountID, imapErr)
@@ -622,13 +627,13 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 							}
 						}
 						if imapClientConn != nil {
-							if imapErr := h.reconcileMessageStateOnIMAP(accountID, imapClientConn, uint32(messageUID), folder, newFolder, isRead, newRead); imapErr != nil {
+							if imapErr := h.reconcileMessageStateOnIMAP(ctx, accountID, imapClientConn, uint32(messageUID), folder, newFolder, isRead, newRead); imapErr != nil {
 								log.Printf("[mail-rules] Réconciliation IMAP échouée account=%d msg=%d uid=%d: %v", accountID, msgID, messageUID, imapErr)
 							}
 						}
 					}
 					if rule.addTagID.Valid && int(rule.addTagID.Int64) > 0 {
-						_, _ = h.db.Exec(`
+						_, _ = h.dbex(ctx).Exec(`
 							INSERT INTO mail_message_tags (message_id, tag_id)
 							SELECT $1, t.id FROM mail_tags t
 							WHERE t.id = $2 AND t.account_id = $3
@@ -648,6 +653,7 @@ func (h *Handler) applyMailRulesForAccount(accountID int) (int, error) {
 }
 
 func (h *Handler) reconcileMessageStateOnIMAP(
+	ctx context.Context,
 	accountID int,
 	ic *client.Client,
 	uid uint32,
@@ -656,13 +662,13 @@ func (h *Handler) reconcileMessageStateOnIMAP(
 	wasRead bool,
 	nowRead bool,
 ) error {
-	sourceMailbox, err := h.imapResolveSourceMailbox(accountID, ic, dbSourceFolder, uid)
+	sourceMailbox, err := h.imapResolveSourceMailbox(ctx, accountID, ic, dbSourceFolder, uid)
 	if err != nil {
 		return err
 	}
 	targetMailbox := sourceMailbox
 	if !strings.EqualFold(strings.TrimSpace(dbSourceFolder), strings.TrimSpace(dbTargetFolder)) {
-		destCandidates := h.imapCandidatesForAccountFolder(accountID, dbTargetFolder)
+		destCandidates := h.imapCandidatesForAccountFolder(ctx, accountID, dbTargetFolder)
 		if len(destCandidates) == 0 {
 			return nil
 		}

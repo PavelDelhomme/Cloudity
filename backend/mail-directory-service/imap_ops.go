@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -20,11 +21,11 @@ var errMailMessageNotFound = errors.New("message introuvable")
 var errMailMessageNotInTrash = errors.New("message hors corbeille")
 
 // imapDialAndLogin ouvre une session IMAP authentifiée (l’appelant doit Logout()).
-func (h *Handler) imapDialAndLogin(accountID int, passwordOverride string) (email string, ic *client.Client, err error) {
+func (h *Handler) imapDialAndLogin(ctx context.Context, accountID int, passwordOverride string) (email string, ic *client.Client, err error) {
 	var enc, oauthRefreshEnc sql.NullString
 	var dbImapHost sql.NullString
 	var dbImapPort sql.NullInt32
-	qerr := h.db.QueryRow(`
+	qerr := h.dbex(ctx).QueryRow(`
 		SELECT email, password_encrypted, oauth_refresh_token_encrypted, imap_host, imap_port
 		FROM user_email_accounts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -113,8 +114,8 @@ func imapMailboxContainsUID(ic *client.Client, mailbox string, uid uint32) (bool
 }
 
 // imapResolveSourceMailbox trouve le nom de boîte IMAP où se trouve réellement le message (UID).
-func (h *Handler) imapResolveSourceMailbox(accountID int, ic *client.Client, dbFolder string, uid uint32) (string, error) {
-	candidates := h.imapCandidatesForAccountFolder(accountID, dbFolder)
+func (h *Handler) imapResolveSourceMailbox(ctx context.Context, accountID int, ic *client.Client, dbFolder string, uid uint32) (string, error) {
+	candidates := h.imapCandidatesForAccountFolder(ctx, accountID, dbFolder)
 	var lastErr error
 	for _, mb := range candidates {
 		ok, err := imapMailboxContainsUID(ic, mb, uid)
@@ -191,9 +192,9 @@ func imapSpecialRoleBlocksSubfolderCreation(role string) bool {
 	}
 }
 
-func (h *Handler) imapFolderParentCreationForbidden(accountID int, parentIMAP string) (bool, string) {
+func (h *Handler) imapFolderParentCreationForbidden(ctx context.Context, accountID int, parentIMAP string) (bool, string) {
 	var sp sql.NullString
-	qerr := h.db.QueryRow(`
+	qerr := h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(imap_special_use, '') FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(TRIM(imap_path)) = LOWER(TRIM($2))
 	`, accountID, parentIMAP).Scan(&sp)
@@ -226,13 +227,13 @@ func parseImapFolderPathInput(pathField, labelField string) []string {
 	return []string{s}
 }
 
-func (h *Handler) resolveParentImapPath(accountID int, parentRaw string) (canonical string, delimiter string, err error) {
+func (h *Handler) resolveParentImapPath(ctx context.Context, accountID int, parentRaw string) (canonical string, delimiter string, err error) {
 	parentRaw = strings.TrimSpace(parentRaw)
 	if parentRaw == "" {
 		parentRaw = "INBOX"
 	}
 	var p, d sql.NullString
-	qerr := h.db.QueryRow(`
+	qerr := h.dbex(ctx).QueryRow(`
 		SELECT imap_path, delimiter FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(TRIM(imap_path)) = LOWER(TRIM($2))
 	`, accountID, parentRaw).Scan(&p, &d)
@@ -275,16 +276,17 @@ func (h *Handler) createImapFolderHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "nom ou chemin de dossier vide (ex. RH ou Candidatures/RH)"})
 		return
 	}
-	parent, delim, err := h.resolveParentImapPath(accountID, body.ParentImapPath)
+	ctx := c.Request.Context()
+	parent, delim, err := h.resolveParentImapPath(ctx, accountID, body.ParentImapPath)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if forb, msg := h.imapFolderParentCreationForbidden(accountID, parent); forb {
+	if forb, msg := h.imapFolderParentCreationForbidden(ctx, accountID, parent); forb {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	_, ic, err := h.imapDialAndLogin(accountID, "")
+	_, ic, err := h.imapDialAndLogin(ctx, accountID, "")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -296,7 +298,7 @@ func (h *Handler) createImapFolderHTTP(c *gin.Context) {
 	for _, seg := range segments {
 		leaf = cur + delim + seg
 		var n int
-		_ = h.db.QueryRow(`
+		_ = h.dbex(ctx).QueryRow(`
 			SELECT COUNT(*) FROM mail_imap_folders
 			WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
 		`, accountID, leaf).Scan(&n)
@@ -311,8 +313,8 @@ func (h *Handler) createImapFolderHTTP(c *gin.Context) {
 		}
 		cur = leaf
 	}
-	h.refreshImapFolderList(accountID, ic)
-	_, _ = h.syncImapMailboxMessages(accountID, ic, leaf, leaf)
+	h.refreshImapFolderList(ctx, accountID, ic)
+	_, _ = h.syncImapMailboxMessages(ctx, accountID, ic, leaf, leaf)
 	uiColor := strings.TrimSpace(body.UiColor)
 	uiIcon := strings.TrimSpace(body.UiIcon)
 	leafTrim := strings.TrimSpace(leaf)
@@ -320,7 +322,7 @@ func (h *Handler) createImapFolderHTTP(c *gin.Context) {
 		if strings.EqualFold(strings.TrimSpace(p), leafTrim) {
 			continue
 		}
-		if _, err := h.db.Exec(`
+		if _, err := h.dbex(ctx).Exec(`
 			UPDATE mail_imap_folders SET user_created = true
 			WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
 		`, accountID, p); err != nil {
@@ -328,7 +330,7 @@ func (h *Handler) createImapFolderHTTP(c *gin.Context) {
 		}
 	}
 	if len(createdThisRequest) > 0 {
-		if _, err := h.db.Exec(`
+		if _, err := h.dbex(ctx).Exec(`
 			UPDATE mail_imap_folders SET user_created = true,
 				ui_color = CASE WHEN $3 <> '' THEN $3 ELSE ui_color END,
 				ui_icon = CASE WHEN $4 <> '' THEN $4 ELSE ui_icon END
@@ -361,8 +363,9 @@ func (h *Handler) renameImapFolderHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "nouveau nom invalide"})
 		return
 	}
+	ctx := c.Request.Context()
 	var userCreated bool
-	qerr := h.db.QueryRow(`
+	qerr := h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(user_created, false) FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -380,7 +383,7 @@ func (h *Handler) renameImapFolderHTTP(c *gin.Context) {
 		return
 	}
 	var dbParent, dbDelim string
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(parent_imap_path, ''), COALESCE(NULLIF(TRIM(delimiter), ''), '.')
 		FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
@@ -401,12 +404,12 @@ func (h *Handler) renameImapFolderHTTP(c *gin.Context) {
 		return
 	}
 	var clash int
-	_ = h.db.QueryRow(`SELECT COUNT(*) FROM mail_imap_folders WHERE account_id=$1 AND LOWER(imap_path)=LOWER($2)`, accountID, newPath).Scan(&clash)
+	_ = h.dbex(ctx).QueryRow(`SELECT COUNT(*) FROM mail_imap_folders WHERE account_id=$1 AND LOWER(imap_path)=LOWER($2)`, accountID, newPath).Scan(&clash)
 	if clash > 0 {
 		c.JSON(http.StatusConflict, gin.H{"error": "un dossier porte déjà ce nom"})
 		return
 	}
-	_, ic, err := h.imapDialAndLogin(accountID, "")
+	_, ic, err := h.imapDialAndLogin(ctx, accountID, "")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -416,15 +419,15 @@ func (h *Handler) renameImapFolderHTTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "RENAME IMAP: " + err.Error()})
 		return
 	}
-	h.refreshImapFolderList(accountID, ic)
-	if _, err := h.db.Exec(`
+	h.refreshImapFolderList(ctx, accountID, ic)
+	if _, err := h.dbex(ctx).Exec(`
 		UPDATE mail_messages SET folder = $2 || SUBSTRING(folder FROM LENGTH($1) + 1)
 		WHERE account_id = $3 AND (folder = $1 OR folder LIKE $1 || $4 || '%')
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
 	`, oldPath, newPath, accountID, delim); err != nil {
 		log.Printf("[mail] rename folder update messages: %v", err)
 	}
-	_, _ = h.db.Exec(`UPDATE mail_imap_folders SET user_created=true WHERE account_id=$1 AND LOWER(imap_path)=LOWER($2)`, accountID, newPath)
+	_, _ = h.dbex(ctx).Exec(`UPDATE mail_imap_folders SET user_created=true WHERE account_id=$1 AND LOWER(imap_path)=LOWER($2)`, accountID, newPath)
 	c.JSON(http.StatusOK, gin.H{"ok": true, "imap_path": newPath})
 }
 
@@ -443,8 +446,9 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 		return
 	}
 	root := strings.TrimSpace(body.ImapPath)
+	ctx := c.Request.Context()
 	var userCreated bool
-	if err := h.db.QueryRow(`
+	if err := h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(user_created, false) FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -460,7 +464,7 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 		return
 	}
 	var delim string
-	_ = h.db.QueryRow(`
+	_ = h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(NULLIF(TRIM(delimiter), ''), '.') FROM mail_imap_folders
 		WHERE account_id = $1 AND LOWER(imap_path) = LOWER($2)
 	`, accountID, root).Scan(&delim)
@@ -469,7 +473,7 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 	}
 	rootLower := strings.ToLower(root)
 	delimStr := delim
-	allRows, err := h.db.Query(`
+	allRows, err := h.dbex(ctx).Query(`
 		SELECT imap_path, COALESCE(user_created, false)
 		FROM mail_imap_folders
 		WHERE account_id = $1
@@ -501,14 +505,14 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 	if len(paths) == 0 {
 		paths = []string{root}
 	}
-	_, ic, err := h.imapDialAndLogin(accountID, "")
+	_, ic, err := h.imapDialAndLogin(ctx, accountID, "")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	defer func() { _ = ic.Logout() }()
 	for _, p := range paths {
-		msgRows, qerr := h.db.Query(`
+		msgRows, qerr := h.dbex(ctx).Query(`
 			SELECT id FROM mail_messages
 			WHERE account_id = $1 AND folder = $2
 			AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -526,7 +530,7 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 		}
 		_ = msgRows.Close()
 		for _, mid := range ids {
-			if err := h.imapMoveMessage(accountID, mid, "trash"); err != nil {
+			if err := h.imapMoveMessage(ctx, accountID, mid, "trash"); err != nil {
 				log.Printf("[mail] delete folder move msg %d: %v", mid, err)
 			}
 		}
@@ -534,15 +538,15 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 			log.Printf("[mail] IMAP DELETE %q: %v", p, err)
 		}
 	}
-	h.refreshImapFolderList(accountID, ic)
+	h.refreshImapFolderList(ctx, accountID, ic)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 // imapMoveMessage déplace le message sur le serveur IMAP puis met à jour mail_messages.folder.
-func (h *Handler) imapMoveMessage(accountID, msgID int, destFolder string) error {
+func (h *Handler) imapMoveMessage(ctx context.Context, accountID, msgID int, destFolder string) error {
 	var curFolder string
 	var messageUID int64
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT folder, message_uid FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -559,23 +563,23 @@ func (h *Handler) imapMoveMessage(accountID, msgID int, destFolder string) error
 	if messageUID <= 0 {
 		return fmt.Errorf("UID message invalide")
 	}
-	_, ic, err := h.imapDialAndLogin(accountID, "")
+	_, ic, err := h.imapDialAndLogin(ctx, accountID, "")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = ic.Logout() }()
-	srcMb, err := h.imapResolveSourceMailbox(accountID, ic, curFolder, uint32(messageUID))
+	srcMb, err := h.imapResolveSourceMailbox(ctx, accountID, ic, curFolder, uint32(messageUID))
 	if err != nil {
 		return fmt.Errorf("source IMAP: %w", err)
 	}
-	destCands := h.imapCandidatesForAccountFolder(accountID, destFolder)
+	destCands := h.imapCandidatesForAccountFolder(ctx, accountID, destFolder)
 	if len(destCands) == 0 {
 		return fmt.Errorf("aucune boîte destination pour %q", destFolder)
 	}
 	if err := imapUidMoveToFirstDest(ic, srcMb, uint32(messageUID), destCands); err != nil {
 		return fmt.Errorf("déplacement IMAP: %w", err)
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE mail_messages SET folder = $1
 		WHERE id = $2 AND account_id = $3
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -591,10 +595,10 @@ func (h *Handler) imapMoveMessage(accountID, msgID int, destFolder string) error
 }
 
 // imapDeleteMessagePermanently supprime un message de la corbeille côté IMAP puis en base.
-func (h *Handler) imapDeleteMessagePermanently(accountID, msgID int) error {
+func (h *Handler) imapDeleteMessagePermanently(ctx context.Context, accountID, msgID int) error {
 	var curFolder string
 	var messageUID int64
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT folder, message_uid FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
@@ -611,12 +615,12 @@ func (h *Handler) imapDeleteMessagePermanently(accountID, msgID int) error {
 	if messageUID <= 0 {
 		return fmt.Errorf("UID message invalide")
 	}
-	_, ic, err := h.imapDialAndLogin(accountID, "")
+	_, ic, err := h.imapDialAndLogin(ctx, accountID, "")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = ic.Logout() }()
-	srcMb, err := h.imapResolveSourceMailbox(accountID, ic, curFolder, uint32(messageUID))
+	srcMb, err := h.imapResolveSourceMailbox(ctx, accountID, ic, curFolder, uint32(messageUID))
 	if err != nil {
 		return fmt.Errorf("source IMAP: %w", err)
 	}
@@ -632,7 +636,7 @@ func (h *Handler) imapDeleteMessagePermanently(accountID, msgID int) error {
 	if err := ic.Expunge(nil); err != nil {
 		return fmt.Errorf("expunge IMAP: %w", err)
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
