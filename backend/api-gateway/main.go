@@ -129,7 +129,7 @@ func NewHandler() http.Handler {
 		w.Write([]byte(`{"status":"healthy"}`))
 	}).Methods("GET")
 
-	// CSP violation report endpoint — voir docs/REVERSE-PROXY.md § 6.
+	// CSP violation report endpoint — voir docs/securite/REVERSE-PROXY.md § 6.
 	// Le navigateur envoie le rapport en `application/csp-report` ou
 	// `application/reports+json` selon le standard utilisé. On loggue tout
 	// ce qui arrive en JSON minifié, on répond 204.
@@ -522,7 +522,7 @@ func getEnv(key, def string) string {
 // handleCSPReport reçoit un rapport de violation CSP émis par le navigateur
 // (Content-Security-Policy-Report-Only ou Reporting API). On loggue le payload
 // JSON minifié et on répond 204 — pas d'authentification ni de stockage en DB
-// pour rester aussi minimal qu'utile en pré-prod (cf. docs/REVERSE-PROXY.md § 6).
+// pour rester aussi minimal qu'utile en pré-prod (cf. docs/securite/REVERSE-PROXY.md § 6).
 func handleCSPReport(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxCSPReportBytes+1))
 	defer r.Body.Close()

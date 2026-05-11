@@ -1,8 +1,8 @@
 # CLOUDITY — Backlog produit & technique
 
-**Rôle** : liste **actionnable** des prochaines livraisons et dettes connues. Pour le détail sync / mobile / session / archivage mail, voir **[docs/SYNC-BACKLOG.md](./docs/SYNC-BACKLOG.md)**. Pour les fiches par application (**APP-01** … **TR-07**), voir **[docs/ROADMAP.md](./docs/ROADMAP.md)**. **Sécurité & confiance (vision, phases, Zero Trust, signatures, WAF)** : **[docs/SECURITE.md](./docs/SECURITE.md)**. **Suivi quotidien** : **[STATUS.md](./STATUS.md)**. **Tests** : **[docs/TESTS.md](./docs/TESTS.md)**.
+**Rôle** : liste **actionnable** des prochaines livraisons et dettes connues. Pour le détail sync / mobile / session / archivage mail, voir **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)**. Pour les fiches par application (**APP-01** … **TR-07**), voir **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)**. **Sécurité & confiance (vision, phases, Zero Trust, signatures, WAF)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)**. **Suivi quotidien** : **[STATUS.md](./STATUS.md)**. **Tests** : **[docs/operations/TESTS.md](docs/operations/TESTS.md)**.
 
-**Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/VISION-SUITE.md](./docs/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
+**Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
 
 **Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (date + § pertinents).
 
@@ -12,7 +12,7 @@
 
 | Étape | Action |
 |-------|--------|
-| 0 | *(Optionnel mais recommandé)* Lire **[docs/SECURITE.md](./docs/SECURITE.md)** pour le cadre *Google + Proton* et les phases |
+| 0 | *(Optionnel mais recommandé)* Lire **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** pour le cadre *Google + Proton* et les phases |
 | 1 | **`make setup`** (ou `./scripts/dev/setup.sh`) si première machine |
 | 2 | **`make up`** ou **`make up-full`** (seed démo : **admin@cloudity.local** / **Admin123!**) |
 | 2b | Quand de nouveaux **`infrastructure/postgresql/migrations/*.sql`** apparaissent (sync du dépôt ou branche) : **`make migrate`** ou **`make rebuild`** — **TESTS.md** (Migrations) |
@@ -26,12 +26,12 @@
 
 ## Priorités — deux niveaux (à lire ensemble)
 
-1. **Stratégie long terme** (*quoi valoriser en premier comme suite*) : **[docs/VISION-SUITE.md](./docs/VISION-SUITE.md)** — Mail → Alias → Pass → Photos → Drive → Contacts/Calendar → Office, avec fondation transverse (perf **PERFORMANCES.md**, sécu **SECURITE.md**, recherche).
+1. **Stratégie long terme** (*quoi valoriser en premier comme suite*) : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** — Mail → Alias → Pass → Photos → Drive → Contacts/Calendar → Office, avec fondation transverse (perf **PERFORMANCES.md**, sécu **SECURITE.md**, recherche).
 2. **Backlog exécutable ci-dessous** — ordre **pratique avril 2026** sur le dépôt : chantiers **parallèles** (Mail déjà très avancé, Photos mobile + web, Pass, Drive…) tel que **STATUS** et **TODO**.
 
 | # | Sujet | Détail / lien |
 |---|--------|----------------|
-| 1 | **Photos** | API timeline, galerie web, **mobile/photos**, sync sobre — **docs/PHOTOS.md** |
+| 1 | **Photos** | API timeline, galerie web, **mobile/photos**, sync sobre — **docs/produit/PHOTOS.md** |
 | 2 | **Mail** | Dossiers IMAP §0b SYNC-BACKLOG (dont **logs** probes / gateway), recherche §9, PJ, archivage §1 |
 | 3 | **Pass** | Style Proton, alias — **ROADMAP APP-04** |
 | 4 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
@@ -39,11 +39,11 @@
 | 6 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** workspaces ✅ ; **A2/A3** `cloudityCore.ts` ; **A3.1** Mail dossiers / IMAP+BDD ; **A4–A10**) |
 | 7 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 8 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
-| 9 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/PERFORMANCES.md**, **ROADMAP TR-06** |
+| 9 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
 
 ### Suite « Google + Proton » (rappel)
 
-Ordre **must-have** : sync/versioning/corbeille → partage propre → backup photo → E2EE espaces privés → galerie riche → recherche privée / anti-abus. Détail des **4 couches** et **phases 1–4** : **[docs/SECURITE.md](./docs/SECURITE.md)**.
+Ordre **must-have** : sync/versioning/corbeille → partage propre → backup photo → E2EE espaces privés → galerie riche → recherche privée / anti-abus. Détail des **4 couches** et **phases 1–4** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)**.
 
 ---
 
@@ -51,11 +51,12 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 Cible discutée : casser le monorepo en **dépôts GitHub indépendants** (un par service / app / lib partagée) regroupés sous un **meta-repo** `cloudity` qui garde `docker-compose.yml`, `infrastructure/`, docs transverses, E2E.
 
-**Plan détaillé** : **[docs/MULTI-REPO-LAYOUT.md](./docs/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
+**Plan détaillé** : **[docs/architecture/MULTI-REPO-LAYOUT.md](docs/architecture/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
 
-**Questionnaire (QCM + texte libre court)** : **[docs/MULTI-REPO-QUESTIONNAIRE.md](./docs/MULTI-REPO-QUESTIONNAIRE.md)** — à remplir pour trancher Q1–Q10 avant Phase 0.
+**Questionnaire (QCM + texte libre court)** : **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** — détail des options.  
+**→ Remplir tes choix dans** : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md)** (synthèse `Q1=… Q10=…` + texte libre).
 
-- [ ] **Décisions** : remplir le questionnaire (ou la ligne « Synthèse rapide » `Q1=? … Q10=?`) puis cocher ici.
+- [ ] **Décisions** : compléter `REPONSES.md` (ou coller la synthèse en chat) puis cocher ici.
 - [ ] **Phase 0 — sans scission** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
 - [ ] **Phase 0 — sans scission** : tagger `internalsec` `v0.1.0`, publier `@cloudity/shared` `v0.1.0`, tagger `cloudity_shared` Dart `v0.1.0`.
 - [ ] **Phase 0 — sans scission** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin) pour figer le contrat avant scission.
@@ -106,7 +107,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [x] **Mail web — compose riche** : barre de formatage de base (gras/italique/souligné/listes/lien), transfert en HTML lisible et titre compose explicite.
 - [x] **Mail web — programmer l’envoi** : remplacer la popup navigateur par une modale interne date/heure.
 - [x] **Gateway — contrôle d’accès admin-only** : verrouiller `/mail/domains*`, `/mail/mailboxes*`, `/mail/aliases*` côté gateway avec tests unitaires.
-- [ ] **Mail web — doc & robustesse** : console navigateur (Vite, CSS mail HTML, favicons) et **dates liste corbeille** — voir **`docs/PLAN.md`** ; sync **`date_at`** sans `time.Now()` si enveloppe IMAP sans date (**mail-directory-service**). **Livré** : sync auto anti-rafale (batch unique, anti-chevauchement, pause onglet caché) + indicateur sidebar. Alias boîte **MVP** ; système **complet** (expiration, vue globale, DNS) : **SYNC-BACKLOG §2**, **STATUS** Phase 3, **ROADMAP APP-04**.
+- [ ] **Mail web — doc & robustesse** : console navigateur (Vite, CSS mail HTML, favicons) et **dates liste corbeille** — voir **`docs/operations/PLAN.md`** ; sync **`date_at`** sans `time.Now()` si enveloppe IMAP sans date (**mail-directory-service**). **Livré** : sync auto anti-rafale (batch unique, anti-chevauchement, pause onglet caché) + indicateur sidebar. Alias boîte **MVP** ; système **complet** (expiration, vue globale, DNS) : **SYNC-BACKLOG §2**, **STATUS** Phase 3, **ROADMAP APP-04**.
 - [x] **Mail web — stabilité React** : correctif **setters / affichage** + **`MailAppChromeMenu`** ; **`make test`** + **`make test-dashboard-one …MailPage.test.tsx`** + **`make test-e2e-playwright-mail`** (écoute console / navigation Mail ↔ Drive). **Optionnel** : garde manuelle longue session / multi-onglets ; réduire bruit **`JWT expired`** sur batch sync (file d’attente côté front).
 - [ ] **Mail — règles de tri (type Proton)** : **MVP livré** (CRUD, critères étendus, réconciliation IMAP). **Reste** : tests API / E2E (conditions combinées, application rétroactive scénarisée), polish UX ; tracking **STATUS §0b A3.2**, **SYNC-BACKLOG §0b**.
 - [ ] Recherche globale **API** cross-apps (Mail, Pass…) — **Drive** : recherche nom sur **tout l’arborescence** via **`GET /drive/nodes/search`** quand **`?q=`** est renseigné dans le dashboard ; navigation **Contacts** inchangée.
@@ -155,4 +156,4 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 ---
 
-*Fichier créé pour centraliser le backlog racine ; le détail sync reste dans **docs/SYNC-BACKLOG.md**.*
+*Fichier créé pour centraliser le backlog racine ; le détail sync reste dans **docs/produit/SYNC-BACKLOG.md**.*

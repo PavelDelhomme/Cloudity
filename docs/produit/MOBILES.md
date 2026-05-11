@@ -1,6 +1,6 @@
 # CLOUDITY — Stratégie applications mobiles
 
-**Rôle** : décrire, pour **chaque produit** de la suite, les cibles **web** vs **mobile utilisateur**, et traiter à part le **back-office administrateur mobile**. Ce fichier complète **[ROADMAP.md](./ROADMAP.md)** (fonctionnalités détaillées) et **[STATUS.md](../STATUS.md)** (suivi technique). Index des guides : **[README.md](./README.md)**.
+**Rôle** : décrire, pour **chaque produit** de la suite, les cibles **web** vs **mobile utilisateur**, et traiter à part le **back-office administrateur mobile**. Ce fichier complète **[ROADMAP.md](ROADMAP.md)** (fonctionnalités détaillées) et **[STATUS.md](../../STATUS.md)** (suivi technique). Index des guides : **[README.md](../README.md)**.
 
 **Principe** : une même **API** (`api-gateway` + JWT) sert le **web** et le **mobile**. Le détail fonctionnel de chaque app reste dans ROADMAP (APP-xx).
 
@@ -25,15 +25,15 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 
 | Produit | ID ROADMAP | Web (cible) | Mobile utilisateur | Notes |
 |---------|------------|-------------|-------------------|--------|
-| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; **sync IMAP périodique in-app + bannière nouveaux mails** ; `flutter test` (validation + widget). **Push système (FCM/APNs/Linux desktop notifications)** et brouillon serveur = plus tard — **[TESTS.md](./TESTS.md)** § 1b |
-| **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` ; **`make test-mobile-drive`** ou phase 5 **`make test-mobile-suite`** / **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b |
+| **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; **sync IMAP périodique in-app + bannière nouveaux mails** ; `flutter test` (validation + widget). **Push système (FCM/APNs/Linux desktop notifications)** et brouillon serveur = plus tard — **[TESTS.md](../operations/TESTS.md)** § 1b |
+| **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` ; **`make test-mobile-drive`** ou phase 5 **`make test-mobile-suite`** / **`make tests`** — **[TESTS.md](../operations/TESTS.md)** § 1b |
 | **Office** | APP-03 | Oui (édition complète) | Viewer + édition légère (cible) | Parité complète difficile sur petit écran — prioriser lecture + commentaires |
 | **Pass** | APP-04 | Oui | **À faire** | **Web** livré en MVP ; **aucune app `mobile/pass`** dans le dépôt (à créer). Auto-fill OS / extension navigateur — **ROADMAP APP-04**, **BACKLOG** « Sprint fin mai 2026 » |
 | **Calendar** | APP-05 | Oui | Oui | Rappels natifs, widgets |
 | **Notes** | APP-06 | Oui | Oui | Saisie rapide, dictée (option) |
 | **Tasks** | APP-07 | Oui | Oui | Widgets, notifications échéance |
 | **Contacts** | APP-08 | Oui | Oui | Intégration répertoire téléphone (permissions) |
-| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | **Connexion** + session persistée ; `make run-mobile APP=Photos` ; **`make test-mobile-photos`** ou suite **`make test-mobile-suite`** (Photos+Drive+Mail) / **`make tests`** phase 5 — **[PHOTOS.md](./PHOTOS.md)** § 5, **[TESTS.md](./TESTS.md)** § 1b |
+| **Photos** | APP-09 | Oui (galerie + **`/photos/timeline`**) | Oui (`mobile/photos`) | **Connexion** + session persistée ; `make run-mobile APP=Photos` ; **`make test-mobile-photos`** ou suite **`make test-mobile-suite`** (Photos+Drive+Mail) / **`make tests`** phase 5 — **[PHOTOS.md](PHOTOS.md)** § 5, **[TESTS.md](../operations/TESTS.md)** § 1b |
 | **AppHub / launcher** | APP-10 | Oui | Shell / deep links | App mobile peut être un **conteneur** avec modules ou apps séparées |
 | **Admin back-office** | ADM-01 | Oui | Voir § 2 | Jamais mélangé aux apps grand public |
 
@@ -70,7 +70,7 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 - **Auth** : refresh token, stockage sécurisé (Keychain / Keystore).
 - **Push** : service notifications (à ajouter infra) pour Mail, Calendar, Tasks.
 - **Deep links** : `cloudity://mail/...` ou Universal Links pour ouvrir le bon écran depuis une notification.
-- **Tests** : **Vitest** (dashboard web) + **Flutter** — **`make test-mobile-suite`** = **Photos** → **Drive** → **Mail** : `flutter test` (hôte) + **`integration_test`** sur **ADB** si appareil + SDK inscriptible (gateway **auto**, compte démo par défaut). **`make test-mobile-{photos,drive,mail}`** pour une app. **Phase 5** **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b. **Stockage partagé** `cloudity_suite_*` (Photos, Drive, Mail).
+- **Tests** : **Vitest** (dashboard web) + **Flutter** — **`make test-mobile-suite`** = **Photos** → **Drive** → **Mail** : `flutter test` (hôte) + **`integration_test`** sur **ADB** si appareil + SDK inscriptible (gateway **auto**, compte démo par défaut). **`make test-mobile-{photos,drive,mail}`** pour une app. **Phase 5** **`make tests`** — **[TESTS.md](../operations/TESTS.md)** § 1b. **Stockage partagé** `cloudity_suite_*` (Photos, Drive, Mail).
 - **Package Dart partagé `mobile/cloudity_shared`** : helpers HTTP communs (`http_helpers.dart` — `getAuthHeaders`, headers `application/json`, etc.) consommés par **`mobile/mail`**, **`mobile/drive`** et **`mobile/photos`** via une dépendance `path: ../cloudity_shared`. Ajouter ici toute logique mobile **transverse pure Dart** (parsing, formats, sémantique JWT) ; éviter d’y mettre du Flutter widget ou du runtime spécifique à une app. Import : `package:cloudity_shared/http_helpers.dart` (ou le barrel `package:cloudity_shared/cloudity_shared.dart`). Pendant lié côté web : **`@cloudity/web/apiFetch`** (`apiJson`, `apiJsonOk`).
 
 ---
@@ -102,7 +102,7 @@ Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment c
 
 Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** (ex. `http://10.0.2.2:6080` pour émulateur Android, IP LAN pour appareil physique). **SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — soit `sudo chown -R "$(whoami)" /usr/lib/flutter`, soit Flutter clone dans `$HOME` puis **`export FLUTTER_ROOT="$HOME/flutter"`** et **`export PATH="$FLUTTER_ROOT/bin:$PATH"`** (honoré par `scripts/run-mobile.sh` et `test-mobile-app.sh`).
 
-**Note** : `make init-mobile` parcourt aussi `mobile/contacts`, `mobile/photos`, `mobile/pass` lorsqu’ils existent. Suite produit : **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** (scaffold + CI).
+**Note** : `make init-mobile` parcourt aussi `mobile/contacts`, `mobile/photos`, `mobile/pass` lorsqu’ils existent. Suite produit : **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** (scaffold + CI).
 
 ### USB / ADB : appareil `unauthorized`
 
@@ -128,4 +128,4 @@ Tant que l’état reste `unauthorized`, **`flutter run` ne pourra pas installer
 
 ---
 
-*Fichier : `docs/MOBILES.md`. Dernière révision : 2026-04-17.*
+*Fichier : `docs/produit/MOBILES.md`. Dernière révision : 2026-04-17.*

@@ -1,5 +1,5 @@
 -- Fonction agrégée pass_format_version_stats() — donne le nombre d'items par
--- version d'enveloppe Pass-Crypto (cf. docs/PASS-CRYPTO.md § 9). SERVICE
+-- version d'enveloppe Pass-Crypto (cf. docs/securite/PASS-CRYPTO.md § 9). SERVICE
 -- DEFINER + recherche bornée pour pouvoir contourner RLS en lecture seule
 -- depuis le passwords-service, sans exposer les ciphertext.
 --

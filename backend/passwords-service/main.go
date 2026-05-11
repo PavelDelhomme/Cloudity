@@ -188,7 +188,7 @@ type Item struct {
 }
 
 // currentFormatVersion est la version cible du format d'enveloppe Pass-Crypto
-// (cf. docs/PASS-CRYPTO.md). Le serveur n'ouvre jamais le blob ciphertext,
+// (cf. docs/securite/PASS-CRYPTO.md). Le serveur n'ouvre jamais le blob ciphertext,
 // il étiquette uniquement la version déclarée par le client. 0 = legacy,
 // 1 = EnvelopeV1 (Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768).
 const currentFormatVersion = 1
@@ -319,7 +319,7 @@ func (h *Handler) updateItem(c *gin.Context) {
 }
 
 // adminFormatVersions renvoie la distribution des items par version d'enveloppe
-// Pass-Crypto pour piloter la migration côté client (cf. docs/PASS-CRYPTO.md
+// Pass-Crypto pour piloter la migration côté client (cf. docs/securite/PASS-CRYPTO.md
 // § 9). Source : fonction Postgres pass_format_version_stats() (SECURITY
 // DEFINER, contourne RLS pour count uniquement, jamais les ciphertext).
 func (h *Handler) adminFormatVersions(c *gin.Context) {

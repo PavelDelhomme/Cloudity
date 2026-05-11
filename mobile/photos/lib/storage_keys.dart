@@ -2,7 +2,7 @@
 /// Toutes les apps Flutter doivent réutiliser ces identifiants pour qu’une session
 /// puisse être partagée sur un même appareil (même coffre sécurisé / préférences).
 ///
-/// Voir [docs/MOBILES.md](../../docs/MOBILES.md) § « Auth suite ».
+/// Voir [docs/produit/MOBILES.md](../../docs/produit/MOBILES.md) § « Auth suite ».
 abstract final class CloudityStorageKeys {
   /// URL du gateway (ex. `http://10.0.2.2:6080`) — [SharedPreferences], non secret.
   static const gatewayUrl = 'cloudity_suite_gateway_url_v1';

@@ -1,6 +1,6 @@
 # Couche sécurité Cloudity (optionnelle) :
 #   - step-ca : PKI interne pour le mTLS entre microservices.
-# Activée via `make mtls-up`. Voir docs/MTLS-INTERNE.md pour le plan complet.
+# Activée via `make mtls-up`. Voir docs/securite/MTLS-INTERNE.md pour le plan complet.
 #
 # Usage manuel :
 #   docker compose -f docker-compose.yml -f docker-compose.security.yml up -d step-ca

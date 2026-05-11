@@ -1,6 +1,6 @@
 # Reverse-proxy edge — TLS 1.3 strict, HSTS, CSP, **hybride post-quantique**
 
-> **Rôle** : configuration **prête à coller** pour la couche **edge** entre Internet et la stack Cloudity (gateway sur `:6080`, web sur `:6001`). Vise un **A+ SSL Labs / Mozilla Observatory** dès la mise en service, en gardant un chemin **propre** vers le **post-quantique**. Vision globale : **[SECURITE.md](./SECURITE.md)** § 4–6 (signatures, Zero Trust, WAF) et § 8 (PQ). Tableau d’algos : **[STATUS.md](../STATUS.md)** § 2.3. État actuel + dettes : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)**. Pendant interne : **[MTLS-INTERNE.md](./MTLS-INTERNE.md)**.
+> **Rôle** : configuration **prête à coller** pour la couche **edge** entre Internet et la stack Cloudity (gateway sur `:6080`, web sur `:6001`). Vise un **A+ SSL Labs / Mozilla Observatory** dès la mise en service, en gardant un chemin **propre** vers le **post-quantique**. Vision globale : **[SECURITE.md](SECURITE.md)** § 4–6 (signatures, Zero Trust, WAF) et § 8 (PQ). Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. État actuel + dettes : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)**. Pendant interne : **[MTLS-INTERNE.md](MTLS-INTERNE.md)**.
 
 **Choix par défaut** : **Caddy 2.8+** en prod (TLS automatique, HTTP/3, support PQ tôt). Alternatives valables : **nginx + OpenSSL 3.5+**, **Traefik 3+**. Les trois gabarits sont fournis pour rester portable.
 
@@ -14,8 +14,8 @@ Internet ──HTTPS (TLS 1.3 hybride)──►  reverse-proxy  ──HTTPS+mTLS
 ```
 
 - **Reverse-proxy** : termine TLS, applique en-têtes sécu, fait du **rate-limit** edge, route par **hostname**.  
-- **mTLS interne** : voir **[MTLS-INTERNE.md](./MTLS-INTERNE.md)**. Le reverse-proxy est **un client mTLS** comme un autre service.  
-- **WAF** (ModSecurity / CRS) : voir **[SECURITE.md](./SECURITE.md)** § 6 ; activé en **mode détection** d’abord.
+- **mTLS interne** : voir **[MTLS-INTERNE.md](MTLS-INTERNE.md)**. Le reverse-proxy est **un client mTLS** comme un autre service.  
+- **WAF** (ModSecurity / CRS) : voir **[SECURITE.md](SECURITE.md)** § 6 ; activé en **mode détection** d’abord.
 
 **DNS minimum** (cf. STATUS.md § 2.4) :
 
@@ -356,10 +356,10 @@ labels:
 
 ## 9. Liens
 
-- **[SECURITE.md](./SECURITE.md)** — vision et § 8 PQ.  
-- **[STATUS.md](../STATUS.md)** § 2.3 — algorithmes cibles et plan PQ.  
-- **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** — état actuel et pistes priorisées.  
-- **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** — pendant interne (mTLS step-ca).  
+- **[SECURITE.md](SECURITE.md)** — vision et § 8 PQ.  
+- **[STATUS.md](../../STATUS.md)** § 2.3 — algorithmes cibles et plan PQ.  
+- **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** — état actuel et pistes priorisées.  
+- **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — pendant interne (mTLS step-ca).  
 - `frontend/apps/cloudity-web/nginx.conf` — image **applicative** (sert juste les bundles ; en-têtes minimaux + gabarits HSTS/CSP commentés).
 
 *Document à mettre à jour lors du **premier déploiement edge** (pré-prod) — préciser alors le **fournisseur DNS**, le **certResolver** ACME, et la **clé hôte** OCSP.*

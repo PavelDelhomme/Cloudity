@@ -28,7 +28,7 @@ En **dev**, Vite réécrit **`/4dm1n`** vers **`/admin.html`** via un plugin **`
 
 ## 3b. Redis (warning « Memory overcommit »)
 
-Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPMENT-HOST.md](./DEVELOPMENT-HOST.md)** ; commande : **`make host-redis-sysctl`** (puis **`make host-redis-sysctl APPLY=1`** si besoin).
+Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPMENT-HOST.md](DEVELOPMENT-HOST.md)** ; commande : **`make host-redis-sysctl`** (puis **`make host-redis-sysctl APPLY=1`** si besoin).
 
 ## 4. Non-régression Docker
 
@@ -38,4 +38,4 @@ Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPME
 - **`make down`** utilise **`--remove-orphans`** pour éviter les vieux conteneurs après renommage de service.
 - **`make rebuild-dashboard`** reconstruit l’image **`cloudity-web`**.
 
-Voir aussi **[TESTS.md](./TESTS.md)** pour le détail des commandes.
+Voir aussi **[TESTS.md](TESTS.md)** pour le détail des commandes.

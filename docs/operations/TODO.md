@@ -1,21 +1,21 @@
 # À faire (Cloudity) — pivot quotidien
 
-> **Tu veux travailler sans parcourir toute la doc ?** Tiens **`docs/TODO.md`** (ce fichier) + **`docs/PLAN.md`** : le PLAN explique les **symptômes** (console, Mail) et pointe vers le reste ; le TODO liste **quoi faire** et les **liens** vers les gros documents quand il faut le détail.
+> **Tu veux travailler sans parcourir toute la doc ?** Tiens **`docs/operations/TODO.md`** (ce fichier) + **`docs/operations/PLAN.md`** : le PLAN explique les **symptômes** (console, Mail) et pointe vers le reste ; le TODO liste **quoi faire** et les **liens** vers les gros documents quand il faut le détail.
 
 ## Liens utiles (détail ailleurs)
 
 | Sujet | Fichier |
 |--------|---------|
-| Dépannage console, Mail, sync par boîte, dates corbeille | **[PLAN.md](./PLAN.md)** |
-| Tests front **Docker d’abord** (Vitest / ESLint) ; Playwright sur l’hôte | **[TESTS.md](./TESTS.md)** § **1** — `make test-dashboard*`, `make test` ; E2E Mail : `make test-e2e-playwright-mail` |
-| Cases à cocher racine | **[../BACKLOG.md](../BACKLOG.md)** |
-| Suivi produit / tableaux Drive, Mail, éditeur | **[../STATUS.md](../STATUS.md)** |
-| IMAP, mobile, archivage | **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** |
-| Tests `make test`, Vitest, Playwright | **[TESTS.md](./TESTS.md)** |
-| Roadmap par app | **[ROADMAP.md](./ROADMAP.md)** |
-| Performances, stack, diagnostic, exports Profiler / Chrome | **[PERFORMANCES.md](./PERFORMANCES.md)** |
-| Index de tout `docs/` | **[README.md](./README.md)** |
-| Vision suite (ordre P0–P7, phases A–F, décisions produit) | **[VISION-SUITE.md](./VISION-SUITE.md)** |
+| Dépannage console, Mail, sync par boîte, dates corbeille | **[PLAN.md](PLAN.md)** |
+| Tests front **Docker d’abord** (Vitest / ESLint) ; Playwright sur l’hôte | **[TESTS.md](TESTS.md)** § **1** — `make test-dashboard*`, `make test` ; E2E Mail : `make test-e2e-playwright-mail` |
+| Cases à cocher racine | **[../BACKLOG.md](../../BACKLOG.md)** |
+| Suivi produit / tableaux Drive, Mail, éditeur | **[../STATUS.md](../../STATUS.md)** |
+| IMAP, mobile, archivage | **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** |
+| Tests `make test`, Vitest, Playwright | **[TESTS.md](TESTS.md)** |
+| Roadmap par app | **[ROADMAP.md](../produit/ROADMAP.md)** |
+| Performances, stack, diagnostic, exports Profiler / Chrome | **[PERFORMANCES.md](PERFORMANCES.md)** |
+| Index de tout `docs/` | **[README.md](../README.md)** |
+| Vision suite (ordre P0–P7, phases A–F, décisions produit) | **[VISION-SUITE.md](../produit/VISION-SUITE.md)** |
 
 **Cohérence** : la liste **Priorités actuelles** ci-dessous est le **pivot quotidien** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → …) vit dans **VISION-SUITE.md** avec l’**état réel** du dépôt (Mail déjà largement livré, Photos en cours, etc.). **BACKLOG.md** condense les cases à cocher ; **STATUS.md** détaille l’avancement.
 
@@ -60,7 +60,7 @@ Ordre **pratique** dérivé de **STATUS**, **BACKLOG**, **SYNC-BACKLOG**, **TEST
   - **État courant** : `make test-security` vert (`npm audit` high OK, `safety` OK, `govulncheck` OK sur les services Go).
   - **Reste à traiter** : maintenir ce niveau dans la durée (routine CI + mises à jour patch régulières).
 
-- **Photos** : **`docs/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
+- **Photos** : **`docs/produit/PHOTOS.md`** — timeline, page web ; suite mobile, albums, EXIF, WorkManager.
 
 ## Extensions apps (catalogue cadré)
 
@@ -89,7 +89,7 @@ Suivi detaille et decoupage par phases : **`BACKLOG.md`** (cases), **`STATUS.md`
 - **Navigation** : barre **bas d’écran** type Google Photos (livré) ; si la sidebar app est **repliée** en `w-14` sur desktop, ajuster le décalage `left` de la barre (aujourd’hui calé sur sidebar **dépliée** `md:left-56`).
 
 - **Drive** : Récents, recherche **`?q=`** + API **`/drive/nodes/search`** ; suite E2E, ZIP/PPT serveur (**SYNC-BACKLOG §3b**, **TESTS**).
-- **Éditeur** : **`docs/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
+- **Éditeur** : **`docs/produit/editeur-docs.md`**, **STATUS §1b** — LaTeX cible, TipTap / tableur.
 - **Calendrier** : mois multi-agendas OK ; semaine/jour, invitations.
 - **Contacts** : liste/fiche OK ; groupes, import/export. **Liaison Mail ↔ contacts** (règles, fiches liées) : à planifier **une fois le MVP Mail web** (liste, PJ, multi-boîtes) stabilisé.
 - **Mail** : alias boîte, polling, menu message — OK. **Sync par boîte** — **PLAN §9**. **Sync auto** : batch unique + anti-chevauchement + anti-rafale + pause onglet non visible + indicateur visuel en bas de la sidebar (`Sync auto en cours…`). **Cadence (avril 2026)** : sur la page Mail, tick **~12 s** (onglet visible) ; **~18 s** pour le watcher **hors** page Mail (notifs) ; **sync immédiate** après **envoi** d’un message ; retour onglet avec garde **~14 s** (évite la double sync). *Push / idle IMAP* : pas encore — chargement des nouveaux mails reste **périodique** côté client. **Paramètres compte pendant sync** : champs IMAP/SMTP verrouillés tant que la boîte est en synchronisation (message explicite dans la modale). **Corps message à l’ouverture** : fallback IMAP `BODY.PEEK[]` déclenché si corps absent ou vide, puis persistance backend. **Dossiers spéciaux** — **SYNC-BACKLOG §0b** + migration **23**. **En-têtes MIME complets** : liens mail/URL cliquables en cours d’itération UX. **Actions “Nouveau/Recharger/Étiquettes”** : déplacées dans la colonne gauche entre “Boîtes mail” et “Dossiers” ; à finaliser côté responsive/collapsed. **Stabilité React** : correction boucle `Maximum update depth` (effets AppChrome + garde anti-setState inutile) ; surveillance console encore requise. **Corbeille Mail** : suppression définitive en masse livrée. **Règles automatiques Mail** : MVP livré (conditions expéditeur/sujet/PJ + action dossier + marquer lu, application rétroactive + exécution après sync) + **réconciliation IMAP** best-effort (move + lu/non lu). **Notifications hors page Mail (web)** : livrées via watcher global AppLayout. Suite : archivage PG / quota OVH, push, anti-spam avancé (**SYNC-BACKLOG §1**). **Console / favicons** : **PLAN** §1–5.
@@ -100,19 +100,19 @@ Suivi detaille et decoupage par phases : **`BACKLOG.md`** (cases), **`STATUS.md`
 
 ## Ordre de livraison : applications **web** puis **mobile**
 
-Pour chaque produit de la suite (**Photos**, **Mail**, **Drive**, etc.), on vise d’abord une **expérience web complète** dans **`frontend/admin-dashboard`** (API gateway + JWT, tests **Vitest** / **`make test`**), puis on **porte ou complète** le **client mobile** (`mobile/…`, Flutter) une fois les flux et contrats d’API stabilisés. Cela évite de figer trop tôt une UX native alors que le produit évolue encore. Détail matrice web × mobile, commandes **`make run-mobile`**, et parité attendue : **[MOBILES.md](./MOBILES.md)** (§ **0** + matrice § **1**).
+Pour chaque produit de la suite (**Photos**, **Mail**, **Drive**, etc.), on vise d’abord une **expérience web complète** dans **`frontend/admin-dashboard`** (API gateway + JWT, tests **Vitest** / **`make test`**), puis on **porte ou complète** le **client mobile** (`mobile/…`, Flutter) une fois les flux et contrats d’API stabilisés. Cela évite de figer trop tôt une UX native alors que le produit évolue encore. Détail matrice web × mobile, commandes **`make run-mobile`**, et parité attendue : **[MOBILES.md](../produit/MOBILES.md)** (§ **0** + matrice § **1**).
 
 ## Migrations base de données
 
-- **`make migrate`** (racine du repo, Docker) applique **`infrastructure/postgresql/migrations/`**. **`make rebuild`** inclut migrations + redémarrage. Détail : **[TESTS.md](./TESTS.md)** (section Migrations).
+- **`make migrate`** (racine du repo, Docker) applique **`infrastructure/postgresql/migrations/`**. **`make rebuild`** inclut migrations + redémarrage. Détail : **[TESTS.md](TESTS.md)** (section Migrations).
 - **Backlog** : outil dédié (CLI ou service bas niveau) + **panneau admin web / app admin mobile** pour état des migrations, verrou, rollback documenté — **STATUS**, **PLAN §11**, **SYNC-BACKLOG §0d**.
 
 ## Tests : toujours valider **dans les conteneurs**
 
 - **`make test`** : batterie complète dans Docker (Go, pytest, Vitest). C’est la cible avant merge.
-- **Smokes rapides** : **`make test-auth`** (auth seul) ; **`make test-go-one SERVICE=mail-directory-service`** (ou `drive-service`, `api-gateway`, …). Détail : **[TESTS.md](./TESTS.md)** § 1.
+- **Smokes rapides** : **`make test-auth`** (auth seul) ; **`make test-go-one SERVICE=mail-directory-service`** (ou `drive-service`, `api-gateway`, …). Détail : **[TESTS.md](TESTS.md)** § 1.
 - **Stack déjà démarrée** : **`make test-docker`** — mêmes tests via **`exec`** sur les binaires réellement up.
-- **CI** : **`.github/workflows/docker-unit-tests.yml`** exécute **`make test`** sur push / PR (`main`, `master`). Détail : **[TESTS.md](./TESTS.md)**.
+- **CI** : **`.github/workflows/docker-unit-tests.yml`** exécute **`make test`** sur push / PR (`main`, `master`). Détail : **[TESTS.md](TESTS.md)**.
 - Les **`npx vitest`** / **`npm run test:drive`** sur l’hôte restent utiles pour le cycle rapide en dev, mais la **vérité partagée** reste **`make test`** (Docker).
 
 ## Notes techniques (rappels)

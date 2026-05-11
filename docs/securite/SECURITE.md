@@ -1,8 +1,8 @@
 # Sécurité & confiance — vision Cloudity (Google + Proton + Zero Trust)
 
-**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](./ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](./PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](./TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](./DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service).
+**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service).
 
-**Documents d’implémentation associés** : **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](./PASS-CRYPTO.md)** (format hybride PQ du Vault Pass).
+**Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass).
 
 **Branche de référence** (fin 2025 / 2026) : `feat/photos-gallery-mobile-sync-security` — l’état **réel** du code reste la source de vérité ; ce document fixe les **objectifs** et l’**ordre d’implémentation**.
 
@@ -122,7 +122,7 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 
 **Limites** : un attaquant peut toujours distinguer « route existe » vs « 404 » si le comportement applicatif diffère (taille de corps, latence backend). L’alignement **404/405** et les messages **génériques** réduisent la surface ; la **défense principale** reste l’**auth forte**, les **logs**, le **WAF** et la **segmentation réseau**.
 
-**Suite court terme (suivi exécutable)** : les livrables récents gateway / auth / front sont récapitulés dans **[BACKLOG.md](../BACKLOG.md)** (section *Sécurité & infra*). Pistes suivantes : WAF + rate limit **par IP**, **audit log** actions sensibles, **scopes JWT** par route, **signatures** requêtes critiques — déjà listés dans le même backlog.
+**Suite court terme (suivi exécutable)** : les livrables récents gateway / auth / front sont récapitulés dans **[BACKLOG.md](../../BACKLOG.md)** (section *Sécurité & infra*). Pistes suivantes : WAF + rate limit **par IP**, **audit log** actions sensibles, **scopes JWT** par route, **signatures** requêtes critiques — déjà listés dans le même backlog.
 
 ---
 
@@ -194,15 +194,15 @@ Documenter pour chaque feature **ce que le serveur voit**.
 > **Tout secret chiffré aujourd’hui pour 10 ans doit déjà être encapsulé en hybride.**  
 > À défaut, prévoir une **migration ciphertext** côté serveur (réécriture coffres/blobs) — coûteuse, irréversible si la clé maître a fuité.
 
-Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../STATUS.md)** § 2.3 + sous-section *Cible post-quantique*.
+Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../STATUS.md)** § 2.3 + sous-section *Cible post-quantique*.
 
 ### 8.5 Documents d’implémentation
 
 | Périmètre | Document |
 |-----------|----------|
-| **Edge / TLS public** | **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
-| **mTLS interne** | **[MTLS-INTERNE.md](./MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
-| **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](./PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
+| **Edge / TLS public** | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
+| **mTLS interne** | **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
+| **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
 
 ---
 
@@ -210,12 +210,12 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../STATU
 
 | Document | Contenu |
 |----------|---------|
-| **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** | TLS, cookies, CSP, chiffrement au repos, Pass/Mail long terme |
-| **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | Sync, mobile, session, archivage |
-| **[BACKLOG.md](../BACKLOG.md)** | Cases à cocher priorisées racine |
-| **[TESTS.md](./TESTS.md)** | `make test-security`, dettes tests sécurité |
-| **[ROADMAP.md](./ROADMAP.md)** | TR-01, TR-07, APP-xx |
-| **[PERFORMANCES.md](./PERFORMANCES.md)** | Leviers perf / alternatives ; contraintes sécurité §6 |
+| **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** | TLS, cookies, CSP, chiffrement au repos, Pass/Mail long terme |
+| **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** | Sync, mobile, session, archivage |
+| **[BACKLOG.md](../../BACKLOG.md)** | Cases à cocher priorisées racine |
+| **[TESTS.md](../operations/TESTS.md)** | `make test-security`, dettes tests sécurité |
+| **[ROADMAP.md](../produit/ROADMAP.md)** | TR-01, TR-07, APP-xx |
+| **[PERFORMANCES.md](../operations/PERFORMANCES.md)** | Leviers perf / alternatives ; contraintes sécurité §6 |
 
 ---
 

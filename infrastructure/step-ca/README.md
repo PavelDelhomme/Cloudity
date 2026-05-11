@@ -1,6 +1,6 @@
 # `step-ca` — PKI interne Cloudity
 
-> **Rôle** : autorité de certification interne pour le **mTLS** entre microservices (cf. **[../docs/MTLS-INTERNE.md](../../docs/MTLS-INTERNE.md)**). Optionnelle au démarrage : on l’active via le compose **`docker-compose.security.yml`** et la cible **`make mtls-up`**. Tant que `step-ca` n’est pas lancé, les services continuent en HTTP plain (`MTLS_MODE=off`).
+> **Rôle** : autorité de certification interne pour le **mTLS** entre microservices (cf. **[../docs/securite/MTLS-INTERNE.md](../../docs/securite/MTLS-INTERNE.md)**). Optionnelle au démarrage : on l’active via le compose **`docker-compose.security.yml`** et la cible **`make mtls-up`**. Tant que `step-ca` n’est pas lancé, les services continuent en HTTP plain (`MTLS_MODE=off`).
 
 ## Démarrage rapide
 
@@ -45,6 +45,6 @@ En pratique, on utilisera un **sidecar** ou un **init container** par service (c
 
 ## Liens
 
-- **[../../docs/MTLS-INTERNE.md](../../docs/MTLS-INTERNE.md)** — plan global et patterns Go (`backend/internalsec`).  
-- **[../../docs/SECURITE.md](../../docs/SECURITE.md)** § 5 (Zero Trust) et § 8 (post-quantique : passage aux certs hybrides ML-DSA + ECDSA).  
+- **[../../docs/securite/MTLS-INTERNE.md](../../docs/securite/MTLS-INTERNE.md)** — plan global et patterns Go (`backend/internalsec`).  
+- **[../../docs/securite/SECURITE.md](../../docs/securite/SECURITE.md)** § 5 (Zero Trust) et § 8 (post-quantique : passage aux certs hybrides ML-DSA + ECDSA).  
 - **[../../docker-compose.security.yml](../../docker-compose.security.yml)** — service `step-ca`.

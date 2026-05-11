@@ -24,7 +24,7 @@ services:
 
   # Redis pour cache et sessions (mot de passe développé via shell)
   # Si les logs affichent « Memory overcommit must be enabled » : réglage noyau HÔTE
-  # (vm.overcommit_memory=1), pas dans ce fichier — voir docs/DEVELOPMENT-HOST.md et make host-redis-sysctl.
+  # (vm.overcommit_memory=1), pas dans ce fichier — voir docs/operations/DEVELOPMENT-HOST.md et make host-redis-sysctl.
   redis:
     image: redis:7-alpine
     container_name: cloudity-redis

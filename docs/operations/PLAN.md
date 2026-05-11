@@ -1,21 +1,21 @@
 # PLAN — hub « pourquoi / comment » + dépannage Mail web
 
-> **Lecture rapide** : avec **[TODO.md](./TODO.md)** (liste d’actions et priorités), ce fichier suffit souvent au quotidien. Le détail long (roadmap, STATUS, SYNC, TESTS) reste dans les autres `.md` — voir **§8** ci-dessous.
+> **Lecture rapide** : avec **[TODO.md](TODO.md)** (liste d’actions et priorités), ce fichier suffit souvent au quotidien. Le détail long (roadmap, STATUS, SYNC, TESTS) reste dans les autres `.md` — voir **§8** ci-dessous.
 
 ## 8. Carte des autres documents (quand ouvrir quoi)
 
 | Fichier | Quand l’ouvrir |
 |---------|----------------|
-| **[TODO.md](./TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN ; § **Ordre de livraison** (web puis mobile) |
-| **[VISION-SUITE.md](./VISION-SUITE.md)** | Ordre produit **long terme** (Mail → Alias → Pass → …) + **état réel** du dépôt ; complète TODO/BACKLOG sans les remplacer |
-| **[MOBILES.md](./MOBILES.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
-| **[../BACKLOG.md](../BACKLOG.md)** | Cases à cocher produit condensées |
-| **[STATUS.md](../STATUS.md)** | Suivi détaillé apps, §1c Mail/Drive/… |
-| **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** | IMAP, mobile, archivage mail, session |
-| **[TESTS.md](./TESTS.md)** | Commandes et couverture de tests |
-| **[ROADMAP.md](./ROADMAP.md)** | Fiches par application (APP-0x) |
-| **[PlanImplementation.md](./PlanImplementation.md)** | Phases long terme |
-| **[PERFORMANCES.md](./PERFORMANCES.md)** | Stack, conteneurs, techno par couche ; diagnostic ; leviers et alternatives ; explication `profiling-data*` / `Trace-*` |
+| **[TODO.md](TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN ; § **Ordre de livraison** (web puis mobile) |
+| **[VISION-SUITE.md](../produit/VISION-SUITE.md)** | Ordre produit **long terme** (Mail → Alias → Pass → …) + **état réel** du dépôt ; complète TODO/BACKLOG sans les remplacer |
+| **[MOBILES.md](../produit/MOBILES.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
+| **[../BACKLOG.md](../../BACKLOG.md)** | Cases à cocher produit condensées |
+| **[STATUS.md](../../STATUS.md)** | Suivi détaillé apps, §1c Mail/Drive/… |
+| **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** | IMAP, mobile, archivage mail, session |
+| **[TESTS.md](TESTS.md)** | Commandes et couverture de tests |
+| **[ROADMAP.md](../produit/ROADMAP.md)** | Fiches par application (APP-0x) |
+| **[PlanImplementation.md](../produit/PlanImplementation.md)** | Phases long terme |
+| **[PERFORMANCES.md](PERFORMANCES.md)** | Stack, conteneurs, techno par couche ; diagnostic ; leviers et alternatives ; explication `profiling-data*` / `Trace-*` |
 
 ## 8bis. Catalogue apps (cadre de decision)
 
@@ -63,7 +63,7 @@ Le catalogue "100+ idees d'apps" est retenu comme reservoir produit, avec une re
 
 - **`make test`** : toute la batterie unitaire / applicative (recommandé avant merge).
 - **`make test-auth`** : uniquement **auth-service** (`go test` dans l’image).
-- **`make test-go-one SERVICE=<clé-compose>`** : un autre service Go (`mail-directory-service`, `drive-service`, …). Tableau et équivalent `docker compose …` : **[TESTS.md](./TESTS.md)** § 1.
+- **`make test-go-one SERVICE=<clé-compose>`** : un autre service Go (`mail-directory-service`, `drive-service`, …). Tableau et équivalent `docker compose …` : **[TESTS.md](TESTS.md)** § 1.
 
 ## 11. Migrations SQL & évolution schéma
 
@@ -140,7 +140,7 @@ En vues **Corbeille** et **Spam**, le libellé détail sous la ligne n’est plu
 ## 6. Alias mail — « système complet »
 
 - **Déjà documenté** : comptes + **alias par boîte** (`user_email_aliases`, API `…/accounts/:id/aliases`), filtre **`delivered_to`**, lien **Pass** — **SYNC-BACKLOG §2**, **TODO.md**, **STATUS** Phase 3 (alias avancés / expiration / UI centralisée).
-- **À faire produit** (si ce n’est pas déjà dans votre **BACKLOG.md**) : alias **temporaires / expiration**, vue **récap** tous domaines, alignement **DNS/MX** self-host — voir **[BACKLOG.md](../BACKLOG.md)** et **[ROADMAP.md](./ROADMAP.md)** **APP-04**.
+- **À faire produit** (si ce n’est pas déjà dans votre **BACKLOG.md**) : alias **temporaires / expiration**, vue **récap** tous domaines, alignement **DNS/MX** self-host — voir **[BACKLOG.md](../../BACKLOG.md)** et **[ROADMAP.md](../produit/ROADMAP.md)** **APP-04**.
 
 ---
 

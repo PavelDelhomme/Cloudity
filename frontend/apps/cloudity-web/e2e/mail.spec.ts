@@ -93,7 +93,7 @@ test.describe('Mail (E2E)', () => {
     await expect(page.getByText(/erreur 500|failed to fetch|network error/i)).not.toBeVisible({ timeout: 3000 })
   })
 
-  /** Non-régression AppPageChrome / MailPage — voir docs/TESTS.md § 4.8 */
+  /** Non-régression AppPageChrome / MailPage — voir docs/operations/TESTS.md § 4.8 */
   test('navigation Mail ↔ Drive — pas de Maximum update depth (console / pageerror)', async ({ page }) => {
     const depthLoop: string[] = []
     page.on('console', (msg) => {

@@ -1,6 +1,6 @@
 # Cloudity Pass — format de chiffrement (cible **hybride post-quantique**)
 
-> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/passwords-service`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../STATUS.md)** § 2.3. Court terme produit : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)**.
+> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/passwords-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. Court terme produit : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)**.
 
 **État repo** : `pass_items.ciphertext` est aujourd’hui une **chaîne opaque** côté serveur (`backend/passwords-service/main.go`). Le serveur **ne chiffre / déchiffre rien** — toute la crypto vit côté **client**.
 
@@ -242,10 +242,10 @@ Endpoint actuel `pass_items` :
 
 ## 11. Liens
 
-- **[SECURITE.md](./SECURITE.md)** § 8 — vision PQ globale.  
-- **[STATUS.md](../STATUS.md)** § 2.3 — tableau d’algos + cible PQ par couche.  
-- **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** — état actuel + pistes priorisées.  
-- **[ROADMAP.md](./ROADMAP.md)** — fiche **APP-04 Pass** (livraison produit).  
-- **[MOBILES.md](./MOBILES.md)** — pendant Flutter du client Pass.
+- **[SECURITE.md](SECURITE.md)** § 8 — vision PQ globale.  
+- **[STATUS.md](../../STATUS.md)** § 2.3 — tableau d’algos + cible PQ par couche.  
+- **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** — état actuel + pistes priorisées.  
+- **[ROADMAP.md](../produit/ROADMAP.md)** — fiche **APP-04 Pass** (livraison produit).  
+- **[MOBILES.md](../produit/MOBILES.md)** — pendant Flutter du client Pass.
 
 *Document à figer **avant** la première migration publique du Vault Pass. Toute modification du format = bump de `v:` + plan de migration lazy.*

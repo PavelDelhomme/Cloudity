@@ -10,7 +10,7 @@
 # Hostnames locaux (à ajouter dans /etc/hosts) :
 #   127.0.0.1  app.cloudity.local  api.cloudity.local
 #
-# Voir docs/REVERSE-PROXY.md pour la version vraie pré-prod (ACME) et la cible PQ.
+# Voir docs/securite/REVERSE-PROXY.md pour la version vraie pré-prod (ACME) et la cible PQ.
 
 services:
   caddy:

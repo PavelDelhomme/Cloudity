@@ -1,8 +1,8 @@
 // Package internalsec fournit les briques mTLS partagées par les microservices
 // Cloudity (gateway, auth, passwords-service, mail-directory, drive, photos…).
 //
-// Voir docs/MTLS-INTERNE.md pour le plan global et la bascule progressive
-// off → permissive → strict, et docs/SECURITE.md § 8 pour la cible
+// Voir docs/securite/MTLS-INTERNE.md pour le plan global et la bascule progressive
+// off → permissive → strict, et docs/securite/SECURITE.md § 8 pour la cible
 // post-quantique (certs hybrides ML-DSA + ECDSA).
 //
 // Sans dépendances tierces : ce package n'utilise que la stdlib pour rester

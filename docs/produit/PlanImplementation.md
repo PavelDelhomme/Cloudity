@@ -2,12 +2,12 @@
 
 **Emplacement** : ce fichier est dans **`docs/`**. À la racine du dépôt : **`README.md`**, **`STATUS.md`** et **`BACKLOG.md`** (backlog condensé).
 
-**Référence au quotidien** : [STATUS.md](../STATUS.md) (suivi détaillé, checklist, ports 60XX, § 0b monorepo front).  
-**Vision suite & priorités P0–P7** : [VISION-SUITE.md](./VISION-SUITE.md) (complète ce plan sans le remplacer).  
-**Catalogue produits & chantiers transverses** : [ROADMAP.md](./ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  
-**Mobile (web vs natif, admin mobile)** : [MOBILES.md](./MOBILES.md).  
-**Tests** : [TESTS.md](./TESTS.md).  
-**Index des guides** (ce dossier) : [README.md](./README.md).  
+**Référence au quotidien** : [STATUS.md](../../STATUS.md) (suivi détaillé, checklist, ports 60XX, § 0b monorepo front).  
+**Vision suite & priorités P0–P7** : [VISION-SUITE.md](VISION-SUITE.md) (complète ce plan sans le remplacer).  
+**Catalogue produits & chantiers transverses** : [ROADMAP.md](ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  
+**Mobile (web vs natif, admin mobile)** : [MOBILES.md](MOBILES.md).  
+**Tests** : [TESTS.md](../operations/TESTS.md).  
+**Index des guides** (ce dossier) : [README.md](../README.md).  
 
 **Démarrage** : `make up` | **Arrêt** : `make down` | **Ports** : 6080 (API Gateway), 6001 (Dashboard), 6042 (Postgres), 6079 (Redis).
 
@@ -22,9 +22,9 @@
 - **Pass** : Coffre-fort, table `pass_vaults` créée via migration.
 - **Navigation app** : Tableau de bord, **Drive**, **Office** (placeholder), **Pass**, **Mail**, **Calendar**, **Notes**, **Tasks**, **Contacts** (placeholder), **Photos** (placeholder), Administration, Paramètres.
 
-**À faire (priorité)** — le détail à jour est dans **[STATUS.md](../STATUS.md)** et **[TODO.md](./TODO.md)** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](./VISION-SUITE.md)**. Ce fichier historique listait encore Office, Contacts, Photos, alias : plusieurs de ces chantiers sont **désormais partiellement ou fortement livrés** — ne pas se fier uniquement au paragraphe ci-dessous sans relire **STATUS**.
+**À faire (priorité)** — le détail à jour est dans **[STATUS.md](../../STATUS.md)** et **[TODO.md](../operations/TODO.md)** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](VISION-SUITE.md)**. Ce fichier historique listait encore Office, Contacts, Photos, alias : plusieurs de ces chantiers sont **désormais partiellement ou fortement livrés** — ne pas se fier uniquement au paragraphe ci-dessous sans relire **STATUS**.
 
-**Détail par produit** : voir **[ROADMAP.md](./ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](./PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILES.md](./MOBILES.md)**.
+**Détail par produit** : voir **[ROADMAP.md](ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](../operations/PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILES.md](MOBILES.md)**.
 
 ---
 
@@ -44,14 +44,14 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 | **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
 | **Photos** | Galerie, stockage photos (timeline `/drive/photos/timeline`, voir **PHOTOS.md**) | App mobile Photos | Sync, partage, albums, batterie |
 
-**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. **Liste structurée et exhaustive par app** : **[ROADMAP.md](./ROADMAP.md)** ; suivi court : **[STATUS.md](../STATUS.md)** ; tests : **[TESTS.md](./TESTS.md)** ; **[MOBILES.md](./MOBILES.md)** pour le déploiement iOS/Android.
+**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. **Liste structurée et exhaustive par app** : **[ROADMAP.md](ROADMAP.md)** ; suivi court : **[STATUS.md](../../STATUS.md)** ; tests : **[TESTS.md](../operations/TESTS.md)** ; **[MOBILES.md](MOBILES.md)** pour le déploiement iOS/Android.
 
 ---
 
 ## Phase 0 – Infra commune (base actuelle)
 
 > - Docker Compose global (Postgres, Redis, auth, api-gateway, admin-service, admin-dashboard)
-> - Ports 60XX standardisés (voir [STATUS.md](../STATUS.md))
+> - Ports 60XX standardisés (voir [STATUS.md](../../STATUS.md))
 > - Init PostgreSQL dans `infrastructure/postgresql/init/`
 > - Templates / structure pour futurs services (Mail Core, Password Manager, Drive)
 
@@ -178,7 +178,7 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 
 # Conclusion
 
-**Documents complémentaires** : la granularité fonctionnelle (domaines mail personnalisés, transferts automatiques, alias, chiffrement, monorepo front, etc.) est maintenue dans **[ROADMAP.md](./ROADMAP.md)** ; les clients mobiles dans **[MOBILES.md](./MOBILES.md)**.
+**Documents complémentaires** : la granularité fonctionnelle (domaines mail personnalisés, transferts automatiques, alias, chiffrement, monorepo front, etc.) est maintenue dans **[ROADMAP.md](ROADMAP.md)** ; les clients mobiles dans **[MOBILES.md](MOBILES.md)**.
 
 Ce document technique fournit une base solide pour le développement de l'écosystème CLOUDITY. L'architecture proposée garantit scalabilité, sécurité et performance tout en maintenant l'indépendance totale vis-à-vis des services cloud externes. La stratégie de développement par phases permet une mise en production progressive avec validation continue des fonctionnalités.
 Les technologies choisies représentent l'état de l'art actuel en matière de développement cloud, avec un focus particulier sur la sécurité (zero-knowledge, HSM, mTLS) et la collaboration temps réel (CRDT, WebSockets). L'approche multitenant avec PostgreSQL RLS assure une isolation stricte des données tout en maintenant l'efficacité opérationnelle.

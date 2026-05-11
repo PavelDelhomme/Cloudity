@@ -1,6 +1,6 @@
 # Reverse-proxy pré-prod (Caddy)
 
-> **Rôle** : valider en local la couche edge **avant** la prod : TLS 1.3, HSTS, CSP report-only, Permissions-Policy. Référence : **[../../docs/REVERSE-PROXY.md](../../docs/REVERSE-PROXY.md)** (gabarits Caddy / nginx / Traefik) et **[../../docs/SECURITE.md](../../docs/SECURITE.md)** § 8 (cible post-quantique).
+> **Rôle** : valider en local la couche edge **avant** la prod : TLS 1.3, HSTS, CSP report-only, Permissions-Policy. Référence : **[../../docs/securite/REVERSE-PROXY.md](../../docs/securite/REVERSE-PROXY.md)** (gabarits Caddy / nginx / Traefik) et **[../../docs/securite/SECURITE.md](../../docs/securite/SECURITE.md)** § 8 (cible post-quantique).
 
 ## Démarrer
 
@@ -55,4 +55,4 @@ Une fois la build de Caddy à jour (≥ 2.8 avec Go 1.23+/1.24+), on peut **vér
 openssl s_client -connect app.cloudity.example.com:443 -groups X25519MLKEM768 -tls1_3 < /dev/null
 ```
 
-Voir **[../../docs/REVERSE-PROXY.md](../../docs/REVERSE-PROXY.md)** § 8 pour la checklist complète (testssl.sh, Mozilla Observatory, hstspreload).
+Voir **[../../docs/securite/REVERSE-PROXY.md](../../docs/securite/REVERSE-PROXY.md)** § 8 pour la checklist complète (testssl.sh, Mozilla Observatory, hstspreload).

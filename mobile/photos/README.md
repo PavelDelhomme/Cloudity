@@ -35,7 +35,7 @@ make run-mobile APP=Photos
 | **`make test-mobile-photos`** (racine repo) | `flutter pub get` + **`flutter test`** + si **adb** a un appareil **`device`**, **`flutter test integration_test/photos_flow_test.dart -d <serial>`** (build, install APK de test, scénarios sur l’appareil). **Plusieurs** appareils + terminal interactif → **menu de sélection**. |
 | **`make tests`** | Inclut la même étape en **phase 5** (avec rapport dans `reports/`). |
 
-Parcours **login + timeline** sur l’appareil (API réelle) : exporter les variables **`CLOUDITY_E2E_*`** avant `make test-mobile-photos` — détail **[../../docs/TESTS.md](../../docs/TESTS.md)** § **1b**.
+Parcours **login + timeline** sur l’appareil (API réelle) : exporter les variables **`CLOUDITY_E2E_*`** avant `make test-mobile-photos` — détail **[../../docs/operations/TESTS.md](../../docs/operations/TESTS.md)** § **1b**.
 
 Si le build Android (**Gradle**) échoue sur ta machine (JDK / AGP), tu peux **désactiver** uniquement l’étape appareil tout en gardant les tests hôte : **`CLOUDITY_SKIP_DEVICE_INTEGRATION=1 make test-mobile-photos`** (idem pour **`make tests`**).
 
@@ -47,4 +47,4 @@ Si tu vois **`NoSuchFileException` … `.kotlin/sessions/*.salive`** : le SDK Fl
 
 ## Suite Cloudity (mobile)
 
-Les clés de stockage **`cloudity_suite_*`** (`lib/storage_keys.dart`) sont prévues pour **partager** gateway et jetons avec les futures apps **Drive**, **Mail**, etc. La **détection** des autres apps installées reste à implémenter (voir **`docs/MOBILES.md`**).
+Les clés de stockage **`cloudity_suite_*`** (`lib/storage_keys.dart`) sont prévues pour **partager** gateway et jetons avec les futures apps **Drive**, **Mail**, etc. La **détection** des autres apps installées reste à implémenter (voir **`docs/produit/MOBILES.md`**).

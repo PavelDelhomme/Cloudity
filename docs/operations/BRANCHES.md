@@ -2,7 +2,7 @@
 
 **Objectif** : tout le monde sait **sur quelle branche travailler** selon la fonctionnalité, et comment intégrer le code sans casser la ligne stable.
 
-**Documents liés** : [README.md](./README.md) (index `docs/`), [STATUS.md](../STATUS.md), [BACKLOG.md](../BACKLOG.md), [ROADMAP.md](./ROADMAP.md), [PHOTOS.md](./PHOTOS.md), [PERFORMANCES.md](./PERFORMANCES.md).
+**Documents liés** : [README.md](../README.md) (index `docs/`), [STATUS.md](../../STATUS.md), [BACKLOG.md](../../BACKLOG.md), [ROADMAP.md](../produit/ROADMAP.md), [PHOTOS.md](../produit/PHOTOS.md), [PERFORMANCES.md](PERFORMANCES.md).
 
 ---
 
@@ -32,12 +32,12 @@ Fusion vers `main` : uniquement depuis **`dev`** après validation (tests, revue
 
 | Fonctionnalité / domaine | Branche de travail typique | Fichiers / docs de référence |
 |----------------------------|----------------------------|------------------------------|
-| **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*` si plusieurs PRs) | `docs/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
-| **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/MOBILES.md`, `docs/PHOTOS.md` § 5 |
-| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` si chantier transversal | `docs/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
-| **Mail** (IMAP, archivage, tri, alias) | `feat/mail-*` | `docs/SYNC-BACKLOG.md`, ROADMAP **APP-01** |
+| **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*` si plusieurs PRs) | `docs/produit/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
+| **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/produit/MOBILES.md`, `docs/produit/PHOTOS.md` § 5 |
+| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` si chantier transversal | `docs/securite/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
+| **Mail** (IMAP, archivage, tri, alias) | `feat/mail-*` | `docs/produit/SYNC-BACKLOG.md`, ROADMAP **APP-01** |
 | **Contacts / Pass / Calendar** | `feat/contacts-*`, `feat/pass-*`, `feat/calendar-*` | ROADMAP APP-xx |
-| **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/SYNC-BACKLOG.md` § 3b |
+| **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/produit/SYNC-BACKLOG.md` § 3b |
 | **Back-office admin** (écrans Tenants, Users, Domaines, rôles, **exploitation complète**) | `feat/admin-console-*` | ROADMAP **ADM-01**, **STATUS** § 0b — *l’admin web a été amorcé ; il reste à le rendre **entièrement opérationnel** (rôles fins, audit, parité ops).* |
 | **Transversal** (gateway, CI, monorepo front) | `feat/tr-*` ou `chore/infra-*` | ROADMAP **TR-03**, **TR-05** |
 | **Performances / observabilité** (métriques, budgets, profilage contrôlé) | `feat/perf-*` ou `chore/observability-*` | **PERFORMANCES.md**, ROADMAP **TR-06** ; ne pas merger des exports lourds (`Trace-*`, `profiling-data*`) |
@@ -50,8 +50,8 @@ Si un chantier touche **plusieurs domaines** (ex. Photos + Drive), privilégier 
 
 Les éléments ci-dessous doivent rester visibles dans la roadmap ; les cocher au fil des merges.
 
-- **Photos** : miniatures serveur, index **EXIF** (`taken_at`), albums, **sync mobile** fiable, règles **batterie / réseau**, durcissement **sécurité** (scopes JWT, validation uploads, quotas) — détail [PHOTOS.md](./PHOTOS.md).
-- **Admin dashboard** : finaliser parcours **ADM-01** (toutes les actions admin utiles au quotidien, pas seulement MVP) — voir [ROADMAP.md](./ROADMAP.md) **ADM-01** et **STATUS.md** § 0b.
+- **Photos** : miniatures serveur, index **EXIF** (`taken_at`), albums, **sync mobile** fiable, règles **batterie / réseau**, durcissement **sécurité** (scopes JWT, validation uploads, quotas) — détail [PHOTOS.md](../produit/PHOTOS.md).
+- **Admin dashboard** : finaliser parcours **ADM-01** (toutes les actions admin utiles au quotidien, pas seulement MVP) — voir [ROADMAP.md](../produit/ROADMAP.md) **ADM-01** et **STATUS.md** § 0b.
 
 ---
 

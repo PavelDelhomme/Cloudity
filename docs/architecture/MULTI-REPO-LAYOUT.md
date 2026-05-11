@@ -9,7 +9,7 @@
 
 > Ce document est un **plan**. Aucune scission de repo n’a encore eu lieu : il faut d’abord trancher les options en bas du fichier.
 
-Voir aussi : **[BACKEND-LAYOUT.md](./BACKEND-LAYOUT.md)**, **[FRONTEND-LAYOUT.md](./FRONTEND-LAYOUT.md)**, **[REVERSE-PROXY.md](./REVERSE-PROXY.md)**, **[MTLS-INTERNE.md](./MTLS-INTERNE.md)**, **[ARCHITECTURE-FRONTENDS.md](./ARCHITECTURE-FRONTENDS.md)**.
+Voir aussi : **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)**, **[FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md)**, **[REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)**, **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)**, **[ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md)**.
 
 ---
 
@@ -274,7 +274,7 @@ Même chose pour la **résilience** (réplication PG, multi-instances services G
 
 ## 10. Questions à trancher (avant exécution)
 
-> **Questionnaire à choix multiple** (une option par question + court texte libre en fin) : **[MULTI-REPO-QUESTIONNAIRE.md](./MULTI-REPO-QUESTIONNAIRE.md)**.  
+> **Questionnaire à choix multiple** (une option par question + court texte libre en fin) : **[MULTI-REPO-QUESTIONNAIRE.md](../decisions/multi-repo/QUESTIONNAIRE.md)**.  
 > Renseigne les Q1–Q10 (ou la ligne « Synthèse rapide » du questionnaire), puis on enchaîne avec la **Phase 0** § 4.
 
 Résumé des thèmes couverts : stratégie de scission (A/B/C/D), granularité backend / mobile, registry packages, emplacement `infrastructure/`, CI, Portainer/NPM, backups, extension Pass + desktop Linux (quand + Tauri/Electron), calendrier Phase 0.
@@ -298,4 +298,4 @@ Résumé des thèmes couverts : stratégie de scission (A/B/C/D), granularité b
 
 ---
 
-*Document à mettre à jour quand le **[MULTI-REPO-QUESTIONNAIRE.md](./MULTI-REPO-QUESTIONNAIRE.md)** est rempli ou quand une phase change.*
+*Document à mettre à jour quand le **[MULTI-REPO-QUESTIONNAIRE.md](../decisions/multi-repo/QUESTIONNAIRE.md)** est rempli ou quand une phase change.*

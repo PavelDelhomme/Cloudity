@@ -2,9 +2,9 @@
 
 **Objectif** : offrir une expérience proche de **Google Photos** (chronologie, sauvegarde, albums, partage) **auto-hébergée** sur Cloudity, en **réutilisant le stockage Drive** pour éviter la duplication de blobs tant qu’un stockage objet dédié n’est pas nécessaire.
 
-**Branche de travail actuelle (galerie optimisée, mobile, sync, sécurité)** : `feat/photos-gallery-mobile-sync-security` (ouverte depuis `dev`). Voir [BRANCHES.md](./BRANCHES.md).
+**Branche de travail actuelle (galerie optimisée, mobile, sync, sécurité)** : `feat/photos-gallery-mobile-sync-security` (ouverte depuis `dev`). Voir [BRANCHES.md](../operations/BRANCHES.md).
 
-**Documents liés** : [ROADMAP.md](./ROADMAP.md) (**APP-09**, **TR-07**), [SYNC-BACKLOG.md](./SYNC-BACKLOG.md) § 3, [MOBILES.md](./MOBILES.md).
+**Documents liés** : [ROADMAP.md](ROADMAP.md) (**APP-09**, **TR-07**), [SYNC-BACKLOG.md](SYNC-BACKLOG.md) § 3, [MOBILES.md](MOBILES.md).
 
 ---
 
@@ -81,7 +81,7 @@ Ces règles seront détaillées dans **MOBILES.md** au fur et à mesure de l’i
 
 ## 6. Ordre de livraison (priorité produit actuelle)
 
-Règle transversale **Cloudity** : **web d’abord, mobile ensuite** (toutes les apps) — **[MOBILES.md](./MOBILES.md)** § **0**.
+Règle transversale **Cloudity** : **web d’abord, mobile ensuite** (toutes les apps) — **[MOBILES.md](MOBILES.md)** § **0**.
 
 1. **API** timeline + filtres image (**fait** : timeline de base).
 2. **Web** galerie + upload + lightbox (**MVP en cours**).

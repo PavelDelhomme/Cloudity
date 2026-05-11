@@ -1,8 +1,8 @@
 # Questionnaire — décisions multi-repos Cloudity
 
-**Rôle** : trancher les choix listés dans **[MULTI-REPO-LAYOUT.md](./MULTI-REPO-LAYOUT.md)** § 10 avant d’engager la **Phase 0** (extraction `pkg/dbpin`, versionnage des libs, etc.).
+**Rôle** : trancher les choix listés dans **[MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 10 avant d’engager la **Phase 0** (extraction `pkg/dbpin`, versionnage des libs, etc.).
 
-**Mode d’emploi** : pour chaque question, **coche une seule option** (sauf si « Plusieurs » est explicitement proposé). Copie ce fichier dans une issue GitHub ou remplis-le en local puis communique les lettres (ex. `Q1=A, Q2=B, …`). La **Phase 0** peut démarrer dès que les Q1–Q10 sont renseignées ; le bloc **texte libre** en fin de fichier est **optionnel** mais utile pour les nuances.
+**Mode d’emploi** : pour chaque question, **coche une seule option** (sauf si « Plusieurs » est explicitement proposé). Reporte ensuite tes choix dans **[REPONSES.md](REPONSES.md)** (synthèse `Q1=A, Q2=B, …` + texte libre court). La **Phase 0** démarre dès que les Q1–Q10 sont renseignées.
 
 ---
 
@@ -97,34 +97,5 @@
 
 ---
 
-## Synthèse rapide (à recopier dans un message)
-
-Remplace les `?` par la lettre choisie (ex. `Q1=D, Q2=A, …`). Pour Q9, indique **quand** + **T1/T2/T3**.
-
-```
-Q1=?  Q2=?  Q3=?  Q4=?  Q5=?  Q6=?  Q7=?  Q8=?  Q9=?+T?  Q10=?
-```
-
----
-
-## Texte libre (court, **dans l’ordre** — optionnel)
-
-Réponds en **5 lignes maximum**, une idée par ligne, dans cet ordre :
-
-1. **Contrainte org** (GitHub org name, dépôt déjà existant, CI existante) :
-2. **Hébergement prod** (VPS, cloud, bare metal, pays / RGPD si pertinent) :
-3. **Priorité produit** sur 3 mois (ex. « Mail mobile avant polyrepo ») :
-4. **Risque accepté** (ex. « OK pour submodules malgré la friction ») :
-5. **Autre** (une phrase) :
-
-```
-1.
-2.
-3.
-4.
-5.
-```
-
----
-
-*Une fois les Q1–Q10 cochées (ou la synthèse envoyée), on enchaîne avec la **Phase 0** selon **[MULTI-REPO-LAYOUT.md](./MULTI-REPO-LAYOUT.md)** § 4.*
+> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q10=…` + texte libre court (5 lignes).  
+> Une fois ce fichier rempli, j’enchaîne avec la **Phase 0** selon **[../../architecture/MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 4.

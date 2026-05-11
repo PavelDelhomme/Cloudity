@@ -1,6 +1,6 @@
 # Architecture des frontends Cloudity
 
-> **Liens** : suivi opérationnel et checklist multi-apps → **[STATUS.md](../STATUS.md)** (§ 0b) ; périmètre produit → **[ROADMAP.md](./ROADMAP.md)** (TR-05, APP-xx) ; mobile → **[MOBILES.md](./MOBILES.md)** ; index → **[README.md](./README.md)**.
+> **Liens** : suivi opérationnel et checklist multi-apps → **[STATUS.md](../../STATUS.md)** (§ 0b) ; périmètre produit → **[ROADMAP.md](../produit/ROADMAP.md)** (TR-05, APP-xx) ; mobile → **[MOBILES.md](../produit/MOBILES.md)** ; index → **[README.md](../README.md)**.
 
 ## État actuel (monolithique)
 

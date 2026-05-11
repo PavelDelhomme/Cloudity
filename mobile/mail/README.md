@@ -23,4 +23,4 @@ make run-mobile APP=Mail
 make test-mobile-mail
 ```
 
-Tests hôte : `cd mobile/mail && flutter test`. E2E device : `integration_test/mail_flow_test.dart` (voir **`docs/TESTS.md`** § 1b).
+Tests hôte : `cd mobile/mail && flutter test`. E2E device : `integration_test/mail_flow_test.dart` (voir **`docs/operations/TESTS.md`** § 1b).

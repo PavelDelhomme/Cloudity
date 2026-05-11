@@ -1,7 +1,7 @@
 # Sécurité et chiffrement des données — Cloudity
 
-> **Vision longue** (suite Google + confiance Proton, phases, signatures, Zero Trust, WAF, **post-quantique**) : **[SECURITE.md](./SECURITE.md)** (§ 8 PQ).  
-> **Référence produit** : chantier transversal détaillé dans **[ROADMAP.md](./ROADMAP.md)** (TR-01). Tableau algorithmes (incluant **cible post-quantique**) dans **[STATUS.md](../STATUS.md)** (§ 2.3). Tests sécurité → **[TESTS.md](./TESTS.md)** (`make test-security`). Index → **[README.md](./README.md)**.
+> **Vision longue** (suite Google + confiance Proton, phases, signatures, Zero Trust, WAF, **post-quantique**) : **[SECURITE.md](SECURITE.md)** (§ 8 PQ).  
+> **Référence produit** : chantier transversal détaillé dans **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01). Tableau algorithmes (incluant **cible post-quantique**) dans **[STATUS.md](../../STATUS.md)** (§ 2.3). Tests sécurité → **[TESTS.md](../operations/TESTS.md)** (`make test-security`). Index → **[README.md](../README.md)**.
 
 ## Déjà en place (rappel — état réel du code)
 
@@ -10,10 +10,10 @@
 - **Renouvellement JWT (UX liée)** : le front rafraîchit le token au focus ; les **aperçus Drive** (PDF, médias) utilisent une **ref** sur le token dans les effets de chargement pour ne pas **révoquer/recharger** le blob à chaque rotation d’accès si le fichier affiché est inchangé (comportement perçu comme « rechargement au changement d’app »).  
 - **Hashing mots de passe utilisateur** : **Argon2id** (paramètres par défaut de la lib `alexedwards/argon2id`) ; fallback **bcrypt cost 12** pour rétrocompatibilité ; détection automatique selon préfixe du hash.  
 - **Chiffrement applicatif au repos (Mail)** : `password_encrypted` IMAP/SMTP et `oauth_refresh_token_encrypted` Gmail OAuth chiffrés en **AES-256-GCM** (clé 32 octets via `MAIL_PASSWORD_ENCRYPTION_KEY`, nonce 96 bits, format stocké `nonce|ciphertext` base64 — `backend/mail-directory-service/main.go`).  
-- **Vault Pass** : la table `pass_items` ne stocke qu’un **`ciphertext`** opaque (chiffrement client à figer en hybride PQ — voir **[SECURITE.md](./SECURITE.md)** § 8.2).  
+- **Vault Pass** : la table `pass_items` ne stocke qu’un **`ciphertext`** opaque (chiffrement client à figer en hybride PQ — voir **[SECURITE.md](SECURITE.md)** § 8.2).  
 - **CORS** : limité par l’API Gateway (`CORS_ORIGINS`, réseau local en dev).  
 - **En-têtes HTTP (image nginx du service `cloudity-web`)** : `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` sur l’image de production. **HSTS** et **CSP** : voir gabarits commentés dans **`frontend/apps/cloudity-web/nginx.conf`** (à activer derrière TLS).  
-- **Inter-services** : HTTP plain sur le réseau Docker `cloudity-network`, Postgres en **`sslmode=disable`**, Redis avec mot de passe sans TLS — **mTLS interne** documenté en cible (**[SECURITE.md](./SECURITE.md)** § 5 et **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)**).
+- **Inter-services** : HTTP plain sur le réseau Docker `cloudity-network`, Postgres en **`sslmode=disable`**, Redis avec mot de passe sans TLS — **mTLS interne** documenté en cible (**[SECURITE.md](SECURITE.md)** § 5 et **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)**).
 
 ## Pistes d’amélioration (priorisées)
 
@@ -44,4 +44,4 @@
 - **E2E** (Playwright) : parcours critiques contre une stack réelle (`BASE_URL=http://localhost:6001`).  
 - **Sécurité** : dépendances (`npm audit`, `govulncheck`), scans SAST/DAST en CI quand le dépôt est branché sur une forge.
 
-Ce document complète **[TODO.md](./TODO.md)** (notes dev) et **[EVOLUTION-PLATEFORME.md](./EVOLUTION-PLATEFORME.md)** (infra). Les **décisions produit** et le périmètre sécurité par app sont dans **[ROADMAP.md](./ROADMAP.md)** (TR-01). Cible **post-quantique** détaillée dans **[SECURITE.md](./SECURITE.md)** § 8 et **[STATUS.md](../STATUS.md)** § 2.3.
+Ce document complète **[TODO.md](../operations/TODO.md)** (notes dev) et **[EVOLUTION-PLATEFORME.md](../architecture/EVOLUTION-PLATEFORME.md)** (infra). Les **décisions produit** et le périmètre sécurité par app sont dans **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01). Cible **post-quantique** détaillée dans **[SECURITE.md](SECURITE.md)** § 8 et **[STATUS.md](../../STATUS.md)** § 2.3.

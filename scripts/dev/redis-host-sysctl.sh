@@ -5,13 +5,13 @@
 set -euo pipefail
 
 if ! command -v sysctl >/dev/null 2>&1; then
-  echo "sysctl introuvable (hôte non-Linux ?). Ignore ce script ou consultez docs/DEVELOPMENT-HOST.md"
+  echo "sysctl introuvable (hôte non-Linux ?). Ignore ce script ou consultez docs/operations/DEVELOPMENT-HOST.md"
   exit 0
 fi
 
 val=$(sysctl -n vm.overcommit_memory 2>/dev/null || echo "?")
 echo "vm.overcommit_memory = ${val}"
-echo "  (0 = défaut strict, 1 = recommandé pour Redis — voir docs/DEVELOPMENT-HOST.md)"
+echo "  (0 = défaut strict, 1 = recommandé pour Redis — voir docs/operations/DEVELOPMENT-HOST.md)"
 
 if [ "$val" = "1" ]; then
   echo "OK — Redis ne devrait plus avertir pour l’overcommit."
@@ -22,7 +22,7 @@ if [ "${APPLY:-}" = "1" ]; then
   if command -v sudo >/dev/null 2>&1; then
     echo "Application: sudo sysctl vm.overcommit_memory=1"
     sudo sysctl vm.overcommit_memory=1
-    echo "Fait (session courante). Pour rendre permanent : voir docs/DEVELOPMENT-HOST.md"
+    echo "Fait (session courante). Pour rendre permanent : voir docs/operations/DEVELOPMENT-HOST.md"
     exit 0
   fi
   echo "sudo absent : exécutez en root : sysctl vm.overcommit_memory=1"

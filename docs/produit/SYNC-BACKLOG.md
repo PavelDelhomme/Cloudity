@@ -1,32 +1,32 @@
 # Backlog — synchronisation, mobile, session, mail serveur
 
-**Priorités globales et tableau condensé** : voir d’abord **[../BACKLOG.md](../BACKLOG.md)** à la racine du dépôt. **Confiance / E2EE / sync / Zero Trust (cadre)** : **[SECURITE.md](./SECURITE.md)**.
+**Priorités globales et tableau condensé** : voir d’abord **[../BACKLOG.md](../../BACKLOG.md)** à la racine du dépôt. **Confiance / E2EE / sync / Zero Trust (cadre)** : **[SECURITE.md](../securite/SECURITE.md)**.
 
-Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](./ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). **Ordre suite & priorités** (sans remplacer ce fichier) : **[VISION-SUITE.md](./VISION-SUITE.md)**. Mobile : **[MOBILES.md](./MOBILES.md)**. Tests : **[TESTS.md](./TESTS.md)**.
+Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). **Ordre suite & priorités** (sans remplacer ce fichier) : **[VISION-SUITE.md](VISION-SUITE.md)**. Mobile : **[MOBILES.md](MOBILES.md)**. Tests : **[TESTS.md](../operations/TESTS.md)**.
 
-**Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](./BRANCHES.md)**.
+**Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](../operations/BRANCHES.md)**.
 
 ## 0c. HTTPS / TLS et durcissement (hors « tout-HTTPS localhost » sans design)
 
 | Sujet | Rappel |
 |--------|--------|
 | **Dev (`http://localhost:6001`)** | Stack Docker classique en **HTTP** sur la machine ; suffisant pour développer. Passer le dashboard en **HTTPS** en local impose **certificats** (ex. **mkcert**) + config **Vite `server.https`** ou **reverse proxy** (Caddy) — à traiter comme chantier infra dédié, pas un toggle magique. |
-| **Production** | TLS **1.2+** (idéalement **1.3**) en **terminaison** sur LB / ingress (**Traefik**, **Caddy**, **nginx**), en-têtes **HSTS**, cookies **Secure** / **SameSite**, pas de contenu actif **HTTP** sur pages **HTTPS**. Détail vision : **[SECURITE.md](./SECURITE.md)**. |
-| **Détection de failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety, **govulncheck** sur les services Go), checks auth. À étendre : **OWASP ZAP** / scan DAST sur stack déployée, **pinning** dépendances, politique **SLSA** — voir **[STATUS.md](../STATUS.md)** § « TLS & scans ». |
+| **Production** | TLS **1.2+** (idéalement **1.3**) en **terminaison** sur LB / ingress (**Traefik**, **Caddy**, **nginx**), en-têtes **HSTS**, cookies **Secure** / **SameSite**, pas de contenu actif **HTTP** sur pages **HTTPS**. Détail vision : **[SECURITE.md](../securite/SECURITE.md)**. |
+| **Détection de failles dans le dépôt** | Déjà : **`make test-security`** (npm audit, safety, **govulncheck** sur les services Go), checks auth. À étendre : **OWASP ZAP** / scan DAST sur stack déployée, **pinning** dépendances, politique **SLSA** — voir **[STATUS.md](../../STATUS.md)** § « TLS & scans ». |
 | **OpenClaw / ClawSecure** | Outils **tiers** orientés audit de *skills* / agents **IA** (OWASP ASI), ex. [ClawSecure OpenClaw](https://github.com/ClawSecure/clawsecure-openclaw-security) — **hors périmètre** du code applicatif Cloudity (Go + React) ; pertinent seulement si vous publiez des *skills* Cursor sensibles à auditer séparément. |
 
 ## Suite prioritaire (rappel)
 
-La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](./VISION-SUITE.md)**. Ici : **pistes techniques sync** alignées sur l’**exécution actuelle** du dépôt (plusieurs chantiers en parallèle).
+La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](VISION-SUITE.md)**. Ici : **pistes techniques sync** alignées sur l’**exécution actuelle** du dépôt (plusieurs chantiers en parallèle).
 
 | Domaine | Pistes |
 |---------|--------|
-| **Photos** | Microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](./PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
+| **Photos** | Microservice **`photos-service`** + **`GET /photos/timeline`** via gateway, galerie web, app **`mobile/photos`** (`make run-mobile APP=Photos`, ADB auto), puis sync + batterie — **[PHOTOS.md](PHOTOS.md)**. **Drive** : app **`mobile/drive`** (liste fichiers MVP) — `make run-mobile APP=Drive`. |
 | **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; suite : **PJ** (liste/tailles/téléchargement fiable multi-boîtes), archivage §1, sous-dossiers IMAP **CREATE**. |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes ; **lien Mail ↔ fiches** (liaison produit complète) **après MVP Mail web** — accès contact depuis un message déjà partiel côté dashboard. |
 | **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
-| **Perf / observabilité** | **Base livrée** : `/admin/performance/overview` + dashboard admin (snapshot CPU/Mémoire/IO). Suite : métriques historiques multi-services + tests/E2E/mobile tracés et comparables ; voir **[PERFORMANCES.md](./PERFORMANCES.md)** et **TR-06**. |
+| **Perf / observabilité** | **Base livrée** : `/admin/performance/overview` + dashboard admin (snapshot CPU/Mémoire/IO). Suite : métriques historiques multi-services + tests/E2E/mobile tracés et comparables ; voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** et **TR-06**. |
 
 ## Extensions apps — impacts sync/mobile a anticiper
 
@@ -70,7 +70,7 @@ Rappel priorite: ce bloc vient **apres** Drive/Mail/Photos/Pass puis Calendar/No
 
 ## 0z. Console navigateur (Mail web, Vite)
 
-Les lignes **Vite**, les **CSS « Declaration dropped »** sur propriétés `-webkit-*` / `mso-*`, les **GET 200** vers `/mail/…`, et les **301 / 404** vers les services **favicon Google** sont en grande partie **normaux en dev** ou **bruit d’affichage HTML mail** — voir le guide **[PLAN.md](./PLAN.md)** (sections 1 à 5) avant de diagnostiquer une « erreur » bloquante. **Dates fausses en corbeille** : voir **PLAN §5** et correctif sync **`date_at`** dans **mail-directory-service**.
+Les lignes **Vite**, les **CSS « Declaration dropped »** sur propriétés `-webkit-*` / `mso-*`, les **GET 200** vers `/mail/…`, et les **301 / 404** vers les services **favicon Google** sont en grande partie **normaux en dev** ou **bruit d’affichage HTML mail** — voir le guide **[PLAN.md](../operations/PLAN.md)** (sections 1 à 5) avant de diagnostiquer une « erreur » bloquante. **Dates fausses en corbeille** : voir **PLAN §5** et correctif sync **`date_at`** dans **mail-directory-service**.
 
 ## 0. Réponses rapides (comportement actuel Mail web)
 
@@ -193,7 +193,7 @@ Stratégie unifiée : **TR-07** dans ROADMAP.
 | **Backend / API** | Modèle de données dédié (ex. `photos_vault_items`, flag `storage_tier=vault`, ou dossier Drive réservé **chiffré** côté client — selon choix E2EE). **`GET /photos/timeline`** : exclure par défaut les IDs du coffre ; endpoint ou scope **`/photos/vault/...`** après authentification renforcée. **Sync mobile** : même exclusion dans les jobs de vignettes / WorkManager tant que le coffre n’est pas déverrouillé. |
 | **Sécurité** | Chiffrement au repos, politique de **verrouillage** (timeout), pas de miniatures sensibles en cache disque non chiffré sans consentement — alignement **TR-01** / **SECURITE.md**. |
 
-**Documents liés** : **[PHOTOS.md](./PHOTOS.md)**, **[MOBILES.md](./MOBILES.md)**, **[SECURITE.md](./SECURITE.md)** ; à référencer dans **ROADMAP** (ex. entrée **APP-Photos** ou extension **APP-01**) lorsque la conception sera priorisée.
+**Documents liés** : **[PHOTOS.md](PHOTOS.md)**, **[MOBILES.md](MOBILES.md)**, **[SECURITE.md](../securite/SECURITE.md)** ; à référencer dans **ROADMAP** (ex. entrée **APP-Photos** ou extension **APP-01**) lorsque la conception sera priorisée.
 
 ---
 
@@ -254,7 +254,7 @@ Implémentation : **`scripts/run-mobile.sh`**.
 
 ## 7. Migration monorepo / multi-apps front
 
-Toujours d’actualité : **[STATUS.md](../STATUS.md)** § **0b**, **[ARCHITECTURE-FRONTENDS.md](./ARCHITECTURE-FRONTENDS.md)**.
+Toujours d’actualité : **[STATUS.md](../../STATUS.md)** § **0b**, **[ARCHITECTURE-FRONTENDS.md](../architecture/ARCHITECTURE-FRONTENDS.md)**.
 
 ---
 
@@ -268,8 +268,8 @@ Toujours d’actualité : **[STATUS.md](../STATUS.md)** § **0b**, **[ARCHITECTU
 | **Recherche / filtres type Gmail** | Partiel | Voir **§9** : aujourd’hui `recipient` / `delivered_to` + `tag_id` ; **pas** encore recherche plein texte, filtres structurés type `from:` / `has:attachment`, panneau d’aide, ni historique des requêtes. |
 | **Règles / tri automatique** | À faire | Job + table de règles ; exécution après sync IMAP. |
 | **Envoi planifié** | À faire | Table `scheduled_outbound_mail` + worker (cron/goroutine) + rester en brouillon jusqu’à l’heure. |
-| **Notifications push Web** | À faire | Service Worker + Web Push (VAPID) + abonnements en base ; voir `docs/TODO.md`. |
-| **App mobile Mail** | Scaffold | `make run-mobile APP=Mail` après `flutter create` ; voir `docs/MOBILES.md`. |
+| **Notifications push Web** | À faire | Service Worker + Web Push (VAPID) + abonnements en base ; voir `docs/operations/TODO.md`. |
+| **App mobile Mail** | Scaffold | `make run-mobile APP=Mail` après `flutter create` ; voir `docs/produit/MOBILES.md`. |
 | **Pièces jointes (réception)** | Partiel (MVP) | Migration `21-mail-attachments-threads.sql` : `mail_message_attachments`, extraction au premier chargement du corps (RFC822), stockage **≤ 512 Ko** par PJ en base, sinon relecture IMAP au téléchargement. `GET …/messages/:msgId/attachments/:attId`. |
 | **Conversations / fils** | Partiel | `thread_key` depuis `References` / `In-Reply-To` / `Message-ID` ; filtre liste `thread_key=` ; sync renseigne `internet_msg_id` / `in_reply_to`. **À faire** : vue thread unifiée type Gmail, résolution chaîne complète de parents, dédup cross-dossiers. |
 | **Prévisualisation PJ** | À faire | Images/PDF inline dans l’UI ; bac à sable MIME ; **antivirus** avant stockage ou à la volée ; quotas par tenant. |

@@ -76,7 +76,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make mobile-mail-debug - Session complète: clear logcat + test mobile mail + export logs'
 	@echo '  make mail-security-check - Vérifie sécurité Mail (PJ sans auth + HTML sanitizé)'
 	@echo '  make host-redis-sysctl - Warning Redis overcommit : sysctl hôte (APPLY=1 pour sudo sysctl session)'
-	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/BRANCHES.md)'
+	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/operations/BRANCHES.md)'
 	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
 	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -96,7 +96,7 @@ git-delete-remote-branch: ## Supprime une branche sur origin : make git-delete-r
 	@git fetch origin --prune
 	@echo "✅ Branche distante supprimée : $(BRANCH)"
 
-run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/MOBILES.md
+run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/produit/MOBILES.md
 	@chmod +x scripts/mobile/run-mobile.sh 2>/dev/null || true
 	@APP="$(APP)" ./scripts/mobile/run-mobile.sh
 
@@ -432,10 +432,10 @@ test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
 	@./scripts/ci/test-security.sh
 
 # === mTLS interne (step-ca) ============================================
-# Voir docs/MTLS-INTERNE.md, infrastructure/step-ca/README.md.
+# Voir docs/securite/MTLS-INTERNE.md, infrastructure/step-ca/README.md.
 COMPOSE_SECURITY = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.security.yml
 
-mtls-up: ## Démarre step-ca (PKI interne, optionnel — voir docs/MTLS-INTERNE.md)
+mtls-up: ## Démarre step-ca (PKI interne, optionnel — voir docs/securite/MTLS-INTERNE.md)
 	@if [ ! -f infrastructure/step-ca/secrets/ca-password ]; then \
 	  echo "⚠️  infrastructure/step-ca/secrets/ca-password manquant. Création (random 32 bytes)..."; \
 	  if command -v openssl >/dev/null 2>&1; then \
@@ -478,7 +478,7 @@ internalsec-test: ## Lance les tests unitaires du package backend/internalsec
 # =======================================================================
 
 # === Pré-prod edge (Caddy : TLS 1.3 + HSTS + CSP + cible PQ) ==========
-# Voir docs/REVERSE-PROXY.md, infrastructure/reverse-proxy/README.md.
+# Voir docs/securite/REVERSE-PROXY.md, infrastructure/reverse-proxy/README.md.
 COMPOSE_PREPROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.preprod.yml
 
 preprod-up: ## Démarre la stack + Caddy (https://app.cloudity.local, https://api.cloudity.local)

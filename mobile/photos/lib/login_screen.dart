@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           Text(
             'Même compte que le tableau de bord web. Les jetons sont stockés de façon sécurisée '
-            'avec les clés `cloudity_suite_*` (voir docs/MOBILES.md) pour les futures apps Drive, Mail, etc.',
+            'avec les clés `cloudity_suite_*` (voir docs/produit/MOBILES.md) pour les futures apps Drive, Mail, etc.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
           const SizedBox(height: 20),

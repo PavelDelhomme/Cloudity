@@ -88,7 +88,7 @@ func TestValidateFormatVersion(t *testing.T) {
 
 func TestCurrentFormatVersionIsEnvelopeV1(t *testing.T) {
 	if currentFormatVersion != 1 {
-		t.Errorf("currentFormatVersion = %d ; doit valoir 1 (EnvelopeV1, voir docs/PASS-CRYPTO.md)", currentFormatVersion)
+		t.Errorf("currentFormatVersion = %d ; doit valoir 1 (EnvelopeV1, voir docs/securite/PASS-CRYPTO.md)", currentFormatVersion)
 	}
 }
 

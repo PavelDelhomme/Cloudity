@@ -15,7 +15,7 @@ if [[ -z "${APP_RAW}" ]]; then
   echo "  make run-mobile APP=Contacts"
   echo "  make run-mobile APP=Photos"
   echo "  make run-mobile APP=Pass"
-  echo "Créez le dossier Flutter correspondant (voir docs/MOBILES.md) : p.ex. mobile/mail ou mobile/mail_app."
+  echo "Créez le dossier Flutter correspondant (voir docs/produit/MOBILES.md) : p.ex. mobile/mail ou mobile/mail_app."
   exit 1
 fi
 
@@ -101,14 +101,14 @@ if [[ -z "${TARGET:-}" ]]; then
   esac
   echo "    (ou le suffixe _app : mobile/mail_app, etc.)"
   echo "    Puis : make run-mobile APP=${APP_RAW}"
-  echo "    Documentation : docs/MOBILES.md, docs/SYNC-BACKLOG.md, docs/ROADMAP.md"
+  echo "    Documentation : docs/produit/MOBILES.md, docs/produit/SYNC-BACKLOG.md, docs/produit/ROADMAP.md"
   exit 2
 fi
 
 if command -v adb >/dev/null 2>&1; then
   if adb devices 2>/dev/null | grep -q "unauthorized"; then
     echo "⚠️  ADB : au moins un appareil est « unauthorized »."
-    echo "    Déverrouillez le téléphone et acceptez la clé RSA (débogage USB). Voir docs/MOBILES.md (USB / ADB)."
+    echo "    Déverrouillez le téléphone et acceptez la clé RSA (débogage USB). Voir docs/produit/MOBILES.md (USB / ADB)."
   fi
 fi
 

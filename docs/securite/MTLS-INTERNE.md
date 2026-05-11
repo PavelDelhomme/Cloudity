@@ -1,6 +1,6 @@
 # mTLS interne — défense en profondeur entre microservices Cloudity
 
-> **Rôle** : plan d’**activation progressive** du mTLS entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](./SECURITE.md)** § 5 (Zero Trust). État actuel : **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit admin : **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)**. Cible **post-quantique** : **[STATUS.md](../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
+> **Rôle** : plan d’**activation progressive** du mTLS entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 5 (Zero Trust). État actuel : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit admin : **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)**. Cible **post-quantique** : **[STATUS.md](../../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
 
 **Pourquoi avant le PQ** : le mTLS classique est un **prérequis**. On stabilise la **PKI interne**, la **rotation**, l’**audit** et les **patterns de code** d’abord ; on bascule en **certs hybrides ML-DSA + ECDSA** ensuite, quand la chaîne (`crypto/x509`, `tls`, `step-ca`, OpenSSL) supporte les algos PQ.
 
@@ -97,7 +97,7 @@ volumes:
 | Étape | Outil | Détail |
 |-------|-------|--------|
 | **Boot service** | `step-cli` (ou client ACME Go) | demande un cert avec **provisioner JWT** scopé au nom du service. |
-| **Renew** | sidecar **[`scripts/security/step-renew.sh`](../scripts/security/step-renew.sh)** | bootstrap + boucle `step ca renew --force --expires-in $RENEW_AT`, renew **avant 1/3 de TTL** (par défaut 8 h sur des certs 24 h). |
+| **Renew** | sidecar **[`scripts/security/step-renew.sh`](../../scripts/security/step-renew.sh)** | bootstrap + boucle `step ca renew --force --expires-in $RENEW_AT`, renew **avant 1/3 de TTL** (par défaut 8 h sur des certs 24 h). |
 | **Stockage cert** | tmpfs (`/run/step/<service>/`) | jamais sur volume persistant. |
 | **Reload TLS** | `tls.Config.GetCertificate` lit le fichier à chaque handshake (cf. `internalsec.ServerTLS` qui utilise un `atomic.Pointer[tls.Certificate]`) | pas de redémarrage. |
 
@@ -336,10 +336,10 @@ allowed := map[string]bool{
 
 ## 9. Liens
 
-- **[SECURITE.md](./SECURITE.md)** § 5 (Zero Trust) et § 8 (post-quantique).  
-- **[AUDIT-SECURITE-ADMIN-API.md](./AUDIT-SECURITE-ADMIN-API.md)** § 3 (dette admin-service).  
-- **[STATUS.md](../STATUS.md)** § 2.3 (cible chiffrement, ligne mTLS interne).  
-- **[REVERSE-PROXY.md](./REVERSE-PROXY.md)** (à créer) — couche externe : TLS 1.3, HSTS, CSP, hybride PQ.  
+- **[SECURITE.md](SECURITE.md)** § 5 (Zero Trust) et § 8 (post-quantique).  
+- **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)** § 3 (dette admin-service).  
+- **[STATUS.md](../../STATUS.md)** § 2.3 (cible chiffrement, ligne mTLS interne).  
+- **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (à créer) — couche externe : TLS 1.3, HSTS, CSP, hybride PQ.  
 - `README.md` (racine) — sketch historique d’un `SetupMTLS()` à remplacer par `internalsec` documenté ici.
 
 *Document à mettre à jour dès que l’étape 1 (step-ca) est lancée en local — ajouter alors les commandes `make` réelles (ex. `make seed-mtls`).*

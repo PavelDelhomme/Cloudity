@@ -1,6 +1,6 @@
 #!/bin/sh
 # step-renew.sh — sidecar de rotation de cert pour les services Cloudity
-# (cf. docs/MTLS-INTERNE.md § 3.4 et 4).
+# (cf. docs/securite/MTLS-INTERNE.md § 3.4 et 4).
 #
 # Usage typique en init container ou sidecar Docker :
 #

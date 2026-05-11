@@ -25,9 +25,9 @@
 
 **`make test`** (Vitest, Go, pytest) **ne rejoue pas** les fichiers SQL de migration : il valide le **code**. Le schéma est supposé à jour grâce à **`make migrate`**, **`make rebuild`**, ou le **`db-migrate`** déclenché au **`make up`**. Pour vérifier manuellement : après migrate, contrôler les tables / colonnes (ex. Adminer sur le port 6083). **Idée backlog** : outil CLI ou écran **admin** (web + mobile admin) listant version / état des migrations — voir **STATUS.md**, **TODO.md**, **SYNC-BACKLOG §0d**, **PLAN §11**.
 
-**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](./ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](./MOBILES.md)**.
+**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](../produit/ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](../produit/MOBILES.md)**.
 
-**Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](./PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
+**Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
 
 ### Mise à jour 2026-05-06 — traçabilité runtime/tests
 
@@ -35,15 +35,15 @@
 - **À faire** : exporter aussi les métriques d’exécution des campagnes `make test`, `make test-e2e*`, `make test-mobile-*` pour conserver un historique comparable par run.
 - **Objectif** : chaque run test devra produire un artefact perf (CPU max, mémoire max, IO total, durée) réinjecté dans le backoffice admin.
 
-**Vision produit** : l’ordre stratégique des apps (Mail, Alias, Pass, Photos, …) est décrit dans **[VISION-SUITE.md](./VISION-SUITE.md)** ; les tests suivent les **fonctionnalités livrées** — nouvelle feature ⇒ ajouter les tests listés ici et dans **BACKLOG**.
+**Vision produit** : l’ordre stratégique des apps (Mail, Alias, Pass, Photos, …) est décrit dans **[VISION-SUITE.md](../produit/VISION-SUITE.md)** ; les tests suivent les **fonctionnalités livrées** — nouvelle feature ⇒ ajouter les tests listés ici et dans **BACKLOG**.
 
-**Suivi quotidien** : **[STATUS.md](../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../BACKLOG.md)**.  
-**Stratégie sécurité / confiance** : **[SECURITE.md](./SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
-**Autres guides** (éditeur, archi front, sécurité détaillée, notes dev) : **[README.md](./README.md)** (index de ce dossier).
+**Suivi quotidien** : **[STATUS.md](../../STATUS.md)** · **Backlog condensé** : **[../BACKLOG.md](../../BACKLOG.md)**.  
+**Stratégie sécurité / confiance** : **[SECURITE.md](../securite/SECURITE.md)** (phases, signatures, Zero Trust, WAF).  
+**Autres guides** (éditeur, archi front, sécurité détaillée, notes dev) : **[README.md](../README.md)** (index de ce dossier).
 
 ---
 
-**Checklist post-modif (build, E2E, UI)** : **[DEV-VERIFICATION.md](./DEV-VERIFICATION.md)**.
+**Checklist post-modif (build, E2E, UI)** : **[DEV-VERIFICATION.md](DEV-VERIFICATION.md)**.
 
 ## 1. Commandes
 
@@ -125,7 +125,7 @@ Pour tout valider avant merge : **`make test`** (tous les services + dashboard).
 
 ## 1b. Mobile Flutter — `make test-mobile-suite` (phase 5 de `make tests`)
 
-**HTTPS (dev vs prod)** : en développement, le gateway est en général joignable en **`http://`** depuis le téléphone (même réseau) — aligné sur **`docker-compose`**. En **production**, le client mobile et le front doivent cibler une **base URL HTTPS** (terminaison TLS sur LB / ingress). Ne pas confondre « tout en HTTPS sur ma machine » (chantier **mkcert** + Vite ou proxy) avec le durcissement **prod** décrit dans **[SECURITE.md](./SECURITE.md)** et **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** § **0c**.
+**HTTPS (dev vs prod)** : en développement, le gateway est en général joignable en **`http://`** depuis le téléphone (même réseau) — aligné sur **`docker-compose`**. En **production**, le client mobile et le front doivent cibler une **base URL HTTPS** (terminaison TLS sur LB / ingress). Ne pas confondre « tout en HTTPS sur ma machine » (chantier **mkcert** + Vite ou proxy) avec le durcissement **prod** décrit dans **[SECURITE.md](../securite/SECURITE.md)** et **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § **0c**.
 
 **Orchestrateur** : **`scripts/test-mobile-suite.sh`** → **`test-mobile-app.sh` photos** → **drive** → **mail** (**`scripts/mobile-test-common.inc.sh`**). Cibles **`*-photos|drive|mail`** pour une app seule.
 
@@ -322,7 +322,7 @@ Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIG
 ## 4. Tests à faire / à ajouter au fur et à mesure
 
 Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `make test-e2e` pour les E2E).  
-**Voir aussi** : [STATUS.md § 1b](../STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité. Pour **ZIP (ouverture en live, extraction)** et **éditeur (barre type Office, breadcrumb, boutons en haut)**, voir **§ 4.7** et [STATUS.md § 1c](../STATUS.md).
+**Voir aussi** : [STATUS.md § 1b](../../STATUS.md) (Drive, éditeur, corbeille) pour la roadmap et les tests associés à chaque fonctionnalité. Pour **ZIP (ouverture en live, extraction)** et **éditeur (barre type Office, breadcrumb, boutons en haut)**, voir **§ 4.7** et [STATUS.md § 1c](../../STATUS.md).
 
 ### 4.0 Drive, éditeur, corbeille (roadmap STATUS.md § 1b)
 
@@ -386,7 +386,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [x] **Checks auth** : GET /auth/validate sans token → 401 ; avec token invalide → 401 (si gateway up).
 - [ ] Optionnel : rate limiting, headers sécurité (CORS, X-Frame-Options), scan dépendances dans CI.
 
-### 4.6 Sécurité avancée (alignement **[SECURITE.md](./SECURITE.md)**)
+### 4.6 Sécurité avancée (alignement **[SECURITE.md](../securite/SECURITE.md)**)
 
 À planifier quand les briques existent ; complète §4.5 (dépendances + auth basique).
 
@@ -440,7 +440,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 **Déjà fait (implémentation)** :
 
 - Fichiers : **`frontend/apps/cloudity-web/src/appPageChromeContext.tsx`** (deux contextes : affichage vs setters) ; **`frontend/apps/cloudity-web/src/pages/app/mail/MailPageChrome.tsx`** (`MailAppChromeMenu`) ; **`mail/MailPage.tsx`** enregistre le breadcrumb via **`useAppPageChromeSetters`** + **`useMemo`** / **`useEffect`** (cleanup au démontage).
-- Documentation produit : **`STATUS.md`** (paragraphe d’en-tête), **`docs/PLAN.md`** § 10, **`BACKLOG.md`**, **`docs/TODO.md`**.
+- Documentation produit : **`STATUS.md`** (paragraphe d’en-tête), **`docs/operations/PLAN.md`** § 10, **`BACKLOG.md`**, **`docs/operations/TODO.md`**.
 
 **Tests automatisés — ordre recommandé** :
 
@@ -463,7 +463,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 
 ## 5. Récap
 
-- **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](./ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit ; les chantiers **sécurité transverse** (phases, signatures, Zero Trust) : **[SECURITE.md](./SECURITE.md)** + **[BACKLOG.md](../BACKLOG.md)**.
+- **Nouvelle fonctionnalité** : la mettre à jour dans **[ROADMAP.md](../produit/ROADMAP.md)** ; ajouter ou cocher les tests listés dans ce fichier (§ 4 « À faire ») pour rester aligné avec le périmètre produit ; les chantiers **sécurité transverse** (phases, signatures, Zero Trust) : **[SECURITE.md](../securite/SECURITE.md)** + **[BACKLOG.md](../../BACKLOG.md)**.
 - **Lancer tous les tests** : **`make test`** (unit/app uniquement).
 - **Vitest / ESLint dashboard (Docker, pas de Node obligatoire sur l’hôte)** : **`make test-dashboard`** ; un fichier : **`make test-dashboard-one FILE=src/...`** (relatif à **`frontend/apps/cloudity-web`**) ; lint : **`make test-dashboard-lint`** — § **1** (convention **Docker d’abord** + monorepo **`/ws`**).
 - **Playwright** : navigateur sur l’**hôte**, app servie par Docker — **`make test-e2e-playwright`** (voir tableau en tête de ce fichier).
@@ -476,4 +476,4 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - **Nouveau backend** : ajouter une cible dans le Makefile (ex. `passwords-service` déjà présent) et documenter ici.
 - **Nouveau frontend** : ajouter les fichiers `*.test.ts` / `*.test.tsx` dans le projet Vitest existant (ou équivalent) et garder `make test` qui lance `npm run test` pour ce frontend.
 
-*Fichier : `docs/TESTS.md` (référence unique des tests ; pas de copie à la racine). Mettre à jour les comptes et les cases quand des tests sont ajoutés.*
+*Fichier : `docs/operations/TESTS.md` (référence unique des tests ; pas de copie à la racine). Mettre à jour les comptes et les cases quand des tests sont ajoutés.*

@@ -3,13 +3,13 @@
 **Rôle de ce fichier** : catalogue **vivant** de tout ce que nous voulons construire — **applications visibles** (web / mobile) et **piliers invisibles** (sécurité, infra, API). Chaque nouvelle app ou domaine doit pouvoir être **ajouté ici** avec la même structure.
 
 **Documents liés** :
-- **[STATUS.md](../STATUS.md)** — suivi au jour le jour, checklist technique, § 0b (monorepo front).
-- **[MOBILES.md](./MOBILES.md)** — matrice **web vs mobile** par produit + **admin mobile**.
-- **[TESTS.md](./TESTS.md)** — toute entrée marquée « livré » doit idéalement avoir des tests (`make test` / E2E).
-- **[PlanImplementation.md](./PlanImplementation.md)** — phases long terme, métriques, ressources.
-- **[README.md](./README.md)** (ce dossier) — index des guides thématiques (éditeur, architecture front, évolution plateforme, sécurité approfondie, TODO dev).
-- **[SYNC-BACKLOG.md](./SYNC-BACKLOG.md)** — backlog opérationnel sync web/mobile, `make run-mobile`, session, archivage mail (complète **TR-07**).
-- **[PERFORMANCES.md](./PERFORMANCES.md)** — stack, diagnostic, leviers d’optimisation ; prolonge **TR-06**.
+- **[STATUS.md](../../STATUS.md)** — suivi au jour le jour, checklist technique, § 0b (monorepo front).
+- **[MOBILES.md](MOBILES.md)** — matrice **web vs mobile** par produit + **admin mobile**.
+- **[TESTS.md](../operations/TESTS.md)** — toute entrée marquée « livré » doit idéalement avoir des tests (`make test` / E2E).
+- **[PlanImplementation.md](PlanImplementation.md)** — phases long terme, métriques, ressources.
+- **[README.md](../README.md)** (ce dossier) — index des guides thématiques (éditeur, architecture front, évolution plateforme, sécurité approfondie, TODO dev).
+- **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** — backlog opérationnel sync web/mobile, `make run-mobile`, session, archivage mail (complète **TR-07**).
+- **[PERFORMANCES.md](../operations/PERFORMANCES.md)** — stack, diagnostic, leviers d’optimisation ; prolonge **TR-06**.
 
 **Comment ajouter une application** : copier le **modèle vierge** en fin de document, remplir les champs, ajuster l’ID (ex. `APP-NN`), cocher le statut.
 
@@ -82,10 +82,10 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | Champ | Contenu |
 |--------|---------|
 | **Description** | Tests automatisés, traces, logs structurés ; **diagnostic de performance** (web, gateway, services, mobile) dans le périmètre produit. |
-| **Objectif** | Régressions visibles tôt ; **mesurer** latence et charge avant optimisations ; garder la suite **aussi légère que raisonnable** sans compromettre [SECURITE.md](./SECURITE.md) ni l’UX. |
-| **Fonctionnalités** | `make test`, Playwright, rapports ; logs corrélés `request-id` (cible) ; métriques p50/p95 (cible) ; budgets Web Vitals sur routes clés ; `pprof` / traces Go sous contrôle ; Flutter profile. **Inventaire et pistes** : [PERFORMANCES.md](./PERFORMANCES.md). |
+| **Objectif** | Régressions visibles tôt ; **mesurer** latence et charge avant optimisations ; garder la suite **aussi légère que raisonnable** sans compromettre [SECURITE.md](../securite/SECURITE.md) ni l’UX. |
+| **Fonctionnalités** | `make test`, Playwright, rapports ; logs corrélés `request-id` (cible) ; métriques p50/p95 (cible) ; budgets Web Vitals sur routes clés ; `pprof` / traces Go sous contrôle ; Flutter profile. **Inventaire et pistes** : [PERFORMANCES.md](../operations/PERFORMANCES.md). |
 | **Statut** | En cours (tests + doc perf ; métriques runtime à industrialiser). |
-| **Liens** | [TESTS.md](./TESTS.md), [PERFORMANCES.md](./PERFORMANCES.md), [STATUS.md](../STATUS.md) |
+| **Liens** | [TESTS.md](../operations/TESTS.md), [PERFORMANCES.md](../operations/PERFORMANCES.md), [STATUS.md](../../STATUS.md) |
 
 ### TR-07 — Synchronisation des données (web + mobile, cible)
 
@@ -94,11 +94,11 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Description** | Stratégie unifiée : quand et comment Drive, Mail, Calendar, Contacts, Photos, Pass se mettent à jour côté client et serveur, sans rechargement manuel si possible. |
 | **Objectif** | UX proche des suites grand public : liste à jour, conflits maîtrisés, mobile aligné sur la même API. |
 | **Mail (web actuel)** | Polling IMAP (~25 s, toutes les boîtes) + `invalidateQueries` : la **liste du dossier affiché** (réception, envoyés, brouillons, spam, corbeille, dossiers IMAP) se met à jour **sans F5**. **Brouillons** : pas d’instantané IMAP ; apparition après la prochaine sync qui lit **Drafts**. **Pas** de WebSocket mail pour l’instant. |
-| **Mail (serveur — gros chantier)** | **Archivage Cloudity** : étendre la sync pour stocker en base (corps + PJ) au-delà de la fenêtre IMAP courante, politique de rétention, recherche — voir APP-01 + [SYNC-BACKLOG.md](./SYNC-BACKLOG.md) §1. |
-| **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Photos (web)** : **`photos-service`** + `GET /photos/timeline`, `PhotosPage` — voir [PHOTOS.md](./PHOTOS.md). **Drive** : focus produit APP-02. |
+| **Mail (serveur — gros chantier)** | **Archivage Cloudity** : étendre la sync pour stocker en base (corps + PJ) au-delà de la fenêtre IMAP courante, politique de rétention, recherche — voir APP-01 + [SYNC-BACKLOG.md](SYNC-BACKLOG.md) §1. |
+| **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Photos (web)** : **`photos-service`** + `GET /photos/timeline`, `PhotosPage` — voir [PHOTOS.md](PHOTOS.md). **Drive** : focus produit APP-02. |
 | **Pass** | E2E client ; sync coffres via API existante ; alias mail depuis Pass → lien APP-01 + API alias. |
 | **Statut** | Partiel (Mail web avancé ; reste documenté ici pour implémentation progressive). |
-| **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](./SYNC-BACKLOG.md), [MOBILES.md](./MOBILES.md) § 5–6. |
+| **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](SYNC-BACKLOG.md), [MOBILES.md](MOBILES.md) § 5–6. |
 
 ---
 
@@ -138,7 +138,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Plateformes** | Web ; mobile édition limitée ou viewer (MOBILES.md). |
 | **Fonctionnalités** | TipTap / Luckysheet / slides ; export PDF, docx, xlsx, pptx ; menus type Office ; corbeille depuis l’éditeur. |
 | **Statut** | En cours. |
-| **Liens** | [editeur-docs.md](./editeur-docs.md), STATUS § 1b. |
+| **Liens** | [editeur-docs.md](editeur-docs.md), STATUS § 1b. |
 
 ### APP-04 — Pass (Password Manager)
 
@@ -206,7 +206,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Fonctionnalités — à faire** | Albums ; partage ; miniatures serveur ; **EXIF** `taken_at` en base ; app mobile + WorkManager (Wi‑Fi / charge) ; sync curseur. Reconnaissance faciale **opt-in** seulement après TR-01. |
 | **Backend** | **`photos-service`** (`GET /photos/timeline`, lecture `drive_nodes`) + gateway `/photos/*` ; `drive-service` garde `/drive/photos/timeline` en secours. Extensions futures : index `photo_assets`, miniatures serveur. |
 | **Statut** | **En cours** (MVP web + API timeline). |
-| **Liens** | [PHOTOS.md](./PHOTOS.md), `backend/drive-service/main.go`, `PhotosPage.tsx`. |
+| **Liens** | [PHOTOS.md](PHOTOS.md), `backend/drive-service/main.go`, `PhotosPage.tsx`. |
 
 ### APP-10 — AppHub / Suite (accueil utilisateur)
 
@@ -231,7 +231,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Plateformes** | Web (route `/admin` aujourd’hui ; URL dédiée cible § STATUS 0b). |
 | **Fonctionnalités** | Tenants, users, domaines, stats ; **à faire** : rôles fins, audit, séparation build `admin-console`, **parcours admin 100 % opérationnels** (toutes les actions du quotidien sans contournement). |
 | **Backend** | `admin-service`, parties `/mail/domains` via gateway. |
-| **Branche de travail typique** | `feat/admin-console-*` (voir [BRANCHES.md](./BRANCHES.md)). |
+| **Branche de travail typique** | `feat/admin-console-*` (voir [BRANCHES.md](../operations/BRANCHES.md)). |
 | **Statut** | MVP (à compléter pour exploitation admin « complète »). |
 
 ### ADM-02 — Application admin mobile
@@ -267,4 +267,4 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 
 ---
 
-*Fichier : **`docs/ROADMAP.md`**. Convention : à la **racine** du repo, **`README.md`** (entrée), **`STATUS.md`** (suivi) et **`BACKLOG.md`** (priorités actionnables) ; le catalogue produit détaillé vit ici. Dernière révision : 2026-04-11 (Photos API + web MVP).*
+*Fichier : **`docs/produit/ROADMAP.md`**. Convention : à la **racine** du repo, **`README.md`** (entrée), **`STATUS.md`** (suivi) et **`BACKLOG.md`** (priorités actionnables) ; le catalogue produit détaillé vit ici. Dernière révision : 2026-04-11 (Photos API + web MVP).*

@@ -1,6 +1,6 @@
 # Performances, diagnostic et allègement — Cloudity
 
-**Rôle** : inventaire **factuel** de la stack actuelle (langages, conteneurs, services), **objectifs** (léger, rapide, observable) et **pistes** (y compris alternatives « gros gains ») **sans sacrifier la sécurité** ni une **UX** digne d’une suite grand public. Ce document est une **feuille de route technique** : rien n’y est entièrement « livré » côté observabilité produit tant que le backlog associé ([BACKLOG.md](../BACKLOG.md), **TR-06** dans [ROADMAP.md](./ROADMAP.md)) n’est pas coché.
+**Rôle** : inventaire **factuel** de la stack actuelle (langages, conteneurs, services), **objectifs** (léger, rapide, observable) et **pistes** (y compris alternatives « gros gains ») **sans sacrifier la sécurité** ni une **UX** digne d’une suite grand public. Ce document est une **feuille de route technique** : rien n’y est entièrement « livré » côté observabilité produit tant que le backlog associé ([BACKLOG.md](../../BACKLOG.md), **TR-06** dans [ROADMAP.md](../produit/ROADMAP.md)) n’est pas coché.
 
 **Dernière mise à jour** : 2026-05-06.
 
@@ -69,17 +69,17 @@
 | **admin-dashboard** | React + Vite + TypeScript (Vitest) | **Bundle** client, **React Query**, listes virtuelles à étudier où nécessaire. |
 | **adminer**, **redis-commander** | Outils | Dev uniquement. |
 
-Fichiers de référence : [docker-compose.yml](../docker-compose.yml), variantes `docker-compose.*.yml`.
+Fichiers de référence : [docker-compose.yml](../../docker-compose.yml), variantes `docker-compose.*.yml`.
 
 ### 3.2 Clients mobiles
 
 | Composant | Technologie | Piste perf |
 |-----------|-------------|------------|
-| **mobile/** (Flutter) | Dart, moteur Flutter | `flutter run --profile`, DevTools CPU/Memory ; images cache, isolates pour parsing lourd — [MOBILES.md](./MOBILES.md). |
+| **mobile/** (Flutter) | Dart, moteur Flutter | `flutter run --profile`, DevTools CPU/Memory ; images cache, isolates pour parsing lourd — [MOBILES.md](../produit/MOBILES.md). |
 
 ### 3.3 Front web (admin-dashboard)
 
-- **Build** : Vite (ESM, tree-shaking) ; dépendance à [ARCHITECTURE-FRONTENDS.md](./ARCHITECTURE-FRONTENDS.md) pour découpage multi-apps.
+- **Build** : Vite (ESM, tree-shaking) ; dépendance à [ARCHITECTURE-FRONTENDS.md](../architecture/ARCHITECTURE-FRONTENDS.md) pour découpage multi-apps.
 - **Données** : TanStack Query (cache, `staleTime`, invalidations ciblées plutôt que « tout invalider »).
 - **Risques** : pages « monolitiques » (ex. Mail) → Profiler React + code splitting ciblé si les métriques le demandent.
 
@@ -104,12 +104,12 @@ Fichiers de référence : [docker-compose.yml](../docker-compose.yml), variantes
 |--------|------|------------|
 | **Pagination & filtres serveur** | Moins de données par réponse | Déjà partiellement en place (Mail, Drive) ; généraliser. |
 | **Cache HTTP / CDN** | Assets statiques, `Cache-Control` pour builds Vite | Ne pas mettre en cache des réponses **personnalisées** ou JWT. |
-| **Compression** | `gzip`/`brotli` au reverse proxy | TLS terminé correctement ([SECURITE.md](./SECURITE.md)). |
+| **Compression** | `gzip`/`brotli` au reverse proxy | TLS terminé correctement ([SECURITE.md](../securite/SECURITE.md)). |
 | **DB** | Index composés, éviter N+1, lectures read-only répliquées (futur) | Cohérence transactions. |
-| **IMAP / Mail** | Sync incrémentale, moins de `SELECT` redondants, fenêtres UID | Déjà documenté partiellement dans [SYNC-BACKLOG.md](./SYNC-BACKLOG.md). |
+| **IMAP / Mail** | Sync incrémentale, moins de `SELECT` redondants, fenêtres UID | Déjà documenté partiellement dans [SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md). |
 | **Gateway** | Connection pooling vers upstreams, timeouts explicites | Éviter les cascades de lenteur. |
 | **Front** | `React.lazy`, réduire re-renders (memo, contextes découpés) | Mesurer avec Profiler avant « memo partout ». |
-| **Images / Photos** | Tailles multiples, WebP/AVIF, lazy load | Chiffrement / E2EE selon produit ([SECURITE.md](./SECURITE.md)). |
+| **Images / Photos** | Tailles multiples, WebP/AVIF, lazy load | Chiffrement / E2EE selon produit ([SECURITE.md](../securite/SECURITE.md)). |
 
 ### Alternatives plus « radicales » (évaluation plus tard)
 
@@ -123,7 +123,7 @@ Ces options ne remplacent pas une **cartographie des lenteurs réelles**.
 
 ## 6. Lien avec la sécurité
 
-Toute optimisation doit rester compatible avec **[SECURITE.md](./SECURITE.md)** et **[SECURITE-DONNEES.md](./SECURITE-DONNEES.md)** : pas de désactivation des contrôles d’accès pour « aller plus vite », pas de cache partagé entre tenants, pas d’exposition de métriques sensibles sans auth.
+Toute optimisation doit rester compatible avec **[SECURITE.md](../securite/SECURITE.md)** et **[SECURITE-DONNEES.md](../securite/SECURITE-DONNEES.md)** : pas de désactivation des contrôles d’accès pour « aller plus vite », pas de cache partagé entre tenants, pas d’exposition de métriques sensibles sans auth.
 
 ---
 
@@ -131,19 +131,19 @@ Toute optimisation doit rester compatible avec **[SECURITE.md](./SECURITE.md)** 
 
 | Document | Complément |
 |----------|------------|
-| [TESTS.md](./TESTS.md) | Où brancher des tests de charge plus tard ; aujourd’hui `make test` = régression fonctionnelle. |
-| [STATUS.md](../STATUS.md) | Avancement produit ; mention des chantiers perf. |
-| [BACKLOG.md](../BACKLOG.md) | Ligne « Observabilité / performances ». |
-| [TODO.md](./TODO.md) | Rappels court terme. |
-| [PLAN.md](./PLAN.md) | Dépannage console / bruit mesuré vs erreur. |
-| [SYNC-BACKLOG.md](./SYNC-BACKLOG.md) | Perf côté sync (mail, mobile, session). |
-| [ROADMAP.md](./ROADMAP.md) | **TR-06** observabilité, qualité & performances. |
+| [TESTS.md](TESTS.md) | Où brancher des tests de charge plus tard ; aujourd’hui `make test` = régression fonctionnelle. |
+| [STATUS.md](../../STATUS.md) | Avancement produit ; mention des chantiers perf. |
+| [BACKLOG.md](../../BACKLOG.md) | Ligne « Observabilité / performances ». |
+| [TODO.md](TODO.md) | Rappels court terme. |
+| [PLAN.md](PLAN.md) | Dépannage console / bruit mesuré vs erreur. |
+| [SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md) | Perf côté sync (mail, mobile, session). |
+| [ROADMAP.md](../produit/ROADMAP.md) | **TR-06** observabilité, qualité & performances. |
 
 ---
 
 ## 8. Artefacts de profiling et Git
 
-**Recommandation** : ne pas committer systématiquement les exports `profiling-data*.json`, `Trace-*.json`, `Trace-*.tgz` (taille, bruit, risque d’informations contextuelles). Le dépôt ignore ces motifs via [.gitignore](../.gitignore) ; les conserver localement ou dans `reports/` éphémère selon votre flux CI. Un fichier **`profiling-data.27-02-2026.01-40-21.json`** ayant été versionné par erreur a été **retiré de l’index Git** (le fichier peut rester en local si besoin).
+**Recommandation** : ne pas committer systématiquement les exports `profiling-data*.json`, `Trace-*.json`, `Trace-*.tgz` (taille, bruit, risque d’informations contextuelles). Le dépôt ignore ces motifs via [.gitignore](../../.gitignore) ; les conserver localement ou dans `reports/` éphémère selon votre flux CI. Un fichier **`profiling-data.27-02-2026.01-40-21.json`** ayant été versionné par erreur a été **retiré de l’index Git** (le fichier peut rester en local si besoin).
 
 ---
 

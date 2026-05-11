@@ -1,6 +1,6 @@
 -- Migration : pass_items.format_version
 --
--- Suit la spec docs/PASS-CRYPTO.md : on étiquette chaque ciphertext avec la
+-- Suit la spec docs/securite/PASS-CRYPTO.md : on étiquette chaque ciphertext avec la
 -- version du format d'enveloppe utilisée par le client (1 = EnvelopeV1 :
 -- Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768).
 --
@@ -17,7 +17,7 @@ ALTER TABLE pass_items
 
 -- Les lignes pré-existantes restent à 0 → migration lazy côté client.
 COMMENT ON COLUMN pass_items.format_version IS
-    'Version d''enveloppe Pass-Crypto déclarée par le client (0 = legacy, 1 = EnvelopeV1, voir docs/PASS-CRYPTO.md).';
+    'Version d''enveloppe Pass-Crypto déclarée par le client (0 = legacy, 1 = EnvelopeV1, voir docs/securite/PASS-CRYPTO.md).';
 
 CREATE INDEX IF NOT EXISTS idx_pass_items_format_version
     ON pass_items (format_version);
