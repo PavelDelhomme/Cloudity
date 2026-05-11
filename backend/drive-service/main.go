@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"database/sql"
 	"errors"
 	"io"
@@ -184,11 +185,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, err = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
 		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
 			return
 		}
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -217,11 +226,12 @@ func (h *Handler) listNodes(c *gin.Context) {
 		c.JSON(http.StatusOK, []Node{})
 		return
 	}
+	ctx := c.Request.Context()
 	parentIDStr := c.Query("parent_id")
 	var rows *sql.Rows
 	var err error
 	if parentIDStr == "" || parentIDStr == "null" {
-		rows, err = h.db.Query(`
+		rows, err = h.dbex(ctx).Query(`
 			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
@@ -234,7 +244,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
 			return
 		}
-		rows, err = h.db.Query(`
+		rows, err = h.dbex(ctx).Query(`
 			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
@@ -282,6 +292,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 		c.JSON(http.StatusOK, []Node{})
 		return
 	}
+	ctx := c.Request.Context()
 	limit := 50
 	if l := c.Query("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 200 {
@@ -303,7 +314,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 	var rows *sql.Rows
 	var err error
 	if parentStr == "" || parentStr == "null" {
-		rows, err = h.db.Query(selectSearch+` ORDER BY n.is_folder DESC, n.name ASC LIMIT $2`, q, limit)
+		rows, err = h.dbex(ctx).Query(selectSearch+` ORDER BY n.is_folder DESC, n.name ASC LIMIT $2`, q, limit)
 	} else {
 		parentID, perr := strconv.Atoi(parentStr)
 		if perr != nil || parentID <= 0 {
@@ -320,7 +331,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 				WHERE c.deleted_at IS NULL AND c.user_id = current_setting('app.current_user_id', true)::INTEGER
 			)` + selectSearch + ` AND n.id IN (SELECT id FROM descendants)
 			ORDER BY n.is_folder DESC, n.name ASC LIMIT $2`
-		rows, err = h.db.Query(qTree, q, limit, parentID)
+		rows, err = h.dbex(ctx).Query(qTree, q, limit, parentID)
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -360,12 +371,13 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 		c.JSON(http.StatusOK, []Node{})
 		return
 	}
+	ctx := c.Request.Context()
 	limitStr := c.DefaultQuery("limit", "20")
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 || limit > 500 {
 		limit = 20
 	}
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
@@ -426,9 +438,10 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 		c.JSON(http.StatusOK, photosTimelinePage{Items: []Node{}, Limit: limit, Offset: offset, HasMore: false})
 		return
 	}
+	ctx := c.Request.Context()
 	// Demander une ligne de plus pour savoir s'il reste des pages (évite COUNT(*)).
 	fetch := limit + 1
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -500,9 +513,10 @@ func (h *Handler) createNode(c *gin.Context) {
 			tid = t
 		}
 	}
+	ctx := c.Request.Context()
 	var id int
 	if body.ParentID == nil || *body.ParentID == 0 {
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size) VALUES ($1, $2, NULL, $3, $4, 0)
 			RETURNING id
 		`, tid, uid, body.Name, body.IsFolder).Scan(&id)
@@ -510,7 +524,7 @@ func (h *Handler) createNode(c *gin.Context) {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
 				var existingID int
-				if selErr := h.db.QueryRow(`
+				if selErr := h.dbex(ctx).QueryRow(`
 					SELECT id FROM drive_nodes WHERE tenant_id = $1 AND user_id = $2 AND parent_id IS NULL AND name = $3 AND is_folder = $4 LIMIT 1
 				`, tid, uid, body.Name, body.IsFolder).Scan(&existingID); selErr == nil {
 					c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "id": existingID, "name": body.Name, "is_folder": body.IsFolder, "message": "Un fichier ou dossier avec ce nom existe déjà"})
@@ -529,7 +543,7 @@ func (h *Handler) createNode(c *gin.Context) {
 			return
 		}
 	} else {
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size) VALUES ($1, $2, $3, $4, $5, 0)
 			RETURNING id
 		`, tid, uid, *body.ParentID, body.Name, body.IsFolder).Scan(&id)
@@ -537,7 +551,7 @@ func (h *Handler) createNode(c *gin.Context) {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
 				var existingID int
-				if selErr := h.db.QueryRow(`
+				if selErr := h.dbex(ctx).QueryRow(`
 					SELECT id FROM drive_nodes WHERE tenant_id = $1 AND user_id = $2 AND parent_id = $3 AND name = $4 AND is_folder = $5 LIMIT 1
 				`, tid, uid, *body.ParentID, body.Name, body.IsFolder).Scan(&existingID); selErr == nil {
 					c.JSON(http.StatusConflict, gin.H{"error": "file_exists", "code": "FILE_EXISTS", "id": existingID, "name": body.Name, "is_folder": body.IsFolder, "message": "Un fichier ou dossier avec ce nom existe déjà"})
@@ -582,9 +596,10 @@ func (h *Handler) updateNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name or parent_id required"})
 		return
 	}
+	ctx := c.Request.Context()
 	// Mise à jour name et/ou parent_id
 	if body.Name != "" && body.ParentID == nil {
-		res, err := h.db.Exec(`
+		res, err := h.dbex(ctx).Exec(`
 			UPDATE drive_nodes SET name = $1, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		`, body.Name, id)
@@ -604,7 +619,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 		// Déplacer le nœud (éviter de déplacer dans un de ses descendants)
 		var currentParent *int
 		var isFolder bool
-		if err := h.db.QueryRow(`SELECT parent_id, is_folder FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL`, id).Scan(&currentParent, &isFolder); err == sql.ErrNoRows {
+		if err := h.dbex(ctx).QueryRow(`SELECT parent_id, is_folder FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL`, id).Scan(&currentParent, &isFolder); err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 			return
 		} else if err != nil {
@@ -626,7 +641,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 			check := *newParentNullable
 			for check > 0 {
 				var pid *int
-				if err := h.db.QueryRow(`SELECT parent_id FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, check).Scan(&pid); err != nil || pid == nil {
+				if err := h.dbex(ctx).QueryRow(`SELECT parent_id FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, check).Scan(&pid); err != nil || pid == nil {
 					break
 				}
 				if *pid == id {
@@ -636,7 +651,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 				check = *pid
 			}
 		}
-		res, err := h.db.Exec(`
+		res, err := h.dbex(ctx).Exec(`
 			UPDATE drive_nodes SET parent_id = $1, updated_at = CURRENT_TIMESTAMP
 			WHERE id = $2 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		`, newParentNullable, id)
@@ -651,7 +666,7 @@ func (h *Handler) updateNode(c *gin.Context) {
 		}
 		name := body.Name
 		if name == "" {
-			h.db.QueryRow(`SELECT name FROM drive_nodes WHERE id = $1`, id).Scan(&name)
+			h.dbex(ctx).QueryRow(`SELECT name FROM drive_nodes WHERE id = $1`, id).Scan(&name)
 		}
 		out := gin.H{"id": id, "name": name}
 		if newParentNullable != nil {
@@ -676,7 +691,8 @@ func (h *Handler) deleteNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE drive_nodes SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 	`, id)
 	if err != nil {
@@ -696,7 +712,8 @@ func (h *Handler) listTrash(c *gin.Context) {
 		c.JSON(http.StatusOK, []Node{})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, ''), deleted_at::text
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
@@ -742,7 +759,8 @@ func (h *Handler) restoreNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE drive_nodes SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
 	`, id)
 	if err != nil {
@@ -768,7 +786,8 @@ func (h *Handler) purgeNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NOT NULL
 	`, id)
 	if err != nil {
@@ -794,10 +813,11 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var name string
 	var content []byte
 	var mime sql.NullString
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 	`, id).Scan(&name, &content, &mime)
@@ -861,8 +881,9 @@ func (h *Handler) getZipEntries(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var content []byte
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT COALESCE(content, ''::bytea) FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 	`, id).Scan(&content)
@@ -922,9 +943,10 @@ func (h *Handler) downloadFolderZip(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var name string
 	var isFolder bool
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		SELECT name, is_folder FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 	`, id).Scan(&name, &isFolder)
@@ -942,7 +964,7 @@ func (h *Handler) downloadFolderZip(c *gin.Context) {
 	}
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
-	if err := h.addFolderToZip(w, id, name+"/"); err != nil {
+	if err := h.addFolderToZip(ctx, w, id, name+"/"); err != nil {
 		w.Close()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -961,8 +983,8 @@ func (h *Handler) downloadFolderZip(c *gin.Context) {
 }
 
 // addFolderToZip ajoute récursivement le contenu du dossier dans le zip (prefix = chemin dans l'archive).
-func (h *Handler) addFolderToZip(w *zip.Writer, folderID int, prefix string) error {
-	rows, err := h.db.Query(`
+func (h *Handler) addFolderToZip(ctx context.Context, w *zip.Writer, folderID int, prefix string) error {
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, name, is_folder, content, COALESCE(mime_type, '')
 		FROM drive_nodes
 		WHERE parent_id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
@@ -986,7 +1008,7 @@ func (h *Handler) addFolderToZip(w *zip.Writer, folderID int, prefix string) err
 		}
 		entryPath := prefix + safeName
 		if isFolder {
-			if err := h.addFolderToZip(w, nodeID, entryPath+"/"); err != nil {
+			if err := h.addFolderToZip(ctx, w, nodeID, entryPath+"/"); err != nil {
 				return err
 			}
 		} else {
@@ -1020,6 +1042,7 @@ func (h *Handler) downloadArchiveZip(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "max 100 nodes"})
 		return
 	}
+	ctx := c.Request.Context()
 	var buf bytes.Buffer
 	w := zip.NewWriter(&buf)
 	seen := make(map[int]bool)
@@ -1030,7 +1053,7 @@ func (h *Handler) downloadArchiveZip(c *gin.Context) {
 		seen[nodeID] = true
 		var name string
 		var isFolder bool
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			SELECT name, is_folder FROM drive_nodes
 			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		`, nodeID).Scan(&name, &isFolder)
@@ -1047,14 +1070,14 @@ func (h *Handler) downloadArchiveZip(c *gin.Context) {
 			safeName = "file"
 		}
 		if isFolder {
-			if err := h.addFolderToZip(w, nodeID, safeName+"/"); err != nil {
+			if err := h.addFolderToZip(ctx, w, nodeID, safeName+"/"); err != nil {
 				w.Close()
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
 		} else {
 			var content []byte
-			if err := h.db.QueryRow(`
+			if err := h.dbex(ctx).QueryRow(`
 				SELECT COALESCE(content, ''::bytea) FROM drive_nodes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 			`, nodeID).Scan(&content); err != nil {
 				w.Close()
@@ -1105,7 +1128,8 @@ func (h *Handler) putNodeContent(c *gin.Context) {
 		mimeType = "application/octet-stream"
 	}
 	size := int64(len(body))
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
 	`, body, size, mimeType, id)
@@ -1169,11 +1193,12 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		mimeType = ct
 	}
 	size := int64(len(content))
+	ctx := c.Request.Context()
 
 	if overwrite {
 		var existingID int
 		if parentIDStr == "" || parentIDStr == "null" {
-			err = h.db.QueryRow(`
+			err = h.dbex(ctx).QueryRow(`
 				SELECT id FROM drive_nodes
 				WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id IS NULL AND name = $1 AND is_folder = false
 			`, name).Scan(&existingID)
@@ -1183,13 +1208,13 @@ func (h *Handler) uploadFile(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
 				return
 			}
-			err = h.db.QueryRow(`
+			err = h.dbex(ctx).QueryRow(`
 				SELECT id FROM drive_nodes
 				WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND parent_id = $1 AND name = $2 AND is_folder = false
 			`, parentID, name).Scan(&existingID)
 		}
 		if err == nil {
-			_, err = h.db.Exec(`
+			_, err = h.dbex(ctx).Exec(`
 				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
 				WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
 			`, content, size, mimeType, existingID)
@@ -1208,7 +1233,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 
 	var id int
 	if parentIDStr == "" || parentIDStr == "null" {
-		err = h.db.QueryRow(`
+		err = h.dbex(ctx).QueryRow(`
 			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content)
 			VALUES ($1, $2, NULL, $3, false, $4, $5, $6) RETURNING id
 		`, tid, uid, name, size, mimeType, content).Scan(&id)
@@ -1218,7 +1243,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
 			return
 		}
-		err = h.db.QueryRow(`
+		err = h.dbex(ctx).QueryRow(`
 			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content)
 			VALUES ($1, $2, $3, $4, false, $5, $6, $7) RETURNING id
 		`, tid, uid, parentID, name, size, mimeType, content).Scan(&id)

@@ -76,7 +76,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, _ = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
+			return
+		}
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -108,7 +120,8 @@ func (h *Handler) listLists(c *gin.Context) {
 		c.JSON(http.StatusOK, []TaskList{})
 		return
 	}
-	rows, err := h.db.Query(`SELECT id, tenant_id, user_id, name, created_at::text, COALESCE(updated_at::text, '') FROM task_lists WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY name`)
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`SELECT id, tenant_id, user_id, name, created_at::text, COALESCE(updated_at::text, '') FROM task_lists WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY name`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -147,8 +160,9 @@ func (h *Handler) createList(c *gin.Context) {
 			tenantID = tid
 		}
 	}
+	ctx := c.Request.Context()
 	var id int
-	if err := h.db.QueryRow(`INSERT INTO task_lists (tenant_id, user_id, name) VALUES ($1, $2, $3) RETURNING id`, tenantID, userID, body.Name).Scan(&id); err != nil {
+	if err := h.dbex(ctx).QueryRow(`INSERT INTO task_lists (tenant_id, user_id, name) VALUES ($1, $2, $3) RETURNING id`, tenantID, userID, body.Name).Scan(&id); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -160,17 +174,18 @@ func (h *Handler) listTasks(c *gin.Context) {
 		c.JSON(http.StatusOK, []Task{})
 		return
 	}
+	ctx := c.Request.Context()
 	listID := c.Query("list_id")
 	var rows *sql.Rows
 	var err error
 	if listID == "" {
-		rows, err = h.db.Query(`
+		rows, err = h.dbex(ctx).Query(`
 			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
 			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY completed, due_at NULLS LAST, created_at
 		`)
 	} else {
 		lid, _ := strconv.Atoi(listID)
-		rows, err = h.db.Query(`
+		rows, err = h.dbex(ctx).Query(`
 			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
 			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND list_id = $1 ORDER BY completed, due_at NULLS LAST, created_at
 		`, lid)
@@ -236,8 +251,9 @@ func (h *Handler) createTask(c *gin.Context) {
 	} else {
 		rr = nil
 	}
+	ctx := c.Request.Context()
 	var id int
-	err := h.db.QueryRow(`INSERT INTO tasks (tenant_id, user_id, list_id, title, due_at, repeat_rule) VALUES ($1, $2, $3, $4, $5::timestamptz, $6) RETURNING id`,
+	err := h.dbex(ctx).QueryRow(`INSERT INTO tasks (tenant_id, user_id, list_id, title, due_at, repeat_rule) VALUES ($1, $2, $3, $4, $5::timestamptz, $6) RETURNING id`,
 		tenantID, userID, body.ListID, body.Title, body.DueAt, rr).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -308,7 +324,8 @@ func (h *Handler) updateTask(c *gin.Context) {
 		strings.Join(parts, ", "),
 		argN,
 	)
-	res, err := h.db.Exec(q, args...)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -331,7 +348,8 @@ func (h *Handler) deleteTask(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM tasks WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`DELETE FROM tasks WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

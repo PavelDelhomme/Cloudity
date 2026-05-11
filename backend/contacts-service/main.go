@@ -75,7 +75,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, _ = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
+			return
+		}
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -96,7 +108,8 @@ func (h *Handler) listContacts(c *gin.Context) {
 		c.JSON(http.StatusOK, []Contact{})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, name, email, phone, created_at::text, COALESCE(updated_at::text, '')
 		FROM contacts
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -138,10 +151,11 @@ func (h *Handler) getContact(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	ctx := c.Request.Context()
 	var x Contact
 	var phone sql.NullString
 	var uat string
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT id, tenant_id, user_id, name, email, phone, created_at::text, COALESCE(updated_at::text, '')
 		FROM contacts
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -192,8 +206,9 @@ func (h *Handler) createContact(c *gin.Context) {
 		}
 	}
 	phone := strings.TrimSpace(body.Phone)
+	ctx := c.Request.Context()
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO contacts (tenant_id, user_id, name, email, phone)
 		VALUES ($1, $2, $3, $4, NULLIF($5, ''))
 		RETURNING id
@@ -244,7 +259,8 @@ func (h *Handler) importContacts(c *gin.Context) {
 		mode = "skip"
 	}
 
-	rows, err := h.db.Query(`SELECT id, email FROM contacts WHERE user_id = $1`, userID)
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`SELECT id, email FROM contacts WHERE user_id = $1`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -288,7 +304,7 @@ func (h *Handler) importContacts(c *gin.Context) {
 
 		if id, ok := emailToID[email]; ok {
 			if mode == "update" {
-				_, err := h.db.Exec(`
+				_, err := h.dbex(ctx).Exec(`
 					UPDATE contacts SET name = $1, phone = NULLIF($2, ''), updated_at = CURRENT_TIMESTAMP
 					WHERE id = $3 AND user_id = $4
 				`, name, phone, id, userID)
@@ -304,7 +320,7 @@ func (h *Handler) importContacts(c *gin.Context) {
 		}
 
 		var newID int
-		err := h.db.QueryRow(`
+		err := h.dbex(ctx).QueryRow(`
 			INSERT INTO contacts (tenant_id, user_id, name, email, phone)
 			VALUES ($1, $2, $3, $4, NULLIF($5, ''))
 			RETURNING id
@@ -375,7 +391,8 @@ func (h *Handler) updateContact(c *gin.Context) {
 	updates = append(updates, "updated_at = CURRENT_TIMESTAMP")
 	args = append(args, id)
 	q := `UPDATE contacts SET ` + strings.Join(updates, ", ") + ` WHERE id = $` + strconv.Itoa(pos) + ` AND user_id = current_setting('app.current_user_id', true)::INTEGER`
-	res, err := h.db.Exec(q, args...)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -398,7 +415,8 @@ func (h *Handler) deleteContact(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM contacts WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`DELETE FROM contacts WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -76,7 +77,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, _ = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
+			return
+		}
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -107,12 +120,12 @@ type Event struct {
 	UpdatedAt   string  `json:"updated_at"`
 }
 
-func (h *Handler) ensureDefaultCalendar(userID, tenantID int) (int, error) {
+func (h *Handler) ensureDefaultCalendar(ctx context.Context, userID, tenantID int) (int, error) {
 	if h.db == nil {
 		return 0, fmt.Errorf("no db")
 	}
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		SELECT id FROM user_calendars
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		ORDER BY sort_order ASC, id ASC LIMIT 1
@@ -123,15 +136,15 @@ func (h *Handler) ensureDefaultCalendar(userID, tenantID int) (int, error) {
 	if err != sql.ErrNoRows {
 		return 0, err
 	}
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO user_calendars (tenant_id, user_id, name, color_hex, sort_order)
 		VALUES ($1, $2, 'Mon agenda', '#1a73e8', 0) RETURNING id
 	`, tenantID, userID).Scan(&id)
 	return id, err
 }
 
-func (h *Handler) loadUserCalendarsList() ([]UserCalendar, error) {
-	rows, err := h.db.Query(`
+func (h *Handler) loadUserCalendarsList(ctx context.Context) ([]UserCalendar, error) {
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, name, color_hex, sort_order, created_at::text, COALESCE(updated_at::text, '')
 		FROM user_calendars
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -162,7 +175,8 @@ func (h *Handler) listCalendars(c *gin.Context) {
 		c.JSON(http.StatusOK, []UserCalendar{})
 		return
 	}
-	list, err := h.loadUserCalendarsList()
+	ctx := c.Request.Context()
+	list, err := h.loadUserCalendarsList(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -175,11 +189,11 @@ func (h *Handler) listCalendars(c *gin.Context) {
 				tenantID = tid
 			}
 		}
-		if _, err := h.ensureDefaultCalendar(userID, tenantID); err != nil {
+		if _, err := h.ensureDefaultCalendar(ctx, userID, tenantID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		list, err = h.loadUserCalendarsList()
+		list, err = h.loadUserCalendarsList(ctx)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -217,10 +231,11 @@ func (h *Handler) createCalendar(c *gin.Context) {
 			tenantID = tid
 		}
 	}
+	ctx := c.Request.Context()
 	var maxSort int
-	_ = h.db.QueryRow(`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM user_calendars WHERE user_id = $1`, userID).Scan(&maxSort)
+	_ = h.dbex(ctx).QueryRow(`SELECT COALESCE(MAX(sort_order), -1) + 1 FROM user_calendars WHERE user_id = $1`, userID).Scan(&maxSort)
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO user_calendars (tenant_id, user_id, name, color_hex, sort_order)
 		VALUES ($1, $2, $3, $4, $5) RETURNING id
 	`, tenantID, userID, name, color, maxSort).Scan(&id)
@@ -236,6 +251,7 @@ func (h *Handler) listEvents(c *gin.Context) {
 		c.JSON(http.StatusOK, []Event{})
 		return
 	}
+	ctx := c.Request.Context()
 	calQ := strings.TrimSpace(c.Query("calendar_id"))
 	base := `
 		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, created_at::text, COALESCE(updated_at::text, '')
@@ -248,9 +264,9 @@ func (h *Handler) listEvents(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid calendar_id"})
 			return
 		}
-		rows, err = h.db.Query(base+` AND calendar_id = $1 ORDER BY start_at`, cid)
+		rows, err = h.dbex(ctx).Query(base+` AND calendar_id = $1 ORDER BY start_at`, cid)
 	} else {
-		rows, err = h.db.Query(base + ` ORDER BY start_at`)
+		rows, err = h.dbex(ctx).Query(base + ` ORDER BY start_at`)
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -308,10 +324,11 @@ func (h *Handler) createEvent(c *gin.Context) {
 			tenantID = tid
 		}
 	}
+	ctx := c.Request.Context()
 	calID := 0
 	if body.CalendarID != nil && *body.CalendarID > 0 {
 		var ok bool
-		_ = h.db.QueryRow(`
+		_ = h.dbex(ctx).QueryRow(`
 			SELECT true FROM user_calendars
 			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 		`, *body.CalendarID).Scan(&ok)
@@ -321,14 +338,14 @@ func (h *Handler) createEvent(c *gin.Context) {
 	}
 	if calID == 0 {
 		var err error
-		calID, err = h.ensureDefaultCalendar(userID, tenantID)
+		calID, err = h.ensureDefaultCalendar(ctx, userID, tenantID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 	}
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO calendar_events (tenant_id, user_id, calendar_id, title, start_at, end_at, all_day, location, description)
 		VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9) RETURNING id
 	`, tenantID, userID, calID, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description).Scan(&id)
@@ -362,9 +379,10 @@ func (h *Handler) updateEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
+	ctx := c.Request.Context()
 	if body.CalendarID != nil && *body.CalendarID > 0 {
 		var ok bool
-		_ = h.db.QueryRow(`
+		_ = h.dbex(ctx).QueryRow(`
 			SELECT true FROM user_calendars
 			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 		`, *body.CalendarID).Scan(&ok)
@@ -373,7 +391,7 @@ func (h *Handler) updateEvent(c *gin.Context) {
 			return
 		}
 	}
-	res, err := h.db.Exec(`
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE calendar_events SET
 			title = COALESCE($1, title),
 			start_at = COALESCE($2::timestamptz, start_at),
@@ -407,7 +425,8 @@ func (h *Handler) deleteEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM calendar_events WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`DELETE FROM calendar_events WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -83,11 +83,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid X-User-ID"})
 		return
 	}
-	_, err = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+	ctx := c.Request.Context()
+	conn, err := h.db.Conn(ctx)
 	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+		return
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
 		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
 		return
 	}
+	pin := &pinnedConn{conn: conn, ctx: ctx}
+	c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	c.Next()
 }
 
@@ -112,7 +120,8 @@ type Vault struct {
 }
 
 func (h *Handler) listVaults(c *gin.Context) {
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, user_id, tenant_id, name, created_at::text, COALESCE(updated_at::text, '')
 		FROM pass_vaults ORDER BY created_at DESC
 	`)
@@ -155,8 +164,9 @@ func (h *Handler) createVault(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "X-Tenant-ID required"})
 		return
 	}
+	ctx := c.Request.Context()
 	var id int
-	err := h.db.QueryRow(`
+	err := h.dbex(ctx).QueryRow(`
 		INSERT INTO pass_vaults (user_id, tenant_id, name)
 		VALUES (current_setting('app.current_user_id')::int, $1, $2)
 		RETURNING id
@@ -199,7 +209,8 @@ func (h *Handler) listItems(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vault id"})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, vault_id, ciphertext, COALESCE(format_version, 0), created_at::text, COALESCE(updated_at::text, '')
 		FROM pass_items WHERE vault_id = $1 ORDER BY created_at DESC
 	`, vid)
@@ -248,8 +259,9 @@ func (h *Handler) addItem(c *gin.Context) {
 		}
 		fv = v
 	}
+	ctx := c.Request.Context()
 	var id int
-	err = h.db.QueryRow(`
+	err = h.dbex(ctx).QueryRow(`
 		INSERT INTO pass_items (vault_id, ciphertext, format_version)
 		SELECT $1, $2, $3 FROM pass_vaults WHERE id = $1 AND user_id = current_setting('app.current_user_id')::int
 		RETURNING id
@@ -289,7 +301,8 @@ func (h *Handler) updateItem(c *gin.Context) {
 		}
 		fv = v
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		UPDATE pass_items SET ciphertext = $2, format_version = $3, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND vault_id IN (SELECT id FROM pass_vaults WHERE user_id = current_setting('app.current_user_id')::int)
 	`, iid, body.Ciphertext, fv)
@@ -310,7 +323,8 @@ func (h *Handler) updateItem(c *gin.Context) {
 // § 9). Source : fonction Postgres pass_format_version_stats() (SECURITY
 // DEFINER, contourne RLS pour count uniquement, jamais les ciphertext).
 func (h *Handler) adminFormatVersions(c *gin.Context) {
-	rows, err := h.db.Query(`SELECT format_version, item_count FROM pass_format_version_stats()`)
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`SELECT format_version, item_count FROM pass_format_version_stats()`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -345,7 +359,8 @@ func (h *Handler) deleteItem(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid item id"})
 		return
 	}
-	res, err := h.db.Exec(`
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM pass_items
 		WHERE id = $1 AND vault_id IN (SELECT id FROM pass_vaults WHERE user_id = current_setting('app.current_user_id')::int)
 	`, iid)

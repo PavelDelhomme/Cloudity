@@ -72,7 +72,22 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, _ = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
+			return
+		}
+		// On épingle la conn dans le ctx Go : tous les handlers utilisent
+		// h.dbex(ctx) et tombent sur cette conn pour la durée de la requête.
+		// Le defer conn.Close() la rend au pool après c.Next().
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -92,7 +107,8 @@ func (h *Handler) listNotes(c *gin.Context) {
 		c.JSON(http.StatusOK, []Note{})
 		return
 	}
-	rows, err := h.db.Query(`
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, title, content, created_at::text, COALESCE(updated_at::text, '')
 		FROM notes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY updated_at DESC NULLS LAST, created_at DESC
 	`)
@@ -135,8 +151,9 @@ func (h *Handler) createNote(c *gin.Context) {
 			tenantID = tid
 		}
 	}
+	ctx := c.Request.Context()
 	var id int
-	err := h.db.QueryRow(`INSERT INTO notes (tenant_id, user_id, title, content) VALUES ($1, $2, $3, $4) RETURNING id`,
+	err := h.dbex(ctx).QueryRow(`INSERT INTO notes (tenant_id, user_id, title, content) VALUES ($1, $2, $3, $4) RETURNING id`,
 		tenantID, userID, body.Title, body.Content).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -163,7 +180,8 @@ func (h *Handler) updateNote(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	res, err := h.db.Exec(`UPDATE notes SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, body.Title, body.Content, id)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`UPDATE notes SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, body.Title, body.Content, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -186,7 +204,8 @@ func (h *Handler) deleteNote(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
-	res, err := h.db.Exec(`DELETE FROM notes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`DELETE FROM notes WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -94,11 +94,19 @@ func (h *Handler) requireUserID(c *gin.Context) {
 		return
 	}
 	if h.db != nil {
-		_, err = h.db.Exec("SELECT set_config('app.current_user_id', $1, false)", uid)
+		ctx := c.Request.Context()
+		conn, err := h.db.Conn(ctx)
 		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to acquire DB connection"})
+			return
+		}
+		defer conn.Close()
+		if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", uid); err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
 			return
 		}
+		pin := &pinnedConn{conn: conn, ctx: ctx}
+		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
 	c.Next()
 }
@@ -121,8 +129,9 @@ func (h *Handler) listTimeline(c *gin.Context) {
 		c.JSON(http.StatusOK, timelinePage{Items: []DriveNodeRef{}, Limit: limit, Offset: offset, HasMore: false})
 		return
 	}
+	ctx := c.Request.Context()
 	fetch := limit + 1
-	rows, err := h.db.Query(`
+	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
