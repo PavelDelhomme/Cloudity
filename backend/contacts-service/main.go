@@ -120,7 +120,7 @@ func (h *Handler) listContacts(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Contact
+	list := make([]Contact, 0)
 	for rows.Next() {
 		var x Contact
 		var phone sql.NullString

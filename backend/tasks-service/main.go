@@ -127,7 +127,7 @@ func (h *Handler) listLists(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []TaskList
+	list := make([]TaskList, 0)
 	for rows.Next() {
 		var l TaskList
 		var uat string
@@ -195,7 +195,7 @@ func (h *Handler) listTasks(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Task
+	list := make([]Task, 0)
 	for rows.Next() {
 		var t Task
 		var lid sql.NullInt64

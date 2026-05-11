@@ -219,7 +219,7 @@ func (h *Handler) listItems(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Item
+	list := make([]Item, 0)
 	for rows.Next() {
 		var it Item
 		var uat string

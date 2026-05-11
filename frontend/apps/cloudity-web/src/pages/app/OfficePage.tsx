@@ -31,11 +31,14 @@ export default function OfficePage() {
   const navigate = useNavigate()
   const { accessToken } = useAuth()
 
-  const { data: recentFiles = [] } = useQuery({
+  const { data: recentFilesRaw } = useQuery({
     queryKey: ['drive', 'recent'],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 15),
     enabled: Boolean(accessToken),
   })
+  // L'API peut retourner null (vs []) quand la liste est vide — coalesce ici
+  // pour éviter `recentFiles.length` sur null (cf. drive-service /nodes/recent).
+  const recentFiles = recentFilesRaw ?? []
 
   const handleNewDocument = async () => {
     if (!accessToken) {

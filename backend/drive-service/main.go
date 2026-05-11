@@ -257,7 +257,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Node
+	list := make([]Node, 0)
 	for rows.Next() {
 		var n Node
 		var pid sql.NullInt64
@@ -338,7 +338,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Node
+	list := make([]Node, 0)
 	for rows.Next() {
 		var n Node
 		var pid sql.NullInt64
@@ -389,7 +389,7 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Node
+	list := make([]Node, 0)
 	for rows.Next() {
 		var n Node
 		var pid sql.NullInt64
@@ -459,7 +459,7 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Node
+	list := make([]Node, 0)
 	for rows.Next() {
 		var n Node
 		var pid sql.NullInt64
@@ -724,7 +724,7 @@ func (h *Handler) listTrash(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Node
+	list := make([]Node, 0)
 	for rows.Next() {
 		var n Node
 		var pid sql.NullInt64

@@ -149,7 +149,7 @@ func (h *Handler) listTimeline(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []DriveNodeRef
+	list := make([]DriveNodeRef, 0)
 	for rows.Next() {
 		var n DriveNodeRef
 		var pid sql.NullInt64

@@ -117,7 +117,7 @@ func (h *Handler) listNotes(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Note
+	list := make([]Note, 0)
 	for rows.Next() {
 		var n Note
 		var uat string

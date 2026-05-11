@@ -392,7 +392,7 @@ export default function PhotosPage() {
 
   const flatItems = useMemo(() => {
     const pages = photosQuery.data?.pages ?? []
-    return pages.flatMap((p) => p.items)
+    return pages.flatMap((p) => p.items ?? [])
   }, [photosQuery.data?.pages])
 
   const sections = useMemo(() => groupTimelineByDay(flatItems), [flatItems])

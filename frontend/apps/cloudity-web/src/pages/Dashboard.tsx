@@ -1,5 +1,7 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Activity, AlertTriangle, Building2, Database, History, Shield, Users } from 'lucide-react'
 import { useAuth } from '../authContext'
 import {
   fetchBudgetStatus,

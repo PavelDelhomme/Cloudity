@@ -154,7 +154,7 @@ func (h *Handler) loadUserCalendarsList(ctx context.Context) ([]UserCalendar, er
 		return nil, err
 	}
 	defer rows.Close()
-	var list []UserCalendar
+	list := make([]UserCalendar, 0)
 	for rows.Next() {
 		var x UserCalendar
 		var uat string
@@ -273,7 +273,7 @@ func (h *Handler) listEvents(c *gin.Context) {
 		return
 	}
 	defer rows.Close()
-	var list []Event
+	list := make([]Event, 0)
 	for rows.Next() {
 		var e Event
 		var loc, desc sql.NullString
