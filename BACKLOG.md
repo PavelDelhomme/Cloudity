@@ -47,6 +47,21 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ---
 
+## Sprint fin mai 2026 — cible migration type Proton
+
+Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Photos** ; **Pass** au minimum **web** fiable ; **app Pass mobile** et **extension navigateur Pass** dès que le contrat API / UX web est figé.
+
+| Bloc | Web | Mobile | Notes |
+|------|-----|--------|-------|
+| **Photos** (galerie + sync) | Timeline, albums partiels, upload | `mobile/photos` : timeline paginée (`offset`) ; **à renforcer** : **WorkManager**, reprise après coupure, option Wi‑Fi uniquement — **PHOTOS.md** § 4–5, **MOBILES.md** |
+| **Mail** (dont alias) | Très avancé ; alias boîte **MVP** ; alias domaine (**`/4dm1n`** → Domaines) | `mobile/mail` : envoi, PJ, dossiers ; **reste** : brouillon serveur, push — **MOBILES.md** § 5 |
+| **Drive** | Récents, corbeille, recherche `?q=` | `mobile/drive` : navigation dossiers ; vérifier **upload** / téléchargement vs besoin Proton |
+| **Pass** | MVP coffre web | **Pas de `mobile/pass` dans le dépôt** — à créer (Flutter + `path: ../cloudity_shared`) ; **extension** : chantier **non démarré** (cible **MV3**, dossier type `extensions/cloudity-pass/`) — **ROADMAP APP-04** |
+
+**Checklist tests manuels** (toi, après `make up` + compte) : **Mail** envoi/réception, PJ, création **alias boîte** + réception ; **alias domaine** (admin + DNS si domaine réel) ; **Drive** upload + corbeille + recherche ; **Photos** import web + même compte sur **app mobile** ; **Pass** CRUD + session.
+
+---
+
 ## À faire (extraits — non exhaustif)
 
 ### Infra base de données (migrations)
@@ -55,6 +70,9 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ### Sécurité & infra (voir **SECURITE.md**)
 
+- [x] **Gateway — anti-énumération & durcissement** : 404/405 JSON homogènes ; en-têtes `nosniff` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` ; rate limit global + **login/register** ; `429` en JSON ; **`Cache-Control: no-store`** sur `/auth/*`, `/pass/*`, `/admin/*` ; auth : message inscription doublon générique, plancher temps réponse login — **SECURITE.md** § 6.1, tests `TestSensitivePath_*`, `TestLoginRateLimit_*`, `TestUnknownPath_*`.
+- [x] **Frontend** : `public/robots.txt` (`Disallow` `/4dm1n`, `/admin`, `/auth/`, etc.) ; navigation **shell utilisateur ↔ admin** en pleine page (`window.location.assign`) pour charger le bon bundle.
+- [ ] **Prod / reverse proxy** : confirmer qu’aucune couche ne **strip** `Cache-Control`, CSP, HSTS — **REVERSE-PROXY.md** ; WAF / rate limit **par IP** en complément du gateway.
 - [x] **Remédiation dépendances front (suite `make test-security`)** : lot `admin-dashboard` traité (MAJ contrôlées tooling + dépendances). **`xlsx` retiré** au profit de `read-excel-file` / `write-excel-file` dans l’éditeur Office ; revalidation Vitest/Playwright OK, audit npm dashboard à 0 vulnérabilité.
 - [x] **Qualification/remédiation `govulncheck` (services Go)** : standardisation du scan sécurité sur toolchain patchée (`golang:1.25.9-alpine`) + MAJ `golang.org/x/net` sur `photos-service` + alignement des images Go dev (`1.25`) ; `make test-security` vert côté govulncheck.
 - [ ] **Phase 1** : versioning Drive + corbeille unifiée (si pas déjà complet côté produit) ; politique **snapshots** à trancher.

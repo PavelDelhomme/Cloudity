@@ -96,10 +96,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
         limit: _pageSize,
         offset: reset ? 0 : _offset,
       );
-      if (data['items'] is! List) {
-        throw AuthException('Réponse timeline invalide');
-      }
-      final raw = (data['items'] as List).cast<dynamic>().map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      final itemsVal = data['items'];
+      final raw = itemsVal is List
+          ? itemsVal.cast<dynamic>().map((e) => Map<String, dynamic>.from(e as Map)).toList()
+          : <Map<String, dynamic>>[];
       final more = data['has_more'] == true;
       if (!mounted) return;
       setState(() {
@@ -124,8 +124,10 @@ class _TimelineScreenState extends State<TimelineScreen> {
             limit: _pageSize,
             offset: reset ? 0 : _offset,
           );
-          final raw =
-              (data['items'] as List).cast<dynamic>().map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final itemsVal = data['items'];
+          final raw = itemsVal is List
+              ? itemsVal.cast<dynamic>().map((e) => Map<String, dynamic>.from(e as Map)).toList()
+              : <Map<String, dynamic>>[];
           if (!mounted) return;
           setState(() {
             if (reset) {

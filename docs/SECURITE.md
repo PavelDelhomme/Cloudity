@@ -122,6 +122,8 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 
 **Limites** : un attaquant peut toujours distinguer « route existe » vs « 404 » si le comportement applicatif diffère (taille de corps, latence backend). L’alignement **404/405** et les messages **génériques** réduisent la surface ; la **défense principale** reste l’**auth forte**, les **logs**, le **WAF** et la **segmentation réseau**.
 
+**Suite court terme (suivi exécutable)** : les livrables récents gateway / auth / front sont récapitulés dans **[BACKLOG.md](../BACKLOG.md)** (section *Sécurité & infra*). Pistes suivantes : WAF + rate limit **par IP**, **audit log** actions sensibles, **scopes JWT** par route, **signatures** requêtes critiques — déjà listés dans le même backlog.
+
 ---
 
 ## 7. Recherche vs confidentialité

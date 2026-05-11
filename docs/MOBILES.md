@@ -28,7 +28,7 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 | **Mail** | APP-01 | Oui (prioritaire) | Oui (`mobile/mail`) | Connexion ; multi-boîtes ; dossiers ; **PJ** partageables ; **nouveau message** (SMTP via gateway) ; lu ; **sync IMAP périodique in-app + bannière nouveaux mails** ; `flutter test` (validation + widget). **Push système (FCM/APNs/Linux desktop notifications)** et brouillon serveur = plus tard — **[TESTS.md](./TESTS.md)** § 1b |
 | **Drive** | APP-02 | Oui | Oui (`mobile/drive`) | MVP mobile : liste racine + dossiers (`GET /drive/nodes`) ; `make run-mobile APP=Drive` ; **`make test-mobile-drive`** ou phase 5 **`make test-mobile-suite`** / **`make tests`** — **[TESTS.md](./TESTS.md)** § 1b |
 | **Office** | APP-03 | Oui (édition complète) | Viewer + édition légère (cible) | Parité complète difficile sur petit écran — prioriser lecture + commentaires |
-| **Pass** | APP-04 | Oui | Oui | Auto-fill OS / clavier ; biométrie |
+| **Pass** | APP-04 | Oui | **À faire** | **Web** livré en MVP ; **aucune app `mobile/pass`** dans le dépôt (à créer). Auto-fill OS / extension navigateur — **ROADMAP APP-04**, **BACKLOG** « Sprint fin mai 2026 » |
 | **Calendar** | APP-05 | Oui | Oui | Rappels natifs, widgets |
 | **Notes** | APP-06 | Oui | Oui | Saisie rapide, dictée (option) |
 | **Tasks** | APP-07 | Oui | Oui | Widgets, notifications échéance |
