@@ -149,7 +149,56 @@
 
 ---
 
-> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q15=…` + texte libre court (5 lignes).  
+# Bloc 3 — Crypto applicative & edge (Q16 → Q20)
+
+> Contexte : alignement sur **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)** (whitelist / blacklist, JWT, TLS, Argon2id, CI).  
+> Statut : **décisions acquises au 2026-05-12** — voir **[REPONSES.md](REPONSES.md)** bloc 3.
+
+---
+
+## Q16 — **Migration JWT** RS256 → **EdDSA (Ed25519)**
+
+- [x] **A** — **Maintenant** : phase A (double publication des clés / JWKS ou fichiers PEM partagés) + phase B (nouveaux tokens en EdDSA) ; phase C (retrait RS256) après ~30 jours d’expiration des refresh tokens.
+- [ ] **B** — **Après** stabilisation Mail/Photos/Pass : sprint dédié plus tard (RS256 reste en place).
+- [ ] **C** — **Phase A seulement** maintenant (préparer les clés / JWKS) sans activer EdDSA pour les nouveaux tokens.
+
+---
+
+## Q17 — **WebAuthn / passkeys** (FIDO2)
+
+- [x] **A** — Activer **d’abord pour `/4dm1n` web** (admins en priorité), puis étendre aux utilisateurs après validation. Lib Go cible : `go-webauthn/webauthn`.
+- [ ] **B** — Activer pour `/4dm1n` **et** pour les utilisateurs réguliers dès le début (TOTP en fallback).
+- [ ] **C** — Différer après la mise en prod sur VPS.
+- [ ] **D** — Différer indéfiniment : TOTP suffit.
+
+---
+
+## Q18 — **HTTP/3 (QUIC)** côté reverse-proxy en prod
+
+- [x] **A** — Activer **dès la mise en prod** (Caddy 2.6+ ou nginx 1.25+ avec QUIC ; ouvrir **UDP/443**).
+- [ ] **B** — N’activer qu’après 1–2 mois de prod stable en HTTP/2.
+- [ ] **C** — Pas de priorité : HTTP/2 suffit.
+
+---
+
+## Q19 — **Hybride post-quantique TLS** (`X25519MLKEM768`) côté reverse-proxy public
+
+- [x] **A** — Activer **dès la mise en prod** (Caddy 2.8+ ou nginx + OpenSSL 3.5+).
+- [ ] **B** — Activer après 6–12 mois (maturité des implémentations).
+- [ ] **C** — Mode opportuniste (le client choisit hybride ou classique).
+
+---
+
+## Q20 — **`gosec`** (analyse statique Go) en CI
+
+- [x] **A** — Ajouter à **`make test-security`** ; par défaut **warnings** ; `GOSEC_BLOCKING=1` pour fail le build sur findings.
+- [ ] **B** — Informatif uniquement (pas de fail) le temps de nettoyer les faux positifs.
+- [ ] **C** — Plus tard ; `govulncheck` suffit pour l’instant.
+
+---
+
+> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q20=…` + texte libre court (5 lignes).  
 > Une fois ce fichier rempli, on enchaîne :  
 > • **Phase 0 multi-repo** (cf. **[../../architecture/MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 4) — étapes 2/3 dbpin + versionnage libs + esquisse contrats API.  
-> • **Phase H0 homelab** (cf. **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)** § 8) — selon Q11–Q15.
+> • **Phase H0 homelab** (cf. **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)** § 8) — selon Q11–Q15.  
+> • **Crypto / edge** — selon Q16–Q20 et **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)**.

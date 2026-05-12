@@ -173,11 +173,11 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 - [x] **JWT EdDSA Phase A+B (Ed25519)** : `auth-service` signe TOUS les nouveaux access tokens en EdDSA avec `kid="ed25519-1"` (header). `api-gateway` accepte EdDSA (clé courante) ET RS256 (clé legacy, `kid="rs256-1"` ou absent) via `selectKeyForToken` qui vérifie aussi l'alg-mismatch (refus du downgrade). Tests : `auth-service` 4 nouveaux + `api-gateway` 5 nouveaux. Cf. CRYPTO-NORME.md § 5.2.
 - [ ] **JWT EdDSA Phase C — décommissionnement RS256** (à faire ≥ 2026-06-12) : après 30j d'expiration des refresh tokens existants, supprimer la paire RSA d'`auth-service` et la branche `jwt.SigningMethodRSA` de `parseAccessToken` / `selectKeyForToken`. Bumper `auth-service` major version (breaking pour les clients qui auraient mis en cache un kid="rs256-1").
-- [ ] **WebAuthn / passkeys** : ajouter en facteur d'authentification au-delà du TOTP, pour `/4dm1n` web et `mobile/admin`. Standard FIDO2 + WebAuthn niveau 3 ; bibliothèque Go `go-webauthn/webauthn`. Question : Q20.
+- [ ] **WebAuthn / passkeys** : ajouter en facteur d'authentification au-delà du TOTP, pour `/4dm1n` web et `mobile/admin`. Plan par phases : **[docs/securite/WEBAUTHN-PLAN.md](docs/securite/WEBAUTHN-PLAN.md)** (Q17=A). Lib Go cible : `go-webauthn/webauthn`.
 - [ ] **HTTP/3 (QUIC)** : activer côté reverse-proxy en prod (Caddy 2.6+ ou nginx 1.25+). Gain : meilleure latence sur réseaux mobiles / dégradés. Question : Q18.
 - [ ] **Hybride post-quantique TLS public** (`X25519MLKEM768`) : activer côté reverse-proxy dès que la chaîne le permet (Caddy 2.8+ ou nginx + OpenSSL 3.5+). Conforme à SECURITE.md § 8 et CRYPTO-NORME.md § 1.5. Question : Q19.
 - [ ] **Brotli statiques** : activer compression Brotli niveau 5 sur HTML/CSS/JS côté reverse-proxy ; conserver gzip fallback. Pas sur les réponses API mêlant secrets+données utilisateur (CRIME / BREACH).
-- [ ] **gosec** en CI : ajout de `gosec ./...` à `make test-security` pour détecter les patterns Go dangereux (hardcoded creds, weak rand, SQL string concat, etc.).
+- [x] **gosec** en CI : intégré à `make test-security` (scan des modules Go listés ; **warnings** par défaut ; `GOSEC_BLOCKING=1` pour fail le build). Rapports : `reports/gosec-<service>.txt`. Q20=A.
 - [ ] **Recalibrage Argon2id** : tâche récurrente tous les 18-24 mois (cf. CRYPTO-NORME.md § 3.4). Prochaine revue prévue **2027-11**.
 
 ### UX / Suite web (`frontend/apps/cloudity-web`, **`@cloudity/web`**)

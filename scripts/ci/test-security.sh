@@ -1,8 +1,9 @@
 #!/bin/bash
-# Vérifications sécurité : audits de dépendances (npm, safety, govulncheck) dans Docker + checks auth
+# Vérifications sécurité : audits de dépendances (npm, safety, govulncheck),
+# analyse statique Go (gosec), dans Docker + checks auth
 # Usage: ./scripts/ci/test-security.sh
 # Nécessite : docker compose (ou docker-compose). Les audits tournent dans les conteneurs.
-# Rapports : reports/security-npm-audit.txt, reports/govulncheck-<service>.txt
+# Rapports : reports/security-npm-audit.txt, reports/govulncheck-<service>.txt, reports/gosec-<service>.txt
 # Si des vulnérabilités ou avertissements sont détectés, crée reports/.security-avertissements
 # pour que le résumé make tests affiche "OK (avertissements)" au lieu de "OK".
 

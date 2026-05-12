@@ -35,6 +35,19 @@ Q15=A   homelab avant prod : pas de mise en prod Cloudity tant que H1 (RPi backu
         opérationnelle) n'est pas livrée
 ```
 
+## Synthèse rapide — **bloc 3 : crypto applicative & edge (complet au 2026-05-12)**
+
+Cadre : **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)** ; edge : **[../../securite/REVERSE-PROXY.md](../../securite/REVERSE-PROXY.md)** ; WebAuthn : **[../../securite/WEBAUTHN-PLAN.md](../../securite/WEBAUTHN-PLAN.md)**.
+
+```
+Q16=A   JWT EdDSA : phase A+B maintenant (auth-service signe EdDSA ; gateway accepte
+        EdDSA + RS256 legacy kid-aware) ; phase C retrait RS256 après ~30 jours
+Q17=A   WebAuthn / passkeys : d’abord /4dm1n web (admins), extension users après validation
+Q18=A   HTTP/3 (QUIC) : actif dès mise en prod (reverse-proxy)
+Q19=A   TLS hybride PQ X25519MLKEM768 : actif dès mise en prod (reverse-proxy)
+Q20=A   gosec : intégré à make test-security (warnings par défaut ; GOSEC_BLOCKING=1 pour fail)
+```
+
 ### Conséquences directes des choix Q11–Q15
 
 | Choix | Conséquence concrète |

@@ -4,6 +4,15 @@
 
 **Choix par défaut** : **Caddy 2.8+** en prod (TLS automatique, HTTP/3, support PQ tôt). Alternatives valables : **nginx + OpenSSL 3.5+**, **Traefik 3+**. Les trois gabarits sont fournis pour rester portable.
 
+> **Référentiel crypto obligatoire** : **[CRYPTO-NORME.md](CRYPTO-NORME.md)** § 1.6 (TLS) et § 4.2 (reverse-proxy public). Toute config doit y être conforme.
+
+### Décisions produit (cf. `docs/decisions/multi-repo/REPONSES.md`)
+
+| Code | Décision | Statut |
+|------|----------|--------|
+| **Q18=A** | **HTTP/3 (QUIC)** activé dès la mise en prod (Caddy 2.6+ ou nginx 1.25+) | gabarits ci-dessous prêts ; UDP/443 à ouvrir au firewall |
+| **Q19=A** | **Hybride post-quantique** TLS public `X25519MLKEM768` activé dès la mise en prod | Caddy 2.8+ tient la promesse out-of-the-box ; nginx + OpenSSL 3.5+ via `ssl_ecdh_curve` |
+
 ---
 
 ## 1. Topologie cible

@@ -52,7 +52,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make dashboard-npm-ci - npm ci à la racine frontend/ (workspaces, comme le Dockerfile prod)'
 	@echo '  make dashboard-npm-install - npm install dans apps/cloudity-web (ou utiliser frontend-install à la racine)'
 	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
-	@echo '  make test-security - Audits deps (npm/pip/go) + checks auth 401'
+	@echo '  make test-security - Audits deps (npm/pip/go) + gosec + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
 	@echo '  make status-watch - Statut toutes les 10 s (watch + couleurs Up/Down)'

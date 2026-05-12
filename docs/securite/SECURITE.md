@@ -201,6 +201,7 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../ST
 | Périmètre | Document |
 |-----------|----------|
 | **Norme actionnable** (whitelist / blacklist algos + paramètres exacts + checklist code review) | **[CRYPTO-NORME.md](CRYPTO-NORME.md)** — référentiel obligatoire pour tout PR touchant à la crypto / auth / TLS. |
+| **WebAuthn / passkeys** (priorité `/4dm1n`) | **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)** — phases W1–W4, schéma DB, endpoints, checklist sécurité. |
 | **Edge / TLS public** | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
 | **mTLS interne** | **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
 | **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
