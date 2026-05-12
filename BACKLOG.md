@@ -53,17 +53,36 @@ Cible discutée : casser le monorepo en **dépôts GitHub indépendants** (un pa
 
 **Plan détaillé** : **[docs/architecture/MULTI-REPO-LAYOUT.md](docs/architecture/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
 
-**Questionnaire (QCM + texte libre court)** : **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** — détail des options.  
-**→ Remplir tes choix dans** : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md)** (synthèse `Q1=… Q10=…` + texte libre).
+**Questionnaire** : **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** — détail des options.  
+**Réponses** : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md)** (Q1=A, Q2=D, Q3=A, Q4=B, Q5=A, Q6=B, Q7=C, Q8=archi custom, Q9=D+T3, Q10=A).
 
-- [ ] **Décisions** : compléter `REPONSES.md` (ou coller la synthèse en chat) puis cocher ici.
-- [ ] **Phase 0 — sans scission** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
-- [ ] **Phase 0 — sans scission** : tagger `internalsec` `v0.1.0`, publier `@cloudity/shared` `v0.1.0`, tagger `cloudity_shared` Dart `v0.1.0`.
-- [ ] **Phase 0 — sans scission** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin) pour figer le contrat avant scission.
-- [ ] **Production** : retoucher **REVERSE-PROXY.md** pour intégrer le scénario **NPM** (subdomains `api.`, `app.`, `admin.` → conteneurs) + checklist Portainer (mono-stack vs multi-stacks par domaine).
-- [ ] **Backup / résilience UI** : conception du panneau `/4dm1n/backups` (Restic + snapshots PG, plan quotidien, restauration 1 clic) + healthchecks/replicas Compose pour la résilience.
+Décisions actées (résumé exécutable) :
 
-> Tant que ces décisions ne sont pas prises, **aucune** scission n’est lancée : on continue à livrer dans le monorepo.
+| Q | Décision | Conséquence |
+|---|----------|-------------|
+| Q1 | Polyrepo + meta-repo + `git submodule` | Le meta-repo `cloudity` listera des submodules vers les sous-dépôts. |
+| Q2 | **Monorepo backend** (`cloudity-backend`) | Tous les services Go + `admin-service` Python restent dans un seul dépôt — pas de scission service par service côté API. |
+| Q3 | 1 dépôt par app mobile Flutter | `cloudity-mobile-mail`, `…-drive`, `…-photos`, `…-pass`, `…-admin` à terme. |
+| Q4 | **Publication publique** des libs partagées | `@cloudity/shared` sur npm.org, `cloudity_shared` sur pub.dev, modules Go publics. ⇒ aucun secret, schéma DB, ou logique métier sensible dans ces libs. |
+| Q5 | `infrastructure/` reste dans le meta-repo | Migrations SQL, reverse-proxy, step-ca centralisés. |
+| Q6 | CI principalement meta-repo | Workflow `make test` global qui clone les sous-dépôts ; CI unitaire dans chaque sous-dépôt en complément. |
+| Q7 | **Stacks Portainer par domaine produit** | Mail / Drive / Pass / Photos / Identity / Comm / Web / Infra / Backup en stacks séparées (cf. REPONSES.md § Q7). |
+| Q8 | **Agent backup distribué offsite** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**) | Pas de conteneur backup co-localisé sur le VPS — runner sur machine tierce (raspberry / PC perso). |
+| Q9 | Extension Pass + desktop Linux : **plus tard**, stack à arbitrer | POC Tauri vs Electron quand le chantier deviendra actionnable. |
+| Q10 | **Phase 0 immédiate** | Extraction `backend/pkg/dbpin` + versionnage libs **maintenant**. |
+
+À faire (Phase 0, en cours) :
+
+- [ ] **Phase 0 / pkg/dbpin** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
+- [ ] **Phase 0 / versionnage** : tagger `internalsec` `v0.1.0`, préparer `@cloudity/shared` `v0.1.0` + `cloudity_shared` Dart `v0.1.0` (publication publique différée jusqu'à fixation de l'org GitHub).
+- [ ] **Phase 0 / contrats** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin).
+
+À faire (Phase ultérieure) :
+
+- [ ] **Stacks Portainer** : éclater le `docker-compose.yml` actuel en fichiers Compose **par domaine** (`compose/identity.yml`, `compose/mail.yml`, …) avec réseaux Docker partagés ; documenter dans `docs/operations/STACKS-PORTAINER.md`.
+- [ ] **Reverse proxy** : compléter **REVERSE-PROXY.md** pour le scénario **nginx-proxy-manager** (subdomains `api.`, `app.`, `admin.` → conteneurs) + checklist Portainer.
+- [ ] **Backup offsite** : POC tunnel + agent VPS + runner local (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)** § 7) — démarrage **après** stabilisation Mail / Photos / Pass.
+- [ ] **Extension Pass + desktop Linux** : POC stack Tauri vs Electron + bootstrap des dépôts dédiés (cf. Q9 = D, **après** stabilisation produit).
 
 ---
 

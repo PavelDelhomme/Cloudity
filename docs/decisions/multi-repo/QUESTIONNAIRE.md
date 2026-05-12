@@ -35,14 +35,14 @@
 ## Q4 — **Registry** pour les artefacts partagés (npm, Dart, Go)
 
 - [ ] **A** — **GitHub Packages** (privé) pour `@cloudity/*`, éventuellement images GHCR ; Go : modules privés sur `github.com/<org>/…` avec tags `v*`.
-- [ ] **B** — **Public** dès que possible : **npm** + **pub.dev** (pour `cloudity_shared`) + tags Go publics sur GitHub.
+- [x] **B** — **Public** dès que possible : **npm** + **pub.dev** (pour `cloudity_shared`) + tags Go publics sur GitHub.
 - [ ] **C** — **Hybride** : GitHub Packages pour le privé **aujourd’hui** ; bascule npm/pub.dev **quand** le code sera ouvert ou partiellement ouvert.
 
 ---
 
 ## Q5 — Emplacement de **`infrastructure/`** (Postgres, migrations, reverse-proxy, step-ca)
 
-- [ ] **A** — **Tout reste dans le meta-repo** Cloudity (recommandé par défaut : une seule vérité pour les migrations SQL).
+- [x] **A** — **Tout reste dans le meta-repo** Cloudity (recommandé par défaut : une seule vérité pour les migrations SQL).
 - [ ] **B** — **Dépôt séparé** `cloudity-infra` (accès restreint, stacks Portainer, secrets hors code applicatif) ; le meta-repo ne garde que `docker-compose` dev minimal.
 - [ ] **C** — **Hybride** : migrations + schéma dans le meta-repo ; **templates** NPM / Portainer / prod dans `cloudity-infra`.
 
@@ -51,7 +51,7 @@
 ## Q6 — **CI** (GitHub Actions)
 
 - [ ] **A** — **Workflow par dépôt** + un workflow **d’orchestration** dans le meta-repo (déclenche les autres ou agrège les statuts).
-- [ ] **B** — **Principalement le meta-repo** : un job clone les sous-dépôts (ou checkout submodules) et lance `make test` global.
+- [x] **B** — **Principalement le meta-repo** : un job clone les sous-dépôts (ou checkout submodules) et lance `make test` global.
 - [ ] **C** — **Hybride** : CI unitaire **dans chaque dépôt** ; E2E / stack complète **uniquement** dans le meta-repo (nightly + avant release).
 
 ---
@@ -60,7 +60,7 @@
 
 - [ ] **A** — **Une stack Docker unique** (tous les services dans un seul `docker-compose` Portainer) — simple, redéploiement global.
 - [ ] **B** — **Plusieurs stacks** (ex. `stack-core` Postgres/Redis, `stack-edge` NPM, `stack-api` gateway+services, `stack-web` front) — redémarrages ciblés.
-- [ ] **C** — **Stacks par domaine produit** (Mail, Drive, Pass, Photos, Office, Identity, Infra) — maximum d’isolation, plus de coordination.
+- [x] **C** — **Stacks par domaine produit** (Mail, Drive, Pass, Photos, Office, Identity, Infra) — maximum d’isolation, plus de coordination.
 
 ---
 
@@ -69,6 +69,7 @@
 - [ ] **A** — **Conteneur dédié** `cloudity-backup` (**Restic** + snapshots PG) ; API **`admin-service`** pour « lancer maintenant », plan, restauration contrôlée (comme décrit dans MULTI-REPO-LAYOUT § 8.3).
 - [ ] **B** — **Restic uniquement** en cron sur l’hôte / stack infra, **sans** panneau Cloudity au début (UI plus tard).
 - [ ] **C** — **Autre outil** (ex. BorgBackup, Kopia) — préciser en **texte libre** § remarques.
+- [x] **D — réponse libre** : **agent backup distribué offsite** (raspberry / PC perso, pas sur le VPS), pilotable depuis le panel admin (`/4dm1n/backups`) **et** depuis un panel local. Architecture détaillée : **[../../architecture/BACKUP-OFFSITE.md](../../architecture/BACKUP-OFFSITE.md)**.
 
 ---
 
@@ -79,19 +80,19 @@
 - [ ] **A** — **Avant** la scission multi-repo (le code vit encore dans le monorepo, dossiers `extensions/` et `desktop/`).
 - [ ] **B** — **Après** la Phase 0 (libs versionnées) mais **avant** la scission complète des services.
 - [ ] **C** — **Après** la scission des repos **front** / **outillage** seulement.
-- [ ] **D** — **Plus tard** (après stabilisation Mail / Photos / Pass web).
+- [x] **D** — **Plus tard** (après stabilisation Mail / Photos / Pass web).
 
 **Stack desktop Linux** (une option) :
 
 - [ ] **T1** — **Tauri** (Rust + WebView ; binaire léger).
 - [ ] **T2** — **Electron** (écosystème large, empreinte plus lourde).
-- [ ] **T3** — **Pas encore décidé** / étude de faisabilité (GTK/Qt natif hors scope court terme).
+- [x] **T3** — **Pas encore décidé** / étude de faisabilité (GTK/Qt natif hors scope court terme).
 
 ---
 
 ## Q10 — **Calendrier** de la Phase 0 (extraction `pkg/dbpin` + versionnage `internalsec`, `@cloudity/shared`, `cloudity_shared`)
 
-- [ ] **A** — **Dès accord** sur ce questionnaire (Phase 0 **immédiate** dans le monorepo actuel).
+- [x] **A** — **Dès accord** sur ce questionnaire (Phase 0 **immédiate** dans le monorepo actuel).
 - [ ] **B** — **Après** la fin du sprint « Mail / Photos / Pass » courant (stabilisation produit d’abord).
 - [ ] **C** — **Phase 0 partielle** tout de suite : uniquement **`pkg/dbpin`** + doc ; versionnage npm/Dart/Go **après** le sprint.
 
