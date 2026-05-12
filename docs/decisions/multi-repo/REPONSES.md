@@ -48,6 +48,22 @@ Q19=A   TLS hybride PQ X25519MLKEM768 : actif dès mise en prod (reverse-proxy)
 Q20=A   gosec : intégré à make test-security (warnings par défaut ; GOSEC_BLOCKING=1 pour fail)
 ```
 
+## Synthèse rapide — **bloc 4 : déploiement VPS / Portainer / NPM (en attente — questions Q21-Q24)**
+
+Cadre : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
+Contexte VPS observé au 2026-05-12 : Contabo, Portainer, NPM `nginx.delhomme.ovh`, stacks `cooking-recipes` / `cyna-production` / `n8n-stack` / `nextcloud-stack`. Registry Docker Hub `paveldelhomme/*`. Réseaux partagés `web` (cookingrecipes) et `shared-network-copy` (cyna, n8n). Pattern domaines `*.delhomme.ovh`.
+
+```
+Q21=?   registry images Cloudity : Docker Hub (cohérence cookingrecipes/cyna)
+        vs GHCR vs hybride
+Q22=?   réseau edge NPM : réutiliser `web` (recommandé) vs `shared-network-copy`
+        vs créer `cloudity-edge` dédié
+Q23=?   pattern domaine : `cloudity.delhomme.ovh` + sous-domaines vs TLD dédié
+        vs hybride (delhomme.ovh d'abord, TLD plus tard)
+Q24=?   build & push : GitHub Actions sur tag vs manuel docker push vs hybride
+```
+
 ### Conséquences directes des choix Q11–Q15
 
 | Choix | Conséquence concrète |

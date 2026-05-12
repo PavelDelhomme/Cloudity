@@ -197,8 +197,48 @@
 
 ---
 
-> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q20=…` + texte libre court (5 lignes).  
+# Bloc 4 — Déploiement VPS / Portainer / NPM (Q21 → Q24)
+
+> Contexte : VPS Contabo avec **Portainer** + **Nginx Proxy Manager** (`nginx.delhomme.ovh`) déjà en place, stacks existantes : `cooking-recipes` (`paveldelhomme/cookingrecipes-*:latest` sur Docker Hub), `cyna-production`, `n8n-stack`, `nextcloud-stack`. Réseaux Docker partagés : `web` (utilisé par cooking-recipes) et `shared-network-copy` (cyna, n8n).
+> Cadre détaillé : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
+---
+
+## Q21 — **Registry** des images Cloudity
+
+- [ ] **A** — **Docker Hub** sous `paveldelhomme/cloudity-<svc>:<tag>` (cohérent avec `cookingrecipes-*`, `cyna_*` déjà en place). Tag immuable `:0.x.y` + alias `:latest`.
+- [ ] **B** — **GHCR** `ghcr.io/paveldelhomme/cloudity-<svc>:<tag>` (intégration GitHub plus directe, illimité pour repos publics).
+- [ ] **C** — **Hybride** : tags privés (admin-service, internalsec) sur GHCR, tags publics (frontend, libs) sur Docker Hub.
+
+---
+
+## Q22 — **Réseau Docker edge** que NPM doit atteindre
+
+- [ ] **A** — **Réutiliser `web`** (déjà branché à NPM, déjà utilisé par `cookingrecipes`). Zéro changement côté NPM. *Recommandation par défaut.*
+- [ ] **B** — **Réutiliser `shared-network-copy`** (cohérent avec `cyna_frontend_prod`, `n8n`).
+- [ ] **C** — **Créer un `cloudity-edge` dédié** (isolation totale). Il faudra brancher le conteneur NPM à ce nouveau réseau via Portainer une fois.
+
+---
+
+## Q23 — **Pattern de domaine** pour Cloudity en production
+
+- [ ] **A** — **`cloudity.delhomme.ovh`** + sous-domaines `api.`, `admin.` (cohérent avec `cookingrecipes.delhomme.ovh` + `api.cookingrecipes.delhomme.ovh`). Possibilité d'ajouter plus tard `mail.cloudity.delhomme.ovh`, `drive.cloudity.delhomme.ovh` comme alias UX.
+- [ ] **B** — **TLD dédié** (`cloudity.<ton-tld-cloudity>`) acheté pour le projet, séparé de `delhomme.ovh`. Mieux pour l'image produit, demande un nouveau domaine + DNS.
+- [ ] **C** — **Hybride** : `delhomme.ovh` au début (test / soft launch) ; bascule TLD dédié plus tard sans casser les URLs (redirections 301).
+
+---
+
+## Q24 — **Build & push images** : flux d'automatisation
+
+- [ ] **A** — **GitHub Actions** sur tag `v*.*.*` : matrice qui builde et pousse les 12 images en parallèle (cf. fiche § 9). Déclenchable aussi manuellement (`workflow_dispatch`).
+- [ ] **B** — **Build local + `docker push`** manuel le jour du déploiement (plus simple à démarrer ; pas de secrets GitHub à configurer).
+- [ ] **C** — **Hybride** : build local pour les premiers déploiements, GHA branchée plus tard quand le rythme de release augmente.
+
+---
+
+> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q24=…` + texte libre court (5 lignes).  
 > Une fois ce fichier rempli, on enchaîne :  
 > • **Phase 0 multi-repo** (cf. **[../../architecture/MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 4) — étapes 2/3 dbpin + versionnage libs + esquisse contrats API.  
 > • **Phase H0 homelab** (cf. **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)** § 8) — selon Q11–Q15.  
-> • **Crypto / edge** — selon Q16–Q20 et **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)**.
+> • **Crypto / edge** — selon Q16–Q20 et **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)**.  
+> • **Stacks Portainer + images Docker** — selon Q21–Q24 et **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.

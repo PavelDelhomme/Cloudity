@@ -235,7 +235,7 @@ Portainer ── orchestre les stacks Docker (1 stack par service ou 1 stack glo
 ### 8.1 Stratégies de stack Portainer
 
 - **Mono-stack** : `docker-compose.yml` complet importé dans Portainer en **stack unique** (simple, redéploie tout).
-- **Multi-stacks par domaine** : `stack-auth.yml`, `stack-mail.yml`, `stack-pass.yml`, `stack-shared-infra.yml` (Postgres, Redis, NPM). Chaque stack peut être recréée indépendamment ⇒ **résilience** : redémarrer Mail ne touche pas Pass.
+- **Multi-stacks par domaine** *(retenu — Q7=C)* : 8 stacks `cloudity-infra`, `cloudity-identity`, `cloudity-mail`, `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm`, `cloudity-web` (+ `cloudity-backup` plus tard). Chaque stack peut être recréée indépendamment ⇒ **résilience** : redémarrer Mail ne touche pas Pass. **Snippets prêt-à-coller + topologie réseau réelle (`web` / `shared-network-copy` / `cloudity-data`)** : voir **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 7.
 
 ### 8.2 NPM — règles à figer
 

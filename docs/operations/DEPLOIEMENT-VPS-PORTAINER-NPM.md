@@ -1,94 +1,455 @@
-# Déploiement production — VPS (ex. Contabo) + Portainer + Nginx Proxy Manager
+# Déploiement production — VPS Contabo + Portainer + Nginx Proxy Manager
 
-**Rôle** : décrire **comment** Cloudity sera mis en ligne **plus tard** sur ton VPS, avec **Portainer** pour les stacks Docker et **Nginx Proxy Manager (NPM)** comme entrée HTTPS publique — **sans** confondre avec le **dev local** (`docker-compose`, ports `6080` / `6001` sur ta machine).
+**Rôle** : décrire **comment** Cloudity sera mis en ligne sur **ton** VPS Contabo (Portainer + NPM `nginx.delhomme.ovh`), **en collant aux conventions déjà en place** (cooking-recipes, cyna-production, n8n…). Le **dev local** (`docker-compose` à la racine, ports `6080/6001`) reste **complètement séparé** et inchangé.
 
-> Le développement quotidien reste **local uniquement** : pas besoin de NPM ni de Portainer sur ton PC pour coder. La prod est une **cible** documentée ici ; le calendrier est contraint par **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** et la décision **Q15=A** (homelab H1 avant mise en prod publique).
+> Le calendrier de mise en prod est contraint par **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** (Q15=A : H1 backup RPi avant prod publique). Cette fiche sert de **plan d'attaque** prêt-à-coller le jour J.
 
 ---
 
-## 1. Chaîne cible (schéma mental)
+## 1. Ce qu'il y a déjà sur le VPS (état observé 2026-05-12)
+
+| Bloc | Existant | Convention héritée |
+|------|----------|--------------------|
+| **Registry** | Images poussées sur **Docker Hub** : `paveldelhomme/cookingrecipes-api:latest`, `paveldelhomme/cyna_backend:latest`, `paveldelhomme/cyna_frontend:latest`. | À reprendre pour Cloudity (`paveldelhomme/cloudity-<svc>:<tag>`). |
+| **Stacks Portainer** | `cooking-recipes`, `cyna-production`, `n8n-stack`, `nextcloud-stack`, `nginx-proxy-manager`. | Cloudity = **8 stacks par domaine produit** (Q7=C). Voir § 3. |
+| **Réseaux Docker partagés** | `web` (bridge external — utilisé par `cookingrecipes`), `shared-network-copy` (bridge external attachable=true — utilisé par `cyna_frontend_prod`, `n8n`, …). | NPM est branché sur ces deux réseaux (sinon ses Proxy Hosts ne pourraient pas résoudre `cyna_frontend_prod` ni `cookingrecipes-api`). |
+| **NPM** | `nginx.delhomme.ovh` (Nginx Proxy Manager). | Proxy Host → `http://<container_name>:<internal_port>`, Let's Encrypt activé, Force SSL. |
+| **Pattern domaine** | `cookingrecipes.delhomme.ovh`, `api.cookingrecipes.delhomme.ovh`, `n8n.delhomme.ovh`, `taskflow.delhomme.ovh`. | Cloudity héritera : `cloudity.delhomme.ovh`, `api.cloudity.delhomme.ovh`, `admin.cloudity.delhomme.ovh`, etc. (à confirmer Q23). |
+| **Health checks** | `wget --spider http://localhost:<port>/health` toutes les 30s. | Reproduire sur les services Cloudity (déjà présent en dev). |
+| **`container_name`** | Toujours explicite (`cookingrecipes-api`, `cyna_frontend_prod`, `n8n`). | NPM **a besoin** d'un nom stable → garder `container_name:` partout. |
+
+> **Important** : NPM résout les services par leur **`container_name`**, pas par le nom de service Compose. Donc `container_name: cloudity-api-gateway` côté Compose ⇒ NPM cible `cloudity-api-gateway:8000`.
+
+---
+
+## 2. Schéma cible (Cloudity en production)
 
 ```
 Internet
-   │ HTTPS (certificats Let’s Encrypt gérés par NPM)
-   ▼
-┌─────────────────────────────────────┐
-│  Nginx Proxy Manager (conteneur)     │  ← hostnames : api.*, app.*, admin.*
-└──────────────┬──────────────────────┘
-               │ HTTP interne (réseau Docker)
-               ▼
-┌─────────────────────────────────────┐
-│  Stacks Portainer                    │  ← compose : identity, mail, web, …
-│  • api-gateway :8000                 │
-│  • cloudity-web :3000 (ou image nginx)│
-│  • postgres, redis, services…        │
-└─────────────────────────────────────┘
+  │ HTTPS — Let's Encrypt géré par NPM
+  ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Nginx Proxy Manager (déjà déployé : nginx.delhomme.ovh)          │
+│  Branché sur : `web` ET `shared-network-copy`                     │
+└──────┬────────────┬───────────────┬──────────────────────────────┘
+       │            │               │
+       │ http       │ http          │ http
+       ▼            ▼               ▼
+api.cloudity   app.cloudity    admin.cloudity
+.delhomme.ovh  .delhomme.ovh   .delhomme.ovh
+       │            │               │
+       ▼            ▼               ▼
+┌──────────────────┐ ┌──────────────────────────────────────────────┐
+│ cloudity-api-    │ │ cloudity-web :3000  (image nginx statique en │
+│   gateway :8000  │ │  prod, ou Vite preview server selon § 6)     │
+└────────┬─────────┘ └──────────────────────────────────────────────┘
+         │
+         │ HTTP (réseau interne `cloudity-data`)
+         ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ Stacks Cloudity (postgres + redis + microservices)                │
+│  • cloudity-infra      : postgres, redis, db-migrate              │
+│  • cloudity-identity   : auth-service, admin-service, api-gateway │
+│  • cloudity-mail       : mail-directory-service                   │
+│  • cloudity-drive      : drive-service                            │
+│  • cloudity-photos     : photos-service                           │
+│  • cloudity-pass       : passwords-service                        │
+│  • cloudity-comm       : calendar / contacts / notes / tasks      │
+│  • cloudity-web        : SPA cloudity-web                         │
+└──────────────────────────────────────────────────────────────────┘
+       Toutes les stacks rejoignent `cloudity-data` (réseau external).
+       Seules `cloudity-identity` (gateway) et `cloudity-web` rejoignent
+       en plus le réseau **edge** (cf. Q22) que NPM peut atteindre.
 ```
 
-- **Portainer** : import / édition des **stacks** (fichiers Compose), variables d’environnement, logs, redémarrage ciblé.
-- **NPM** : **un Proxy Host par hostname** ; termine le TLS ; transmet vers l’IP / nom du service sur le **réseau Docker interne** (pas les ports publiés sur l’hôte sauf si tu exposes volontairement).
+---
 
-Référence d’architecture produit / stacks : **[../architecture/MULTI-REPO-LAYOUT.md](../architecture/MULTI-REPO-LAYOUT.md)** § 8.
+## 3. Découpage des stacks (Q7=C)
+
+| Stack | Conteneurs | Réseau interne | Exposé NPM ? |
+|-------|-----------|----------------|--------------|
+| **`cloudity-infra`** | `cloudity-postgres` (15-alpine), `cloudity-redis` (7-alpine), `cloudity-db-migrate` (one-shot) | `cloudity-data` (external, créé par cette stack la 1re fois) | ❌ jamais (DB privée) |
+| **`cloudity-identity`** | `cloudity-auth-service`, `cloudity-admin-service` (Python FastAPI), `cloudity-api-gateway` | `cloudity-data` + edge | ✅ `api.cloudity.delhomme.ovh` → `cloudity-api-gateway:8000` |
+| **`cloudity-mail`** | `cloudity-mail-directory-service` | `cloudity-data` | ❌ (passe par gateway) |
+| **`cloudity-drive`** | `cloudity-drive-service` | `cloudity-data` | ❌ |
+| **`cloudity-photos`** | `cloudity-photos-service` | `cloudity-data` | ❌ |
+| **`cloudity-pass`** | `cloudity-passwords-service` | `cloudity-data` | ❌ |
+| **`cloudity-comm`** | `cloudity-calendar-service`, `-contacts-service`, `-notes-service`, `-tasks-service` | `cloudity-data` | ❌ |
+| **`cloudity-web`** | `cloudity-web` (image statique nginx + bundle React buildé) | `cloudity-data` (option) + edge | ✅ `app.cloudity.delhomme.ovh` + `admin.cloudity.delhomme.ovh` → `cloudity-web:3000` |
+| **`cloudity-backup`** | runner backup distribué (cf. **[BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)**) | `cloudity-data` | ❌ (interne) |
+
+> **Ordre de déploiement** : `cloudity-infra` d'abord (pour créer le réseau `cloudity-data` + lancer DB) → migrations → `cloudity-identity` → un par un les autres.
 
 ---
 
-## 2. Ports et noms (dev vs prod)
+## 4. Réseau « edge » (Q22 — à confirmer)
 
-| Contexte | API (gateway) | Web (SPA) |
-|----------|---------------|-----------|
-| **Dev local** (`docker-compose.yml`) | Hôte `localhost:6080` → conteneur **:8000** | Hôte `localhost:6001` → conteneur **:3000** |
-| **Prod (NPM → conteneurs)** | Cible **`http://api-gateway:8000`** (nom du **service** dans le Compose Portainer) | Cible **`http://cloudity-web:3000`** (ou le nom réel du service + port du **build prod** — voir § 5) |
+Trois options. **Recommandation par défaut : reprendre `web`** (déjà branché à NPM, déjà utilisé par `cookingrecipes`).
 
-Les ports **6080** et **6001** ne sont qu’un **mapping hôte → conteneur** pour le dev ; sur le VPS, NPM parle aux services **par leur nom DNS Docker** (souvent le **nom du service** dans le Compose, ex. `api-gateway`, `cloudity-web`) et leur **port d’écoute interne** (souvent **8000** et **3000**).
+| Option | Avantage | Inconvénient |
+|--------|----------|--------------|
+| **A. Réutiliser `web`** | Zéro changement côté NPM, c'est déjà connecté. | Mélange Cooking-Recipes et Cloudity sur le même bridge (acceptable : isolation faible mais pas critique, ils ne se parlent pas). |
+| **B. Réutiliser `shared-network-copy`** | Cohérent avec `cyna` et `n8n`. | Idem A mais autre nom ; pas de gain particulier. |
+| **C. Créer un réseau dédié `cloudity-edge`** | Isolation totale entre stacks publiques. | Il faut **brancher NPM** à ce nouveau réseau (Portainer → conteneur NPM → "Networks" → join `cloudity-edge`). |
 
----
-
-## 3. NPM — création d’un Proxy Host (rappel)
-
-Pour chaque domaine (ex. `api.cloudity.example.com`) :
-
-1. **Domain Names** : `api.cloudity.example.com`
-2. **Scheme** : `http` (vers le backend interne ; le HTTPS est côté client ↔ NPM)
-3. **Forward Hostname / IP** : nom du **service** Docker Compose (`api-gateway`, `cloudity-web`) — pas `localhost`
-4. **Forward Port** : `8000` (gateway) ou `3000` (web dev-like) selon l’image
-5. **SSL** : demander un certificat Let’s Encrypt ; activer **Force SSL** ; **HSTS** si proposé
-6. **Websockets** : activer si l’UI ou les syncs en ont besoin (Vite en dev oui ; build statique selon cas)
-
-Règles détaillées des hostnames : **MULTI-REPO-LAYOUT.md** § 8.2. Durcissement TLS / CSP / HTTP/3 / post-quantique : **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)** (NPM repose sur nginx ; les options avancées dépendent de la **version** de l’image NPM / OpenSSL derrière — à vérifier au moment du déploiement).
+Dans tous les cas, le réseau **edge** est déclaré en `external: true` côté Compose ; **il ne doit pas être recréé** par la stack Cloudity.
 
 ---
 
-## 4. Réseau Docker
+## 5. Registry images (Q21 — à confirmer)
 
-Pour que NPM résolve `api-gateway` et `cloudity-web`, il faut que **NPM et les stacks Cloudity partagent le même réseau Docker** (réseau **external** déclaré dans plusieurs stacks, ou une stack « edge » qui inclut NPM + un reverse interne). Sinon NPM ne peut joindre que `host.docker.internal` ou l’IP du bridge — fragile.
+Tu pousses déjà sur **Docker Hub** sous `paveldelhomme/*`. Convention proposée pour Cloudity :
 
-À figer au moment du premier déploiement réel (copier-coller du nom de réseau dans toutes les stacks concernées).
+```
+paveldelhomme/cloudity-api-gateway:0.x.y
+paveldelhomme/cloudity-auth-service:0.x.y
+paveldelhomme/cloudity-admin-service:0.x.y
+paveldelhomme/cloudity-mail-directory-service:0.x.y
+paveldelhomme/cloudity-drive-service:0.x.y
+paveldelhomme/cloudity-photos-service:0.x.y
+paveldelhomme/cloudity-passwords-service:0.x.y
+paveldelhomme/cloudity-calendar-service:0.x.y
+paveldelhomme/cloudity-contacts-service:0.x.y
+paveldelhomme/cloudity-notes-service:0.x.y
+paveldelhomme/cloudity-tasks-service:0.x.y
+paveldelhomme/cloudity-web:0.x.y
+```
+
+- **Tag immuable `:0.x.y`** par release (cf. `VERSIONNAGE-LIBS.md`) — facilite le rollback.
+- Garder un alias **`:latest`** sur la dernière release stable (compatible avec ton pattern Cooking-Recipes).
+- Alternative : **GHCR** (`ghcr.io/paveldelhomme/cloudity-*`) — gratuit pour public + intégration GitHub Actions plus directe ; à choisir via Q21.
 
 ---
 
-## 5. Variables front (build prod)
+## 6. Frontend prod : Vite **build** + nginx (pas le serveur dev)
 
-En dev, `VITE_API_URL` pointe vers `http://localhost:6080`. En prod, le build du frontend doit pointer vers l’**URL publique** de l’API, par ex. `https://api.cloudity.example.com` (sans passer par un port exotique : le **443** est géré par NPM).
+En dev, `cloudity-web` lance `npm run dev` (Vite avec HMR sur :3000). En prod, on **construit** la SPA et on la sert avec **nginx-alpine** dans une petite image. C'est exactement le pattern `cyna_frontend` que tu as déjà.
 
-Documenter la valeur exacte dans Portainer (variables de stack / build args) lors du premier déploiement.
+```Dockerfile
+# frontend/apps/cloudity-web/Dockerfile.prod (à créer)
+FROM node:20-alpine AS build
+WORKDIR /ws
+COPY frontend/package.json frontend/package-lock.json ./
+COPY frontend/apps/cloudity-web ./apps/cloudity-web
+COPY frontend/packages ./packages
+RUN npm ci && npm run build -w @cloudity/web
+
+FROM nginx:1.27-alpine
+COPY --from=build /ws/apps/cloudity-web/dist /usr/share/nginx/html
+COPY frontend/apps/cloudity-web/nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 3000
+```
+
+**`VITE_API_URL`** est résolu **au moment du build** (donc passé en `--build-arg`) → la valeur de prod est **`https://api.cloudity.delhomme.ovh`** (à confirmer Q23). Une rebuild est nécessaire à chaque changement.
 
 ---
 
-## 6. Ordre avec le homelab (Q15)
+## 7. Snippets Compose prêt-à-coller (squelette)
 
-Tant que la **phase H1** (RPi backup + accès distant minimal) n’est pas validée, la décision enregistrée est de **ne pas** traiter le VPS Contabo comme « prod Cloudity publique » prioritaire. Ce document sert surtout à **ne rien oublier** quand le moment viendra : tu réutiliseras Portainer + NPM comme tu le fais déjà pour d’autres services.
+> Versions complètes à figer le jour du déploiement (variables, secrets, volumes nommés). Les snippets ci-dessous donnent **la structure réseau + container_name** alignée sur tes conventions VPS.
+
+### 7.1 Stack `cloudity-infra` (le réseau `cloudity-data` est créé ICI)
+
+```yaml
+services:
+  cloudity-postgres:
+    image: postgres:15-alpine
+    container_name: cloudity-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - cloudity_postgres_data:/var/lib/postgresql/data
+    networks: [cloudity-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  cloudity-redis:
+    image: redis:7-alpine
+    container_name: cloudity-redis
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - cloudity_redis_data:/data
+    networks: [cloudity-data]
+
+volumes:
+  cloudity_postgres_data:
+    name: cloudity_postgres_data
+  cloudity_redis_data:
+    name: cloudity_redis_data
+
+networks:
+  cloudity-data:
+    driver: bridge
+    name: cloudity-data       # créé par cette stack ; les autres le déclareront external: true
+```
+
+### 7.2 Stack `cloudity-identity` (auth + admin + gateway → exposée via NPM)
+
+```yaml
+services:
+  cloudity-auth-service:
+    image: paveldelhomme/cloudity-auth-service:${TAG:-latest}
+    container_name: cloudity-auth-service
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@cloudity-postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - REDIS_URL=cloudity-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ACCESS_TOKEN_DURATION_MINUTES=60
+      - ARGON2_MEMORY_KB=65536
+      - ARGON2_TIME=3
+      - ARGON2_PARALLELISM=4
+    volumes:
+      - cloudity_auth_keys:/app                # private.pem + private_ed25519.pem persistés
+    networks: [cloudity-data]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  cloudity-admin-service:
+    image: paveldelhomme/cloudity-admin-service:${TAG:-latest}
+    container_name: cloudity-admin-service
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@cloudity-postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=cloudity-redis:6379
+    networks: [cloudity-data]
+    depends_on: [cloudity-auth-service]
+
+  cloudity-api-gateway:
+    image: paveldelhomme/cloudity-api-gateway:${TAG:-latest}
+    container_name: cloudity-api-gateway
+    restart: unless-stopped
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://cloudity-auth-service:8081
+      - ADMIN_SERVICE_URL=http://cloudity-admin-service:8082
+      - PASSWORDS_SERVICE_URL=http://cloudity-passwords-service:8051
+      - MAIL_DIRECTORY_SERVICE_URL=http://cloudity-mail-directory-service:8050
+      - CALENDAR_SERVICE_URL=http://cloudity-calendar-service:8052
+      - CONTACTS_SERVICE_URL=http://cloudity-contacts-service:8056
+      - NOTES_SERVICE_URL=http://cloudity-notes-service:8053
+      - TASKS_SERVICE_URL=http://cloudity-tasks-service:8054
+      - DRIVE_SERVICE_URL=http://cloudity-drive-service:8055
+      - PHOTOS_SERVICE_URL=http://cloudity-photos-service:8057
+      - CORS_ORIGINS=https://app.cloudity.delhomme.ovh,https://admin.cloudity.delhomme.ovh
+      - JWT_PUBLIC_KEY_PATH=/keys/public.pem
+      - JWT_ED25519_PUBLIC_KEY_PATH=/keys/public_ed25519.pem
+    volumes:
+      - cloudity_auth_keys:/keys:ro            # même volume qu'auth-service, lecture seule
+    networks:
+      - cloudity-data                          # parle aux microservices internes
+      - web                                    # joignable depuis NPM (cf. Q22)
+    depends_on:
+      - cloudity-auth-service
+      - cloudity-admin-service
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  cloudity_auth_keys:
+    name: cloudity_auth_keys
+
+networks:
+  cloudity-data:
+    external: true                             # créé par cloudity-infra
+    name: cloudity-data
+  web:
+    external: true                             # déjà existant sur ton VPS
+    name: web
+```
+
+### 7.3 Stack `cloudity-web` (SPA → exposée via NPM)
+
+```yaml
+services:
+  cloudity-web:
+    image: paveldelhomme/cloudity-web:${TAG:-latest}
+    container_name: cloudity-web
+    restart: unless-stopped
+    networks: [web]                            # pas besoin de cloudity-data : tout passe via gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  web:
+    external: true
+    name: web
+```
+
+### 7.4 Stack métier type (ex. `cloudity-mail`)
+
+```yaml
+services:
+  cloudity-mail-directory-service:
+    image: paveldelhomme/cloudity-mail-directory-service:${TAG:-latest}
+    container_name: cloudity-mail-directory-service
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@cloudity-postgres:5432/${POSTGRES_DB}?sslmode=disable
+      - REDIS_URL=cloudity-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ALIAS_ENCRYPTION_KEY=${ALIAS_ENCRYPTION_KEY}     # AES-256 base64 32 octets
+    networks: [cloudity-data]                   # PAS de réseau edge — passe par la gateway
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8050/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  cloudity-data:
+    external: true
+    name: cloudity-data
+```
+
+Reproduire ce gabarit pour `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm` (4 services dans le même stack) en changeant les ports / variables.
 
 ---
 
-## 7. Liens utiles
+## 8. NPM — Proxy Hosts à créer
+
+| Hostname | Forward Hostname / IP | Port | SSL | Remarques |
+|----------|-----------------------|------|-----|-----------|
+| `api.cloudity.delhomme.ovh` | `cloudity-api-gateway` | `8000` | Let's Encrypt + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
+| `app.cloudity.delhomme.ovh` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si nginx pur. |
+| `admin.cloudity.delhomme.ovh` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Idéal : **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[../securite/AUDIT-SECURITE-ADMIN-API.md](../securite/AUDIT-SECURITE-ADMIN-API.md)** + **[../securite/WEBAUTHN-PLAN.md](../securite/WEBAUTHN-PLAN.md)**). |
+
+**Custom locations / advanced** (NPM → onglet "Advanced") — durcissement supplémentaire si NPM le permet :
+
+```nginx
+# api.cloudity.delhomme.ovh — onglet Advanced
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+proxy_read_timeout 90;
+proxy_request_buffering off;
+client_max_body_size 200m;          # gros uploads Drive/Photos
+```
+
+> Si `nginx.delhomme.ovh` (NPM) tourne sous une image récente, cocher **HTTP/2** (déjà le défaut) et tester `HTTP/3` (UDP/443) selon la version — cf. **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)** § 2.
+
+---
+
+## 9. Build & push images — flux GitHub Actions (Q24)
+
+Cible : à chaque tag `v0.x.y` sur le meta-repo (ou sur chaque sous-repo une fois la Phase 1 multi-repo livrée), GHA construit et pousse les images Docker Hub `paveldelhomme/cloudity-<svc>:v0.x.y` + `:latest`.
+
+```yaml
+# .github/workflows/docker-publish.yml — squelette
+name: Build & push Docker images
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        svc:
+          - api-gateway
+          - auth-service
+          - mail-directory-service
+          - drive-service
+          - photos-service
+          - passwords-service
+          - calendar-service
+          - contacts-service
+          - notes-service
+          - tasks-service
+          - admin-service
+          - web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/${{ matrix.svc }}/Dockerfile.prod  # ou frontend/apps/cloudity-web/Dockerfile.prod
+          push: true
+          tags: |
+            paveldelhomme/cloudity-${{ matrix.svc }}:${{ github.ref_name }}
+            paveldelhomme/cloudity-${{ matrix.svc }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+```
+
+Secrets GitHub à créer :
+- `DOCKERHUB_USERNAME` = `paveldelhomme`
+- `DOCKERHUB_TOKEN` = jeton **read/write** créé sur Docker Hub (Account Settings → Security → New Access Token).
+
+---
+
+## 10. Procédure de déploiement (résumé `make` cible)
+
+Le jour J (homelab H1 livré) :
+
+1. **Push code** + tag : `git tag v0.5.0 && git push --tags` → GHA construit et publie 12 images.
+2. **Portainer → Add Stack** :
+   - `cloudity-infra` (Web Editor : coller § 7.1) + variables d'env (DB password, Redis password, etc.) → **Deploy**.
+   - Vérifier que `cloudity-data` est bien créé (Networks).
+   - `cloudity-identity` (§ 7.2) avec `TAG=v0.5.0` → **Deploy**.
+   - Suite : `cloudity-mail`, `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm`, `cloudity-web`.
+3. **NPM → Proxy Hosts** : créer les 3 entrées du § 8, cocher Let's Encrypt + Force SSL + HSTS.
+4. **Smoke tests** : `curl https://api.cloudity.delhomme.ovh/health`, charger `https://app.cloudity.delhomme.ovh`, login via TOTP, ouvrir `/4dm1n`.
+5. **Backup** : confirmer que le runner `cloudity-backup` (cf. [BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)) atteint la RPi via WireGuard + Headscale (Q13=B).
+
+---
+
+## 11. Distinction dev local ↔ prod VPS (rappel)
+
+| | Dev local (`make up`) | Prod VPS Portainer |
+|---|------------------------|--------------------|
+| **Source** | `docker-compose.yml` racine, `build:` depuis `./backend/<svc>` | Stacks Portainer, `image: paveldelhomme/cloudity-<svc>:<tag>` |
+| **Ports hôte** | 6042 (PG), 6079 (Redis), 6080 (gateway), 6081 (auth), 6001 (web), 6082 (admin), … | **Aucun** (tout interne ; seul NPM publie 80/443/UDP/443) |
+| **TLS** | Désactivé (HTTP localhost) | **TLS 1.3** géré par NPM, certs Let's Encrypt |
+| **CORS** | `localhost:6001`, `localhost:5173` | `https://app.cloudity.delhomme.ovh`, `https://admin.cloudity.delhomme.ovh` |
+| **JWT keys** | `private.pem` + `private_ed25519.pem` générées au boot dans le bind-mount `./backend/auth-service` | Volume Docker nommé `cloudity_auth_keys` (persistant entre redéploiements) |
+| **Frontend** | Vite dev server, HMR | Build statique nginx-alpine |
+| **DB** | `cloudity-postgres` local, mot de passe trivial | Idem, mots de passe dans variables Portainer (chiffrées au repos) |
+
+---
+
+## 12. Liens utiles
 
 | Sujet | Document |
 |-------|----------|
-| Découpage stacks, NPM, images GHCR | **[MULTI-REPO-LAYOUT.md](../architecture/MULTI-REPO-LAYOUT.md)** § 8 |
-| TLS 1.3, HSTS, CSP, HTTP/3, PQ | **[REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)** |
-| Homelab bloquant prod | **[HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** |
-| Décisions Q7 / Q15 / Q18–Q19 | **[decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** |
+| Découpage stacks, registry, GHA | **[../architecture/MULTI-REPO-LAYOUT.md](../architecture/MULTI-REPO-LAYOUT.md)** § 8 |
+| TLS 1.3, HSTS, CSP, HTTP/3, hybride PQ | **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)** + **[../securite/CRYPTO-NORME.md](../securite/CRYPTO-NORME.md)** |
+| Audit `/4dm1n` (ACL IP + 2FA) | **[../securite/AUDIT-SECURITE-ADMIN-API.md](../securite/AUDIT-SECURITE-ADMIN-API.md)** |
+| Backup offsite (RPi) | **[../architecture/BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)** |
+| Homelab bloquant prod (Q15) | **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** |
+| Décisions Q7 / Q15 / Q18–Q19 / Q21–Q24 | **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** |
 
 ---
 
-*Fiche créée pour ancrer le déploiement **VPS + Portainer + NPM** (ex. Contabo) sans mélanger avec le workflow dev local.*
+*Fiche calquée sur les conventions actuelles du VPS Contabo (cooking-recipes, cyna-production, n8n) — mise à jour 2026-05-12.*

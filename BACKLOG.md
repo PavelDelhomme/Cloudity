@@ -180,6 +180,21 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [x] **gosec** en CI : intégré à `make test-security` (scan des modules Go listés ; **warnings** par défaut ; `GOSEC_BLOCKING=1` pour fail le build). Rapports : `reports/gosec-<service>.txt`. Q20=A.
 - [ ] **Recalibrage Argon2id** : tâche récurrente tous les 18-24 mois (cf. CRYPTO-NORME.md § 3.4). Prochaine revue prévue **2027-11**.
 
+### Déploiement VPS Contabo / Portainer / NPM (cf. **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** — bloqué par H1 homelab Q15=A)
+
+> Conventions du VPS observées au 2026-05-12 : Docker Hub `paveldelhomme/*`, NPM `nginx.delhomme.ovh` qui résout par `container_name:port`, réseaux partagés `web` (cooking-recipes) + `shared-network-copy` (cyna, n8n), pattern `*.delhomme.ovh`. Stacks existantes : `cooking-recipes`, `cyna-production`, `n8n-stack`, `nextcloud-stack`.
+
+- [ ] **Q21 / Q22 / Q23 / Q24** — à trancher (registry, réseau edge, pattern domaine, GHA).
+- [ ] **Dockerfile.prod** par service (12 fichiers : 11 backends + cloudity-web). Multi-stage, image finale minimale (alpine / distroless). Différent des `Dockerfile.dev` actuels.
+- [ ] **`frontend/apps/cloudity-web/nginx.conf`** : config nginx pour servir le bundle SPA (fallback `/index.html` pour le router, headers cache long sur `/assets/*`, cache off sur `/index.html`).
+- [ ] **GitHub Actions** `docker-publish.yml` (cf. fiche § 9) avec matrice 12 services + secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (selon Q24=A).
+- [ ] **Stacks Portainer** : 8 fichiers Compose (`cloudity-infra`, `cloudity-identity`, `cloudity-mail`, `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm`, `cloudity-web`) à versionner dans `infrastructure/portainer/` et tagger ensemble lors d'une release.
+- [ ] **NPM** : 3 Proxy Hosts à créer (`api.cloudity.delhomme.ovh`, `app.cloudity.delhomme.ovh`, `admin.cloudity.delhomme.ovh`) avec Force SSL + HSTS + headers durcis (cf. fiche § 8).
+- [ ] **DNS `delhomme.ovh`** (selon Q23=A) : ajouter CNAME `cloudity`, `api.cloudity`, `admin.cloudity` → IP du VPS.
+- [ ] **Volume `cloudity_auth_keys`** : persister les paires RSA + Ed25519 d'auth-service entre redéploiements (sinon tous les JWT cassent à chaque rebuild).
+- [ ] **Smoke test post-deploy** : script `scripts/ops/smoke-prod.sh` qui appelle les 5 endpoints critiques (`/health`, `/auth/validate`, `/mail/me/accounts`, `/drive/nodes/recent`, `/contacts`) avec un compte test.
+- [ ] **Procédure rollback** : pour rollback `v0.5.0 → v0.4.x`, mettre à jour `TAG=` dans Portainer et redéployer la stack ciblée. Documenter dans la fiche § 10.
+
 ### UX / Suite web (`frontend/apps/cloudity-web`, **`@cloudity/web`**)
 
 - [x] **Mail web — rationalisation actions latérales** : suppression des doublons (`Nouveau`, `Recharger`, `Paramètres Mail`, `Filtres et règles`) quand déjà présents dans `Menu Mail`.
