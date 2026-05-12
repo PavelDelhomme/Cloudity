@@ -83,7 +83,7 @@ Décisions actées (résumé exécutable) :
 À faire (Phase ultérieure) :
 
 - [ ] **Stacks Portainer** : éclater le `docker-compose.yml` actuel en fichiers Compose **par domaine** (`compose/identity.yml`, `compose/mail.yml`, …) avec réseaux Docker partagés ; documenter dans `docs/operations/STACKS-PORTAINER.md`.
-- [ ] **Reverse proxy** : compléter **REVERSE-PROXY.md** pour le scénario **nginx-proxy-manager** (subdomains `api.`, `app.`, `admin.` → conteneurs) + checklist Portainer.
+- [x] **Reverse proxy NPM (2026-05-12)** : section **§ 4 bis** ajoutée à **REVERSE-PROXY.md** — table des 3 Proxy Hosts, blocs « Advanced » prêts à coller (`api.` / `app.` / `admin.cloudity.delhomme.ovh`), table des limites NPM (HTTP/3 et PQ Q18/Q19 à activer plus tard via bascule Caddy / nginx natif), tests rapides via **`make smoke-prod`**. Aligné avec Q22=A (réseau Docker `web`) et Q23=A (`cloudity.delhomme.ovh` + sous-domaines).
 - [ ] **Backup offsite** : POC tunnel + agent VPS + runner local (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)** § 7) — démarrage **après** stabilisation Mail / Photos / Pass.
 - [ ] **Extension Pass + desktop Linux** : POC stack Tauri vs Electron + bootstrap des dépôts dédiés (cf. Q9 = D, **après** stabilisation produit).
 

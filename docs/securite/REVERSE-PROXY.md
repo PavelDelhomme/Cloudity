@@ -263,6 +263,89 @@ server {
 
 ---
 
+## 4 bis. nginx-proxy-manager (NPM, scénario actuel VPS — Q23=A)
+
+> **Statut** : c'est le scénario **actuellement déployé** sur `nginx.delhomme.ovh` (Contabo). Il partage déjà Let's Encrypt + le réseau Docker `web` avec les stacks `cookingrecipes`, `cyna`, `n8n`. Décisions actées : **Q21=B** (GHCR), **Q22=A** (réseau Docker `web`), **Q23=A** (`cloudity.delhomme.ovh` + `api.` / `admin.`), **Q24=A** (GHA matrice). Détails : **[REPONSES.md bloc 4](../decisions/multi-repo/REPONSES.md)** + procédure end-to-end : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) § 7–10**.
+
+NPM est un nginx + une UI : la stratégie de durcissement reste celle de § 4 (TLS 1.3, HSTS, headers, etc.) mais on la **pose via la GUI** + l'onglet **« Advanced »** de chaque Proxy Host. Concrètement :
+
+| Hostname | Forward Hostname / IP | Port | SSL | Remarques |
+|----------|-----------------------|------|-----|-----------|
+| `api.cloudity.delhomme.ovh`   | `cloudity-api-gateway` | `8000` | LE + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
+| `app.cloudity.delhomme.ovh`   | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si bundle nginx pur. |
+| `admin.cloudity.delhomme.ovh` | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** + **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)**). |
+
+### 4 bis.1 Bloc « Advanced » à coller (api.cloudity.delhomme.ovh)
+
+```nginx
+# Headers durcis (équivalent § 2 et § 4) — même politique que la conf nginx native.
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+# CSP API : pas de HTML servi → tout interdire sauf 'self'.
+add_header Content-Security-Policy "default-src 'none'; frame-ancestors 'none'" always;
+
+# Rate limit edge (en complément du rate limit gateway) — ajuster selon trafic.
+limit_req_zone $binary_remote_addr zone=api_rl:10m rate=20r/s;
+limit_req zone=api_rl burst=40 nodelay;
+
+# Timeouts & uploads (adapter à Drive/Photos).
+proxy_read_timeout 90;
+proxy_request_buffering off;
+client_max_body_size 200m;
+```
+
+### 4 bis.2 Bloc « Advanced » à coller (app.cloudity.delhomme.ovh / admin.cloudity.delhomme.ovh)
+
+```nginx
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+
+# CSP report-only puis enforce (cf. § 6).
+# add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.delhomme.ovh; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri https://api.cloudity.delhomme.ovh/csp-report" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.delhomme.ovh; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" always;
+
+# Cache long sur /assets/* (bundles versionnés Vite), no-store sur index.html
+location ~* ^/assets/ {
+  proxy_pass http://cloudity-web:3000;
+  add_header Cache-Control "public, max-age=31536000, immutable";
+}
+location = /index.html {
+  proxy_pass http://cloudity-web:3000;
+  add_header Cache-Control "no-store" always;
+}
+```
+
+> Pour `admin.cloudity.delhomme.ovh`, ajouter en plus dans Access List une **IP allowlist** (VPN home / IP statique admin) — la 2FA + WebAuthn restent indépendantes côté `auth-service`.
+
+### 4 bis.3 Limites de NPM et stratégie d'évolution
+
+| Item | NPM (aujourd'hui) | Caddy/nginx natif (cible) |
+|------|-------------------|---------------------------|
+| **HTTP/3 (Q18=A)** | dépend du build OpenJS NPM (souvent absent) → **HTTP/2 only** sur sa version actuelle | OK (cf. § 3, § 4) — bascule à prévoir une fois les autres stacks NPM neutres ou migrées. |
+| **Hybride PQ X25519MLKEM768 (Q19=A)** | dépend de l'OpenSSL embarqué dans l'image NPM → souvent **absent** | OK avec OpenSSL 3.5+ (§ 4) ou Caddy 2.9+ (§ 3). |
+| **mTLS interne `proxy_ssl_*` vers cloudity-api-gateway** | **possible** via onglet Advanced custom → cf. § 4 conf `proxy_ssl_certificate*` | natif. |
+| **Rate-limit / WAF granulaire** | bloc `limit_req` Advanced + onglet « Block Common Exploits » | accès direct nginx + ModSecurity / CRS. |
+
+> **Plan** : NPM reste la couche edge tant que la cohabitation avec les autres stacks domine. **Bascule Caddy / nginx natif planifiée** pour activer Q18 (HTTP/3) + Q19 (PQ) sans empiler les reverse-proxies. Tracker dans **BACKLOG « Reverse-proxy edge »**.
+
+### 4 bis.4 Tests rapides post-déploiement NPM
+
+- **`make smoke-prod`** (cf. **[../../scripts/ops/smoke-prod.sh](../../scripts/ops/smoke-prod.sh)**) — vérifie /health, /auth/validate, SPA, TLS handshake, HSTS + nosniff sur les sous-domaines `api.` / `app.`.
+- **Manual** : `curl -sI https://app.cloudity.delhomme.ovh | rg -i 'strict|content-security|x-content-type|referrer-policy|permissions-policy'`.
+- **Mozilla Observatory** : viser **A+** ; faux-positif fréquent NPM = `Server: nginx` non strippé → désactivable via Advanced si besoin (`server_tokens off;` n'est pas pris par NPM, fallback : header_filter Lua ou bascule Caddy).
+
+---
+
 ## 5. Traefik (alternative cluster)
 
 `traefik.yml` (extrait) :
