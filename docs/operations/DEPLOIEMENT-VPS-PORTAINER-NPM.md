@@ -209,8 +209,12 @@ services:
       - ARGON2_MEMORY_KB=65536
       - ARGON2_TIME=3
       - ARGON2_PARALLELISM=4
+      # Persistance des paires JWT entre redéploiements (sinon chaque rebuild
+      # invalide TOUS les tokens existants). Cf. backend/auth-service/main.go
+      # `keyDir()` + tests `TestKeyDirOverrideWritesAndReloadsEd25519/RSA`.
+      - AUTH_KEYS_DIR=/var/lib/cloudity/auth-keys
     volumes:
-      - cloudity_auth_keys:/app                # private.pem + private_ed25519.pem persistés
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys
     networks: [cloudity-data]
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8081/health"]
@@ -250,12 +254,12 @@ services:
       - PHOTOS_SERVICE_URL=http://cloudity-photos-service:8057
       - CORS_ORIGINS=https://app.cloudity.delhomme.ovh,https://admin.cloudity.delhomme.ovh
       - CORS_ALLOW_LAN=false                                              # prod : Origin strict
-      - JWT_PUBLIC_KEY_PATH=/keys/public.pem
-      - JWT_ED25519_PUBLIC_KEY_PATH=/keys/public_ed25519.pem
+      - JWT_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public.pem
+      - JWT_ED25519_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public_ed25519.pem
       # OBLIGATOIRE : doit valoir la même chose côté cloudity-admin-service
       - PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN}
     volumes:
-      - cloudity_auth_keys:/keys:ro            # même volume qu'auth-service, lecture seule
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys:ro
     networks:
       - cloudity-data                          # parle aux microservices internes
       - web                                    # joignable depuis NPM (cf. Q22)

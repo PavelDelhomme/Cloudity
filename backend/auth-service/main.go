@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -642,17 +643,46 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 	})
 }
 
+// keyDir retourne le répertoire où les paires JWT sont persistées.
+// En dev (sans override) → "." (= /app dans le conteneur, monté en bind sur
+// l'hôte par docker-compose.yml). En prod (Portainer / Compose prod) →
+// `AUTH_KEYS_DIR=/var/lib/cloudity/auth-keys` adossé au volume nommé
+// `cloudity_auth_keys` pour que les clés survivent aux redéploiements
+// (sinon TOUS les JWT existants deviennent invalides à chaque rebuild).
+//
+// Cf. docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § Volumes persistants.
+func keyDir() string {
+	if d := strings.TrimSpace(os.Getenv("AUTH_KEYS_DIR")); d != "" {
+		return d
+	}
+	return "."
+}
+
+// keyPath joint name au keyDir() courant. Effet de bord : crée le répertoire
+// s'il n'existe pas (mode 0700) — utile la première fois qu'un volume vide
+// est monté.
+func keyPath(name string) string {
+	dir := keyDir()
+	if dir != "." {
+		_ = os.MkdirAll(dir, 0o700)
+	}
+	return filepath.Join(dir, name)
+}
+
 // loadEd25519Keys génère ou charge la paire Ed25519 utilisée pour signer
-// les access tokens. Persistée sur disque dans le répertoire courant
+// les access tokens. Persistée sur disque dans `keyDir()`
 // (private_ed25519.pem en PKCS8 mode 0600, public_ed25519.pem en PKIX mode 0644)
-// pour rester partagée avec api-gateway via le volume Docker
-// `./backend/auth-service:/app/keys:ro`.
+// pour rester partagée avec api-gateway via :
+//   - dev : volume Docker bind `./backend/auth-service:/app/keys:ro`,
+//   - prod : volume Docker nommé `cloudity_auth_keys` monté à `AUTH_KEYS_DIR`
+//     sur auth-service (RW) et exposé en RO à api-gateway via
+//     `JWT_ED25519_PUBLIC_KEY_PATH`.
 //
 // Migration : un sidecar de rotation (step-ca ou systemd timer) écrira
 // les nouvelles paires en place et émettra un signal SIGHUP — Phase Z TODO.
 func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey) {
-	privPath := "private_ed25519.pem"
-	pubPath := "public_ed25519.pem"
+	privPath := keyPath("private_ed25519.pem")
+	pubPath := keyPath("public_ed25519.pem")
 	if _, err := os.Stat(privPath); err == nil {
 		if privBytes, err := os.ReadFile(privPath); err == nil {
 			if any, err := jwt.ParseEdPrivateKeyFromPEM(privBytes); err == nil {
@@ -663,7 +693,7 @@ func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey) {
 			}
 		}
 	}
-	log.Println("Ed25519 keys not found, generating new pair (will persist to disk)")
+	log.Printf("Ed25519 keys not found in %s, generating new pair (will persist to disk)", keyDir())
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		log.Fatal("ed25519 generate:", err)
@@ -680,8 +710,8 @@ func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey) {
 }
 
 func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
-	privPath := "private.pem"
-	pubPath := "public.pem"
+	privPath := keyPath("private.pem")
+	pubPath := keyPath("public.pem")
 	if _, err := os.Stat(privPath); err == nil {
 		privBytes, _ := os.ReadFile(privPath)
 		pubBytes, _ := os.ReadFile(pubPath)
@@ -691,7 +721,7 @@ func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 			return priv, pub
 		}
 	}
-	log.Println("RSA keys not found, using in-memory key for dev")
+	log.Printf("RSA keys not found in %s, using in-memory key for dev", keyDir())
 	priv, _ := rsa.GenerateKey(rand.Reader, 2048)
 	pub := &priv.PublicKey
 	// Écrire les deux clés pour que, au redémarrage, les mêmes clés soient rechargées (JWT restent valides).

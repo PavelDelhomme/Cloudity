@@ -24,6 +24,12 @@ services:
     restart: always
     environment:
       - GO_ENV=production
+      # Volume nommé `cloudity_auth_keys` monté ici pour que les paires
+      # Ed25519 et RSA (rétrocompat RS256) survivent aux redéploiements.
+      # Sinon, chaque rebuild régénère les clés et invalide TOUS les JWT.
+      - AUTH_KEYS_DIR=/var/lib/cloudity/auth-keys
+    volumes:
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys
 
   api-gateway:
     build:
@@ -34,6 +40,11 @@ services:
       - "6080:8000"
     environment:
       - GO_ENV=production
+      # Lecture seule des clés publiques émises par auth-service.
+      - JWT_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public.pem
+      - JWT_ED25519_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public_ed25519.pem
+    volumes:
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys:ro
 
   admin-service:
     build:
@@ -53,3 +64,10 @@ services:
     environment:
       - NODE_ENV=production
       - VITE_API_URL=https://api.cloudity.io
+
+volumes:
+  cloudity_auth_keys:
+    name: cloudity_auth_keys
+    # Volume nommé qui persiste les paires de clés JWT Ed25519 + RS256 legacy
+    # entre redéploiements (cf. auth-service AUTH_KEYS_DIR + api-gateway
+    # JWT_*_KEY_PATH). À sauvegarder via le runner backup offsite.
