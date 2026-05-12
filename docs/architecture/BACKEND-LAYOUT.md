@@ -35,14 +35,70 @@ backend/foo-service/
 
 Les handlers doivent passer par **`h.dbex(ctx)`** (connexion PostgreSQL **épinglée** sur la requête HTTP) — voir commentaire en tête de `dbpin.go` dans chaque service.
 
-## 4. `dbpin.go` dupliqué entre services
+## 4. `backend/pkg/dbpin` — module Go partagé (Phase 0)
 
-Les fichiers `dbpin.go` sont **copiés** à l’identique dans plusieurs services : le **build Docker** utilise le contexte **`./backend/<service>`** seul (sans `go.work`), ce qui rend un module partagé **`pkg/dbpin`** non trivial sans :
+Depuis la **Phase 0 multi-repo** (cf. **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 4 et **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** Q10=A), il existe un module Go partagé :
 
-- soit élargir le **contexte** Compose à `./backend` et adapter chaque `Dockerfile.dev` (COPY `pkg/` + service) ;
-- soit publier un module interne.
+```
+backend/pkg/dbpin/
+├── go.mod          module github.com/pavel/cloudity/pkg/dbpin
+├── dbpin.go        DbExec, Conn, NewConn, WithConn, From
+└── dbpin_test.go
+```
 
-**Piste** : introduire `backend/pkg/dbpin` + `go.work` + Dockerfiles multi-`COPY` — à planifier dans une PR dédiée pour limiter le risque.
+API exportée :
+
+| Symbole | Rôle |
+|---------|------|
+| `dbpin.DbExec` | interface (parité `*sql.DB`, `*sql.Tx`, `*Conn`) |
+| `dbpin.Conn` | adaptateur `*sql.Conn` → `DbExec` avec `ctx` épinglé |
+| `dbpin.NewConn(conn, ctx)` | constructeur |
+| `dbpin.WithConn(ctx, p)` | injecte la conn épinglée dans `ctx` |
+| `dbpin.From(ctx, fallback)` | renvoie la conn épinglée ou le fallback |
+
+### 4.1 Statut de migration des services
+
+| Service | Statut | Migration |
+|---------|--------|-----------|
+| `drive-service` | copie locale `dbpin.go` | **TODO** (PR dédiée : volume Compose + replace go.mod + wrapper local) |
+| `photos-service` | copie locale | **TODO** |
+| `contacts-service` | copie locale | **TODO** |
+| `notes-service` | copie locale | **TODO** |
+| `calendar-service` | copie locale | **TODO** |
+| `tasks-service` | copie locale | **TODO** |
+
+Les 6 copies locales sont **MD5-identiques** à l'API exposée par le module partagé : le bascule se fera service par service en remplaçant le `dbpin.go` local par un mince wrapper :
+
+```go
+// backend/<service>/dbpin.go (cible après migration)
+package main
+
+import (
+	"context"
+	"github.com/pavel/cloudity/pkg/dbpin"
+)
+
+type pinnedConn = dbpin.Conn
+
+func newPinnedConn(conn *sql.Conn, ctx context.Context) *pinnedConn {
+	return dbpin.NewConn(conn, ctx)
+}
+
+var withPinnedConn = dbpin.WithConn
+
+func (h *Handler) dbex(ctx context.Context) dbpin.DbExec {
+	return dbpin.From(ctx, h.db)
+}
+```
+
+Plus l'ajustement Docker (au choix) :
+
+- **(a)** ajouter dans `docker-compose.yml` un volume `- ./backend/pkg:/app/pkg:cached` + `replace github.com/pavel/cloudity/pkg/dbpin => ./pkg/dbpin` dans le `go.mod` du service ;
+- **(b)** élargir le contexte de build à `./backend/` + adapter les `COPY` du Dockerfile (plus invasif).
+
+### 4.2 Pourquoi pas une bascule en bloc ?
+
+L'étape Docker (a) ou (b) modifie le **build conteneur** de chaque service ; en cas de bug, on prend le risque d'une stack rouge en dev. La **règle Phase 0** est de **n'avancer qu'avec un service pilote** (drive-service), valider en `make rebuild` complet, puis propager. Voir todo dédiée dans **[../../BACKLOG.md](../../BACKLOG.md)**.
 
 ## 5. Checks après ajout ou renommage d’un service
 

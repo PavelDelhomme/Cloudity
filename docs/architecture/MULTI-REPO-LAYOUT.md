@@ -135,9 +135,10 @@ Risques **identifiés dans le code actuel** :
 
 ### Phase 0 — préparer le **monorepo** *(à faire avant toute scission)*
 
-1. Extraire **`backend/pkg/dbpin`** (lib Go interne) :
-   - module `github.com/pavel/cloudity/pkg/dbpin` ;
-   - chaque service `replace … => ../pkg/dbpin` + COPY Docker.
+1. **`backend/pkg/dbpin`** — lib Go interne :
+   - **étape 1 (faite ✅)** : module `github.com/pavel/cloudity/pkg/dbpin` créé (API publique : `DbExec`, `Conn`, `NewConn`, `WithConn`, `From`) + tests + entrée `go.work`. Détails dans **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)** § 4.
+   - **étape 2 (TODO)** : pilote sur `drive-service` — volume Compose `./backend/pkg:/app/pkg:cached`, `replace github.com/pavel/cloudity/pkg/dbpin => ./pkg/dbpin` dans `go.mod`, wrapper local de ~10 lignes.
+   - **étape 3 (TODO)** : propagation aux 5 autres services (`photos`, `contacts`, `notes`, `calendar`, `tasks`) puis suppression des 6 copies historiques de `dbpin.go`.
 2. Geler le **chemin de module** `internalsec` (passer de `github.com/pavel/cloudity/internalsec` à `github.com/cloudity/internalsec` si on prévoit un repo public).
 3. **Versionner** `@cloudity/shared` (publier `0.1.0` sur GitHub Packages) — `frontend/apps/cloudity-web/package.json` passe à `"@cloudity/shared": "^0.1.0"`.
 4. **Versionner** `cloudity_shared` Dart (tag git **ou** `pub.dev`).
@@ -264,7 +265,7 @@ Même chose pour la **résilience** (réplication PG, multi-instances services G
 | Élément | Action préliminaire (Phase 0) |
 |---------|--------------------------------|
 | `backend/internalsec` (lib) | Tagger un **`v0.1.0`** ; documenter le chemin de module final. |
-| `backend/*/dbpin.go` (7 copies) | Extraire dans **`backend/pkg/dbpin`** (un module Go) + ajustements `Dockerfile.dev` (COPY `pkg/dbpin/`). |
+| `backend/*/dbpin.go` (6 copies) | **Étape 1 faite ✅** : module **`backend/pkg/dbpin`** créé. Reste : ajustement Dockerfile/Compose + bascule service par service (cf. § 4 ci-dessus). |
 | `frontend/packages/cloudity-shared` | Tagger `v0.1.0` ; configurer GitHub Packages (`@cloudity` scope). |
 | `mobile/cloudity_shared` | Tagger `v0.1.0` ; basculer `pubspec.yaml` des apps de `path:` vers `git: ref: v0.1.0` à terme. |
 | `infrastructure/postgresql/migrations/` | Reste **dans le meta-repo** ; documenter dans **EVOLUTION-PLATEFORME.md** que les services **ne** modifient pas le schéma. |

@@ -73,7 +73,9 @@ Décisions actées (résumé exécutable) :
 
 À faire (Phase 0, en cours) :
 
-- [ ] **Phase 0 / pkg/dbpin** : extraire `backend/pkg/dbpin` (lib Go) pour casser la duplication `dbpin.go` (7 services).
+- [x] **Phase 0 / pkg/dbpin — étape 1** : module `backend/pkg/dbpin` créé (`DbExec`, `Conn`, `NewConn`, `WithConn`, `From`) + tests + ajout `go.work`. *(commit en cours)*
+- [ ] **Phase 0 / pkg/dbpin — étape 2 (pilote)** : migrer `drive-service` vers le module partagé (volume Compose `./backend/pkg:/app/pkg:cached` + `replace` go.mod + wrapper local de 10 lignes). Valider via `make rebuild` complet.
+- [ ] **Phase 0 / pkg/dbpin — étape 3 (propagation)** : appliquer la même bascule à `photos-service`, `contacts-service`, `notes-service`, `calendar-service`, `tasks-service`. **Suppression** des 6 `dbpin.go` locaux historiques en bout de chaîne.
 - [ ] **Phase 0 / versionnage** : tagger `internalsec` `v0.1.0`, préparer `@cloudity/shared` `v0.1.0` + `cloudity_shared` Dart `v0.1.0` (publication publique différée jusqu'à fixation de l'org GitHub).
 - [ ] **Phase 0 / contrats** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin).
 

@@ -23,5 +23,6 @@ use (
 	./backend/notes-service
 	./backend/passwords-service
 	./backend/photos-service
+	./backend/pkg/dbpin
 	./backend/tasks-service
 )
