@@ -66,19 +66,20 @@ Q31=A   HTTPS dev local optionnel : make dev-https (mkcert + Vite)
 
 ## Synthèse rapide — **bloc 4 : déploiement VPS / Portainer / NPM (complet au 2026-05-12)**
 
-Cadre : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+Cadre : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (table des placeholders en § 0).
 
-Contexte VPS observé au 2026-05-12 : Contabo, Portainer, NPM `nginx.delhomme.ovh`, stacks `cooking-recipes` / `cyna-production` / `n8n-stack` / `nextcloud-stack`. Réseaux partagés `web` (cookingrecipes) et `shared-network-copy` (cyna, n8n). Pattern domaines `*.delhomme.ovh`.
+Contexte VPS observé au 2026-05-12 : un VPS public Portainer + une instance NPM partagée (`<NPM_HOST>`) hébergent déjà plusieurs applications. Cloudity doit s'y greffer sans casser l'existant. **Les valeurs concrètes (TLD, hostname NPM, owner registry, noms des autres stacks) restent hors Git** : Portainer Stack Variables ou `.env.deploy.local` git-ignored.
 
 ```
-Q21=B   registry GHCR (ghcr.io/<owner>/cloudity-<svc>:<tag>) — auth via GITHUB_TOKEN
+Q21=B   registry GHCR (ghcr.io/<REGISTRY_OWNER>/cloudity-<svc>:<TAG>) — auth via GITHUB_TOKEN
         intégrée à .github/workflows/docker-publish.yml (livré 349d1642)
-Q22=A   réseau edge NPM : réutiliser `web` (déjà branché NPM ↔ cookingrecipes)
-        — zéro changement côté NPM ; les Compose Cloudity exposeront `cloudity-web`,
-        `cloudity-api-gateway`, `cloudity-admin-service` sur ce réseau.
-Q23=A   pattern `cloudity.delhomme.ovh` (app) + `api.cloudity.delhomme.ovh`
-        + `admin.cloudity.delhomme.ovh` — cohérence cookingrecipes ; TLD dédié à reposer
-        plus tard sans casse via redirections 301.
+Q22=A   réseau edge NPM : réutiliser le bridge external déjà branché à NPM
+        (<EDGE_NETWORK>, valeur typique `web`) — zéro changement côté NPM ; les
+        Compose Cloudity exposeront `cloudity-web`, `cloudity-api-gateway`,
+        `cloudity-admin-service` sur ce réseau.
+Q23=A   pattern `cloudity.<DOMAIN>` (app) + `api.cloudity.<DOMAIN>`
+        + `admin.cloudity.<DOMAIN>` — cohérence avec les autres apps du VPS ;
+        TLD dédié à reposer plus tard sans casse via redirections 301.
 Q24=A   build & push : GitHub Actions matrice (push main/master, tag v*.*.*, workflow_dispatch)
         — livré (349d1642), images sur GHCR.
 ```
@@ -88,8 +89,8 @@ Q24=A   build & push : GitHub Actions matrice (push main/master, tag v*.*.*, wor
 | Choix | Conséquence concrète |
 |-------|----------------------|
 | **Q21=B** | Aucun secret Docker Hub à provisionner ; `docker login ghcr.io -u <gh-user> -p <PAT:read:packages>` côté Portainer pour images privées (le repo Cloudity peut rester privé). Auth CI = `GITHUB_TOKEN` natif. |
-| **Q22=A** | Les services exposés via NPM (front, gateway, admin) doivent être attachés au réseau Docker externe `web` dans leur `docker-compose.yml` Portainer. Les services internes (postgres, redis, services métier) restent sur des réseaux dédiés (`cloudity-internal`) non joignables par NPM. |
-| **Q23=A** | DNS à créer côté OVH : `cloudity`, `api.cloudity`, `admin.cloudity` (CNAME ou A → IP VPS). NPM Proxy Hosts à provisionner avec « Force SSL », HSTS et headers durcis (cf. fiche § 8). |
+| **Q22=A** | Les services exposés via NPM (front, gateway, admin) doivent être attachés au bridge `external: true` déjà branché à NPM (`<EDGE_NETWORK>`) dans leur `docker-compose.yml` Portainer. Les services internes (postgres, redis, services métier) restent sur des réseaux dédiés (`<INTERNAL_NETWORK>`, ex. `cloudity-data`) non joignables par NPM. |
+| **Q23=A** | DNS à créer côté ton registrar : `cloudity`, `api.cloudity`, `admin.cloudity` (CNAME ou A → IP VPS). NPM Proxy Hosts à provisionner avec « Force SSL », HSTS et headers durcis (cf. fiche § 8). |
 | **Q24=A** | Pour publier une release : `git tag v0.x.y && git push --tags` → GHA build matrice (10 Go + admin-service + frontend) en parallèle, push GHCR. Mise à jour Portainer = bump du `TAG=` dans la stack. |
 
 ### Conséquences directes des choix Q11–Q15

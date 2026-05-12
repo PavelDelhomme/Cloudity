@@ -64,7 +64,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/PLAN.md](operations/PLAN.md)** | Dépannage **dev** : console navigateur, favicons, dates corbeille. |
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
-| **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS (ex. Contabo), **Portainer** + **NPM** ; ports internes vs dev local ; lien Q15 / homelab. |
+| **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS public + **Portainer** + **NPM** partagé ; placeholders neutres (TLD / hostname NPM hors Git) ; ports internes vs dev local ; lien Q15 / homelab. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité. |
 | **[operations/TODO.md](operations/TODO.md)** | Notes de développement (perf Drive, HMR). Priorités produit : ROADMAP / STATUS. |
 

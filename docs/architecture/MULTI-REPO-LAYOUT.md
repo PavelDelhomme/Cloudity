@@ -216,7 +216,7 @@ Tu veux pouvoir, depuis **Mail**, **ajouter un contact**. C’est OK même en mu
 
 ## 8. Production : Portainer + nginx-proxy-manager
 
-**Guide opérationnel détaillé** (VPS type Contabo, stacks Portainer, NPM, distinction dev/prod) : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+**Guide opérationnel détaillé** (VPS public + Portainer + NPM partagé, placeholders neutres, distinction dev/prod) : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
 
 Cible déjà mentionnée ; schéma :
 

@@ -265,17 +265,17 @@ server {
 
 ## 4 bis. nginx-proxy-manager (NPM, scénario actuel VPS — Q23=A)
 
-> **Statut** : c'est le scénario **actuellement déployé** sur `nginx.delhomme.ovh` (Contabo). Il partage déjà Let's Encrypt + le réseau Docker `web` avec les stacks `cookingrecipes`, `cyna`, `n8n`. Décisions actées : **Q21=B** (GHCR), **Q22=A** (réseau Docker `web`), **Q23=A** (`cloudity.delhomme.ovh` + `api.` / `admin.`), **Q24=A** (GHA matrice). Détails : **[REPONSES.md bloc 4](../decisions/multi-repo/REPONSES.md)** + procédure end-to-end : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) § 7–10**.
+> **Statut** : c'est le scénario **actuellement déployé** sur l'instance NPM partagée du VPS (`<NPM_HOST>`). Il partage déjà Let's Encrypt + le réseau Docker `<EDGE_NETWORK>` avec les autres applications du VPS. Décisions actées : **Q21=B** (GHCR), **Q22=A** (réutiliser le bridge external NPM), **Q23=A** (`cloudity.<DOMAIN>` + `api.` / `admin.`), **Q24=A** (GHA matrice). Placeholders : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § 0](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**. Détails : **[REPONSES.md bloc 4](../decisions/multi-repo/REPONSES.md)** + procédure end-to-end : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) § 7–10**.
 
 NPM est un nginx + une UI : la stratégie de durcissement reste celle de § 4 (TLS 1.3, HSTS, headers, etc.) mais on la **pose via la GUI** + l'onglet **« Advanced »** de chaque Proxy Host. Concrètement :
 
 | Hostname | Forward Hostname / IP | Port | SSL | Remarques |
 |----------|-----------------------|------|-----|-----------|
-| `api.cloudity.delhomme.ovh`   | `cloudity-api-gateway` | `8000` | LE + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
-| `app.cloudity.delhomme.ovh`   | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si bundle nginx pur. |
-| `admin.cloudity.delhomme.ovh` | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** + **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)**). |
+| `api.cloudity.<DOMAIN>`   | `cloudity-api-gateway` | `8000` | LE + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
+| `app.cloudity.<DOMAIN>`   | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si bundle nginx pur. |
+| `admin.cloudity.<DOMAIN>` | `cloudity-web`         | `3000` | LE + Force SSL + HSTS | **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** + **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)**). |
 
-### 4 bis.1 Bloc « Advanced » à coller (api.cloudity.delhomme.ovh)
+### 4 bis.1 Bloc « Advanced » à coller (api.cloudity.&lt;DOMAIN&gt;)
 
 ```nginx
 # Headers durcis (équivalent § 2 et § 4) — même politique que la conf nginx native.
@@ -299,7 +299,7 @@ proxy_request_buffering off;
 client_max_body_size 200m;
 ```
 
-### 4 bis.2 Bloc « Advanced » à coller (app.cloudity.delhomme.ovh / admin.cloudity.delhomme.ovh)
+### 4 bis.2 Bloc « Advanced » à coller (app.cloudity.&lt;DOMAIN&gt; / admin.cloudity.&lt;DOMAIN&gt;)
 
 ```nginx
 add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
@@ -311,8 +311,8 @@ add_header Cross-Origin-Opener-Policy "same-origin" always;
 add_header Cross-Origin-Resource-Policy "same-origin" always;
 
 # CSP report-only puis enforce (cf. § 6).
-# add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.delhomme.ovh; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri https://api.cloudity.delhomme.ovh/csp-report" always;
-add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.delhomme.ovh; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" always;
+# add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.<DOMAIN>; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; report-uri https://api.cloudity.<DOMAIN>/csp-report" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.cloudity.<DOMAIN>; frame-ancestors 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests" always;
 
 # Cache long sur /assets/* (bundles versionnés Vite), no-store sur index.html
 location ~* ^/assets/ {
@@ -325,7 +325,7 @@ location = /index.html {
 }
 ```
 
-> Pour `admin.cloudity.delhomme.ovh`, ajouter en plus dans Access List une **IP allowlist** (VPN home / IP statique admin) — la 2FA + WebAuthn restent indépendantes côté `auth-service`.
+> Pour `admin.cloudity.<DOMAIN>`, ajouter en plus dans Access List une **IP allowlist** (VPN home / IP statique admin) — la 2FA + WebAuthn restent indépendantes côté `auth-service`.
 
 ### 4 bis.3 Limites de NPM et stratégie d'évolution
 
@@ -341,7 +341,7 @@ location = /index.html {
 ### 4 bis.4 Tests rapides post-déploiement NPM
 
 - **`make smoke-prod`** (cf. **[../../scripts/ops/smoke-prod.sh](../../scripts/ops/smoke-prod.sh)**) — vérifie /health, /auth/validate, SPA, TLS handshake, HSTS + nosniff sur les sous-domaines `api.` / `app.`.
-- **Manual** : `curl -sI https://app.cloudity.delhomme.ovh | rg -i 'strict|content-security|x-content-type|referrer-policy|permissions-policy'`.
+- **Manual** : `curl -sI https://app.cloudity.<DOMAIN> | rg -i 'strict|content-security|x-content-type|referrer-policy|permissions-policy'`.
 - **Mozilla Observatory** : viser **A+** ; faux-positif fréquent NPM = `Server: nginx` non strippé → désactivable via Advanced si besoin (`server_tokens off;` n'est pas pris par NPM, fallback : header_filter Lua ou bascule Caddy).
 
 ---

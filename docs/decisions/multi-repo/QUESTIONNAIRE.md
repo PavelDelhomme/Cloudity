@@ -199,32 +199,32 @@
 
 # Bloc 4 — Déploiement VPS / Portainer / NPM (Q21 → Q24)
 
-> Contexte : VPS Contabo avec **Portainer** + **Nginx Proxy Manager** (`nginx.delhomme.ovh`) déjà en place, stacks existantes : `cooking-recipes` (`paveldelhomme/cookingrecipes-*:latest` sur Docker Hub), `cyna-production`, `n8n-stack`, `nextcloud-stack`. Réseaux Docker partagés : `web` (utilisé par cooking-recipes) et `shared-network-copy` (cyna, n8n).
-> Cadre détaillé : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+> Contexte : un VPS public héberge déjà plusieurs applications via une instance partagée de **Nginx Proxy Manager** (NPM, hostname `<NPM_HOST>`). Plusieurs réseaux Docker `external: true` y sont attachés. Cloudity doit s'y greffer **sans casser** ces stacks existantes. Les valeurs concrètes (TLD, hostname NPM, owner registry, noms des autres apps) restent **hors Git** : Portainer Stack Variables ou `.env.deploy.local` git-ignored.
+> Cadre détaillé : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (table des placeholders en § 0).
 
 ---
 
 ## Q21 — **Registry** des images Cloudity *(décidé 2026-05-12 — livré au commit `349d1642`)*
 
-- [ ] **A** — **Docker Hub** sous `paveldelhomme/cloudity-<svc>:<tag>` (cohérent avec `cookingrecipes-*`, `cyna_*` déjà en place). Tag immuable `:0.x.y` + alias `:latest`.
-- [x] **B** — **GHCR** `ghcr.io/paveldelhomme/cloudity-<svc>:<tag>` — auth via `GITHUB_TOKEN` (zero secret à provisionner), tags `branch` / `semver` / `sha-<short>` / `latest`. Cf. `.github/workflows/docker-publish.yml`.
+- [ ] **A** — **Docker Hub** sous `<your-dockerhub-user>/cloudity-<svc>:<tag>`. Tag immuable `:0.x.y` + alias `:latest`. Nécessite secrets `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` côté GHA.
+- [x] **B** — **GHCR** `ghcr.io/<REGISTRY_OWNER>/cloudity-<svc>:<tag>` — auth via `GITHUB_TOKEN` (zéro secret à provisionner), tags `branch` / `semver` / `sha-<short>` / `latest`. Cf. `.github/workflows/docker-publish.yml`.
 - [ ] **C** — **Hybride** : tags privés (admin-service, internalsec) sur GHCR, tags publics (frontend, libs) sur Docker Hub.
 
 ---
 
 ## Q22 — **Réseau Docker edge** que NPM doit atteindre *(décidé 2026-05-12 — défaut)*
 
-- [x] **A** — **Réutiliser `web`** (déjà branché à NPM, déjà utilisé par `cookingrecipes`). Zéro changement côté NPM. *Recommandation par défaut.*
-- [ ] **B** — **Réutiliser `shared-network-copy`** (cohérent avec `cyna_frontend_prod`, `n8n`).
+- [x] **A** — **Réutiliser le bridge `external: true` déjà branché à NPM** (variable `<EDGE_NETWORK>` ; valeur typique `web`). Zéro changement côté NPM. *Recommandation par défaut.*
+- [ ] **B** — **Réutiliser un autre bridge external partagé** déjà attaché à NPM (cohérence si plusieurs stacks ont migré dessus).
 - [ ] **C** — **Créer un `cloudity-edge` dédié** (isolation totale). Il faudra brancher le conteneur NPM à ce nouveau réseau via Portainer une fois.
 
 ---
 
 ## Q23 — **Pattern de domaine** pour Cloudity en production *(décidé 2026-05-12)*
 
-- [x] **A** — **`cloudity.delhomme.ovh`** + sous-domaines `api.`, `admin.` (cohérent avec `cookingrecipes.delhomme.ovh` + `api.cookingrecipes.delhomme.ovh`). Possibilité d'ajouter plus tard `mail.cloudity.delhomme.ovh`, `drive.cloudity.delhomme.ovh` comme alias UX.
-- [ ] **B** — **TLD dédié** (`cloudity.<ton-tld-cloudity>`) acheté pour le projet, séparé de `delhomme.ovh`. Mieux pour l'image produit, demande un nouveau domaine + DNS.
-- [ ] **C** — **Hybride** : `delhomme.ovh` au début (test / soft launch) ; bascule TLD dédié plus tard sans casser les URLs (redirections 301).
+- [x] **A** — **`cloudity.<DOMAIN>`** + sous-domaines `api.cloudity.<DOMAIN>` et `admin.cloudity.<DOMAIN>` (cohérent avec les autres apps `<app>.<DOMAIN>` / `api.<app>.<DOMAIN>` du même VPS). Possibilité d'ajouter plus tard `mail.cloudity.<DOMAIN>`, `drive.cloudity.<DOMAIN>` comme alias UX. Le **TLD réel** reste hors Git (Portainer / `.env.deploy.local`).
+- [ ] **B** — **TLD dédié** (`<TLD_CLOUDITY>` distinct du TLD principal). Mieux pour l'image produit, demande un nouveau domaine + DNS.
+- [ ] **C** — **Hybride** : `<DOMAIN>` au début (test / soft launch) ; bascule TLD dédié plus tard sans casser les URLs (redirections 301).
 
 ---
 
