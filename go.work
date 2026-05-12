@@ -1,4 +1,4 @@
-go 1.24
+go 1.25.0
 
 // Workspace mono-repo : permet aux outils Go locaux (IDE, `go build` à la
 // racine, `go test ./...`) de résoudre les imports inter-modules sans publier

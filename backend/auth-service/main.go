@@ -192,6 +192,10 @@ func main() {
 	r.GET("/auth/validate", authService.ValidateToken)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
 
+	// Phase W1 (Q17=A) : WebAuthn / passkeys pour /4dm1n.
+	// Désactivé silencieusement si la conf est invalide (ex. RP_ID vide en prod).
+	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, authService).RegisterRoutes(r)
+
 	log.Println("Auth Service starting on port 8081...")
 	r.Run(":8081")
 }
@@ -340,6 +344,21 @@ func (a *AuthService) generateAccessToken(userID, tenantID, email, role string) 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
 	token.Header["kid"] = kidEd25519
 	return token.SignedString(a.edPrivateKey)
+}
+
+// issueTokens émet une paire access + refresh et stocke le hash du refresh
+// dans Redis. Mutualisé entre login mot de passe + 2FA + WebAuthn pour ne
+// jamais désynchroniser la durée de vie ni l'algo de signature.
+func (a *AuthService) issueTokens(ctx context.Context, userID, tenantID, email, role string) (access, refresh string, err error) {
+	access, err = a.generateAccessToken(userID, tenantID, email, role)
+	if err != nil {
+		return "", "", err
+	}
+	refresh = generateRandomToken()
+	if err := a.sessionStore.SetRefresh(ctx, hashRefreshToken(refresh), userID, tenantID, email, refreshTokenDuration); err != nil {
+		return "", "", err
+	}
+	return access, refresh, nil
 }
 
 // parseAccessToken vérifie un access token. Accepte EdDSA (nouveaux tokens —

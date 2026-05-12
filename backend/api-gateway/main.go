@@ -516,6 +516,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		if strings.HasPrefix(r.URL.Path, "/auth/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/register") ||
 			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
+			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
 			r.URL.Path == "/health" ||
 			r.URL.Path == "/csp-report" {

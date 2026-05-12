@@ -1,6 +1,8 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-12 (nuit quater) — **`Dockerfile.prod` + GHA `docker-publish.yml` livrés (Q24=A)**. Images multi-stage publiées sur **GHCR** à chaque push `main`/`master` ou tag `v*.*.*` :
+**Dernière mise à jour** : 2026-05-12 (nuit quinquies) — **WebAuthn Phase W1 backend livré (Q17=A)**. Endpoints `/auth/webauthn/{register,login}/{begin,finish}` opérationnels via lib `go-webauthn/webauthn v0.17.3`. Migration `37-webauthn-credentials.sql` (FK `users(id)`, unique global `credential_id`, replay protection via `sign_count` monotone). Challenges en Redis (TTL 5 min, usage unique). Tests unitaires Go ✅ (config + JWT admin gate). Gateway : `/auth/webauthn/login/*` ouvert en public, `register/*` protégé Bearer admin. Variables `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`, `WEBAUTHN_ORIGINS`. **Reste W2** : pages `/4dm1n/passkeys`, bouton login passkey, Playwright virtual authenticator, endpoint révocation.
+
+**Dernière mise à jour (2026-05-12 nuit quater)** — **`Dockerfile.prod` + GHA `docker-publish.yml` livrés (Q24=A)**. Images multi-stage publiées sur **GHCR** à chaque push `main`/`master` ou tag `v*.*.*` :
 
 - 9 services Go → `gcr.io/distroless/static-debian12:nonroot` (build `-trimpath -ldflags="-s -w" -buildvcs=false`).
 - `api-gateway` build depuis `backend/` (replace `../internalsec`) avec `Dockerfile.prod` dédié.
