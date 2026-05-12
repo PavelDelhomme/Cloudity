@@ -172,6 +172,38 @@ func TestMailDomainsRequiresAdminRole(t *testing.T) {
 	}
 }
 
+// TestIsZeroHexKey vérifie que la sentinelle dev (64 zéros) est détectée et
+// qu'on ne confond pas avec une vraie clé hex 64 chars.
+func TestIsZeroHexKey(t *testing.T) {
+	zero := "0000000000000000000000000000000000000000000000000000000000000000"
+	if !isZeroHexKey(zero) {
+		t.Fatal("isZeroHexKey(zero) should be true")
+	}
+	if isZeroHexKey("") {
+		t.Fatal("isZeroHexKey('') should be false")
+	}
+	if isZeroHexKey("a1b2c3d4e5f6789012345678a1b2c3d4e5f6789012345678a1b2c3d4e5f67890") {
+		t.Fatal("real hex key wrongly detected as zero")
+	}
+	// 63 chars (mauvaise longueur) → pas une clé zéro valide.
+	if isZeroHexKey("000000000000000000000000000000000000000000000000000000000000000") {
+		t.Fatal("63-char string should not be a zero hex key")
+	}
+}
+
+// TestEncryptPasswordRejectsZeroKey vérifie qu'on ne chiffre rien avec la clé
+// placeholder de docker-compose dev (anti-régression : a1b2... a été remplacé
+// par 0000... pour éviter qu'un secret réel traîne dans le repo).
+func TestEncryptPasswordRejectsZeroKey(t *testing.T) {
+	t.Setenv("MAIL_PASSWORD_ENCRYPTION_KEY", "0000000000000000000000000000000000000000000000000000000000000000")
+	if _, err := encryptPassword("hello"); err == nil {
+		t.Fatal("encryptPassword should refuse a zero hex key")
+	}
+	if _, err := decryptPassword("Zm9v"); err == nil {
+		t.Fatal("decryptPassword should refuse a zero hex key")
+	}
+}
+
 func TestIsAdminOnlyMailDirectoryPath(t *testing.T) {
 	cases := []struct {
 		path string

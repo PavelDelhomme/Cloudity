@@ -34,10 +34,51 @@ test.html
 # Env local (secrets, ne pas committer)
 .env
 .env.local
+.env.dev
+.env.prod
+.env.production
+.env.staging
+.env.test
 .env.*.local
+.env.*
+
+# Garde-fou : autoriser uniquement les exemples documentés.
+!.env.example
 
 # Certificats locaux (mkcert) — dev HTTPS
 .certs/
+
+# Clés privées et matériel cryptographique (jamais versionnés)
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.crt
+*_key.pem
+*-key.pem
+private*.pem
+private_*.pem
+public*.pem
+public_*.pem
+backend/auth-service/private*.pem
+backend/auth-service/public*.pem
+infrastructure/step-ca/secrets/*
+!infrastructure/step-ca/secrets/.gitignore
+!infrastructure/step-ca/secrets/.gitkeep
+!infrastructure/step-ca/secrets/ca-password.example
+
+# Dumps et backups
+*.sql.gz
+*.dump
+*.bak
+backups/
+
+# Tokens applicatifs / fichiers de credentials
+credentials.json
+service-account*.json
+google-credentials.json
+*.token
 
 # Clés RSA auth-service (générées par make setup ; private ne doit pas être versionné)
 backend/auth-service/private.pem

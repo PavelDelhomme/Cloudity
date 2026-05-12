@@ -189,21 +189,27 @@ init: ## Initialisation complète du projet (première fois)
 	@make setup-infrastructure
 	@echo "✅ Initialisation terminée!"
 
-create-env: ## Crée le fichier .env (ne pas committer : .env est dans .gitignore)
-	@echo "📝 Création du fichier .env..."
+create-env: ## Crée le fichier .env (secrets 256 bits via gen-secrets.sh ; voir docs/securite/SECRETS.md)
+	@echo "📝 Création du fichier .env (secrets aléatoires 256 bits)..."
 	@if [ ! -f .env ]; then \
-		echo "# Cloudity Environment Configuration" > .env; \
-		echo "POSTGRES_USER=cloudity_admin" >> .env; \
-		echo "POSTGRES_PASSWORD=cloudity_secure_password_2025" >> .env; \
-		echo "POSTGRES_DB=cloudity" >> .env; \
-		echo "REDIS_PASSWORD=redis_secure_password_2025" >> .env; \
-		echo "JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025" >> .env; \
-		echo "BUILD_TARGET=dev" >> .env; \
-		echo "NODE_ENV=development" >> .env; \
-		echo "VITE_API_URL=" >> .env; \
+		if [ -x scripts/dev/gen-secrets.sh ]; then \
+			OUTPUT=.env ./scripts/dev/gen-secrets.sh; \
+		else \
+			echo "# Cloudity Environment Configuration (placeholders dev only)" > .env; \
+			echo "POSTGRES_USER=cloudity_admin" >> .env; \
+			echo "POSTGRES_PASSWORD=dev_only_change_me_via_make_secrets" >> .env; \
+			echo "POSTGRES_DB=cloudity" >> .env; \
+			echo "REDIS_PASSWORD=dev_only_change_me_via_make_secrets" >> .env; \
+			echo "JWT_SECRET=dev_only_change_me_via_make_secrets" >> .env; \
+			echo "PERFORMANCE_INGEST_TOKEN=dev_only_change_me_via_make_secrets" >> .env; \
+			echo "BUILD_TARGET=dev" >> .env; \
+			echo "NODE_ENV=development" >> .env; \
+			echo "VITE_API_URL=" >> .env; \
+			chmod 600 .env; \
+		fi; \
 		echo "✅ Fichier .env créé"; \
 	else \
-		echo "⚠️  Fichier .env existe déjà"; \
+		echo "⚠️  Fichier .env existe déjà — non écrasé."; \
 	fi
 	@(git rm --cached .env 2>/dev/null && echo "✅ .env retiré du suivi Git (fichier conservé).") || true
 

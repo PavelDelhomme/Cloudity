@@ -225,8 +225,39 @@ func buildMailFullTextSearch(extraWhere string, args []interface{}, p int, rawQ 
 	return extraWhere, orderPrefix, args, p, true
 }
 
+// isZeroHexKey détecte la valeur sentinelle (placeholder dev) — 64 zéros hex.
+// Évite de chiffrer les mots de passe IMAP/SMTP avec une clé prévisible si la
+// configuration n'a pas été initialisée (`make secrets`).
+func isZeroHexKey(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) != 64 {
+		return false
+	}
+	for _, r := range s {
+		if r != '0' {
+			return false
+		}
+	}
+	return true
+}
+
+func validateMailEncryptionKeyAtBoot() {
+	keyHex := strings.TrimSpace(os.Getenv("MAIL_PASSWORD_ENCRYPTION_KEY"))
+	switch {
+	case keyHex == "":
+		log.Println("[mail-directory] WARNING: MAIL_PASSWORD_ENCRYPTION_KEY non définie — les mots de passe IMAP/SMTP ne seront PAS chiffrés (dev only).")
+	case isZeroHexKey(keyHex):
+		log.Println("[mail-directory] WARNING: MAIL_PASSWORD_ENCRYPTION_KEY = 64 zéros (placeholder dev). Régénère via `make secrets` ou `openssl rand -hex 32` AVANT de stocker des comptes mail réels.")
+		if env := strings.ToLower(os.Getenv("ENVIRONMENT")); env == "production" || env == "prod" {
+			log.Fatal("[mail-directory] FATAL: refus de démarrer en production avec une clé MAIL_PASSWORD_ENCRYPTION_KEY zéro.")
+		}
+	}
+}
+
 func main() {
 	godotenv.Load()
+
+	validateMailEncryptionKeyAtBoot()
 
 	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
@@ -382,6 +413,9 @@ func encryptPassword(plain string) (string, error) {
 	if keyHex == "" {
 		return "", nil
 	}
+	if isZeroHexKey(keyHex) {
+		return "", fmt.Errorf("MAIL_PASSWORD_ENCRYPTION_KEY est nulle (placeholder dev) — régénère via `make secrets`")
+	}
 	key, err := hex.DecodeString(strings.TrimSpace(keyHex))
 	if err != nil || len(key) != 32 {
 		return "", fmt.Errorf("MAIL_PASSWORD_ENCRYPTION_KEY must be 64 hex chars (32 bytes)")
@@ -409,6 +443,9 @@ func decryptPassword(encrypted string) (string, error) {
 	keyHex := os.Getenv("MAIL_PASSWORD_ENCRYPTION_KEY")
 	if keyHex == "" {
 		return "", nil
+	}
+	if isZeroHexKey(keyHex) {
+		return "", fmt.Errorf("MAIL_PASSWORD_ENCRYPTION_KEY est nulle (placeholder dev)")
 	}
 	key, err := hex.DecodeString(strings.TrimSpace(keyHex))
 	if err != nil || len(key) != 32 {

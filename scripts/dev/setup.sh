@@ -28,24 +28,30 @@ mkdir -p mobile/admin_app
 mkdir -p infrastructure/postgresql/init
 mkdir -p scripts
 
-# .env
+# .env — secrets aléatoires par défaut (256 bits via gen-secrets.sh).
+# Voir docs/securite/SECRETS.md.
 if [ ! -f .env ]; then
-    echo "📝 Création de .env..."
-    [ -f .env.example ] && cp .env.example .env || {
+    echo "📝 Création de .env (secrets aléatoires 256 bits)..."
+    if [ -x scripts/dev/gen-secrets.sh ]; then
+        OUTPUT=.env ./scripts/dev/gen-secrets.sh
+    else
+        # Fallback minimal si gen-secrets.sh n'est pas exécutable.
         cat > .env << 'EOF'
 POSTGRES_USER=cloudity_admin
-POSTGRES_PASSWORD=cloudity_secure_password_2025
+POSTGRES_PASSWORD=dev_only_change_me_via_make_secrets
 POSTGRES_DB=cloudity
-REDIS_PASSWORD=redis_secure_password_2025
-JWT_SECRET=super_secret_jwt_key_change_this_in_production_2025
+REDIS_PASSWORD=dev_only_change_me_via_make_secrets
+JWT_SECRET=dev_only_change_me_via_make_secrets
+PERFORMANCE_INGEST_TOKEN=dev_only_change_me_via_make_secrets
 NODE_ENV=development
 VITE_API_URL=http://localhost:6080
 CORS_ORIGINS=http://localhost:6001,http://localhost:5173
 EOF
-    }
-    echo "✅ .env créé (à personnaliser si besoin)"
+        chmod 600 .env
+    fi
+    echo "✅ .env créé. Régénère via 'make secrets --force' si besoin."
 else
-    echo "⚠️  .env existe déjà"
+    echo "⚠️  .env existe déjà — non écrasé."
 fi
 
 # Clés RSA (auth-service)

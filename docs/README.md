@@ -37,6 +37,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[securite/SECURITE.md](securite/SECURITE.md)** | Vision Google + Proton, phases, signatures requêtes, Zero Trust, WAF, post-quantique (§ 8). |
 | **[securite/SECURITE-DONNEES.md](securite/SECURITE-DONNEES.md)** | Chiffrement au repos, durcissement HTTP ; complète ROADMAP TR-01. |
 | **[securite/AUDIT-SECURITE.md](securite/AUDIT-SECURITE.md)** | Audit sécurité **transverse** (admin UI `/4dm1n`, gateway `/admin/*`, mail admin-only, interne Docker, JWT UX). |
+| **[securite/SECRETS.md](securite/SECRETS.md)** | **Politique secrets** : inventaire, génération `make secrets`, rotation, détection (`gitleaks`), procédure incident. |
 | **[securite/MTLS-INTERNE.md](securite/MTLS-INTERNE.md)** | mTLS entre microservices avec **step-ca**, patterns Go, migration `off → permissive → strict`. |
 | **[securite/REVERSE-PROXY.md](securite/REVERSE-PROXY.md)** | Edge prod : gabarits **Caddy / nginx / Traefik** (TLS 1.3 strict, HSTS, CSP, hybride `X25519MLKEM768`). |
 | **[securite/PASS-CRYPTO.md](securite/PASS-CRYPTO.md)** | Format de chiffrement **Vault Pass** (Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768). |
@@ -87,4 +88,4 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
   3. ligne dans **[../BACKLOG.md](../BACKLOG.md)** quand c’est en cours / livré.
 - **Toute décision** demandée par moi (questionnaire) : tu réponds dans **`docs/decisions/<sujet>/REPONSES.md`**, je continue le travail à partir de là.
 
-*Index mis à jour : 2026-05-12 — restauration des guides `docs/{architecture,operations,produit,securite}` + audit renommé `AUDIT-SECURITE.md`.*
+*Index mis à jour : 2026-05-12 — ajout `securite/SECRETS.md` (politique secrets, `make secrets`, gitleaks).*
