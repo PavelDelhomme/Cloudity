@@ -1,0 +1,31 @@
+# Cloudity auth-service — image production multi-stage.
+# Build : docker build -f backend/auth-service/Dockerfile.prod -t cloudity/auth-service:<tag> backend/auth-service
+# Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md.
+
+# === Stage 1 : build statique ===========================================
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /src
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
+
+RUN apk add --no-cache git ca-certificates
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build statique. -trimpath = supprime les chemins source absolus.
+# -ldflags="-s -w" = strip symboles + DWARF (image ~30 % plus petite).
+# -buildvcs=false = pas de stamping VCS (le contexte de build n'est pas un repo).
+RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/auth-service .
+
+# === Stage 2 : runtime distroless ======================================
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /out/auth-service /app/auth-service
+
+USER nonroot:nonroot
+EXPOSE 8081
+ENTRYPOINT ["/app/auth-service"]

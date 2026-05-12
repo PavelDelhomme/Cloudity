@@ -1,0 +1,35 @@
+# Cloudity api-gateway — image production multi-stage.
+#
+# IMPORTANT : ce service importe `../internalsec` via un replace dans go.mod.
+# Le contexte de build doit être `backend/` (parent), pas `backend/api-gateway/`.
+#
+# Build :
+#   docker build -f backend/api-gateway/Dockerfile.prod -t cloudity/api-gateway:<tag> backend
+# Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md.
+
+# === Stage 1 : build statique ===========================================
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /src
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
+
+RUN apk add --no-cache git ca-certificates
+
+# Copie les modules locaux importés via `replace` AVANT le service.
+COPY internalsec ./internalsec
+COPY api-gateway ./api-gateway
+
+WORKDIR /src/api-gateway
+RUN go mod download
+
+RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/api-gateway .
+
+# === Stage 2 : runtime distroless ======================================
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+COPY --from=builder /out/api-gateway /app/api-gateway
+
+USER nonroot:nonroot
+EXPOSE 8000
+ENTRYPOINT ["/app/api-gateway"]

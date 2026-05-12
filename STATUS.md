@@ -1,6 +1,15 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-12 (nuit ter) — **mTLS gateway↔admin-service livré (PoC fonctionnel)** : `internalsec.InternalRoundTripper(ConfigFromEnv())` câblé dans `httputil.ReverseProxy.Transport` (api-gateway). `admin-service` (uvicorn) démarre via **`backend/admin-service/start.sh`** qui passe automatiquement en `--ssl-keyfile/--ssl-certfile/--ssl-ca-certs/--ssl-cert-reqs` quand `MTLS_MODE=permissive|strict`. **`make up-https-internal`** émet désormais aussi `api-gateway` + `admin-service` certs via **`make mtls-issue-admin`**. Variables `AUTH_SERVICE_URL`, `ADMIN_SERVICE_URL`, etc. désormais surchargeables (gateway), pour basculer chaque lien séparément. Tests Go gateway/internalsec/auth/mail-directory ✅. Voir **[docs/securite/AUDIT-SECURITE.md](docs/securite/AUDIT-SECURITE.md)** § 6 bis.
+**Dernière mise à jour** : 2026-05-12 (nuit quater) — **`Dockerfile.prod` + GHA `docker-publish.yml` livrés (Q24=A)**. Images multi-stage publiées sur **GHCR** à chaque push `main`/`master` ou tag `v*.*.*` :
+
+- 9 services Go → `gcr.io/distroless/static-debian12:nonroot` (build `-trimpath -ldflags="-s -w" -buildvcs=false`).
+- `api-gateway` build depuis `backend/` (replace `../internalsec`) avec `Dockerfile.prod` dédié.
+- `admin-service` (Python) → `python:3.11-slim`, user `cloudity` uid 1000, `libpq5` only.
+- `frontend` (cloudity-web) → image existante (Dockerfile multi-stage Vite + nginx).
+
+Builds locaux validés : `auth-service` (boot Gin OK :8081), `api-gateway`, `passwords-service`, `admin-service`. Workflow YAML linté. Voir **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § 9](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
+**Dernière mise à jour (2026-05-12 nuit ter)** — **mTLS gateway↔admin-service livré (PoC fonctionnel)** : `internalsec.InternalRoundTripper(ConfigFromEnv())` câblé dans `httputil.ReverseProxy.Transport` (api-gateway). `admin-service` (uvicorn) démarre via **`backend/admin-service/start.sh`** qui passe automatiquement en `--ssl-keyfile/--ssl-certfile/--ssl-ca-certs/--ssl-cert-reqs` quand `MTLS_MODE=permissive|strict`. **`make up-https-internal`** émet désormais aussi `api-gateway` + `admin-service` certs via **`make mtls-issue-admin`**. Variables `AUTH_SERVICE_URL`, `ADMIN_SERVICE_URL`, etc. désormais surchargeables (gateway), pour basculer chaque lien séparément. Tests Go gateway/internalsec/auth/mail-directory ✅. Voir **[docs/securite/AUDIT-SECURITE.md](docs/securite/AUDIT-SECURITE.md)** § 6 bis.
 
 **Dernière mise à jour (2026-05-12 nuit bis)** — **HTTPS partout (cible Zero Trust)** : nouvelles cibles **`make up-tls`** (edge Caddy TLS 1.3 + HSTS + CSP par défaut, hybride PQ X25519MLKEM768 quand dispo) et **`make up-https-internal`** (Postgres TLS `sslmode=verify-ca` + Redis `--tls-port` + **auth-service** `REDIS_TLS=1` / go-redis `TLSConfig`). Override **`docker-compose.https.yml`** + **`make mtls-chown-internal-certs`** (bind-mount PEM avec uid postgres **70** / redis **999**). Cibles `mtls-issue-postgres` / `mtls-issue-redis` (TTL **24 h** max provisioner par défaut) + `make https-status`. Variables `MTLS_*` / `REDIS_TLS*` dans `.env.example`. Plan dans **[docs/securite/AUDIT-SECURITE.md](docs/securite/AUDIT-SECURITE.md)** § 6 bis.
 

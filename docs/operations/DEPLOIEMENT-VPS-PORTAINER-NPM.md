@@ -361,57 +361,67 @@ client_max_body_size 200m;          # gros uploads Drive/Photos
 
 ---
 
-## 9. Build & push images — flux GitHub Actions (Q24)
+## 9. Build & push images — flux GitHub Actions (Q24=A : GHCR)
 
-Cible : à chaque tag `v0.x.y` sur le meta-repo (ou sur chaque sous-repo une fois la Phase 1 multi-repo livrée), GHA construit et pousse les images Docker Hub `paveldelhomme/cloudity-<svc>:v0.x.y` + `:latest`.
+**Implémenté** dans [`.github/workflows/docker-publish.yml`](../../.github/workflows/docker-publish.yml) (push sur `main`/`master`, tags `v*.*.*`, ou déclenchement manuel `workflow_dispatch`). Les images sont publiées sur **GHCR** :
 
-```yaml
-# .github/workflows/docker-publish.yml — squelette
-name: Build & push Docker images
-on:
-  push:
-    tags: ['v*.*.*']
-  workflow_dispatch:
-jobs:
-  build-push:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        svc:
-          - api-gateway
-          - auth-service
-          - mail-directory-service
-          - drive-service
-          - photos-service
-          - passwords-service
-          - calendar-service
-          - contacts-service
-          - notes-service
-          - tasks-service
-          - admin-service
-          - web
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: backend/${{ matrix.svc }}/Dockerfile.prod  # ou frontend/apps/cloudity-web/Dockerfile.prod
-          push: true
-          tags: |
-            paveldelhomme/cloudity-${{ matrix.svc }}:${{ github.ref_name }}
-            paveldelhomme/cloudity-${{ matrix.svc }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+```text
+ghcr.io/<owner>/cloudity-api-gateway:<tag>
+ghcr.io/<owner>/cloudity-auth-service:<tag>
+ghcr.io/<owner>/cloudity-admin-service:<tag>
+ghcr.io/<owner>/cloudity-mail-directory-service:<tag>
+…
+ghcr.io/<owner>/cloudity-frontend:<tag>
 ```
 
-Secrets GitHub à créer :
-- `DOCKERHUB_USERNAME` = `paveldelhomme`
-- `DOCKERHUB_TOKEN` = jeton **read/write** créé sur Docker Hub (Account Settings → Security → New Access Token).
+Tags appliqués (via `docker/metadata-action@v5`) :
+
+- branche → `:main`, `:master`
+- tag git `v0.x.y` → `:0.x.y`, `:0.x`
+- SHA court → `:sha-<7chars>` (toujours)
+- `:latest` automatique sur la branche par défaut
+
+### 9.1 Dockerfiles utilisés
+
+| Service | Dockerfile | Contexte |
+|---------|------------|----------|
+| `api-gateway` | `backend/api-gateway/Dockerfile.prod` | `backend/` (replace `../internalsec`) |
+| `auth-service` | `backend/auth-service/Dockerfile.prod` | `backend/auth-service/` |
+| `passwords-service`, `mail-directory-service`, `calendar-service`, `notes-service`, `tasks-service`, `drive-service`, `contacts-service`, `photos-service` | `backend/Dockerfile.go-service` (générique, multi-stage, distroless) | `backend/<svc>/` |
+| `admin-service` | `backend/admin-service/Dockerfile.prod` (Python slim, non-root) | `backend/admin-service/` |
+| `frontend` (cloudity-web) | `frontend/apps/cloudity-web/Dockerfile` (déjà multi-stage) | `frontend/` |
+
+### 9.2 Caractéristiques sécurité des images
+
+- **Builds Go** : statique, `-trimpath -ldflags="-s -w" -buildvcs=false` ; runtime `gcr.io/distroless/static-debian12:nonroot` (UID 65532, sans shell, sans busybox, sans `apt`).
+- **admin-service** : `python:3.11-slim` runtime, utilisateur `cloudity` (uid 1000) non-root, `libpq5` uniquement (pas de `gcc` en runtime).
+- **frontend** : build node:20-alpine puis `nginx:alpine` (déjà en place).
+
+### 9.3 Build local (debug) — sans GHA
+
+```bash
+docker build -f backend/auth-service/Dockerfile.prod \
+  -t cloudity/auth-service:dev backend/auth-service
+
+docker build -f backend/api-gateway/Dockerfile.prod \
+  -t cloudity/api-gateway:dev backend  # contexte = backend/ pour internalsec
+
+docker build -f backend/Dockerfile.go-service \
+  --build-arg SERVICE=passwords-service --build-arg PORT=8051 \
+  -t cloudity/passwords-service:dev backend/passwords-service
+
+docker build -f backend/admin-service/Dockerfile.prod \
+  -t cloudity/admin-service:dev backend/admin-service
+```
+
+### 9.4 Anciennes pistes (Docker Hub) — à conserver pour comparaison
+
+```yaml
+# Si on bascule plus tard sur Docker Hub, créer ces secrets :
+#   DOCKERHUB_USERNAME = paveldelhomme
+#   DOCKERHUB_TOKEN    = jeton read/write Docker Hub
+# puis remplacer "registry: ghcr.io" par "registry: docker.io" + adapter le username.
+```
 
 ---
 

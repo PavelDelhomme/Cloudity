@@ -1,0 +1,200 @@
+name: Docker — build & publish (GHCR)
+
+# Construit les images de production de tous les services et les pousse
+# sur ghcr.io/<owner>/cloudity-<service>:<tag> via Docker Buildx.
+#
+# Tags appliqués :
+#   * branch     → ghcr.io/.../<svc>:<branch>  (ex. main → :main)
+#   * tag git    → ghcr.io/.../<svc>:<semver>  (ex. v1.2.3 → :v1.2.3 + :latest si non-pre)
+#   * SHA court  → ghcr.io/.../<svc>:sha-<7chars>  (toujours)
+#
+# Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § GitHub Actions.
+
+on:
+  push:
+    branches: [main, master]
+    tags: ["v*.*.*"]
+  pull_request:
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/docker-publish.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go-services:
+    name: Build Go ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: auth-service
+            context: backend/auth-service
+            dockerfile: backend/auth-service/Dockerfile.prod
+            port: "8081"
+          - service: passwords-service
+            context: backend/passwords-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8051"
+          - service: mail-directory-service
+            context: backend/mail-directory-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8050"
+          - service: calendar-service
+            context: backend/calendar-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8052"
+          - service: notes-service
+            context: backend/notes-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8053"
+          - service: tasks-service
+            context: backend/tasks-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8054"
+          - service: drive-service
+            context: backend/drive-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8055"
+          - service: contacts-service
+            context: backend/contacts-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8056"
+          - service: photos-service
+            context: backend/photos-service
+            dockerfile: backend/Dockerfile.go-service
+            port: "8057"
+          # api-gateway dépend du module local internalsec via replace : contexte = backend/.
+          - service: api-gateway
+            context: backend
+            dockerfile: backend/api-gateway/Dockerfile.prod
+            port: "8000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/cloudity-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SERVICE=${{ matrix.service }}
+            PORT=${{ matrix.port }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          provenance: false
+
+  python-admin:
+    name: Build Python admin-service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/cloudity-admin-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend/admin-service
+          file: backend/admin-service/Dockerfile.prod
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=admin-service
+          cache-to: type=gha,mode=max,scope=admin-service
+          provenance: false
+
+  frontend:
+    name: Build frontend cloudity-web
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/cloudity-frontend
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          # Le Dockerfile front est conçu pour avoir frontend/ comme contexte.
+          context: frontend
+          file: frontend/apps/cloudity-web/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+          provenance: false

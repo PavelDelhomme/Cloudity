@@ -1,0 +1,47 @@
+# Cloudity admin-service — image production multi-stage.
+# Build : docker build -f backend/admin-service/Dockerfile.prod \
+#           -t cloudity/admin-service:<tag> backend/admin-service
+# Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md.
+
+# === Stage 1 : build des dépendances Python =============================
+FROM python:3.11-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Tout build en /install ; runtime n'aura que /install + le code.
+WORKDIR /install
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends gcc libpq-dev \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --prefix=/install -r requirements.txt
+
+# === Stage 2 : runtime slim non-root ===================================
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/usr/local/lib/python3.11/site-packages
+
+# libpq5 = client Postgres minimal pour psycopg2-binary.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libpq5 ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system --gid 1000 cloudity \
+ && useradd  --system --uid 1000 --gid cloudity cloudity
+
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
+COPY --chown=cloudity:cloudity . /app/
+
+USER cloudity:cloudity
+EXPOSE 8082
+
+# start.sh gère la bascule HTTP / TLS via MTLS_MODE (cf. docs/securite/MTLS-INTERNE.md).
+ENTRYPOINT ["./start.sh"]

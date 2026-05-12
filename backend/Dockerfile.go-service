@@ -1,0 +1,47 @@
+# Cloudity — Dockerfile générique multi-stage pour un service Go.
+#
+# Utilisé pour les services qui n'importent PAS d'autre module local
+# (cf. api-gateway qui a son propre Dockerfile.prod pour le replace
+# `../internalsec`).
+#
+# Build (depuis backend/<service>) :
+#   docker build -f ../Dockerfile.go-service \
+#     --build-arg SERVICE=auth-service \
+#     --build-arg PORT=8081 \
+#     -t cloudity/auth-service:<tag> .
+#
+# Build via GHA : voir .github/workflows/docker-publish.yml.
+
+ARG SERVICE
+ARG PORT=8080
+
+# === Stage 1 : build statique ===========================================
+FROM golang:1.25-alpine AS builder
+
+ARG SERVICE
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
+
+WORKDIR /src
+
+RUN apk add --no-cache git ca-certificates
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build statique (-trimpath, -ldflags="-s -w").
+RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/app .
+
+# === Stage 2 : runtime distroless ======================================
+FROM gcr.io/distroless/static-debian12:nonroot
+
+ARG PORT
+ENV PORT=${PORT}
+
+WORKDIR /app
+COPY --from=builder /out/app /app/app
+
+USER nonroot:nonroot
+EXPOSE ${PORT}
+ENTRYPOINT ["/app/app"]
