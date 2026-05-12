@@ -64,21 +64,33 @@ Q30=A   helper make secrets : POSTGRES/REDIS/JWT/PERFORMANCE_INGEST_TOKEN géné
 Q31=A   HTTPS dev local optionnel : make dev-https (mkcert + Vite)
 ```
 
-## Synthèse rapide — **bloc 4 : déploiement VPS / Portainer / NPM (en attente — questions Q21-Q24)**
+## Synthèse rapide — **bloc 4 : déploiement VPS / Portainer / NPM (complet au 2026-05-12)**
 
 Cadre : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
 
-Contexte VPS observé au 2026-05-12 : Contabo, Portainer, NPM `nginx.delhomme.ovh`, stacks `cooking-recipes` / `cyna-production` / `n8n-stack` / `nextcloud-stack`. Registry Docker Hub `paveldelhomme/*`. Réseaux partagés `web` (cookingrecipes) et `shared-network-copy` (cyna, n8n). Pattern domaines `*.delhomme.ovh`.
+Contexte VPS observé au 2026-05-12 : Contabo, Portainer, NPM `nginx.delhomme.ovh`, stacks `cooking-recipes` / `cyna-production` / `n8n-stack` / `nextcloud-stack`. Réseaux partagés `web` (cookingrecipes) et `shared-network-copy` (cyna, n8n). Pattern domaines `*.delhomme.ovh`.
 
 ```
-Q21=?   registry images Cloudity : Docker Hub (cohérence cookingrecipes/cyna)
-        vs GHCR vs hybride
-Q22=?   réseau edge NPM : réutiliser `web` (recommandé) vs `shared-network-copy`
-        vs créer `cloudity-edge` dédié
-Q23=?   pattern domaine : `cloudity.delhomme.ovh` + sous-domaines vs TLD dédié
-        vs hybride (delhomme.ovh d'abord, TLD plus tard)
-Q24=?   build & push : GitHub Actions sur tag vs manuel docker push vs hybride
+Q21=B   registry GHCR (ghcr.io/<owner>/cloudity-<svc>:<tag>) — auth via GITHUB_TOKEN
+        intégrée à .github/workflows/docker-publish.yml (livré 349d1642)
+Q22=A   réseau edge NPM : réutiliser `web` (déjà branché NPM ↔ cookingrecipes)
+        — zéro changement côté NPM ; les Compose Cloudity exposeront `cloudity-web`,
+        `cloudity-api-gateway`, `cloudity-admin-service` sur ce réseau.
+Q23=A   pattern `cloudity.delhomme.ovh` (app) + `api.cloudity.delhomme.ovh`
+        + `admin.cloudity.delhomme.ovh` — cohérence cookingrecipes ; TLD dédié à reposer
+        plus tard sans casse via redirections 301.
+Q24=A   build & push : GitHub Actions matrice (push main/master, tag v*.*.*, workflow_dispatch)
+        — livré (349d1642), images sur GHCR.
 ```
+
+### Conséquences directes Q21–Q24
+
+| Choix | Conséquence concrète |
+|-------|----------------------|
+| **Q21=B** | Aucun secret Docker Hub à provisionner ; `docker login ghcr.io -u <gh-user> -p <PAT:read:packages>` côté Portainer pour images privées (le repo Cloudity peut rester privé). Auth CI = `GITHUB_TOKEN` natif. |
+| **Q22=A** | Les services exposés via NPM (front, gateway, admin) doivent être attachés au réseau Docker externe `web` dans leur `docker-compose.yml` Portainer. Les services internes (postgres, redis, services métier) restent sur des réseaux dédiés (`cloudity-internal`) non joignables par NPM. |
+| **Q23=A** | DNS à créer côté OVH : `cloudity`, `api.cloudity`, `admin.cloudity` (CNAME ou A → IP VPS). NPM Proxy Hosts à provisionner avec « Force SSL », HSTS et headers durcis (cf. fiche § 8). |
+| **Q24=A** | Pour publier une release : `git tag v0.x.y && git push --tags` → GHA build matrice (10 Go + admin-service + frontend) en parallèle, push GHCR. Mise à jour Portainer = bump du `TAG=` dans la stack. |
 
 ### Conséquences directes des choix Q11–Q15
 

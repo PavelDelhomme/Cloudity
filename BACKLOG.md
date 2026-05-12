@@ -203,7 +203,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 > Conventions du VPS observées au 2026-05-12 : Docker Hub `paveldelhomme/*`, NPM `nginx.delhomme.ovh` qui résout par `container_name:port`, réseaux partagés `web` (cooking-recipes) + `shared-network-copy` (cyna, n8n), pattern `*.delhomme.ovh`. Stacks existantes : `cooking-recipes`, `cyna-production`, `n8n-stack`, `nextcloud-stack`.
 
-- [ ] **Q21 / Q22 / Q23 / Q24** — à trancher (registry, réseau edge, pattern domaine, GHA).
+- [x] **Q21 / Q22 / Q23 / Q24 actés (2026-05-12)** — Q21=B GHCR, Q22=A réseau Docker `web`, Q23=A `cloudity.delhomme.ovh` + sous-domaines `api.` / `admin.`, Q24=A GHA matrice livrée. Détails et conséquences concrètes : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md) bloc 4**.
 - [ ] **Dockerfile.prod** par service (12 fichiers : 11 backends + cloudity-web). Multi-stage, image finale minimale (alpine / distroless). Différent des `Dockerfile.dev` actuels.
 - [ ] **`frontend/apps/cloudity-web/nginx.conf`** : config nginx pour servir le bundle SPA (fallback `/index.html` pour le router, headers cache long sur `/assets/*`, cache off sur `/index.html`).
 - [ ] **GitHub Actions** `docker-publish.yml` (cf. fiche § 9) avec matrice 12 services + secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (selon Q24=A).

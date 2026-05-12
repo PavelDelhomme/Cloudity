@@ -204,33 +204,33 @@
 
 ---
 
-## Q21 — **Registry** des images Cloudity
+## Q21 — **Registry** des images Cloudity *(décidé 2026-05-12 — livré au commit `349d1642`)*
 
 - [ ] **A** — **Docker Hub** sous `paveldelhomme/cloudity-<svc>:<tag>` (cohérent avec `cookingrecipes-*`, `cyna_*` déjà en place). Tag immuable `:0.x.y` + alias `:latest`.
-- [ ] **B** — **GHCR** `ghcr.io/paveldelhomme/cloudity-<svc>:<tag>` (intégration GitHub plus directe, illimité pour repos publics).
+- [x] **B** — **GHCR** `ghcr.io/paveldelhomme/cloudity-<svc>:<tag>` — auth via `GITHUB_TOKEN` (zero secret à provisionner), tags `branch` / `semver` / `sha-<short>` / `latest`. Cf. `.github/workflows/docker-publish.yml`.
 - [ ] **C** — **Hybride** : tags privés (admin-service, internalsec) sur GHCR, tags publics (frontend, libs) sur Docker Hub.
 
 ---
 
-## Q22 — **Réseau Docker edge** que NPM doit atteindre
+## Q22 — **Réseau Docker edge** que NPM doit atteindre *(décidé 2026-05-12 — défaut)*
 
-- [ ] **A** — **Réutiliser `web`** (déjà branché à NPM, déjà utilisé par `cookingrecipes`). Zéro changement côté NPM. *Recommandation par défaut.*
+- [x] **A** — **Réutiliser `web`** (déjà branché à NPM, déjà utilisé par `cookingrecipes`). Zéro changement côté NPM. *Recommandation par défaut.*
 - [ ] **B** — **Réutiliser `shared-network-copy`** (cohérent avec `cyna_frontend_prod`, `n8n`).
 - [ ] **C** — **Créer un `cloudity-edge` dédié** (isolation totale). Il faudra brancher le conteneur NPM à ce nouveau réseau via Portainer une fois.
 
 ---
 
-## Q23 — **Pattern de domaine** pour Cloudity en production
+## Q23 — **Pattern de domaine** pour Cloudity en production *(décidé 2026-05-12)*
 
-- [ ] **A** — **`cloudity.delhomme.ovh`** + sous-domaines `api.`, `admin.` (cohérent avec `cookingrecipes.delhomme.ovh` + `api.cookingrecipes.delhomme.ovh`). Possibilité d'ajouter plus tard `mail.cloudity.delhomme.ovh`, `drive.cloudity.delhomme.ovh` comme alias UX.
+- [x] **A** — **`cloudity.delhomme.ovh`** + sous-domaines `api.`, `admin.` (cohérent avec `cookingrecipes.delhomme.ovh` + `api.cookingrecipes.delhomme.ovh`). Possibilité d'ajouter plus tard `mail.cloudity.delhomme.ovh`, `drive.cloudity.delhomme.ovh` comme alias UX.
 - [ ] **B** — **TLD dédié** (`cloudity.<ton-tld-cloudity>`) acheté pour le projet, séparé de `delhomme.ovh`. Mieux pour l'image produit, demande un nouveau domaine + DNS.
 - [ ] **C** — **Hybride** : `delhomme.ovh` au début (test / soft launch) ; bascule TLD dédié plus tard sans casser les URLs (redirections 301).
 
 ---
 
-## Q24 — **Build & push images** : flux d'automatisation
+## Q24 — **Build & push images** : flux d'automatisation *(décidé 2026-05-12 — livré au commit `349d1642`)*
 
-- [ ] **A** — **GitHub Actions** sur tag `v*.*.*` : matrice qui builde et pousse les 12 images en parallèle (cf. fiche § 9). Déclenchable aussi manuellement (`workflow_dispatch`).
+- [x] **A** — **GitHub Actions** sur tag `v*.*.*` : matrice qui builde et pousse les 12 images en parallèle (cf. fiche § 9). Déclenchable aussi manuellement (`workflow_dispatch`).
 - [ ] **B** — **Build local + `docker push`** manuel le jour du déploiement (plus simple à démarrer ; pas de secrets GitHub à configurer).
 - [ ] **C** — **Hybride** : build local pour les premiers déploiements, GHA branchée plus tard quand le rythme de release augmente.
 
