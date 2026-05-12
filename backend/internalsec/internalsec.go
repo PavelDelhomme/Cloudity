@@ -97,7 +97,14 @@ func ServerTLS(cfg ServerConfig) (*tls.Config, ReloadFunc, error) {
 
 	tlsCfg := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		ClientCAs:  pool,
+		// CurvePreferences : X25519 en priorité 1 (le plus rapide + résistant aux
+		// side-channels timing), secp256r1 en fallback. Cohérent avec
+		// docs/securite/CRYPTO-NORME.md § 1.6 et § 4.1.
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		// CipherSuites n'est PAS configurable en TLS 1.3 (Go choisit
+		// automatiquement parmi TLS_AES_256_GCM_SHA384 /
+		// TLS_AES_128_GCM_SHA256 / TLS_CHACHA20_POLY1305_SHA256, toutes AEAD).
+		ClientCAs: pool,
 		GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 			c := current.Load()
 			if c == nil {
@@ -128,7 +135,9 @@ func ClientTLS(cfg ServerConfig) (*tls.Config, error) {
 	}
 	out := &tls.Config{
 		MinVersion: tls.VersionTLS13,
-		RootCAs:    pool,
+		// X25519 en priorité 1, idem qu'en serveur (cf. CRYPTO-NORME.md § 4.1).
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+		RootCAs:          pool,
 	}
 	if cfg.CertFile != "" && cfg.KeyFile != "" {
 		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)

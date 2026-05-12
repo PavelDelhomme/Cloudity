@@ -155,6 +155,9 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 ### Sécurité & infra (voir **SECURITE.md**)
 
+- [x] **Norme cryptographique** : nouveau référentiel actionnable **[docs/securite/CRYPTO-NORME.md](docs/securite/CRYPTO-NORME.md)** (whitelist/blacklist algos, paramètres Argon2id, TLS curves, plan migration JWT EdDSA, checklist code review).
+- [x] **Argon2id renforcé (auth-service)** : `argon2id.DefaultParams` (m=64MB t=1 p=2) → params explicites m=64MB t=3 p=4 (×6 sur le coût brute-force GPU/ASIC). Override par env `ARGON2_MEMORY_KB` / `ARGON2_TIME` / `ARGON2_PARALLELISM`. Test unitaire ajouté.
+- [x] **TLS X25519 first (internalsec v0.2.0)** : `CurvePreferences = [X25519, secp256r1]` posé explicitement sur `ServerTLS` et `ClientTLS`. CipherSuites laissé géré par Go (TLS 1.3 only ⇒ tout AEAD).
 - [x] **Gateway — anti-énumération & durcissement** : 404/405 JSON homogènes ; en-têtes `nosniff` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` ; rate limit global + **login/register** ; `429` en JSON ; **`Cache-Control: no-store`** sur `/auth/*`, `/pass/*`, `/admin/*` ; auth : message inscription doublon générique, plancher temps réponse login — **SECURITE.md** § 6.1, tests `TestSensitivePath_*`, `TestLoginRateLimit_*`, `TestUnknownPath_*`.
 - [x] **Frontend** : `public/robots.txt` (`Disallow` `/4dm1n`, `/admin`, `/auth/`, etc.) ; navigation **shell utilisateur ↔ admin** en pleine page (`window.location.assign`) pour charger le bon bundle.
 - [ ] **Prod / reverse proxy** : confirmer qu’aucune couche ne **strip** `Cache-Control`, CSP, HSTS — **REVERSE-PROXY.md** ; WAF / rate limit **par IP** en complément du gateway.
@@ -165,6 +168,16 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [ ] **Zero Trust incrémental** : scopes JWT par route ; mTLS ou tokens service inter-microservices documentés.
 - [ ] **WAF** : eval NGINX + ModSecurity + CRS (mode détection) devant gateway ; tuning faux positifs.
 - [ ] **Audit log** utilisateur / admin (actions sensibles) — lié **SECURITE-DONNEES.md** moyen terme.
+
+### Crypto / perf — chantiers à valider (cf. **[docs/securite/CRYPTO-NORME.md](docs/securite/CRYPTO-NORME.md)** § 9)
+
+- [ ] **JWT EdDSA (Ed25519)** : migrer `auth-service` de RS256 → EdDSA selon le plan **CRYPTO-NORME.md § 5.2** (Phase A préparation JWKS + Phase B activation + Phase C décommissionnement RS256). Gain : signatures ~10× plus rapides côté serveur, JWT ~4× plus petits (bandwidth + storage Redis). Question : Q16 (timing).
+- [ ] **WebAuthn / passkeys** : ajouter en facteur d'authentification au-delà du TOTP, pour `/4dm1n` web et `mobile/admin`. Standard FIDO2 + WebAuthn niveau 3 ; bibliothèque Go `go-webauthn/webauthn`. Question : Q20.
+- [ ] **HTTP/3 (QUIC)** : activer côté reverse-proxy en prod (Caddy 2.6+ ou nginx 1.25+). Gain : meilleure latence sur réseaux mobiles / dégradés. Question : Q18.
+- [ ] **Hybride post-quantique TLS public** (`X25519MLKEM768`) : activer côté reverse-proxy dès que la chaîne le permet (Caddy 2.8+ ou nginx + OpenSSL 3.5+). Conforme à SECURITE.md § 8 et CRYPTO-NORME.md § 1.5. Question : Q19.
+- [ ] **Brotli statiques** : activer compression Brotli niveau 5 sur HTML/CSS/JS côté reverse-proxy ; conserver gzip fallback. Pas sur les réponses API mêlant secrets+données utilisateur (CRIME / BREACH).
+- [ ] **gosec** en CI : ajout de `gosec ./...` à `make test-security` pour détecter les patterns Go dangereux (hardcoded creds, weak rand, SQL string concat, etc.).
+- [ ] **Recalibrage Argon2id** : tâche récurrente tous les 18-24 mois (cf. CRYPTO-NORME.md § 3.4). Prochaine revue prévue **2027-11**.
 
 ### UX / Suite web (`frontend/apps/cloudity-web`, **`@cloudity/web`**)
 

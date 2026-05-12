@@ -135,9 +135,41 @@ func main() {
 
 // --- Password hashing (Argon2id ou bcrypt pour rétrocompat) ---
 
+// hardenedArgon2idParams — paramètres explicites alignés sur la norme
+// Cloudity (cf. docs/securite/CRYPTO-NORME.md § 3.1). 6× plus coûteux
+// que argon2id.DefaultParams (m=64MB t=1 p=2 → m=64MB t=3 p=4).
+//
+// Override par environnement via ARGON2_MEMORY_KB / ARGON2_TIME / ARGON2_PARALLELISM.
+// Recalibrage attendu tous les 18-24 mois (cf. OWASP Password Storage Cheat Sheet).
+func hardenedArgon2idParams() *argon2id.Params {
+	p := &argon2id.Params{
+		Memory:      64 * 1024, // 64 MiB
+		Iterations:  3,
+		Parallelism: 4,
+		SaltLength:  16,
+		KeyLength:   32,
+	}
+	if v := os.Getenv("ARGON2_MEMORY_KB"); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil && n >= 8*1024 {
+			p.Memory = uint32(n)
+		}
+	}
+	if v := os.Getenv("ARGON2_TIME"); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 32); err == nil && n >= 1 {
+			p.Iterations = uint32(n)
+		}
+	}
+	if v := os.Getenv("ARGON2_PARALLELISM"); v != "" {
+		if n, err := strconv.ParseUint(v, 10, 8); err == nil && n >= 1 {
+			p.Parallelism = uint8(n)
+		}
+	}
+	return p
+}
+
 func (a *AuthService) hashPassword(password string) (string, error) {
 	if a.useArgon {
-		return argon2id.CreateHash(password, argon2id.DefaultParams)
+		return argon2id.CreateHash(password, hardenedArgon2idParams())
 	}
 	h, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(h), err

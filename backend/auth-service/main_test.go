@@ -211,11 +211,55 @@ func TestHashPasswordAndCompare(t *testing.T) {
 	if hash == "" || hash == password {
 		t.Errorf("hash should be non-empty and different from password")
 	}
+	if !strings.HasPrefix(hash, "$argon2id$") {
+		t.Errorf("hash should be Argon2id, got prefix=%q", hash[:min(len(hash), 12)])
+	}
 	if !svc.comparePassword(password, hash) {
 		t.Error("comparePassword should return true for correct password")
 	}
 	if svc.comparePassword("wrong", hash) {
 		t.Error("comparePassword should return false for wrong password")
+	}
+}
+
+// TestHardenedArgon2idParams_DefaultsAndOverride vérifie que les paramètres
+// par défaut sont bien ceux de la norme (m=64MB t=3 p=4 — cf. CRYPTO-NORME.md
+// § 3.1) et que l'override par variables d'environnement fonctionne.
+func TestHardenedArgon2idParams_DefaultsAndOverride(t *testing.T) {
+	t.Setenv("ARGON2_MEMORY_KB", "")
+	t.Setenv("ARGON2_TIME", "")
+	t.Setenv("ARGON2_PARALLELISM", "")
+
+	def := hardenedArgon2idParams()
+	if def.Memory != 64*1024 {
+		t.Errorf("default Memory = %d, want %d", def.Memory, 64*1024)
+	}
+	if def.Iterations != 3 {
+		t.Errorf("default Iterations = %d, want 3", def.Iterations)
+	}
+	if def.Parallelism != 4 {
+		t.Errorf("default Parallelism = %d, want 4", def.Parallelism)
+	}
+
+	t.Setenv("ARGON2_MEMORY_KB", "131072")
+	t.Setenv("ARGON2_TIME", "5")
+	t.Setenv("ARGON2_PARALLELISM", "8")
+	got := hardenedArgon2idParams()
+	if got.Memory != 131072 {
+		t.Errorf("override Memory = %d, want 131072", got.Memory)
+	}
+	if got.Iterations != 5 {
+		t.Errorf("override Iterations = %d, want 5", got.Iterations)
+	}
+	if got.Parallelism != 8 {
+		t.Errorf("override Parallelism = %d, want 8", got.Parallelism)
+	}
+
+	// Un override invalide / trop bas est ignoré (m doit rester ≥ 8 MiB).
+	t.Setenv("ARGON2_MEMORY_KB", "100")
+	floor := hardenedArgon2idParams()
+	if floor.Memory == 100 {
+		t.Errorf("Memory floor not enforced, got %d", floor.Memory)
 	}
 }
 
