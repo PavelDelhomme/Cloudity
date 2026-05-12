@@ -216,15 +216,17 @@ Tu veux pouvoir, depuis **Mail**, **ajouter un contact**. C’est OK même en mu
 
 ## 8. Production : Portainer + nginx-proxy-manager
 
-Cible déjà mentionnée ; à formaliser :
+**Guide opérationnel détaillé** (VPS type Contabo, stacks Portainer, NPM, distinction dev/prod) : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
+Cible déjà mentionnée ; schéma :
 
 ```
 Internet ──HTTPS──► nginx-proxy-manager (NPM)
                        │  (route par hostname → conteneurs internes)
-                       ├── api.cloudity.tld          → cloudity-api-gateway
-                       ├── app.cloudity.tld          → cloudity-web (`/app/*`)
-                       ├── admin.cloudity.tld        → cloudity-web (`/4dm1n`)
-                       ├── mail.cloudity.tld (option) → cloudity-web (`/app/mail`) ou alias `app.`
+                       ├── api.cloudity.tld          → api-gateway:8000
+                       ├── app.cloudity.tld          → cloudity-web:3000 (`/app/*`)
+                       ├── admin.cloudity.tld        → cloudity-web:3000 (`/4dm1n`)
+                       ├── mail.cloudity.tld (option) → cloudity-web:3000 (`/app/mail`) ou alias `app.`
                        └── ...
                        
 Portainer ── orchestre les stacks Docker (1 stack par service ou 1 stack global)

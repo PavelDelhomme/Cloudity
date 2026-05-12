@@ -6,6 +6,8 @@
 
 > **Référentiel crypto obligatoire** : **[CRYPTO-NORME.md](CRYPTO-NORME.md)** § 1.6 (TLS) et § 4.2 (reverse-proxy public). Toute config doit y être conforme.
 
+> **Déploiement chez un hébergeur (VPS + Portainer + Nginx Proxy Manager)** — sans confondre avec le dev local : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
 ### Décisions produit (cf. `docs/decisions/multi-repo/REPONSES.md`)
 
 | Code | Décision | Statut |
