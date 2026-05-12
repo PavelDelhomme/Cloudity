@@ -148,7 +148,7 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 | Vite dev | HTTP (option `make dev-https`) | HTTPS via mkcert | docs `DEV-VERIFICATION.md` |
 | Gateway → 11 services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
 | Postgres | `sslmode=disable` | `sslmode=verify-ca` puis `verify-full` | **`make up-https-internal`** |
-| Redis | requirepass plain | `rediss://` + AUTH | `make up-https-internal` |
+| Redis | requirepass plain | TLS 1.3 + AUTH (`--tls-port`) | `make up-https-internal` + `REDIS_TLS=1` (auth-service go-redis) |
 | Edge prod | NPM/Caddy + ACME | TLS 1.3 + hybride PQ `X25519MLKEM768` | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** |
 
 ### 6 bis.2 Cibles Make livrées
@@ -157,7 +157,8 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 make up-tls            # stack + Caddy edge — recommandé pour dev "production-like"
 make up-https-internal # ↑ + Postgres TLS + Redis TLS via step-ca (PoC fonctionnel)
 make https-status      # vérifie en-têtes Caddy + Postgres SHOW ssl + Redis PING tls
-make mtls-issue-postgres / mtls-issue-redis  # certs serveurs 720 h via step-ca
+make mtls-issue-postgres / mtls-issue-redis  # certs serveurs (TTL max 24 h — limite step-ca par défaut)
+make mtls-chown-internal-certs              # chown uid postgres (70) + redis (999) pour bind-mount
 ```
 
 **Pré-requis HTTPS interne** : `make mtls-up && make seed-mtls` (PKI step-ca démarrée).
@@ -166,7 +167,7 @@ make mtls-issue-postgres / mtls-issue-redis  # certs serveurs 720 h via step-ca
 
 - Bascule **sans casser** : `MTLS_MODE=permissive` accepte HTTP entrant tant qu'un service legacy n'est pas migré.
 - Postgres `sslmode=verify-full` exige que le SAN du cert serveur **corresponde au DNS** de connexion (`postgres`). Le PoC actuel pose `DNS:postgres,DNS:localhost` → ✅ compatible. Bascule `verify-full` après surveillance d'une journée en `verify-ca`.
-- Redis 7 supporte `tls-port` mais le client `go-redis` doit recevoir `rediss://` dans l'URL — vérifier sur chaque service Go avant de passer en strict.
+- Redis 7 : serveur en `--tls-port 6379` ; **auth-service** active TLS côté client via `REDIS_TLS=1` + `REDIS_TLS_CA` (voir `docker-compose.https.yml`). Les autres services Go n'utilisent pas Redis pour l'instant.
 
 ### 6 bis.4 Vérifications manuelles HTTPS-first
 
@@ -180,7 +181,7 @@ docker exec -t cloudity-postgres psql -U cloudity_admin -d cloudity -c "SHOW ssl
 # attendu : ssl=on
 
 # 3) Redis TLS
-docker exec -t cloudity-redis redis-cli --tls --cacert /run/step/ca.pem -a "$REDIS_PASSWORD" PING
+docker exec cloudity-redis sh -c 'redis-cli --tls --cacert /run/step/ca.pem -a "$REDIS_PASSWORD" ping'
 # attendu : PONG
 ```
 

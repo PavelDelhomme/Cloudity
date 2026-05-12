@@ -6,12 +6,14 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -32,6 +34,50 @@ import (
 var accessTokenDuration time.Duration
 
 const refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
+
+// newRedisClient construit le client Redis. Si REDIS_TLS=1 (ou true/on),
+// connexion TLS vers Redis avec vérification de la CA (fichier REDIS_TLS_CA,
+// défaut /run/step/ca.pem). REDIS_URL reste au format host:port (ex. redis:6379).
+func newRedisClient() *redis.Client {
+	addr := strings.TrimSpace(os.Getenv("REDIS_URL"))
+	if addr == "" {
+		addr = "localhost:6379"
+	}
+	password := os.Getenv("REDIS_PASSWORD")
+	opts := &redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       0,
+	}
+	tlsFlag := strings.TrimSpace(os.Getenv("REDIS_TLS"))
+	if tlsFlag == "1" || strings.EqualFold(tlsFlag, "true") || strings.EqualFold(tlsFlag, "on") {
+		caPath := strings.TrimSpace(os.Getenv("REDIS_TLS_CA"))
+		if caPath == "" {
+			caPath = "/run/step/ca.pem"
+		}
+		caPEM, err := os.ReadFile(caPath)
+		if err != nil {
+			log.Fatalf("REDIS_TLS: lecture CA %s: %v", caPath, err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			log.Fatalf("REDIS_TLS: PEM CA invalide dans %s", caPath)
+		}
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			host = addr
+			if i := strings.LastIndex(addr, ":"); i > 0 {
+				host = addr[:i]
+			}
+		}
+		opts.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    pool,
+			ServerName: host,
+		}
+	}
+	return redis.NewClient(opts)
+}
 
 // loginResponseFloor borne inférieure sur la durée des réponses /auth/login (hors erreur
 // de parsing JSON 400) pour atténuer un canal auxiliaire « user inconnu » vs « mauvais mot de passe »
@@ -121,11 +167,7 @@ func main() {
 	}
 	defer db.Close()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_URL"),
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
-	})
+	rdb := newRedisClient()
 
 	privateKey, publicKey := loadRSAKeys()
 	edPrivateKey, edPublicKey := loadEd25519Keys()
