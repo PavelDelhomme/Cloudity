@@ -3,6 +3,7 @@
 **Rôle** : décrire le système de **sauvegardes** Cloudity quand le service tournera en production, avec une **machine de backup tierce** (raspberry pi, ordinateur fixe perso, NAS — **pas** sur le VPS de production), pilotable depuis le panel admin **et** depuis un petit panel local sur la machine de backup.
 
 > Décision de référence : **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** § Q8 (réponse libre).  
+> **Cadre matériel + réseau (homelab)** : **[HOMELAB-SECURITE.md](HOMELAB-SECURITE.md)** — décrit la Raspberry Pi cible, le branchement des 2 disques USB (1 To + 500 Go), le nettoyage préalable, la topologie réseau (3 scénarios A/B/C), le VPN WireGuard, la DMZ, et le monitoring.  
 > Plan multi-repo qui contextualise ce module : **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 8.3.  
 > Vision sécurité (chiffrement, mTLS, post-quantique) : **[../securite/SECURITE.md](../securite/SECURITE.md)**.
 

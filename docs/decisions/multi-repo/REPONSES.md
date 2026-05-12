@@ -6,7 +6,7 @@ Voir le détail des options dans **[QUESTIONNAIRE.md](QUESTIONNAIRE.md)**.
 
 ---
 
-## Synthèse rapide *(obligatoire)* — **complète au 2026-05-12**
+## Synthèse rapide *(obligatoire)* — **bloc 1 : multi-repo (complet au 2026-05-12)**
 
 ```
 Q1=A    polyrepo + meta-repo + git submodule
@@ -19,6 +19,18 @@ Q7=C    stacks Portainer par domaine produit (Mail / Drive / Pass / Photos / Off
 Q8=*    architecture custom — voir docs/architecture/BACKUP-OFFSITE.md
 Q9=D+T3 extension Pass + desktop Linux : plus tard, stack à arbitrer
 Q10=A   Phase 0 immédiate (pkg/dbpin + versionnage libs)
+```
+
+## Synthèse rapide — **bloc 2 : homelab / sécurité résidentielle (à compléter)**
+
+Remplace les `?` par la lettre choisie. Cadre détaillé : **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)**.
+
+```
+Q11=?   scénario réseau homelab (A=minimal / B=médian RPi-router / C=cible mini-PC+VLAN / D=différer)
+Q12=?   branchement disques (A=hub USB alimenté / B=boîtier 2-baies USB-C / C=NAS DIY plus tard)
+Q13=?   VPN (A=WireGuard pur / B=WireGuard+Headscale / C=OpenVPN / D=décider plus tard)
+Q14=?   nettoyage disques (A=workflow complet outillé / B=tri manuel sans compression / C=garder 500Go tel quel / D=différer)
+Q15=?   calendrier (A=homelab avant prod / B=parallèle / C=prod d'abord, homelab après)
 ```
 
 ---

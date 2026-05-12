@@ -88,6 +88,32 @@ Décisions actées (résumé exécutable) :
 
 ---
 
+## Homelab / sécurité résidentielle (avant mise en production)
+
+Cible : **Raspberry Pi à la maison** + 2 disques USB (1 To, 500 Go) ; sert simultanément de **runner backup offsite Cloudity** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**), de **routeur/pare-feu/VPN** filtrant le trafic du foyer (selon scénario retenu), et de **point d'accès distant** (web `/4dm1n` + mobile admin) au LAN.
+
+**Cadre détaillé** : **[docs/architecture/HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** — inventaire matériel, procédure de nettoyage des 2 disques (`ncdu` + `rmlint` + `tar.zst -19`), 3 scénarios réseau (A=minimal / B=médian RPi-router / C=cible mini-PC+VLAN), VPN WireGuard, DMZ, monitoring depuis admin Cloudity, app mobile admin, roadmap H0–H4.
+
+**Décisions à prendre** : Q11–Q15 dans **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** § « Bloc 2 — Homelab ».
+
+À faire :
+
+- [ ] **H0 — Inventaire matériel précis** : modèle RPi exact, capacité réelle des 2 disques, état box FAI (mode bridge possible ?), alimentation USB disponible.
+- [ ] **H0 — Choix scénario réseau** (Q11) → liste de courses validée selon § 9 du doc cadre.
+- [ ] **H0 — Nettoyage des 2 disques** (Q14) : `ncdu` + `rmlint` + compression `tar.zst -19` des archives froides + LUKS avant migration vers RPi.
+- [ ] **H1 — RPi backup minimale** : OS Bookworm 64-bit + SSD M.2 USB + LUKS sur 2 disques + montage `/mnt/cloudity-1tb` `/mnt/cloudity-500gb` + `cloudity-backup-runner` (à coder).
+- [ ] **H1 — WireGuard server** sur RPi (port-forward UDP 51820 box FAI) + clients PC fixe + smartphone admin avec **PSK** + clés Curve25519 + géoblocage du port côté nftables.
+- [ ] **H2 — Sécurité réseau** (selon Q11=B/C uniquement) : box FAI bridge, nftables, Pi-hole/AdGuard, VLANs trust/DMZ/IoT.
+- [ ] **H3 — Monitoring** : agent métriques RPi (`node_exporter` + collecteur Go custom) → endpoint runner exposé en mTLS → admin-service interroge via canal long-lived → page `/4dm1n/homelab` (web) + écran `mobile/admin`.
+- [ ] **H3 — Alertes push** : pas de handshake WG > 24 h, pas de backup > 48 h, T° > 80 °C, disque > 90 %.
+- [ ] **H4 — Bascule production** : seulement quand H1+H3 livrés ; jusque-là, Cloudity reste **local** (donc pas de backup offsite nécessaire).
+
+Hors scope court terme — explorations IoT :
+
+- [ ] **Gamelle connectée chat** (Arduino + capteur poids/RFID) en VLAN IoT, exposée via mini-service Cloudity côté famille (notifications « le chat a mangé », poids hebdo). Démarrage seulement après H1–H3 livrées.
+
+---
+
 ## Sprint fin mai 2026 — cible migration type Proton
 
 Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Photos** ; **Pass** au minimum **web** fiable ; **app Pass mobile** et **extension navigateur Pass** dès que le contrat API / UX web est figé.
