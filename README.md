@@ -4,6 +4,8 @@
 
 ```bash
 make up    # Démarre toute la stack (ports 60XX)
+make up-tls   # Recommandé : même stack + **Caddy** → https://app.cloudity.local et https://api.cloudity.local (TLS 1.3, HSTS, CSP). Voir `docs/securite/AUDIT-SECURITE.md` § 6 bis.
+make up-https-internal   # Edge HTTPS + Postgres TLS + Redis TLS (step-ca ; prérequis `make mtls-up` + certs).
 make down  # Arrête la stack
 make help  # Liste des commandes
 ```
