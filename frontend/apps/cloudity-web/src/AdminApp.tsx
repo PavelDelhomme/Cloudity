@@ -12,6 +12,7 @@ import SettingsPage from './pages/admin/Settings'
 import VaultsPage from './pages/admin/Vaults'
 import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
+import PasskeysPage from './pages/admin/Passkeys'
 import { AdminAccessGate } from './AdminAccessGate'
 
 const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ export function AdminAppRoutes() {
           <Route path="vaults" element={<VaultsPage />} />
           <Route path="domaines" element={<DomainesPage />} />
           <Route path="securite-cve" element={<SecurityCvePage />} />
+          <Route path="passkeys" element={<PasskeysPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
         <Route

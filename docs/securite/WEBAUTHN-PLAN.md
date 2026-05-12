@@ -87,19 +87,28 @@
 |-----------|--------|--------|
 | Migration `webauthn_credentials` | ✅ | `infrastructure/postgresql/migrations/37-webauthn-credentials.sql` (FK `users(id)`, unique global sur `credential_id`, index user_id, sign_count CHECK). |
 | Lib Go | ✅ | `github.com/go-webauthn/webauthn v0.17.3` ajoutée à `auth-service/go.mod`. |
-| Endpoints | ✅ | `POST /auth/webauthn/register/{begin,finish}` (Bearer admin requis), `POST /auth/webauthn/login/{begin,finish}` (publics). |
+| Endpoints | ✅ | `POST /auth/webauthn/register/{begin,finish}` (Bearer admin requis), `POST /auth/webauthn/login/{begin,finish}` (publics), `GET /auth/webauthn/credentials`, `DELETE /auth/webauthn/credentials/:id`. |
 | Stockage challenges | ✅ | Redis, clé `webauthn:session:{register|login}:<uid>`, TTL 5 min, **usage unique** (DEL après lecture). |
 | Replay protection | ✅ | `bumpSignCount` UPDATE conditionnel (`sign_count < $1`) — refuse les rejeux. |
 | Tests Go | ✅ | `webauthn_test.go` : config defaults, JWT admin gate (EdDSA accepté, role `user` rejeté, bearer manquant rejeté), boot service avec config invalide. |
 | Gateway | ✅ | Routes `/auth/webauthn/login/*` ajoutées à la liste `public` dans `authMiddleware`. `/auth/webauthn/register/*` reste protégé (admin Bearer requis). |
 | Variables | ✅ | `WEBAUTHN_RP_ID` (def `localhost`), `WEBAUTHN_RP_NAME` (def `Cloudity Admin`), `WEBAUTHN_ORIGINS` (def `http://localhost:6001,http://localhost:5173`). |
 
-### 6.1 Reste à faire (Phase W2 — frontend)
+## 7. Statut Phase W2 — frontend (livré 2026-05-12)
 
-- Page `/4dm1n/passkeys` → liste credentials + bouton « Ajouter une passkey » (`navigator.credentials.create({publicKey: opts})` après `POST /auth/webauthn/register/begin`).
-- Page `/login` admin : bouton « Se connecter avec une passkey » qui appelle `POST /auth/webauthn/login/begin` puis `navigator.credentials.get({publicKey: opts.options})` puis `POST /auth/webauthn/login/finish`.
-- Tests Playwright : flux register + login passkey (utiliser **virtual authenticator** Chromium).
-- Endpoint de **révocation** (`DELETE /auth/webauthn/credentials/<id>` — admin only).
+| Composant | Statut | Détail |
+|-----------|--------|--------|
+| Module helpers | ✅ | `frontend/apps/cloudity-web/src/webauthn.ts` : encodage base64url ↔ ArrayBuffer, `reviveCreationOpts/reviveRequestOpts`, `attestationToJSON`, `assertionToJSON`. |
+| Page `/4dm1n/passkeys` | ✅ | `frontend/apps/cloudity-web/src/pages/admin/Passkeys.tsx` — liste + ajout + suppression (avec confirmation). React Query + toast. Désactive si `isWebAuthnSupported() === false`. |
+| Bouton login passkey | ✅ | `pages/public/LoginPage.tsx` : sous le bouton standard, "Se connecter avec une passkey" déclenche `loginWithPasskey(email, '1')` (tenant_id=1 par défaut). |
+| Endpoint révocation | ✅ | `DELETE /auth/webauthn/credentials/:id` côté backend + bouton corbeille côté UI. Suppression scoppée au `user_id` du Bearer. |
+| Tests | ✅ | Vitest 246 passed. ESLint clean. Vite build OK. Tests Go 1.9 s. |
+
+### 7.1 Reste à faire (Phase W3+)
+
+- Tests Playwright avec [virtual authenticator Chromium](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/) (CDP `WebAuthn.addVirtualAuthenticator`) — couvre register + login bout-en-bout sans clé physique.
+- Mobile : intégration Credential Manager (Android) / `ASAuthorization` (iOS) — au moment du sprint mobile admin.
+- Quotas par utilisateur (max 5 passkeys) avant ouverture aux comptes hors admin.
 
 ---
 

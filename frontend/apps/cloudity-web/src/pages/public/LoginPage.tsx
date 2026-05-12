@@ -4,6 +4,8 @@ import { useAuth } from '../../authContext'
 import { login as apiLogin } from '../../api'
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
 import { navigateAfterAuth } from '../../postAuthNavigate'
+import { isWebAuthnSupported, loginWithPasskey } from '../../webauthn'
+import { Key } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 export default function LoginPage() {
@@ -47,6 +49,34 @@ export default function LoginPage() {
       navigateAfterAuth(navigate, dest)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur de connexion')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Connexion passkey (Phase W2). Réservée au /4dm1n côté backend (rôle admin).
+  // L'utilisateur saisit son email ; le backend va répondre par les options
+  // WebAuthn s'il a une passkey enregistrée.
+  const handlePasskeyLogin = async () => {
+    if (!email.trim()) {
+      toast.error('Saisir l’email pour utiliser une passkey')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await loginWithPasskey(email.trim(), '1')
+      setAuth(res.access_token, res.refresh_token, 1, email.trim())
+      toast.success('Connexion passkey réussie')
+      const q = typeof window !== 'undefined' ? window.location.search : location.search
+      const p = new URLSearchParams(q)
+      const next = p.get('next')
+      const stateRt = (location.state as { returnTo?: string })?.returnTo
+      const raw = next ?? stateRt ?? '/app'
+      const dest =
+        raw.startsWith('/app') || isAdminUiReturnPath(raw) ? normalizePostLoginPath(raw) : '/app'
+      navigateAfterAuth(navigate, dest)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur passkey')
     } finally {
       setLoading(false)
     }
@@ -109,6 +139,18 @@ export default function LoginPage() {
               {loading ? 'Connexion…' : 'Se connecter'}
             </button>
           </form>
+
+          {isWebAuthnSupported() && (
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={loading}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-3 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-600 disabled:opacity-50"
+            >
+              <Key className="w-4 h-4" />
+              Se connecter avec une passkey
+            </button>
+          )}
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Pas de compte ?{' '}
