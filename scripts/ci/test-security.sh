@@ -97,6 +97,37 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   fi
 done
 
+# --- gosec (analyse statique Go) dans les conteneurs ---
+# Q20=A : actif en mode WARNING d'abord (faux positifs probables sur le 1er run).
+# Bascule en BLOCKING (set GOSEC_BLOCKING=1) après tri du 1er rapport — cf.
+# docs/securite/CRYPTO-NORME.md § 8.1 et BACKLOG.md § Crypto / perf.
+GOSEC_BLOCKING="${GOSEC_BLOCKING:-0}"
+echo ""
+echo "  [gosec] backends Go — analyse statique (Docker, mode $([ "$GOSEC_BLOCKING" = "1" ] && echo BLOCKING || echo WARNING))..."
+
+for dir in backend/auth-service backend/api-gateway backend/passwords-service backend/mail-directory-service backend/calendar-service backend/contacts-service backend/notes-service backend/tasks-service backend/photos-service backend/drive-service backend/internalsec backend/pkg/dbpin; do
+  if [ ! -d "$dir" ]; then
+    continue
+  fi
+  name=$(basename "$dir")
+  logf="$ROOT/reports/gosec-${name}.txt"
+  if docker run --rm \
+    -v "$ROOT/$dir:/src" \
+    -w /src \
+    golang:1.25.9-alpine \
+    sh -c "apk add --no-cache git >/dev/null 2>&1 && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && /go/bin/gosec -quiet -fmt=text ./..." >"$logf" 2>&1; then
+    echo "  ✅ gosec $name OK"
+  else
+    if [ "$GOSEC_BLOCKING" = "1" ]; then
+      echo "  ❌ gosec $name : findings — détail : $logf (BLOCKING)"
+      failed=1
+    else
+      echo "  ⚠️  gosec $name : findings — détail : $logf (warning, set GOSEC_BLOCKING=1 pour fail)"
+      warnings=1
+    fi
+  fi
+done
+
 # --- Checks auth (si la stack répond) ---
 echo ""
 echo "  [auth] GET /auth/validate sans token → 401..."
