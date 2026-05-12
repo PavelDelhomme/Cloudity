@@ -38,6 +38,10 @@ test.html
 
 # Clés RSA auth-service (générées par make setup ; private ne doit pas être versionné)
 backend/auth-service/private.pem
+# Clés Ed25519 auth-service (générées par auth-service au boot ; jamais versionnées —
+# clés dev éphémères, regénérées à chaque setup propre).
+backend/auth-service/private_ed25519.pem
+backend/auth-service/public_ed25519.pem
 # Build / cache auth-service
 backend/auth-service/tmp/
 

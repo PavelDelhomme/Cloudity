@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
@@ -169,13 +170,24 @@ func mustLoadTestKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 	return priv, &priv.PublicKey
 }
 
+func mustLoadTestEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey) {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	return priv, pub
+}
+
 func newTestAuthService() *AuthService {
 	priv, pub := mustLoadTestKeys()
+	edPriv, edPub := mustLoadTestEd25519Keys()
 	return &AuthService{
 		userStore:    newMockUserStore(),
 		sessionStore: newMockSessionStore(),
 		privateKey:   priv,
 		publicKey:    pub,
+		edPrivateKey: edPriv,
+		edPublicKey:  edPub,
 		useArgon:     true,
 	}
 }
@@ -281,6 +293,85 @@ func TestGenerateAndParseAccessToken(t *testing.T) {
 	}
 	if claims.Role != "user" {
 		t.Errorf("claims.Role = %q, want %q", claims.Role, "user")
+	}
+}
+
+// TestGenerateAccessToken_IsEdDSA — Phase B (cf. CRYPTO-NORME.md § 5.2) :
+// vérifie que les NOUVEAUX tokens sont signés en EdDSA (Ed25519) avec le
+// header `kid="ed25519-1"`, et plus en RS256.
+func TestGenerateAccessToken_IsEdDSA(t *testing.T) {
+	svc := newTestAuthService()
+	tokenStr, err := svc.generateAccessToken("42", "1", "ed@test.com", "user")
+	if err != nil {
+		t.Fatalf("generateAccessToken: %v", err)
+	}
+	parsed, _, err := jwt.NewParser().ParseUnverified(tokenStr, jwt.MapClaims{})
+	if err != nil {
+		t.Fatalf("ParseUnverified: %v", err)
+	}
+	if alg := parsed.Method.Alg(); alg != "EdDSA" {
+		t.Errorf("alg = %q, want EdDSA", alg)
+	}
+	if kid, _ := parsed.Header["kid"].(string); kid != kidEd25519 {
+		t.Errorf("kid = %q, want %q", kid, kidEd25519)
+	}
+}
+
+// TestParseAccessToken_AcceptsLegacyRS256 — fenêtre de transition Phase B :
+// les tokens encore valides signés en RS256 avant la migration doivent
+// continuer à être acceptés par parseAccessToken jusqu'à leur expiration.
+func TestParseAccessToken_AcceptsLegacyRS256(t *testing.T) {
+	svc := newTestAuthService()
+	claims := Claims{
+		UserID:   "99",
+		TenantID: "1",
+		Email:    "legacy@test.com",
+		Role:     "user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	tok.Header["kid"] = kidRSA
+	tokenStr, err := tok.SignedString(svc.privateKey)
+	if err != nil {
+		t.Fatalf("sign RS256: %v", err)
+	}
+	got, err := svc.parseAccessToken(tokenStr)
+	if err != nil {
+		t.Fatalf("parseAccessToken legacy RS256: %v", err)
+	}
+	if got.UserID != "99" || got.Email != "legacy@test.com" {
+		t.Errorf("legacy claims: %+v", got)
+	}
+}
+
+// TestParseAccessToken_RejectsAlgConfusion — refus du downgrade RS256→none
+// ou kid invalide : protection classique contre les attaques `alg:none` ou
+// les tentatives de mismatch kid/alg.
+func TestParseAccessToken_RejectsAlgConfusion(t *testing.T) {
+	svc := newTestAuthService()
+	claims := Claims{
+		UserID: "1", TenantID: "1", Email: "x@test.com", Role: "user",
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute))},
+	}
+	// Token EdDSA mais avec kid="rs256-1" → mismatch détecté.
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidRSA
+	bad, err := tok.SignedString(svc.edPrivateKey)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+	if _, err := svc.parseAccessToken(bad); err == nil {
+		t.Error("expected error for kid=rs256-1 with EdDSA signature, got nil")
+	}
+	// Kid inconnu → refusé.
+	tok2 := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok2.Header["kid"] = "intruder-1"
+	bad2, _ := tok2.SignedString(svc.edPrivateKey)
+	if _, err := svc.parseAccessToken(bad2); err == nil {
+		t.Error("expected error for unknown kid, got nil")
 	}
 }
 

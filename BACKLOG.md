@@ -171,7 +171,8 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 ### Crypto / perf — chantiers à valider (cf. **[docs/securite/CRYPTO-NORME.md](docs/securite/CRYPTO-NORME.md)** § 9)
 
-- [ ] **JWT EdDSA (Ed25519)** : migrer `auth-service` de RS256 → EdDSA selon le plan **CRYPTO-NORME.md § 5.2** (Phase A préparation JWKS + Phase B activation + Phase C décommissionnement RS256). Gain : signatures ~10× plus rapides côté serveur, JWT ~4× plus petits (bandwidth + storage Redis). Question : Q16 (timing).
+- [x] **JWT EdDSA Phase A+B (Ed25519)** : `auth-service` signe TOUS les nouveaux access tokens en EdDSA avec `kid="ed25519-1"` (header). `api-gateway` accepte EdDSA (clé courante) ET RS256 (clé legacy, `kid="rs256-1"` ou absent) via `selectKeyForToken` qui vérifie aussi l'alg-mismatch (refus du downgrade). Tests : `auth-service` 4 nouveaux + `api-gateway` 5 nouveaux. Cf. CRYPTO-NORME.md § 5.2.
+- [ ] **JWT EdDSA Phase C — décommissionnement RS256** (à faire ≥ 2026-06-12) : après 30j d'expiration des refresh tokens existants, supprimer la paire RSA d'`auth-service` et la branche `jwt.SigningMethodRSA` de `parseAccessToken` / `selectKeyForToken`. Bumper `auth-service` major version (breaking pour les clients qui auraient mis en cache un kid="rs256-1").
 - [ ] **WebAuthn / passkeys** : ajouter en facteur d'authentification au-delà du TOTP, pour `/4dm1n` web et `mobile/admin`. Standard FIDO2 + WebAuthn niveau 3 ; bibliothèque Go `go-webauthn/webauthn`. Question : Q20.
 - [ ] **HTTP/3 (QUIC)** : activer côté reverse-proxy en prod (Caddy 2.6+ ou nginx 1.25+). Gain : meilleure latence sur réseaux mobiles / dégradés. Question : Q18.
 - [ ] **Hybride post-quantique TLS public** (`X25519MLKEM768`) : activer côté reverse-proxy dès que la chaîne le permet (Caddy 2.8+ ou nginx + OpenSSL 3.5+). Conforme à SECURITE.md § 8 et CRYPTO-NORME.md § 1.5. Question : Q19.

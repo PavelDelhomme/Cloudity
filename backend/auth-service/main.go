@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -9,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -81,10 +83,26 @@ type SessionStore interface {
 type AuthService struct {
 	userStore    UserStore
 	sessionStore SessionStore
-	privateKey   *rsa.PrivateKey
-	publicKey    *rsa.PublicKey
+	// privateKey/publicKey : RSA-2048 — conservés pour vérifier les tokens
+	// existants (refresh tokens jusqu'à 7-30j, access tokens jusqu'à 60min)
+	// signés en RS256 avant la migration EdDSA. Plus de NOUVEAU token signé
+	// en RS256 depuis cette version.
+	privateKey *rsa.PrivateKey
+	publicKey  *rsa.PublicKey
+	// edPrivateKey/edPublicKey : Ed25519 — utilisés pour signer TOUS les
+	// nouveaux tokens. Plan migration : docs/securite/CRYPTO-NORME.md § 5.2.
+	edPrivateKey ed25519.PrivateKey
+	edPublicKey  ed25519.PublicKey
 	useArgon     bool // true = Argon2id, false = bcrypt (rétrocompat)
 }
+
+// kidEd25519 / kidRSA — identifiants stables des clés publiques (header `kid`
+// du JWT). Utilisés par api-gateway pour sélectionner la bonne clé de
+// vérification. NE PAS RENOMMER sans coordonner les deux services.
+const (
+	kidEd25519 = "ed25519-1"
+	kidRSA     = "rs256-1"
+)
 
 type Claims struct {
 	UserID   string `json:"user_id"`
@@ -110,12 +128,15 @@ func main() {
 	})
 
 	privateKey, publicKey := loadRSAKeys()
+	edPrivateKey, edPublicKey := loadEd25519Keys()
 
 	authService := &AuthService{
 		userStore:    &postgresUserStore{db: db},
 		sessionStore: &redisSessionStore{rdb: rdb},
 		privateKey:   privateKey,
 		publicKey:    publicKey,
+		edPrivateKey: edPrivateKey,
+		edPublicKey:  edPublicKey,
 		useArgon:     true,
 	}
 
@@ -271,13 +292,34 @@ func (a *AuthService) generateAccessToken(userID, tenantID, email, role string) 
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	return token.SignedString(a.privateKey)
+	// Phase B (cf. CRYPTO-NORME.md § 5.2) : tous les nouveaux access tokens
+	// sont signés en EdDSA (Ed25519). Header `kid` posé pour qu'api-gateway
+	// puisse sélectionner la bonne clé.
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	token.Header["kid"] = kidEd25519
+	return token.SignedString(a.edPrivateKey)
 }
 
+// parseAccessToken vérifie un access token. Accepte EdDSA (nouveaux tokens —
+// kid="ed25519-1") ET RS256 (anciens tokens — kid="rs256-1" ou kid absent),
+// pour la fenêtre de transition Phase B → Phase C (cf. CRYPTO-NORME.md § 5.2).
 func (a *AuthService) parseAccessToken(tokenString string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
-		return a.publicKey, nil
+		kid, _ := t.Header["kid"].(string)
+		switch kid {
+		case kidEd25519:
+			if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
+				return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
+			}
+			return a.edPublicKey, nil
+		case kidRSA, "":
+			if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
+			}
+			return a.publicKey, nil
+		default:
+			return nil, fmt.Errorf("unknown kid %q", kid)
+		}
 	})
 	if err != nil {
 		return nil, err
@@ -514,6 +556,43 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 		"user_id":       userID,
 		"expires_in":    int(accessTokenDuration.Seconds()),
 	})
+}
+
+// loadEd25519Keys génère ou charge la paire Ed25519 utilisée pour signer
+// les access tokens. Persistée sur disque dans le répertoire courant
+// (private_ed25519.pem en PKCS8 mode 0600, public_ed25519.pem en PKIX mode 0644)
+// pour rester partagée avec api-gateway via le volume Docker
+// `./backend/auth-service:/app/keys:ro`.
+//
+// Migration : un sidecar de rotation (step-ca ou systemd timer) écrira
+// les nouvelles paires en place et émettra un signal SIGHUP — Phase Z TODO.
+func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey) {
+	privPath := "private_ed25519.pem"
+	pubPath := "public_ed25519.pem"
+	if _, err := os.Stat(privPath); err == nil {
+		if privBytes, err := os.ReadFile(privPath); err == nil {
+			if any, err := jwt.ParseEdPrivateKeyFromPEM(privBytes); err == nil {
+				if priv, ok := any.(ed25519.PrivateKey); ok {
+					pub, _ := priv.Public().(ed25519.PublicKey)
+					return priv, pub
+				}
+			}
+		}
+	}
+	log.Println("Ed25519 keys not found, generating new pair (will persist to disk)")
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		log.Fatal("ed25519 generate:", err)
+	}
+	if privDER, err := x509.MarshalPKCS8PrivateKey(priv); err == nil {
+		block := &pem.Block{Type: "PRIVATE KEY", Bytes: privDER}
+		_ = os.WriteFile(privPath, pem.EncodeToMemory(block), 0600)
+	}
+	if pubDER, err := x509.MarshalPKIXPublicKey(pub); err == nil {
+		block := &pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}
+		_ = os.WriteFile(pubPath, pem.EncodeToMemory(block), 0644)
+	}
+	return priv, pub
 }
 
 func loadRSAKeys() (*rsa.PrivateKey, *rsa.PublicKey) {

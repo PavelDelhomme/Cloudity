@@ -310,7 +310,7 @@ Ed25519 = **gain net** sur Cloudity (plus rapide à signer côté serveur, signa
 | **Argon2id passwords** | ✅ `auth-service` `argon2id.DefaultParams` (m=64, t=1, p=2) | **Renforcer** : m=64, t=3, p=4 (cette PR) |
 | **bcrypt fallback** | ✅ migration au login si hash bcrypt | maintenir jusqu'à `COUNT(...) bcrypt = 0` |
 | **AES-256-GCM** | ✅ `mail-directory-service` (chiffrement aliases) | OK |
-| **JWT RS256 (RSA-2048)** | ⚠ acceptable mais lent | **Migrer vers EdDSA** Ed25519 (plan § 5, à activer après accord) |
+| **JWT EdDSA (Ed25519)** | ✅ **Phase B active depuis 2026-05-12** — `auth-service` signe en EdDSA + `api-gateway` accepte EdDSA et RS256 (kid-aware) | Phase C : décommissionnement RS256 après 30j (≥ 2026-06-12) — supprimer la paire RSA et `jwt.SigningMethodRSA` côté parseAccessToken |
 | **TOTP (HMAC-SHA1)** | ✅ acceptable (RFC 6238) | Préparer **WebAuthn / passkeys** comme 2ᵉ facteur préféré |
 | **Hybride post-quantique TLS public** | 📅 cible | activer `X25519MLKEM768` côté reverse-proxy en prod |
 | **Hybride post-quantique JWT** | 📅 cible long terme | attendre `golang-jwt` ML-DSA stable + clients suiveurs |

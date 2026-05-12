@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -53,20 +56,41 @@ var limiter = rate.NewLimiter(10, 20) // 10 requests per second, burst of 20
 // limiteur global pour qu’un flood ciblé ne vide pas tout le budget API.
 var loginRegisterLimiter = rate.NewLimiter(3, 12) // ~3 req/s en moyenne, rafale 12
 
-var (
-	publicKeyMu  sync.RWMutex
-	publicKeyVal interface{}
+// kidEd25519 / kidRSA — coordonnés avec backend/auth-service/main.go.
+// NE PAS RENOMMER sans mettre à jour les deux services en même temps.
+const (
+	kidEd25519 = "ed25519-1"
+	kidRSA     = "rs256-1"
 )
 
-// invalidatePublicKey force le rechargement de la clé au prochain loadPublicKey (après redémarrage auth-service).
+var (
+	publicKeyMu sync.RWMutex
+	// publicKeyVal — clé RSA-2048 historique. Conservée pour vérifier les
+	// tokens RS256 émis avant la migration EdDSA (Phase B). Décommissionnée
+	// après 30j d'expiration des refresh tokens existants (Phase C — cf.
+	// docs/securite/CRYPTO-NORME.md § 5.2).
+	publicKeyVal interface{}
+	// publicEd25519Val — clé Ed25519 utilisée pour vérifier TOUS les nouveaux
+	// access tokens (Phase B active depuis 2026-05-12).
+	publicEd25519Val ed25519.PublicKey
+)
+
+// invalidatePublicKey force le rechargement des clés au prochain loadPublicKey
+// (après redémarrage auth-service ou rotation de paire).
 func invalidatePublicKey() {
 	publicKeyMu.Lock()
 	defer publicKeyMu.Unlock()
 	publicKeyVal = nil
-	log.Println("[gateway] JWT public key cache invalidé. Reconnectez-vous (déconnexion puis connexion) pour obtenir un nouveau token.")
+	publicEd25519Val = nil
+	log.Println("[gateway] JWT public keys cache invalidé. Reconnectez-vous (déconnexion puis connexion) pour obtenir un nouveau token.")
 }
 
-// loadPublicKey charge la clé publique RSA du auth-service. Recharge depuis le disque si le cache a été invalidé (ex. après erreur de signature).
+// loadPublicKey charge les clés publiques (RSA + Ed25519) émises par
+// auth-service. Recharge depuis le disque si le cache a été invalidé.
+//
+// Retourne la clé RSA pour rétrocompat (anciens tests), mais la sélection
+// JWT-aware se fait via selectKeyForToken qui choisit RSA ou Ed25519 selon
+// le `kid` du token.
 func loadPublicKey() interface{} {
 	publicKeyMu.RLock()
 	k := publicKeyVal
@@ -76,17 +100,24 @@ func loadPublicKey() interface{} {
 	}
 	publicKeyMu.Lock()
 	defer publicKeyMu.Unlock()
-	// Double-check after lock
 	if publicKeyVal != nil {
 		return publicKeyVal
 	}
-	paths := []string{
+	loadKeysLocked()
+	return publicKeyVal
+}
+
+// loadKeysLocked tente de charger RSA et Ed25519 depuis le volume Docker
+// partagé `./backend/auth-service:/app/keys:ro`. Doit être appelé sous
+// publicKeyMu.Lock().
+func loadKeysLocked() {
+	rsaPaths := []string{
 		os.Getenv("JWT_PUBLIC_KEY_PATH"),
 		"/app/keys/public.pem",
 		"public.pem",
 		"../auth-service/public.pem",
 	}
-	for _, path := range paths {
+	for _, path := range rsaPaths {
 		if path == "" {
 			continue
 		}
@@ -99,11 +130,90 @@ func loadPublicKey() interface{} {
 			continue
 		}
 		publicKeyVal = key
-		log.Printf("[gateway] JWT public key loaded from %s", path)
-		return key
+		log.Printf("[gateway] JWT RSA public key loaded from %s (rétrocompat tokens RS256)", path)
+		break
 	}
-	log.Println("[gateway] JWT public key not found. /pass and /mail will return 401. Run make setup then make up. Then log out and log in again.")
-	return nil
+
+	edPaths := []string{
+		os.Getenv("JWT_ED25519_PUBLIC_KEY_PATH"),
+		"/app/keys/public_ed25519.pem",
+		"public_ed25519.pem",
+		"../auth-service/public_ed25519.pem",
+	}
+	for _, path := range edPaths {
+		if path == "" {
+			continue
+		}
+		bytes, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		any, err := jwt.ParseEdPublicKeyFromPEM(bytes)
+		if err != nil {
+			continue
+		}
+		if pk, ok := any.(ed25519.PublicKey); ok {
+			publicEd25519Val = pk
+			log.Printf("[gateway] JWT Ed25519 public key loaded from %s (clé courante)", path)
+			break
+		}
+	}
+
+	if publicKeyVal == nil && publicEd25519Val == nil {
+		log.Println("[gateway] JWT public keys not found. Toute requête authentifiée renverra 401. Run make setup then make up.")
+	}
+}
+
+// selectKeyForToken est la callback `keyfunc` à passer à `jwt.Parse` /
+// `jwt.ParseWithClaims`. Elle choisit la clé publique de vérification selon
+// le `kid` du header JWT :
+//
+//   - kid == "ed25519-1"        → publicEd25519Val (clé courante)
+//   - kid == "rs256-1" ou absent → publicKeyVal (RSA, rétrocompat)
+//
+// Vérifie aussi que la `Method` du token correspond à la classe attendue
+// (refus du downgrade RS256→none ou EdDSA→HS256). Voir CRYPTO-NORME.md § 5
+// pour le plan global.
+func selectKeyForToken(token *jwt.Token) (interface{}, error) {
+	publicKeyMu.RLock()
+	rsaKey := publicKeyVal
+	edKey := publicEd25519Val
+	publicKeyMu.RUnlock()
+
+	if rsaKey == nil && edKey == nil {
+		// Premier lookup : tente de charger les clés depuis le disque.
+		loadPublicKey()
+		publicKeyMu.RLock()
+		rsaKey = publicKeyVal
+		edKey = publicEd25519Val
+		publicKeyMu.RUnlock()
+	}
+
+	kid, _ := token.Header["kid"].(string)
+	switch kid {
+	case kidEd25519:
+		if _, ok := token.Method.(*jwt.SigningMethodEd25519); !ok {
+			return nil, fmt.Errorf("unexpected signing method %v for kid=%s", token.Method.Alg(), kid)
+		}
+		if edKey == nil {
+			return nil, errors.New("Ed25519 public key not loaded")
+		}
+		return edKey, nil
+	case kidRSA, "":
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method %v for kid=%q", token.Method.Alg(), kid)
+		}
+		if rsaKey == nil {
+			return nil, errors.New("RSA public key not loaded")
+		}
+		// RSA *rsa.PublicKey, pas interface{} : explicit cast pour satisfaire keyfunc.
+		if rk, ok := rsaKey.(*rsa.PublicKey); ok {
+			return rk, nil
+		}
+		return rsaKey, nil
+	default:
+		return nil, fmt.Errorf("unknown kid %q", kid)
+	}
 }
 
 // NewHandler construit le handler HTTP (utilisé par main et par les tests).
@@ -327,16 +437,10 @@ func authMiddleware(next http.Handler) http.Handler {
 				w.Write([]byte(`{"error":"authentication required for admin API"}`))
 				return
 			}
-			pubKey := loadPublicKey()
-			if pubKey == nil {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte(`{"error":"auth key not ready"}`))
-				return
-			}
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				return pubKey, nil
-			})
+			// Pré-chargement des clés (RSA + Ed25519) avant l'appel à
+			// jwt.Parse. selectKeyForToken les utilisera selon le `kid`.
+			loadPublicKey()
+			token, err := jwt.Parse(tokenString, selectKeyForToken)
 			if err != nil || token == nil || !token.Valid {
 				if err != nil {
 					log.Printf("[gateway] JWT invalid for %s: %v", r.URL.Path, err)
@@ -388,17 +492,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		pubKey := loadPublicKey()
-		if pubKey == nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error":"auth key not ready"}`))
-			return
-		}
-
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return pubKey, nil
-		})
+		loadPublicKey()
+		token, err := jwt.Parse(tokenString, selectKeyForToken)
 
 		if err != nil || token == nil || !token.Valid {
 			if err != nil {
