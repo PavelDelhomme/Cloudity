@@ -56,6 +56,7 @@
 | **`make tests`** | **TOUT** : unit/app + E2E + **Playwright** + sécurité + **mobile Flutter Photos + Drive + Mail** (`test-mobile-suite`). Rapport dans `reports/`. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. |
 | **`make test-e2e-playwright`** | **Tests E2E navigateur (Playwright).** Simule un utilisateur réel : login, Hub, Drive, Office, Mail, etc. **Prérequis : `make up`**, **`make seed-admin`**, 20-30 s. **Note** : le navigateur et **`npx playwright`** tournent sur la **machine hôte** ; l’application testée est celle servie par **Docker** (service compose **`cloudity-web`**, image **@cloudity/web**). |
 | **`make test-e2e-playwright-mail`** | **Playwright — uniquement** **`e2e/mail.spec.ts`** (plus rapide ; inclut la non-régression **`Maximum update depth`**). Même prérequis que la ligne ci-dessus. |
+| **`make test-e2e-playwright-webauthn`** | **Playwright — uniquement** **`e2e/webauthn.spec.ts`** : bouton passkey sur `/login` ; flux enregistrement + reconnexion avec **authentificateur virtuel** (CDP Chromium). Prérequis : **`make up`**, **`make migrate`** (migration **37**), **`make seed-admin`**. |
 | **`make test-all`** | Comme **`make tests`** sans fichier de rapport : **`make test`** + **`test-e2e`** + **`test-e2e-playwright`** + **`test-security`** + **`test-mobile-suite`**. |
 | **`make test-mobile-suite`** | **Photos** → **Drive** → **Mail** : § **1b**. **`CLOUDITY_SKIP_MOBILE_DRIVE=1`** → sans Drive ; **`CLOUDITY_SKIP_MOBILE_MAIL=1`** → sans Mail. |
 | **`make test-mobile-photos`** | Wrapper **`scripts/test-mobile-app.sh` photos** — **`mobile/photos`**. |
@@ -316,8 +317,10 @@ Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion,
 | **e2e/pass.spec.ts** | Titre Pass, bouton Nouveau coffre, fil d’Ariane (Tableau de bord, Pass). |
 | **e2e/mail.spec.ts** | Page **`/app/mail`** : titre document **`h1` « Mail »** (**`sr-only`**, comme le **`h1` Drive** à la racine) ; boîtes / chargement / Menu Mail ; lien **Mail** depuis le hub ; fil d’Ariane ; pas de message d’erreur réseau évident ; **navigation Mail → Drive → Mail** + écoute **`Maximum update depth`** (§ **4.8**). |
 | **e2e/editor.spec.ts** | **Ouverture éditeur par URL (mock)** : modale **Lien** (popup custom), modale **Tableau** ; **modale Quitter** (Annuler reste, Quitter redirige). Test skippé : sauvegarde manuelle. |
+| **e2e/admin.spec.ts** | Back-office **`/4dm1n`** : redirection login si non auth ; connexion admin → navigation Tenants / Utilisateurs. |
+| **e2e/webauthn.spec.ts** | **Passkeys** : visibilité du bouton sur **`/login`** ; enregistrement depuis **`/4dm1n/passkeys`** puis déconnexion et **reconnexion passkey** (CDP **`WebAuthn.addVirtualAuthenticator`**). Skip si **`/health`** du dashboard ne répond pas. |
 
-Credentials : `admin@cloudity.local` / `Admin123!` (surchargeables via `PLAYWRIGHT_E2E_EMAIL` et `PLAYWRIGHT_E2E_PASSWORD`). Config : **`frontend/apps/cloudity-web/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
+Identifiants E2E : compte **`make seed-admin`** (email **`admin@cloudity.local`** par défaut) ; mot de passe défini par les scripts de seed — surcharge **`PLAYWRIGHT_E2E_EMAIL`** / **`PLAYWRIGHT_E2E_PASSWORD`**. Config : **`frontend/apps/cloudity-web/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
 
 ## 4. Tests à faire / à ajouter au fur et à mesure
 

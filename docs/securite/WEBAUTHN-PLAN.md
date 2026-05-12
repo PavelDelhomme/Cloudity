@@ -103,10 +103,10 @@
 | Bouton login passkey | ✅ | `pages/public/LoginPage.tsx` : sous le bouton standard, "Se connecter avec une passkey" déclenche `loginWithPasskey(email, '1')` (tenant_id=1 par défaut). |
 | Endpoint révocation | ✅ | `DELETE /auth/webauthn/credentials/:id` côté backend + bouton corbeille côté UI. Suppression scoppée au `user_id` du Bearer. |
 | Tests | ✅ | Vitest 246 passed. ESLint clean. Vite build OK. Tests Go 1.9 s. |
+| E2E Playwright (CDP) | ✅ | `e2e/webauthn.spec.ts` + `e2e/fixtures/webauthn-virtual.ts` : authentificateur virtuel **`WebAuthn.addVirtualAuthenticator`** (ctap2, internal, resident key). Cible **`make test-e2e-playwright-webauthn`**. Skip si le dashboard ne répond pas sur **`/health`**. |
 
 ### 7.1 Reste à faire (Phase W3+)
 
-- Tests Playwright avec [virtual authenticator Chromium](https://chromedevtools.github.io/devtools-protocol/tot/WebAuthn/) (CDP `WebAuthn.addVirtualAuthenticator`) — couvre register + login bout-en-bout sans clé physique.
 - Mobile : intégration Credential Manager (Android) / `ASAuthorization` (iOS) — au moment du sprint mobile admin.
 - Quotas par utilisateur (max 5 passkeys) avant ouverture aux comptes hors admin.
 

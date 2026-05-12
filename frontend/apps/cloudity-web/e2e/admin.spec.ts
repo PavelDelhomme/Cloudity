@@ -10,9 +10,8 @@ import { test, expect } from '@playwright/test'
  * Lancement :
  *   BASE_URL=http://localhost:6001 npx playwright test e2e/admin.spec.ts
  *
- * Le compte de démo (`admin@cloudity.local` / `Admin123!`) est imposé par
- * `make seed-admin` ; on autorise un override via `PLAYWRIGHT_E2E_*` pour
- * la cohérence avec `auth.spec.ts`.
+ * Le compte de démo est celui créé par **`make seed-admin`** ; surcharge possible via
+ * **`PLAYWRIGHT_E2E_*`** pour rester aligné avec **`auth.spec.ts`** (mot de passe : Makefile / scripts db, pas dans la doc).
  */
 
 const ADMIN_EMAIL = process.env.PLAYWRIGHT_E2E_EMAIL || 'admin@cloudity.local'

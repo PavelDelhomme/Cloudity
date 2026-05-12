@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 
 /**
  * E2E contre l'app réelle (Docker: port 6001).
- * Prérequis : make up puis make seed-admin (compte admin@cloudity.local / Admin123!)
+ * Prérequis : make up puis make seed-admin (compte démo : voir Makefile cible seed-admin ;
+ * surcharge PLAYWRIGHT_E2E_EMAIL / PLAYWRIGHT_E2E_PASSWORD).
  * Lancer : BASE_URL=http://localhost:6001 npx playwright test
  */
 export default defineConfig({
