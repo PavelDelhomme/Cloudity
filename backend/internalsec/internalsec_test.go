@@ -259,3 +259,69 @@ func TestConfigFromEnv(t *testing.T) {
 		t.Errorf("paths not picked up: %+v", cfg)
 	}
 }
+
+// --- InternalRoundTripper ---
+
+func TestInternalRoundTripperOff(t *testing.T) {
+	rt, err := InternalRoundTripper(ServerConfig{Mode: ModeOff})
+	if err != nil {
+		t.Fatalf("unexpected err: %v", err)
+	}
+	if rt == nil {
+		t.Fatal("expected a non-nil RoundTripper in ModeOff (HTTP plain)")
+	}
+	if _, ok := rt.(*http.Transport); !ok {
+		t.Fatalf("expected *http.Transport, got %T", rt)
+	}
+}
+
+func TestInternalRoundTripperMTLSAgainstStepCAServer(t *testing.T) {
+	dir := t.TempDir()
+	ca := generateCert(t, true, nil, "Cloudity Test CA", "", nil)
+	server := generateCert(t, false, ca, "auth-service", "spiffe://cloudity.local/ns/default/sa/auth-service", []string{"localhost", "127.0.0.1"})
+	client := generateCert(t, false, ca, "api-gateway", "spiffe://cloudity.local/ns/default/sa/api-gateway", nil)
+
+	caPath := writePEM(t, dir, "ca.pem", ca.certPEM)
+	srvCert := writePEM(t, dir, "server.crt", server.certPEM)
+	srvKey := writePEM(t, dir, "server.key", server.keyPEM)
+	cliCert := writePEM(t, dir, "client.crt", client.certPEM)
+	cliKey := writePEM(t, dir, "client.key", client.keyPEM)
+
+	tlsCfg, _, err := ServerTLS(ServerConfig{
+		Mode: ModeStrict, CertFile: srvCert, KeyFile: srvKey, CAFile: caPath,
+	})
+	if err != nil {
+		t.Fatalf("ServerTLS: %v", err)
+	}
+	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	srv.TLS = tlsCfg
+	srv.StartTLS()
+	defer srv.Close()
+
+	rt, err := InternalRoundTripper(ServerConfig{
+		Mode:     ModePermissive,
+		CertFile: cliCert, KeyFile: cliKey, CAFile: caPath,
+	})
+	if err != nil {
+		t.Fatalf("InternalRoundTripper: %v", err)
+	}
+	// Le transport TLS reçoit ServerName=localhost via la connexion ; on patch
+	// l'URL pour qu'il pointe sur le mock httptest.
+	tr := rt.(*http.Transport)
+	tr.TLSClientConfig.ServerName = "localhost"
+
+	req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
+		t.Fatalf("RoundTrip: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status=%d", resp.StatusCode)
+	}
+}

@@ -30,5 +30,7 @@ COPY . .
 # Exposition du port
 EXPOSE 8082
 
-# Commande de développement avec hot reload
+# Commande de développement avec hot reload (HTTP plain par défaut).
+# Pour activer mTLS server : monter cert/key/ca + MTLS_MODE=permissive|strict,
+# puis remplacer la CMD par ./start.sh (cf. docker-compose.https.yml).
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8082", "--reload", "--reload-dir", "/app"]

@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -541,6 +541,10 @@ mtls-issue-postgres: ## Émet le cert serveur Postgres (DNS:postgres,DNS:localho
 mtls-issue-redis: ## Émet le cert serveur Redis (DNS:redis,DNS:localhost) — TTL 24 h, rotation prévue (sidecar). Pré-requis : mtls-up + seed-mtls
 	@make mtls-issue NAME=redis TTL=$${TTL:-24h}
 
+mtls-issue-admin: ## Émet le cert mTLS pour gateway + admin-service (DNS:admin-service,api-gateway). TTL 24 h.
+	@$(MAKE) mtls-issue NAME=admin-service TTL=$${TTL:-24h}
+	@$(MAKE) mtls-issue NAME=api-gateway TTL=$${TTL:-24h}
+
 mtls-chown-internal-certs: ## Ajuste uid/gid des PEM pour bind-mount Postgres (70) et Redis (999)
 	@echo "🔧 chown PEM postgres (uid 70) + redis (uid 999)..."
 	@docker run --rm -v "$(CURDIR)/infrastructure/step-ca/issued/postgres:/certs:rw" alpine:3.19 \
@@ -603,6 +607,9 @@ up-https-internal: ## **HTTPS partout** : edge Caddy + Postgres TLS + Redis TLS 
 	fi
 	@if [ ! -f infrastructure/step-ca/issued/redis/cert.pem ]; then \
 	  echo "🔬 Émission cert Redis..."; $(MAKE) mtls-issue-redis; \
+	fi
+	@if [ ! -f infrastructure/step-ca/issued/admin-service/cert.pem ] || [ ! -f infrastructure/step-ca/issued/api-gateway/cert.pem ]; then \
+	  echo "🔬 Émission certs gateway + admin-service..."; $(MAKE) mtls-issue-admin; \
 	fi
 	@$(MAKE) mtls-chown-internal-certs
 	@$(COMPOSE) $(COMPOSE_FILES) -f docker-compose.https.yml up -d

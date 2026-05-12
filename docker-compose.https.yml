@@ -73,11 +73,32 @@ services:
     volumes:
       - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
 
+  api-gateway:
+    environment:
+      AUTH_SERVICE_URL: "http://auth-service:8081"
+      ADMIN_SERVICE_URL: "https://admin-service:8082"
+      MTLS_MODE: "permissive"
+      MTLS_CERT_FILE: "/run/step/cert.pem"
+      MTLS_KEY_FILE: "/run/step/key.pem"
+      MTLS_CA_FILE: "/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/api-gateway/cert.pem:/run/step/cert.pem:ro
+      - ./infrastructure/step-ca/issued/api-gateway/key.pem:/run/step/key.pem:ro
+      - ./infrastructure/step-ca/issued/api-gateway/ca.pem:/run/step/ca.pem:ro
+
   admin-service:
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/postgres-ca.pem"
+      MTLS_MODE: "permissive"
+      MTLS_CERT_FILE: "/run/step/cert.pem"
+      MTLS_KEY_FILE: "/run/step/key.pem"
+      MTLS_CA_FILE: "/run/step/ca.pem"
     volumes:
-      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+      - ./infrastructure/step-ca/issued/admin-service/cert.pem:/run/step/cert.pem:ro
+      - ./infrastructure/step-ca/issued/admin-service/key.pem:/run/step/key.pem:ro
+      - ./infrastructure/step-ca/issued/admin-service/ca.pem:/run/step/ca.pem:ro
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/postgres-ca.pem:ro
+    command: ["./start.sh"]
 
   passwords-service:
     environment:

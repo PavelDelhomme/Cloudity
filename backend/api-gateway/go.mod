@@ -6,6 +6,9 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
+	github.com/pavel/cloudity/internalsec v0.0.0
 	github.com/rs/cors v1.11.1
 	golang.org/x/time v0.8.0
 )
+
+replace github.com/pavel/cloudity/internalsec => ../internalsec

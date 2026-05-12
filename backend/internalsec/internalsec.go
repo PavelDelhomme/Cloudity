@@ -167,6 +167,38 @@ func InternalHTTPClient(cfg ServerConfig) (*http.Client, error) {
 	}, nil
 }
 
+// InternalRoundTripper construit un http.RoundTripper utilisable directement
+// dans `httputil.ReverseProxy.Transport`. En ModeOff, retourne un transport
+// par défaut (HTTP plain) — la bascule HTTPS interne se fait alors uniquement
+// quand `MTLS_MODE` est positionné côté gateway.
+//
+// Convient en pratique pour `gateway → service Go/Python` : pas de timeout
+// agressif (les uploads / sync mail peuvent dépasser 5 s), idle conn keep-alive,
+// HTTP/2.
+func InternalRoundTripper(cfg ServerConfig) (http.RoundTripper, error) {
+	if cfg.Mode == ModeOff {
+		// Transport HTTP plain par défaut — clone de http.DefaultTransport pour
+		// rester aligné sur Go (proxy env, idle, dialer).
+		t, ok := http.DefaultTransport.(*http.Transport)
+		if !ok {
+			return http.DefaultTransport, nil
+		}
+		clone := t.Clone()
+		clone.ForceAttemptHTTP2 = true
+		return clone, nil
+	}
+	tlsCfg, err := ClientTLS(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &http.Transport{
+		TLSClientConfig:     tlsCfg,
+		ForceAttemptHTTP2:   true,
+		IdleConnTimeout:     90 * time.Second,
+		MaxIdleConnsPerHost: 16,
+	}, nil
+}
+
 // PeerSPIFFEID extrait l'URI SAN SPIFFE du cert client présenté en mTLS.
 // Renvoie "" si aucun cert n'a été présenté ou si aucun URI SAN n'est trouvé.
 func PeerSPIFFEID(r *http.Request) string {

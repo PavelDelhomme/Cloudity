@@ -146,7 +146,8 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 | Browser → edge | HTTP `localhost:6001/6080` (dev) ; HTTPS via `make preprod-up` | TLS 1.3 + HSTS + CSP | **`make up-tls`** par défaut |
 | Browser → API | HTTP `localhost:6080` | HTTPS via Caddy | `make up-tls` |
 | Vite dev | HTTP (option `make dev-https`) | HTTPS via mkcert | docs `DEV-VERIFICATION.md` |
-| Gateway → 11 services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
+| Gateway → admin-service | **HTTPS uvicorn TLS + cert client step-ca** (`make up-https-internal`, mode `permissive`) | mTLS strict | bascule `MTLS_MODE=strict` |
+| Gateway → 10 autres services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
 | Postgres | `sslmode=disable` | `sslmode=verify-ca` puis `verify-full` | **`make up-https-internal`** |
 | Redis | requirepass plain | TLS 1.3 + AUTH (`--tls-port`) | `make up-https-internal` + `REDIS_TLS=1` (auth-service go-redis) |
 | Edge prod | NPM/Caddy + ACME | TLS 1.3 + hybride PQ `X25519MLKEM768` | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** |
@@ -155,9 +156,10 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 
 ```bash
 make up-tls            # stack + Caddy edge — recommandé pour dev "production-like"
-make up-https-internal # ↑ + Postgres TLS + Redis TLS via step-ca (PoC fonctionnel)
+make up-https-internal # ↑ + Postgres TLS + Redis TLS + gateway↔admin-service mTLS (permissive)
 make https-status      # vérifie en-têtes Caddy + Postgres SHOW ssl + Redis PING tls
 make mtls-issue-postgres / mtls-issue-redis  # certs serveurs (TTL max 24 h — limite step-ca par défaut)
+make mtls-issue-admin                        # certs gateway + admin-service pour mTLS interne
 make mtls-chown-internal-certs              # chown uid postgres (70) + redis (999) pour bind-mount
 ```
 

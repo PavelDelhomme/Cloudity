@@ -23,6 +23,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
+	"github.com/pavel/cloudity/internalsec"
 	"github.com/rs/cors"
 	"golang.org/x/time/rate"
 )
@@ -38,16 +39,16 @@ type Service struct {
 }
 
 var services = []Service{
-	{Name: "auth", URL: "http://auth-service:8081", Prefix: "/auth"},
-	{Name: "admin", URL: "http://admin-service:8082", Prefix: "/admin"},
-	{Name: "pass", URL: "http://passwords-service:8051", Prefix: "/pass"},
+	{Name: "auth", URL: getEnv("AUTH_SERVICE_URL", "http://auth-service:8081"), Prefix: "/auth"},
+	{Name: "admin", URL: getEnv("ADMIN_SERVICE_URL", "http://admin-service:8082"), Prefix: "/admin"},
+	{Name: "pass", URL: getEnv("PASSWORDS_SERVICE_URL", "http://passwords-service:8051"), Prefix: "/pass"},
 	{Name: "mail", URL: getEnv("MAIL_DIRECTORY_SERVICE_URL", "http://mail-directory-service:8050"), Prefix: "/mail"},
-	{Name: "calendar", URL: "http://calendar-service:8052", Prefix: "/calendar"},
-	{Name: "notes", URL: "http://notes-service:8053", Prefix: "/notes"},
-	{Name: "tasks", URL: "http://tasks-service:8054", Prefix: "/tasks"},
+	{Name: "calendar", URL: getEnv("CALENDAR_SERVICE_URL", "http://calendar-service:8052"), Prefix: "/calendar"},
+	{Name: "notes", URL: getEnv("NOTES_SERVICE_URL", "http://notes-service:8053"), Prefix: "/notes"},
+	{Name: "tasks", URL: getEnv("TASKS_SERVICE_URL", "http://tasks-service:8054"), Prefix: "/tasks"},
 	{Name: "photos", URL: getEnv("PHOTOS_SERVICE_URL", "http://photos-service:8057"), Prefix: "/photos"},
-	{Name: "drive", URL: "http://drive-service:8055", Prefix: "/drive"},
-	{Name: "contacts", URL: "http://contacts-service:8056", Prefix: "/contacts"},
+	{Name: "drive", URL: getEnv("DRIVE_SERVICE_URL", "http://drive-service:8055"), Prefix: "/drive"},
+	{Name: "contacts", URL: getEnv("CONTACTS_SERVICE_URL", "http://contacts-service:8056"), Prefix: "/contacts"},
 }
 
 var limiter = rate.NewLimiter(10, 20) // 10 requests per second, burst of 20
@@ -246,10 +247,29 @@ func NewHandler() http.Handler {
 	// ce qui arrive en JSON minifié, on répond 204.
 	r.HandleFunc("/csp-report", handleCSPReport).Methods("POST")
 
+	// Transport interne partagé pour le reverse proxy.
+	//
+	// MTLS_MODE=off (par défaut) → http.Transport plain (compat HTTP legacy).
+	// MTLS_MODE=permissive|strict → TLS 1.3 + cert client step-ca chargés depuis
+	// MTLS_CERT_FILE / MTLS_KEY_FILE / MTLS_CA_FILE.
+	//
+	// Permet de basculer le lien gateway↔services en HTTPS sans toucher au
+	// reverse-proxy : il suffit de mettre les variables AUTH_SERVICE_URL=
+	// https://auth-service:8443, etc. côté docker-compose.https.yml.
+	mtlsCfg := internalsec.ConfigFromEnv()
+	internalRT, err := internalsec.InternalRoundTripper(mtlsCfg)
+	if err != nil {
+		log.Fatalf("[gateway] internalsec.InternalRoundTripper: %v", err)
+	}
+	if mtlsCfg.Mode != internalsec.ModeOff {
+		log.Printf("[gateway] mTLS interne activé (mode=%s, ca=%s)", mtlsCfg.Mode, mtlsCfg.CAFile)
+	}
+
 	for _, svc := range services {
 		serviceURL, _ := url.Parse(svc.URL)
 		svcName := svc.Name
 		proxy := httputil.NewSingleHostReverseProxy(serviceURL)
+		proxy.Transport = internalRT
 		// Client qui quitte la page pendant un POST long (ex. sync mail) : pas de ligne « proxy error: context canceled ».
 		proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 			if errors.Is(err, context.Canceled) {
