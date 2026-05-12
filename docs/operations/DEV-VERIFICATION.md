@@ -19,8 +19,21 @@ Après **`make up`**, vérifier manuellement ou avec l’outil navigateur :
 | `http://localhost:6001/` | Landing / shell utilisateur (`index.html`) |
 | `http://localhost:6001/app` | Hub (connecté) ou redirection login |
 | `http://localhost:6001/4dm1n` | **admin.html** chargé (bundle admin) : la page ne doit pas être une 404 Vite ; HTML contient `main-admin` |
+| `http://localhost:6001/admin` | **404** explicite (pas de redirection vers `/4dm1n` — anti-énumération, cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** § 1) |
 
-En **dev**, Vite réécrit **`/4dm1n`** vers **`/admin.html`** via un plugin **`enforce: 'pre'`** (`vite.config.js`).
+En **dev**, Vite réécrit **`/4dm1n`** vers **`/admin.html`** via un plugin **`enforce: 'pre'`** (`vite.config.js`) et renvoie **404** sur tout `GET /admin*` (idem côté image nginx prod, `frontend/apps/cloudity-web/nginx.conf`).
+
+### 2.b HTTPS local (option)
+
+- **Prérequis** : [`mkcert`](https://github.com/FiloSottile/mkcert) installé (Arch : `sudo pacman -S mkcert`).
+- Démarrer la stack backend (`make up`) puis : **`make dev-https`**. Vite sert l’app sur **`https://localhost:5173`** (certificat local mkcert).
+- Le certificat est généré dans **`.certs/`** (ignoré par Git) ; on peut le régénérer en supprimant le dossier.
+- Inspecter une requête admin :
+  ```bash
+  curl -ksS -H "Origin: https://localhost:5173" -H "Authorization: Bearer <jwt admin>" \
+    https://localhost:5173/admin/stats
+  ```
+- Limites : ce mode `dev-https` ne lance **pas** de TLS sur la gateway (`http://localhost:6080` reste en clair). Pour TLS de bout en bout local, prévoir un reverse-proxy local (Caddy / NPM dev) — voir **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)**.
 
 ## 3. Checks rapides sans navigateur
 

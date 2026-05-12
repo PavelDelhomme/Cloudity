@@ -1,6 +1,6 @@
 # Sécurité & confiance — vision Cloudity (Google + Proton + Zero Trust)
 
-**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service).
+**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service, mail admin-only Zero Trust).
 
 **Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass).
 
@@ -110,7 +110,7 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 
 | Risque | Mitigation Cloudity (code / doc) |
 |--------|----------------------------------|
-| **Découverte de chemins** (`/admin`, `/debug`, versions d’API) | UI admin sous chemin **non trivial** (`/4dm1n`, bundle `admin.html`) — voir **AUDIT-SECURITE-ADMIN-API.md** ; **API gateway** : routes inconnues → **404 JSON** uniforme `{"error":"not found"}` (pas de page HTML d’erreur serveur) ; méthode HTTP interdite → **405 JSON** `{"error":"method not allowed"}`. |
+| **Découverte de chemins** (`/admin`, `/debug`, versions d’API) | UI admin sous chemin **non trivial** (`/4dm1n`, bundle `admin.html`) ; **`/admin*`** UI **404 explicite** côté Vite dev + nginx prod + AdminApp (router) — **aucune redirection** vers `/4dm1n` (anti-énumération). API gateway : routes inconnues → **404 JSON** uniforme `{"error":"not found"}` ; méthode HTTP interdite → **405 JSON** `{"error":"method not allowed"}` ; voir **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** § 1. |
 | **Credential stuffing / bruteforce login** | Rate limit **global** sur la gateway + **fenêtre plus stricte** sur `POST /auth/login` et `POST /auth/register` ; en prod compléter par **WAF / reverse proxy** (limite par IP, captcha, géo) — §6. |
 | **Énumération d’emails à l’inscription** | Conflit d’unicité (email déjà pris) : réponse **409** avec message **générique** (`registration could not be completed`) — ne pas renvoyer « email déjà enregistré » qui confirme l’existence du compte. |
 | **Énumération login** (utilisateur inconnu vs mauvais mot de passe) | Déjà : même message **`invalid credentials`** et même code **401** ; **normalisation grossière du temps de réponse** sur `/auth/login` (plancher ~70 ms) pour réduire un canal **timing** (pas une garantie absolue — le réseau domine souvent). |
@@ -123,6 +123,15 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 **Limites** : un attaquant peut toujours distinguer « route existe » vs « 404 » si le comportement applicatif diffère (taille de corps, latence backend). L’alignement **404/405** et les messages **génériques** réduisent la surface ; la **défense principale** reste l’**auth forte**, les **logs**, le **WAF** et la **segmentation réseau**.
 
 **Suite court terme (suivi exécutable)** : les livrables récents gateway / auth / front sont récapitulés dans **[BACKLOG.md](../../BACKLOG.md)** (section *Sécurité & infra*). Pistes suivantes : WAF + rate limit **par IP**, **audit log** actions sensibles, **scopes JWT** par route, **signatures** requêtes critiques — déjà listés dans le même backlog.
+
+### 6.2 Defense in depth : double contrôle « mail admin-only » (Zero Trust)
+
+Les routes mail **admin-only** (`/mail/domains*`, `/mail/mailboxes*`, `/mail/aliases*`) sont vérifiées **deux fois** :
+
+1. **Gateway** (`api-gateway/main.go`) — JWT EdDSA + claim `role/roles` admin + `Origin` strict. Avant routage, la gateway **strippe** systématiquement `X-User-ID`, `X-Tenant-ID`, **`X-Admin-Role`** (cf. `stripInternalTrustHeaders`) puis ré-injecte ces valeurs après vérif JWT. Un client ne peut pas pré-positionner `X-Admin-Role: admin`.
+2. **`mail-directory-service`** (`backend/mail-directory-service/main.go`, middleware `requireAdminRoleForMailDirectory`) — refuse **403** si `X-Admin-Role != admin` sur un chemin admin-only. Un attaquant qui pivote sur le réseau Docker et bypass la gateway tombe quand même sur ce contrôle.
+
+Tests : `TestStripInternalTrustHeaders` (gateway), `TestMailDomainsRequiresAdminRole` + `TestIsAdminOnlyMailDirectoryPath` (mail-directory-service). Cible suivante : **mTLS interne** + identité workload (cf. **[MTLS-INTERNE.md](MTLS-INTERNE.md)**) pour fermer le canal réseau lui-même.
 
 ---
 

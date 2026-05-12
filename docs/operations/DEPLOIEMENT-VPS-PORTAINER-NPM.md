@@ -226,6 +226,9 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@cloudity-postgres:5432/${POSTGRES_DB}
       - REDIS_URL=cloudity-redis:6379
+      # OBLIGATOIRE : sans ce token, POST /admin/performance/pipeline-run renvoie 503.
+      # Doit être identique à PERFORMANCE_INGEST_TOKEN sur cloudity-api-gateway.
+      - PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN}
     networks: [cloudity-data]
     depends_on: [cloudity-auth-service]
 
@@ -246,8 +249,11 @@ services:
       - DRIVE_SERVICE_URL=http://cloudity-drive-service:8055
       - PHOTOS_SERVICE_URL=http://cloudity-photos-service:8057
       - CORS_ORIGINS=https://app.cloudity.delhomme.ovh,https://admin.cloudity.delhomme.ovh
+      - CORS_ALLOW_LAN=false                                              # prod : Origin strict
       - JWT_PUBLIC_KEY_PATH=/keys/public.pem
       - JWT_ED25519_PUBLIC_KEY_PATH=/keys/public_ed25519.pem
+      # OBLIGATOIRE : doit valoir la même chose côté cloudity-admin-service
+      - PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN}
     volumes:
       - cloudity_auth_keys:/keys:ro            # même volume qu'auth-service, lecture seule
     networks:
@@ -420,8 +426,18 @@ Le jour J (homelab H1 livré) :
    - `cloudity-identity` (§ 7.2) avec `TAG=v0.5.0` → **Deploy**.
    - Suite : `cloudity-mail`, `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm`, `cloudity-web`.
 3. **NPM → Proxy Hosts** : créer les 3 entrées du § 8, cocher Let's Encrypt + Force SSL + HSTS.
-4. **Smoke tests** : `curl https://api.cloudity.delhomme.ovh/health`, charger `https://app.cloudity.delhomme.ovh`, login via TOTP, ouvrir `/4dm1n`.
-5. **Backup** : confirmer que le runner `cloudity-backup` (cf. [BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)) atteint la RPi via WireGuard + Headscale (Q13=B).
+4. **Secrets** (variables Portainer) : générer en local **`make secrets`** (cf. `scripts/dev/gen-secrets.sh`), copier les valeurs dans Portainer → Stack → Variables :
+   - `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, **`PERFORMANCE_INGEST_TOKEN`** (obligatoire prod), `ALIAS_ENCRYPTION_KEY`.
+   - Le **`PERFORMANCE_INGEST_TOKEN`** doit avoir **la même valeur** sur `cloudity-api-gateway` **et** `cloudity-admin-service` ; sinon l'endpoint CI `/admin/performance/pipeline-run` répond 401/503.
+5. **Smoke tests** : `curl https://api.cloudity.delhomme.ovh/health`, charger `https://app.cloudity.delhomme.ovh`, login via TOTP, ouvrir `/4dm1n`. Vérifier `https://app.cloudity.delhomme.ovh/admin` → **404** (anti-énumération, cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** § 1).
+6. **Smoke admin API** : depuis un poste admin (cookie/session valides),
+   ```bash
+   curl -sS -H "Origin: https://admin.cloudity.delhomme.ovh" \
+        -H "Authorization: Bearer <jwt admin>" \
+        https://api.cloudity.delhomme.ovh/admin/stats
+   ```
+   doit renvoyer 200. Sans Origin valide → 403 ; sans JWT admin → 401.
+7. **Backup** : confirmer que le runner `cloudity-backup` (cf. [BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)) atteint la RPi via WireGuard + Headscale (Q13=B).
 
 ---
 

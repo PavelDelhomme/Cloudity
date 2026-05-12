@@ -236,9 +236,50 @@
 
 ---
 
-> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q24=…` + texte libre court (5 lignes).  
-> Une fois ce fichier rempli, on enchaîne :  
-> • **Phase 0 multi-repo** (cf. **[../../architecture/MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 4) — étapes 2/3 dbpin + versionnage libs + esquisse contrats API.  
-> • **Phase H0 homelab** (cf. **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)** § 8) — selon Q11–Q15.  
-> • **Crypto / edge** — selon Q16–Q20 et **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)**.  
+## Bloc 5 — durcissement admin / mail Zero Trust *(Q25–Q31, livré au 2026-05-12)*
+
+> Décisions issues de l'audit **[../../securite/AUDIT-SECURITE.md](../../securite/AUDIT-SECURITE.md)**. Marquées **A** dans **REPONSES.md** ; les laisser cochées comme rappel d'engagement.
+
+### Q25 — UI `/admin` (anti-énumération)
+
+- [x] **A** — **404 explicite** côté Vite dev + nginx prod + AdminApp router ; aucune redirection vers `/4dm1n`.
+- [ ] **B** — Redirection 301 → `/4dm1n` (rejeté : favorise l'énumération).
+
+### Q26 — API `/admin/*` (gateway)
+
+- [x] **A** — `Origin` strict + JWT EdDSA + rôle admin ; `CORS_ALLOW_LAN=false` en prod.
+- [ ] **B** — Bearer seul (rejeté : trop laxiste face au CSRF / CORS).
+
+### Q27 — `POST /admin/performance/pipeline-run` (CI ingestion)
+
+- [x] **A** — **Double facteur** : JWT admin **+** `X-Cloudity-Perf-Ingest` (`PERFORMANCE_INGEST_TOKEN`) — admin-service renvoie **503** si non configuré.
+- [ ] **B** — JWT admin seul (rejeté : difficile à utiliser en CI sans compte humain).
+
+### Q28 — Mail admin-only (`/mail/{domains,mailboxes,aliases}*`)
+
+- [x] **A** — **Double contrôle** : gateway (JWT + rôle admin) **et** mail-directory-service (`X-Admin-Role: admin` requis).
+- [ ] **B** — Gateway seule (rejeté : un pivot réseau Docker contournerait tout).
+
+### Q29 — Sanitisation des en-têtes de confiance (gateway)
+
+- [x] **A** — `stripInternalTrustHeaders` retire `X-User-ID`, `X-Tenant-ID`, `X-Admin-Role` à l'entrée de chaque requête, avant ré-injection après vérif JWT.
+- [ ] **B** — Pas de strip (rejeté : un client peut alors falsifier ces valeurs).
+
+### Q30 — Génération des secrets
+
+- [x] **A** — `make secrets` (256 bits) pour POSTGRES, REDIS, JWT_SECRET, **`PERFORMANCE_INGEST_TOKEN`**.
+- [ ] **B** — Saisie manuelle (rejeté : entropie insuffisante).
+
+### Q31 — HTTPS dev local
+
+- [x] **A** — Optionnel via `make dev-https` (mkcert + Vite). Backend reste en HTTP local ; TLS prod géré au reverse-proxy.
+- [ ] **B** — TLS de bout en bout en dev (rejeté : friction trop forte).
+
+---
+
+> **Tes réponses vont dans** **[REPONSES.md](REPONSES.md)** — synthèse `Q1=… Q31=…` + texte libre court (5 lignes).
+> Une fois ce fichier rempli, on enchaîne :
+> • **Phase 0 multi-repo** (cf. **[../../architecture/MULTI-REPO-LAYOUT.md](../../architecture/MULTI-REPO-LAYOUT.md)** § 4) — étapes 2/3 dbpin + versionnage libs + esquisse contrats API.
+> • **Phase H0 homelab** (cf. **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)** § 8) — selon Q11–Q15.
+> • **Crypto / edge** — selon Q16–Q20 et **[../../securite/CRYPTO-NORME.md](../../securite/CRYPTO-NORME.md)**.
 > • **Stacks Portainer + images Docker** — selon Q21–Q24 et **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.

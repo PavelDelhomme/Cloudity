@@ -48,6 +48,22 @@ Q19=A   TLS hybride PQ X25519MLKEM768 : actif dès mise en prod (reverse-proxy)
 Q20=A   gosec : intégré à make test-security (warnings par défaut ; GOSEC_BLOCKING=1 pour fail)
 ```
 
+## Synthèse rapide — **bloc 5 : durcissement admin / mail Zero Trust (complet au 2026-05-12)**
+
+Cadre : **[../../securite/AUDIT-SECURITE.md](../../securite/AUDIT-SECURITE.md)** + **[../../securite/MTLS-INTERNE.md](../../securite/MTLS-INTERNE.md)**.
+
+```
+Q25=A   /admin UI : 404 explicite (vite + nginx + AdminApp), pas de redirection vers /4dm1n
+Q26=A   /admin/* API : Origin strict + JWT EdDSA + role admin (CORS_ORIGINS allowlist)
+Q27=A   POST /admin/performance/pipeline-run : double auth (JWT admin + X-Cloudity-Perf-Ingest)
+        et obligatoire (admin-service renvoie 503 sans token configuré)
+Q28=A   mail admin-only (/mail/{domains,mailboxes,aliases}*) : double contrôle :
+        gateway (JWT + role admin) + mail-directory-service (X-Admin-Role required)
+Q29=A   gateway sanitise X-User-ID, X-Tenant-ID, X-Admin-Role en entrée (stripInternalTrustHeaders)
+Q30=A   helper make secrets : POSTGRES/REDIS/JWT/PERFORMANCE_INGEST_TOKEN générés en 256 bits
+Q31=A   HTTPS dev local optionnel : make dev-https (mkcert + Vite)
+```
+
 ## Synthèse rapide — **bloc 4 : déploiement VPS / Portainer / NPM (en attente — questions Q21-Q24)**
 
 Cadre : **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
