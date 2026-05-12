@@ -92,6 +92,39 @@ volumes:
 
 > Le mot de passe d’init est généré une fois (`step ca init`) et copié dans `infrastructure/step-ca/secrets/ca-password` (ignoré par git, comme `.env`).
 
+### 3.3.b PoC livrable (commandes Make actionnables)
+
+Le repo expose déjà la **PKI dev** prête à l’emploi. Tout est isolé dans
+`docker-compose.security.yml` ; rien dans la stack principale ne change tant
+qu’on n’ajoute pas explicitement les variables `MTLS_*` à un service.
+
+```bash
+# 1) Génère le mot de passe CA (auto-créé si absent)
+make mtls-up
+
+# 2) Initialise la PKI (root + intermediate, provisioner cloudity-jwt)
+make seed-mtls
+
+# 3) Émet un cert service (JWT provisioner) — TTL par défaut 24 h
+make mtls-issue NAME=api-gateway
+make mtls-issue NAME=auth-service
+
+# 4) Vérifie chaîne + SANs + dates
+make mtls-verify NAME=api-gateway
+
+# 5) Tout-en-un (1+2+3+4)
+make mtls-poc
+```
+
+Les certs sont écrits dans **`infrastructure/step-ca/issued/<service>/`** :
+- `cert.pem` (cert service signé par l’intermediate),
+- `key.pem` (clé privée, **chmod 600**, ignorée par Git via `.gitignore`),
+- `ca.pem` (root CA pour vérification côté pair).
+
+**SANs** posés par défaut : `<service>`, `localhost`, `spiffe://cloudity.local/ns/default/sa/<service>` — alignés avec `internalsec.PeerSPIFFEID` / `RequireServiceCallerHTTP`.
+
+**Statut Cloudity 2026-05-12** : PoC vérifié en local ; cert / chaîne / SAN SPIFFE OK. **Reste à câbler** sur un service réel (ex. `api-gateway` → `admin-service` en strict). Cf. § 5 plan de migration.
+
 ### 3.4 Workflow d’émission
 
 | Étape | Outil | Détail |
@@ -316,10 +349,11 @@ allowed := map[string]bool{
 
 ## 7. Tests
 
-- **Unitaires** (`internalsec_test.go`) : `ModeStrict` rejette un client sans cert ; `RequireServiceCaller` rejette un URI inconnu.  
-- **Intégration** : un service `auth-service` lance un mini-serveur TLS, la gateway l’appelle avec et sans cert ; `make test-security` doit couvrir le scénario.  
-- **End-to-end** : `make up` + `make seed-mtls` ; `curl --cacert` depuis l’hôte ; le proxy doit refuser `curl` sans cert client en mode strict.  
-- **Rotation** : `step ca renew` simulée toutes les 30 s pendant 5 min ; le service ne doit **pas** redémarrer ni rater une requête.  
+- **Unitaires** (`internalsec_test.go`) : `ModeStrict` rejette un client sans cert ; `RequireServiceCaller` rejette un URI inconnu. Lance via `make internalsec-test` (race detector activé).
+- **PoC step-ca** : `make mtls-poc` (équivalent `mtls-up` + `seed-mtls` + `mtls-issue NAME=api-gateway` + `mtls-issue NAME=auth-service` + `mtls-verify`). Vérifie chaîne CA, SANs SPIFFE, durée 24 h.
+- **Intégration** : un service `auth-service` lance un mini-serveur TLS, la gateway l’appelle avec et sans cert ; `make test-security` doit couvrir le scénario (à câbler après PoC).
+- **End-to-end** : `make up` + `make seed-mtls` ; `curl --cacert` depuis l’hôte ; le proxy doit refuser `curl` sans cert client en mode strict.
+- **Rotation** : `step ca renew` simulée toutes les 30 s pendant 5 min ; le service ne doit **pas** redémarrer ni rater une requête.
 - **PQ** (à venir) : un build avec **`circl`** signe un cert hybride ; `tls.Config` négocie le bon `SignatureScheme`.
 
 ---

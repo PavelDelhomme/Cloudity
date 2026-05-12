@@ -68,6 +68,9 @@ infrastructure/step-ca/secrets/*
 !infrastructure/step-ca/secrets/.gitkeep
 !infrastructure/step-ca/secrets/ca-password.example
 
+# Certificats émis pour les services par step-ca (clés privées)
+infrastructure/step-ca/issued/
+
 # Dumps et backups
 *.sql.gz
 *.dump

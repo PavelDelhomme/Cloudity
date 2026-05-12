@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status internalsec-test preprod-up preprod-down preprod-status
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status secrets secrets-print secrets-scan secrets-scan-staged dev-https
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -500,6 +500,58 @@ mtls-status: ## Affiche l'état de step-ca + fingerprint root
 
 internalsec-test: ## Lance les tests unitaires du package backend/internalsec
 	@cd backend/internalsec && go test -race -count=1 ./...
+
+mtls-issue: ## Émet un cert mTLS via step-ca. Args : NAME=<service> [TTL=24h]
+	@if [ -z "$(NAME)" ]; then echo "❌ NAME=<service> requis (ex: make mtls-issue NAME=api-gateway)"; exit 1; fi
+	@mkdir -p infrastructure/step-ca/issued/$(NAME)
+	@chmod 700 infrastructure/step-ca/issued
+	@chmod 700 infrastructure/step-ca/issued/$(NAME)
+	@TTL=$${TTL:-24h}; \
+	  $(COMPOSE_SECURITY) exec -T step-ca step ca certificate "$(NAME)" \
+	    /tmp/$(NAME).crt /tmp/$(NAME).key \
+	    --san "$(NAME)" --san "localhost" \
+	    --san "spiffe://cloudity.local/ns/default/sa/$(NAME)" \
+	    --provisioner cloudity-jwt \
+	    --provisioner-password-file /secrets/ca-password \
+	    --not-after $$TTL --force
+	@CID=$$($(COMPOSE_SECURITY) ps -q step-ca); \
+	  docker cp $$CID:/tmp/$(NAME).crt infrastructure/step-ca/issued/$(NAME)/cert.pem; \
+	  docker cp $$CID:/tmp/$(NAME).key infrastructure/step-ca/issued/$(NAME)/key.pem; \
+	  docker cp $$CID:/home/step/certs/root_ca.crt infrastructure/step-ca/issued/$(NAME)/root_ca.pem; \
+	  docker cp $$CID:/home/step/certs/intermediate_ca.crt infrastructure/step-ca/issued/$(NAME)/intermediate_ca.pem
+	@cat infrastructure/step-ca/issued/$(NAME)/intermediate_ca.pem \
+	     infrastructure/step-ca/issued/$(NAME)/root_ca.pem \
+	     > infrastructure/step-ca/issued/$(NAME)/ca.pem
+	@chmod 600 infrastructure/step-ca/issued/$(NAME)/*.pem
+	@echo "✅ Cert émis pour $(NAME) (TTL $${TTL:-24h}) — infrastructure/step-ca/issued/$(NAME)/"
+
+mtls-verify: ## Vérifie un cert émis. Args : NAME=<service>
+	@if [ -z "$(NAME)" ]; then echo "❌ NAME=<service> requis"; exit 1; fi
+	@D=infrastructure/step-ca/issued/$(NAME); \
+	  if [ ! -f "$$D/cert.pem" ]; then echo "❌ $$D/cert.pem introuvable — lance make mtls-issue NAME=$(NAME)"; exit 1; fi; \
+	  echo "📜 Subject :"; openssl x509 -in $$D/cert.pem -noout -subject; \
+	  echo "📜 Issuer  :"; openssl x509 -in $$D/cert.pem -noout -issuer; \
+	  echo "📜 SANs    :"; openssl x509 -in $$D/cert.pem -noout -ext subjectAltName | grep -v '^X509v3' | sed 's/^[[:space:]]*/  /'; \
+	  echo "📜 Validité:"; openssl x509 -in $$D/cert.pem -noout -dates; \
+	  echo "🔍 Vérification chaîne (root → cert) :"; openssl verify -CAfile $$D/ca.pem $$D/cert.pem
+
+mtls-poc: mtls-up seed-mtls ## Smoke complet : step-ca + 2 certs (api-gateway + auth-service) + vérif
+	@echo ""
+	@echo "🔬 Émission cert api-gateway..."
+	@$(MAKE) mtls-issue NAME=api-gateway
+	@echo ""
+	@echo "🔬 Émission cert auth-service..."
+	@$(MAKE) mtls-issue NAME=auth-service
+	@echo ""
+	@echo "🔍 Vérification certs émis :"
+	@$(MAKE) mtls-verify NAME=api-gateway
+	@echo ""
+	@$(MAKE) mtls-verify NAME=auth-service
+	@echo ""
+	@echo "✅ PoC mTLS complet : step-ca initialisée + 2 certs valides."
+	@echo "   Pour intégrer : exposer MTLS_MODE / MTLS_CERT_FILE / MTLS_KEY_FILE / MTLS_CA_FILE"
+	@echo "   sur les services Go (cf. backend/internalsec/internalsec.go ConfigFromEnv)."
+
 # =======================================================================
 
 # === Pré-prod edge (Caddy : TLS 1.3 + HSTS + CSP + cible PQ) ==========
