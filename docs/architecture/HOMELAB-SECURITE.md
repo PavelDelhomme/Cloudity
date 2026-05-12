@@ -2,9 +2,17 @@
 
 **Rôle** : décrire le **cadre matériel + réseau + sécurité côté domicile** qui héberge la **machine de backup offsite** Cloudity (cf. **[BACKUP-OFFSITE.md](BACKUP-OFFSITE.md)**), permet l'**accès distant chiffré** (web admin + app mobile admin) au LAN, et, à terme, sert de **routeur de sécurité** filtrant le trafic du foyer (hors flux explicitement écartés type Netflix / PC fixe perso).
 
-> Statut : **plan à mettre en œuvre AVANT la mise en production** Cloudity (déploiement VPS public). Aucune action urgente tant que le service tourne en local.
+> Statut : **plan à mettre en œuvre AVANT la mise en production** Cloudity (déploiement VPS public). **Q15=A acté** : la phase H1 de ce document est **bloquante** pour le passage Cloudity sur VPS public.
 
-> Voir aussi : **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** Q11–Q15 (à remplir).
+> Décisions actées (cf. **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** Q11–Q15) :
+>
+> | Q | Choix |
+> |---|-------|
+> | Q11 | **A** — scénario réseau **minimal** : RPi simple serveur backup sur LAN + WireGuard, box FAI inchangée. (cf. § 3.1) |
+> | Q12 | **A** — **hub USB 3.0 alimenté** + disques USB tels quels. |
+> | Q13 | **B** — **WireGuard + Headscale self-hosted** (sans cloud tiers). (cf. § 4.4) |
+> | Q14 | **A** — **workflow complet outillé** pour le nettoyage : ncdu + rmlint + tar.zst -19 + LUKS + ext4. (cf. § 2) |
+> | Q15 | **A** — **homelab avant prod** : phase H1 livrée avant tout déploiement Cloudity sur VPS public. (cf. § 8) |
 
 ---
 
@@ -247,14 +255,53 @@ Internet ── Box FAI (bridge) ── Mini-PC OPNsense/pfSense (2 NIC) ── 
 - **No-fallback** : pas de port 51820 répondant si la PSK est invalide (drop silencieux côté nftables).
 - **Géoblocage du port WireGuard** au niveau du routeur (n'accepte que les IP des pays / FAI utilisés par les peers connus). Évite ~99 % du scan de fond.
 
-### 4.4 Tailscale / Headscale ?
+### 4.4 Headscale self-hosted (Q13=B retenu)
 
-Tu as précisé **« plutôt maison »**. Deux niveaux possibles :
+**Choix acté** : WireGuard côté kernel + **Headscale** comme plan de contrôle self-hosted (clone open-source de Tailscale, **sans** dépendance cloud tiers). Permet d'ajouter/retirer des peers (PC fixe, smartphone admin, futur VPS prod, futurs peers familiaux) via une CLI / API REST sans toucher manuellement les configs WireGuard.
 
-- **Pure WireGuard manuel** : configs `.conf` éditées à la main, gestion des paires de clés via un dossier git chiffré. **Recommandé** pour ~5 peers.
-- **Headscale** (serveur Tailscale open-source self-hosted) : si le maillage devient grand (>10 peers), simplifie la gestion ; tourne en conteneur sur le routeur ou le VPS.
+#### Composants
 
-**Pas Tailscale managé** (service tiers cloud) : disqualifié par ta contrainte « plutôt maison ».
+```
+┌─ RPi homelab (chez moi) ────────────────────────────────┐
+│                                                          │
+│   conteneur headscale (port 8080 + UDP 41641)           │
+│     ├─ DB SQLite (ou Postgres via réseau Docker)        │
+│     ├─ pré-shared key (PSK) commun à tous les peers     │
+│     └─ ACL JSON (qui peut parler à qui)                 │
+│                                                          │
+│   wireguard kernel (auto-configuré par Headscale)       │
+│   nftables (port 41641 UDP géo-bloqué + port-forward    │
+│             depuis box FAI)                              │
+└──────────────────────────────────────────────────────────┘
+                       ▲
+                       │ Tailscale CLI (officiel) ou
+                       │ tailscale-android / iOS app
+                       │
+   ┌───────────────────┴────────────────────┬───────────────┐
+   PC fixe perso                       Smartphone admin       (futur) VPS Cloudity prod
+```
+
+#### Pourquoi Headscale plutôt que WireGuard pur ?
+
+| Critère | WireGuard pur | Headscale (Q13=B) |
+|---------|---------------|-------------------|
+| Setup initial | 2 h pour 3 peers | 4 h (conteneur + ACL) |
+| Ajouter un 6ᵉ peer | éditer 6 fichiers `.conf` à la main | `headscale node register --key …` |
+| Révocation d'un peer compromis | retirer la pubkey de tous les `.conf` | `headscale node delete <id>` |
+| Routes (subnet routing) | passé en CLI à la main | déclaratif dans Headscale |
+| MagicDNS (`pcfixe.cloudity-net.local`) | ❌ | ✅ (intégré) |
+| Audit logs | journal manuel | builtin |
+
+⇒ Plus de friction au début, **beaucoup moins** sur la durée.
+
+#### Sécurité
+
+- **Clés pré-partagées (PSK)** en plus des clés Curve25519 : au registration de chaque peer (couche post-quantum résistante).
+- **ACLs Headscale** : par défaut **deny all**, on whitelist explicitement les flux autorisés (mobile admin → RPi panel 7080, PC fixe → SSH RPi, etc.).
+- **Rotation des pré-auth keys** automatique tous les 7 jours (pas de réutilisation).
+- **Géoblocage du port 41641** côté nftables (FR + IP de roaming connues uniquement).
+- **Tailscale-android / iOS** apps officielles : on **ne** les redirige **pas** vers un control-plane Tailscale managé, on pointe vers `https://vpn.cloudity.example.com` (Headscale).
+- **Pas de Tailscale SaaS** : disqualifié par la contrainte « plutôt maison ».
 
 ---
 
@@ -355,17 +402,21 @@ panel runner (UI dégradée, pas de cross-data avec /4dm1n VPS)
 2. **Choisir scénario** A / B / C (cf. Q11) → liste de courses si nécessaire.
 3. **Nettoyer les 2 disques** (cf. § 2 — étapes A→D, sur PC fixe).
 
-### Phase H1 — RPi backup minimale (1 weekend)
+### Phase H1 — RPi backup minimale (1 weekend) — **bloquante pour la prod (Q15=A)**
 
-1. RPi avec OS Bookworm (Raspberry Pi OS Lite 64-bit), SSD M.2 USB recommandé pour la robustesse.
-2. Disques branchés, LUKS + ext4 + montage automatique.
-3. Installation **`cloudity-backup-runner`** (binaire Go, à coder une fois Phase 0 Cloudity terminée).
-4. WireGuard server (scénario A) → tester accès depuis smartphone et PC fixe en mobilité.
+1. RPi avec OS Bookworm (Raspberry Pi OS Lite 64-bit), SSD M.2 USB recommandé pour la robustesse (carte SD A2 acceptable au démarrage).
+2. **Hub USB 3.0 alimenté** + 2 disques USB connectés (Q12=A) ; LUKS + ext4 + montage automatique via `/etc/fstab` avec `nofail`.
+3. Installation **`cloudity-backup-runner`** (binaire Go, à coder une fois Phase 0 multi-repo terminée).
+4. **Headscale** en conteneur sur la RPi (Q13=B) + WireGuard kernel : enregistrer comme premiers nodes : PC fixe, smartphone admin, RPi backup elle-même. Tester accès distant depuis l'extérieur (4G/réseau ami).
 
-### Phase H2 — Sécurité réseau (selon Q11)
+### Phase H2 — Sécurité réseau (Q11=A : différée)
 
-- Si scénario A retenu : on s'arrête là pour le réseau, on revient plus tard.
-- Si B/C retenu : passage en bridge box FAI, montée nftables, Pi-hole, switch managé, VLANs.
+Avec **Q11=A**, cette phase est **différée**. À reprendre quand :
+- 5+ équipements à filtrer dans le foyer ;
+- besoin de Pi-hole DNS sinkhole ;
+- ou avant la mise en production Cloudity si on veut isoler la RPi prod-bound dans une DMZ logique.
+
+Migration **non destructive** : on peut passer de A à B en 1 weekend en gardant les configs WireGuard (Headscale ne change pas, juste le routage IP au-dessus).
 
 ### Phase H3 — Monitoring + intégration Cloudity admin
 

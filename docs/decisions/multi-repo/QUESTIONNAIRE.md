@@ -108,7 +108,7 @@
 
 ## Q11 — **Scénario réseau homelab** (cf. HOMELAB-SECURITE § 3)
 
-- [ ] **A — Minimal** : la RPi reste un simple serveur backup sur le LAN, la box FAI ne change pas. WireGuard sur la RPi pour accès distant. Pas de filtrage du trafic du foyer. *(prêt en 1 weekend, ~50 € matériel)*
+- [x] **A — Minimal** : la RPi reste un simple serveur backup sur le LAN, la box FAI ne change pas. WireGuard sur la RPi pour accès distant. Pas de filtrage du trafic du foyer. *(prêt en 1 weekend, ~50 € matériel)*
 - [ ] **B — Médian** : la RPi devient routeur/pare-feu (nftables + Pi-hole/AdGuard + WireGuard) entre la box FAI et le LAN. Filtrage granulaire (bloque YouTube ads/IoT, whitelist Netflix + IP du PC fixe). *(2-3 weekends, ~150 € matériel + UPS)*
 - [ ] **C — Cible** : mini-PC dédié routeur (OPNsense ou nftables), switch managé avec VLAN trust/DMZ/IoT, RPi backup dédiée. Architecture pro auditable. *(1-2 mois, ~400 € matériel)*
 - [ ] **D — Différer la décision** : on garde le runner backup en LAN simple (équivalent A) tant que Cloudity n'est pas en prod ; on retranche pour B/C plus tard.
@@ -117,7 +117,7 @@
 
 ## Q12 — **Branchement des 2 disques USB sur la RPi**
 
-- [ ] **A** — **Hub USB 3.0 alimenté** (~25 €) + disques USB tels quels. Simple, robuste si hub de qualité.
+- [x] **A** — **Hub USB 3.0 alimenté** (~25 €) + disques USB tels quels. Simple, robuste si hub de qualité.
 - [ ] **B** — Sortir les disques de leurs boîtiers actuels et les **monter dans un boîtier 2-baies USB-C alimenté** (ex. ICY BOX, ~70 €). Plus propre, alim dédiée, ventilation.
 - [ ] **C** — Migrer plus tard vers un **NAS DIY 4 baies** (boîtier + carte mère ITX, hors RPi) pour mode RAID. *(réservé scénario C ou plus tard)*
 
@@ -126,7 +126,7 @@
 ## Q13 — **VPN ultra chiffré** (cf. HOMELAB-SECURITE § 4)
 
 - [ ] **A** — **WireGuard pur** configuré à la main (clés Curve25519 + PSK + ChaCha20-Poly1305) — recommandé pour ≤ 5 peers.
-- [ ] **B** — **WireGuard + Headscale self-hosted** (clone open-source de Tailscale, sans dépendance cloud tiers) — utile si plus de 5–10 peers ou ajout fréquent.
+- [x] **B** — **WireGuard + Headscale self-hosted** (clone open-source de Tailscale, sans dépendance cloud tiers) — utile si plus de 5–10 peers ou ajout fréquent.
 - [ ] **C** — **OpenVPN** (TLS, ChaCha20). Plus tolérant aux NAT compliqués mais plus lourd / plus de surface d'attaque.
 - [ ] **D — À décider plus tard** (par défaut WireGuard).
 
@@ -134,7 +134,7 @@
 
 ## Q14 — **Procédure de nettoyage des 2 disques** (cf. HOMELAB-SECURITE § 2)
 
-- [ ] **A** — **Workflow complet outillé** : `ncdu` pour le tri manuel + `rmlint` pour les doublons + compression `tar.zst -19` des dossiers à archiver + LUKS au format final. *(1-2 soirées par disque)*
+- [x] **A** — **Workflow complet outillé** : `ncdu` pour le tri manuel + `rmlint` pour les doublons + compression `tar.zst -19` des dossiers à archiver + LUKS au format final. *(1-2 soirées par disque)*
 - [ ] **B** — **Workflow réduit** : tri manuel uniquement, pas de compression (les disques ont assez d'espace après tri), formatage simple ext4 (sans LUKS).
 - [ ] **C** — **Garder un disque tel quel pour le moment** (le 500 Go) en archive froide, **dédier seulement le 1 To** au backup Cloudity.
 - [ ] **D — Différer cette opération** : on traite ça quand on installe la Phase H1 (RPi + runner).
@@ -143,7 +143,7 @@
 
 ## Q15 — **Calendrier homelab vs Cloudity prod**
 
-- [ ] **A** — **Homelab d'abord** : pas de mise en prod Cloudity tant que la RPi backup n'est pas opérationnelle (au moins phase H1 de HOMELAB-SECURITE).
+- [x] **A** — **Homelab d'abord** : pas de mise en prod Cloudity tant que la RPi backup n'est pas opérationnelle (au moins phase H1 de HOMELAB-SECURITE).
 - [ ] **B** — **Parallèle** : on déploie Cloudity sur le VPS de prod et on met en place la RPi homelab en parallèle ; les premières semaines, backups manuels via `pg_dump` SCP.
 - [ ] **C** — **Cloudity prod d'abord** (sur VPS), homelab après stabilisation. Risque accepté : 4-8 semaines sans backup offsite.
 

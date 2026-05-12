@@ -21,17 +21,38 @@ Q9=D+T3 extension Pass + desktop Linux : plus tard, stack à arbitrer
 Q10=A   Phase 0 immédiate (pkg/dbpin + versionnage libs)
 ```
 
-## Synthèse rapide — **bloc 2 : homelab / sécurité résidentielle (à compléter)**
+## Synthèse rapide — **bloc 2 : homelab / sécurité résidentielle (complet au 2026-05-12)**
 
-Remplace les `?` par la lettre choisie. Cadre détaillé : **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)**.
+Cadre détaillé : **[../../architecture/HOMELAB-SECURITE.md](../../architecture/HOMELAB-SECURITE.md)**.
 
 ```
-Q11=?   scénario réseau homelab (A=minimal / B=médian RPi-router / C=cible mini-PC+VLAN / D=différer)
-Q12=?   branchement disques (A=hub USB alimenté / B=boîtier 2-baies USB-C / C=NAS DIY plus tard)
-Q13=?   VPN (A=WireGuard pur / B=WireGuard+Headscale / C=OpenVPN / D=décider plus tard)
-Q14=?   nettoyage disques (A=workflow complet outillé / B=tri manuel sans compression / C=garder 500Go tel quel / D=différer)
-Q15=?   calendrier (A=homelab avant prod / B=parallèle / C=prod d'abord, homelab après)
+Q11=A   scénario réseau MINIMAL : RPi simple serveur backup sur LAN + WireGuard
+        (box FAI inchangée, pas de filtrage du trafic foyer pour démarrer)
+Q12=A   hub USB 3.0 alimenté (~25 €) + disques USB tels quels
+Q13=B   WireGuard + Headscale self-hosted (sans cloud tiers, scalabilité prévue)
+Q14=A   nettoyage outillé : ncdu + rmlint + tar.zst -19 + LUKS + ext4
+Q15=A   homelab avant prod : pas de mise en prod Cloudity tant que H1 (RPi backup
+        opérationnelle) n'est pas livrée
 ```
+
+### Conséquences directes des choix Q11–Q15
+
+| Choix | Conséquence concrète |
+|-------|----------------------|
+| **Q11=A** | On retient le scénario A de **HOMELAB-SECURITE § 3.1**. Pas de bridge box FAI, pas de nftables routeur, pas de Pi-hole pour démarrer. Possibilité de monter en B/C plus tard sans casser ce qui aura été livré. |
+| **Q12=A** | Achat à prévoir : **hub USB 3.0 alimenté 4 ports 5V/4A** (~25 €) — ex. Anker, Sabrent, Inateck. Disques USB connectés tels quels. |
+| **Q13=B** | Headscale tournera comme **conteneur** sur la RPi (ou plus tard sur le VPS prod). Côté RPi : `headscale` + `wireguard` mais pilotés par Headscale plutôt que des `.conf` à la main. Permet d'ajouter/retirer des peers (PC fixe, smartphone, futur VPS, futurs peers familiaux) via une UI ou CLI sans toucher manuellement les configs WireGuard. |
+| **Q14=A** | Procédure complète de **HOMELAB-SECURITE § 2** appliquée. **LUKS obligatoire** sur les 2 disques (chiffrement at-rest) — déchiffrage via clé sur SD card RPi (compromis ergonomie) ou via SSH `dropbear-initramfs`. |
+| **Q15=A** | **Bloquant pour la mise en prod** : tant que la phase H1 (RPi + runner backup opérationnels + WireGuard + Headscale) n'est pas livrée, **on ne déploie pas Cloudity sur un VPS public**. Ça donne un ordre d'attaque clair pour les sprints qui mèneront à la prod. |
+
+### Achats à valider (selon Q11=A + Q12=A)
+
+- [ ] **Hub USB 3.0 alimenté 4 ports** (5V/4A, marque réputée) — ~25 €
+- [ ] *(Optionnel)* **SSD M.2 USB 256 Go** pour remplacer la carte SD de la RPi (durée de vie sous écriture intensive) — ~40 €
+- [ ] *(Optionnel)* **Boîtier RPi avec dissipation passive** (Argon ONE M.2, FLIRC) — ~30–50 €
+- [ ] *(Optionnel)* **UPS 600 VA** pour protéger la RPi des coupures secteur — ~70 €
+
+> Total minimum : ~25 €. Total recommandé (avec SSD et UPS) : ~135 €.
 
 ---
 

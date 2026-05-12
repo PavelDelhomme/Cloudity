@@ -88,29 +88,46 @@ Décisions actées (résumé exécutable) :
 
 ---
 
-## Homelab / sécurité résidentielle (avant mise en production)
+## Homelab / sécurité résidentielle (**bloquant pour la mise en production** — Q15=A)
 
-Cible : **Raspberry Pi à la maison** + 2 disques USB (1 To, 500 Go) ; sert simultanément de **runner backup offsite Cloudity** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**), de **routeur/pare-feu/VPN** filtrant le trafic du foyer (selon scénario retenu), et de **point d'accès distant** (web `/4dm1n` + mobile admin) au LAN.
+Cible : **Raspberry Pi à la maison** + 2 disques USB (1 To, 500 Go) ; sert de **runner backup offsite Cloudity** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**) + **point d'accès distant** (web `/4dm1n` + mobile admin) via VPN.
 
-**Cadre détaillé** : **[docs/architecture/HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** — inventaire matériel, procédure de nettoyage des 2 disques (`ncdu` + `rmlint` + `tar.zst -19`), 3 scénarios réseau (A=minimal / B=médian RPi-router / C=cible mini-PC+VLAN), VPN WireGuard, DMZ, monitoring depuis admin Cloudity, app mobile admin, roadmap H0–H4.
+**Cadre détaillé** : **[docs/architecture/HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)**.
 
-**Décisions à prendre** : Q11–Q15 dans **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** § « Bloc 2 — Homelab ».
+**Décisions actées** (REPONSES.md § Q11–Q15) :
 
-À faire :
+| Q | Choix | Conséquence |
+|---|-------|-------------|
+| Q11 | **A** scénario réseau **minimal** | RPi sur LAN, box FAI inchangée, pas de filtrage trafic foyer pour démarrer |
+| Q12 | **A** hub USB 3.0 alimenté + disques tels quels | ~25 € à acheter |
+| Q13 | **B** WireGuard + **Headscale self-hosted** | Conteneur Headscale sur RPi, MagicDNS, ACLs déclaratives |
+| Q14 | **A** nettoyage outillé | ncdu + rmlint + tar.zst -19 + LUKS + ext4 |
+| Q15 | **A** **homelab avant prod** | **H1 bloquante** pour le déploiement Cloudity sur VPS |
 
-- [ ] **H0 — Inventaire matériel précis** : modèle RPi exact, capacité réelle des 2 disques, état box FAI (mode bridge possible ?), alimentation USB disponible.
-- [ ] **H0 — Choix scénario réseau** (Q11) → liste de courses validée selon § 9 du doc cadre.
-- [ ] **H0 — Nettoyage des 2 disques** (Q14) : `ncdu` + `rmlint` + compression `tar.zst -19` des archives froides + LUKS avant migration vers RPi.
-- [ ] **H1 — RPi backup minimale** : OS Bookworm 64-bit + SSD M.2 USB + LUKS sur 2 disques + montage `/mnt/cloudity-1tb` `/mnt/cloudity-500gb` + `cloudity-backup-runner` (à coder).
-- [ ] **H1 — WireGuard server** sur RPi (port-forward UDP 51820 box FAI) + clients PC fixe + smartphone admin avec **PSK** + clés Curve25519 + géoblocage du port côté nftables.
-- [ ] **H2 — Sécurité réseau** (selon Q11=B/C uniquement) : box FAI bridge, nftables, Pi-hole/AdGuard, VLANs trust/DMZ/IoT.
+**Achats à faire** :
+
+- [ ] **Hub USB 3.0 alimenté 4 ports** 5V/4A (Anker / Sabrent / Inateck) — ~25 € *(obligatoire)*
+- [ ] *(Recommandé)* SSD M.2 USB 256 Go (~40 €), boîtier RPi avec dissipation passive (~30–50 €), UPS 600 VA (~70 €)
+
+**À faire** :
+
+- [ ] **H0 — Inventaire matériel précis** : modèle RPi exact (3B/4B/5 + RAM), capacité réelle des 2 disques USB, état box FAI (mode bridge possible ?), modèle smartphone admin.
+- [ ] **H0 — Nettoyage des 2 disques** (Q14=A) : `ncdu` (tri manuel) + `rmlint` (doublons) + compression `tar.zst -19 --long=27` des archives froides + **LUKS** + **ext4** (cf. **HOMELAB-SECURITE § 2**).
+- [ ] **H0 — Achat matériel** : hub USB 3.0 alimenté minimum (cf. ci-dessus).
+- [ ] **H1 — OS Raspberry Pi** : Bookworm 64-bit Lite + SSH key-only + dropbear-initramfs pour LUKS unlock à distance.
+- [ ] **H1 — Disques** : LUKS + ext4 + montage automatique `/mnt/cloudity-1tb` `/mnt/cloudity-500gb` (`/etc/fstab` avec `nofail`).
+- [ ] **H1 — Headscale** (Q13=B) : conteneur Docker sur RPi, port UDP 41641 port-forward depuis box FAI + géoblocage nftables (FR + IP roaming connues), enregistrer PC fixe + smartphone admin + RPi elle-même comme premiers nodes. ACLs en mode **deny-all** + whitelist explicite.
+- [ ] **H1 — Tester accès distant** depuis l'extérieur (4G ou réseau ami) → mobile admin et PC fixe atteignent la RPi via Headscale.
+- [ ] **H1 — `cloudity-backup-runner`** (binaire Go) : à coder une fois la Phase 0 multi-repo terminée. Panel local sur port 7080, exposé uniquement via interface Tailscale/Headscale.
 - [ ] **H3 — Monitoring** : agent métriques RPi (`node_exporter` + collecteur Go custom) → endpoint runner exposé en mTLS → admin-service interroge via canal long-lived → page `/4dm1n/homelab` (web) + écran `mobile/admin`.
-- [ ] **H3 — Alertes push** : pas de handshake WG > 24 h, pas de backup > 48 h, T° > 80 °C, disque > 90 %.
-- [ ] **H4 — Bascule production** : seulement quand H1+H3 livrés ; jusque-là, Cloudity reste **local** (donc pas de backup offsite nécessaire).
+- [ ] **H3 — Alertes push** : pas de handshake WG > 24 h, pas de backup > 48 h, T° RPi > 80 °C, disque > 90 %.
+- [ ] **H4 — Bascule production Cloudity** : **uniquement** une fois H1+H3 livrés. Jusque-là, Cloudity reste **local**.
+
+**Différé** (selon Q11=A) : phase H2 (sécurité réseau approfondie : nftables routeur, Pi-hole, VLANs) — à reprendre quand 5+ équipements à filtrer dans le foyer ou avant la prod si on veut une DMZ logique pour la RPi prod-bound.
 
 Hors scope court terme — explorations IoT :
 
-- [ ] **Gamelle connectée chat** (Arduino + capteur poids/RFID) en VLAN IoT, exposée via mini-service Cloudity côté famille (notifications « le chat a mangé », poids hebdo). Démarrage seulement après H1–H3 livrées.
+- [ ] **Gamelle connectée chat** (Arduino + capteur poids/RFID) en VLAN IoT (nécessite passage à scénario B/C plus tard), exposée via mini-service Cloudity côté famille (notifications « le chat a mangé », poids hebdo). Démarrage seulement après H1–H3 livrées et passage scénario réseau B ou C.
 
 ---
 
