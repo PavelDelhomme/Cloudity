@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -187,12 +188,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => {
-      setState({
+      const next: AuthState = {
         accessToken,
         refreshToken: refreshToken ?? null,
         tenantId,
         email,
-      })
+      }
+      // Persiste tout de suite : si une lecture (apiFetch) ou un refetch parallèle
+      // re-lit le token avant que React n'ait propagé le state, on doit servir le neuf.
+      // Le useEffect [state] enregistrera de nouveau, c'est idempotent.
+      try {
+        saveToStorage(next)
+      } catch {
+        /* storage saturé : on continue, le useEffect retentera */
+      }
+      // Synchronise les refs lues par les helpers async (refreshAccessTokenIfNeeded,
+      // intervals, etc.) — celles-ci ne dépendent pas du re-render React.
+      accessTokenRef.current = next.accessToken
+      refreshTokenRef.current = next.refreshToken
+      setState(next)
       // Redirect is handled by the page (e.g. /app ou /4dm1n)
     },
     []
@@ -257,7 +271,12 @@ export function Global401Handler() {
         triedRef.current = true
         try {
           const res = await refreshAuth(refreshToken)
-          login(res.access_token, res.refresh_token, tenantId!, email ?? '')
+          // flushSync force React à propager le nouveau accessToken AVANT
+          // d'invalider les queries — sinon les queryFn refetchées tournent
+          // en closure sur l'ancien token et repartent en 401 (boucle).
+          flushSync(() => {
+            login(res.access_token, res.refresh_token, tenantId!, email ?? '')
+          })
           queryClient.invalidateQueries()
         } catch {
           toast.error('Session expirée. Reconnectez-vous.')
