@@ -147,7 +147,8 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 | Browser → API | HTTP `localhost:6080` | HTTPS via Caddy | `make up-tls` |
 | Vite dev | HTTP (option `make dev-https`) | HTTPS via mkcert | docs `DEV-VERIFICATION.md` |
 | Gateway → admin-service | **HTTPS uvicorn TLS + cert client step-ca** (`make up-https-internal`, mode `permissive`) | mTLS strict | bascule `MTLS_MODE=strict` |
-| Gateway → 10 autres services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
+| Gateway → auth-service | **HTTPS Go `internalsec.ServerTLS` + cert client step-ca** (`make up-https-internal`, mode `permissive`) | mTLS strict | bascule `MTLS_MODE=strict` |
+| Gateway → 9 autres services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
 | Postgres | `sslmode=disable` | `sslmode=verify-ca` puis `verify-full` | **`make up-https-internal`** |
 | Redis | requirepass plain | TLS 1.3 + AUTH (`--tls-port`) | `make up-https-internal` + `REDIS_TLS=1` (auth-service go-redis) |
 | Edge prod | NPM/Caddy + ACME | TLS 1.3 + hybride PQ `X25519MLKEM768` | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** |

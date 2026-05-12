@@ -25,6 +25,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
+	"github.com/pavel/cloudity/internalsec"
 	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -196,8 +197,30 @@ func main() {
 	// Désactivé silencieusement si la conf est invalide (ex. RP_ID vide en prod).
 	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, authService).RegisterRoutes(r)
 
-	log.Println("Auth Service starting on port 8081...")
-	r.Run(":8081")
+	listenAddr := ":8081"
+	mtlsCfg := internalsec.ConfigFromEnv()
+	if mtlsCfg.Mode == internalsec.ModeOff {
+		log.Println("Auth Service starting on port 8081 (HTTP plain)…")
+		if err := r.Run(listenAddr); err != nil {
+			log.Fatalf("auth-service: serve: %v", err)
+		}
+		return
+	}
+
+	tlsCfg, _, err := internalsec.ServerTLS(mtlsCfg)
+	if err != nil {
+		log.Fatalf("auth-service: ServerTLS (mode=%s): %v", mtlsCfg.Mode, err)
+	}
+	srv := &http.Server{
+		Addr:              listenAddr,
+		Handler:           r,
+		TLSConfig:         tlsCfg,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	log.Printf("Auth Service starting on port 8081 (mTLS mode=%s, ca=%s)…", mtlsCfg.Mode, mtlsCfg.CAFile)
+	if err := srv.ListenAndServeTLS("", ""); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("auth-service: serveTLS: %v", err)
+	}
 }
 
 // --- Password hashing (Argon2id ou bcrypt pour rétrocompat) ---
