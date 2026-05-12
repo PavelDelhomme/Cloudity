@@ -327,3 +327,35 @@ func TestTokenHasAdminRole(t *testing.T) {
 		t.Fatal("tokenHasAdminRole should reject non-admin role")
 	}
 }
+
+// TestStripInternalTrustHeaders garantit que les en-têtes posés par la gateway
+// après vérif (X-User-ID, X-Tenant-ID, X-Admin-Role) ne peuvent pas être
+// pré-injectés par un client malveillant et propagés tels quels en aval.
+func TestStripInternalTrustHeaders(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/mail/me/accounts", nil)
+	req.Header.Set("X-User-ID", "999")
+	req.Header.Set("X-Tenant-ID", "999")
+	req.Header.Set("X-Admin-Role", "admin")
+	stripInternalTrustHeaders(req)
+	for _, h := range []string{"X-User-ID", "X-Tenant-ID", "X-Admin-Role"} {
+		if v := req.Header.Get(h); v != "" {
+			t.Fatalf("%s should be cleared, got %q", h, v)
+		}
+	}
+}
+
+// TestAdminMailRoutes_RejectClientForgedAdminHeader vérifie qu'un appel sans
+// JWT mais avec X-Admin-Role: admin pré-positionné par le client est refusé
+// par la gateway (le header est retiré, l'auth retombe sur le flux standard).
+func TestAdminMailRoutes_RejectClientForgedAdminHeader(t *testing.T) {
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/mail/domains", nil)
+	req.Header.Set("X-Admin-Role", "admin")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	// Sans Bearer, la gateway laisse passer (legacy : compat front non admin) ;
+	// l'important est que X-Admin-Role NE DOIT PAS être propagé downstream.
+	if got := req.Header.Get("X-Admin-Role"); got == "admin" {
+		t.Fatalf("X-Admin-Role: admin survived auth middleware (got %q)", got)
+	}
+}

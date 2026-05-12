@@ -246,6 +246,7 @@ func main() {
 	// Callback OAuth Google : pas d'auth (redirection navigateur depuis Google)
 	r.GET("/mail/me/oauth/google/callback", h.oauthGoogleCallback)
 	r.Use(h.requireTenantAndUser)
+	r.Use(h.requireAdminRoleForMailDirectory)
 
 	mail := r.Group("/mail")
 	{
@@ -431,6 +432,35 @@ func decryptPassword(encrypted string) (string, error) {
 		return "", err
 	}
 	return string(plain), nil
+}
+
+// isAdminOnlyMailDirectoryPath identifie les routes du mail-directory-service
+// strictement réservées aux administrateurs (gestion globale du tenant : domaines
+// mail, boîtes, alias). Doit rester aligné avec `isAdminOnlyMailRoute` côté
+// api-gateway (defense in depth — cf. docs/securite/AUDIT-SECURITE.md § 2.4).
+func isAdminOnlyMailDirectoryPath(path string) bool {
+	return strings.HasPrefix(path, "/mail/domains") ||
+		strings.HasPrefix(path, "/mail/mailboxes") ||
+		strings.HasPrefix(path, "/mail/aliases")
+}
+
+// requireAdminRoleForMailDirectory revérifie côté service Go que l'appelant a
+// bien le rôle admin pour les routes admin-only. Le contrôle autoritaire
+// Internet est la gateway, mais un attaquant qui pivote sur le réseau Docker
+// (ou une mauvaise config réseau) ne doit pas pouvoir court-circuiter ce
+// contrôle. Le header `X-Admin-Role` est posé par la gateway après vérif JWT
+// (cf. api-gateway/main.go authMiddleware) et bloqué/écrasé côté gateway si la
+// requête entrante l'avait déjà mis (à venir : Zero Trust + mTLS).
+func (h *Handler) requireAdminRoleForMailDirectory(c *gin.Context) {
+	if !isAdminOnlyMailDirectoryPath(c.Request.URL.Path) {
+		c.Next()
+		return
+	}
+	if c.GetHeader("X-Admin-Role") != "admin" {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin role required (mail directory)"})
+		return
+	}
+	c.Next()
 }
 
 func (h *Handler) requireTenantAndUser(c *gin.Context) {

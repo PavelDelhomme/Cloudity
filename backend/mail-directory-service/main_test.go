@@ -56,11 +56,18 @@ func TestMailDomainsRejectsInvalidTenantID(t *testing.T) {
 	}
 }
 
+// setAdminMailHeaders applique les headers que la gateway pose après vérif JWT
+// pour les routes admin-only mail (X-Tenant-ID, X-User-ID, X-Admin-Role).
+func setAdminMailHeaders(req *http.Request) {
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	req.Header.Set("X-Admin-Role", "admin")
+}
+
 func TestMailDomainsMailboxesInvalidID(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodGet, "/mail/domains/invalid/mailboxes", nil)
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -71,8 +78,7 @@ func TestMailDomainsMailboxesInvalidID(t *testing.T) {
 func TestMailDomainsAliasesInvalidID(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodGet, "/mail/domains/0/aliases", nil)
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -84,8 +90,7 @@ func TestMailDomainsPatchInvalidID(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/0", strings.NewReader(`{"is_active":true}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -96,8 +101,7 @@ func TestMailDomainsPatchInvalidID(t *testing.T) {
 func TestMailDomainsDeleteInvalidID(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodDelete, "/mail/domains/0", nil)
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -109,8 +113,7 @@ func TestMailDomainsPatchMailboxInvalidIDs(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/mailboxes/0", strings.NewReader(`{"quota_mb": 100}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -122,8 +125,7 @@ func TestMailDomainsPatchMailboxInvalidBody(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/mailboxes/1", strings.NewReader(`{}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -135,8 +137,7 @@ func TestMailDomainsPatchAliasInvalidIDs(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/aliases/0", strings.NewReader(`{"destination":"a@b.com"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
@@ -148,12 +149,48 @@ func TestMailDomainsPatchAliasInvalidDestination(t *testing.T) {
 	r := setupRouter(nil)
 	req := httptest.NewRequest(http.MethodPatch, "/mail/domains/1/aliases/1", strings.NewReader(`{"destination":"invalid"}`))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-ID", "1")
-	req.Header.Set("X-User-ID", "1")
+	setAdminMailHeaders(req)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("PATCH /mail/domains/1/aliases/1 invalid destination: got %d", w.Code)
+	}
+}
+
+// TestMailDomainsRequiresAdminRole vérifie qu'un appel à une route admin-only
+// sans X-Admin-Role est rejeté en 403 même si tenant/user sont valides
+// (defense in depth — la gateway pose ce header après vérif JWT).
+func TestMailDomainsRequiresAdminRole(t *testing.T) {
+	r := setupRouter(nil)
+	req := httptest.NewRequest(http.MethodGet, "/mail/domains", nil)
+	req.Header.Set("X-Tenant-ID", "1")
+	req.Header.Set("X-User-ID", "1")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("GET /mail/domains without admin role: got %d, want 403", w.Code)
+	}
+}
+
+func TestIsAdminOnlyMailDirectoryPath(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		{"/mail/domains", true},
+		{"/mail/domains/1", true},
+		{"/mail/domains/1/mailboxes/2", true},
+		{"/mail/domains/1/aliases/3", true},
+		{"/mail/mailboxes/5", true},
+		{"/mail/aliases/7", true},
+		{"/mail/me/accounts", false},
+		{"/mail/me/accounts/1", false},
+		{"/mail/health", false},
+	}
+	for _, tc := range cases {
+		if got := isAdminOnlyMailDirectoryPath(tc.path); got != tc.want {
+			t.Errorf("isAdminOnlyMailDirectoryPath(%q)=%v, want %v", tc.path, got, tc.want)
+		}
 	}
 }
 
@@ -247,6 +284,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
 	h := &Handler{db: db}
 	r.Use(h.requireTenantAndUser)
+	r.Use(h.requireAdminRoleForMailDirectory)
 	mail := r.Group("/mail")
 	{
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })

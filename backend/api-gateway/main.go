@@ -471,8 +471,21 @@ func requirePerformanceIngestToken(w http.ResponseWriter, r *http.Request) bool 
 	return true
 }
 
+// stripInternalTrustHeaders enlève systématiquement les headers que la gateway
+// ré-injecte après vérification (X-User-ID, X-Tenant-ID, X-Admin-Role). Évite
+// qu'un client ne pré-positionne ces valeurs et trompe les services downstream
+// qui revérifient (defense in depth — cf. docs/securite/AUDIT-SECURITE.md).
+func stripInternalTrustHeaders(r *http.Request) {
+	r.Header.Del("X-User-ID")
+	r.Header.Del("X-Tenant-ID")
+	r.Header.Del("X-Admin-Role")
+}
+
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Toujours nettoyer les headers de confiance avant l'évaluation.
+		stripInternalTrustHeaders(r)
+
 		// Préflight CORS : ne pas exiger de Bearer (le navigateur n'envoie souvent pas Authorization sur OPTIONS).
 		if r.Method == http.MethodOptions {
 			next.ServeHTTP(w, r)
