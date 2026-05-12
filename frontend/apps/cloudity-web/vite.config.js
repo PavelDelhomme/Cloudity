@@ -1,4 +1,5 @@
 import path from 'node:path'
+import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
@@ -75,6 +76,16 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 3000,
+    https: (() => {
+      // HTTPS dev local : posé via VITE_HTTPS_KEY + VITE_HTTPS_CERT (mkcert).
+      // cf. scripts/dev/dev-https.sh + docs/operations/DEV-VERIFICATION.md.
+      const keyPath = process.env.VITE_HTTPS_KEY
+      const certPath = process.env.VITE_HTTPS_CERT
+      if (keyPath && certPath && fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+        return { key: fs.readFileSync(keyPath), cert: fs.readFileSync(certPath) }
+      }
+      return undefined
+    })(),
     watch: {
       usePolling: true,
     },

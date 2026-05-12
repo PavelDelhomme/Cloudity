@@ -135,6 +135,10 @@ host-redis-sysctl: ## Vérifie vm.overcommit_memory (warning Redis) ; APPLY=1 po
 	@chmod +x scripts/dev/redis-host-sysctl.sh
 	@APPLY="$(APPLY)" ./scripts/dev/redis-host-sysctl.sh
 
+dev-https: ## Lance Vite en HTTPS local via mkcert (https://localhost:5173). Stack backend doit être up.
+	@chmod +x scripts/dev/dev-https.sh
+	@./scripts/dev/dev-https.sh
+
 up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
@@ -165,6 +169,15 @@ setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis la
 	@./scripts/dev/setup.sh
 	@echo ""
 	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
+
+secrets: ## Génère un .env avec des secrets robustes (256 bits) — voir docs/securite/AUDIT-SECURITE.md
+	@if [ ! -f scripts/dev/gen-secrets.sh ]; then echo "❌ scripts/dev/gen-secrets.sh introuvable."; exit 1; fi
+	@chmod +x scripts/dev/gen-secrets.sh
+	@./scripts/dev/gen-secrets.sh
+
+secrets-print: ## Affiche un set de secrets fraîchement générés (sans écrire .env)
+	@chmod +x scripts/dev/gen-secrets.sh
+	@./scripts/dev/gen-secrets.sh --print
 
 init: ## Initialisation complète du projet (première fois)
 	@echo "🚀 Initialisation de Cloudity..."
