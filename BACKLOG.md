@@ -73,11 +73,12 @@ Décisions actées (résumé exécutable) :
 
 À faire (Phase 0, en cours) :
 
-- [x] **Phase 0 / pkg/dbpin — étape 1** : module `backend/pkg/dbpin` créé (`DbExec`, `Conn`, `NewConn`, `WithConn`, `From`) + tests + ajout `go.work`. *(commit en cours)*
+- [x] **Phase 0 / pkg/dbpin — étape 1** : module `backend/pkg/dbpin` créé (`DbExec`, `Conn`, `NewConn`, `WithConn`, `From`) + tests + ajout `go.work`.
 - [ ] **Phase 0 / pkg/dbpin — étape 2 (pilote)** : migrer `drive-service` vers le module partagé (volume Compose `./backend/pkg:/app/pkg:cached` + `replace` go.mod + wrapper local de 10 lignes). Valider via `make rebuild` complet.
 - [ ] **Phase 0 / pkg/dbpin — étape 3 (propagation)** : appliquer la même bascule à `photos-service`, `contacts-service`, `notes-service`, `calendar-service`, `tasks-service`. **Suppression** des 6 `dbpin.go` locaux historiques en bout de chaîne.
-- [ ] **Phase 0 / versionnage** : tagger `internalsec` `v0.1.0`, préparer `@cloudity/shared` `v0.1.0` + `cloudity_shared` Dart `v0.1.0` (publication publique différée jusqu'à fixation de l'org GitHub).
+- [x] **Phase 0 / versionnage v0.1.0** : `internalsec` (`VERSION` + `CHANGELOG.md`), `pkg/dbpin` (`CHANGELOG.md`), `@cloudity/shared` (`package.json` + `CHANGELOG.md`), `cloudity_shared` Dart (`pubspec.yaml` + `CHANGELOG.md`) + doc cadre **[docs/architecture/VERSIONNAGE-LIBS.md](docs/architecture/VERSIONNAGE-LIBS.md)**. **Tags Git non poussés** tant que l'org GitHub publique n'est pas fixée (cf. Q4=B).
 - [ ] **Phase 0 / contrats** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin).
+- [ ] **CI** : script `scripts/ci/check-versioning.sh` qui fail si un fichier de lib modifié sans bump CHANGELOG/version (cf. VERSIONNAGE-LIBS § 6).
 
 À faire (Phase ultérieure) :
 

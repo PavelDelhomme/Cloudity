@@ -139,8 +139,8 @@ Risques **identifiés dans le code actuel** :
    - **étape 1 (faite ✅)** : module `github.com/pavel/cloudity/pkg/dbpin` créé (API publique : `DbExec`, `Conn`, `NewConn`, `WithConn`, `From`) + tests + entrée `go.work`. Détails dans **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)** § 4.
    - **étape 2 (TODO)** : pilote sur `drive-service` — volume Compose `./backend/pkg:/app/pkg:cached`, `replace github.com/pavel/cloudity/pkg/dbpin => ./pkg/dbpin` dans `go.mod`, wrapper local de ~10 lignes.
    - **étape 3 (TODO)** : propagation aux 5 autres services (`photos`, `contacts`, `notes`, `calendar`, `tasks`) puis suppression des 6 copies historiques de `dbpin.go`.
-2. Geler le **chemin de module** `internalsec` (passer de `github.com/pavel/cloudity/internalsec` à `github.com/cloudity/internalsec` si on prévoit un repo public).
-3. **Versionner** `@cloudity/shared` (publier `0.1.0` sur GitHub Packages) — `frontend/apps/cloudity-web/package.json` passe à `"@cloudity/shared": "^0.1.0"`.
+2. **Versionnage v0.1.0 (faite ✅)** : `internalsec` (`VERSION 0.1.0` + `CHANGELOG.md`), `pkg/dbpin` (`CHANGELOG.md`), `@cloudity/shared` (`package.json#version=0.1.0` + `CHANGELOG.md`), `cloudity_shared` Dart (`pubspec.yaml#version=0.1.0` + `CHANGELOG.md`) + doc cadre **[VERSIONNAGE-LIBS.md](VERSIONNAGE-LIBS.md)**. **Tags Git non poussés** tant que l'org GitHub publique n'est pas fixée (cf. Q4=B).
+3. ~~Geler le **chemin de module** `internalsec` (passer de `github.com/pavel/cloudity/internalsec` à `github.com/cloudity/internalsec` si on prévoit un repo public).~~ → fait quand l'org GitHub publique sera fixée (cf. VERSIONNAGE-LIBS § 4).
 4. **Versionner** `cloudity_shared` Dart (tag git **ou** `pub.dev`).
 5. Définir un **schéma OpenAPI** par service (à terme **`cloudity-api-contracts`**) consommé par le frontend / les apps mobile / l’extension.
 
