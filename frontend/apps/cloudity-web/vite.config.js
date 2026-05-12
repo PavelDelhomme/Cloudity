@@ -37,6 +37,12 @@ function cloudityEarlyHtmlRoutes() {
           return
         }
         const pathOnly = u.split('?')[0]
+        if (pathOnly === '/admin' || pathOnly.startsWith('/admin/')) {
+          res.statusCode = 404
+          res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+          res.end('Not Found')
+          return
+        }
         if (pathOnly === '/4dm1n' || pathOnly.startsWith('/4dm1n/')) {
           const q = u.includes('?') ? u.slice(u.indexOf('?')) : ''
           req.url = '/admin.html' + q

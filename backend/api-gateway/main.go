@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -390,11 +391,81 @@ func adminAPIRequiresSession(path string, method string) bool {
 	if method == http.MethodOptions {
 		return false
 	}
-	if !strings.HasPrefix(path, "/admin") {
+	return strings.HasPrefix(path, "/admin")
+}
+
+func adminOriginAllowed(origin string) bool {
+	o := strings.TrimSpace(origin)
+	if o == "" {
 		return false
 	}
-	// Ingestion CI / scripts : jeton dédié côté admin-service (X-Cloudity-Perf-Ingest).
-	if method == http.MethodPost && path == "/admin/performance/pipeline-run" {
+	u, err := url.Parse(o)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return false
+	}
+
+	if os.Getenv("CORS_ALLOW_LAN") == "true" || os.Getenv("CORS_ALLOW_LAN") == "1" {
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return false
+		}
+		host := u.Hostname()
+		if host == "localhost" || host == "127.0.0.1" {
+			return true
+		}
+		if ip := net.ParseIP(host); ip != nil && ip.IsPrivate() {
+			return true
+		}
+		return false
+	}
+
+	origins := []string{"http://localhost:6001", "http://localhost:5173"}
+	if v := os.Getenv("CORS_ORIGINS"); v != "" {
+		origins = strings.Split(v, ",")
+		for i, s := range origins {
+			origins[i] = strings.TrimSpace(s)
+		}
+	}
+	for _, allowed := range origins {
+		if allowed == "" {
+			continue
+		}
+		if strings.EqualFold(o, allowed) {
+			return true
+		}
+	}
+	return false
+}
+
+func writeJSON(w http.ResponseWriter, status int, body string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte(body))
+}
+
+func requireAdminAPIOrigin(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method == http.MethodOptions {
+		return true
+	}
+	origin := r.Header.Get("Origin")
+	if !adminOriginAllowed(origin) {
+		writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
+		return false
+	}
+	return true
+}
+
+func requirePerformanceIngestToken(w http.ResponseWriter, r *http.Request) bool {
+	if r.Method != http.MethodPost || r.URL.Path != "/admin/performance/pipeline-run" {
+		return true
+	}
+	expected := strings.TrimSpace(os.Getenv("PERFORMANCE_INGEST_TOKEN"))
+	if expected == "" {
+		writeJSON(w, http.StatusServiceUnavailable, `{"error":"PERFORMANCE_INGEST_TOKEN is not configured on gateway"}`)
+		return false
+	}
+	got := strings.TrimSpace(r.Header.Get("X-Cloudity-Perf-Ingest"))
+	if len(got) == 0 || subtle.ConstantTimeCompare([]byte(got), []byte(expected)) != 1 {
+		writeJSON(w, http.StatusUnauthorized, `{"error":"invalid performance ingest token"}`)
 		return false
 	}
 	return true
@@ -421,8 +492,11 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		authHeader := r.Header.Get("Authorization")
 
-		// API admin : JWT obligatoire + rôle admin (sauf exceptions ci-dessus).
+		// API admin : JWT obligatoire + rôle admin (+ Origin navigateur autorisée).
 		if adminAPIRequiresSession(r.URL.Path, r.Method) {
+			if !requireAdminAPIOrigin(w, r) {
+				return
+			}
 			if authHeader == "" {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
@@ -458,6 +532,9 @@ func authMiddleware(next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte(`{"error":"admin role required"}`))
+				return
+			}
+			if !requirePerformanceIngestToken(w, r) {
 				return
 			}
 			if userID, _ := claims["user_id"].(string); userID != "" {

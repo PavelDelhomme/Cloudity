@@ -376,7 +376,10 @@ async def require_perf_ingest_token(
 ) -> None:
     expected = os.getenv("PERFORMANCE_INGEST_TOKEN", "").strip()
     if not expected:
-        return
+        raise HTTPException(
+            status_code=503,
+            detail="PERFORMANCE_INGEST_TOKEN non configuré sur admin-service (ingestion performance désactivée)",
+        )
     if not x_cloudity_perf_ingest or x_cloudity_perf_ingest != expected:
         raise HTTPException(
             status_code=401,

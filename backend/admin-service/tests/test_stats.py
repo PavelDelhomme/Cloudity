@@ -107,13 +107,14 @@ def test_performance_record_persists_when_storage_ready():
 
 
 def test_pipeline_ingest_persists_when_storage_ready(monkeypatch):
-    monkeypatch.delenv("PERFORMANCE_INGEST_TOKEN", raising=False)
+    monkeypatch.setenv("PERFORMANCE_INGEST_TOKEN", "test-secret-token")
     hist = client.get("/admin/performance/history").json()
     if not hist.get("storage_ready"):
         pytest.skip("Tables cloudity_performance_* absentes")
     r = client.post(
         "/admin/performance/pipeline-run",
         json={"pipeline_kind": "pytest", "success": True, "duration_ms": 42},
+        headers={"X-Cloudity-Perf-Ingest": "test-secret-token"},
     )
     assert r.status_code == 200
     data = r.json()

@@ -2,7 +2,27 @@
 
 **Rôle** : extraire de **[SECURITE.md](SECURITE.md)** § 8 la liste **actionnable** des algos **autorisés** / **interdits** et les **paramètres exacts** à appliquer dans le code, avec la roadmap de migration.
 
+**Lecture obligatoire en parallèle** : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** (menaces gateway/admin), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (transport interne), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (E2EE Pass).
+
 > Principe directeur : **« le maximum en chiffrement, sans vieilleries inefficaces »**. Crypto post-quantique en hybride (X25519 ⊕ ML-KEM, Ed25519 → ML-DSA). AEAD obligatoire, KDF coûteuse mémoire, constantes-time partout, TLS 1.3 only.
+
+---
+
+## 1.0 Classification des données (obligations minimales)
+
+| Classe | Exemples | Obligations |
+|--------|-----------|--------------|
+| **D1 — secrets d’authentification** | mots de passe, refresh tokens, secrets API | **Argon2id** (cf. § 3) / secrets forts + rotation + **jamais** en logs |
+| **D2 — secrets de transport** | clés TLS, CA internes, PSK WireGuard | stockage restreint + rotation + procédure break-glass |
+| **D3 — E2EE client-side** | coffre Pass | AEAD + KDF + versioning (cf. `PASS-CRYPTO.md`) |
+| **D4 — données métier serveur** | index mail, métadonnées drive | TLS + chiffrement au repos + ACL DB (cf. `SECURITE-DONNEES.md`) |
+| **D5 — diagnostics** | logs, traces perf | minimisation + rétention + anonymisation |
+
+### 1.0.1 Post-quantique : obligatoire, mais sans « ML-DSA géant » par défaut
+
+- **Priorité #1 (confidentialité)** : activer des **KEM hybrides** TLS (ex. `X25519MLKEM768`) dès que la stack edge le permet (cf. § 1.5 + `REVERSE-PROXY.md`).
+- **JWT / signatures courtes durée** : rester sur **Ed25519** tant que l’écosystème **ML-DSA hybride** n’est pas mature partout ; viser **ML-DSA-65** (FIPS 204) surtout pour artefacts **longue durée** (CA / archives), pas pour chaque JWT court si le coût mémoire/latence n’est pas acceptable.
+- **Éviter en premier déploiement** : paramètres ML-DSA les plus lourds + empilements PQ redondants **sans** benchmark (mobile, RPi, petits VPS).
 
 ---
 

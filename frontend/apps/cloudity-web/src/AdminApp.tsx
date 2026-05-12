@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, Global401Handler } from './authContext'
@@ -23,13 +23,6 @@ const queryClient = new QueryClient({
   },
 })
 
-function RedirectLegacyAdminToObfuscated() {
-  const loc = useLocation()
-  const suffix = loc.pathname === '/admin' ? '' : loc.pathname.slice('/admin'.length)
-  const to = `${ADMIN_UI_BASE_PATH}${suffix}${loc.search}${loc.hash}`
-  return <Navigate to={to} replace />
-}
-
 /** Routes admin : à monter sous un Router (Browser ou Memory). */
 export function AdminAppRoutes() {
   return (
@@ -52,8 +45,23 @@ export function AdminAppRoutes() {
           <Route path="securite-cve" element={<SecurityCvePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/admin/*" element={<RedirectLegacyAdminToObfuscated />} />
-        <Route path="*" element={<Navigate to="/4dm1n" replace />} />
+        <Route
+          path="*"
+          element={
+            <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+              <div className="max-w-md text-center space-y-3">
+                <h1 className="text-xl font-semibold">Page introuvable</h1>
+                <p className="text-sm text-slate-300">
+                  Le back-office est servi uniquement sous <span className="font-mono">{ADMIN_UI_BASE_PATH}</span>.
+                  Aucune redirection depuis <span className="font-mono">/admin</span> n’est exposée (anti-énumération).
+                </p>
+                <a className="text-emerald-400 underline text-sm" href={ADMIN_UI_BASE_PATH}>
+                  Ouvrir le back-office
+                </a>
+              </div>
+            </div>
+          }
+        />
       </Routes>
     </AuthProvider>
   )

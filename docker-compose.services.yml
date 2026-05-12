@@ -81,6 +81,7 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8081
       - ADMIN_SERVICE_URL=http://admin-service:8082
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
+      - PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN:-dev_perf_ingest_change_me}
     volumes:
       - ./backend/api-gateway:/app:cached
       - go_mod_cache_gateway_services:/go/pkg/mod
@@ -104,6 +105,7 @@ services:
       - REDIS_URL=redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
+      - PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN:-dev_perf_ingest_change_me}
     volumes:
       - ./backend/admin-service:/app:cached
     depends_on:

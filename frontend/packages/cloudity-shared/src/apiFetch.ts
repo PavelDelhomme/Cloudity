@@ -30,7 +30,7 @@ export type ApiFetchInit = Omit<RequestInit, 'headers'> & {
  * `message` conserve toujours le code HTTP, même quand le body contient
  * `detail`/`error` — sinon `error.message.includes('401')` peut échouer
  * silencieusement, laisser le frontend en boucle de retries et bloquer la
- * redirection vers `/login` (cf. AUDIT-SECURITE-ADMIN-API.md).
+ * redirection vers `/login` (cf. AUDIT-SECURITE.md).
  */
 export class ApiError extends Error {
   public readonly status: number

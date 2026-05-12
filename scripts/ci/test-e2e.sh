@@ -44,6 +44,26 @@ check_json() {
   fi
 }
 
+check_json_headers() {
+  local name="$1"
+  local url="$2"
+  local key="$3"
+  shift 3
+  local out
+  out=$(curl -sf --connect-timeout 2 "$@" "$url" 2>/dev/null) || true
+  if [ -z "$out" ]; then
+    echo "  ❌ $name ($url)"
+    failed=1
+    return
+  fi
+  if echo "$out" | grep -q "\"$key\""; then
+    echo "  ✅ $name"
+  else
+    echo "  ❌ $name (réponse invalide)"
+    failed=1
+  fi
+}
+
 # Réessaie jusqu'à 3 fois (pour laisser le temps au gateway / backends au démarrage)
 check_json_retry() {
   local name="$1"
@@ -108,7 +128,6 @@ check "Dashboard" "http://localhost:${PORT_DASHBOARD}/"
 # Via API Gateway (proxy) — avec retry pour /auth et /pass (démarrage possiblement décalé)
 check_json "Gateway → health JSON" "http://localhost:${PORT_GATEWAY}/health" "status"
 check_json_retry "Gateway → /auth/health" "http://localhost:${PORT_GATEWAY}/auth/health" "status"
-check_json "Gateway → /admin/stats" "http://localhost:${PORT_GATEWAY}/admin/stats" "active_tenants"
 check_json_retry "Gateway → /pass/health" "http://localhost:${PORT_GATEWAY}/pass/health" "status"
 check_json_retry "Gateway → /mail/health" "http://localhost:${PORT_GATEWAY}/mail/health" "status"
 
@@ -120,6 +139,8 @@ check_http_any "Gateway → POST /auth/login (invalid) → 401 ou 400" "POST" "h
 check_http "Gateway → GET /auth/validate (no token) → 401" "GET" "http://localhost:${PORT_GATEWAY}/auth/validate" "401"
 
 # Optionnel : login avec compte démo (si seed-admin a été lancé)
+E2E_DASHBOARD_ORIGIN="${E2E_DASHBOARD_ORIGIN:-http://localhost:${PORT_DASHBOARD}}"
+E2E_ADMIN_ACCESS_TOKEN=""
 demo_login() {
   local out
   out=$(curl -sf -w "\n%{http_code}" -X POST "http://localhost:${PORT_GATEWAY}/auth/login" \
@@ -129,12 +150,21 @@ demo_login() {
   code=$(echo "$out" | tail -n1)
   if [ "$code" = "200" ]; then
     echo "  ✅ Gateway → POST /auth/login (démo) → 200"
+    E2E_ADMIN_ACCESS_TOKEN="$(printf '%s' "$out" | sed '$d' | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)"
   else
     echo "  ⏭️  Gateway → POST /auth/login (démo) → skip (compte absent ? make seed-admin)"
   fi
 }
 demo_login
 
+if [ -n "$E2E_ADMIN_ACCESS_TOKEN" ]; then
+  check_json_headers "Gateway → /admin/stats (JWT+Origin)" \
+    "http://localhost:${PORT_GATEWAY}/admin/stats" "active_tenants" \
+    -H "Origin: ${E2E_DASHBOARD_ORIGIN}" \
+    -H "Authorization: Bearer ${E2E_ADMIN_ACCESS_TOKEN}"
+else
+  echo "  ⏭️  Gateway → /admin/stats → skip (pas de JWT admin — lancer make seed-admin)"
+fi
 if [ $failed -eq 1 ]; then
   echo ""
   echo "💡 Assurez-vous que la stack est up : make up"

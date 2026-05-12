@@ -148,12 +148,68 @@ func TestAuthPrefixRouted(t *testing.T) {
 }
 
 func TestAdminPrefixRouted(t *testing.T) {
+	rsaPriv, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign admin jwt: %v", err)
+	}
+	_ = rsaPriv
+
 	handler := NewHandler()
 	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Origin", "http://localhost:6001")
+	req.Header.Set("Authorization", "Bearer "+signed)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	if w.Code == http.StatusNotFound {
 		t.Errorf("GET /admin/tenants: got 404, route /admin/* should be registered")
+	}
+}
+
+func TestAdminAPI_RejectsDisallowedOrigin(t *testing.T) {
+	_, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Origin", "https://evil.example")
+	req.Header.Set("Authorization", "Bearer "+signed)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("got %d, want 403 forbidden origin", w.Code)
+	}
+}
+
+func TestAdminAPI_RequiresOriginEvenWithValidJWT(t *testing.T) {
+	_, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("missing Origin: got %d, want 403", w.Code)
 	}
 }
 

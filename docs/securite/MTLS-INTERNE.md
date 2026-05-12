@@ -1,6 +1,6 @@
-# mTLS interne — défense en profondeur entre microservices Cloudity
+# mTLS interne — Zero Trust **cible** entre microservices Cloudity
 
-> **Rôle** : plan d’**activation progressive** du mTLS entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 5 (Zero Trust). État actuel : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit admin : **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)**. Cible **post-quantique** : **[STATUS.md](../../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
+> **Rôle** : décrire la **topologie cible** (Zero Trust) entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 5. État actuel : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit transverse : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)**. Cible **post-quantique** : **[STATUS.md](../../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
 
 **Pourquoi avant le PQ** : le mTLS classique est un **prérequis**. On stabilise la **PKI interne**, la **rotation**, l’**audit** et les **patterns de code** d’abord ; on bascule en **certs hybrides ML-DSA + ECDSA** ensuite, quand la chaîne (`crypto/x509`, `tls`, `step-ca`, OpenSSL) supporte les algos PQ.
 
@@ -14,7 +14,7 @@
 | `api-gateway` ↔ services | HTTP plain | `backend/api-gateway/main.go` |
 | Postgres | DSN `sslmode=disable` | `docker-compose.yml` |
 | Redis | mot de passe seul, pas de TLS | `docker-compose.yml` |
-| `admin-service` | derrière la gateway, **ne revalide pas systématiquement le JWT** | `AUDIT-SECURITE-ADMIN-API.md` § 3 |
+| `admin-service` | derrière la gateway, **ne revalide pas systématiquement le JWT** | `AUDIT-SECURITE.md` § 3 |
 
 **Conséquence** : un attaquant qui pivote sur le réseau Docker peut **lire** ou **rejouer** des appels internes ; le seul rempart est l’isolation Docker. **Insuffisant** dès qu’on ouvre l’infra à plusieurs hôtes / Kubernetes / cloud.
 
@@ -24,10 +24,10 @@
 
 | Lien | Authentification | Confidentialité | Identité de workload |
 |------|------------------|------------------|----------------------|
-| **Browser ↔ gateway** | JWT (RS256, palier Ed25519, cible ML-DSA hybride) | TLS 1.3 (cible hybride `X25519MLKEM768`) | utilisateur final |
+| **Browser ↔ gateway** | **JWT** EdDSA (cible **ML-DSA hybride**) | **TLS 1.3** + **`X25519MLKEM768`** (hybride post-quantique) | utilisateur final |
 | **Gateway ↔ service** | **mTLS** (cert client + cert serveur) + JWT pour la **scope/identité utilisateur** | **TLS 1.3** | **SPIFFE-like** : `spiffe://cloudity.local/ns/default/sa/<service>` |
 | **Service ↔ service** | mTLS (sans JWT s’il s’agit d’une action **machine**, sinon JWT propagé) | TLS 1.3 | idem |
-| **Service ↔ Postgres** | TLS + (optionnel) cert client (`sslmode=verify-full`) | TLS | utilisateur DB par service |
+| **Service ↔ Postgres** | **TLS + cert client** (`sslmode=verify-full`) | **TLS** | **utilisateur DB par service** (`auth_app`, `pass_app`, …) |
 | **Service ↔ Redis** | TLS + AUTH | TLS | utilisateur ACL (Redis 6+) |
 
 **Principe** : le **JWT** parle de l’**utilisateur** ; le **certificat** parle du **workload**. Les deux sont vérifiés séparément à chaque hop.
@@ -249,7 +249,7 @@ func InternalHTTPClient(certPath, keyPath, caPath string) (*http.Client, error) 
 }
 ```
 
-> Convention : la **gateway** propage `Authorization: Bearer <jwt>` ET monte un cert client. Le service downstream **vérifie** d’abord le **cert** (workload) puis **revalide** le **JWT** (utilisateur). C’est la défense en profondeur réclamée dans `AUDIT-SECURITE-ADMIN-API.md` § 3.
+> Convention : la **gateway** propage `Authorization: Bearer <jwt>` ET monte un cert client. Le service downstream **vérifie** d’abord le **cert** (workload) puis **revalide** le **JWT** (utilisateur). C’est la défense en profondeur réclamée dans `AUDIT-SECURITE.md` § 3.
 
 ### 4.3 Vérification d’identité workload côté serveur
 
@@ -294,7 +294,7 @@ allowed := map[string]bool{
 | **5. Mode `strict` côté serveurs** | 1 jour, prévu en heure creuse | bascule `MTLS_MODE=strict` partout ; rollback = `permissive`. | aucun 5xx hors fenêtre attendue. |
 | **6. Postgres TLS** | 1 sprint | `sslmode=verify-full`, certs client par service ; `pg_hba.conf` durci. | logs `ssl on` côté Postgres pour 100 % des conns. |
 | **7. Redis TLS** | 1 sprint | Redis 7 `tls-port 6379`, ACL par service. | tous les services connectés en `rediss://`. |
-| **8. Admin-service revalide JWT** | 0,5 sprint | middleware Python qui vérifie la signature avec la clé publique JWT (montée en volume), ferme la dette `AUDIT-SECURITE-ADMIN-API.md` § 3. | tests `make test-security` couvrent un JWT fabriqué côté gateway compromis. |
+| **8. Admin-service revalide JWT** | 0,5 sprint | middleware Python qui vérifie la signature avec la clé publique JWT (montée en volume), ferme la dette `AUDIT-SECURITE.md` § 3. | tests `make test-security` couvrent un JWT fabriqué côté gateway compromis. |
 | **9. Bascule PQ-hybride** | quand la PKI tient (≥ 1 trimestre stable) | activer émission de certs **ML-DSA + ECDSA** ; `tls.Config` reste compatible (sigschemes). | handshake hybride observé sur 100 % des liens internes. |
 
 ---
@@ -337,7 +337,7 @@ allowed := map[string]bool{
 ## 9. Liens
 
 - **[SECURITE.md](SECURITE.md)** § 5 (Zero Trust) et § 8 (post-quantique).  
-- **[AUDIT-SECURITE-ADMIN-API.md](AUDIT-SECURITE-ADMIN-API.md)** § 3 (dette admin-service).  
+- **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** § 3 (dette admin-service).  
 - **[STATUS.md](../../STATUS.md)** § 2.3 (cible chiffrement, ligne mTLS interne).  
 - **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (à créer) — couche externe : TLS 1.3, HSTS, CSP, hybride PQ.  
 - `README.md` (racine) — sketch historique d’un `SetupMTLS()` à remplacer par `internalsec` documenté ici.

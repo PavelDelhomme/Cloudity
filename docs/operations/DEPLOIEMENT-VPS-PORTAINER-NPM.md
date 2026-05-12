@@ -335,7 +335,7 @@ Reproduire ce gabarit pour `cloudity-drive`, `cloudity-photos`, `cloudity-pass`,
 |----------|-----------------------|------|-----|-----------|
 | `api.cloudity.delhomme.ovh` | `cloudity-api-gateway` | `8000` | Let's Encrypt + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
 | `app.cloudity.delhomme.ovh` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si nginx pur. |
-| `admin.cloudity.delhomme.ovh` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Idéal : **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[../securite/AUDIT-SECURITE-ADMIN-API.md](../securite/AUDIT-SECURITE-ADMIN-API.md)** + **[../securite/WEBAUTHN-PLAN.md](../securite/WEBAUTHN-PLAN.md)**). |
+| `admin.cloudity.delhomme.ovh` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Idéal : **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** + **[../securite/WEBAUTHN-PLAN.md](../securite/WEBAUTHN-PLAN.md)**). |
 
 **Custom locations / advanced** (NPM → onglet "Advanced") — durcissement supplémentaire si NPM le permet :
 
@@ -445,7 +445,7 @@ Le jour J (homelab H1 livré) :
 |-------|----------|
 | Découpage stacks, registry, GHA | **[../architecture/MULTI-REPO-LAYOUT.md](../architecture/MULTI-REPO-LAYOUT.md)** § 8 |
 | TLS 1.3, HSTS, CSP, HTTP/3, hybride PQ | **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)** + **[../securite/CRYPTO-NORME.md](../securite/CRYPTO-NORME.md)** |
-| Audit `/4dm1n` (ACL IP + 2FA) | **[../securite/AUDIT-SECURITE-ADMIN-API.md](../securite/AUDIT-SECURITE-ADMIN-API.md)** |
+| Audit `/4dm1n` (ACL IP + 2FA) | **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** |
 | Backup offsite (RPi) | **[../architecture/BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)** |
 | Homelab bloquant prod (Q15) | **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** |
 | Décisions Q7 / Q15 / Q18–Q19 / Q21–Q24 | **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** |
