@@ -4,7 +4,7 @@ Client **Photos** pour la timeline **`GET /photos/timeline`** derrière l’**ap
 
 ## Prérequis
 
-- Stack Cloudity sur la machine : **`make up`** (gateway **6080**). Compte démo : **`make seed-admin`** → `admin@cloudity.local` / `Admin123!` (tenant **1**).
+- Stack Cloudity sur la machine : **`make up`** (gateway **6080**). Compte démo : **`make seed-admin`** → `admin@cloudity.local` (tenant **1**). Mot de passe défini par la cible Make — voir `Makefile` / `scripts/db/seed-admin.sh`.
 - **Flutter** installé ([guide officiel](https://docs.flutter.dev/get-started/install)).
 
 ## Lancer l’app

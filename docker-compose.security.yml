@@ -35,6 +35,39 @@ services:
     networks:
       - cloudity-network
 
+  # Sidecar de rotation des certs internes (cert-renewer).
+  # Boucle infinie qui appelle `step ca renew` sur chaque cert présent dans
+  # infrastructure/step-ca/issued/<svc>/. Renouvelle quand il reste ≤ 6 h
+  # de validité ; intervalle de scan = 10 min.
+  #
+  # Activation : démarré automatiquement avec la couche security (`make
+  # mtls-up`). Arrêt avec `make mtls-down`. Fonctionne sans secrets sur
+  # disque : `step ca renew` s'authentifie avec le cert+clé existants.
+  #
+  # Voir docs/securite/MTLS-INTERNE.md § Rotation.
+  cert-renewer:
+    image: smallstep/step-ca:latest
+    container_name: cloudity-cert-renewer
+    restart: unless-stopped
+    depends_on:
+      step-ca:
+        condition: service_healthy
+    environment:
+      STEP_CA_URL: "https://step-ca:9000"
+      CERT_RENEW_INTERVAL: "600"
+      CERT_EXPIRES_IN: "6h"
+    volumes:
+      - ./infrastructure/step-ca/issued:/certs/issued
+      - ./infrastructure/step-ca/cert-renewer/renew-loop.sh:/usr/local/bin/renew-loop.sh:ro
+    entrypoint: ["/bin/sh", "/usr/local/bin/renew-loop.sh"]
+    user: "0:0"  # accès aux fichiers chown postgres/redis (uid 70 / 999)
+    # Désactive le healthcheck hérité de l'image step-ca (pas de serveur CA local).
+    # La supervision se fait via les logs (`make cert-renewer-status`).
+    healthcheck:
+      disable: true
+    networks:
+      - cloudity-network
+
 volumes:
   step_ca_data:
     driver: local

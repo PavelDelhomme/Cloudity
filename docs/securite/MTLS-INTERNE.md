@@ -123,14 +123,14 @@ Les certs sont écrits dans **`infrastructure/step-ca/issued/<service>/`** :
 
 **SANs** posés par défaut : `<service>`, `localhost`, `spiffe://cloudity.local/ns/default/sa/<service>` — alignés avec `internalsec.PeerSPIFFEID` / `RequireServiceCallerHTTP`.
 
-**Statut Cloudity 2026-05-12** : PoC vérifié en local ; cert / chaîne / SAN SPIFFE OK. **Reste à câbler** sur un service réel (ex. `api-gateway` → `admin-service` en strict). Cf. § 5 plan de migration.
+**Statut Cloudity 2026-05-12** : PoC vérifié en local + **sidecar `cert-renewer` opérationnel** (renew effectif validé sur les 4 certs `api-gateway`, `auth-service`, `postgres`, `redis`). **Gateway → admin-service en `permissive`** câblé via `internalsec.InternalRoundTripper`. Cf. § 5 plan de migration vers strict (séquence : auth-service → mail-directory → autres).
 
 ### 3.4 Workflow d’émission
 
 | Étape | Outil | Détail |
 |-------|-------|--------|
 | **Boot service** | `step-cli` (ou client ACME Go) | demande un cert avec **provisioner JWT** scopé au nom du service. |
-| **Renew** | sidecar **[`scripts/security/step-renew.sh`](../../scripts/security/step-renew.sh)** | bootstrap + boucle `step ca renew --force --expires-in $RENEW_AT`, renew **avant 1/3 de TTL** (par défaut 8 h sur des certs 24 h). |
+| **Renew** | sidecar **[`infrastructure/step-ca/cert-renewer/renew-loop.sh`](../../infrastructure/step-ca/cert-renewer/renew-loop.sh)** (service `cert-renewer` dans `docker-compose.security.yml`) | boucle `step ca renew --expires-in 6h` toutes les 10 min sur tous les certs présents dans `infrastructure/step-ca/issued/<svc>/`. Renouvelle avant les **6 dernières heures** (= avant 1/4 du TTL 24 h dev). Aucun mot de passe CA nécessaire : `step ca renew` s'authentifie avec le cert+clé existants. |
 | **Stockage cert** | tmpfs (`/run/step/<service>/`) | jamais sur volume persistant. |
 | **Reload TLS** | `tls.Config.GetCertificate` lit le fichier à chaque handshake (cf. `internalsec.ServerTLS` qui utilise un `atomic.Pointer[tls.Certificate]`) | pas de redémarrage. |
 
