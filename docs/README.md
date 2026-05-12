@@ -48,6 +48,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 |---------|------|
 | **[produit/VISION-SUITE.md](produit/VISION-SUITE.md)** | Ordre produit long terme (couches P0–P7, phases A–F). |
 | **[produit/ROADMAP.md](produit/ROADMAP.md)** | Fiches par application + transversal (sécurité, infra, API, monorepo) ; template nouvelle app. |
+| **[produit/SPRINT-PASS-2026-05.md](produit/SPRINT-PASS-2026-05.md)** | **Sprint urgence Pass** (~20 mai 2026) : état des lieux, L1/L2/L3, gel scission multi-repo, jalons migration Proton Pass. |
 | **[produit/MOBILES.md](produit/MOBILES.md)** | §0 *web puis mobile* ; matrice web vs mobile par produit ; admin mobile (ADM-02). |
 | **[produit/PHOTOS.md](produit/PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie. |
 | **[produit/SYNC-BACKLOG.md](produit/SYNC-BACKLOG.md)** | Sync Mail/Drive/Calendar/…, `make run-mobile`, session longue, archivage mail serveur. |
@@ -88,4 +89,4 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
   3. ligne dans **[../BACKLOG.md](../BACKLOG.md)** quand c’est en cours / livré.
 - **Toute décision** demandée par moi (questionnaire) : tu réponds dans **`docs/decisions/<sujet>/REPONSES.md`**, je continue le travail à partir de là.
 
-*Index mis à jour : 2026-05-12 — ajout `securite/SECRETS.md` (politique secrets, `make secrets`, gitleaks).*
+*Index mis à jour : 2026-05-13 — ajout **produit/SPRINT-PASS-2026-05.md** (sprint Pass + gel multi-repo).*

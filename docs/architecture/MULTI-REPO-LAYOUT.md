@@ -1,5 +1,7 @@
 # Cloudity — découpage multi-repos GitHub (plan d’architecture)
 
+> **Gel calendrier (2026-05-13)** : la **scission effective** des dépôts GitHub est **reportée** le temps du **sprint Pass** (migration Proton ~20 mai). Le monorepo actuel reste **canonique** ; ce document reste la **vision** et la **checklist** pour plus tard. Voir **[../produit/SPRINT-PASS-2026-05.md](../produit/SPRINT-PASS-2026-05.md)** et **[../../BACKLOG.md](../../BACKLOG.md)** § *Architecture multi-repos*.
+
 **Rôle** : décrire **comment** transformer Cloudity (monorepo unique aujourd’hui) en **suite de dépôts GitHub indépendants** réunis sous un **dépôt parent** (« meta-repo »), tout en gardant :
 
 1. la **réutilisabilité** de design (composants UI, helpers HTTP, types API) ;

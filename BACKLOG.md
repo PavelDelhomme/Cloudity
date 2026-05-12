@@ -8,6 +8,32 @@
 
 ---
 
+## Sprint d’urgence Pass — **deadline ~2026-05-20** (migration Proton Pass)
+
+**Contexte** : fin d’abonnement payant Proton (~25 mai 2026) — cible interne **20 mai** pour un **MVP Pass utilisable** (web + crypto client + import + TOTP item + 2FA compte Cloudity). **Extension navigateur** et **mobile Flutter Pass** viennent **après** le socle web si le calendrier serre.
+
+**Décision 2026-05-13** : **gel de la scission multi-repo GitHub** — le monorepo reste la source de vérité jusqu’à fin du sprint (pas de extraction de dépôts ni de submodules tant que L1 Pass n’est pas vert).
+
+**Fiche détaillée** (état des lieux, L1/L2/L3, jalons jour par jour, critères d’acceptation) : **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)**.
+
+### L1 — bloquant avant migration
+
+- [ ] Package **`frontend/packages/pass-crypto`** — `EnvelopeV1` (cf. **PASS-CRYPTO.md**) ; tests round-trip + anti-tampering.
+- [ ] **Pass web** — déverrouillage maître, CRUD login, générateur, copie presse-papiers, recherche locale.
+- [ ] **Import** export Proton Pass **JSON en clair** (parser + chiffrement client + `POST /pass/vaults/:id/items`).
+- [ ] **TOTP dans l’item** (secrets 2FA des sites tiers — parité Proton).
+- [ ] **2FA compte Cloudity** — aujourd’hui : API `POST /auth/2fa/enable` + `POST /auth/2fa/verify` ✅ mais **login web non branché** (`LoginPage` affiche encore « 2FA non gérée ») ; **codes de récupération** absents côté DB → à ajouter.
+
+### L2 — si marge avant le 20 mai
+
+- [ ] **Extension navigateur** Chrome **MV3** (popup + autofill minimal) ; Firefox ensuite.
+
+### L3 — après le 20 mai ou en parallèle ressource double
+
+- [ ] **`mobile/pass`** Flutter (vault déverrouillé, biométrie session courte).
+
+---
+
 ## Démarrage rapide (ordre recommandé)
 
 | Étape | Action |
@@ -31,15 +57,15 @@
 
 | # | Sujet | Détail / lien |
 |---|--------|----------------|
+| **0** | **Pass (sprint ~20 mai)** | **Priorité absolue** — **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** + **BACKLOG** § sprint ; **ROADMAP APP-04** |
 | 1 | **Photos** | API timeline, galerie web, **mobile/photos**, sync sobre — **docs/produit/PHOTOS.md** |
 | 2 | **Mail** | Dossiers IMAP §0b SYNC-BACKLOG (dont **logs** probes / gateway), recherche §9, PJ, archivage §1 |
-| 3 | **Pass** | Style Proton, alias — **ROADMAP APP-04** |
-| 4 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
-| 5 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
-| 6 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** workspaces ✅ ; **A2/A3** `cloudityCore.ts` ; **A3.1** Mail dossiers / IMAP+BDD ; **A4–A10**) |
-| 7 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
-| 8 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
-| 9 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
+| 3 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
+| 4 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
+| 5 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** workspaces ✅ ; **A2/A3** `cloudityCore.ts` ; **A3.1** Mail dossiers / IMAP+BDD ; **A4–A10**) |
+| 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
+| 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
+| 8 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
 
 ### Suite « Google + Proton » (rappel)
 
@@ -47,9 +73,11 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ---
 
-## Architecture multi-repos GitHub (à trancher)
+## Architecture multi-repos GitHub (**gelée depuis 2026-05-13**)
 
-Cible discutée : casser le monorepo en **dépôts GitHub indépendants** (un par service / app / lib partagée) regroupés sous un **meta-repo** `cloudity` qui garde `docker-compose.yml`, `infrastructure/`, docs transverses, E2E.
+**Statut** : la **scission en plusieurs dépôts GitHub** est **mise en pause** le temps du **sprint Pass** (échéance ~20 mai 2026). Le **monorepo actuel** reste canonique ; les travaux Phase 0 (versionnage libs, `check-versioning`, GHCR, NPM) **continuent** dans ce dépôt. Reprise du split **après** critères verts dans **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 5.
+
+Cible historique (inchangée sur le fond) : casser le monorepo en **dépôts GitHub indépendants** (un par service / app / lib partagée) regroupés sous un **meta-repo** `cloudity` qui garde `docker-compose.yml`, `infrastructure/`, docs transverses, E2E.
 
 **Plan détaillé** : **[docs/architecture/MULTI-REPO-LAYOUT.md](docs/architecture/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
 
