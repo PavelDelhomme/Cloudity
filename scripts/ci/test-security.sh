@@ -155,6 +155,27 @@ else
   fi
 fi
 
+# --- check-versioning : libs partagées (Phase 0) ---
+# Cf. docs/architecture/VERSIONNAGE-LIBS.md § 6. Mode WARNING par défaut ;
+# CHECK_VERSIONING_BLOCKING=1 fait fail le build si une lib a changé sans
+# bump CHANGELOG / version.
+CHECK_VERSIONING_BLOCKING_LOCAL="${CHECK_VERSIONING_BLOCKING:-0}"
+CHECK_VERSIONING_LOG="$ROOT/reports/security-check-versioning.txt"
+echo ""
+echo "  [check-versioning] libs partagées (mode $([ "$CHECK_VERSIONING_BLOCKING_LOCAL" = "1" ] && echo BLOCKING || echo WARNING))..."
+if CHECK_VERSIONING_BLOCKING="$CHECK_VERSIONING_BLOCKING_LOCAL" \
+   "$ROOT/scripts/ci/check-versioning.sh" >"$CHECK_VERSIONING_LOG" 2>&1; then
+  echo "  ✅ check-versioning : OK (détail : $CHECK_VERSIONING_LOG)"
+else
+  if [ "$CHECK_VERSIONING_BLOCKING_LOCAL" = "1" ]; then
+    echo "  ❌ check-versioning : oubli de bump détecté — détail : $CHECK_VERSIONING_LOG (BLOCKING)"
+    failed=1
+  else
+    echo "  ⚠️  check-versioning : oubli de bump détecté — détail : $CHECK_VERSIONING_LOG (warning, set CHECK_VERSIONING_BLOCKING=1 pour fail)"
+    warnings=1
+  fi
+fi
+
 # --- Checks auth (si la stack répond) ---
 echo ""
 echo "  [auth] GET /auth/validate sans token → 401..."

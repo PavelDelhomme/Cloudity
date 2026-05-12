@@ -130,14 +130,35 @@ Après les étapes 1–4 ci-dessus, exécuter le workflow de § 4 selon la lib.
 
 ---
 
-## 6. Vérifications CI à terme
+## 6. Vérifications CI — `scripts/ci/check-versioning.sh`
 
-> À mettre en place dans **`scripts/ci/check-versioning.sh`** (todo backlog) :
+**Livré (2026-05-12)** : `scripts/ci/check-versioning.sh` couvre exactement ces 4 libs.
 
-- `pkg/dbpin` : si fichiers du module modifiés et `CHANGELOG.md` non touché → fail CI.
-- `internalsec` : idem (fichier `VERSION` doit changer si `*.go` modifié dans le module).
-- `cloudity-shared` (TS) : `package.json#version` doit changer si fichiers `src/` modifiés.
-- `cloudity_shared` (Dart) : `pubspec.yaml#version` doit changer si fichiers `lib/` modifiés.
+Comportement :
+
+| Lib | Fichiers source surveillés | Fichier de version | CHANGELOG |
+|-----|----------------------------|--------------------|-----------|
+| `internalsec` | `backend/internalsec/*.go` | `backend/internalsec/VERSION` | `backend/internalsec/CHANGELOG.md` |
+| `pkg/dbpin` | `backend/pkg/dbpin/*.go` | *(tag Git futur — pas de fichier dédié)* | `backend/pkg/dbpin/CHANGELOG.md` |
+| `@cloudity/shared` (TS) | `frontend/packages/cloudity-shared/src/**` | `frontend/packages/cloudity-shared/package.json` (champ `version`) | `frontend/packages/cloudity-shared/CHANGELOG.md` |
+| `cloudity_shared` (Dart) | `mobile/cloudity_shared/lib/**` | `mobile/cloudity_shared/pubspec.yaml` (champ `version:`) | `mobile/cloudity_shared/CHANGELOG.md` |
+
+Le script unionne 3 sources de diff (`merge-base...HEAD` + index `--cached` + working tree) pour fonctionner aussi bien en CI qu'en local avant `git add`.
+
+Modes :
+
+- **WARNING** (par défaut, local) : exit 0, message `⚠️` listant les libs sans bump.
+- **BLOCKING** : `CHECK_VERSIONING_BLOCKING=1 ./scripts/ci/check-versioning.sh` → exit 1 sur oubli (à brancher en CI / pre-push).
+
+Variables :
+
+- `BASE_REF` : ref de comparaison (défaut : `origin/main` → `origin/master` → `main` → `master` → `HEAD~1`).
+- `CHECK_VERSIONING_VERBOSE=1` : liste les fichiers modifiés par lib.
+
+Cibles Make :
+
+- **`make check-versioning`** : lance le script en mode warning.
+- **`make test-security`** : intègre le check (mode WARNING ; `CHECK_VERSIONING_BLOCKING=1` propagé si exporté).
 
 ---
 

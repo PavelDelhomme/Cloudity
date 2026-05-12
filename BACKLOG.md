@@ -78,7 +78,7 @@ Décisions actées (résumé exécutable) :
 - [ ] **Phase 0 / pkg/dbpin — étape 3 (propagation)** : appliquer la même bascule à `photos-service`, `contacts-service`, `notes-service`, `calendar-service`, `tasks-service`. **Suppression** des 6 `dbpin.go` locaux historiques en bout de chaîne.
 - [x] **Phase 0 / versionnage v0.1.0** : `internalsec` (`VERSION` + `CHANGELOG.md`), `pkg/dbpin` (`CHANGELOG.md`), `@cloudity/shared` (`package.json` + `CHANGELOG.md`), `cloudity_shared` Dart (`pubspec.yaml` + `CHANGELOG.md`) + doc cadre **[docs/architecture/VERSIONNAGE-LIBS.md](docs/architecture/VERSIONNAGE-LIBS.md)**. **Tags Git non poussés** tant que l'org GitHub publique n'est pas fixée (cf. Q4=B).
 - [ ] **Phase 0 / contrats** : esquisser **`docs/cloudity-api-contracts/`** (OpenAPI par service — gateway, mail, drive, pass, calendar, contacts, notes, tasks, photos, admin).
-- [ ] **CI** : script `scripts/ci/check-versioning.sh` qui fail si un fichier de lib modifié sans bump CHANGELOG/version (cf. VERSIONNAGE-LIBS § 6).
+- [x] **CI** — `scripts/ci/check-versioning.sh` (Phase 0) : couvre `internalsec` / `pkg/dbpin` / `@cloudity/shared` / `cloudity_shared` (Dart). Union diff `merge-base...HEAD` + index + working tree. Mode WARNING par défaut, `CHECK_VERSIONING_BLOCKING=1` pour fail. Cible **`make check-versioning`** + intégration **`make test-security`** (rapport `reports/security-check-versioning.txt`). Doc **[docs/architecture/VERSIONNAGE-LIBS.md § 6](docs/architecture/VERSIONNAGE-LIBS.md)**.
 
 À faire (Phase ultérieure) :
 

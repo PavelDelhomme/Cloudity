@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -554,6 +554,10 @@ mtls-issue-admin: ## Émet le cert mTLS pour gateway + admin-service (DNS:admin-
 
 mtls-issue-auth: ## Émet le cert mTLS pour auth-service (DNS:auth-service,localhost). TTL 24 h.
 	@$(MAKE) mtls-issue NAME=auth-service TTL=$${TTL:-24h}
+
+check-versioning: ## Vérifie qu'aucune lib partagée n'a changé sans bump (warning par défaut, CHECK_VERSIONING_BLOCKING=1 pour fail).
+	@chmod +x scripts/ci/check-versioning.sh
+	@./scripts/ci/check-versioning.sh
 
 cert-renewer-status: ## Affiche le statut + 30 dernières lignes de log du sidecar de rotation.
 	@$(COMPOSE_SECURITY) ps cert-renewer 2>/dev/null || echo "❌ sidecar absent — make mtls-up d'abord"
