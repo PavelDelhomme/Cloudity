@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status secrets secrets-print secrets-scan secrets-scan-staged dev-https
+.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -535,6 +535,12 @@ mtls-verify: ## Vérifie un cert émis. Args : NAME=<service>
 	  echo "📜 Validité:"; openssl x509 -in $$D/cert.pem -noout -dates; \
 	  echo "🔍 Vérification chaîne (root → cert) :"; openssl verify -CAfile $$D/ca.pem $$D/cert.pem
 
+mtls-issue-postgres: ## Émet le cert serveur Postgres (DNS:postgres,DNS:localhost). Pré-requis : mtls-up + seed-mtls
+	@$(MAKE) mtls-issue NAME=postgres TTL=$${TTL:-720h}
+
+mtls-issue-redis: ## Émet le cert serveur Redis (DNS:redis,DNS:localhost). Pré-requis : mtls-up + seed-mtls
+	@$(MAKE) mtls-issue NAME=redis TTL=$${TTL:-720h}
+
 mtls-poc: mtls-up seed-mtls ## Smoke complet : step-ca + 2 certs (api-gateway + auth-service) + vérif
 	@echo ""
 	@echo "🔬 Émission cert api-gateway..."
@@ -564,6 +570,55 @@ preprod-up: ## Démarre la stack + Caddy (https://app.cloudity.local, https://ap
 	  || echo "ℹ️  Ajouter à /etc/hosts :  127.0.0.1  app.cloudity.local  api.cloudity.local"
 	@$(COMPOSE_PREPROD) up -d
 	@echo "✅ Pré-prod up. Tester : curl -kI https://app.cloudity.local | grep -iE 'strict-transport|content-security'"
+
+up-tls: up preprod-up ## **HTTPS par défaut** : stack + Caddy edge TLS 1.3 (HSTS, CSP, hybride PQ quand dispo)
+	@echo ""
+	@echo "🔒 Cloudity en HTTPS-first :"
+	@echo "   • App   : https://app.cloudity.local  (cert TLS interne Caddy)"
+	@echo "   • API   : https://api.cloudity.local  (cert TLS interne Caddy)"
+	@echo "   • SI navigateur warning → accepter le cert local OU faire :"
+	@echo "       sudo cp infrastructure/reverse-proxy/local-root.crt /usr/local/share/ca-certificates/cloudity.crt"
+	@echo "       sudo update-ca-certificates"
+	@echo ""
+	@echo "ℹ️  Le mode HTTP localhost:6001/6080 reste accessible pour debug ; à terme"
+	@echo "    voir docs/securite/AUDIT-SECURITE.md § HTTPS partout."
+
+up-https: up-tls ## Alias de up-tls (HTTPS edge par défaut)
+	@true
+
+up-https-internal: ## **HTTPS partout** : edge Caddy + Postgres TLS + Redis TLS (step-ca). Pré-requis : mtls-up + seed-mtls.
+	@if ! docker ps --format '{{.Names}}' | grep -q '^cloudity-step-ca$$'; then \
+	  echo "❌ step-ca non démarrée. Lance d'abord : make mtls-up && make seed-mtls"; exit 1; \
+	fi
+	@if [ ! -f infrastructure/step-ca/issued/postgres/cert.pem ]; then \
+	  echo "🔬 Émission cert Postgres..."; $(MAKE) mtls-issue-postgres; \
+	fi
+	@if [ ! -f infrastructure/step-ca/issued/redis/cert.pem ]; then \
+	  echo "🔬 Émission cert Redis..."; $(MAKE) mtls-issue-redis; \
+	fi
+	@chmod 644 infrastructure/step-ca/issued/postgres/key.pem infrastructure/step-ca/issued/redis/key.pem 2>/dev/null || true
+	@$(COMPOSE) $(COMPOSE_FILES) -f docker-compose.https.yml up -d
+	@$(MAKE) preprod-up
+	@echo ""
+	@echo "🔒 Cloudity en HTTPS partout (edge + Postgres TLS + Redis TLS) :"
+	@echo "   • Edge   : https://app.cloudity.local + https://api.cloudity.local"
+	@echo "   • DSN    : postgresql://...@postgres:5432/...?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+	@echo "   • Cache  : rediss://:...@redis:6379/0?ca=/run/step/ca.pem"
+	@echo "   • Vérif  : make https-status"
+
+https-status: ## Vérifie l'activation TLS des couches (edge, postgres, redis)
+	@echo "=== Edge Caddy ==="
+	@curl -kI https://app.cloudity.local 2>/dev/null \
+	  | grep -iE 'http/|strict-transport|content-security' \
+	  || echo "ℹ️  Caddy ne répond pas (make up-tls)."
+	@echo ""
+	@echo "=== Postgres TLS ==="
+	@docker exec -t cloudity-postgres psql -U cloudity_admin -d cloudity -c "SHOW ssl;" 2>&1 | tail -n 5 \
+	  || echo "ℹ️  Postgres injoignable (make up-https-internal)."
+	@echo ""
+	@echo "=== Redis TLS ==="
+	@docker exec -t cloudity-redis redis-cli --tls --cert /run/step/cert.pem --key /run/step/key.pem --cacert /run/step/ca.pem -a "$$REDIS_PASSWORD" PING 2>&1 | tail -n 3 \
+	  || echo "ℹ️  Redis injoignable (make up-https-internal)."
 
 preprod-down: ## Arrête uniquement Caddy (le reste de la stack continue)
 	@$(COMPOSE_PREPROD) stop caddy

@@ -135,6 +135,59 @@ Sous `/admin/*` via gateway, il est fréquent d’observer surtout :
 
 ---
 
+## 6 bis. **HTTPS partout** — état réel + plan de bascule
+
+> **Cible** (Q26 / SECURITE.md § 2 + § 5) : tout flux Cloudity, **interne comme externe**, en TLS 1.3. Plus de canal HTTP plain à terme.
+
+### 6 bis.1 État au 2026-05-12
+
+| Lien | Aujourd'hui | Cible | Cible (court terme) |
+|------|-------------|-------|---------------------|
+| Browser → edge | HTTP `localhost:6001/6080` (dev) ; HTTPS via `make preprod-up` | TLS 1.3 + HSTS + CSP | **`make up-tls`** par défaut |
+| Browser → API | HTTP `localhost:6080` | HTTPS via Caddy | `make up-tls` |
+| Vite dev | HTTP (option `make dev-https`) | HTTPS via mkcert | docs `DEV-VERIFICATION.md` |
+| Gateway → 11 services | HTTP plain | mTLS strict step-ca | `MTLS_MODE=permissive` puis `strict` |
+| Postgres | `sslmode=disable` | `sslmode=verify-ca` puis `verify-full` | **`make up-https-internal`** |
+| Redis | requirepass plain | `rediss://` + AUTH | `make up-https-internal` |
+| Edge prod | NPM/Caddy + ACME | TLS 1.3 + hybride PQ `X25519MLKEM768` | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** |
+
+### 6 bis.2 Cibles Make livrées
+
+```bash
+make up-tls            # stack + Caddy edge — recommandé pour dev "production-like"
+make up-https-internal # ↑ + Postgres TLS + Redis TLS via step-ca (PoC fonctionnel)
+make https-status      # vérifie en-têtes Caddy + Postgres SHOW ssl + Redis PING tls
+make mtls-issue-postgres / mtls-issue-redis  # certs serveurs 720 h via step-ca
+```
+
+**Pré-requis HTTPS interne** : `make mtls-up && make seed-mtls` (PKI step-ca démarrée).
+
+### 6 bis.3 Pourquoi **pas encore** strict partout
+
+- Bascule **sans casser** : `MTLS_MODE=permissive` accepte HTTP entrant tant qu'un service legacy n'est pas migré.
+- Postgres `sslmode=verify-full` exige que le SAN du cert serveur **corresponde au DNS** de connexion (`postgres`). Le PoC actuel pose `DNS:postgres,DNS:localhost` → ✅ compatible. Bascule `verify-full` après surveillance d'une journée en `verify-ca`.
+- Redis 7 supporte `tls-port` mais le client `go-redis` doit recevoir `rediss://` dans l'URL — vérifier sur chaque service Go avant de passer en strict.
+
+### 6 bis.4 Vérifications manuelles HTTPS-first
+
+```bash
+# 1) Edge
+curl -kI https://app.cloudity.local | grep -iE 'http/|strict-transport|content-security'
+# attendu : HTTP/2 200 + Strict-Transport-Security max-age=31536000
+
+# 2) Postgres TLS (depuis l'hôte)
+docker exec -t cloudity-postgres psql -U cloudity_admin -d cloudity -c "SHOW ssl;"
+# attendu : ssl=on
+
+# 3) Redis TLS
+docker exec -t cloudity-redis redis-cli --tls --cacert /run/step/ca.pem -a "$REDIS_PASSWORD" PING
+# attendu : PONG
+```
+
+> **Tâche backlog** : faire passer `make up-tls` en **alias par défaut de `make up`** une fois que la stabilité HTTPS-first est validée sur 1 sprint complet (cf. **[BACKLOG.md](../../BACKLOG.md)** § Sécurité & infra).
+
+---
+
 ## 7. Vérifications manuelles rapides
 
 - `GET /admin/tenants` sans Bearer → **401** `authentication required for admin API`.

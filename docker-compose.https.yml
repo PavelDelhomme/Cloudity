@@ -1,0 +1,141 @@
+# HTTPS interne Cloudity : surcouche `docker-compose.yml` + step-ca.
+#
+# Ce override **ne casse rien** tant qu'on ne le charge pas explicitement :
+#   make up-https-internal     # active Postgres TLS + Redis TLS
+#
+# Pré-requis :
+#   make mtls-up               # step-ca démarrée
+#   make seed-mtls             # provisioner cloudity-jwt initialisé
+#   make mtls-issue-postgres   # cert serveur 'postgres' (DNS:postgres,DNS:localhost)
+#   make mtls-issue-redis      # cert serveur 'redis'
+#
+# Voir docs/securite/MTLS-INTERNE.md § PoC postgres/redis et
+# docs/securite/AUDIT-SECURITE.md § HTTPS partout.
+
+services:
+  postgres:
+    # Image officielle (alpine + openssl). On override la commande pour activer SSL.
+    command:
+      - "postgres"
+      - "-c"
+      - "ssl=on"
+      - "-c"
+      - "ssl_cert_file=/var/lib/postgresql/tls/cert.pem"
+      - "-c"
+      - "ssl_key_file=/var/lib/postgresql/tls/key.pem"
+      - "-c"
+      - "ssl_ca_file=/var/lib/postgresql/tls/ca.pem"
+      # Préférer TLS 1.3 quand le client le supporte (pg14+ : `ssl_min_protocol_version=TLSv1.3`).
+      - "-c"
+      - "ssl_min_protocol_version=TLSv1.2"
+    volumes:
+      # Cert step-ca émis pour 'postgres' — `make mtls-issue-postgres`.
+      # Le fichier est lu par l'image alpine sous l'utilisateur postgres (uid 70/999),
+      # un script init copie le bundle dans /var/lib/postgresql/tls avec les bons droits.
+      - ./infrastructure/step-ca/issued/postgres:/run/step:ro
+      - ./infrastructure/postgresql/tls-init.sh:/docker-entrypoint-initdb.d/0-tls-init.sh:ro
+
+  redis:
+    command:
+      - "redis-server"
+      - "--requirepass"
+      - "${REDIS_PASSWORD}"
+      - "--appendonly"
+      - "yes"
+      - "--tls-port"
+      - "6379"
+      - "--port"
+      - "0"
+      - "--tls-cert-file"
+      - "/run/step/cert.pem"
+      - "--tls-key-file"
+      - "/run/step/key.pem"
+      - "--tls-ca-cert-file"
+      - "/run/step/ca.pem"
+      # Optionnel — accepter clients sans cert (mode permissive). Bascule en
+      # 'yes' (strict) une fois tous les services Go en mTLS client.
+      - "--tls-auth-clients"
+      - "no"
+    volumes:
+      - ./infrastructure/step-ca/issued/redis:/run/step:ro
+
+  api-gateway:
+    environment:
+      # Bascule les DSN en TLS (sans cert client pour l'instant — `verify-ca`
+      # vérifie la chaîne CA mais n'exige pas que le client présente un cert).
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+      MTLS_MODE: "permissive"
+      MTLS_CA_FILE: "/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  auth-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  passwords-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  mail-directory-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  drive-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  photos-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  calendar-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  notes-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  tasks-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  contacts-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
+
+  admin-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=verify-ca&sslrootcert=/run/step/ca.pem"
+      REDIS_URL: "rediss://:${REDIS_PASSWORD}@redis:6379/0?ca=/run/step/ca.pem"
+    volumes:
+      - ./infrastructure/step-ca/issued/postgres/ca.pem:/run/step/ca.pem:ro
