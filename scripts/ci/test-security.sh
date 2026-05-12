@@ -129,6 +129,32 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   fi
 done
 
+# --- gitleaks : scan secrets sur l'historique Git complet ---
+# Cf. docs/securite/SECRETS.md § 6. Image officielle zricethezav/gitleaks:latest.
+# Mode WARNING par défaut (faux positifs possibles), basculer en BLOCKING via
+# GITLEAKS_BLOCKING=1 une fois la baseline confirmée propre. `gitleaks detect`
+# (sans --no-git) couvre l'historique → bloque toute fuite future poussée.
+GITLEAKS_BLOCKING="${GITLEAKS_BLOCKING:-0}"
+GITLEAKS_LOG="$ROOT/reports/security-gitleaks.txt"
+echo ""
+echo "  [gitleaks] scan secrets historique git (mode $([ "$GITLEAKS_BLOCKING" = "1" ] && echo BLOCKING || echo WARNING))..."
+if docker run --rm \
+  -v "$ROOT:/repo" \
+  -w /repo \
+  zricethezav/gitleaks:latest \
+  detect --redact -v \
+  >"$GITLEAKS_LOG" 2>&1; then
+  echo "  ✅ gitleaks : aucune fuite détectée dans l'historique"
+else
+  if [ "$GITLEAKS_BLOCKING" = "1" ]; then
+    echo "  ❌ gitleaks : secrets détectés — détail : $GITLEAKS_LOG (BLOCKING)"
+    failed=1
+  else
+    echo "  ⚠️  gitleaks : secrets détectés — détail : $GITLEAKS_LOG (warning, set GITLEAKS_BLOCKING=1 pour fail)"
+    warnings=1
+  fi
+fi
+
 # --- Checks auth (si la stack répond) ---
 echo ""
 echo "  [auth] GET /auth/validate sans token → 401..."

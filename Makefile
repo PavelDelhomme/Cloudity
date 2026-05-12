@@ -179,6 +179,12 @@ secrets-print: ## Affiche un set de secrets fraîchement générés (sans écrir
 	@chmod +x scripts/dev/gen-secrets.sh
 	@./scripts/dev/gen-secrets.sh --print
 
+secrets-scan: ## Scan gitleaks (historique git) — voir docs/securite/SECRETS.md
+	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest detect --redact -v
+
+secrets-scan-staged: ## Scan gitleaks staged (à utiliser avant commit)
+	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest protect --redact --staged -v
+
 init: ## Initialisation complète du projet (première fois)
 	@echo "🚀 Initialisation de Cloudity..."
 	@make create-env

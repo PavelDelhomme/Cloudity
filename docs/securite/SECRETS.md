@@ -97,12 +97,12 @@ Exemples actuels dans le repo :
 
 | Étape | Outil | Commande |
 |-------|-------|----------|
-| Pre-commit | [`gitleaks`](https://github.com/gitleaks/gitleaks) (à intégrer) | `gitleaks protect --staged --redact` |
-| CI | `gitleaks detect --redact --no-git` (via `make test-security`) | Bloque la PR si secret détecté |
-| Audit ponctuel | `gitleaks detect --redact --no-git -v` | Sur tout l'historique des branches `main` / `dev` |
+| Pre-commit | `gitleaks protect --staged` | **`make secrets-scan-staged`** |
+| CI / pré-merge | `gitleaks detect` sur historique | **`make test-security`** (intégré, mode WARNING ; `GITLEAKS_BLOCKING=1` pour fail) |
+| Audit ponctuel | `gitleaks detect --redact -v` | **`make secrets-scan`** |
 | Manuel | `git ls-files \| xargs rg -i 'BEGIN PRIVATE KEY\|ghp_\|AKIA\|dckr_pat_'` | Vérification rapide |
 
-> Tâche backlog : **intégrer `gitleaks` à `make test-security`** (mode warning d'abord, blocking quand le repo est propre). Suivi : **[BACKLOG.md](../../BACKLOG.md)** → *Sécurité & infra*.
+> **Statut 2026-05-12** : 157 commits scannés sans fuite ; gitleaks intégré à `make test-security` (mode WARNING). Bascule en `GITLEAKS_BLOCKING=1` dès le prochain sprint vert.
 
 ---
 
