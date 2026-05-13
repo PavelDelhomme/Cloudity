@@ -477,6 +477,180 @@ Le jour J (homelab H1 livré) :
 
 ---
 
+## 10 bis. Rollback (procédure d'urgence) — **lire avant chaque release**
+
+> **Règle d'or** : on ne déploie **jamais** une release prod sans avoir au préalable :
+>
+> 1. Pris un **dump Postgres** (`make backup` ou directement `pg_dump` côté VPS) ;
+> 2. Noté le **TAG sortant** dans la table ci-dessous ;
+> 3. Vérifié que **l'image précédente est toujours présente** dans GHCR (les tags ne sont pas supprimés sauf manuellement).
+>
+> Le rollback prend **2 à 5 minutes** si on a fait ça. **Plusieurs heures** sinon (et certaines erreurs sont irréversibles côté DB).
+
+### 10 bis.1. Préparer chaque release (10 minutes)
+
+Avant `git tag v0.x.y && git push --tags`, sur le VPS via SSH ou Portainer Console :
+
+```bash
+# 1. Note la version courante (utile au rollback)
+echo "TAG_PREVIOUS=$(docker inspect --format '{{ index .Config.Labels \"org.opencontainers.image.version\" }}' cloudity-api-gateway 2>/dev/null \
+  || docker inspect --format '{{ .Config.Image }}' cloudity-api-gateway | sed 's/.*://')" > /var/lib/cloudity/release-pin
+
+# 2. Dump Postgres complet (compressé, gardé 14 jours)
+make backup           # produit storage/backups/cloudity_YYYYMMDD_HHMMSS.sql.gz
+
+# 3. Snapshot des volumes critiques (rapide, ~1 GiB)
+docker run --rm \
+  -v cloudity_auth_keys:/src:ro \
+  -v "$PWD/storage/backups:/dst" \
+  alpine tar czf /dst/auth-keys_$(date +%Y%m%d_%H%M%S).tar.gz -C /src .
+```
+
+| Volume / DB | Quand le sauvegarder | Cible |
+|-------------|----------------------|-------|
+| **Postgres** (`cloudity_pgdata`) | Avant **toute** migration SQL | `storage/backups/cloudity_*.sql.gz` |
+| **`cloudity_auth_keys`** | Avant **toute** mise à jour `auth-service` | `storage/backups/auth-keys_*.tar.gz` |
+| **`cloudity_pass_data`** (à venir, sprint Pass) | Avant tout déploiement `passwords-service` | `storage/backups/pass-data_*.tar.gz` |
+| Coffre Proton Pass exporté (JSON) | **Avant la migration du 20 mai** + **conserver hors VPS** (USB chiffré ou autre) | hors-ligne, **pas dans le repo** |
+
+### 10 bis.2. Cas A — Rollback applicatif (mauvaise image, code régressif)
+
+Symptômes : `/health` répond mais l'app a un comportement régressif, des erreurs 500 inattendues, un crash de service.
+
+```bash
+# Sur le VPS, depuis Portainer Console ou SSH :
+TAG_PREVIOUS=$(cat /var/lib/cloudity/release-pin | cut -d= -f2)
+
+# 1. Dans Portainer → Stacks → cloudity-identity → Editor :
+#    remplacer ${TAG} par $TAG_PREVIOUS dans les variables.
+# 2. Cliquer "Update the stack" (re-pull l'ancienne image GHCR).
+# 3. Idem pour cloudity-mail, cloudity-pass, cloudity-web si concernés.
+
+# 4. Re-tester le smoke
+SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+make smoke-prod
+```
+
+**Durée typique** : 2-3 minutes par stack (pull GHCR + restart).
+
+**Pas de backup DB nécessaire** si la release n'a pas appliqué de migration SQL — sinon voir Cas B.
+
+### 10 bis.3. Cas B — Rollback base de données (migration SQL ratée)
+
+Symptômes : la nouvelle release a appliqué une migration cassée (colonne supprimée par erreur, contrainte qui passe en erreur, données corrompues).
+
+> **ATTENTION** : on **perd les écritures effectuées entre le dump et maintenant**. Si la release tourne depuis plusieurs heures, mesurer l'impact métier avant de restaurer (mails reçus, items Pass créés, photos uploadées…).
+
+```bash
+# 1. Mettre l'app en read-only (idéalement tout couper) :
+docker stop cloudity-api-gateway cloudity-auth-service cloudity-mail-directory \
+            cloudity-passwords-service cloudity-mail-search cloudity-pictures \
+            cloudity-drive cloudity-comm
+
+# 2. Restaurer le dump (vérifier qu'il s'agit du bon timestamp !)
+ls -lh storage/backups/cloudity_*.sql.gz | tail -5
+# pick the right one
+make restore           # restaure le plus récent
+# OU à la main :
+gunzip -c storage/backups/cloudity_20260520_181500.sql.gz \
+  | docker exec -i cloudity-postgres psql -U cloudity_admin -d cloudity
+
+# 3. Si l'image applicative est aussi à rollback (cf. Cas A), le faire MAINTENANT.
+# 4. Redémarrer en cascade (infra → identity → métier)
+docker start cloudity-postgres cloudity-redis
+sleep 5
+docker start cloudity-auth-service
+docker start cloudity-api-gateway
+docker start cloudity-mail-directory cloudity-passwords-service \
+             cloudity-mail-search cloudity-pictures cloudity-drive cloudity-comm
+
+# 5. Smoke + vérif côté UI : connexion + 1 action métier par app.
+make smoke-prod
+```
+
+**Durée typique** : 5-15 minutes selon la taille de la DB.
+
+### 10 bis.4. Cas C — Rollback **Pass spécifique** (migration Proton du 20 mai)
+
+> Ce cas est **propre au sprint Pass 2026-05** (cf. **[../produit/SPRINT-PASS-2026-05.md](../produit/SPRINT-PASS-2026-05.md)**). Une fois le format `EnvelopeV1` stabilisé et la migration validée, il pourra être archivé.
+
+**Pré-requis NON NÉGOCIABLES avant la migration du 20 mai** :
+
+- [ ] Export **JSON en clair** Proton Pass conservé **hors VPS** (USB chiffré ou poste local) — c'est la **seule** copie de secours utilisable si Cloudity Pass se révèle cassé.
+- [ ] **Ne PAS résilier l'abonnement Proton Pass payant** (échéance 25 mai 2026) — laisser **5 jours de marge** entre la migration (20 mai) et la fin de Proton (25 mai). Si Cloudity Pass déconne entre le 21 et le 24, on retourne chez Proton sans rien perdre.
+- [ ] Snapshot du volume `cloudity_pass_data` juste après l'import Proton (étape 8 plus bas).
+
+**Décisions de bascule** (à prendre **une à une**, par ordre de gravité croissante) :
+
+| Symptôme | Décision | Action |
+|----------|----------|--------|
+| Un seul item Cloudity Pass illisible (Poly1305 fail) | **Pas de rollback global**, on relit l'item depuis l'export JSON Proton et on le réimporte. | UI Pass — supprimer l'item cassé, ré-importer la ligne JSON correspondante. |
+| Plusieurs items du même coffre illisibles | Re-déchiffrement KO sur tout un vault → **bug crypto / corruption** | Cas B (rollback DB Postgres au snapshot post-import). |
+| **Tous** les coffres illisibles après une release | Bug majeur `pass-crypto` ou `passwords-service` | Cas A (rollback image) **ET** Cas B (rollback DB) **ET** retour Proton (étapes ci-dessous). |
+| Écran de login web 2FA bloque l'utilisateur (codes de récupération non encore générés ou perdus) | Service hors ligne pour l'utilisateur | `auth-service` admin reset 2FA via SQL : `UPDATE users SET totp_secret=NULL, is_2fa_enabled=false WHERE id=<user_id>;` puis re-enrôler proprement. |
+
+**Étapes de retour à Proton Pass** (si bascule complète nécessaire) :
+
+```bash
+# 1. Récupérer l'export JSON Proton conservé hors-VPS.
+# 2. Ouvrir Proton Pass (web/app), vérifier l'abonnement actif (encore <25 mai).
+# 3. Settings → Import (Proton Pass JSON) — ré-importer si Proton avait été vidé.
+# 4. Déclarer Cloudity Pass en panne dans STATUS.md, créer ticket migration v2.
+# 5. Geler les commits sur frontend/packages/pass-crypto + backend/passwords-service
+#    le temps du post-mortem.
+```
+
+### 10 bis.5. Cas D — Rollback NPM / TLS (certificats Let's Encrypt KO)
+
+Symptômes : `https://api.cloudity.<DOMAIN>` renvoie un cert expiré, ou NPM redémarre en boucle.
+
+```bash
+# 1. NPM Admin → Proxy Hosts → SSL → Force renew (force ACME challenge).
+# 2. Si bloqué (rate-limit Let's Encrypt) :
+#    - Désactiver temporairement "Force SSL" sur le Proxy Host le temps de débloquer.
+#    - Vérifier que le port 80 (HTTP-01) est bien ouvert WAN → NPM.
+# 3. Pas de rollback DB nécessaire — c'est purement edge.
+```
+
+### 10 bis.6. Smoke post-rollback (obligatoire)
+
+```bash
+# Public
+SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+make smoke-prod
+
+# Authentifié (variables seulement en mémoire shell, jamais committées)
+SMOKE_USER=<email-test> SMOKE_PASS=<password-test> \
+SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+make smoke-prod
+```
+
+Critères verts : `/health` 200, `/auth/validate` sans Bearer 401, SPA 200, TLS 1.3 négocié, HSTS présent, `X-Content-Type-Options: nosniff`, et — pour le sprint Pass — **lecture d'au moins 1 item Pass via le web** (depuis un compte test).
+
+### 10 bis.7. Post-mortem & traces
+
+Après tout rollback, créer un fichier `docs/operations/incidents/YYYY-MM-DD-rollback-<sujet>.md` (gabarit minimal) :
+
+```markdown
+# Incident YYYY-MM-DD — <sujet>
+
+- Détecté à : <heure UTC>
+- Détecté par : <smoke / monitoring / utilisateur>
+- Tag déployé : <vX.Y.Z>
+- Tag de rollback : <vA.B.C>
+- Backups utilisés : <liste fichiers>
+- Cause racine : <à compléter post-mortem>
+- Action corrective : <PR / hotfix / bug ticket>
+- Durée d'indisponibilité : <minutes>
+```
+
+Référence rapide : **[BACKLOG.md](../../BACKLOG.md)** section "Sprint d'urgence Pass" + **[STATUS.md](../../STATUS.md)** dernière entrée.
+
+---
+
 ## 11. Distinction dev local ↔ prod VPS (rappel)
 
 | | Dev local (`make up`) | Prod VPS Portainer |

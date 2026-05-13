@@ -36,6 +36,16 @@
 - [ ] Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration.
 - [ ] **WebAuthn / Passkeys** comme déverrouillage Pass (alignement WEBAUTHN-PLAN).
 
+### Reportés post-20 mai (5 chantiers infra évalués 2026-05-13)
+
+> Décision 2026-05-13 : ne pas démarrer ces 5 items pendant le sprint Pass (coût total ~5,5 j, dont 2 j à risque de régression élevée). Ordre recommandé après le 20 mai : sécu d'abord (4-5), doc d'abord ensuite (1-2). Item 3 **livré** (cf. § 10 bis DEPLOIEMENT-VPS-PORTAINER-NPM.md).
+
+- [ ] **(1)** `docs/cloudity-api-contracts/` — OpenAPI par service (Phase 0 du dégèle multi-repo).
+- [ ] **(2)** Split Portainer : `compose/identity.yml`, `compose/mail.yml`, `compose/pass.yml`, etc. ; un stack par domaine.
+- [x] **(3)** Procédure rollback documentée § 10 bis DEPLOIEMENT-VPS-PORTAINER-NPM.md (Cas A applicatif / B DB / **C migration Proton** / D NPM-TLS + smoke + post-mortem) — **livré 2026-05-13**.
+- [ ] **(4)** mTLS `MTLS_MODE=strict` sur `mail-directory-service` puis cascade (`auth-service` → `passwords-service` → `mail-search-service` → `pictures-service` → `drive-service` → `comm-service` → `admin-service`). Aujourd'hui : `permissive` partout.
+- [ ] **(5)** Postgres `sslmode=verify-full` + Redis `--tls-auth-clients yes` avec **certs clients par service** (un cert par identité de service consommateur, émis par step-ca avec SAN SPIFFE).
+
 ---
 
 ## Démarrage rapide (ordre recommandé)
