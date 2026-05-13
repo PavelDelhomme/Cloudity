@@ -198,7 +198,7 @@ content="no-referrer">` pendant le montage pour bloquer les fuites par
 
 ## 7. Références croisées
 
-* Backend : [`backend/auth-service/securetoken.go`](../../backend/auth-service/securetoken.go).
+* Backend : [`securetoken_hmac.go`](../../backend/auth-service/securetoken_hmac.go) (HMAC / issue / verify) + [`securetoken_http.go`](../../backend/auth-service/securetoken_http.go) (handlers Gin).
 * Frontend : [`frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts`](../../frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts).
 * Migration partage : [`infrastructure/postgresql/migrations/39-pass-share-tokens.sql`](../../infrastructure/postgresql/migrations/39-pass-share-tokens.sql).
 * Crypto Pass E2E : [`docs/securite/PASS-CRYPTO.md`](./PASS-CRYPTO.md).

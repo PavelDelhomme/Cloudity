@@ -186,23 +186,7 @@ func main() {
 
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
-	r.POST("/auth/register", authService.Register)
-	r.POST("/auth/login", authService.Login)
-	r.POST("/auth/refresh", authService.RefreshToken)
-	r.POST("/auth/2fa/enable", authService.Enable2FA)
-	r.POST("/auth/2fa/verify", authService.Verify2FA)
-	// Codes de récupération 2FA (cf. recovery_codes.go).
-	r.POST("/auth/2fa/recovery-codes/regenerate", authService.RegenerateRecoveryCodes)
-	r.GET("/auth/2fa/recovery-codes/count", authService.CountRecoveryCodes)
-	// Capability URLs rotatives (cf. securetoken.go + docs/securite/URL-CAPABILITIES.md).
-	r.GET("/auth/security-paths", authService.SecurePaths)
-	r.POST("/auth/security-paths/validate", authService.ValidateSecurePath)
-	r.GET("/auth/validate", authService.ValidateToken)
-	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
-
-	// Phase W1 (Q17=A) : WebAuthn / passkeys pour /4dm1n.
-	// Désactivé silencieusement si la conf est invalide (ex. RP_ID vide en prod).
-	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, authService).RegisterRoutes(r)
+	registerAuthHTTPRoutes(r, authService, db, rdb)
 
 	listenAddr := ":8081"
 	mtlsCfg := internalsec.ConfigFromEnv()
