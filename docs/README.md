@@ -51,6 +51,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[produit/ROADMAP.md](produit/ROADMAP.md)** | Fiches par application + transversal (sécurité, infra, API, monorepo) ; template nouvelle app. |
 | **[produit/SPRINT-PASS-2026-05.md](produit/SPRINT-PASS-2026-05.md)** | **Sprint urgence Pass** (~20 mai 2026) : état des lieux, L1/L2/L3, gel scission multi-repo, jalons migration Proton Pass. |
 | **[produit/MOBILES.md](produit/MOBILES.md)** | §0 *web puis mobile* ; matrice web vs mobile par produit ; admin mobile (ADM-02). |
+| **[produit/MULTI-PLATEFORME.md](produit/MULTI-PLATEFORME.md)** | **Matrice transversale** : web + mobile + desktop Linux + extension navigateur par app ; état réel (✅ / 🟡 / ❌) ; plan MP-01..MP-08. |
 | **[produit/PHOTOS.md](produit/PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie. |
 | **[produit/SYNC-BACKLOG.md](produit/SYNC-BACKLOG.md)** | Sync Mail/Drive/Calendar/…, `make run-mobile`, session longue, archivage mail serveur. |
 | **[produit/PlanImplementation.md](produit/PlanImplementation.md)** | Phases long terme, métriques, ressources. |
