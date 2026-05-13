@@ -48,10 +48,14 @@ test.describe('Pass (E2E)', () => {
     // Crée une nouvelle entrée.
     await page.getByRole('button', { name: /Nouvelle entrée/ }).click()
     await page.getByLabel('Titre').fill('E2E test entry')
-    await page.getByLabel('URL').fill('https://example.org/login')
-    await page.getByLabel('Utilisateur').fill('e2e@example.org')
-    await page.getByLabel('Mot de passe').fill('e2e-pwd-123!')
-    await page.getByRole('button', { name: /Créer/ }).click()
+    // Les champs URL/Utilisateur partagent leur libellé avec un bouton (Ouvrir / Copier)
+    // → on cible explicitement le rôle "textbox".
+    await page.getByRole('textbox', { name: 'URL' }).fill('https://example.org/login')
+    await page.getByRole('textbox', { name: 'Utilisateur' }).fill('e2e@example.org')
+    await page.getByRole('textbox', { name: 'Mot de passe', exact: true }).fill('e2e-pwd-123!')
+    // Le bouton submit du formulaire est exactement "Créer" (le bouton du
+    // header s'appelle "Créer un coffre" — on évite la collision via exact).
+    await page.getByRole('button', { name: 'Créer', exact: true }).click()
 
     await expect(page.getByText(/Entrée chiffrée \+ enregistrée/)).toBeVisible()
 

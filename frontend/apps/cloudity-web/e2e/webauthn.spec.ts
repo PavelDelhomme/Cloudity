@@ -48,7 +48,17 @@ test.describe('WebAuthn (passkeys)', () => {
 
       await page.goto('/login?next=%2F4dm1n')
       await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
-      await page.getByRole('button', { name: /passkey/i }).click()
+      // Phase W2 : la Conditional UI peut authentifier directement au focus
+      // du champ email (autocomplete="username webauthn") via la passkey
+      // résidente du virtual authenticator. Si elle réussit, la page navigue
+      // avant qu'on ait à cliquer. Sinon, on déclenche le bouton manuellement.
+      const conditionalNav = page
+        .waitForURL(/\/4dm1n(\/|$)/, { timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false)
+      if (!(await conditionalNav)) {
+        await page.getByRole('button', { name: /passkey/i }).click()
+      }
       await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 25_000 })
     } finally {
       await removeWebAuthnVirtualAuthenticator(cdp, authenticatorId)

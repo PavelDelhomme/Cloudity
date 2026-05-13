@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -71,16 +70,22 @@ func TestRequireAdminUserAcceptsValidEdDSAToken(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
 
-	uid, err := svc.requireAdminUser(c)
+	uid, role, err := svc.requireAuthUser(c)
 	if err != nil {
-		t.Fatalf("requireAdminUser: %v", err)
+		t.Fatalf("requireAuthUser: %v", err)
 	}
 	if uid != 42 {
 		t.Errorf("uid = %d", uid)
 	}
+	if role != "admin" {
+		t.Errorf("role = %q (expected admin)", role)
+	}
 }
 
-func TestRequireAdminUserRejectsNonAdmin(t *testing.T) {
+// Phase W2 : `requireAuthUser` accepte les comptes user (pas seulement
+// admin) — c'est la condition pour que les passkeys soient enregistrables
+// par tout le monde.
+func TestRequireAuthUserAcceptsRegularUser(t *testing.T) {
 	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
 	authSvc := &AuthService{edPublicKey: pub, edPrivateKey: priv}
 	svc := &WebAuthnService{authSvc: authSvc}
@@ -92,6 +97,7 @@ func TestRequireAdminUserRejectsNonAdmin(t *testing.T) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 		},
 	})
+	tok.Header["kid"] = "ed25519-1"
 	signed, _ := tok.SignedString(priv)
 
 	gin.SetMode(gin.TestMode)
@@ -100,19 +106,74 @@ func TestRequireAdminUserRejectsNonAdmin(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = req
 
-	if _, err := svc.requireAdminUser(c); err == nil || !strings.Contains(err.Error(), "admin") {
-		t.Errorf("expected admin role error, got %v", err)
+	uid, role, err := svc.requireAuthUser(c)
+	if err != nil {
+		t.Fatalf("requireAuthUser: %v", err)
+	}
+	if uid != 42 || role != "user" {
+		t.Errorf("uid=%d role=%q", uid, role)
 	}
 }
 
-func TestRequireAdminUserRejectsMissingBearer(t *testing.T) {
+func TestRequireAuthUserRejectsMissingBearer(t *testing.T) {
 	svc := &WebAuthnService{authSvc: &AuthService{}}
 	gin.SetMode(gin.TestMode)
 	req := httptest.NewRequest("POST", "/x", nil)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = req
-	if _, err := svc.requireAdminUser(c); err == nil {
+	if _, _, err := svc.requireAuthUser(c); err == nil {
 		t.Error("expected error for missing bearer")
+	}
+}
+
+// Le rôle vide dans le claim doit être normalisé à "user".
+func TestRequireAuthUserDefaultsToUserRole(t *testing.T) {
+	pub, priv, _ := ed25519.GenerateKey(rand.Reader)
+	authSvc := &AuthService{edPublicKey: pub, edPrivateKey: priv}
+	svc := &WebAuthnService{authSvc: authSvc}
+
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, &Claims{
+		UserID: "7",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+		},
+	})
+	tok.Header["kid"] = "ed25519-1"
+	signed, _ := tok.SignedString(priv)
+
+	gin.SetMode(gin.TestMode)
+	req := httptest.NewRequest("POST", "/x", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = req
+
+	_, role, err := svc.requireAuthUser(c)
+	if err != nil {
+		t.Fatalf("requireAuthUser: %v", err)
+	}
+	if role != "user" {
+		t.Errorf("role default = %q (expected 'user')", role)
+	}
+}
+
+// userIDFromWebAuthnID est l'inverse exact de WebAuthnID() — vérifions un
+// round-trip.
+func TestUserIDWebAuthnIDRoundTrip(t *testing.T) {
+	for _, want := range []int64{1, 42, 1234567890, 9_223_372_036_854_775_807} {
+		u := &webauthnUser{id: want}
+		got, err := userIDFromWebAuthnID(u.WebAuthnID())
+		if err != nil {
+			t.Fatalf("decode %d: %v", want, err)
+		}
+		if got != want {
+			t.Errorf("round-trip %d → %d", want, got)
+		}
+	}
+}
+
+func TestUserIDFromInvalidHandle(t *testing.T) {
+	if _, err := userIDFromWebAuthnID([]byte{1, 2, 3}); err == nil {
+		t.Error("expected error for short handle")
 	}
 }
 

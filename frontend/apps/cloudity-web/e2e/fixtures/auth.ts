@@ -17,7 +17,9 @@ export async function login(
   await page.goto('/login' + (options.returnTo ? `?next=${encodeURIComponent(options.returnTo)}` : ''))
   await page.getByLabel(/email/i).fill(email)
   await page.getByLabel(/mot de passe|password/i).fill(password)
-  await page.getByRole('button', { name: /se connecter|connexion/i }).click()
+  // Le formulaire expose désormais 2 boutons (mot de passe + passkey).
+  // On cible exactement le bouton submit "Se connecter" (sans "avec une passkey").
+  await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await page.waitForURL(/\/(app|app\/)/, { timeout: 15000 })
 }
 

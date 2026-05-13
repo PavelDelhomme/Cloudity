@@ -155,6 +155,74 @@ export async function registerPasskey(token: string, nickname?: string): Promise
   return finishRes.json()
 }
 
+/**
+ * Connexion passkey **discoverable** — sans email préalable. Le password
+ * manager (Proton Pass, iCloud Keychain, Bitwarden, 1Password) propose la
+ * passkey directement au focus du champ email grâce au mode `conditional`.
+ *
+ * - `mediation: 'conditional'` : affichage non-modal. La promise reste en
+ *   attente jusqu'à ce que l'utilisateur sélectionne une passkey via la
+ *   suggestion du browser.
+ * - `signal` : pour annuler quand l'utilisateur préfère taper son mot de
+ *   passe.
+ *
+ * Retourne { access_token, refresh_token, role, user_id, email } — ou null
+ * si annulé.
+ */
+export async function loginWithPasskeyDiscoverable(
+  tenantId: string,
+  signal?: AbortSignal,
+): Promise<{ access_token: string; refresh_token: string; role: string; user_id: string; email: string } | null> {
+  if (!isWebAuthnSupported()) return null
+  // Vérifie que le browser supporte la Conditional UI (Chrome ≥108, Safari
+  // ≥16, Firefox ≥119). Sinon on n'expose pas le bouton.
+  if (typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+    try {
+      const ok = await PublicKeyCredential.isConditionalMediationAvailable()
+      if (!ok) return null
+    } catch {
+      return null
+    }
+  } else {
+    return null
+  }
+
+  const beginRes = await fetch(apiUrl('/auth/webauthn/login/begin-discoverable'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tenant_id: tenantId }),
+  })
+  if (!beginRes.ok) return null
+  const beginJson = await beginRes.json()
+  const opts = reviveRequestOpts(beginJson.options.publicKey ?? beginJson.options)
+  const challengeB64u = bytesToB64u(opts.challenge as ArrayBuffer)
+
+  let assertion: PublicKeyCredential | null = null
+  try {
+    assertion = (await navigator.credentials.get({
+      publicKey: opts,
+      mediation: 'conditional',
+      signal,
+    })) as PublicKeyCredential | null
+  } catch (e) {
+    // AbortError ou NotAllowedError = utilisateur a annulé / pas de match.
+    return null
+  }
+  if (!assertion) return null
+
+  const finishRes = await fetch(apiUrl('/auth/webauthn/login/finish-discoverable'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      tenant_id: tenantId,
+      challenge: challengeB64u,
+      assertion: assertionToJSON(assertion),
+    }),
+  })
+  if (!finishRes.ok) return null
+  return finishRes.json()
+}
+
 /** Connexion passkey. Renvoie access + refresh tokens (à stocker comme login mot de passe). */
 export async function loginWithPasskey(
   email: string,

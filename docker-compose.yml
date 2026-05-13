@@ -88,6 +88,9 @@ services:
       - ACCESS_TOKEN_DURATION_MINUTES=${ACCESS_TOKEN_DURATION_MINUTES:-60}
     volumes:
       - ./backend/auth-service:/app:cached
+      # internalsec est référencé via `replace ../internalsec` dans go.mod —
+      # Air recompile à chaud, il a besoin du dossier source visible depuis /app.
+      - ./backend/internalsec:/internalsec:cached
       - go_mod_cache_auth:/go/pkg/mod
     depends_on:
       postgres:
@@ -127,6 +130,8 @@ services:
     volumes:
       - ./backend/api-gateway:/app:cached
       - ./backend/auth-service:/app/keys:ro
+      # internalsec : même raison qu'auth-service — Air recompile à chaud.
+      - ./backend/internalsec:/internalsec:cached
       - go_mod_cache_gateway:/go/pkg/mod
     depends_on:
       auth-service:

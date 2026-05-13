@@ -1,22 +1,22 @@
-// webauthn.go — Phase W1 : enregistrement et authentification passkeys (FIDO2).
+// webauthn.go — Phase W2 : enregistrement et authentification passkeys (FIDO2).
 //
-// Périmètre Phase W1 (Q17=A, voir docs/securite/WEBAUTHN-PLAN.md) :
-//   - Enrôlement RÉSERVÉ aux comptes `role = 'admin'` (vérifié au début de
-//     /webauthn/register/begin via JWT existant).
-//   - Login passkey ouvert à tous les credentials enregistrés (le RP n'a aucun
-//     moyen sain de filtrer par rôle avant d'avoir vérifié la signature).
+// Périmètre Phase W2 (sprint Pass 2026-05, J5) :
+//   - Enrôlement OUVERT à tout user authentifié (admin et user).
+//   - **Quota 5 passkeys par user** (cf. `webauthnPerUserQuota`).
+//   - **`residentKey: required` + `userVerification: preferred`** pour que les
+//     password managers tiers (Proton Pass, Bitwarden, 1Password, iCloud
+//     Keychain) acceptent d'enregistrer la passkey comme **discoverable
+//     credential** (W3C `client-side discoverable`).
+//   - Endpoint **`POST /auth/webauthn/login/begin-discoverable`** (sans email
+//     préalable) — exploite `BeginDiscoverableLogin` de go-webauthn.
+//     Compatible avec le **Conditional UI** côté front
+//     (`autocomplete="username webauthn"`).
 //
 // Stockage :
 //   - Credentials persistés dans `webauthn_credentials` (migration 37).
-//   - Sessions/challenges WebAuthn stockés dans Redis avec TTL 5 min, clé
-//     `webauthn:session:<sub>:<id>`. Clés volées = pas de risque (challenge
-//     CSPRNG aléatoire 32 octets, usage unique).
-//
-// Ne pas utiliser cette implémentation pour des credentials utilisateurs hors
-// admin sans :
-//   - une politique de quotas par utilisateur (ex. max 5 passkeys / user),
-//   - un endpoint de révocation,
-//   - un audit trail.
+//   - Sessions/challenges WebAuthn stockés dans Redis avec TTL 5 min,
+//     clé `webauthn:session:<sub>:<id>`. Challenge CSPRNG 32 octets,
+//     usage unique (suppression à la lecture).
 package main
 
 import (
@@ -109,7 +109,18 @@ func NewWebAuthnService(cfg WebAuthnConfig, db *sql.DB, rdb *redis.Client, authS
 	return &WebAuthnService{wa: wa, db: db, rdb: rdb, authSvc: authSvc}
 }
 
-// RegisterRoutes branche les 4 endpoints de l'API WebAuthn sous /auth/webauthn.
+// webauthnPerUserQuota borne le nombre de passkeys enregistrées par user.
+// 5 = compromis pratique (téléphone + ordi perso + ordi pro + clé matérielle
+// principale + clé matérielle de secours). Au-delà, l'utilisateur supprime
+// d'abord depuis Settings.
+const webauthnPerUserQuota = 5
+
+// RegisterRoutes branche les endpoints de l'API WebAuthn sous /auth/webauthn.
+//
+// **Chemins user (Phase W2)** : `register/*` exige un Bearer valide (admin
+// OU user). `login/begin` reste ouvert (pas de Bearer — c'est l'étape 1).
+// `login/begin-discoverable` est ouvert également (Conditional UI au focus
+// du champ email).
 func (s *WebAuthnService) RegisterRoutes(r *gin.Engine) {
 	if s == nil {
 		return
@@ -118,24 +129,32 @@ func (s *WebAuthnService) RegisterRoutes(r *gin.Engine) {
 	r.POST("/auth/webauthn/register/finish", s.RegisterFinish)
 	r.POST("/auth/webauthn/login/begin", s.LoginBegin)
 	r.POST("/auth/webauthn/login/finish", s.LoginFinish)
+	// W2 : Conditional UI / discoverable credentials.
+	r.POST("/auth/webauthn/login/begin-discoverable", s.LoginBeginDiscoverable)
+	r.POST("/auth/webauthn/login/finish-discoverable", s.LoginFinishDiscoverable)
 	r.GET("/auth/webauthn/credentials", s.ListCredentials)
 	r.DELETE("/auth/webauthn/credentials/:id", s.DeleteCredential)
 }
 
 // --- webauthn.User implementation -------------------------------------
 
-// adminUser implémente webauthn.User à partir d'une ligne `users` + de la
-// liste de credentials persistés.
-type adminUser struct {
+// webauthnUser implémente webauthn.User à partir d'une ligne `users` + de la
+// liste de credentials persistés. **Phase W2** : ouvert à tout user actif,
+// plus de filtre admin-only. Le rôle est conservé pour la cohérence du JWT
+// émis lors d'un login passkey (admin → admin, user → user).
+type webauthnUser struct {
 	id          int64
 	email       string
 	displayName string
+	role        string
 	creds       []webauthn.Credential
 }
 
-func (u *adminUser) WebAuthnID() []byte {
+func (u *webauthnUser) WebAuthnID() []byte {
 	// Stable, opaque, jamais déduisible côté client (W3C §5.1.4) — on prend
-	// l'ID utilisateur encodé en big-endian.
+	// l'ID utilisateur encodé en big-endian. **Doit rester stable** : c'est
+	// le `userHandle` que les password managers stockent ; le changer
+	// invalide toutes les passkeys existantes.
 	b := make([]byte, 8)
 	v := uint64(u.id)
 	for i := 7; i >= 0; i-- {
@@ -145,30 +164,50 @@ func (u *adminUser) WebAuthnID() []byte {
 	return b
 }
 
-func (u *adminUser) WebAuthnName() string         { return u.email }
-func (u *adminUser) WebAuthnDisplayName() string  { return u.displayName }
-func (u *adminUser) WebAuthnCredentials() []webauthn.Credential {
+func (u *webauthnUser) WebAuthnName() string        { return u.email }
+func (u *webauthnUser) WebAuthnDisplayName() string { return u.displayName }
+func (u *webauthnUser) WebAuthnCredentials() []webauthn.Credential {
 	return u.creds
 }
 
-// loadAdminUser charge l'utilisateur ciblé + ses credentials.
-func (s *WebAuthnService) loadAdminUser(ctx context.Context, userID int64) (*adminUser, error) {
+// userIDFromWebAuthnID inverse de WebAuthnID() : décode 8 octets big-endian
+// vers un int64. Utilisé par LoginFinishDiscoverable où on n'a que le
+// `userHandle` retourné par l'authenticator.
+func userIDFromWebAuthnID(handle []byte) (int64, error) {
+	if len(handle) != 8 {
+		return 0, fmt.Errorf("webauthn handle invalide (len=%d, attendu 8)", len(handle))
+	}
+	var v uint64
+	for i := 0; i < 8; i++ {
+		v = (v << 8) | uint64(handle[i])
+	}
+	return int64(v), nil
+}
+
+// loadUser charge l'utilisateur ciblé + ses credentials. **Phase W2** :
+// accepte tout user actif (plus de filtre admin). On garde le rôle pour le
+// JWT émis au login.
+func (s *WebAuthnService) loadUser(ctx context.Context, userID int64) (*webauthnUser, error) {
 	var email, role string
-	err := s.db.QueryRowContext(ctx, `SELECT email, role FROM users WHERE id = $1`, userID).Scan(&email, &role)
+	var isActive bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT email, COALESCE(role,'user'), COALESCE(is_active, true) FROM users WHERE id = $1
+	`, userID).Scan(&email, &role, &isActive)
 	if err != nil {
 		return nil, fmt.Errorf("load user: %w", err)
 	}
-	if role != "admin" {
-		return nil, errors.New("webauthn: role != admin (Phase W1 only)")
+	if !isActive {
+		return nil, errors.New("webauthn: account inactive")
 	}
 	creds, err := s.loadCredentials(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return &adminUser{
+	return &webauthnUser{
 		id:          userID,
 		email:       email,
 		displayName: email,
+		role:        role,
 		creds:       creds,
 	}, nil
 }
@@ -254,22 +293,64 @@ func (s *WebAuthnService) loadSession(ctx context.Context, key string) (*webauth
 
 // --- Endpoints --------------------------------------------------------
 
+// passkeyRegistrationOptions assemble les modificateurs `BeginRegistration`
+// pour produire un credential **discoverable** (au sens W3C : « client-side
+// discoverable credential »), seul format que les password managers tiers
+// (Proton Pass, Bitwarden, 1Password, iCloud Keychain) acceptent
+// d'enregistrer dans leur base.
+//
+//   - `RequireResidentKey: true` + `ResidentKey: required` : la clé privée
+//     reste sur l'authenticator (ou son cloud), avec un identifiant
+//     stable connu côté authenticator → permet la **résolution sans email**
+//     au login (Conditional UI).
+//   - `UserVerification: preferred` : on demande PIN/biométrie si dispo,
+//     sans bloquer un user qui n'aurait pas de TouchID/Windows Hello.
+//   - `AttestationPreference: none` : pas de telemetry constructeur.
+func passkeyRegistrationOptions() webauthn.RegistrationOption {
+	return func(opts *protocol.PublicKeyCredentialCreationOptions) {
+		opts.AuthenticatorSelection = protocol.AuthenticatorSelection{
+			RequireResidentKey: protocol.ResidentKeyRequired(),
+			ResidentKey:        protocol.ResidentKeyRequirementRequired,
+			UserVerification:   protocol.VerificationPreferred,
+		}
+		opts.Attestation = protocol.PreferNoAttestation
+	}
+}
+
+// passkeyLoginOptions force `userVerification: preferred` côté login (en
+// pratique la plupart des password managers la fournissent toujours).
+func passkeyLoginOptions() webauthn.LoginOption {
+	return func(opts *protocol.PublicKeyCredentialRequestOptions) {
+		opts.UserVerification = protocol.VerificationPreferred
+	}
+}
+
 // RegisterBegin POST /auth/webauthn/register/begin
 //
-//	Authorization: Bearer <jwt admin>  →  options PublicKey à envoyer à navigator.credentials.create()
+//	Authorization: Bearer <jwt user ou admin>  →  options PublicKey à envoyer à navigator.credentials.create()
+//
+// Phase W2 : ouvert à tout user actif (plus admin-only). Quota
+// `webauthnPerUserQuota` passkeys par user.
 func (s *WebAuthnService) RegisterBegin(c *gin.Context) {
-	userID, err := s.requireAdminUser(c)
+	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-	user, err := s.loadAdminUser(c.Request.Context(), userID)
+	user, err := s.loadUser(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
-	// On s'aligne sur les défauts de la lib (attestation=none, residentKey=preferred).
-	options, sd, err := s.wa.BeginRegistration(user)
+	if len(user.creds) >= webauthnPerUserQuota {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": fmt.Sprintf(
+				"quota atteint (%d passkeys max — supprime-en une avant d'en ajouter)",
+				webauthnPerUserQuota),
+		})
+		return
+	}
+	options, sd, err := s.wa.BeginRegistration(user, passkeyRegistrationOptions())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("BeginRegistration: %v", err)})
 		return
@@ -283,14 +364,14 @@ func (s *WebAuthnService) RegisterBegin(c *gin.Context) {
 
 // RegisterFinish POST /auth/webauthn/register/finish
 //
-//	Authorization: Bearer <jwt admin>  +  body = AuthenticatorAttestationResponse
+//	Authorization: Bearer <jwt user ou admin>  +  body = AuthenticatorAttestationResponse
 func (s *WebAuthnService) RegisterFinish(c *gin.Context) {
-	userID, err := s.requireAdminUser(c)
+	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
-	user, err := s.loadAdminUser(c.Request.Context(), userID)
+	user, err := s.loadUser(c.Request.Context(), userID)
 	if err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
@@ -323,6 +404,9 @@ func (s *WebAuthnService) RegisterFinish(c *gin.Context) {
 //
 //	body = { "email": "<user@cloudity>", "tenant_id": "<tid>" }
 //	Pas d'authn préalable : c'est l'étape 1 du login.
+//
+// Phase W2 : ouvert à tout user qui a au moins une passkey enregistrée.
+// Le rôle est déterminé à `LoginFinish` à partir de la base.
 func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
@@ -332,14 +416,9 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	userIDStr, _, _, role, _, err := s.authSvc.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userIDStr, _, _, _, _, err := s.authSvc.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-		return
-	}
-	if role != "admin" {
-		// Phase W1 : seul admin déclenche WebAuthn.
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "webauthn unavailable for this account"})
 		return
 	}
 	uid, err := strconv.ParseInt(userIDStr, 10, 64)
@@ -347,7 +426,7 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "user id parse"})
 		return
 	}
-	user, err := s.loadAdminUser(c.Request.Context(), uid)
+	user, err := s.loadUser(c.Request.Context(), uid)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "no passkey for this account"})
 		return
@@ -356,7 +435,7 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "no passkey for this account"})
 		return
 	}
-	options, sd, err := s.wa.BeginLogin(user)
+	options, sd, err := s.wa.BeginLogin(user, passkeyLoginOptions())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("BeginLogin: %v", err)})
 		return
@@ -366,8 +445,8 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"options":  options,
-		"user_id":  userIDStr,
+		"options": options,
+		"user_id": userIDStr,
 	})
 }
 
@@ -389,7 +468,7 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
 		return
 	}
-	user, err := s.loadAdminUser(c.Request.Context(), uid)
+	user, err := s.loadUser(c.Request.Context(), uid)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -409,13 +488,11 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("ValidateLogin: %v", err)})
 		return
 	}
-	// Replay-protection : sign_count strictement croissant (W3C §6.1.1).
 	if err := s.bumpSignCount(c.Request.Context(), cred.ID, cred.Authenticator.SignCount); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("sign_count: %v", err)})
 		return
 	}
-	// Émission d'une paire access + refresh — délègue à AuthService.
-	access, refresh, err := s.authSvc.issueTokens(c.Request.Context(), meta.UserID, meta.TenantID, user.email, "admin")
+	access, refresh, err := s.authSvc.issueTokens(c.Request.Context(), meta.UserID, meta.TenantID, user.email, user.role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -423,7 +500,109 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"access_token":  access,
 		"refresh_token": refresh,
-		"role":          "admin",
+		"role":          user.role,
+	})
+}
+
+// LoginBeginDiscoverable POST /auth/webauthn/login/begin-discoverable
+//
+//	Pas de body : on attend juste une challenge sans email préalable.
+//	C'est l'API consommée par le **Conditional UI** (front : `mediation:
+//	"conditional"` sur `navigator.credentials.get`). Le PM tiers (Proton
+//	Pass, Bitwarden, iCloud Keychain) propose la passkey directement au
+//	focus du champ email — comme sur GitHub / Google.
+//
+// La résolution `userHandle → user_id` se fera à `LoginFinishDiscoverable`
+// quand l'authenticator aura signé le challenge et révélé le `userHandle`.
+func (s *WebAuthnService) LoginBeginDiscoverable(c *gin.Context) {
+	options, sd, err := s.wa.BeginDiscoverableLogin(passkeyLoginOptions())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("BeginDiscoverableLogin: %v", err)})
+		return
+	}
+	// `sd.Challenge` est déjà une string base64url (cf. `webauthn.SessionData`
+	// dans go-webauthn ≥ 0.13). On l'utilise telle quelle comme clé Redis ;
+	// le client la renverra à l'identique dans `LoginFinishDiscoverable`.
+	if err := s.storeSession(c.Request.Context(), discoverableSessionKey(sd.Challenge), sd); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("session store: %v", err)})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"options": options,
+	})
+}
+
+// LoginFinishDiscoverable POST /auth/webauthn/login/finish-discoverable
+//
+//	body = { "tenant_id": "<tid>", "challenge": "<b64url>", "assertion": <PublicKeyCredential> }
+//
+// Le `userHandle` est lu depuis l'assertion ; on le résout en `user_id`
+// (inverse de `WebAuthnID()`). Le role provient de la base.
+func (s *WebAuthnService) LoginFinishDiscoverable(c *gin.Context) {
+	var meta struct {
+		TenantID  string          `json:"tenant_id" binding:"required"`
+		Challenge string          `json:"challenge" binding:"required"`
+		Assertion json.RawMessage `json:"assertion" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&meta); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sd, err := s.loadSession(c.Request.Context(), discoverableSessionKey(meta.Challenge))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "session expirée — relancer login/begin-discoverable"})
+		return
+	}
+	parsed, err := protocol.ParseCredentialRequestResponseBody(strings.NewReader(string(meta.Assertion)))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("parse: %v", err)})
+		return
+	}
+	// La discoverable login expose un handler qui résout l'user via le
+	// `userHandle` retourné par l'authenticator.
+	cred, err := s.wa.ValidateDiscoverableLogin(
+		func(rawID, userHandle []byte) (webauthn.User, error) {
+			uid, err := userIDFromWebAuthnID(userHandle)
+			if err != nil {
+				return nil, err
+			}
+			return s.loadUser(c.Request.Context(), uid)
+		},
+		*sd, parsed,
+	)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": fmt.Sprintf("ValidateDiscoverableLogin: %v", err)})
+		return
+	}
+	// Récupère userID + email + role pour l'émission du JWT.
+	var userID int64
+	if u, err := userIDFromWebAuthnID(parsed.Response.UserHandle); err == nil {
+		userID = u
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "userHandle invalide"})
+		return
+	}
+	user, err := s.loadUser(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.bumpSignCount(c.Request.Context(), cred.ID, cred.Authenticator.SignCount); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("sign_count: %v", err)})
+		return
+	}
+	access, refresh, err := s.authSvc.issueTokens(c.Request.Context(),
+		strconv.FormatInt(userID, 10), meta.TenantID, user.email, user.role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  access,
+		"refresh_token": refresh,
+		"role":          user.role,
+		"user_id":       strconv.FormatInt(userID, 10),
+		"email":         user.email,
 	})
 }
 
@@ -431,9 +610,9 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 
 // ListCredentials GET /auth/webauthn/credentials
 //
-//	Authorization: Bearer <jwt admin> → liste les passkeys de l'utilisateur courant.
+//	Authorization: Bearer <jwt user ou admin> → liste les passkeys de l'utilisateur courant.
 func (s *WebAuthnService) ListCredentials(c *gin.Context) {
-	userID, err := s.requireAdminUser(c)
+	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -491,11 +670,11 @@ func (s *WebAuthnService) ListCredentials(c *gin.Context) {
 
 // DeleteCredential DELETE /auth/webauthn/credentials/:id
 //
-//	Authorization: Bearer <jwt admin>
+//	Authorization: Bearer <jwt user ou admin>
 //	Refuse de supprimer la dernière passkey si l'utilisateur n'a pas d'autre
 //	moyen d'authentification (au moins TOTP) — évite de se locker dehors.
 func (s *WebAuthnService) DeleteCredential(c *gin.Context) {
-	userID, err := s.requireAdminUser(c)
+	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -559,14 +738,16 @@ func (s *WebAuthnService) bumpSignCount(ctx context.Context, credID []byte, newC
 
 // --- Helpers ----------------------------------------------------------
 
-// requireAdminUser extrait l'`id` utilisateur depuis le JWT Bearer (RS256 ou
-// EdDSA), refuse tout token expiré ou mal signé. Ne consulte PAS la base —
-// on s'appuie sur le rôle inscrit dans le claim, recoupé ensuite par
-// loadAdminUser.
-func (s *WebAuthnService) requireAdminUser(c *gin.Context) (int64, error) {
+// requireAuthUser extrait l'`id` et le rôle utilisateur depuis le JWT
+// Bearer (RS256 ou EdDSA). **Phase W2** : accepte tout user authentifié
+// (admin OU user, distinction faite via `role`). Ne consulte PAS la base.
+//
+// Pour les chemins admin-only (ex. liste credentials d'un autre user), le
+// caller fait sa propre vérif sur le rôle retourné.
+func (s *WebAuthnService) requireAuthUser(c *gin.Context) (int64, string, error) {
 	auth := strings.TrimSpace(c.GetHeader("Authorization"))
 	if !strings.HasPrefix(auth, "Bearer ") {
-		return 0, errors.New("missing bearer token")
+		return 0, "", errors.New("missing bearer token")
 	}
 	tokenStr := strings.TrimPrefix(auth, "Bearer ")
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{"RS256", "EdDSA"}))
@@ -580,18 +761,19 @@ func (s *WebAuthnService) requireAdminUser(c *gin.Context) (int64, error) {
 		return nil, fmt.Errorf("unexpected alg %q", t.Method.Alg())
 	})
 	if err != nil || !tok.Valid {
-		return 0, fmt.Errorf("invalid token: %w", err)
+		return 0, "", fmt.Errorf("invalid token: %w", err)
 	}
 	claims, ok := tok.Claims.(*Claims)
 	if !ok {
-		return 0, errors.New("invalid claims")
-	}
-	if claims.Role != "admin" {
-		return 0, errors.New("admin role required")
+		return 0, "", errors.New("invalid claims")
 	}
 	uid, err := strconv.ParseInt(claims.UserID, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid user id: %w", err)
+		return 0, "", fmt.Errorf("invalid user id: %w", err)
 	}
-	return uid, nil
+	role := claims.Role
+	if strings.TrimSpace(role) == "" {
+		role = "user"
+	}
+	return uid, role, nil
 }

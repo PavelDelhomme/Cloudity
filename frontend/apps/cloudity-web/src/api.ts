@@ -1326,6 +1326,58 @@ export type LoginResponse = {
   access_token: string
   refresh_token?: string
   requires_2fa?: boolean
+  user_id?: string
+}
+
+/** Réponse de `/auth/2fa/verify`. Si on vient d'activer la 2FA pour la 1ère fois, le serveur inclut `recovery_codes` (à montrer UNE fois). */
+export type Verify2FAResponse = {
+  access_token: string
+  refresh_token?: string
+  user_id: string
+  expires_in: number
+  used_recovery_code: boolean
+  recovery_codes?: string[]
+  recovery_codes_warning?: string
+}
+
+/** Active la 2FA TOTP : retourne le secret + URL otpauth pour QR. UI doit ensuite appeler `verify2FA` avec le 1er code. */
+export async function enable2FA(token: string): Promise<{ secret: string; url: string; message: string }> {
+  const res = await apiFetch(null, '/auth/2fa/enable', {
+    method: 'POST',
+    body: JSON.stringify({ access_token: token }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(parseApiErrorMessage(t, `Activation 2FA impossible (${res.status})`))
+  }
+  return res.json()
+}
+
+/** Vérifie le code TOTP (ou recovery code en login étape 2). Si 1ère activation, renvoie aussi 10 `recovery_codes`. */
+export async function verify2FA(body: {
+  email: string
+  tenant_id?: number
+  code: string
+}): Promise<Verify2FAResponse> {
+  const res = await apiFetch(null, '/auth/2fa/verify', {
+    method: 'POST',
+    body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(parseApiErrorMessage(t, `Vérification 2FA impossible (${res.status})`))
+  }
+  return res.json()
+}
+
+/** Régénère 10 nouveaux codes de récupération (invalide les anciens). À montrer UNE fois. */
+export async function regenerateRecoveryCodes(token: string): Promise<{ codes: string[]; count: number; warning: string }> {
+  return apiJson(token, '/auth/2fa/recovery-codes/regenerate', { method: 'POST' }, 'Codes de récupération')
+}
+
+/** Compte des codes de récupération encore utilisables. UI : warning si <=2. */
+export async function countRecoveryCodes(token: string): Promise<{ active: number }> {
+  return apiJson(token, '/auth/2fa/recovery-codes/count', undefined, 'Codes de récupération (count)')
 }
 
 function parseApiErrorMessage(raw: string, fallback: string): string {

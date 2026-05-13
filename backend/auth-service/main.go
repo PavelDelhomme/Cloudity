@@ -191,6 +191,9 @@ func main() {
 	r.POST("/auth/refresh", authService.RefreshToken)
 	r.POST("/auth/2fa/enable", authService.Enable2FA)
 	r.POST("/auth/2fa/verify", authService.Verify2FA)
+	// Codes de récupération 2FA (cf. recovery_codes.go).
+	r.POST("/auth/2fa/recovery-codes/regenerate", authService.RegenerateRecoveryCodes)
+	r.GET("/auth/2fa/recovery-codes/count", authService.CountRecoveryCodes)
 	r.GET("/auth/validate", authService.ValidateToken)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
 
@@ -622,25 +625,62 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user or 2FA not set up"})
 		return
 	}
-	if !totp.Validate(req.Code, totpSecret) {
+
+	ctx := c.Request.Context()
+	usedRecoveryCode := false
+
+	// Si la saisie ressemble à un code de récupération (12 chars
+	// alphanumériques avec ou sans tirets), on tente cette voie EN PREMIER —
+	// utile quand l'utilisateur a perdu son authenticator. Sinon TOTP.
+	if looksLikeRecoveryCode(req.Code) {
+		store, ok := a.userStore.(*postgresUserStore)
+		if !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "recovery codes require postgres user store"})
+			return
+		}
+		if err := verifyAndConsumeRecoveryCode(ctx, store.db, userID, req.Code); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
+			return
+		}
+		usedRecoveryCode = true
+	} else if !totp.Validate(req.Code, totpSecret) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 		return
 	}
+
+	// Génération des codes de récupération à la PREMIÈRE activation 2FA
+	// uniquement (transition `is_2fa_enabled` false → true). On ne re-régénère
+	// pas en cas de double activation, et on ne les fournit pas après un
+	// login normal — pour ça l'UI appellera explicitement
+	// `/auth/2fa/recovery-codes/regenerate`.
+	var freshRecoveryCodes []string
 	if !is2FAEnabled {
 		_ = a.userStore.Set2FAEnabled(userID, true)
+		if store, ok := a.userStore.(*postgresUserStore); ok {
+			codes, gerr := generateAndStoreRecoveryCodes(ctx, store.db, userID)
+			if gerr == nil {
+				freshRecoveryCodes = codes
+			}
+		}
 	}
+
 	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
-	ctx := c.Request.Context()
 	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, req.TenantID, req.Email, refreshTokenDuration)
 
-	c.JSON(200, gin.H{
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"user_id":       userID,
-		"expires_in":    int(accessTokenDuration.Seconds()),
-	})
+	resp := gin.H{
+		"access_token":       accessToken,
+		"refresh_token":      refreshToken,
+		"user_id":            userID,
+		"expires_in":         int(accessTokenDuration.Seconds()),
+		"used_recovery_code": usedRecoveryCode,
+	}
+	if len(freshRecoveryCodes) > 0 {
+		resp["recovery_codes"] = freshRecoveryCodes
+		resp["recovery_codes_warning"] = "Sauvegarde-les maintenant — ils ne réapparaîtront pas."
+	}
+	c.JSON(200, resp)
 }
 
 // keyDir retourne le répertoire où les paires JWT sont persistées.
