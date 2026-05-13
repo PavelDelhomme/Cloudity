@@ -905,6 +905,40 @@ status-watch: ## Rafraîchit make status toutes les 10 s (`watch -c` + couleurs 
 		exit 1; \
 	fi
 
+# === Surveillance ressources (CLI uniquement) ============================
+# Rituel : avant CHAQUE feature/refactor → make perf-snapshot LABEL=before-XXX
+#                              après → make perf-snapshot LABEL=after-XXX
+#                              vérif  → make perf-diff
+# Voir docs/operations/PERFORMANCES-MONITORING.md.
+
+perf-watch: ## Surveillance temps réel CPU/MEM/IO de tous les conteneurs cloudity-* (Ctrl+C pour quitter)
+	@chmod +x scripts/dev/perf-watch.sh 2>/dev/null || true
+	@./scripts/dev/perf-watch.sh
+
+perf-watch-once: ## Une seule passe de perf-watch (pour cron / CI / log file)
+	@chmod +x scripts/dev/perf-watch.sh 2>/dev/null || true
+	@./scripts/dev/perf-watch.sh --once
+
+perf-snapshot: ## Capture un snapshot horodaté → reports/perf/<ts>-<LABEL>.json (utilise LABEL=xxx)
+	@chmod +x scripts/dev/perf-snapshot.sh 2>/dev/null || true
+	@./scripts/dev/perf-snapshot.sh --label "$(or $(LABEL),snapshot)"
+
+perf-diff: ## Compare les 2 derniers snapshots (ou make perf-diff BEFORE=... AFTER=...)
+	@chmod +x scripts/dev/perf-diff.sh 2>/dev/null || true
+	@if [ -n "$(BEFORE)" ] && [ -n "$(AFTER)" ]; then \
+		./scripts/dev/perf-diff.sh "$(BEFORE)" "$(AFTER)"; \
+	else \
+		./scripts/dev/perf-diff.sh; \
+	fi
+
+perf-budgets: ## Vérifie respect des budgets (exit 0 OK / 1 KO) — utilisable en pré-commit / CI
+	@chmod +x scripts/dev/perf-budgets.sh 2>/dev/null || true
+	@./scripts/dev/perf-budgets.sh
+
+perf-budgets-json: ## Idem perf-budgets, sortie JSON (admin-service / dashboards)
+	@chmod +x scripts/dev/perf-budgets.sh 2>/dev/null || true
+	@./scripts/dev/perf-budgets.sh --json
+
 wait-for-backends: ## Attend auth + gateway + admin-service (sans front)
 	@echo "⏳ Attente des backends (auth, gateway, admin-service)..."
 	@timeout=120; \
