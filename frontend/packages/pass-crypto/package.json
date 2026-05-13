@@ -1,0 +1,23 @@
+{
+  "name": "@cloudity/pass-crypto",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cloudity Pass — crypto client (Argon2id + XChaCha20-Poly1305 + HKDF-SHA-256 + EnvelopeV1). Format aligné sur docs/securite/PASS-CRYPTO.md.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1.3.0",
+    "@noble/hashes": "^1.7.0",
+    "cbor-x": "^1.6.0",
+    "hash-wasm": "^4.12.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
+  }
+}

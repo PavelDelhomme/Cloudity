@@ -18,19 +18,23 @@
 
 ### L1 — bloquant avant migration
 
-- [ ] Package **`frontend/packages/pass-crypto`** — `EnvelopeV1` (cf. **PASS-CRYPTO.md**) ; tests round-trip + anti-tampering.
-- [ ] **Pass web** — déverrouillage maître, CRUD login, générateur, copie presse-papiers, recherche locale.
-- [ ] **Import** export Proton Pass **JSON en clair** (parser + chiffrement client + `POST /pass/vaults/:id/items`).
-- [ ] **TOTP dans l’item** (secrets 2FA des sites tiers — parité Proton).
-- [ ] **2FA compte Cloudity** — aujourd’hui : API `POST /auth/2fa/enable` + `POST /auth/2fa/verify` ✅ mais **login web non branché** (`LoginPage` affiche encore « 2FA non gérée ») ; **codes de récupération** absents côté DB → à ajouter.
+- [x] **J1 — `frontend/packages/pass-crypto` v0.1.0** : workspace npm bootstrap, types `EnvelopeV1`, primitives Argon2id (`hash-wasm`) / XChaCha20-Poly1305 (`@noble/ciphers`) / HKDF-SHA-256 (`@noble/hashes`) / CBOR (`cbor-x`) / base64url maison ; helpers `deriveMasterKey`, `deriveVaultKey`, `encryptItemForVault`, `decryptItemFromVault`, `generatePassword`. **18 tests Vitest verts** (round-trip multi-paramètres + anti-tampering `ct`/`wrap`/`aad`/`nonce_c` + base64url fuzz + générateur uniforme), `tsc --noEmit` OK. Dépendance ajoutée à `cloudity-web`.
+- [ ] J2 — **vecteurs de test reproductibles** (RNG fixé pour CI) + bench Argon2id par profil (calibration `desktop` / `mobile-high` / `mobile-low`).
+- [ ] J3 — **Pass web** : déverrouillage maître + liste vaults + éditeur login (URL/user/pwd/notes) + générateur + copie presse-papiers auto-clear + recherche locale.
+- [ ] J4 — **Import** export Proton Pass **JSON en clair** (parser + chiffrement client + `POST /pass/vaults/:id/items`) + **TOTP dans l’item** (RFC 6238 client) + E2E Playwright (déverrouillage → import 5 entrées → assert).
+- [ ] J5 — **2FA compte Cloudity** : aujourd’hui `POST /auth/2fa/enable` + `POST /auth/2fa/verify` ✅ mais **login web non branché** ; **codes de récupération** absents → migration SQL (table dédiée bcrypt) + API `enable/verify/regenerate/use` + UI Settings.
+- [ ] J6 — **Login 2FA web étape 2** + **Settings 2FA** (QR `otpauth://`, secret manuel, vérification, affichage codes de récupération une fois).
+- [ ] J7 — **`mobile/pass` Flutter LECTURE SEULE** : port Dart `cloudity_shared/pass_crypto`, écrans déverrouillage / liste / détail, biométrie `local_auth`, copie presse-papiers auto-clear.
 
-### L2 — si marge avant le 20 mai
+### L2 — après le 20 mai (J+1..J+5)
 
-- [ ] **Extension navigateur** Chrome **MV3** (popup + autofill minimal) ; Firefox ensuite.
+- [ ] **`mobile/pass` Flutter ÉDITION** : création / modif / suppression d’items, générateur, sync optimiste, gestion conflits.
+- [ ] **Extension navigateur** Chromium **MV3** (popup + content script autofill minimal : domain match → propose login/mot de passe).
 
-### L3 — après le 20 mai ou en parallèle ressource double
+### L3 — fond de roadmap (après stabilisation Pass)
 
-- [ ] **`mobile/pass`** Flutter (vault déverrouillé, biométrie session courte).
+- [ ] Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration.
+- [ ] **WebAuthn / Passkeys** comme déverrouillage Pass (alignement WEBAUTHN-PLAN).
 
 ---
 

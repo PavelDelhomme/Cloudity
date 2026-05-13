@@ -27,22 +27,24 @@
 
 ## 2. Priorisation (défaut retenu si pas d’arbitrage produit)
 
-### Niveau 1 — **bloquant** migration avant le 20 mai
+### Niveau 1 — **bloquant** migration avant le 20 mai (**arbitrage acté 2026-05-13**)
 
-1. `frontend/packages/pass-crypto` — implémentation **EnvelopeV1** (minimum : Argon2id + XChaCha20-Poly1305 + HKDF ; KEM hybride PQ peut suivre en **v0.2** si le délai impose un premier jet sans ML-KEM côté web — à trancher avec **PASS-CRYPTO.md** § 9 *v0.1 PoC*).
+1. `frontend/packages/pass-crypto` (TS) — implémentation **EnvelopeV1** (minimum : Argon2id + XChaCha20-Poly1305 + HKDF). **KEM hybride PQ ML-KEM-768** = phase ultérieure (v0.2) — la cible PQ reste documentée dans **PASS-CRYPTO.md** § 9 mais **n’est pas bloquante** pour la migration Proton (le format `EnvelopeV1` réserve déjà le champ `kem`, donc lazy-migration possible plus tard sans casser les coffres).
 2. Refonte **`PassPage`** : déverrouillage maître, liste, **éditeur login** (URL, user, password, notes), **générateur**, copie presse-papiers avec auto-clear, recherche **locale** (pas d’index serveur).
-3. **Import** fichier export Proton (JSON clair) → création d’items chiffrés côté client puis `POST /pass/vaults/:id/items`.
+3. **Import** fichier export Proton — **format retenu : JSON en clair** (Settings → Export → JSON sans chiffrement, plus simple et le plus complet pour les TOTP). PGP / CSV peuvent venir après.
 4. **TOTP dans l’item** (schéma JSON `type: "totp"` + affichage code + période) pour les secrets des **sites tiers**.
 5. **Finition 2FA compte Cloudity** : écran login étape 2 (code TOTP) + page Settings (QR / secret manuel / verify) ; **codes de récupération** (génération, hash serveur, usage unique) — nouveau chantier DB + API.
+6. **`mobile/pass` Flutter — LECTURE SEULE** : port minimal `cloudity_shared/pass_crypto` (Dart) ; déverrouillage par mot de passe maître ; liste / détail / **copie presse-papiers avec auto-clear** ; déverrouillage par biométrie (`local_auth`) pour sessions courtes (≤ 5 min). **Pas d’édition au 20 mai** (faisable au clavier d’un téléphone, mais l’UX Flutter d’édition + génération + sync optimiste demande 2-3 j supplémentaires → reportée en L2).
 
-### Niveau 2 — **souhaitable** si le L1 tient le 19 mai
+### Niveau 2 — **après le 20 mai, en série**
 
-6. **Extension navigateur** MV3 (popup + content script autofill minimal : détection domaine → propose login/mot de passe).
+7. **`mobile/pass` Flutter — édition** : création / modif / suppression d’items, générateur, sync optimiste, gestion conflits.
+8. **Extension navigateur** MV3 (popup + content script autofill minimal : détection domaine → propose login/mot de passe).
 
-### Niveau 3 — **après** le 20 mai ou en parallèle si ressource double
+### Niveau 3 — fond de roadmap (après stabilisation Pass)
 
-7. **`mobile/pass`** Flutter (lecture puis édition ; biométrie pour session courte).
-8. Enrôlement multi-appareil **hybride PQ** (PASS-CRYPTO § 5) — aligné roadmap crypto long terme.
+9. Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration des items existants.
+10. **WebAuthn / Passkeys** comme déverrouillage de coffre Pass (en plus du mot de passe maître) — alignement avec **WEBAUTHN-PLAN.md**.
 
 ---
 
@@ -50,14 +52,15 @@
 
 | Jour | Date | Livrable principal |
 |------|------|---------------------|
-| J1 | 13 mai | Acte doc (BACKLOG / STATUS / ce fichier) ; bootstrap `frontend/packages/pass-crypto` + types + tests smoke |
-| J2 | 14 mai | Crypto : round-trip chiffrement/déchiffrement + vecteurs ; doc mise à jour si écart avec PASS-CRYPTO |
-| J3 | 15 mai | UI Pass : déverrouillage + liste + éditeur login + générateur |
-| J4 | 16 mai | Import Proton JSON + TOTP item + E2E Playwright Pass |
-| J5 | 17 mai | Codes de récupération + migration SQL + API auth |
-| J6 | 18 mai | Login 2FA + Settings 2FA (web) branchés sur API existante |
-| J7 | 19 mai | Extension MV3 minimaliste OU polish Pass + tests charge légers |
-| **J8** | **20 mai** | **Migration réelle** depuis Proton Pass sur un compte pilote + checklist post-migration |
+| J1 | 13 mai | Acte doc (BACKLOG / STATUS / ce fichier) ; **bootstrap `frontend/packages/pass-crypto`** : skeleton workspace npm, types `EnvelopeV1`, dépendances (`argon2-browser`, `libsodium-wrappers`, `cbor-x`), tests smoke |
+| J2 | 14 mai | **Crypto TS** : round-trip Argon2id → MK → VK → IK_item → ciphertext ; vecteurs reproductibles ; tests anti-tampering |
+| J3 | 15 mai | **UI Pass web** : déverrouillage (mot de passe maître) + liste + éditeur login (URL/user/pwd/notes) + générateur + copie clipboard auto-clear |
+| J4 | 16 mai | **Import Proton JSON** + **TOTP item** (RFC 6238 client) + **E2E Playwright** Pass (déverrouillage → import 5 entrées → vérification) |
+| J5 | 17 mai | **Codes de récupération** (migration SQL + API `auth-service` + tests) + **2FA login web étape 2** (saisie code TOTP) |
+| J6 | 18 mai | **Settings 2FA web** (QR `otpauth://`, secret manuel, vérification, affichage codes de récupération une fois) + branchement complet flow login |
+| J7 | 19 mai | **Mobile Flutter `pass` LECTURE SEULE** : port Dart `cloudity_shared/pass_crypto` ; écrans déverrouillage / liste / détail ; biométrie `local_auth` ; copie presse-papiers auto-clear ; smoke E2E |
+| **J8** | **20 mai** | **Migration réelle** depuis Proton Pass sur compte pilote (export JSON → import → vérification 50+ entrées + 2FA + lecture mobile) ; **bascule** : on lâche Proton Pass |
+| J+1..J+5 | 21 → 25 mai | Mobile Flutter Pass **édition complète** + extension Chromium MV3 (popup + autofill domain matching) |
 
 ---
 
@@ -71,10 +74,21 @@
 
 ## 5. Critères d’acceptation « migration possible »
 
-- [ ] Création / édition / suppression d’au moins **50 logins** importés depuis un export Proton JSON test.
-- [ ] Mot de passe maître : **aucune** clé en clair côté serveur ; blobs conformes `format_version` attendu.
-- [ ] Connexion avec **2FA TOTP** activé sur le compte Cloudity (flow complet web).
-- [ ] Codes de récupération : générés une fois, **hashés** en base, utilisables après perte téléphone TOTP.
+- [ ] Création / édition / suppression d’au moins **50 logins** importés depuis un export Proton JSON test (côté **web**).
+- [ ] Mot de passe maître : **aucune** clé en clair côté serveur ; blobs conformes `format_version=1` ; tests anti-tampering verts (flip 1 bit dans `ct` ⇒ erreur AEAD).
+- [ ] Connexion avec **2FA TOTP** activé sur le compte Cloudity (flow complet web : login → étape 2 → JWT).
+- [ ] **Codes de récupération** : générés une fois (8 codes 10 chars), **hashés bcrypt** en base, utilisables après perte téléphone TOTP, marqués `used_at` après consommation.
+- [ ] **Mobile Flutter Pass — lecture** : déverrouillage maître + liste + détail + copie clipboard avec auto-clear 30 s + biométrie `local_auth` pour reverrouillage rapide.
 - [ ] Export de secours (JSON chiffré ou zip) — *nice-to-have* pour J+2.
+
+## 6. Décisions actées 2026-05-13 (sans questionnaire)
+
+| Sujet | Décision | Justification |
+|-------|----------|---------------|
+| **Mobile Pass** au 20 mai | **Lecture seule** (option A du calcul calendrier) | 7 j solo ne tiennent pas le scope complet — la lecture seule suffit pour migrer et consulter en mobilité. Édition mobile en J+1..J+5. |
+| **Format import Proton** | **JSON en clair** | Plus simple, contient les TOTP secrets ; PGP / CSV en phase ultérieure. |
+| **PQ ML-KEM-768** dans `EnvelopeV1` | **Reportée v0.2** | Le format `EnvelopeV1` réserve le champ `kem` ; lazy-migration future possible sans casser les coffres. Argon2id + XChaCha20-Poly1305 suffisent pour la sécurité au repos avant 20 mai. |
+| **Extension navigateur** | **Reportée J+1..J+5** | Pas bloquante : copie clipboard depuis web ou mobile suffit pour la migration ; autofill améliore le quotidien après. |
+| **WebAuthn comme déverrouillage Pass** | **Phase ultérieure** | Le mot de passe maître reste la base ; WebAuthn complémentaire plus tard. |
 
 *Dernière mise à jour : 2026-05-13.*
