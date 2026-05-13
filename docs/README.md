@@ -27,6 +27,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[architecture/ARCHITECTURE-FRONTENDS.md](architecture/ARCHITECTURE-FRONTENDS.md)** | Mono-SPA → multi-apps ; lien STATUS § 0b, ROADMAP TR-05. |
 | **[architecture/FRONTEND-LAYOUT.md](architecture/FRONTEND-LAYOUT.md)** | Arborescence `src/pages/` (`public`, `auth`, `admin`, `app/<domaine>/`) — `cloudity-web`. |
 | **[architecture/BACKEND-LAYOUT.md](architecture/BACKEND-LAYOUT.md)** | Nommage `*-service`, rôle `internalsec`, structure Go cible, note `dbpin` / Docker. |
+| **[architecture/SERVICES.md](architecture/SERVICES.md)** | **Référence des conteneurs** : tableau de chaque service Docker (rôle, port host, profil) — explique notamment `cloudity-adminer` / `cloudity-redis-commander` (UI Web Postgres / Redis, **dev only**). |
 | **[architecture/MULTI-REPO-LAYOUT.md](architecture/MULTI-REPO-LAYOUT.md)** | Plan d’éclatement **monorepo → repos GitHub indépendants** + meta-repo ; production Portainer + NPM ; tests par niveau. |
 | **[architecture/EVOLUTION-PLATEFORME.md](architecture/EVOLUTION-PLATEFORME.md)** | Étapes pour ajouter un microservice / migration / `make up`. |
 
