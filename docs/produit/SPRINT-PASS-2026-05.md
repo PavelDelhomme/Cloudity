@@ -34,7 +34,13 @@
 3. **Import** fichier export Proton — **format retenu : JSON en clair** (Settings → Export → JSON sans chiffrement, plus simple et le plus complet pour les TOTP). PGP / CSV peuvent venir après.
 4. **TOTP dans l’item** (schéma JSON `type: "totp"` + affichage code + période) pour les secrets des **sites tiers**.
 5. **Finition 2FA compte Cloudity** : écran login étape 2 (code TOTP) + page Settings (QR / secret manuel / verify) ; **codes de récupération** (génération, hash serveur, usage unique) — nouveau chantier DB + API.
-6. **`mobile/pass` Flutter — LECTURE SEULE** : port minimal `cloudity_shared/pass_crypto` (Dart) ; déverrouillage par mot de passe maître ; liste / détail / **copie presse-papiers avec auto-clear** ; déverrouillage par biométrie (`local_auth`) pour sessions courtes (≤ 5 min). **Pas d’édition au 20 mai** (faisable au clavier d’un téléphone, mais l’UX Flutter d’édition + génération + sync optimiste demande 2-3 j supplémentaires → reportée en L2).
+6. **Passkeys utilisateur (WebAuthn) compatibles password managers tiers** — *demandé 2026-05-13 nuit*. Aujourd'hui l'infra existe (`backend/auth-service/webauthn.go` + `frontend/apps/cloudity-web/src/webauthn.ts` + table `webauthn_credentials` migr. 37) mais **Phase W1 réservée admin** (`if role != 'admin'` → 403). Trois changements pour rendre la passkey **enregistrable par Proton Pass / Bitwarden / 1Password / iCloud Keychain** et permettre l'autofill au login :
+    - Ouvrir l'enrôlement aux **comptes user** (avec quotas : max 5 passkeys / user, audit trail `webauthn_credentials.created_at` / `last_used_at` déjà en place ; doc `WEBAUTHN-PLAN.md` à mettre à jour).
+    - Forcer **`residentKey: required` + `userVerification: preferred`** côté `BeginRegistration` (sinon les PM tiers n'enregistrent **pas** la passkey — c'est le critère W3C `discoverable credential`).
+    - Ajouter **Conditional UI** sur `LoginPage` : input email avec `autocomplete="username webauthn"` + `navigator.credentials.get({ mediation: 'conditional', publicKey })` ; nouveau endpoint `POST /auth/webauthn/login/begin-discoverable` (challenge sans email préalable) ; `LoginFinish` résout l'utilisateur via `userHandle` retourné dans l'assertion.
+    - Page **Settings → Sécurité → Passkeys** ouverte aux users (réutiliser le composant `Passkeys.tsx` existant côté admin, le brancher sur `/app/settings/security/passkeys`).
+    - **Coût estimé** : ~1,5 à 2 j ; planifié **J5-J6 en parallèle du chantier 2FA** (mêmes migrations DB / mêmes écrans Settings, économie d'environ 0,5 j).
+7. **`mobile/pass` Flutter — LECTURE SEULE** : port minimal `cloudity_shared/pass_crypto` (Dart) ; déverrouillage par mot de passe maître ; liste / détail / **copie presse-papiers avec auto-clear** ; déverrouillage par biométrie (`local_auth`) pour sessions courtes (≤ 5 min). **Pas d’édition au 20 mai** (faisable au clavier d’un téléphone, mais l’UX Flutter d’édition + génération + sync optimiste demande 2-3 j supplémentaires → reportée en L2).
 
 ### Niveau 2 — **après le 20 mai, en série**
 
@@ -44,7 +50,7 @@
 ### Niveau 3 — fond de roadmap (après stabilisation Pass)
 
 9. Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration des items existants.
-10. **WebAuthn / Passkeys** comme déverrouillage de coffre Pass (en plus du mot de passe maître) — alignement avec **WEBAUTHN-PLAN.md**.
+10. **WebAuthn / Passkeys** comme **déverrouillage du coffre Pass lui-même** (en plus du mot de passe maître) — distinct du point 6 ci-dessus qui concerne la **connexion au compte Cloudity**. Alignement avec **WEBAUTHN-PLAN.md**.
 
 ---
 
@@ -56,8 +62,8 @@
 | J2 | 14 mai | **Crypto TS** : round-trip Argon2id → MK → VK → IK_item → ciphertext ; vecteurs reproductibles ; tests anti-tampering |
 | J3 | 15 mai | **UI Pass web** : déverrouillage (mot de passe maître) + liste + éditeur login (URL/user/pwd/notes) + générateur + copie clipboard auto-clear |
 | J4 | 16 mai | **Import Proton JSON** + **TOTP item** (RFC 6238 client) + **E2E Playwright** Pass (déverrouillage → import 5 entrées → vérification) |
-| J5 | 17 mai | **Codes de récupération** (migration SQL + API `auth-service` + tests) + **2FA login web étape 2** (saisie code TOTP) |
-| J6 | 18 mai | **Settings 2FA web** (QR `otpauth://`, secret manuel, vérification, affichage codes de récupération une fois) + branchement complet flow login |
+| J5 | 17 mai | **Codes de récupération** (migration SQL + API `auth-service` + tests) + **2FA login web étape 2** (saisie code TOTP) + **Passkeys backend** : ouverture aux users non-admin (quota 5/user) + `residentKey: required` + endpoint `login/begin-discoverable` |
+| J6 | 18 mai | **Settings 2FA web** (QR `otpauth://`, secret manuel, vérification, codes de récupération une fois) + **Settings Passkeys user** (réutilise `Passkeys.tsx` admin, branché sur `/app/settings/security/passkeys`) + **Conditional UI sur LoginPage** (`autocomplete="username webauthn"` + `mediation: 'conditional'`) → **Proton Pass / Bitwarden / iCloud Keychain enregistrent et proposent la passkey au login** |
 | J7 | 19 mai | **Mobile Flutter `pass` LECTURE SEULE** : port Dart `cloudity_shared/pass_crypto` ; écrans déverrouillage / liste / détail ; biométrie `local_auth` ; copie presse-papiers auto-clear ; smoke E2E |
 | **J8** | **20 mai** | **Migration réelle** depuis Proton Pass sur compte pilote (export JSON → import → vérification 50+ entrées + 2FA + lecture mobile) ; **bascule** : on lâche Proton Pass |
 | J+1..J+5 | 21 → 25 mai | Mobile Flutter Pass **édition complète** + extension Chromium MV3 (popup + autofill domain matching) |
@@ -78,6 +84,7 @@
 - [ ] Mot de passe maître : **aucune** clé en clair côté serveur ; blobs conformes `format_version=1` ; tests anti-tampering verts (flip 1 bit dans `ct` ⇒ erreur AEAD).
 - [ ] Connexion avec **2FA TOTP** activé sur le compte Cloudity (flow complet web : login → étape 2 → JWT).
 - [ ] **Codes de récupération** : générés une fois (8 codes 10 chars), **hashés bcrypt** en base, utilisables après perte téléphone TOTP, marqués `used_at` après consommation.
+- [ ] **Passkey enregistrable depuis Proton Pass / Bitwarden / iCloud Keychain** : enrôlement depuis Settings → Sécurité → Passkeys (compte user, pas admin only) ; le PM affiche un dialog *« Enregistrer la passkey pour Cloudity ? »* à l'enrôlement ; au login suivant, taper l'email **propose automatiquement** la passkey via le PM (Conditional UI).
 - [ ] **Mobile Flutter Pass — lecture** : déverrouillage maître + liste + détail + copie clipboard avec auto-clear 30 s + biométrie `local_auth` pour reverrouillage rapide.
 - [ ] Export de secours (JSON chiffré ou zip) — *nice-to-have* pour J+2.
 
