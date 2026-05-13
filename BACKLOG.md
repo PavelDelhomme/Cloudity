@@ -41,6 +41,21 @@
 - [ ] Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration.
 - [ ] **WebAuthn / Passkeys** comme déverrouillage Pass (alignement WEBAUTHN-PLAN).
 
+### Surveillance ressources continue (livrée 2026-05-13)
+
+> **Règle permanente** : à chaque feature non triviale (> 200 lignes,
+> nouvelle dépendance lourde, nouveau service, modif page > 1000 l), on
+> capture un **snapshot avant** et un **snapshot après**, on lance
+> `make perf-diff`, on colle le tableau dans la description du commit ou
+> de la PR. Pas dans une UI : tout en CLI. Détail :
+> **[docs/operations/PERFORMANCES-MONITORING.md](docs/operations/PERFORMANCES-MONITORING.md)**.
+
+- [x] **PERF-CLI-01 — 4 scripts `scripts/dev/perf-*.sh`** : `perf-watch.sh` (TTY temps réel, couleurs vert/jaune/rouge selon budgets), `perf-snapshot.sh` (JSON horodaté dans `reports/perf/`, capture conteneurs + images + volumes + latences `/health` + DB Postgres), `perf-diff.sh` (diff humain ou `--json`, exit 1 si régression > seuil), `perf-budgets.sh` (gate one-shot, exit 0/1, `--json` pour ingestion).
+- [x] **PERF-CLI-02 — 6 cibles Makefile** : `make perf-watch`, `perf-watch-once`, `perf-snapshot LABEL=…`, `perf-diff [BEFORE=… AFTER=…]`, `perf-budgets`, `perf-budgets-json`. Liste dans `make help` et dans le tableau **§ 0 Démarrage** de **STATUS.md**.
+- [x] **PERF-CLI-03 — `docs/operations/PERFORMANCES-MONITORING.md`** : guide complet (10 sections) — outils, rituel checkpoint, template à coller dans la PR, budgets configurables, intégration CI/cron/pré-commit, anti-patterns, cas concrets.
+- [ ] **PERF-CLI-04 — Pré-commit soft-fail** : ajouter un hook `.git/hooks/pre-commit` (ou `pre-push`) qui appelle `make perf-budgets` en mode warning (n'échoue pas le commit, mais affiche les violations). À cadrer après usage du rituel pendant 2-3 sprints.
+- [ ] **PERF-CLI-05 — Ingestion CI** : dans le job e2e GitHub Actions, lancer `make perf-budgets-json` puis `POST /admin/performance/pipeline-run` (header `X-Cloudity-Perf-Ingest`) — la table `cloudity_performance_pipeline_runs` est déjà prête. Permet d'historiser la perf des PR.
+
 ### Refactor frontend — fichiers > 1000 lignes (cadré 2026-05-13)
 
 > Constat : `MailPage.tsx` (6576 l), `DrivePage.tsx` (3228 l), `api.ts`

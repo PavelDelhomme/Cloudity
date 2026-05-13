@@ -2,6 +2,13 @@
 
 **Rôle** : inventaire **factuel** de la stack actuelle (langages, conteneurs, services), **objectifs** (léger, rapide, observable) et **pistes** (y compris alternatives « gros gains ») **sans sacrifier la sécurité** ni une **UX** digne d’une suite grand public. Ce document est une **feuille de route technique** : rien n’y est entièrement « livré » côté observabilité produit tant que le backlog associé ([BACKLOG.md](../../BACKLOG.md), **TR-06** dans [ROADMAP.md](../produit/ROADMAP.md)) n’est pas coché.
 
+> **Outils CLI dev** : pour la **surveillance temps réel** des ressources et le
+> **rituel checkpoint perf** (snapshot avant/après chaque feature, diff,
+> budgets), voir le document opérationnel dédié
+> **[PERFORMANCES-MONITORING.md](PERFORMANCES-MONITORING.md)** — il décrit les
+> 4 scripts `scripts/dev/perf-*.sh` et les cibles `make perf-watch /
+> perf-snapshot / perf-diff / perf-budgets`.
+
 **Dernière mise à jour** : 2026-05-06.
 
 ## Mise à jour 2026-05-06 — base admin runtime

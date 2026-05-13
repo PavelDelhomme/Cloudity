@@ -64,6 +64,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 |---------|------|
 | **[operations/TESTS.md](operations/TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, tests à ajouter. |
 | **[operations/PERFORMANCES.md](operations/PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf, artefacts `Trace-*` / `profiling-data*`. |
+| **[operations/PERFORMANCES-MONITORING.md](operations/PERFORMANCES-MONITORING.md)** | **Surveillance CLI temps réel** + **rituel checkpoint perf** (snapshot avant/après feature) : 4 scripts `scripts/dev/perf-*.sh` (`watch`, `snapshot`, `diff`, `budgets`) + cibles Makefile + format JSON + budgets configurables. |
 | **[operations/PLAN.md](operations/PLAN.md)** | Dépannage **dev** : console navigateur, favicons, dates corbeille. |
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
