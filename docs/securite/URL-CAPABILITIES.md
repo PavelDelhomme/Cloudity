@@ -196,10 +196,94 @@ content="no-referrer">` pendant le montage pour bloquer les fuites par
 
 ---
 
-## 7. Références croisées
+## 7. Couverture mobile (apps Dart) — parité 2FA
+
+> **Pourquoi une section dédiée ?** Les *capability URLs* sont
+> intentionnellement **web only** (elles s'appliquent au routage SPA, donc
+> au navigateur uniquement). Mais le **même niveau d'exigence** sur la
+> 2FA doit s'appliquer aux apps mobiles, sans quoi un compte 2FA-activé
+> serait inutilisable depuis le mobile — ou pire, l'utilisateur serait
+> tenté de désactiver le 2FA pour rétablir l'accès, ce qui ruinerait
+> l'effort de durcissement web.
+
+### 7.1 Diagnostic initial
+
+Avant ce sprint, les apps `mobile/drive`, `mobile/mail` et
+`mobile/photos` (Flutter / Dart) renvoyaient simplement à l'utilisateur :
+
+> *« Ce compte a la double authentification. Utilisez le web pour vous
+> connecter, ou désactivez provisoirement le 2FA pour les tests
+> mobiles. »*
+
+→ Régression UX dès qu'on activait le 2FA. **Inacceptable** au regard du
+durcissement web.
+
+### 7.2 Solution livrée
+
+Un module 2FA mutualisé `mobile/cloudity_shared/lib/auth_2fa.dart`
+expose :
+
+| Brique | Rôle |
+|---|---|
+| `LoginRequires2FAException` | Levée par `auth_api.login(...)` quand le serveur répond `{ "requires_2fa": true }`. Porte `email` + `tenantId` (jamais le mot de passe — l'étape 2 ne le requiert pas). |
+| `Auth2FAClient.verify({email,tenantId,code})` | POST `/auth/2fa/verify` → `Auth2FAResult { accessToken, refreshToken, expiresIn, usedRecoveryCode, recoveryCodes }`. Erreurs typées `Auth2FAException`. |
+| `looksLikeRecoveryCode(input)` | Heuristique alignée serveur (`recoverycodes.go`) : 12 caractères alphanumériques (avec ou sans tirets) → recovery code ; sinon TOTP. Permet à l'UI de pré-valider la saisie. |
+
+Chaque app `drive` / `mail` / `photos` a été mise à jour :
+
+* `auth_api.dart` : conversion `requires_2fa: true` → exception métier
+  + nouvelle méthode `verify2FA(...)` qui délègue à `Auth2FAClient`.
+* `login_screen.dart` : nouvelle vue d'étape 2 (`_build2FAForm`) avec
+  champ « Code 2FA » — TOTP **ou** recovery code, détection automatique
+  côté serveur. Le mot de passe est effacé du contrôleur dès la
+  bascule, et le bouton « Annuler / changer de compte » réinitialise le
+  flow proprement.
+
+### 7.3 Tests
+
+* **`mobile/cloudity_shared/test/auth_2fa_test.dart`** — `MockClient` :
+  succès TOTP, succès avec recovery codes, 401 → exception lisible,
+  saisie vide refusée *avant* appel réseau, 500 → exception, réponse
+  sans `access_token` → exception. **11/11 verts** (`dart test`).
+* `flutter analyze` — **0 issue** sur Drive / Mail / Photos /
+  cloudity_shared.
+
+### 7.4 Pourquoi pas de capability URL côté mobile ?
+
+Les *capability URLs* ciblent un **routeur SPA web** (React Router) où
+le risque est la fuite par `Referer`, screenshot d'URL ou historique
+synchronisé. Sur Flutter mobile, ce vecteur **n'existe pas** :
+
+* pas d'URL visible dans la barre d'adresse,
+* pas de `Referer` HTTP,
+* navigation interne par `Navigator.push(...)`, pas de routeur exposé,
+* secret de session déjà confiné par `flutter_secure_storage` (Keystore
+  Android / Keychain iOS).
+
+L'app mobile reste sur des **endpoints canoniques** (`/auth/2fa/verify`,
+`/auth/login`) et obtient son durcissement via la **même validation
+serveur** que le web (TOTP + recovery codes + rate-limit). C'est un
+choix conscient : on n'invente pas une protection sans menace
+correspondante.
+
+### 7.5 Ce qu'il reste à durcir (post-sprint Pass)
+
+* **Conditional UI WebAuthn / Passkey mobile** : à étudier via
+  `package:flutter_webauthn` ou plug-in `local_auth` + bridge backend.
+* **Pinning TLS** : aucun pinning aujourd'hui ; à activer en prod via
+  `http.Client` custom + `SecurityContext` pour les apps Drive / Mail /
+  Photos / Pass.
+* **Auto-clear clipboard** : déjà implémenté côté `mobile/pass`,
+  pourrait être généralisé (ex. quand on copie un mail, on flush en
+  60 s).
+
+---
+
+## 8. Références croisées
 
 * Backend : [`securetoken_hmac.go`](../../backend/auth-service/securetoken_hmac.go) (HMAC / issue / verify) + [`securetoken_http.go`](../../backend/auth-service/securetoken_http.go) (handlers Gin).
-* Frontend : [`frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts`](../../frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts).
+* Frontend web : [`frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts`](../../frontend/apps/cloudity-web/src/pages/app/settings/useSecurePaths.ts).
+* Mobile (parité 2FA) : [`mobile/cloudity_shared/lib/auth_2fa.dart`](../../mobile/cloudity_shared/lib/auth_2fa.dart) + écrans login Drive / Mail / Photos.
 * Migration partage : [`infrastructure/postgresql/migrations/39-pass-share-tokens.sql`](../../infrastructure/postgresql/migrations/39-pass-share-tokens.sql).
 * Crypto Pass E2E : [`docs/securite/PASS-CRYPTO.md`](./PASS-CRYPTO.md).
 * Cadre sécurité : [`docs/securite/SECURITE.md`](./SECURITE.md).

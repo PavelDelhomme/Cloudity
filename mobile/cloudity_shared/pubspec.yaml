@@ -1,12 +1,17 @@
 name: cloudity_shared
 description: >
   Bibliothèque Dart partagée pour les apps Flutter Cloudity (mail, drive, photos, pass, admin).
-  Contient notamment les helpers HTTP alignés sur `getAuthHeaders` côté web.
+  Contient les helpers HTTP alignés sur `getAuthHeaders` côté web ainsi que le client 2FA
+  unifié (`Auth2FAClient`) pour `/auth/2fa/verify`.
 publish_to: 'none'
 
-version: 0.1.0
+version: 0.2.0
 
 environment:
   sdk: ^3.11.4
 
-# Pas de dépendance runtime : helpers purs (Map / String).
+dependencies:
+  http: ^1.2.2
+
+dev_dependencies:
+  test: ^1.25.7

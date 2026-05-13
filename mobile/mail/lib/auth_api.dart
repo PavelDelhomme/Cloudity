@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import 'package:cloudity_shared/auth_2fa.dart';
 import 'package:cloudity_shared/http_helpers.dart';
 
 /// Appels HTTP vers le **api-gateway** (auth + mail).
@@ -38,9 +39,10 @@ class AuthApi {
       throw AuthException('Connexion impossible ($res.statusCode): $err');
     }
     if (map['requires_2fa'] == true) {
-      throw AuthException(
-        'Ce compte a la double authentification. Utilisez le web pour vous connecter, '
-        'ou désactivez provisoirement le 2FA pour les tests mobiles.',
+      throw LoginRequires2FAException(
+        email: email,
+        tenantId: tenantId,
+        userId: map['user_id'] is int ? map['user_id'] as int : null,
       );
     }
     final access = map['access_token'] as String?;
@@ -49,6 +51,19 @@ class AuthApi {
       throw AuthException('Réponse serveur sans access_token.');
     }
     return {'access_token': access, 'refresh_token': refresh ?? ''};
+  }
+
+  /// Étape 2 du login : POST `/auth/2fa/verify` via [Auth2FAClient].
+  Future<Auth2FAResult> verify2FA({
+    required String email,
+    required String tenantId,
+    required String code,
+  }) {
+    return Auth2FAClient(_base).verify(
+      email: email,
+      tenantId: tenantId,
+      code: code,
+    );
   }
 
   Future<Map<String, dynamic>> register({
