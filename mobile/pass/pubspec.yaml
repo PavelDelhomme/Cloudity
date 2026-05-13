@@ -1,0 +1,39 @@
+name: cloudity_pass
+description: |
+  Cloudity Pass — gestionnaire de mots de passe E2E.
+  **Sprint 2026-05 — LECTURE SEULE** au 20 mai (cf.
+  docs/produit/SPRINT-PASS-2026-05.md J7). L'édition mobile est en L2
+  (J+1..J+5 après la migration Proton).
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cloudity_shared:
+    path: ../cloudity_shared
+
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.3
+  # Crypto Pass (Argon2id, XChaCha20-Poly1305, HKDF) — port mobile du
+  # format `EnvelopeV1` côté web (cf. frontend/packages/pass-crypto).
+  cryptography: ^2.7.0
+  cbor: ^6.3.1
+  # Biométrie pour le re-déverrouillage rapide après le 1er unlock.
+  local_auth: ^2.3.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
