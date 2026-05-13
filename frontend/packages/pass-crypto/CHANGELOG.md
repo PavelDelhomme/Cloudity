@@ -10,6 +10,11 @@ Toutes les modifications notables de la lib TS `@cloudity/pass-crypto` sont cons
 
 Première implémentation TS du format **`EnvelopeV1`** (cf. PASS-CRYPTO.md § 2-4).
 
+### Ajouts J2 (2026-05-13 matin)
+
+- **Vecteurs déterministes figés** (`src/__tests__/vectors.test.ts`) : compare bit-à-bit la sortie d'Argon2id, HKDF-SHA-256 et le format `EnvelopeV1` complet (CBOR + base64url) pour des entrées canoniques. Si une dépendance change la sortie d'une primitive ou la sérialisation CBOR, le test échoue **avant** que les coffres existants deviennent illisibles. Régénération volontaire = bump `EnvelopeV1` → `v: 2` + lazy-migration.
+- **Bench Argon2id** (`scripts/bench-argon2.mjs`, cible `npm run bench:argon2 -w @cloudity/pass-crypto`) : mesure des 4 profils (`test` / `desktop` / `mobile-high` / `mobile-low`) avec warmup + médiane sur N itérations. Affiche l'écart aux cibles temps (1 s / 600 ms / 400 ms). Référence pour décider d'un upgrade silencieux des paramètres en prod.
+
 ### Ajouté
 
 - Primitives :

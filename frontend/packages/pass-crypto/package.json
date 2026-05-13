@@ -9,7 +9,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "bench:argon2": "node scripts/bench-argon2.mjs"
   },
   "dependencies": {
     "@noble/ciphers": "^1.3.0",
