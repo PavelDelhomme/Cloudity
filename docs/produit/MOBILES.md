@@ -4,6 +4,8 @@
 
 **Principe** : une même **API** (`api-gateway` + JWT) sert le **web** et le **mobile**. Le détail fonctionnel de chaque app reste dans ROADMAP (APP-xx).
 
+> **Vue transversale (web + mobile + desktop Linux + extension navigateur)** : voir **[MULTI-PLATEFORME.md](MULTI-PLATEFORME.md)** — c'est désormais ce document qui fait foi pour la **matrice apps × plateformes complète**. `MOBILES.md` reste centré sur la séquence mobile vs web et sur l'admin mobile (§ 2).
+
 ---
 
 ## 0. Web d’abord, mobile ensuite (gouvernance produit)

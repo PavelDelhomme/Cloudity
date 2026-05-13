@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=320,initial-scale=1" />
+    <title>Cloudity Pass</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <strong>🔐 Cloudity Pass</strong>
+      <small id="status-badge">État : chargement…</small>
+    </header>
+    <main>
+      <section id="locked-panel" hidden>
+        <p class="hint">
+          Le coffre est <strong>verrouillé</strong>. Saisis ton mot de passe
+          maître pour déverrouiller (équivalent extension du flow web).
+        </p>
+        <label>
+          ID utilisateur Cloudity
+          <input id="user-id" type="number" min="1" placeholder="ex. 42" />
+        </label>
+        <label>
+          Mot de passe maître
+          <input id="master-password" type="password" autocomplete="off" />
+        </label>
+        <button id="unlock-btn">Déverrouiller</button>
+        <p id="unlock-error" class="error" hidden></p>
+      </section>
+      <section id="unlocked-panel" hidden>
+        <p class="hint">
+          Le coffre est <strong>déverrouillé</strong>. Auto-lock dans
+          <span id="lock-countdown">--:--</span>.
+        </p>
+        <p class="hint todo">
+          (squelette : la liste des entrées et l'autofill arrivent en
+          <code>MP-06</code> — voir
+          <code>docs/produit/MULTI-PLATEFORME.md</code>.)
+        </p>
+        <button id="lock-btn">Verrouiller maintenant</button>
+      </section>
+    </main>
+    <footer>
+      <a href="#" id="open-options">Paramètres…</a>
+    </footer>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

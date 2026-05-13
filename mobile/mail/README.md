@@ -24,3 +24,22 @@ make test-mobile-mail
 ```
 
 Tests hôte : `cd mobile/mail && flutter test`. E2E device : `integration_test/mail_flow_test.dart` (voir **`docs/operations/TESTS.md`** § 1b).
+
+## Cibles plateformes
+
+| Cible | Présent ? | Notes |
+|---|---|---|
+| `android/` | ✅ | cible primaire actuelle |
+| `ios/` | 🟡 | scaffold Flutter présent, jamais testé sur device |
+| `linux/` | ❌ **manquant** | à scaffolder par `flutter create --platforms=linux .` quand on démarre l'app desktop Linux Mail (cf. [`docs/produit/MULTI-PLATEFORME.md`](../../docs/produit/MULTI-PLATEFORME.md) MP-03) |
+| `macos/` / `windows/` | ❌ | hors scope court terme |
+
+## Sécurité — flow 2FA mobile
+
+Depuis 2026-05-13 (J7 ter sprint Pass), `mobile/mail` supporte le
+flow **2FA TOTP / recovery code** (parité avec le web) via
+`Auth2FAClient` du package `cloudity_shared`. Quand le serveur répond
+`requires_2fa: true` au login, l'écran bascule sur un formulaire dédié
+qui accepte un code 6 chiffres (TOTP) ou 12 caractères (recovery).
+Voir [`docs/securite/URL-CAPABILITIES.md`](../../docs/securite/URL-CAPABILITIES.md)
+§ 7.

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cloudity Pass — Paramètres</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Cloudity Pass — Paramètres</h1>
+      <section>
+        <label>
+          URL du gateway Cloudity
+          <input id="gateway-url" type="url" placeholder="https://api.cloudity.example" />
+        </label>
+        <button id="save-gateway">Enregistrer</button>
+        <p id="status" class="hint" hidden></p>
+      </section>
+      <section class="hint todo">
+        <p>
+          Le squelette MV3 v0.1.0 livré le 2026-05-13 ne fait que stocker
+          l'URL du gateway et propose un déverrouillage maître pour
+          servir de base. L'autofill réel arrive en
+          <code>MP-06</code>, l'intégration cryptographique
+          <code>@cloudity/pass-crypto</code> arrive avec.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

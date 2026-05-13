@@ -1,0 +1,22 @@
+{
+  "name": "@cloudity/pass-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Extension navigateur (MV3) pour Cloudity Pass : autofill et accès rapide au coffre chiffré.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "clean": "rm -rf dist",
+    "lint": "echo \"(lint TODO post-sprint)\"",
+    "test": "echo \"(tests TODO post-sprint — voir ROADMAP MP-06)\""
+  },
+  "dependencies": {
+    "@cloudity/pass-crypto": "file:../../frontend/packages/pass-crypto"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.270",
+    "esbuild": "^0.23.1",
+    "typescript": "^5.4.5"
+  }
+}

@@ -31,12 +31,30 @@
 ### L2 — après le 20 mai (J+1..J+5)
 
 - [ ] **`mobile/pass` Flutter ÉDITION** : création / modif / suppression d’items, générateur, sync optimiste, gestion conflits.
-- [ ] **Extension navigateur** Chromium **MV3** (popup + content script autofill minimal : domain match → propose login/mot de passe).
+- [x] **Extension navigateur Pass — squelette MV3 livré (J7 ter, 2026-05-13)** : `extensions/cloudity-pass/` (manifest MV3, popup, background service worker avec auto-lock 5 min via `chrome.alarms`, content script avec badge passif, page options pour gateway URL, build esbuild). `npm run build` ✅, `tsc --noEmit` ✅. **L'autofill réel et l'intégration `@cloudity/pass-crypto` arrivent en MP-06** (cf. `docs/produit/MULTI-PLATEFORME.md`).
+- [ ] **MP-06 — Extension navigateur Pass autofill réel** : intégrer `@cloudity/pass-crypto` (Argon2id + déchiffrement) ; appel `passwords-service` via gateway ; liste des entrées dans le popup ; autofill réel sur clic utilisateur (jamais auto) ; domain matcher.
+- [ ] **MP-07 — Tests Playwright extension** : Chromium headless avec `--load-extension=extensions/cloudity-pass/dist`, scénarios déverrouillage maître + autofill 1 entrée.
+- [ ] **MP-08 — Portage Firefox / Safari** de l'extension Pass (le manifest MV3 est cross-browser ; Safari = wrapper Xcode).
 
 ### L3 — fond de roadmap (après stabilisation Pass)
 
 - [ ] Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration.
 - [ ] **WebAuthn / Passkeys** comme déverrouillage Pass (alignement WEBAUTHN-PLAN).
+
+### Surfaces clientes manquantes (matrice MULTI-PLATEFORME.md)
+
+> **Cadre** : décision 2026-05-13 — l'utilisateur a explicitement demandé de **lister et préparer** toutes les surfaces clientes attendues (extension navigateur Pass, app Linux Pass, app mobile Calendar, apps Linux desktop pour Drive/Photos/Mail). Le squelette extension MV3 et le placeholder `mobile/calendar/` sont livrés ce jour. Les autres restent à scaffolder selon l'ordre rentable (cf. **[MULTI-PLATEFORME.md § 3](docs/produit/MULTI-PLATEFORME.md)**).
+
+- [x] **MP-01 — Extension navigateur Pass MV3** : squelette livré (cf. L2).
+- [x] **MP-02 — `mobile/calendar/` placeholder** : README + `pubspec.yaml` stub livrés. Pas de scaffold `flutter create` tant que le backend `calendar-service` et la page web Calendar ne sont pas amorcés (cf. règle « web avant mobile » MOBILES.md § 0).
+- [ ] **MP-03 — Cible `linux/` Flutter pour `mobile/mail`** : aujourd'hui Mail n'a que `android/` + `ios/`. À scaffolder par `flutter create --platforms=linux .` quand le chantier desktop Mail démarre. Drive / Photos / Pass ont déjà leurs cibles `linux/` (mais seul Pass a été testé).
+- [ ] **MP-04 — Validation `flutter run -d linux`** sur Drive et Photos : leurs cibles existent (`mobile/{drive,photos}/linux/`) mais aucun build Linux n'a jamais été validé. Documenter dans `docs/operations/TESTS.md` § desktop la procédure (toolchain GTK + `clang` + `cmake`).
+- [ ] **MP-05 — Service backend `calendar-service` + page web Calendar** : pré-requis avant de scaffolder l'app mobile (cf. ROADMAP APP-05). Estim. 5-7 j. Embarque migrations DB events/recurrences + endpoints REST + interop iCal/CalDAV.
+- [ ] **MP-06 — Autofill réel extension Pass** : voir L2.
+- [ ] **MP-07 — Tests Playwright extension** : voir L2.
+- [ ] **MP-08 — Portage Firefox / Safari extension Pass** : voir L2.
+
+> **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
 
 ### Reportés post-20 mai (5 chantiers infra évalués 2026-05-13)
 
