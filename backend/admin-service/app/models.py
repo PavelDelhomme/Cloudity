@@ -2,7 +2,7 @@
 from sqlalchemy import Boolean, Column, DateTime, Integer, JSON, String
 from sqlalchemy.sql import func
 
-from database import Base
+from app.core.database import Base
 
 
 class Tenant(Base):

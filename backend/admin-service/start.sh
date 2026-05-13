@@ -31,7 +31,7 @@ case "${MODE}" in
       SSL_REQ="2"
     fi
     echo "[admin-service] uvicorn TLS (mode=${MODE}, ssl_cert_reqs=${SSL_REQ})"
-    exec uvicorn main:app \
+    exec uvicorn app.main:app \
       --host 0.0.0.0 --port "${PORT}" \
       --ssl-keyfile "${KEY_FILE}" \
       --ssl-certfile "${CERT_FILE}" \
@@ -41,6 +41,6 @@ case "${MODE}" in
     ;;
   *)
     echo "[admin-service] uvicorn HTTP plain (MTLS_MODE=${MODE})"
-    exec uvicorn main:app --host 0.0.0.0 --port "${PORT}" "$@"
+    exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT}" "$@"
     ;;
 esac

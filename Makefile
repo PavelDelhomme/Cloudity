@@ -1005,7 +1005,7 @@ fix-dockerfiles: ## Répare ou crée les Dockerfiles manquants
 		echo "✅ backend/api-gateway/Dockerfile.dev créé"; \
 	fi
 	@if [ ! -s backend/admin-service/Dockerfile.dev ]; then \
-		echo "FROM python:3.11-slim\n\nENV PYTHONUNBUFFERED=1\nENV PYTHONDONTWRITEBYTECODE=1\nENV PIP_NO_CACHE_DIR=1\n\nRUN apt-get update && apt-get install -y \\\n    curl \\\n    gcc \\\n    libpq-dev \\\n    && rm -rf /var/lib/apt/lists/*\n\nWORKDIR /app\n\nRUN pip install uvicorn[standard] watchfiles\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE 8082\n\nCMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8082\", \"--reload\", \"--reload-dir\", \"/app\"]" > backend/admin-service/Dockerfile.dev; \
+		echo "FROM python:3.11-slim\n\nENV PYTHONUNBUFFERED=1\nENV PYTHONDONTWRITEBYTECODE=1\nENV PIP_NO_CACHE_DIR=1\n\nRUN apt-get update && apt-get install -y \\\n    curl \\\n    gcc \\\n    libpq-dev \\\n    && rm -rf /var/lib/apt/lists/*\n\nWORKDIR /app\n\nRUN pip install uvicorn[standard] watchfiles\n\nCOPY requirements.txt .\nRUN pip install -r requirements.txt\n\nCOPY . .\n\nEXPOSE 8082\n\nCMD [\"uvicorn\", \"app.main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8082\", \"--reload\", \"--reload-dir\", \"/app/app\"]" > backend/admin-service/Dockerfile.dev; \
 		echo "✅ backend/admin-service/Dockerfile.dev créé"; \
 	fi
 	@if [ ! -s frontend/apps/cloudity-web/Dockerfile.dev ]; then \

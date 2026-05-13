@@ -5,7 +5,7 @@ import pytest
 os.environ.setdefault("DATABASE_URL", "postgresql://cloudity_admin:cloudity_secure_password_2025@localhost:6042/cloudity")
 
 from fastapi.testclient import TestClient
-from main import app
+from app.main import app
 
 client = TestClient(app)
 

@@ -51,7 +51,7 @@ check_file "backend/api-gateway/go.mod"
 echo -e "\n👤 Service d'administration:"
 check_dir "backend/admin-service"
 check_file "backend/admin-service/Dockerfile.dev"
-check_file "backend/admin-service/main.py"
+check_file "backend/admin-service/app/main.py"
 check_file "backend/admin-service/requirements.txt"
 
 # Frontend (monorepo : racine frontend/ + app @cloudity/web)

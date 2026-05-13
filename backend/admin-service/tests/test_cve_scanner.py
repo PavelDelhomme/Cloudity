@@ -1,6 +1,6 @@
 """Tests unitaires (sans réseau) pour le parseur go.mod du scanner CVE."""
 
-from cve_scanner import OsvPackage, dedupe, parse_go_mod
+from app.services.cve_scanner import OsvPackage, dedupe, parse_go_mod
 
 
 def test_parse_go_mod_block():

@@ -11,9 +11,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from cve_scanner import build_report_payload
-from database import get_db
-from schemas import CveFinding, CveReportResponse, CveVulnEntry
+from app.core.database import get_db
+from app.schemas import CveFinding, CveReportResponse, CveVulnEntry
+from app.services.cve_scanner import build_report_payload
 
 router = APIRouter(prefix="/admin", tags=["security"])
 

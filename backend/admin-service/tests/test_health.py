@@ -1,12 +1,13 @@
 """Tests du endpoint /health (sans DB)."""
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 
 # Import de l'app après éventuel réglage d'env (éviter import side-effect en prod)
-import os
 os.environ.setdefault("DATABASE_URL", "postgresql://user:pass@localhost/cloudity")
 
-from main import app
+from app.main import app  # noqa: E402  — env défini juste au-dessus
 
 client = TestClient(app)
 

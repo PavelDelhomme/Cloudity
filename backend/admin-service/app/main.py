@@ -2,9 +2,9 @@
 import uvicorn
 from fastapi import FastAPI
 
-from database import engine
-from models import Base, Tenant, User  # noqa: F401 — enregistre les modèles sur Base.metadata
-from routes import health, security, stats, tenants, users
+from app.core.database import engine
+from app.models import Base, Tenant, User  # noqa: F401 — enregistre les modèles sur Base.metadata
+from app.routes import health, security, stats, tenants, users
 
 Base.metadata.create_all(bind=engine)
 
@@ -23,4 +23,4 @@ app.include_router(security.router)
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8082, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8082, reload=True)

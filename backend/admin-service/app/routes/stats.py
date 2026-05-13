@@ -9,9 +9,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import Tenant, User
-from schemas import (
+from app.core.database import get_db
+from app.models import Tenant, User
+from app.schemas import (
     BudgetStatusResponse,
     BudgetViolation,
     ContainerPerformanceSample,

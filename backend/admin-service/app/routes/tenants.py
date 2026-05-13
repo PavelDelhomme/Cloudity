@@ -3,9 +3,9 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from database import get_db
-from models import Tenant, User
-from schemas import TenantCreate, TenantResponse, TenantUpdate
+from app.core.database import get_db
+from app.models import Tenant, User
+from app.schemas import TenantCreate, TenantResponse, TenantUpdate
 
 router = APIRouter(prefix="/admin", tags=["tenants"])
 
