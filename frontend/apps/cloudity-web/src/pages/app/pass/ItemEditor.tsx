@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Button, Input, Label } from '@cloudity/shared'
-import { Eye, EyeOff, Copy, Wand2, Trash2, Save, ArrowLeft, Globe } from 'lucide-react'
+import { Eye, EyeOff, Copy, Wand2, Trash2, Save, ArrowLeft, Globe, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generatePassword, type ItemPlaintextV1 } from '@cloudity/pass-crypto'
 import { copyWithAutoClear } from './clipboardAutoClear'
+import TotpDisplay from './TotpDisplay'
 
 export interface ItemEditorValue {
   /** Identifiant interne (numérique) si édition d'un item existant. */
@@ -27,6 +28,7 @@ interface LoginFields {
   url: string
   username: string
   password: string
+  totpUri: string
 }
 
 function fieldsFromPlaintext(p: ItemPlaintextV1): LoginFields {
@@ -36,6 +38,7 @@ function fieldsFromPlaintext(p: ItemPlaintextV1): LoginFields {
     url: typeof f.url === 'string' ? f.url : '',
     username: typeof f.username === 'string' ? f.username : '',
     password: typeof f.password === 'string' ? f.password : '',
+    totpUri: typeof f.totpUri === 'string' ? f.totpUri : '',
   }
 }
 
@@ -90,10 +93,13 @@ export default function ItemEditor({
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    // Ne sérialise totpUri que s'il est non-vide.
+    const cleaned: Record<string, unknown> = { ...fields }
+    if (!cleaned.totpUri) delete cleaned.totpUri
     const next: ItemPlaintextV1 = {
       schema: 1,
       type: 'login',
-      fields: { ...fields },
+      fields: cleaned,
       ...(notes.trim() ? { notes: notes.trim() } : {}),
     }
     onSave({ id: initial.id, plaintext: next })
@@ -214,6 +220,38 @@ export default function ItemEditor({
           </Button>
           <Button type="button" variant="ghost" onClick={onGenerate} aria-label="Générer" title="Générer un mot de passe fort">
             <Wand2 className="w-4 h-4" aria-hidden />
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="pass-totp">Code 2FA (TOTP)</Label>
+          {fields.totpUri && (
+            <div className="flex items-center text-slate-700 dark:text-slate-200">
+              <TotpDisplay otpauthUri={fields.totpUri} />
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            id="pass-totp"
+            type="text"
+            placeholder="otpauth://totp/Service:user?secret=BASE32&issuer=Service"
+            value={fields.totpUri}
+            onChange={(e) => setFields((cur) => ({ ...cur, totpUri: e.target.value }))}
+            autoComplete="off"
+            className="flex-1 font-mono text-xs"
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={!fields.totpUri}
+            onClick={() => setFields((cur) => ({ ...cur, totpUri: '' }))}
+            aria-label="Effacer la 2FA"
+            title="Effacer la 2FA"
+          >
+            <Clock className="w-4 h-4" aria-hidden />
           </Button>
         </div>
       </div>

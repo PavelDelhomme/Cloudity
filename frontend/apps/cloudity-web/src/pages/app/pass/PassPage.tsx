@@ -20,7 +20,7 @@ import {
   encryptItemForVault,
   type ItemPlaintextV1,
 } from '@cloudity/pass-crypto'
-import { Lock, Plus, KeyRound, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { Lock, Plus, KeyRound, ShieldCheck, AlertTriangle, Upload } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import {
   fetchVaults,
@@ -35,6 +35,8 @@ import {
 import { VaultProvider, useVault, useUnlockedVault } from './vaultContext'
 import UnlockScreen from './UnlockScreen'
 import ItemEditor, { type ItemEditorValue } from './ItemEditor'
+import ProtonImportDialog from './ProtonImportDialog'
+import type { ConvertedItem } from './protonImport'
 
 // --- Helpers ----------------------------------------------------------
 
@@ -142,6 +144,7 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
   const [selectedVaultId, setSelectedVaultId] = useState<number | null>(null)
   const [editing, setEditing] = useState<ItemEditorValue | null>(null)
   const [search, setSearch] = useState('')
+  const [importing, setImporting] = useState(false)
 
   // --- Vaults --------------------------------------------------------
 
@@ -264,6 +267,47 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  /**
+   * Import Proton : chiffre + uploade chaque item, avec une concurrence bornée
+   * pour ne pas saturer le serveur tout en étant bien plus rapide qu'un POST
+   * séquentiel pour un export de centaines d'entrées.
+   */
+  const onProtonImport = async (
+    items: ConvertedItem[]
+  ): Promise<{ ok: number; failed: number }> => {
+    if (!selectedVault) return { ok: 0, failed: items.length }
+    const vaultIdStr = String(selectedVault.id)
+    const concurrency = 4
+    let ok = 0
+    let failed = 0
+    let i = 0
+    const worker = async () => {
+      while (i < items.length) {
+        const idx = i++
+        const it = items[idx]
+        try {
+          const itemIdStr = crypto.randomUUID()
+          const ciphertext = encryptItemForVault({
+            masterKey: vault.masterKey,
+            vaultId: vaultIdStr,
+            itemId: itemIdStr,
+            plaintext: it.plaintext,
+            kdf: vault.kdf,
+            saltUser: vault.saltUser,
+          })
+          await createVaultItem(accessToken, selectedVault.id, ciphertext, 1)
+          ok++
+        } catch (err) {
+          console.warn('[proton-import] échec item', it.source.itemId, err)
+          failed++
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: concurrency }, () => worker()))
+    queryClient.invalidateQueries({ queryKey: ['vault-items', selectedVaultId] })
+    return { ok, failed }
+  }
+
   // --- Render --------------------------------------------------------
 
   return (
@@ -329,17 +373,28 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">
                 {selectedVault ? selectedVault.name : 'Sélectionner un coffre'}
               </h3>
-              {selectedVault && !editing && (
-                <Button
-                  type="button"
-                  onClick={() =>
-                    setEditing({ plaintext: structuredClone(EMPTY_LOGIN) })
-                  }
-                  size="sm"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" aria-hidden />
-                  Nouvelle entrée
-                </Button>
+              {selectedVault && !editing && !importing && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImporting(true)}
+                  >
+                    <Upload className="w-4 h-4 mr-1.5" aria-hidden />
+                    Importer Proton
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      setEditing({ plaintext: structuredClone(EMPTY_LOGIN) })
+                    }
+                    size="sm"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" aria-hidden />
+                    Nouvelle entrée
+                  </Button>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -347,6 +402,15 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
           {!selectedVault ? (
             <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
               Sélectionne un coffre dans la colonne de gauche, ou crées-en un nouveau.
+            </div>
+          ) : importing ? (
+            <div className="p-6">
+              <ProtonImportDialog
+                targetVaultId={selectedVault.id}
+                targetVaultName={selectedVault.name}
+                onClose={() => setImporting(false)}
+                onConfirm={onProtonImport}
+              />
             </div>
           ) : editing ? (
             <ItemEditor
