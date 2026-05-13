@@ -100,7 +100,115 @@ Plus l'ajustement Docker (au choix) :
 
 L'étape Docker (a) ou (b) modifie le **build conteneur** de chaque service ; en cas de bug, on prend le risque d'une stack rouge en dev. La **règle Phase 0** est de **n'avancer qu'avec un service pilote** (drive-service), valider en `make rebuild` complet, puis propager. Voir todo dédiée dans **[../../BACKLOG.md](../../BACKLOG.md)**.
 
-## 5. Checks après ajout ou renommage d’un service
+## 5. Conventions de tests : Go vs Python
+
+> **Objectif** : ne plus se demander *« pourquoi tel `_test.go` est à côté de
+> `main.go` plutôt que dans un dossier `tests/` ? »*. Réponse : c'est une
+> contrainte du **langage**, pas un choix d'équipe.
+
+### 5.1 Tests Go — `*_test.go` **colocalisés** avec le code testé (obligatoire)
+
+Tous les `*_test.go` des services Go (`auth-service`, `api-gateway`,
+`mail-directory-service`, `passwords-service`, `drive-service`, …) **doivent
+rester dans le même dossier** que le code qu'ils testent. Quatre raisons
+techniques :
+
+1. **Même `package`** : un test fait `package main` ou `package monservice`,
+   identique au fichier testé. Déplacer le test dans `tests/` (= autre
+   package) ferait perdre l'accès aux **symboles non exportés**
+   (`func helper()`, types `lowerCase`, constantes privées).
+2. **`go test ./...`** descend dans chaque dossier de package : un test
+   isolé hors du package ne sera plus exécuté tel quel.
+3. **Couverture** : `go test -cover` rapporte la couverture **par package**.
+   Sortir les tests casse le mapping fichier-source ↔ fichier-test que
+   l'outil utilise.
+4. **`internal/` package** : Go interdit l'import de `internal/foo` depuis
+   un dossier qui n'est pas un parent. Un dossier `tests/` au-dessus du
+   service ne pourrait pas importer ses internals.
+
+Exemple concret (auth-service) — toute cette liste est **correcte** :
+
+```
+backend/auth-service/
+  main.go
+  main_test.go
+  main_keys_test.go
+  main_mtls_test.go
+  recovery_codes.go
+  recovery_codes_test.go
+  webauthn.go
+  webauthn_user.go
+  webauthn_session.go
+  webauthn_register.go
+  webauthn_login.go
+  webauthn_credentials.go
+  webauthn_auth.go
+  webauthn_test.go
+  securetoken_hmac.go
+  securetoken_http.go
+  securetoken_test.go
+  routes.go
+```
+
+### 5.2 Tests d'intégration **inter-services** — `internal/integration/` (futur)
+
+Lorsqu'on aura besoin de tests qui orchestrent plusieurs services
+(ex. *« le gateway vers auth-service vers passwords-service »* en
+black-box HTTP), ils iront dans un sous-package dédié, par exemple
+`backend/internal/integration/` ou `tests/integration/` à la racine du
+dépôt. Ils ne **remplacent pas** les `*_test.go` colocalisés : ils
+s'ajoutent. À mettre en place uniquement quand un vrai besoin existe
+(pas avant).
+
+### 5.3 Tests Python — dossier `tests/` séparé (admin-service)
+
+Côté Python, **pytest** suit la convention inverse : tests dans un
+dossier dédié, nommés `test_*.py`. Le code applicatif est désormais
+regroupé dans `app/` (depuis le refactor du 13/05/2026) :
+
+```
+backend/admin-service/
+  app/
+    __init__.py
+    main.py                     # FastAPI app
+    core/
+      __init__.py
+      database.py               # engine SQLAlchemy + get_db()
+    models.py                   # ORM (Tenant, User)
+    schemas.py                  # Pydantic
+    routes/
+      __init__.py
+      health.py
+      tenants.py
+      users.py
+      stats.py
+      security.py
+    services/
+      __init__.py
+      cve_scanner.py            # OSV scanner
+  tests/
+    __init__.py
+    test_health.py
+    test_tenants.py
+    test_users.py
+    test_stats.py
+    test_cve_scanner.py
+  Dockerfile
+  Dockerfile.dev
+  Dockerfile.prod
+  pytest.ini                    # pythonpath = .  → import "app.main"
+  start.sh                      # uvicorn app.main:app …
+  requirements.txt
+```
+
+**Imports absolus partout** : `from app.core.database import get_db`,
+`from app.models import User`, `from app.services.cve_scanner import …`.
+Les imports plats (`from database import …`) ont été supprimés.
+
+CMD uvicorn : `uvicorn app.main:app …` (Dockerfile, Dockerfile.dev avec
+`--reload-dir /app/app`, `start.sh` HTTP plain et TLS mTLS).
+
+## 6. Checks après ajout ou renommage d’un service
 
 1. **`go.work`** : ajouter `./backend/<nouveau-service>`.
 2. **`docker-compose.yml`** : service, `build.context`, `depends_on` du gateway si health requis.
@@ -110,4 +218,5 @@ L'étape Docker (a) ou (b) modifie le **build conteneur** de chaque service ; en
 
 ---
 
-*À mettre à jour lors d’un refactor `pkg/dbpin` ou d’un renommage de service.*
+*À mettre à jour lors d’un refactor `pkg/dbpin`, d’un renommage de service,
+ou d’une évolution de la structure `backend/admin-service/app/`.*
