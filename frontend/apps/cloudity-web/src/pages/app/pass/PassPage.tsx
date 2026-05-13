@@ -1,20 +1,153 @@
-import React, { useState } from 'react'
+/**
+ * PassPage — gestionnaire de mots de passe Cloudity (web).
+ *
+ * Architecture (cf. docs/securite/PASS-CRYPTO.md, docs/produit/SPRINT-PASS-2026-05.md) :
+ *  - Le coffre est **verrouillé** par défaut → on demande le mot de passe maître.
+ *  - Une fois déverrouillé, la **master key** (32 octets) vit uniquement en mémoire
+ *    React (`vaultContext`). Auto-lock après 5 min d'inactivité.
+ *  - Toutes les entrées sont **chiffrées côté client** via `@cloudity/pass-crypto`
+ *    avant d'être envoyées en POST/PUT. Le serveur (`passwords-service`) ne lit
+ *    jamais le contenu — il étiquette uniquement la `format_version` (= 1 pour
+ *    EnvelopeV1).
+ */
+
+import React, { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../../../authContext'
-import { fetchVaults, createVault, fetchVaultItems } from '../../../api'
 import toast from 'react-hot-toast'
-import { Card, CardHeader, Button, Input, Badge } from '@cloudity/shared'
+import { Card, CardHeader, Button, Input, Badge, parseJwtPayload } from '@cloudity/shared'
+import {
+  decryptItemFromVault,
+  encryptItemForVault,
+  type ItemPlaintextV1,
+} from '@cloudity/pass-crypto'
+import { Lock, Plus, KeyRound, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { useAuth } from '../../../authContext'
+import {
+  fetchVaults,
+  createVault,
+  fetchVaultItems,
+  createVaultItem,
+  updateVaultItem,
+  deleteVaultItem,
+  type VaultResponse,
+  type PassItemResponse,
+} from '../../../api'
+import { VaultProvider, useVault, useUnlockedVault } from './vaultContext'
+import UnlockScreen from './UnlockScreen'
+import ItemEditor, { type ItemEditorValue } from './ItemEditor'
+
+// --- Helpers ----------------------------------------------------------
+
+function readUserIdFromToken(token: string | null | undefined): string | null {
+  if (!token) return null
+  const payload = parseJwtPayload(token)
+  if (!payload) return null
+  const v = payload.user_id ?? payload.sub
+  return typeof v === 'string' || typeof v === 'number' ? String(v) : null
+}
+
+const EMPTY_LOGIN: ItemPlaintextV1 = {
+  schema: 1,
+  type: 'login',
+  fields: { title: '', url: '', username: '', password: '' },
+}
+
+interface DecryptedItem {
+  id: number
+  vaultId: number
+  ciphertext: string
+  formatVersion: number
+  plaintext: ItemPlaintextV1 | null
+  decryptError: string | null
+}
+
+// --- Outer component (provides VaultContext) --------------------------
 
 export default function PassPage() {
+  return (
+    <VaultProvider>
+      <PassPageInner />
+    </VaultProvider>
+  )
+}
+
+// --- Inner ------------------------------------------------------------
+
+function PassPageInner() {
   const { accessToken, logout } = useAuth()
+  const userId = useMemo(() => readUserIdFromToken(accessToken), [accessToken])
+  const { state } = useVault()
+
+  if (!accessToken || !userId) {
+    return (
+      <div className="py-8 text-sm text-slate-500 dark:text-slate-400">
+        Authentification requise.
+      </div>
+    )
+  }
+
+  if (state.status !== 'unlocked') {
+    return (
+      <div className="flex flex-col gap-6">
+        <PassHeader locked />
+        <UnlockScreen userId={userId} />
+      </div>
+    )
+  }
+
+  return <UnlockedPass accessToken={accessToken} logout={logout} />
+}
+
+function PassHeader({
+  locked = false,
+  onLock,
+}: {
+  locked?: boolean
+  onLock?: () => void
+}) {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight inline-flex items-center gap-2">
+          <KeyRound className="w-6 h-6 text-brand-500" aria-hidden />
+          Pass
+        </h1>
+        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Coffre chiffré côté client (Argon2id + XChaCha20-Poly1305 + HKDF-SHA-256).
+          {locked ? ' Verrouillé.' : null}
+        </p>
+      </div>
+      {!locked && onLock && (
+        <Button variant="ghost" onClick={onLock} aria-label="Verrouiller le coffre">
+          <Lock className="w-4 h-4 mr-1.5" aria-hidden />
+          Verrouiller
+        </Button>
+      )}
+    </div>
+  )
+}
+
+// --- Unlocked state ---------------------------------------------------
+
+interface UnlockedPassProps {
+  accessToken: string
+  logout: () => void
+}
+
+function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
   const queryClient = useQueryClient()
+  const vault = useUnlockedVault()
+  const { lock } = useVault()
   const [newVaultName, setNewVaultName] = useState('')
   const [selectedVaultId, setSelectedVaultId] = useState<number | null>(null)
+  const [editing, setEditing] = useState<ItemEditorValue | null>(null)
+  const [search, setSearch] = useState('')
 
-  const { data: vaults, isLoading, error } = useQuery({
+  // --- Vaults --------------------------------------------------------
+
+  const vaultsQuery = useQuery({
     queryKey: ['vaults'],
-    queryFn: () => fetchVaults(accessToken!),
-    enabled: Boolean(accessToken),
+    queryFn: () => fetchVaults(accessToken),
     retry: false,
     staleTime: 60 * 1000,
     onError: (err: Error) => {
@@ -25,15 +158,19 @@ export default function PassPage() {
     },
   })
 
-  const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ['vault-items', selectedVaultId],
-    queryFn: () => fetchVaultItems(accessToken!, selectedVaultId!),
-    enabled: Boolean(accessToken && selectedVaultId),
-    staleTime: 30 * 1000,
-  })
+  const vaultsList = vaultsQuery.data ?? []
 
-  const createMutation = useMutation({
-    mutationFn: (name: string) => createVault(accessToken!, name),
+  // Sélection initiale automatique du premier vault.
+  React.useEffect(() => {
+    if (selectedVaultId == null && vaultsList.length > 0) {
+      setSelectedVaultId(vaultsList[0].id)
+    }
+  }, [vaultsList, selectedVaultId])
+
+  const selectedVault = vaultsList.find((v) => v.id === selectedVaultId) ?? null
+
+  const createVaultMutation = useMutation({
+    mutationFn: (name: string) => createVault(accessToken, name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['vaults'] })
       setNewVaultName('')
@@ -42,116 +179,291 @@ export default function PassPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
-  const list = vaults ?? []
-  const selectedVault = list.find((v) => v.id === selectedVaultId)
+  // --- Items + déchiffrement -----------------------------------------
+
+  const itemsQuery = useQuery({
+    queryKey: ['vault-items', selectedVaultId],
+    queryFn: () => fetchVaultItems(accessToken, selectedVaultId!),
+    enabled: Boolean(selectedVaultId),
+    staleTime: 30 * 1000,
+  })
+
+  const decryptedItems = useMemo<DecryptedItem[]>(() => {
+    if (!itemsQuery.data || !selectedVault) return []
+    return itemsQuery.data.map((it: PassItemResponse) => {
+      const base: DecryptedItem = {
+        id: it.id,
+        vaultId: it.vault_id,
+        ciphertext: it.ciphertext,
+        formatVersion: (it as { format_version?: number }).format_version ?? 1,
+        plaintext: null,
+        decryptError: null,
+      }
+      try {
+        base.plaintext = decryptItemFromVault({
+          masterKey: vault.masterKey,
+          vaultId: String(selectedVault.id),
+          encoded: it.ciphertext,
+        })
+      } catch (err) {
+        base.decryptError = err instanceof Error ? err.message : 'décryption KO'
+      }
+      return base
+    })
+  }, [itemsQuery.data, selectedVault, vault.masterKey])
+
+  const filteredItems = useMemo(() => {
+    if (!search.trim()) return decryptedItems
+    const q = search.trim().toLowerCase()
+    return decryptedItems.filter((it) => {
+      if (it.plaintext == null) return false
+      const f = it.plaintext.fields as Record<string, unknown>
+      const haystack = [f.title, f.url, f.username, it.plaintext.notes]
+        .filter((s): s is string => typeof s === 'string')
+        .join(' ')
+        .toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [decryptedItems, search])
+
+  // --- Mutations create / update / delete ----------------------------
+
+  const saveMutation = useMutation({
+    mutationFn: async (val: ItemEditorValue) => {
+      if (!selectedVault) throw new Error('Aucun coffre sélectionné')
+      const vaultIdStr = String(selectedVault.id)
+      const itemIdStr = val.id != null ? String(val.id) : crypto.randomUUID()
+      const ciphertext = encryptItemForVault({
+        masterKey: vault.masterKey,
+        vaultId: vaultIdStr,
+        itemId: itemIdStr,
+        plaintext: val.plaintext,
+        kdf: vault.kdf,
+        saltUser: vault.saltUser,
+      })
+      if (val.id == null) {
+        return createVaultItem(accessToken, selectedVault.id, ciphertext, 1)
+      }
+      return updateVaultItem(accessToken, val.id, ciphertext, 1)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-items', selectedVaultId] })
+      setEditing(null)
+      toast.success('Entrée chiffrée + enregistrée')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (itemId: number) => deleteVaultItem(accessToken, itemId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['vault-items', selectedVaultId] })
+      setEditing(null)
+      toast.success('Entrée supprimée')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  // --- Render --------------------------------------------------------
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Pass</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Coffres et mots de passe sécurisés.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="text"
-            placeholder="Nom du coffre"
-            value={newVaultName}
-            onChange={(e) => setNewVaultName(e.target.value)}
-            className="w-48"
-          />
-          <Button
-            onClick={() => createMutation.mutate(newVaultName || 'Mon coffre')}
-            disabled={createMutation.isPending}
-          >
-            {createMutation.isPending ? 'Création…' : 'Nouveau coffre'}
-          </Button>
-        </div>
-      </div>
+      <PassHeader onLock={lock} />
 
-      {error && (
-        <p className="text-red-600 dark:text-red-400">
-          {error instanceof Error ? error.message : 'Erreur'}
-          {error instanceof Error && error.message.includes('401') && (
-            <span className="block mt-2">
-              <button
-                type="button"
-                onClick={() => { logout(); toast.success('Déconnecté. Reconnectez-vous pour continuer.'); }}
-                className="text-brand-600 dark:text-brand-400 hover:underline"
-              >
-                Se reconnecter
-              </button>
-            </span>
-          )}
-        </p>
-      )}
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+        {/* Colonne 1 : vaults */}
+        <Card>
+          <CardHeader>
+            <h3 className="font-semibold text-slate-800 dark:text-slate-200">Mes coffres</h3>
+          </CardHeader>
+          <div className="px-4 pt-3 pb-2 flex items-center gap-2">
+            <Input
+              type="text"
+              placeholder="Nouveau coffre…"
+              value={newVaultName}
+              onChange={(e) => setNewVaultName(e.target.value)}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              onClick={() => createVaultMutation.mutate(newVaultName.trim() || 'Mon coffre')}
+              disabled={createVaultMutation.isPending}
+              aria-label="Créer un coffre"
+            >
+              {createVaultMutation.isPending ? '…' : <Plus className="w-4 h-4" aria-hidden />}
+            </Button>
+          </div>
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+            {vaultsList.length === 0 ? (
+              <li className="px-6 py-6 text-slate-500 dark:text-slate-400 text-sm">
+                Aucun coffre. Créez-en un ci-dessus.
+              </li>
+            ) : (
+              vaultsList.map((v: VaultResponse) => (
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVaultId(v.id)
+                      setEditing(null)
+                    }}
+                    className={`w-full text-left px-6 py-3 text-sm font-medium transition-colors flex items-center justify-between ${
+                      selectedVaultId === v.id
+                        ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
+                        : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <span className="truncate">{v.name}</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-normal">#{v.id}</span>
+                  </button>
+                </li>
+              ))
+            )}
+          </ul>
+        </Card>
 
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 py-8">
-          <span className="inline-block h-4 w-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          Chargement des coffres…
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <h3 className="font-semibold text-slate-800 dark:text-slate-200">Mes coffres</h3>
-            </CardHeader>
-            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-              {list.length === 0 ? (
-                <li className="px-6 py-6 text-slate-500 dark:text-slate-400 text-sm">Aucun coffre. Créez-en un ci-dessus.</li>
-              ) : (
-                list.map((v) => (
-                  <li key={v.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedVaultId(v.id)}
-                      className={`w-full text-left px-6 py-3.5 text-sm font-medium transition-colors flex items-center justify-between ${
-                        selectedVaultId === v.id
-                          ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                      }`}
-                    >
-                      <span>{v.name}</span>
-                      <span className="text-slate-400 dark:text-slate-500 font-normal">#{v.id}</span>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-          </Card>
-          <Card>
-            <CardHeader>
+        {/* Colonne 2 : items / éditeur */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">
                 {selectedVault ? selectedVault.name : 'Sélectionner un coffre'}
               </h3>
-            </CardHeader>
-            {selectedVaultId && (
-              <div className="p-6">
-                {itemsLoading ? (
-                  <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
-                    <span className="inline-block h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                    Chargement…
+              {selectedVault && !editing && (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    setEditing({ plaintext: structuredClone(EMPTY_LOGIN) })
+                  }
+                  size="sm"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" aria-hidden />
+                  Nouvelle entrée
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+
+          {!selectedVault ? (
+            <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
+              Sélectionne un coffre dans la colonne de gauche, ou crées-en un nouveau.
+            </div>
+          ) : editing ? (
+            <ItemEditor
+              initial={editing}
+              vaultName={selectedVault.name}
+              saving={saveMutation.isPending}
+              deleting={deleteMutation.isPending}
+              onCancel={() => setEditing(null)}
+              onSave={(val) => saveMutation.mutate(val)}
+              onDelete={
+                editing.id != null
+                  ? () => {
+                      if (confirm('Supprimer définitivement cette entrée ?')) {
+                        deleteMutation.mutate(editing.id!)
+                      }
+                    }
+                  : undefined
+              }
+            />
+          ) : (
+            <>
+              <div className="px-4 pt-3 pb-2">
+                <Input
+                  type="search"
+                  placeholder="Rechercher (titre, URL, utilisateur, notes)…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <ItemList
+                items={filteredItems}
+                loading={itemsQuery.isLoading}
+                onPick={(it) => {
+                  if (it.plaintext == null) {
+                    toast.error(it.decryptError ?? 'Item illisible')
+                    return
+                  }
+                  setEditing({ id: it.id, plaintext: it.plaintext })
+                }}
+              />
+            </>
+          )}
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+// --- ItemList ----------------------------------------------------------
+
+function ItemList({
+  items,
+  loading,
+  onPick,
+}: {
+  items: DecryptedItem[]
+  loading: boolean
+  onPick: (it: DecryptedItem) => void
+}) {
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+        <span className="inline-block h-4 w-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        Déchiffrement local…
+      </div>
+    )
+  }
+  if (items.length === 0) {
+    return (
+      <div className="p-6 text-sm text-slate-500 dark:text-slate-400">
+        Aucune entrée. Clique sur <strong>Nouvelle entrée</strong> en haut à droite.
+      </div>
+    )
+  }
+  return (
+    <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+      {items.map((it) => {
+        const f = (it.plaintext?.fields ?? {}) as Record<string, unknown>
+        const title = typeof f.title === 'string' && f.title ? f.title : `Entrée #${it.id}`
+        const subtitle =
+          typeof f.username === 'string' && f.username
+            ? String(f.username)
+            : typeof f.url === 'string'
+              ? String(f.url)
+              : ''
+        return (
+          <li key={it.id}>
+            <button
+              type="button"
+              onClick={() => onPick(it)}
+              className="w-full text-left px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between gap-3"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
+                  {title}
+                </div>
+                {subtitle && (
+                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    {subtitle}
                   </div>
-                ) : (
-                  <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-                    {(items ?? []).length === 0 ? (
-                      <li className="py-3 text-slate-500 dark:text-slate-400 text-sm">Aucune entrée (données chiffrées côté client).</li>
-                    ) : (
-                      (items ?? []).map((it) => (
-                        <li key={it.id} className="py-3 flex items-center justify-between">
-                          <span className="text-sm text-slate-600 dark:text-slate-400">Entrée #{it.id}</span>
-                          <Badge>Chiffré</Badge>
-                        </li>
-                      ))
-                    )}
-                  </ul>
                 )}
               </div>
-            )}
-          </Card>
-        </div>
-      )}
-    </div>
+              {it.decryptError ? (
+                <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">
+                  <AlertTriangle className="w-3.5 h-3.5" aria-hidden />
+                  Illisible
+                </span>
+              ) : (
+                <Badge>
+                  <ShieldCheck className="w-3.5 h-3.5 mr-1" aria-hidden />
+                  v{it.formatVersion}
+                </Badge>
+              )}
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }

@@ -302,6 +302,54 @@ export async function fetchVaultItems(token: string, vaultId: number): Promise<P
   return apiJson<PassItemResponse[]>(token, `/pass/vaults/${vaultId}/items`, undefined, 'Vault items')
 }
 
+/**
+ * Crée un item dans un vault. Le `ciphertext` est une chaîne base64url
+ * d'enveloppe `EnvelopeV1` (cf. `@cloudity/pass-crypto`). Le serveur
+ * ne lit jamais ce blob — il ne fait qu'enregistrer + tagger `format_version`.
+ */
+export async function createVaultItem(
+  token: string,
+  vaultId: number,
+  ciphertext: string,
+  formatVersion = 1
+): Promise<PassItemResponse> {
+  return apiJson<PassItemResponse>(
+    token,
+    `/pass/vaults/${vaultId}/items`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ ciphertext, format_version: formatVersion }),
+    },
+    'Create vault item'
+  )
+}
+
+/** Met à jour un item existant — ciphertext entièrement réécrit côté client. */
+export async function updateVaultItem(
+  token: string,
+  itemId: number,
+  ciphertext: string,
+  formatVersion = 1
+): Promise<PassItemResponse> {
+  return apiJson<PassItemResponse>(
+    token,
+    `/pass/items/${itemId}`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ ciphertext, format_version: formatVersion }),
+    },
+    'Update vault item'
+  )
+}
+
+/** Supprime un item (RLS garantit que l'user ne voit que les siens). */
+export async function deleteVaultItem(token: string, itemId: number): Promise<void> {
+  const res = await apiFetch(token, `/pass/items/${itemId}`, { method: 'DELETE', json: false })
+  if (!res.ok) {
+    throw new Error(`Delete vault item: ${res.status}`)
+  }
+}
+
 // Mail / Domaines (mail-directory-service)
 export type MailDomainResponse = {
   id: number

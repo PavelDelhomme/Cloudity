@@ -1,18 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import React from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TestRouter } from '../../../test-utils'
 import PassPage from './PassPage'
 import { useAuth } from '../../../authContext'
-import * as api from '../../../api'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
-  fetchVaults: vi.fn(),
+  fetchVaults: vi.fn().mockResolvedValue([]),
   createVault: vi.fn(),
   fetchVaultItems: vi.fn(),
+  createVaultItem: vi.fn(),
+  updateVaultItem: vi.fn(),
+  deleteVaultItem: vi.fn(),
 }))
+
+/**
+ * Construit un JWT factice (signature random) — la signature n'est pas vérifiée
+ * côté front, on extrait juste `user_id` du payload.
+ */
+function fakeJwt(payload: Record<string, unknown>): string {
+  const enc = (obj: object): string =>
+    btoa(JSON.stringify(obj)).replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  return `${enc({ alg: 'none' })}.${enc(payload)}.signature`
+}
 
 function wrap(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -23,11 +35,14 @@ function wrap(ui: React.ReactElement) {
   )
 }
 
-describe('PassPage', () => {
+describe('PassPage (verrouillé par défaut)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('affiche "Authentification requise" quand le JWT ne porte pas user_id', () => {
     vi.mocked(useAuth).mockReturnValue({
-      accessToken: 'token',
+      accessToken: 'pas-un-jwt',
       tenantId: 1,
       email: 'u@test.com',
       refreshToken: null,
@@ -35,41 +50,39 @@ describe('PassPage', () => {
       login: vi.fn(),
       logout: vi.fn(),
     } as unknown as ReturnType<typeof useAuth>)
-  })
-
-  it('renders Pass title and breadcrumb', async () => {
-    vi.mocked(api.fetchVaults).mockResolvedValue([])
     render(wrap(<PassPage />))
-    expect(screen.getByRole('heading', { name: /^Pass$/ })).toBeTruthy()
-    expect(screen.getByText(/Coffres et mots de passe/)).toBeTruthy()
+    expect(screen.getByText(/Authentification requise/)).toBeTruthy()
   })
 
-  it('shows vault list when fetch succeeds', async () => {
-    vi.mocked(api.fetchVaults).mockResolvedValue([
-      { id: 1, user_id: 1, tenant_id: 1, name: 'Default', created_at: '', updated_at: '' },
-    ])
-    render(wrap(<PassPage />))
-    await waitFor(() => {
-      expect(screen.getByText('Default')).toBeTruthy()
-    })
-  })
-
-  it('on 401 shows error and reconnect button', async () => {
-    vi.mocked(api.fetchVaults).mockRejectedValue(new Error('Vaults: 401'))
-    const logout = vi.fn()
+  it('affiche le titre Pass + écran de déverrouillage avec un JWT valide', () => {
     vi.mocked(useAuth).mockReturnValue({
-      accessToken: 'token',
+      accessToken: fakeJwt({ user_id: 42, sub: 'user-42' }),
       tenantId: 1,
       email: 'u@test.com',
       refreshToken: null,
       isAuthenticated: true,
       login: vi.fn(),
-      logout,
+      logout: vi.fn(),
     } as unknown as ReturnType<typeof useAuth>)
     render(wrap(<PassPage />))
-    await waitFor(() => {
-      expect(screen.getByText(/Vaults: 401|401/)).toBeTruthy()
-    })
-    expect(screen.getByRole('button', { name: /Se reconnecter/ })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /^Pass$/ })).toBeTruthy()
+    expect(screen.getByText(/Coffre verrouillé/)).toBeTruthy()
+    expect(screen.getByLabelText(/Mot de passe maître/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Déverrouiller/ })).toBeTruthy()
+  })
+
+  it('mention l\'auto-verrouillage et le chiffrement client-side', () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: fakeJwt({ user_id: 42 }),
+      tenantId: 1,
+      email: 'u@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    render(wrap(<PassPage />))
+    expect(screen.getByText(/Auto-verrouillage après 5 minutes/)).toBeTruthy()
+    expect(screen.getByText(/Argon2id/)).toBeTruthy()
   })
 })
