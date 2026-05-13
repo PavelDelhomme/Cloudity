@@ -194,6 +194,9 @@ func main() {
 	// Codes de récupération 2FA (cf. recovery_codes.go).
 	r.POST("/auth/2fa/recovery-codes/regenerate", authService.RegenerateRecoveryCodes)
 	r.GET("/auth/2fa/recovery-codes/count", authService.CountRecoveryCodes)
+	// Capability URLs rotatives (cf. securetoken.go + docs/securite/URL-CAPABILITIES.md).
+	r.GET("/auth/security-paths", authService.SecurePaths)
+	r.POST("/auth/security-paths/validate", authService.ValidateSecurePath)
 	r.GET("/auth/validate", authService.ValidateToken)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
 

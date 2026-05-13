@@ -214,6 +214,7 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../ST
 | **Edge / TLS public** | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
 | **mTLS interne** | **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
 | **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
+| **URL capabilities** (slug rotatif 2FA / settings vs. token de partage stable) | **[URL-CAPABILITIES.md](URL-CAPABILITIES.md)** — HMAC-SHA-256 par `(user_id, purpose, epoch 30 j)` + sliding window pour l'auto-service, token aléatoire 192 bits hashé SHA-256 + révocable pour le partage Pass. |
 
 ---
 

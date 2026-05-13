@@ -1380,6 +1380,60 @@ export async function countRecoveryCodes(token: string): Promise<{ active: numbe
   return apiJson(token, '/auth/2fa/recovery-codes/count', undefined, 'Codes de récupération (count)')
 }
 
+/**
+ * Réponse de `GET /auth/security-paths` (cf. backend `securetoken.go`).
+ *
+ * Pour chaque page sensible (`settings_security`, …), le serveur émet :
+ *  - `path` : chemin SPA rotatif (HMAC du `(user_id, purpose, epoch 30 j)`),
+ *  - `token` : token brut (le SPA peut l'utiliser pour ses redirects),
+ *  - `expires_at` : timestamp ISO-8601 UTC où le token est rejeté
+ *    (sliding window : window précédent toléré, donc en pratique
+ *    `now + 2 × window`),
+ *  - `rotates_at` : timestamp ISO-8601 UTC de la prochaine rotation.
+ *
+ * Modèle d'usage : on cache la réponse 1 h via React Query, et on
+ * re-fetche à `rotates_at - 5 min` pour ne pas attendre l'erreur.
+ */
+export interface SecurePathEntry {
+  readonly path: string
+  readonly token: string
+  readonly expires_at: string
+  readonly rotates_at: string
+}
+
+export interface SecurePathsResponse {
+  readonly paths: Record<string, SecurePathEntry>
+  readonly issued_at: string
+  readonly window_seconds: number
+}
+
+/** Récupère les chemins SPA rotatifs (Bearer obligatoire). */
+export async function fetchSecurePaths(token: string): Promise<SecurePathsResponse> {
+  return apiJson<SecurePathsResponse>(token, '/auth/security-paths', undefined, 'Chemins sécurisés')
+}
+
+/**
+ * Valide un token capability côté serveur. Renvoie `true` si OK, `false`
+ * si expiré / signature invalide / purpose inconnu / user mismatch.
+ *
+ * Ne lève pas d'exception sur 403 (cas attendu = token périmé) — seules
+ * les erreurs réseau / 5xx remontent.
+ */
+export async function validateSecurePath(
+  token: string,
+  pathToken: string,
+  purpose: string,
+): Promise<boolean> {
+  const res = await apiFetch(token, '/auth/security-paths/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: pathToken, purpose }),
+  })
+  if (res.status === 200) return true
+  if (res.status === 401 || res.status === 403) return false
+  throw new Error(`Validation chemin sécurisé : HTTP ${res.status}`)
+}
+
 function parseApiErrorMessage(raw: string, fallback: string): string {
   const t = raw.trim()
   if (!t) return fallback

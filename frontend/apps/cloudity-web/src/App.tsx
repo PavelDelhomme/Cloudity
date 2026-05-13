@@ -21,6 +21,8 @@ import TasksPage from './pages/app/tasks/TasksPage'
 import ContactsPage from './pages/app/contacts/ContactsPage'
 import PhotosPage from './pages/app/photos/PhotosPage'
 import AppSettingsPage from './pages/app/settings/AppSettingsPage'
+import SecureSettingsPage from './pages/app/settings/SecureSettingsPage'
+import SettingsRedirect from './pages/app/settings/SettingsRedirect'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
 import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
@@ -106,7 +108,13 @@ export function UserAppRoutes() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="contacts" element={<ContactsPage />} />
           <Route path="photos" element={<PhotosPage />} />
-          <Route path="settings" element={<AppSettingsPage />} />
+          {/* `/app/settings` (canonique) tente de récupérer un slug rotatif
+              `/app/settings/sec/:token` ; en cas d'indisponibilité serveur
+              (URL_TOKEN_SECRET absent → 503), on retombe sur la page non
+              obfusquée pour ne pas casser l'UX. */}
+          <Route path="settings" element={<SettingsRedirect />} />
+          <Route path="settings/sec/:token" element={<SecureSettingsPage />} />
+          <Route path="settings/canonical" element={<AppSettingsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
