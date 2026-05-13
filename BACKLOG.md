@@ -41,6 +41,19 @@
 - [ ] Enrôlement multi-appareil **hybride PQ** X25519 + ML-KEM-768 (PASS-CRYPTO § 5) — bump `EnvelopeV1` → `v: 2`, lazy-migration.
 - [ ] **WebAuthn / Passkeys** comme déverrouillage Pass (alignement WEBAUTHN-PLAN).
 
+### Refactor frontend — fichiers > 1000 lignes (cadré 2026-05-13)
+
+> Constat : `MailPage.tsx` (6576 l), `DrivePage.tsx` (3228 l), `api.ts`
+> (2191 l), `DocumentEditorPage.tsx` (1388 l). Ces tailles freinent la
+> maintenance et la revue de PR. Découpe **un fichier par PR**, validé
+> par typecheck + Vitest + Playwright + smoke navigateur. Plan complet :
+> **[docs/architecture/FRONTEND-LAYOUT.md § 5](docs/architecture/FRONTEND-LAYOUT.md)**.
+
+- [ ] **REFACTOR-FE-01 — `api.ts` (2191 l) → `src/api/<domaine>.ts`** : auth, drive, mail, pass, photos, calendar, notes, tasks, contacts, office, admin, performance, webauthn + `index.ts` qui ré-exporte (compat). Purement mécanique, pas de logique UI touchée. **À faire en premier** (impact transverse, mais risque maîtrisé).
+- [ ] **REFACTOR-FE-02 — `MailPage.tsx` (6576 l)** : extraire `MailListPanel` / `MailReadingPanel` / `MailComposer` / `MailFolderTree` + dossier `pages/app/mail/hooks/`. À faire **après** stabilisation conversation 2FA / Pass (impact UI fort).
+- [ ] **REFACTOR-FE-03 — `DrivePage.tsx` (3228 l)** : `DriveBrowser` / `DriveBreadcrumbs` / `DriveContextMenu` / `DriveUploadOverlay` + hooks dédiés.
+- [ ] **REFACTOR-FE-04 — `DocumentEditorPage.tsx` (1388 l)** : sous-modules `office/word/`, `office/spreadsheet/`, `office/presentation/` (déjà mentionné FRONTEND-LAYOUT § 2).
+
 ### Surfaces clientes manquantes (matrice MULTI-PLATEFORME.md)
 
 > **Cadre** : décision 2026-05-13 — l'utilisateur a explicitement demandé de **lister et préparer** toutes les surfaces clientes attendues (extension navigateur Pass, app Linux Pass, app mobile Calendar, apps Linux desktop pour Drive/Photos/Mail). Le squelette extension MV3 et le placeholder `mobile/calendar/` sont livrés ce jour. Les autres restent à scaffolder selon l'ordre rentable (cf. **[MULTI-PLATEFORME.md § 3](docs/produit/MULTI-PLATEFORME.md)**).
