@@ -60,6 +60,8 @@ echo "  3. make test-e2e-playwright — E2E navigateur Playwright (Hub, Drive, C
 echo "  4. make test-security  — Audits de dépendances + auth"
 echo "  5. test-mobile-suite   — Flutter Photos + Drive + Mail (hôte + integration_test ADB si appareil / SDK OK)"
 echo ""
+echo "  Astuce (Mail/sync) : un .env incomplet → make doctor avant les phases E2E Mail ; alignement secrets : make secrets-print ou docs/securite/SECRETS.md."
+echo ""
 
 # ----- Phase 1 -----
 echo ""

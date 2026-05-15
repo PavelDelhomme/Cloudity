@@ -195,6 +195,26 @@ function notifyNewMailForAccount(
   }
 }
 
+/** Réponse 400 sync IMAP : aucun MDP stocké / déchiffrement impossible — ouvrir la modale « Sync avec mot de passe ». */
+function isMailSyncPasswordRequiredError(e: unknown): boolean {
+  const m = e instanceof Error ? e.message : String(e)
+  return (
+    m.includes('mot de passe requis pour la synchronisation') ||
+    m.includes("secret enregistré n'est plus lisible") ||
+    m.includes('MAIL_PASSWORD_ENCRYPTION_KEY changée')
+  )
+}
+
+function warnIfSyncPasswordNotStored(r: { password_stored?: boolean; message?: string }, hadTypedPassword: boolean) {
+  if (hadTypedPassword && r.password_stored === false) {
+    toast(
+      r.message ||
+        'Sync OK mais le mot de passe n’a pas été enregistré pour la prochaine fois — vérifiez MAIL_PASSWORD_ENCRYPTION_KEY (`make doctor`) puis resaisissez le mot de passe.',
+      { duration: 7000, icon: '⚠️' }
+    )
+  }
+}
+
 function getDraftKey(accountId: number | null): string {
   return `${STORAGE_DRAFT_PREFIX}${accountId ?? 0}`
 }
@@ -1756,7 +1776,17 @@ export default function MailPage() {
           try {
             const r = await syncMailAccount(token, id, undefined, syncExtraImapOptions(id))
             notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
-          } catch {
+          } catch (e) {
+            if (isMailSyncPasswordRequiredError(e)) {
+              setSyncAccountId(id)
+              setSyncPassword('')
+              setShowSyncModal(true)
+              toast(
+                'Mot de passe IMAP requis pour une boîte. Saisissez-le dans la fenêtre — il sera enregistré de façon sécurisée après une synchro réussie.',
+                { duration: 6000 }
+              )
+              break
+            }
             /* erreur réseau / IMAP : on continue les autres comptes */
           }
         }
@@ -2138,6 +2168,7 @@ export default function MailPage() {
       const syncRes = await syncMailAccount(tokenForSync, created.id, password)
       queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
       void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+      warnIfSyncPasswordNotStored(syncRes, true)
       toast.success(syncRes.synced > 0 ? `${syncRes.synced} message(s) récupéré(s)` : syncRes.message)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -2181,10 +2212,13 @@ export default function MailPage() {
         return
       }
       try {
-        const r = await syncMailAccount(token, syncAccountId, syncPassword.trim() || undefined, syncExtraImapOptions(syncAccountId))
+        const typedPw = syncPassword.trim()
+        const r = await syncMailAccount(token, syncAccountId, typedPw || undefined, syncExtraImapOptions(syncAccountId))
         queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+        warnIfSyncPasswordNotStored(r, typedPw.length > 0)
         toast.success(r.synced > 0 ? `${r.synced} message(s) synchronisé(s)` : r.message)
         setShowSyncModal(false)
         setSyncAccountId(null)
@@ -2225,7 +2259,17 @@ export default function MailPage() {
           const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
           toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
         } catch (e) {
-          toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation')
+          if (isMailSyncPasswordRequiredError(e)) {
+            setSyncAccountId(accountId)
+            setSyncPassword('')
+            setShowSyncModal(true)
+            toast(
+              'Mot de passe IMAP manquant ou invalide en base. Saisissez-le ci-dessous — il sera enregistré après une synchro réussie.',
+              { duration: 6000 }
+            )
+          } else {
+            toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation')
+          }
         } finally {
           setSyncingAccountId(null)
         }
@@ -5079,7 +5123,7 @@ export default function MailPage() {
                             }}
                             disabled={syncingAccountId !== null}
                             className="inline-flex items-center gap-1 rounded-lg border border-brand-300 dark:border-brand-500 bg-brand-100 dark:bg-brand-700 px-2.5 py-1.5 text-xs font-medium text-brand-900 dark:text-white hover:bg-brand-200 dark:hover:bg-brand-600 disabled:opacity-40"
-                            title="Sync IMAP avec le mot de passe déjà enregistré (sans saisie)"
+                            title="Sync avec le mot de passe déjà enregistré. Si un mot de passe est demandé, une fenêtre s’ouvre automatiquement — ou utilisez « Sync avec mot de passe… »."
                           >
                             {syncingAccountId === acc.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
                             Sync maintenant
@@ -6480,9 +6524,14 @@ export default function MailPage() {
       {showSyncModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Synchroniser la boîte mail</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Synchroniser la boîte mail</h2>
+            {syncAccountId != null ? (
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200 mb-3 truncate" title={accounts.find((a) => a.id === syncAccountId)?.email}>
+                {accounts.find((a) => a.id === syncAccountId)?.email ?? `Compte #${syncAccountId}`}
+              </p>
+            ) : null}
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Si un mot de passe a été enregistré à l’ajout de la boîte, laissez vide. Sinon, saisissez le mot de passe (ou mot de passe d’application Gmail) pour cette synchro.
+              Saisissez le mot de passe IMAP (ou mot de passe d’application Gmail) si la boîte n’a pas encore de secret enregistré, si vous l’avez changé côté fournisseur, ou après rotation de la clé serveur. Après une connexion réussie, il est <strong className="text-slate-700 dark:text-slate-200">enregistré de façon chiffrée</strong> pour les prochaines synchronisations. Si un mot de passe valide est déjà en base, vous pouvez laisser vide.
             </p>
             {syncAccountId != null && /@gmail\.com$/i.test(accounts.find((a) => a.id === syncAccountId)?.email ?? '') && (
               <p className="mb-4 text-xs text-amber-700 dark:text-amber-300">

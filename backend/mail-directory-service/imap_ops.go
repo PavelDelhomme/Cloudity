@@ -82,7 +82,7 @@ func (h *Handler) imapDialAndLogin(ctx context.Context, accountID int, passwordO
 			return email, nil, fmt.Errorf("authentification IMAP OAuth: %w", err)
 		}
 	} else {
-		if err := ic.Login(email, password); err != nil {
+		if err := imapLoginPassword(ic, email, password); err != nil {
 			_ = ic.Logout()
 			return email, nil, fmt.Errorf("login IMAP: %w", err)
 		}

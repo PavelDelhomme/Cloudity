@@ -50,6 +50,7 @@ func main() {
 		pass.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "passwords-service"}) })
 		pass.GET("/vaults", h.listVaults)
 		pass.POST("/vaults", h.createVault)
+		pass.DELETE("/vaults/:id", h.deleteVault)
 		pass.GET("/vaults/:id/items", h.listItems)
 		pass.POST("/vaults/:id/items", h.addItem)
 		pass.PUT("/items/:id", h.updateItem)
@@ -176,6 +177,31 @@ func (h *Handler) createVault(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"id": id, "name": name})
+}
+
+// deleteVault supprime un coffre et tous ses items (FK ON DELETE CASCADE).
+func (h *Handler) deleteVault(c *gin.Context) {
+	idStr := c.Param("id")
+	vid, err := strconv.Atoi(idStr)
+	if err != nil || vid <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid vault id"})
+		return
+	}
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
+		DELETE FROM pass_vaults
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, vid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "vault not found"})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 type Item struct {

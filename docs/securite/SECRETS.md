@@ -17,7 +17,7 @@
 | Paire Ed25519 (`private_ed25519.pem` + `public_ed25519.pem`) | JWT EdDSA (cible) | générée par `auth-service` au boot | Volume Docker `cloudity_auth_keys` |
 | `PERFORMANCE_INGEST_TOKEN` | header `X-Cloudity-Perf-Ingest` (gateway + admin-service) | `make secrets` | Variable Portainer (**même valeur** sur les deux services) |
 | `MAIL_PASSWORD_ENCRYPTION_KEY` | AES-256-GCM des passwords IMAP/SMTP | `openssl rand -hex 32` (32 octets) | Variable Portainer |
-| `ALIAS_ENCRYPTION_KEY` | clé symétrique alias mail | `openssl rand -hex 32` | Variable Portainer |
+| `ALIAS_ENCRYPTION_KEY` | clé symétrique alias / champs sensibles (futur ; parité VPS) | `openssl rand -base64 32` ou **`make ensure-alias-encryption-key`** | Variable Portainer |
 | `GOOGLE_OAUTH_CLIENT_SECRET` | OAuth Gmail | console Google Cloud | Variable Portainer (jamais .env public) |
 | Mot de passe CA `step-ca` | PKI mTLS interne | `step ca init` ou `openssl rand -hex 32` | Volume **chiffré** Portainer (`infrastructure/step-ca/secrets/ca-password`) |
 | Clé Restic / Borg | backups offsite | `openssl rand -base64 48` | Coffre hors VPS (RPi + clef physique séparée) |
@@ -28,7 +28,7 @@
 
 ```bash
 # Cloudity, racine du repo :
-make secrets             # crée .env (chmod 600) avec POSTGRES, REDIS, JWT, PERFORMANCE_INGEST_TOKEN
+make secrets             # crée .env (chmod 600) avec POSTGRES, REDIS, JWT, PERFORMANCE_INGEST_TOKEN, MAIL_*, ALIAS_*
 make secrets-print       # affiche un set de secrets sans rien écrire
 ./scripts/dev/gen-secrets.sh --force                   # écrase .env existant
 OUTPUT=.env.production.example ./scripts/dev/gen-secrets.sh   # template prod
@@ -66,7 +66,7 @@ PLACEHOLDER_*
 ```
 
 Exemples actuels dans le repo :
-- `MAIL_PASSWORD_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000` (placeholder dev — `mail-directory-service` **refuse** de chiffrer/déchiffrer avec cette clé : voir `validateMailEncryptionKeyAtBoot` + tests `TestEncryptPasswordRejectsZeroKey`).
+- `MAIL_PASSWORD_ENCRYPTION_KEY=0000000000000000000000000000000000000000000000000000000000000000` (ancien placeholder Compose — **à éviter** : `make ensure-mail-encryption-key` ou `gen-secrets.sh` ; le service **refuse** de chiffrer/déchiffrer avec cette clé : voir `validateMailEncryptionKeyAtBoot` + tests `TestEncryptPasswordRejectsZeroKey`).
 - `PERFORMANCE_INGEST_TOKEN=dev_perf_ingest_change_me` dans `docker-compose.yml`.
 - Mots de passe Postgres / Redis / JWT par défaut suffixés `_2025` ou préfixés `dev_only_*` selon le fichier — **non utilisables tels quels en prod** (gateway et admin-service refusent de démarrer si certaines variables sont vides — cf. `routes/stats.py` `require_perf_ingest_token` qui retourne 503).
 

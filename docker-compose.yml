@@ -69,8 +69,8 @@ services:
   # Service d'authentification Go
   auth-service:
     build:
-      context: ./backend/auth-service
-      dockerfile: Dockerfile.dev
+      context: ./backend
+      dockerfile: auth-service/Dockerfile.dev
     container_name: cloudity-auth-service
     restart: unless-stopped
     ports:
@@ -111,8 +111,8 @@ services:
   # API Gateway Go
   api-gateway:
     build:
-      context: ./backend/api-gateway
-      dockerfile: Dockerfile.dev
+      context: ./backend
+      dockerfile: api-gateway/Dockerfile.dev
     container_name: cloudity-api-gateway
     restart: unless-stopped
     ports:
@@ -240,10 +240,12 @@ services:
       - GOTOOLCHAIN=auto
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
-      # Clé 32 bytes (64 hex) pour chiffrer les mots de passe IMAP/SMTP stockés. En prod, définir MAIL_PASSWORD_ENCRYPTION_KEY.
-      # Placeholder DEV uniquement (zéros) : régénérer une vraie clé via `make secrets`
-      # ou `openssl rand -hex 32`. Le service refuse de chiffrer si la clé est nulle.
-      - MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      # Clé 32 bytes (64 hex) pour chiffrer les mots de passe IMAP/SMTP stockés.
+      # Définir dans .env (voir gen-secrets.sh / scripts/dev/ensure-mail-encryption-key.sh).
+      # Sans valeur valide, decrypt refuse le placeholder « 64 zéros » — sync IMAP renvoie 503 explicite.
+      - MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY}
+      # Parité prod / futur chiffrement alias (voir ensure-alias-encryption-key.sh, DEPLOIEMENT-VPS).
+      - ALIAS_ENCRYPTION_KEY=${ALIAS_ENCRYPTION_KEY:-}
       # OAuth Google (Gmail sans mot de passe d'application) : optionnel. Voir README section Mail / OAuth.
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}

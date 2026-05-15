@@ -1,27 +1,38 @@
-# TODOS — suivi court
+# CLOUDITY — Suivi court (micro-tâches)
 
-**Rôle** : liste **légère** de correctifs et suites immédiates. Le détail produit, jalons et dettes longues restent dans **[BACKLOG.md](./BACKLOG.md)** et **[STATUS.md](./STATUS.md)** (section *À faire maintenant* ; historique détaillé : **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**).
-
-**À chaque changement** : tenir **[STATUS.md](./STATUS.md)** à jour si l’état global bouge ; consigner le tour dans **[docs/LOGS.md](docs/LOGS.md)** (sauf message commençant par **`NPNLD`**) — voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**.
-
-## Avant chaque session
-
-Ordre recommandé : **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** puis **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — en résumé : `docker info` → **`make test`** → (optionnel) E2E, `flutter test` sous `mobile/pass`, validation `compose` si YAML touché. Préférer **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que des commandes npm manuelles sur l’hôte pour valider le front.
+**Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
 ---
 
-## Prod VPS (quand H1 / Q15 le permettront)
+## Avant session
 
-> Détail : **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (8 stacks Portainer, GHCR, **`<EDGE_NETWORK>`**, **Q23** : `cloudity.<DOMAIN>` + `api` + `admin`, **§ 1 bis** DNS + NPM, **§ 1 ter** chemins `/app/…` vs sous-domaines). Pas de **`PLAN.md`** à la racine : planification longue = **[BACKLOG.md](./BACKLOG.md)** + **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)**. **Avant** Portainer : ordre chantier Drive / Mail / Pass / Photos + mobile dans **[STATUS.md](./STATUS.md)** § *À faire maintenant* (tableau *Feuille de route*). **Maj services / OTA mobile / Pass+alias** : **[docs/operations/RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** + **BACKLOG** REL / PASS-ALIAS.
-
-- [ ] **Checklist pré-prod** : DNS registrar (A/CNAME) pour **chaque** FQDN aligné avec les **Proxy Hosts** NPM ; `container_name` stables ; stacks `cloudity-*` + images `TAG` ; `CORS_ORIGINS` / build `VITE_*` / `WEBAUTHN_ORIGINS` cohérents avec les **vrais** noms (hors Git) ; `make smoke-prod` avec `SMOKE_*` sur les URLs choisies.
+1. **`git status`** — branche alignée avec le chantier (**[docs/GIT.md](./docs/GIT.md)**).
+2. **`docker info`** puis **`make test`** (barrière merge) — **[docs/operations/DEV-VERIFICATION.md](./docs/operations/DEV-VERIFICATION.md)** § 0.
+3. Relire **[STATUS.md](./STATUS.md)** § *À faire maintenant*.
 
 ---
 
-## URL-CAPABILITIES — correctifs documentation & UX
+## `.env` / secrets (alignement `.env.example`)
 
-> Référence : **[docs/securite/URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md)** (§ 2.2 fenêtre coulissante, § 2.4 frontend, threat model § 1).
+| Besoin | Commande |
+|--------|----------|
+| Nouveau fichier `.env` complet (CSPRNG) | **`make secrets`** (échoue si `.env` existe — utiliser **`./scripts/dev/gen-secrets.sh --force`** en connaissance de cause : **écrase** le fichier). |
+| Afficher un jeu de secrets **sans** écrire | **`make secrets-print`** |
+| Clé IMAP/SMTP (64 hex) manquante ou placeholder | **`make ensure-mail-encryption-key`** |
+| `ALIAS_ENCRYPTION_KEY` vide (parité VPS / futur) | **`make ensure-alias-encryption-key`** |
+| Clé mail + recréer `mail-directory-service` + build extension Pass | **`make doctor`** (= **`make stack-heal`**) — succès = uniquement des **✅** en sortie ; l’avertissement **icons/** de l’extension est bénin. |
+| Sync IMAP encore en erreur après rotation de clé | Ré-enregistrer le **mot de passe** de la boîte dans l’UI Mail — le ciphertext en base était chiffré avec l’ancienne clé. |
 
-- [x] § 2.2 **sliding window** : clarifier que la protection temporelle cible surtout les **fuites passives** long terme (historique, screenshot, bookmark archivé), **pas** un attaquant actif avec slug + JWT valide à J+0 ; un **slug seul** ne suffit jamais — défense active = **JWT Bearer** (durée courte) + **rate-limit** sur `/auth/security-paths/validate`.
-- [x] Implémenter **re-fetch proactif** `useSecurePaths` à **`rotates_at - 5 min`** (`invalidateQueries` + `useEffect`, 2026-05-16).
-- [x] **Confirmer en test** : garde-fou Vitest **`src/security/ucQa01SlugIsolation.test.ts`** (pas de `/app/settings/sec/` ni `useSecurePaths` dans **`api.ts`**) — compléter par **E2E / manuel** si besoin (parcours mail + drive avec slug rotatif actif).
+Référence : **[docs/securite/SECRETS.md](./docs/securite/SECRETS.md)**.
+
+---
+
+## Prod VPS
+
+Checklist : **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](./docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** + **[docs/architecture/HOMELAB-SECURITE.md](./docs/architecture/HOMELAB-SECURITE.md)** (Q15).
+
+---
+
+## URL-CAPABILITIES (post J7 bis)
+
+Voir **[docs/securite/URL-CAPABILITIES.md](./docs/securite/URL-CAPABILITIES.md)** et **[BACKLOG.md](./BACKLOG.md)** (section UC-DOC / UC-FE).

@@ -78,6 +78,16 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button.secondary {
+  margin-top: 10px;
+  background: color-mix(in srgb, CanvasText 12%, transparent);
+  color: CanvasText;
+}
+
+button.secondary:hover {
+  background: color-mix(in srgb, CanvasText 20%, transparent);
+}
+
 .hint {
   margin: 0 0 12px;
   line-height: 1.4;

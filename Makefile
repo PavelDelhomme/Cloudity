@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -34,9 +34,9 @@ help: ## Affiche ce message d'aide
 	@echo ''
 	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
-	@echo '  make up        - Démarre toute la stack (idempotent: relancer sans souci si déjà démarrée)'
+	@echo '  make up        - Démarre toute la stack (+ clé mail IMAP si besoin + build extension Pass MV3 dans extensions/cloudity-pass/dist)'
 	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
-	@echo '  make rebuild   - Reconstruit tous les services, redémarre et applique les migrations (tout-en-un)'
+	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
@@ -56,7 +56,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make dashboard-npm-install - npm install dans apps/cloudity-web (ou utiliser frontend-install à la racine)'
 	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
 	@echo '  make test-security - Audits deps (npm/pip/go) + gosec + checks auth 401'
-	@echo '  make status       - Tableau services (port, URL, Up/Down)'
+	@echo '  make status       - Tableau services (port, URL, Up/Down) + bloc URLs (/app, /login, Pass, Mail, gateway, Adminer… ; CLOUDITY_STATUS_HOST=IP_LAN)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
 	@echo '  make status-watch - Statut toutes les 10 s (watch + couleurs Up/Down)'
 	@echo '  make test-all   - TOUT: make test + … + test-mobile-suite Photos/Drive/Mail (stack up + seed-admin pour E2E)'
@@ -67,7 +67,12 @@ help: ## Affiche ce message d'aide
 	@echo ''
 	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
+	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
+	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
+	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
+	@echo '  make stack-heal | make doctor - Clé mail + recrée mail-directory + build extension (sans rebuild toutes les images)'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
+	@echo '  make clean-pass-e2e-vaults - Supprime les coffres Pass « e2e-* » (restes Playwright sur le compte démo)'
 	@echo '  make clean-test-tenants APPLY=1 - Nettoyage safe tenants (backup + confirmation, dry-run sinon)'
 	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
 	@echo '  make mobile-devices - Liste les appareils ADB'
@@ -142,7 +147,7 @@ dev-https: ## Lance Vite en HTTPS local via mkcert (https://localhost:5173). Sta
 	@chmod +x scripts/dev/dev-https.sh
 	@./scripts/dev/dev-https.sh
 
-up: ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
+up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
 	@echo "✅ Stack démarrée. Accès:"
@@ -156,7 +161,7 @@ up: ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Co
 	@echo ""
 	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
 
-up-lean: ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
+up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
 	@echo "🚀 Démarrage Cloudity (sans outils dev Adminer / Redis Commander)..."
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
@@ -179,7 +184,7 @@ setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis la
 	@echo ""
 	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
 
-secrets: ## Génère un .env avec des secrets robustes (256 bits) — voir docs/securite/AUDIT-SECURITE.md
+secrets: ## Génère un .env avec des secrets robustes (CSPRNG : Postgres, Redis, JWT, PERF ingest, MAIL + ALIAS) — voir SECRETS.md
 	@if [ ! -f scripts/dev/gen-secrets.sh ]; then echo "❌ scripts/dev/gen-secrets.sh introuvable."; exit 1; fi
 	@chmod +x scripts/dev/gen-secrets.sh
 	@./scripts/dev/gen-secrets.sh
@@ -193,6 +198,28 @@ secrets-scan: ## Scan gitleaks (historique git) — voir docs/securite/SECRETS.m
 
 secrets-scan-staged: ## Scan gitleaks staged (à utiliser avant commit)
 	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest protect --redact --staged -v
+
+ensure-mail-encryption-key: ## Ajoute MAIL_PASSWORD_ENCRYPTION_KEY (64 hex) au .env si absente ou placeholder — requis pour sync IMAP
+	@chmod +x scripts/dev/ensure-mail-encryption-key.sh 2>/dev/null || true
+	@./scripts/dev/ensure-mail-encryption-key.sh
+
+ensure-alias-encryption-key: ## Ajoute ALIAS_ENCRYPTION_KEY (openssl rand -base64 32) au .env si absente — parité prod / futur
+	@chmod +x scripts/dev/ensure-alias-encryption-key.sh 2>/dev/null || true
+	@./scripts/dev/ensure-alias-encryption-key.sh
+
+build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity-pass/dist)
+	@echo "🔌 Build extension Cloudity Pass (MV3)…"
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "❌ npm requis (install Node.js) pour build-pass-extension."; exit 1; \
+	fi
+	@cd extensions/cloudity-pass && npm install --no-audit --fund=false && npm run build
+	@echo "✅ Extension : extensions/cloudity-pass/dist (Chrome → Mode développeur → Charger l’extension non empaquetée)"
+
+stack-heal: ## Réparation dev : clés MAIL + ALIAS dans .env, recrée mail-directory, build extension Pass (sans rebuild toutes les images)
+	@chmod +x scripts/dev/stack-heal.sh 2>/dev/null || true
+	@./scripts/dev/stack-heal.sh
+
+doctor: stack-heal ## Alias de make stack-heal (réparation dev mail + extension)
 
 init: ## Initialisation complète du projet (première fois)
 	@echo "🚀 Initialisation de Cloudity..."
@@ -226,6 +253,10 @@ create-env: ## Crée le fichier .env (secrets 256 bits via gen-secrets.sh ; voir
 	else \
 		echo "⚠️  Fichier .env existe déjà — non écrasé."; \
 	fi
+	@chmod +x scripts/dev/ensure-mail-encryption-key.sh 2>/dev/null || true
+	@./scripts/dev/ensure-mail-encryption-key.sh || true
+	@chmod +x scripts/dev/ensure-alias-encryption-key.sh 2>/dev/null || true
+	@./scripts/dev/ensure-alias-encryption-key.sh || true
 	@(git rm --cached .env 2>/dev/null && echo "✅ .env retiré du suivi Git (fichier conservé).") || true
 
 create-go-projects: ## Initialise les projets Go
@@ -293,7 +324,7 @@ build: ## Build tous les services
 	@$(COMPOSE) $(COMPOSE_FILES) build --parallel --no-cache
 	@echo "✅ Build terminé!"
 
-rebuild: ## Reconstruit tous les services Cloudity, redémarre et applique les migrations (tout-en-un)
+rebuild: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Reconstruit tous les services Cloudity, redémarre et applique les migrations (tout-en-un)
 	@echo "🔨 Rebuild de tous les services Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@echo "🔄 Redémarrage des services avec les nouvelles images..."
@@ -886,13 +917,16 @@ debug-logs: ## Affiche les logs des services qui posent problème
 	@$(COMPOSE) $(COMPOSE_FILES) logs --tail=20 cloudity-web 2>/dev/null || echo "Frontend non démarré"
 
 rebuild-force: ## Rebuild complet sans cache
+	@$(MAKE) ensure-mail-encryption-key
+	@$(MAKE) ensure-alias-encryption-key
 	@echo "🔨 Rebuild forcé de tous les services..."
 	@$(COMPOSE) $(COMPOSE_FILES) down -v --remove-orphans
 	@docker system prune -f
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
+	@$(MAKE) build-pass-extension
 	@echo "✅ Rebuild terminé!"
 
-status: ## Affiche services, port, URL et état (Up vert / Down rouge), ordre logique
+status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gateway… ; CLOUDITY_STATUS_HOST pour LAN)
 	@chmod +x scripts/dev/status.sh 2>/dev/null || true
 	@./scripts/dev/status.sh
 
@@ -1111,6 +1145,10 @@ mail-clean-dev: ## Supprime tous les comptes mail (et messages) du compte démo 
 	@echo "🧹 Nettoyage des comptes mail du compte démo (user_id=1)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -c "DELETE FROM user_email_accounts WHERE user_id = 1;" 2>/dev/null || true
 	@echo "✅ Comptes mail supprimés. Vous restez connecté ; rechargez la page Mail (ou l'app) puis ajoutez votre boîte à nouveau."
+
+clean-pass-e2e-vaults: ## Supprime les coffres Pass nommés « e2e-* » (Playwright pass.spec.ts). Prérequis: make up. Option: PASS_E2E_CLEAN_EMAIL=
+	@chmod +x scripts/dev/cleanup-pass-e2e-vaults.sh
+	@./scripts/dev/cleanup-pass-e2e-vaults.sh
 
 clean-test-tenants: ## Nettoie les tenants de test connus (APPLY=1 pour suppression réelle)
 	@chmod +x scripts/dev/cleanup-test-tenants.sh

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { login, DEMO_PASSWORD } from './fixtures/auth'
+import { cleanupPassE2EVaultsFromPage } from './fixtures/pass-cleanup'
 
 /**
  * Tests E2E Pass — flux complet (déverrouillage → CRUD → import Proton →
@@ -7,11 +8,13 @@ import { login, DEMO_PASSWORD } from './fixtures/auth'
  *
  * Pré-requis : `make seed-admin` (crée admin@cloudity.local) — le mot de passe
  * Cloudity sert aussi de mot de passe maître pour la démo, mais en prod ils
- * peuvent être distincts.
+ * peuvent être distincts (cf. docs/securite/PASS-CRYPTO.md § 1.1).
  *
- * Le test ne dépend pas du contenu serveur — il crée son propre vault à chaque
- * run, importe un mini-export Proton inline, et nettoie en supprimant l'item à
- * la fin.
+ * Le test ne dépend pas du contenu serveur — il crée son propre coffre à chaque
+ * run (préfixe `e2e-` / `e2e-import-`). Après chaque test, `afterEach` appelle
+ * l’API **`DELETE /pass/vaults/:id`** pour les coffres `e2e-*` (token
+ * `localStorage`). Variable **`PLAYWRIGHT_API_URL`** si le gateway n’est pas sur
+ * **http://localhost:6080**. À défaut : **`make clean-pass-e2e-vaults`**.
  */
 
 const MASTER_PASSWORD = process.env.PLAYWRIGHT_E2E_MASTER ?? DEMO_PASSWORD
@@ -21,6 +24,10 @@ test.describe('Pass (E2E)', () => {
     await login(page, { returnTo: '/app/pass' })
     await page.goto('/app/pass')
     await expect(page.getByRole('heading', { name: 'Pass' })).toBeVisible({ timeout: 10000 })
+  })
+
+  test.afterEach(async ({ page }) => {
+    await cleanupPassE2EVaultsFromPage(page)
   })
 
   test('page Pass affiche le titre et l\'écran de déverrouillage', async ({ page }) => {

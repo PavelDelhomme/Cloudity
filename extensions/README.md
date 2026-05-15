@@ -6,7 +6,7 @@ son `manifest.json` (MV3) et son build (esbuild ou Vite).
 
 | Extension | Statut | Cible | Description |
 |---|---|---|---|
-| `cloudity-pass/` | 🟡 squelette (2026-05-13) | Chrome / Edge / Firefox (MV3) | Autofill et accès rapide au coffre `cloudity-pass` |
+| `cloudity-pass/` | 🟡 MVP local (2026-05-15) | Chrome / Edge / Firefox (MV3) | **Connexion** `POST /auth/login` (tokens `chrome.storage.session`) → sonde **`GET /pass/vaults`** → UI **init** / **unlock** maître (Argon2id `desktop`, `@cloudity/pass-crypto` dans le service worker). Host `http(s)://*/*` pour joindre le gateway. Autofill liste entrées = MP-06. |
 | `cloudity-pass-firefox/` | ❌ non démarré | Firefox (si divergence requise) | Portage si MV3 cross-browser ne suffit pas |
 | `cloudity-pass-safari/` | ❌ non démarré | Safari | Wrapper Xcode (Web Extensions API) — chantier mois suivant |
 
@@ -16,8 +16,7 @@ pour la matrice transversale apps × plateformes.
 ## Conventions communes
 
 * **Manifest V3** uniquement.
-* Le build produit `dist/` qui se charge dans Chrome via *Charger
-  l'extension non empaquetée* → choisir `extensions/<extension>/dist`.
+* Le build produit `dist/` (gitignoré). **`make build-pass-extension`** ou **`make up` / `make rebuild`** lancent `npm install` + `npm run build` dans `extensions/cloudity-pass/`.
 * Les secrets utilisateurs (master key, JWT) ne sortent **jamais** de
   la mémoire du `service_worker` background. `chrome.storage.local`
   ne contient que des **métadonnées non sensibles** (URL gateway,

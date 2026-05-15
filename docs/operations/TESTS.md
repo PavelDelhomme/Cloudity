@@ -28,6 +28,8 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 
 **Référence CI** : le workflow **`.github/workflows/docker-unit-tests.yml`** lance **`make test`** sur chaque push / PR vers `main` ou `master` : même batterie que en local **dans les conteneurs** (pas de « seulement npm test sur l’hôte » pour valider la fusion). Après un **`make up`** réussi, **`make test-docker`** rejoue Go / pytest / Vitest via **`docker compose exec`** sur les processus **déjà en cours d’exécution** (double vérif que ce qui tourne dans la stack est testable).
 
+**Mail / sync IMAP (dev local)** : **`make up`** exécute déjà **`ensure-mail-encryption-key`** et **`ensure-alias-encryption-key`**. Si tu as copié un `.env` incomplet ou roté la clé : **`make doctor`** (alias de **`make stack-heal`**) régénère la clé mail si besoin, recrée **`mail-directory-service`** et rebuild l’extension Pass — puis **ré-enregistre le mot de passe** de la boîte dans l’UI si le ciphertext en base ne correspond plus à la clé. Voir **[DEV-VERIFICATION.md](DEV-VERIFICATION.md)** § 2.c.
+
 ### Migrations PostgreSQL (schéma)
 
 | Commande | Rôle |
@@ -317,9 +319,11 @@ Lancé par **`make test-e2e-playwright`** ou **`cd frontend/apps/cloudity-web &&
 
 Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion, navigation Hub → Drive / Office, création de fichier et de dossier, téléversement, ouverture d’un document dans l’éditeur.
 
-**Couvert actuellement** : login (succès / échec), Hub (liens Drive/Office, navigation), Drive (titre, menu Nouveau fichier, formulaire Nouveau dossier, Téléverser + overlay), **Office** (cartes colorées Nouveau document / Tableur / Présentation, Récemment modifiés), **Pass** (titre, Nouveau coffre, fil d’Ariane), **Mail** (page Mail, lien hub, fil d’Ariane, **navigation Mail ↔ Drive sans `Maximum update depth`** — voir **`e2e/mail.spec.ts`**). Certains scénarios (création document/dossier depuis le navigateur, breadcrumb, suppression, sauvegarde éditeur) sont **skippés** en E2E quand l’API Drive n’est pas joignable depuis le navigateur (voir message de skip dans les specs).
+**Couvert actuellement** : login (succès / échec), Hub (liens Drive/Office, navigation), Drive (titre, menu Nouveau fichier, formulaire Nouveau dossier, Téléverser + overlay), **Office** (cartes colorées Nouveau document / Tableur / Présentation, Récemment modifiés), **Pass** (déverrouillage, coffres **`e2e-*`**, entrée, import Proton minimal — **`e2e/pass.spec.ts`**), **Mail** (page Mail, lien hub, fil d’Ariane, **navigation Mail ↔ Drive sans `Maximum update depth`** — voir **`e2e/mail.spec.ts`**). Certains scénarios (création document/dossier depuis le navigateur, breadcrumb, suppression, sauvegarde éditeur) sont **skippés** en E2E quand l’API Drive n’est pas joignable depuis le navigateur (voir message de skip dans les specs).
 
-**À couvrir plus tard (idées)** : Mail (domaines, **Menu Mail** détaillé avec boîte démo garantie), création coffre Pass, réactiver les tests skippés quand l’env E2E permet les appels API.
+**Résidus en base après Pass (Playwright)** : les specs créent des coffres **`e2e-…`** / **`e2e-import-…`**. **`e2e/pass.spec.ts`** appelle après chaque test **`DELETE /pass/vaults/:id`** via le **gateway** (variable **`PLAYWRIGHT_API_URL`**, défaut **`http://localhost:6080`**). À défaut ou pour un nettoyage bulk : **`make clean-pass-e2e-vaults`**. Ne pas nommer un coffre réel avec le préfixe **`e2e-`**.
+
+**À couvrir plus tard (idées)** : Mail (domaines, **Menu Mail** détaillé avec boîte démo garantie), réactiver les tests skippés quand l’env E2E permet les appels API.
 
 | Fichier | Ce qui est testé |
 |---------|-------------------|
@@ -327,11 +331,19 @@ Les tests simulent un **utilisateur réel** : ouverture du dashboard, connexion,
 | **e2e/hub.spec.ts** | Après login : liens Drive / Office ; clic Drive → `/app/drive` ; clic Office → `/app/office`. |
 | **e2e/drive.spec.ts** | Titre, boutons ; menu Nouveau fichier ; formulaire Nouveau dossier ; **Téléverser puis nettoyage (sélection + suppression)** ; **breadcrumb + nettoyage (suppression dossier mocké)**. Tests skippés : Nouveau fichier → Document, suppression (API). |
 | **e2e/office.spec.ts** | Cartes colorées Nouveau document / Tableur / Présentation (data-testid office-card-*) ; section Récemment modifiés ou lien Drive. Test skippé : création document (API). |
-| **e2e/pass.spec.ts** | Titre Pass, bouton Nouveau coffre, fil d’Ariane (Tableau de bord, Pass). |
+| **e2e/pass.spec.ts** | Déverrouillage maître, coffres **`e2e-*`**, entrée de test, import JSON Proton (3 entrées). **Après chaque test** : suppression API des coffres **`e2e-*`** (`PLAYWRIGHT_API_URL` → gateway). Secours : **`make clean-pass-e2e-vaults`**. |
 | **e2e/mail.spec.ts** | Page **`/app/mail`** : titre document **`h1` « Mail »** (**`sr-only`**, comme le **`h1` Drive** à la racine) ; boîtes / chargement / Menu Mail ; lien **Mail** depuis le hub ; fil d’Ariane ; pas de message d’erreur réseau évident ; **navigation Mail → Drive → Mail** + écoute **`Maximum update depth`** (§ **4.8**). |
 | **e2e/editor.spec.ts** | **Ouverture éditeur par URL (mock)** : modale **Lien** (popup custom), modale **Tableau** ; **modale Quitter** (Annuler reste, Quitter redirige). Test skippé : sauvegarde manuelle. |
 | **e2e/admin.spec.ts** | Back-office **`/4dm1n`** : redirection login si non auth ; connexion admin → navigation Tenants / Utilisateurs. |
 | **e2e/webauthn.spec.ts** | **Passkeys** : visibilité du bouton sur **`/login`** ; enregistrement depuis **`/4dm1n/passkeys`** puis déconnexion et **reconnexion passkey** (CDP **`WebAuthn.addVirtualAuthenticator`**). Skip si **`/health`** du dashboard ne répond pas. |
+
+**Test manuel — alias mail (sans documenter de domaine personnel)** : objectif = vérifier qu’un message envoyé vers une **adresse d’alias** arrive dans la **boîte IMAP** déjà reliée à Cloudity, puis que l’enregistrement Cloudity permet le suivi (filtres / `delivered_to`, cf. **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § 2).
+
+1. Choisir un **local-part neutre** (ex. `inscriptions-test-2026`, `newsletter-sandbox`) — éviter les noms de marques.
+2. Créer l’alias **chez ton hébergeur DNS / mail** (sous-domaine du type `alias.<TON_DOMAINE>` ou règle fournie par le panel) : Cloudity **ne crée pas** les enregistrements MX/redirect à ta place.
+3. **Mail** : la boîte qui **reçoit** réellement le courrier doit être **connectée** dans Cloudity (`/app/mail`).
+4. **Pass** (coffre déverrouillé) ou équivalent : **enregistrer** dans Cloudity la même adresse d’alias (`POST /mail/me/accounts/:id/aliases`) — cible documentaire optionnelle.
+5. Depuis **un autre** webmail, envoyer un message de test vers l’alias ; dans Mail, vérifier la réception (dossier INBOX / filtre destinataire selon l’UI).
 
 Identifiants E2E : compte **`make seed-admin`** (email **`admin@cloudity.local`** par défaut) ; mot de passe défini par les scripts de seed — surcharge **`PLAYWRIGHT_E2E_EMAIL`** / **`PLAYWRIGHT_E2E_PASSWORD`**. Config : **`frontend/apps/cloudity-web/playwright.config.ts`** (baseURL, timeout 45 s, workers 1).
 

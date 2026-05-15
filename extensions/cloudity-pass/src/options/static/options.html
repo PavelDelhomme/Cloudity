@@ -18,11 +18,10 @@
       </section>
       <section class="hint todo">
         <p>
-          Le squelette MV3 v0.1.0 livré le 2026-05-13 ne fait que stocker
-          l'URL du gateway et propose un déverrouillage maître pour
-          servir de base. L'autofill réel arrive en
-          <code>MP-06</code>, l'intégration cryptographique
-          <code>@cloudity/pass-crypto</code> arrive avec.
+          v0.2.0 : l’URL du gateway est requise ici ; la <strong>connexion Cloudity</strong> et le
+          <strong>mot de passe maître</strong> (init / déverrouillage après sonde
+          <code>GET /pass/vaults</code>) se font dans le <strong>popup</strong> de l’extension.
+          Autofill et liste d’entrées : <code>MP-06</code>.
         </p>
       </section>
     </main>

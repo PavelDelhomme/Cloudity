@@ -160,7 +160,7 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 
 ## 2. Pass ↔ alias mail
 
-- **Aujourd’hui (web)** : `POST /mail/me/accounts/:id/aliases` avec `alias_email`, `label`, `deliver_target_email` (cible documentée : vers quelle boîte réelle le message doit aller — **Cloudity ne configure pas le DNS / MX** seul). `PATCH` sur le même alias pour mettre à jour la cible. Liste des messages : `delivered_to=<alias>` filtre sur le champ **À** (`to_addrs` en base), tandis que **sans filtre** = tout le dossier (principale + alias).
+- **Aujourd’hui (web)** : `POST /mail/me/accounts/:id/aliases` avec `alias_email`, `label`, `deliver_target_email` (cible documentée : vers quelle boîte réelle le message doit aller — **Cloudity ne configure pas le DNS / MX** seul). `PATCH` sur le même alias pour mettre à jour la cible. Liste des messages : `delivered_to=<alias>` filtre sur le champ **À** (`to_addrs` en base), tandis que **sans filtre** = tout le dossier (principale + alias). **Pass (web)** : panneau **Alias mail** sur `/app/pass` (`PassMailAliasesPanel`) une fois le coffre déverrouillé — même API.
 - **Tester les alias** : créer l’alias côté **fournisseur** (OVH, Google « adresse secondaire », etc.) pour que les mails arrivent bien dans l’**INBOX** IMAP de la boîte connectée ; dans Cloudity, **enregistrer** le même `alias_email` pour le filtre latéral et la traçabilité Pass.
 - **DNS** : pour un domaine géré par Cloudity, les enregistrements MX / redirections restent côté **infra mail** (table `mail_aliases` domaine vs `user_email_aliases` par utilisateur) — à documenter par cas (self-host vs relais).
 - **Pass (extension / app)** : même API + token utilisateur ; flux type Proton : création d’alias + **cible** en un appel — **APP-04** dans ROADMAP.
@@ -254,7 +254,7 @@ Implémentation : **`scripts/run-mobile.sh`**.
 - [ ] **Drive** : parcours produit prioritaire (déjà MVP — extensions ROADMAP).
 - [x] **Photos (web + API)** : **`photos-service`** + `GET /photos/timeline` + `PhotosPage` (galerie, upload, lightbox, tests Vitest) ; proxy Vite `/photos`.
 - [ ] **Photos (mobile + sync + perf)** : auth intégré, vignettes, upload, **WorkManager**, miniatures / index EXIF ; **dossier verrouillé** (§3c) ; apps **Drive / Mail / Contacts / Calendar / Pass** mobile (scaffold + `run-mobile` + doc).
-- [ ] **Pass** : création alias mail depuis l’UI Pass.
+- [x] **Pass** : création alias mail depuis l’UI Pass (`PassMailAliasesPanel` web).
 - [ ] **Mobile** : scaffold `drive_app`, `mail_app`, … + CI.
 - [ ] **TR-07** : documenter choix push (FCM/APNs) quand applicable.
 - [ ] **Mail** : recherche avancée + panneau filtres + historique (**§9**).

@@ -2,7 +2,11 @@
  * PassPage — gestionnaire de mots de passe Cloudity (web).
  *
  * Architecture (cf. docs/securite/PASS-CRYPTO.md, docs/produit/SPRINT-PASS-2026-05.md) :
- *  - Le coffre est **verrouillé** par défaut → on demande le mot de passe maître.
+ *  - **Connexion Cloudity** d’abord (route `/app/*` protégée par `RequireAuth`).
+ *  - Coffre **verrouillé** par défaut : si `GET /pass/vaults` est vide → écran
+ *    **initialisation** (choix maître + confirmation) ; sinon → **déverrouillage**.
+ *  - Les **alias mail** (`PassMailAliasesPanel`) restent accessibles **sans**
+ *    déverrouiller le coffre (API Mail + JWT seulement).
  *  - Une fois déverrouillé, la **master key** (32 octets) vit uniquement en mémoire
  *    React (`vaultContext`). Auto-lock après 5 min d'inactivité.
  *  - Toutes les entrées sont **chiffrées côté client** via `@cloudity/pass-crypto`
@@ -12,6 +16,7 @@
  */
 
 import React, { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Card, CardHeader, Button, Input, Badge, parseJwtPayload } from '@cloudity/shared'
@@ -20,11 +25,12 @@ import {
   encryptItemForVault,
   type ItemPlaintextV1,
 } from '@cloudity/pass-crypto'
-import { Lock, Plus, KeyRound, ShieldCheck, AlertTriangle, Upload } from 'lucide-react'
+import { Lock, Plus, KeyRound, ShieldCheck, AlertTriangle, Upload, Trash2 } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import {
   fetchVaults,
   createVault,
+  deleteVault,
   fetchVaultItems,
   createVaultItem,
   updateVaultItem,
@@ -36,6 +42,7 @@ import { VaultProvider, useVault, useUnlockedVault } from './vaultContext'
 import UnlockScreen from './UnlockScreen'
 import ItemEditor, { type ItemEditorValue } from './ItemEditor'
 import ProtonImportDialog from './ProtonImportDialog'
+import PassMailAliasesPanel from './PassMailAliasesPanel'
 import type { ConvertedItem } from './protonImport'
 
 // --- Helpers ----------------------------------------------------------
@@ -75,29 +82,101 @@ export default function PassPage() {
 
 // --- Inner ------------------------------------------------------------
 
+function PassPassSetupSteps() {
+  return (
+    <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+      <span className="font-medium text-slate-800 dark:text-slate-200">Parcours</span>
+      <span className="mx-2 text-slate-400">·</span>
+      <span className="text-emerald-700 dark:text-emerald-400">1. Compte Cloudity</span>
+      <span className="mx-1.5 text-slate-400">→</span>
+      <span className="font-medium text-brand-700 dark:text-brand-300">
+        2. Mot de passe maître du coffre
+      </span>
+      <span className="mx-1.5 text-slate-400">→</span>
+      <span className="text-slate-500 dark:text-slate-400">3. Entrées chiffrées</span>
+    </div>
+  )
+}
+
 function PassPageInner() {
   const { accessToken, logout } = useAuth()
   const userId = useMemo(() => readUserIdFromToken(accessToken), [accessToken])
   const { state } = useVault()
 
+  const vaultsProbe = useQuery({
+    queryKey: ['vaults'],
+    queryFn: () => fetchVaults(accessToken!),
+    enabled: Boolean(accessToken && userId && state.status === 'locked'),
+    retry: false,
+    staleTime: 60 * 1000,
+  })
+
   if (!accessToken || !userId) {
     return (
-      <div className="py-8 text-sm text-slate-500 dark:text-slate-400">
-        Authentification requise.
+      <div className="py-8 flex flex-col gap-3 text-sm text-slate-600 dark:text-slate-400">
+        <p>
+          Session ou identifiant utilisateur indisponible. Normalement, la page Pass
+          n’est accessible qu’après connexion Cloudity.
+        </p>
+        <Link
+          to="/login?next=/app/pass"
+          className="text-brand-600 dark:text-brand-400 font-medium hover:underline w-fit"
+        >
+          Aller à la connexion
+        </Link>
       </div>
     )
   }
 
+  const aliasesPanel = (
+    <PassMailAliasesPanel accessToken={accessToken} logout={logout} />
+  )
+
   if (state.status !== 'unlocked') {
+    const probePending = vaultsProbe.isPending || vaultsProbe.isFetching
+    const unlockMode: 'setup' | 'unlock' =
+      !vaultsProbe.isError && Array.isArray(vaultsProbe.data) && vaultsProbe.data.length === 0
+        ? 'setup'
+        : 'unlock'
+
     return (
       <div className="flex flex-col gap-6">
         <PassHeader locked />
-        <UnlockScreen userId={userId} />
+        <PassPassSetupSteps />
+        {aliasesPanel}
+        {vaultsProbe.isError && (
+          <p
+            className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3"
+            role="status"
+          >
+            Impossible de vérifier si tu as déjà des coffres (réseau ou serveur). Le
+            formulaire ci-dessous suppose un <strong>coffre existant</strong>. Si c’est
+            vraiment ta <strong>première</strong> fois sur Pass, recharge la page une
+            fois la stack joignable : l’écran proposera alors l’
+            <strong>initialisation</strong> avec confirmation du mot de passe maître.
+          </p>
+        )}
+        {probePending ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-sm text-slate-500 dark:text-slate-400">
+            <span
+              className="inline-block h-8 w-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"
+              aria-hidden
+            />
+            Vérification de ton espace Pass…
+          </div>
+        ) : (
+          <UnlockScreen userId={userId} mode={unlockMode} />
+        )}
       </div>
     )
   }
 
-  return <UnlockedPass accessToken={accessToken} logout={logout} />
+  return (
+    <div className="flex flex-col gap-6">
+      <UnlockedPass accessToken={accessToken} logout={logout} />
+      {aliasesPanel}
+    </div>
+  )
 }
 
 function PassHeader({
@@ -178,6 +257,22 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
       queryClient.invalidateQueries({ queryKey: ['vaults'] })
       setNewVaultName('')
       toast.success('Coffre créé')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteVaultMutation = useMutation({
+    mutationFn: (vaultId: number) => deleteVault(accessToken, vaultId),
+    onSuccess: (_, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['vaults'] })
+      queryClient.invalidateQueries({
+        predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'vault-items',
+      })
+      if (selectedVaultId === deletedId) {
+        setSelectedVaultId(null)
+        setEditing(null)
+      }
+      toast.success('Coffre supprimé')
     },
     onError: (err: Error) => toast.error(err.message),
   })
@@ -344,21 +439,39 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
               </li>
             ) : (
               vaultsList.map((v: VaultResponse) => (
-                <li key={v.id}>
+                <li key={v.id} className="flex items-stretch divide-x divide-slate-100 dark:divide-slate-700">
                   <button
                     type="button"
                     onClick={() => {
                       setSelectedVaultId(v.id)
                       setEditing(null)
                     }}
-                    className={`w-full text-left px-6 py-3 text-sm font-medium transition-colors flex items-center justify-between ${
+                    className={`flex-1 min-w-0 text-left px-6 py-3 text-sm font-medium transition-colors flex items-center justify-between gap-2 ${
                       selectedVaultId === v.id
                         ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
                         : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50'
                     }`}
                   >
                     <span className="truncate">{v.name}</span>
-                    <span className="text-slate-400 dark:text-slate-500 font-normal">#{v.id}</span>
+                    <span className="text-slate-400 dark:text-slate-500 font-normal shrink-0">#{v.id}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="shrink-0 px-3 text-slate-400 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-40"
+                    aria-label={`Supprimer le coffre ${v.name}`}
+                    disabled={deleteVaultMutation.isPending}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (
+                        confirm(
+                          `Supprimer définitivement le coffre « ${v.name} » et toutes ses entrées ? Cette action est irréversible.`
+                        )
+                      ) {
+                        deleteVaultMutation.mutate(v.id)
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" aria-hidden />
                   </button>
                 </li>
               ))
@@ -455,6 +568,7 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
           )}
         </Card>
       </div>
+
     </div>
   )
 }

@@ -11,7 +11,7 @@
 | Stack Docker sur VPS + **NPM** + TLS (**Let’s Encrypt**) | Oui, une fois Q15 / décision prise | **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** |
 | **Web** + **API** (`cloudity-web`, `api-gateway`, auth, mail-directory…) avec images **taguées** | Oui | **Q24** — bump `TAG=` dans Portainer par stack |
 | **Pass web** utilisable au quotidien (remplacer Proton Pass *côté web* en premier) | En cours — sprint J8 puis L2 | **[SPRINT-PASS-2026-05.md](../produit/SPRINT-PASS-2026-05.md)** |
-| **Alias mail** créés depuis **Pass** + synchro **Mail** web/mobile | **Périmètre produit** — API déjà documentée côté sync | **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § **2** ; **BACKLOG** (création alias depuis UI Pass) ; extension **MP-06** |
+| **Alias mail** créés depuis **Pass** + synchro **Mail** web/mobile | **Web Pass** : panneau **Alias mail** (`PassMailAliasesPanel`) — synchro boîte = même JWT / comptes Mail ; **mobile** = extension | **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § **2** ; **BACKLOG** PASS-ALIAS-UI ; extension **MP-06** |
 | **Autofill Pass sur toutes les apps mobiles** (par-dessus Chrome, banque, etc.) | **Android** : service d’**Autofill** (framework) + app déclarée ; **iOS** : **pas** d’équivalent générique type Proton sur toutes les apps — Apple impose des contraintes fortes | Hors « quick win » documentaire ; à spécifier par plateforme |
 | **OTA mobile** sans store (install depuis ton PC vers téléphones) | **Android** : réaliste avec **APK signé** + canal de version ; **iOS** : **TestFlight** (compte Apple dev) ou **MDM entreprise** — pas de simple « push APK » | § 4 ci-dessous |
 

@@ -1,17 +1,19 @@
-# cloudity_pass
+# Cloudity Pass (Flutter)
 
-A new Flutter project.
+Client **lecture seule** (MVP) pour le coffre chiffré côté serveur (`passwords-service` via la gateway).
 
-## Getting Started
+## Parcours (aligné hub web)
 
-This project is a starting point for a Flutter application.
+1. **Connexion Cloudity** (`PassLoginScreen`) — JWT stocké de façon sécurisée (`PassSessionStore`).
+2. **Sonde `GET /pass/vaults`** sur `PassUnlockScreen` — liste vide → **initialisation** du mot de passe maître (confirmation) ; sinon **déverrouillage**.
+3. **Coffres / items** — déchiffrement local (`pass_crypto`), voir `docs/securite/PASS-CRYPTO.md` § 1.2.
 
-A few resources to get you started if this is your first Flutter project:
+Profil Argon2id : en **première utilisation**, le profil **Desktop (compatible web)** est présélectionné pour rester aligné avec le hub web.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Commandes utiles
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+dart analyze lib/
+dart test   # nécessite un SDK Dart fonctionnel (hors sandbox Cursor)
+flutter run
+```

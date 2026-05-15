@@ -8,7 +8,9 @@
 #   OUTPUT=.env.production.example ./scripts/dev/gen-secrets.sh
 #
 # Variables générées :
-#   POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, PERFORMANCE_INGEST_TOKEN
+#   POSTGRES_PASSWORD, REDIS_PASSWORD, JWT_SECRET, PERFORMANCE_INGEST_TOKEN,
+#   MAIL_PASSWORD_ENCRYPTION_KEY (IMAP/SMTP chiffrés côté mail-directory-service),
+#   ALIAS_ENCRYPTION_KEY (32 octets base64 — parité prod / futurs champs alias)
 #
 # Conformité : docs/securite/CRYPTO-NORME.md, docs/securite/AUDIT-SECURITE.md.
 
@@ -41,10 +43,20 @@ rand_hex() {
   fi
 }
 
+rand_b64_32() {
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -base64 32
+  else
+    head -c 32 /dev/urandom | base64 -w0 2>/dev/null || head -c 32 /dev/urandom | base64
+  fi
+}
+
 POSTGRES_PASSWORD="$(rand_hex)"
 REDIS_PASSWORD="$(rand_hex)"
 JWT_SECRET="$(rand_hex)"
 PERFORMANCE_INGEST_TOKEN="$(rand_hex)"
+MAIL_PASSWORD_ENCRYPTION_KEY="$(rand_hex)"
+ALIAS_ENCRYPTION_KEY="$(rand_b64_32)"
 
 if [ "$PRINT_ONLY" = "1" ]; then
   cat <<EOF
@@ -52,6 +64,12 @@ POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 REDIS_PASSWORD=${REDIS_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN}
+
+# 32 octets hex (64 car.) — obligatoire pour déchiffrer les mots de passe boîtes (POST /mail/me/accounts/:id/sync).
+MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY}
+
+# 32 octets aléatoires (base64) — stack VPS / futurs champs sensibles alias (voir SECRETS.md).
+ALIAS_ENCRYPTION_KEY=${ALIAS_ENCRYPTION_KEY}
 EOF
   exit 0
 fi
@@ -86,6 +104,12 @@ CORS_ALLOW_LAN=true
 # Logging
 LOG_LEVEL=debug
 LOG_FORMAT=json
+
+# Chiffrement des mots de passe IMAP/SMTP (user_email_accounts) — 32 octets hex (64 car.).
+MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY}
+
+# Alias / champs sensibles (parité DEPLOIEMENT-VPS) — 32 octets CSPRNG en base64.
+ALIAS_ENCRYPTION_KEY=${ALIAS_ENCRYPTION_KEY}
 EOF
 
 chmod 600 "$OUTPUT"

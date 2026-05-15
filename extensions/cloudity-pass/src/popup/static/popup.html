@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=320,initial-scale=1" />
+    <meta name="viewport" content="width=340,initial-scale=1" />
     <title>Cloudity Pass</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
@@ -12,34 +12,62 @@
       <small id="status-badge">État : chargement…</small>
     </header>
     <main>
-      <section id="locked-panel" hidden>
+      <p id="gateway-missing" class="error" hidden>
+        Définis d’abord l’URL du <strong>gateway</strong> dans Paramètres.
+      </p>
+
+      <section id="session-missing" hidden>
         <p class="hint">
-          Le coffre est <strong>verrouillé</strong>. Saisis ton mot de passe
-          maître pour déverrouiller (équivalent extension du flow web).
+          <strong>1. Compte Cloudity</strong> — même identifiants que sur le hub web.
+          Les tokens restent en mémoire de session du navigateur (pas le mot de passe
+          maître du coffre).
         </p>
         <label>
-          ID utilisateur Cloudity
-          <input id="user-id" type="number" min="1" placeholder="ex. 42" />
+          E-mail
+          <input id="login-email" type="email" autocomplete="username" />
         </label>
         <label>
-          Mot de passe maître
+          Mot de passe (compte Cloudity)
+          <input id="login-password" type="password" autocomplete="current-password" />
+        </label>
+        <label>
+          ID tenant
+          <input id="login-tenant" type="text" value="1" />
+        </label>
+        <button id="login-btn" type="button">Se connecter</button>
+        <p id="login-error" class="error" hidden></p>
+      </section>
+
+      <section id="locked-panel" hidden>
+        <p class="hint" id="parcours-hint"></p>
+        <p id="probe-warning" class="error" hidden></p>
+        <label>
+          Mot de passe maître du coffre
           <input id="master-password" type="password" autocomplete="off" />
         </label>
-        <button id="unlock-btn">Déverrouiller</button>
+        <label id="confirm-label" hidden>
+          Confirmer le mot de passe maître
+          <input id="master-password-confirm" type="password" autocomplete="off" />
+        </label>
+        <button id="unlock-btn" type="button">Déverrouiller</button>
         <p id="unlock-error" class="error" hidden></p>
+        <button id="logout-btn" type="button" class="secondary">Se déconnecter (compte)</button>
       </section>
+
       <section id="unlocked-panel" hidden>
         <p class="hint">
-          Le coffre est <strong>déverrouillé</strong>. Auto-lock dans
+          Coffre <strong>déverrouillé</strong>. Auto-lock dans
           <span id="lock-countdown">--:--</span>.
         </p>
         <p class="hint todo">
-          (squelette : la liste des entrées et l'autofill arrivent en
-          <code>MP-06</code> — voir
+          (Liste des entrées et autofill : <code>MP-06</code> — voir
           <code>docs/produit/MULTI-PLATEFORME.md</code>.)
         </p>
-        <button id="lock-btn">Verrouiller maintenant</button>
+        <button id="lock-btn" type="button">Verrouiller le coffre</button>
+        <button id="logout-btn-2" type="button" class="secondary">Se déconnecter (compte)</button>
       </section>
+
+      <p id="session-api-warning" class="error" hidden></p>
     </main>
     <footer>
       <a href="#" id="open-options">Paramètres…</a>

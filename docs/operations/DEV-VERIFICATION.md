@@ -13,7 +13,7 @@
 | 1 | Docker disponible | `docker info` |
 | 2 | **Tests merge (obligatoire avant PR)** | **`make test`** (Go + Vitest dans Docker, **sans** E2E — voir **[TESTS.md](TESTS.md)** § 1) |
 | 3 | Optionnel — lint front | `make test-dashboard-lint` |
-| 4 | Optionnel — E2E navigateur (stack up) | `make up` → attente ~30 s → `make seed-admin` → **`make test-e2e-playwright`** (et **`make test-e2e-playwright-mail`** si PR Mail) |
+| 4 | Optionnel — E2E navigateur (stack up) | `make up` → attente ~30 s → `make seed-admin` → **`make test-e2e-playwright`** (et **`make test-e2e-playwright-mail`** si PR Mail). **Pass** : les specs suppriment les coffres **`e2e-*`** via **`DELETE /pass/vaults/:id`** sur le **gateway** — définir **`PLAYWRIGHT_API_URL`** (ex. `http://localhost:6080`) si besoin ; secours **`make clean-pass-e2e-vaults`**. Voir **[TESTS.md](TESTS.md)** § 3.5. |
 | 5 | Optionnel — Pass mobile | `cd mobile/pass && flutter test` |
 | 6 | Compose modifié | `docker compose -f docker-compose.yml config` |
 | 7 | Lire les priorités | **[STATUS.md](../../STATUS.md)** (*À faire maintenant*) + **[TODOS.md](../../TODOS.md)** + **[BACKLOG.md](../../BACKLOG.md)** |
@@ -52,6 +52,16 @@ En **dev**, Vite réécrit **`/4dm1n`** vers **`/admin.html`** via un plugin **`
     https://localhost:5173/admin/stats
   ```
 - Limites : ce mode `dev-https` ne lance **pas** de TLS sur la gateway (`http://localhost:6080` reste en clair). Pour TLS de bout en bout local, prévoir un reverse-proxy local (Caddy / NPM dev) — voir **[../securite/REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)**.
+
+### 2.c Mail — `POST …/sync` en 400 / 503
+
+Si les logs **`mail-directory`** montrent `MAIL_PASSWORD_ENCRYPTION_KEY est nulle (placeholder dev)` : le `.env` utilisait encore la clé **64 zéros** (ancien défaut Compose) ou aucune clé. Corriger : **`make ensure-mail-encryption-key`** puis **`docker compose up -d mail-directory-service`** (ou **`make up`**). Raccourci tout-en-un (clé mail + **ALIAS_ENCRYPTION_KEY** si vide + recréation du conteneur mail + build extension) : **`make stack-heal`** ou **`make doctor`**. Une sortie avec **uniquement des ✅** signifie que cette étape a réussi ; ce n’est **pas** une erreur. Les nouveaux `.env` générés par **`scripts/dev/gen-secrets.sh`** incluent les clés aléatoires (`PERFORMANCE_INGEST_TOKEN`, `MAIL_*`, `ALIAS_*`). Après rotation de clé, **ré-enregistrer le mot de passe** de la boîte (UI Mail) si le ciphertext en base ne correspond plus à la clé.
+
+### 2.d OVH (`@*.ovh`, domaine en `.ovh`) — refus IMAP / mot de passe « spécial »
+
+- Le **`.env`** ne contient **pas** le mot de passe de la boîte : seulement **`MAIL_PASSWORD_ENCRYPTION_KEY`** (chiffrement côté serveur). Un refus « identifiants OVH » vient du **serveur OVH** (mauvais mot de passe, IMAP désactivé, mauvais cluster).
+- Copier le mot de passe **depuis le Manager** (Web > E-mails > la boîte), sans guillemets ni retour ligne en trop. Les caractères `'` `(` `)` `<` `\` etc. sont acceptés côté Cloudity (AUTH **PLAIN** puis **LOGIN**).
+- Le backend tente **`ssl0.ovh.net`** puis **`imap.mail.ovh.net`** (port 993) quand l’hôte déduit est `ssl0`. Si votre offre est **Exchange** ou un autre cluster, renseignez l’**hôte IMAP** exact du Manager dans **Mail > Paramètres > Libellé & serveurs…**.
 
 ## 3. Checks rapides sans navigateur
 

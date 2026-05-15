@@ -6,6 +6,8 @@
 
 **Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (**une** ligne *Dernière mise à jour* + section *À faire maintenant* ; le journal long va dans **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**). **Git / agent** : **[docs/GIT.md](docs/GIT.md)** + **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** + **[docs/LOGS.md](docs/LOGS.md)** (sauf `NPNLD` en tête de message).
 
+**Hygiène données locales (Pass / Playwright)** : les specs **`e2e/pass.spec.ts`** créent des coffres **`e2e-*`** en Postgres ; nettoyage sans API « delete vault » : **`make clean-pass-e2e-vaults`** — **STATUS** §0, **TESTS** §3.5.
+
 ---
 
 ## Sprint d’urgence Pass — **deadline ~2026-05-20** (migration Proton Pass)
@@ -74,6 +76,7 @@
 > **Cadre** : filtrage **multi-couches** (edge → **api-gateway** → auth → services ; **et** MTA **Rspamd** pour le courrier Internet). **Chiffrement** : secrets boîte (AES-GCM) et **Pass** (E2EE client) **ne remplacent pas** le filtrage SMTP ni le MIME standard — voir **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** et **[docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**. Pistes externes (River, Chantilly, MLflow, Redis Streams) = **optionnel**, **après** Rspamd + UX Spam (M7).
 
 - [x] **AS-0 — Documentation d’architecture** (2026-05-15) : `ANTI-SPAM-ET-ABUS.md` + `MAIL-CHIFFREMENT-ET-ANTI-SPAM.md` + liens **STATUS** / **SYNC-BACKLOG § 0e** / **SECURITE** / **DEV-VERIFICATION § 5** / **docs/README**.
+- [ ] **MAIL-ALIAS-KEY-01 — `ALIAS_ENCRYPTION_KEY` côté Go** : la variable est dans **`.env.example`**, **`gen-secrets.sh`**, **`docker-compose`** (mail-directory) et **Portainer** (doc VPS) ; le service **ne l’utilise pas encore** pour chiffrer des colonnes alias — brancher quand un schéma sensible le exige (aligner **SECRETS.md** / migrations).
 - [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).
 - [ ] **AS-3 — WAF / fail2ban** : ModSecurity CRS mode détection ; **fail2ban sur hôte VPS** (journal nginx), pas dans le conteneur applicatif.
@@ -113,7 +116,7 @@
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).
 - [ ] **REL-03** — UI in-app « mise à jour » sur **Android** (`PackageInstaller` / intent) + tests sur au moins **2** constructeurs.
-- [ ] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (API existante — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2).
+- [x] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (`PassMailAliasesPanel`, API `POST /mail/me/accounts/:id/aliases`) — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2.
 - [ ] **PASS-AUTOFILL-ANDROID** — Service **Autofill** Android pour Pass (pas d’équivalent universel iOS documenté ici).
 
 > **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.

@@ -165,5 +165,47 @@ fi
 
 echo "  ${SEP}"
 echo ""
+
+# --- URLs « produit » (alignées STATUS.md §0 — ports = Makefile / docker-compose) ---
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+: "${PORT_GATEWAY:=6080}"
+: "${PORT_DASHBOARD:=6001}"
+: "${PORT_AUTH:=6081}"
+: "${PORT_ADMIN:=6082}"
+: "${PORT_POSTGRES:=6042}"
+: "${PORT_REDIS:=6079}"
+: "${PORT_ADMINER:=6083}"
+: "${PORT_REDIS_COMMANDER:=6084}"
+
+HOST="${CLOUDITY_STATUS_HOST:-localhost}"
+PROTO="${CLOUDITY_STATUS_PROTO:-http}"
+ORIGIN="${PROTO}://${HOST}:${PORT_DASHBOARD}"
+API="${PROTO}://${HOST}:${PORT_GATEWAY}"
+
+echo "  ${BOLD}URLs d'accès (navigateur / API)${RESET}  ${DIM}— même tableau que STATUS.md §0 ; ports : PORTS-HOTES.md${RESET}"
+echo "  ${DIM}Depuis un autre appareil sur le LAN :${RESET} ${BOLD}export CLOUDITY_STATUS_HOST='<IP_de_ta_machine>'${RESET} ${DIM}puis relancer${RESET} ${BOLD}make status${RESET}${DIM} (HTTP dev par défaut ; prod = TLS NPM, voir DEPLOIEMENT-VPS-PORTAINER-NPM.md).${RESET}"
+echo "  ${SEP}"
+printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
+printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"
+printf "  ${DIM}%-22s${RESET} %s\n" "Inscription" "${ORIGIN}/register"
+printf "  ${DIM}%-22s${RESET} %s\n" "Pass" "${ORIGIN}/app/pass"
+printf "  ${DIM}%-22s${RESET} %s\n" "Mail" "${ORIGIN}/app/mail"
+printf "  ${DIM}%-22s${RESET} %s\n" "Drive" "${ORIGIN}/app/drive"
+printf "  ${DIM}%-22s${RESET} %s\n" "Back-office" "${ORIGIN}/4dm1n"
+printf "  ${DIM}%-22s${RESET} %s\n" "API (gateway)" "${API}/health"
+printf "  ${DIM}%-22s${RESET} %s\n" "Auth health" "${API}/auth/health"
+printf "  ${DIM}%-22s${RESET} %s\n" "Playwright (API)" "${API}  ${DIM}# ex. PLAYWRIGHT_API_URL${RESET}"
+echo "  ${SEP}"
+printf "  ${DIM}%-22s${RESET} %s\n" "Postgres (psql)" "${HOST}:${PORT_POSTGRES}"
+printf "  ${DIM}%-22s${RESET} %s\n" "Redis" "${HOST}:${PORT_REDIS}"
+printf "  ${DIM}%-22s${RESET} %s\n" "Adminer" "${PROTO}://${HOST}:${PORT_ADMINER}"
+printf "  ${DIM}%-22s${RESET} %s\n" "Redis Commander" "${PROTO}://${HOST}:${PORT_REDIS_COMMANDER}"
+echo "  ${SEP}"
+echo ""
 echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"
 echo ""

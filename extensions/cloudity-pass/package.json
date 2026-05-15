@@ -1,6 +1,6 @@
 {
   "name": "@cloudity/pass-extension",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Extension navigateur (MV3) pour Cloudity Pass : autofill et accès rapide au coffre chiffré.",
   "type": "module",

@@ -298,6 +298,15 @@ export async function createVault(token: string, name: string): Promise<{ id: nu
   )
 }
 
+/** Supprime un coffre et tous ses items (cascade côté Postgres). */
+export async function deleteVault(token: string, vaultId: number): Promise<void> {
+  const res = await apiFetch(token, `/pass/vaults/${vaultId}`, { method: 'DELETE', json: false })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(t || `Delete vault: ${res.status}`)
+  }
+}
+
 export async function fetchVaultItems(token: string, vaultId: number): Promise<PassItemResponse[]> {
   return apiJson<PassItemResponse[]>(token, `/pass/vaults/${vaultId}/items`, undefined, 'Vault items')
 }
@@ -1038,7 +1047,7 @@ export async function syncMailAccount(
   accountId: number,
   password?: string,
   options?: { imap_host?: string; imap_port?: number; extra_imap_folders?: string[] }
-): Promise<{ synced: number; message: string }> {
+): Promise<{ synced: number; message: string; password_stored?: boolean; imap_host_used?: string; imap_host_saved?: boolean }> {
   const body: Record<string, unknown> = {
     password: password ?? '',
     imap_host: options?.imap_host,
@@ -1060,7 +1069,13 @@ export async function syncMailAccount(
       throw new Error(t || `Sync: ${res.status}`)
     }
   }
-  return res.json() as Promise<{ synced: number; message: string }>
+  return res.json() as Promise<{
+    synced: number
+    message: string
+    password_stored?: boolean
+    imap_host_used?: string
+    imap_host_saved?: boolean
+  }>
 }
 
 export type MailFolderFolderStat = { total: number; unread: number }

@@ -23,6 +23,20 @@
 
 **Hors périmètre v1** : recherche serveur sur le contenu (incompatible avec zero-access strict — cf. SECURITE.md § 7), partage E2EE entre utilisateurs (Phase 3).
 
+### 1.1 Mot de passe maître Pass vs mot de passe du compte Cloudity
+
+- **Compte Cloudity** (email + mot de passe) : authentifie l’utilisateur auprès d’**auth-service** et sert à obtenir le **JWT**. Il est vérifié **côté serveur** et peut être **quelconque** par rapport au Pass.
+- **Mot de passe maître Pass** : sert **uniquement** à dériver la **MK** côté **client** pour chiffrer/déchiffrer les entrées. **Aucun service Cloudity ne le connaît** ; il n’est **pas** stocké en clair sur nos serveurs.
+- **Démo locale** (`make seed-admin`) : il est courant d’utiliser le **même** mot de passe que celui du compte démo pour simplifier les tests — **confort**, pas une règle produit. **En usage réel**, un mot de passe maître **distinct** (et fort) est recommandé.
+
+### 1.2 Ordre produit (web, mobile, extension)
+
+1. **Authentification Cloudity** (JWT) — route `/app/*` protégée ; sans session, aucun écran Pass « coffre ».
+2. **Mot de passe maître** — après connexion : si l’utilisateur n’a **aucun** coffre côté `passwords-service`, l’UI web propose l’**initialisation** (choix + confirmation du maître) ; sinon **déverrouillage** avec le maître déjà utilisé pour chiffrer.
+3. **Données hors coffre** (ex. enregistrement d’**alias mail** pour filtres) : APIs distinctes, accessibles avec le **seul** JWT — pas besoin de déverrouiller le coffre E2EE pour ces réglages.
+
+Extension / mobile : **même ordre** — connexion compte (JWT), sonde `GET /pass/vaults`, puis écran **initialisation** (liste vide) ou **déverrouillage** ; extension MV3 : tokens en `chrome.storage.session`, maître uniquement en RAM du service worker.
+
 ---
 
 ## 2. Primitives retenues

@@ -4,6 +4,8 @@
 
 **Référence conteneurs** : [../architecture/SERVICES.md](../architecture/SERVICES.md).
 
+**Récap à l’écran** : depuis la racine du dépôt, **`make status`** affiche l’état des conteneurs **et** un bloc d’URLs (hub, Pass, Mail, gateway, Adminer…) en respectant les **`PORT_*`** du `.env`. Pour un **autre appareil sur le LAN** : `export CLOUDITY_STATUS_HOST='<IP_de_la_machine_dev>'` puis **`make status`** (HTTP par défaut ; `CLOUDITY_STATUS_PROTO=https` si tu termines le TLS en local). Script : **`scripts/dev/status.sh`**.
+
 ---
 
 ## 1. Variables (défauts = comportement historique 60XX)

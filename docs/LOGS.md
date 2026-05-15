@@ -15,7 +15,33 @@
 
 ---
 
-### 2026-05-16 — RELEASE doc §8 : renvoi BACKLOG uniquement ; LOGS / TODOS
+### 2026-05-16 — make status : bloc URLs (LAN + ports .env)
+
+- **Script** : **`scripts/dev/status.sh`** — après le tableau conteneurs : hub, login, register, Pass, Mail, Drive, `/4dm1n`, gateway `/health`, `/auth/health`, rappel **PLAYWRIGHT_API_URL**, Adminer, Redis Commander, Postgres/Redis ; variables **`CLOUDITY_STATUS_HOST`**, **`CLOUDITY_STATUS_PROTO`**.
+- **Doc** : **[STATUS.md](../STATUS.md)** §0 (URLs + ligne tableau *Avant chaque reprise*) ; **[PORTS-HOTES.md](operations/PORTS-HOTES.md)** ; **Makefile** `help` + cible **`status`**.
+- **Checks** : `./scripts/dev/status.sh` ; `CLOUDITY_STATUS_HOST=192.168.1.99` ; **`make test`** ✅ (~2,5 min).
+
+---
+
+- **Backend** : **`passwords-service`** — `DELETE /pass/vaults/:id` (RLS utilisateur).
+- **Front** : **`api.ts`** `deleteVault` ; **`PassPage.tsx`** bouton supprimer coffre ; **`UnlockScreen`** rappel maître vs compte.
+- **E2E** : **`e2e/fixtures/pass-cleanup.ts`** + **`pass.spec.ts`** `afterEach` ; **`playwright.config.ts`** commentaire **`PLAYWRIGHT_API_URL`**.
+- **Doc** : **`PASS-CRYPTO.md`** § 1.1 ; **`TESTS.md`** § 3.5 (résidus + test manuel alias sans domaine personnel).
+
+---
+
+- **Script** : **`scripts/dev/cleanup-pass-e2e-vaults.sh`** ; **Makefile** : **`clean-pass-e2e-vaults`** + **`.PHONY`** + **`make help`**.
+- **E2E** : commentaire **`e2e/pass.spec.ts`** (plus de « nettoyage » item seul — coffres résiduels).
+- **Doc** : **[STATUS.md](../STATUS.md)** §0 (tableau + cartographie dev/prod) ; **[DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** §0 ; **[TESTS.md](operations/TESTS.md)** §3.5 ; **[TODOS.md](../TODOS.md)** § Dev ; **[BACKLOG.md](../BACKLOG.md)** (hygiène Playwright).
+- **Code** : aucun changement backend.
+
+---
+
+- **Front** : **`PassMailAliasesPanel.tsx`** + intégration **`PassPage.tsx`** (après grille coffres / entrées) ; **`PassMailAliasesPanel.test.tsx`** (Vitest).
+- **Doc** : **[BACKLOG.md](../BACKLOG.md)** PASS-ALIAS-UI coché ; **[SYNC-BACKLOG.md](produit/SYNC-BACKLOG.md)** § 2 + checklist *Pass / alias*.
+- **Checks** : `make test-dashboard-one FILE=src/pages/app/pass/PassMailAliasesPanel.test.tsx` ✅.
+
+---
 
 - **Doc** : **[RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** — § 7 (tableau A–**F**) ; § 8 sans liste dupliquée (suivi = **BACKLOG**) ; **[TODOS.md](../TODOS.md)** — § Prod VPS : paragraphe complet restauré + lien RELEASE ; **[LOGS.md](LOGS.md)** — entrées orphelines regroupées sous *Feuille de route Mail + alias*.
 - **Code** : aucun.

@@ -247,7 +247,7 @@ func validateMailEncryptionKeyAtBoot() {
 	case keyHex == "":
 		log.Println("[mail-directory] WARNING: MAIL_PASSWORD_ENCRYPTION_KEY non définie — les mots de passe IMAP/SMTP ne seront PAS chiffrés (dev only).")
 	case isZeroHexKey(keyHex):
-		log.Println("[mail-directory] WARNING: MAIL_PASSWORD_ENCRYPTION_KEY = 64 zéros (placeholder dev). Régénère via `make secrets` ou `openssl rand -hex 32` AVANT de stocker des comptes mail réels.")
+		log.Println("[mail-directory] WARNING: MAIL_PASSWORD_ENCRYPTION_KEY = 64 zéros (placeholder dev). Régénère via `make ensure-mail-encryption-key`, `make secrets` ou `openssl rand -hex 32` AVANT de stocker des comptes mail réels.")
 		if env := strings.ToLower(os.Getenv("ENVIRONMENT")); env == "production" || env == "prod" {
 			log.Fatal("[mail-directory] FATAL: refus de démarrer en production avec une clé MAIL_PASSWORD_ENCRYPTION_KEY zéro.")
 		}
@@ -2259,7 +2259,7 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 			return nil, err
 		}
 	} else {
-		if err := imapClient.Login(email, password); err != nil {
+		if err := imapLoginPassword(imapClient, email, password); err != nil {
 			return nil, err
 		}
 	}
@@ -2683,7 +2683,8 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "body JSON invalide"})
 		return
 	}
-	password := strings.TrimSpace(body.Password)
+	bodyPassword := strings.TrimSpace(body.Password)
+	password := bodyPassword
 	// Cf. accountFolderSummary : on bind X-User-ID directement (le pool *sql.DB ne garantit
 	// pas que la conn courante voie le set_config posé par le middleware).
 	userIDInt, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
@@ -2709,7 +2710,17 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		if password == "" && enc.Valid && enc.String != "" {
 			password, err = decryptPassword(enc.String)
 			if err != nil {
-				log.Printf("[mail] decrypt stored password: %v", err)
+				log.Printf("[mail] decrypt stored password account=%d: %v", accountID, err)
+				if strings.Contains(err.Error(), "placeholder dev") {
+					c.JSON(http.StatusServiceUnavailable, gin.H{
+						"error": "Configuration serveur : MAIL_PASSWORD_ENCRYPTION_KEY est absente ou égale au placeholder dev (64 zéros). Lance `make ensure-mail-encryption-key`, redémarre le service mail (`docker compose up -d mail-directory-service` ou `make up`), puis ré-enregistre le mot de passe de la boîte si besoin.",
+					})
+					return
+				}
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "mot de passe requis pour la synchronisation (saisissez-le à l'ajout de la boîte ou ici) — le secret enregistré n'est plus lisible (clé MAIL_PASSWORD_ENCRYPTION_KEY changée ?). Resaisissez le mot de passe IMAP.",
+				})
+				return
 			}
 		}
 		if password == "" {
@@ -2735,18 +2746,19 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		addr = host + ":993"
 	}
 	var imapClient *client.Client
-	if port == 993 || port == 0 {
-		imapClient, err = client.DialTLS(addr, nil)
-	} else {
-		imapClient, err = client.Dial(addr)
-	}
-	if err != nil {
-		log.Printf("[mail] IMAP dial %s: %v", addr, err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "impossible de se connecter au serveur IMAP: " + err.Error()})
-		return
-	}
-	defer imapClient.Logout()
+	var imapHostUsed string
 	if useOAuth {
+		if port == 993 || port == 0 {
+			imapClient, err = client.DialTLS(addr, nil)
+		} else {
+			imapClient, err = client.Dial(addr)
+		}
+		if err != nil {
+			log.Printf("[mail] IMAP dial %s: %v", addr, err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "impossible de se connecter au serveur IMAP: " + err.Error()})
+			return
+		}
+		defer imapClient.Logout()
 		refreshTok, decErr := decryptPassword(oauthRefreshEnc.String)
 		if decErr != nil || refreshTok == "" {
 			log.Printf("[mail] OAuth decrypt refresh: %v", decErr)
@@ -2766,18 +2778,20 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 			return
 		}
 	} else {
-		log.Printf("[mail] IMAP connexion %s → %s", email, addr)
-		if err := imapClient.Login(email, password); err != nil {
-			log.Printf("[mail] IMAP login %s: %v", email, err)
-			msg := "Identifiants refusés par le serveur mail. Vérifiez le mot de passe (attention aux caractères spéciaux : &, @, etc.) et que l'accès IMAP est activé pour cette boîte dans les paramètres de votre hébergeur."
+		imapClient, imapHostUsed, err = imapDialAndLoginOVHFailover(email, password, host, port)
+		if err != nil {
+			log.Printf("[mail] IMAP dial/login %s (addr %s): %v", email, addr, err)
+			msg := "Identifiants refusés ou serveur IMAP injoignable. Vérifiez le mot de passe (copie depuis le Manager sans guillemets ni retour ligne), que l'accès IMAP est activé, et l'hôte IMAP dans Paramètres Mail si votre offre n'utilise pas le serveur par défaut."
 			if strings.Contains(strings.ToLower(email), "@gmail.") || strings.Contains(strings.ToLower(email), "@googlemail.") {
 				msg = "Comme Thunderbird ou BlueMail : utilisez un mot de passe d'application Gmail (Paramètres Google > Sécurité > Mots de passe des applications)."
 			} else if strings.Contains(strings.ToLower(email), ".ovh") || strings.Contains(strings.ToLower(email), "@ovh.") {
-				msg = "Identifiants refusés par OVH. Vérifiez le mot de passe dans l'espace client OVH (Manager > Emails) et que l'accès IMAP est autorisé pour cette boîte."
+				msg = "OVH : identifiants refusés. Copiez le mot de passe depuis le Manager (E-mails > la boîte), sans guillemets ni espace en trop ; vérifiez que l'IMAP est activé. Si vous êtes sur Exchange ou un cluster différent, renseignez l'hôte IMAP exact du Manager dans Paramètres Mail > Libellé & serveurs. Cloudity a tenté ssl0.ovh.net puis imap.mail.ovh.net (AUTH PLAIN puis LOGIN)."
 			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
 			return
 		}
+		defer imapClient.Logout()
+		log.Printf("[mail] IMAP connexion %s → hôte %s (addr %s)", email, imapHostUsed, addr)
 	}
 	// Dossiers à synchroniser : (nom IMAP à essayer, nom en base). Pour Gmail vs autres fournisseurs.
 	type folderTry struct {
@@ -2815,7 +2829,33 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		totalSynced += n
 	}
 	_, _ = h.applyMailRulesForAccount(ctx, accountID)
-	c.JSON(http.StatusOK, gin.H{"synced": totalSynced, "message": "synchronisation terminée"})
+	passwordStored := false
+	imapHostStored := false
+	if !useOAuth && password != "" {
+		passwordStored = h.persistAccountPasswordAfterSync(ctx, accountID, userIDInt, password)
+	}
+	if imapHostUsed != "" && !strings.EqualFold(strings.TrimSpace(imapHostUsed), strings.TrimSpace(host)) {
+		dialPort := port
+		if dialPort <= 0 {
+			dialPort = 993
+		}
+		imapHostStored = h.persistAccountImapHostAfterSync(ctx, accountID, userIDInt, imapHostUsed, dialPort)
+	}
+	resp := gin.H{
+		"synced":          totalSynced,
+		"message":         "synchronisation terminée",
+		"password_stored": passwordStored,
+	}
+	if imapHostUsed != "" {
+		resp["imap_host_used"] = imapHostUsed
+	}
+	if imapHostStored {
+		resp["imap_host_saved"] = true
+	}
+	if !useOAuth && password != "" && !passwordStored {
+		resp["message"] = "synchronisation terminée — attention : le mot de passe n'a pas pu être enregistré pour les prochaines sync (vérifiez MAIL_PASSWORD_ENCRYPTION_KEY). Resaisissez-le à la prochaine connexion."
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // smtpXOAUTH2Auth implémente smtp.Auth pour Gmail SMTP avec OAuth2.

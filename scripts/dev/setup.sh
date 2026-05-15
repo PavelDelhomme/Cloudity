@@ -54,6 +54,11 @@ else
     echo "⚠️  .env existe déjà — non écrasé."
 fi
 
+if [ -x scripts/dev/ensure-mail-encryption-key.sh ]; then
+    echo "🔑 Vérification MAIL_PASSWORD_ENCRYPTION_KEY (sync IMAP)…"
+    ./scripts/dev/ensure-mail-encryption-key.sh || true
+fi
+
 # Clés RSA (auth-service)
 if [ ! -f backend/auth-service/private.pem ]; then
     echo "🔐 Génération des clés RSA (JWT)..."

@@ -5,17 +5,15 @@ ENV GOTOOLCHAIN=auto
 
 RUN apk add --no-cache git wget
 
-# Installation de Air avec une version spécifique compatible
 RUN go install github.com/cosmtrek/air@v1.42.0
 
-# Copie des fichiers de dépendance
-COPY go.mod go.sum ./
+# Context = ./backend (voir docker-compose.yml). go.mod replace => ../internalsec → /internalsec
+COPY internalsec /internalsec
+COPY auth-service/go.mod auth-service/go.sum ./
 RUN go mod download
 
-# Copie du reste des fichiers source
-COPY . .
+COPY auth-service/ ./
 
 EXPOSE 8081
 
-# Lancement avec Air pour le hot reload
 CMD ["air", "-c", ".air.toml"]

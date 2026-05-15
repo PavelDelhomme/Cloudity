@@ -1,12 +1,19 @@
 import React, { useState } from 'react'
 import { Card, CardHeader, Button, Input } from '@cloudity/shared'
 import toast from 'react-hot-toast'
-import { Lock, Loader2 } from 'lucide-react'
+import { Lock, Loader2, Sparkles } from 'lucide-react'
 import { useVault } from './vaultContext'
+
+const MIN_MASTER_LEN = 8
 
 interface Props {
   /** Identifiant de l'utilisateur courant (claim `user_id` du JWT). */
   userId: string | number
+  /**
+   * `setup` : aucun coffre côté serveur — l'utilisateur **choisit** un maître (première fois).
+   * `unlock` : au moins un coffre existe — saisie du maître déjà utilisé pour chiffrer.
+   */
+  mode: 'setup' | 'unlock'
 }
 
 /**
@@ -17,57 +24,115 @@ interface Props {
  * qu'au premier `decryptItemFromVault` (Poly1305 fail) — et c'est voulu : le
  * serveur ne peut pas vérifier le mot de passe maître par construction.
  */
-export default function UnlockScreen({ userId }: Props) {
+export default function UnlockScreen({ userId, mode }: Props) {
   const { state, unlock } = useVault()
   const [pw, setPw] = useState('')
+  const [pw2, setPw2] = useState('')
   const submitting = state.status === 'unlocking'
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!pw) return
+    if (mode === 'setup') {
+      if (pw.length < MIN_MASTER_LEN) {
+        toast.error(`Mot de passe maître : au moins ${MIN_MASTER_LEN} caractères.`)
+        return
+      }
+      if (pw !== pw2) {
+        toast.error('Les deux saisies ne correspondent pas.')
+        return
+      }
+    }
     try {
       await unlock(pw, userId)
-      toast.success('Coffre déverrouillé')
-      setPw('') // efface la valeur du state React (le DOM input est aussi vidé)
+      toast.success(
+        mode === 'setup'
+          ? 'Coffre initialisé — mémorise ce mot de passe maître (Cloudity ne peut pas le réinitialiser).'
+          : 'Coffre déverrouillé'
+      )
+      setPw('')
+      setPw2('')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur'
-      toast.error(`Déverrouillage : ${msg}`)
+      toast.error(`${mode === 'setup' ? 'Initialisation' : 'Déverrouillage'} : ${msg}`)
     }
   }
+
+  const isSetup = mode === 'setup'
 
   return (
     <div className="flex items-center justify-center py-16">
       <Card className="max-w-md w-full">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Lock className="w-5 h-5 text-brand-500" aria-hidden />
+            {isSetup ? (
+              <Sparkles className="w-5 h-5 text-brand-500" aria-hidden />
+            ) : (
+              <Lock className="w-5 h-5 text-brand-500" aria-hidden />
+            )}
             <h2 className="font-semibold text-slate-900 dark:text-slate-100">
-              Coffre verrouillé
+              {isSetup ? 'Initialiser le coffre Pass' : 'Coffre verrouillé'}
             </h2>
           </div>
         </CardHeader>
         <form onSubmit={onSubmit} className="p-6 flex flex-col gap-4">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Entre ton <strong>mot de passe maître</strong> pour déchiffrer tes
-            entrées. Cloudity ne le stocke jamais — il sert uniquement à dériver
-            la clé de chiffrement côté navigateur.
+            {isSetup ? (
+              <>
+                Tu es déjà connecté avec ton <strong>compte Cloudity</strong> (étape
+                d’authentification serveur). Ici, tu <strong>choisis</strong> un{' '}
+                <strong>mot de passe maître</strong> uniquement pour chiffrer le
+                coffre dans ton navigateur : Cloudity ne le reçoit ni ne le stocke. En
+                démo locale, tu peux reprendre le <strong>même</strong> mot de passe
+                que la connexion ; en usage réel, un maître <strong>distinct</strong>{' '}
+                est recommandé — voir <strong>PASS-CRYPTO</strong> § 1.1.
+              </>
+            ) : (
+              <>
+                Entre le <strong>même</strong> mot de passe maître que celui avec lequel
+                tu as chiffré tes entrées. Cloudity ne le stocke jamais. Si tu ne
+                t’en souviens plus, aucune récupération côté serveur n’est possible
+                (zero-access).
+              </>
+            )}
           </p>
           <Input
             type="password"
             placeholder="Mot de passe maître"
             value={pw}
             onChange={(e) => setPw(e.target.value)}
-            autoComplete="current-password"
+            autoComplete={isSetup ? 'new-password' : 'current-password'}
             autoFocus
             disabled={submitting}
             aria-label="Mot de passe maître"
           />
-          <Button type="submit" disabled={submitting || !pw} className="self-end">
+          {isSetup && (
+            <Input
+              type="password"
+              placeholder="Confirmer le mot de passe maître"
+              value={pw2}
+              onChange={(e) => setPw2(e.target.value)}
+              autoComplete="new-password"
+              disabled={submitting}
+              aria-label="Confirmation du mot de passe maître"
+            />
+          )}
+          <Button
+            type="submit"
+            disabled={
+              submitting ||
+              !pw ||
+              (isSetup && (!pw2 || pw.length < MIN_MASTER_LEN || pw2.length < MIN_MASTER_LEN))
+            }
+            className="self-end"
+          >
             {submitting ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-                Déchiffrement…
+                {isSetup ? 'Initialisation…' : 'Déchiffrement…'}
               </span>
+            ) : isSetup ? (
+              'Initialiser et continuer'
             ) : (
               'Déverrouiller'
             )}
@@ -75,6 +140,12 @@ export default function UnlockScreen({ userId }: Props) {
         </form>
         <div className="px-6 pb-6 text-xs text-slate-500 dark:text-slate-400">
           Auto-verrouillage après 5 minutes d'inactivité.
+          {isSetup && (
+            <>
+              {' '}
+              Longueur minimale : {MIN_MASTER_LEN} caractères.
+            </>
+          )}
         </div>
       </Card>
     </div>
