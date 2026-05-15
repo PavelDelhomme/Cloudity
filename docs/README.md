@@ -28,6 +28,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[architecture/FRONTEND-LAYOUT.md](architecture/FRONTEND-LAYOUT.md)** | Arborescence `src/pages/` (`public`, `auth`, `admin`, `app/<domaine>/`) — `cloudity-web`. |
 | **[architecture/BACKEND-LAYOUT.md](architecture/BACKEND-LAYOUT.md)** | Nommage `*-service`, rôle `internalsec`, structure Go cible, note `dbpin` / Docker. |
 | **[architecture/SERVICES.md](architecture/SERVICES.md)** | **Référence des conteneurs** : tableau de chaque service Docker (rôle, port host, profil) — explique notamment `cloudity-adminer` / `cloudity-redis-commander` (UI Web Postgres / Redis, **dev only**). |
+| **[architecture/ANTI-SPAM-ET-ABUS.md](architecture/ANTI-SPAM-ET-ABUS.md)** | **Anti-spam / anti-abus** : couches L0–L4 (edge, **api-gateway**, auth, MTA **Rspamd**), séparation HTTP vs SMTP, phasage AS-0..AS-5, options ML (River, Redis Streams, MLflow) **après** Mail Core. |
 | **[architecture/MULTI-REPO-LAYOUT.md](architecture/MULTI-REPO-LAYOUT.md)** | Plan d’éclatement **monorepo → repos GitHub indépendants** + meta-repo ; production Portainer + NPM ; tests par niveau. |
 | **[architecture/EVOLUTION-PLATEFORME.md](architecture/EVOLUTION-PLATEFORME.md)** | Étapes pour ajouter un microservice / migration / `make up`. |
 
@@ -42,6 +43,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[securite/MTLS-INTERNE.md](securite/MTLS-INTERNE.md)** | mTLS entre microservices avec **step-ca**, patterns Go, migration `off → permissive → strict`. |
 | **[securite/REVERSE-PROXY.md](securite/REVERSE-PROXY.md)** | Edge prod : gabarits **Caddy / nginx / Traefik** (TLS 1.3 strict, HSTS, CSP, hybride `X25519MLKEM768`). |
 | **[securite/PASS-CRYPTO.md](securite/PASS-CRYPTO.md)** | Format de chiffrement **Vault Pass** (Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768). |
+| **[securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** | **Mail** : secrets boîte (AES-GCM) vs corps E2E (futur) vs **Pass** ; anti-spam sans bloquer l’envoi légitime ; liens vers l’architecture multi-couches. |
 
 ## produit
 
@@ -92,4 +94,4 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
   3. ligne dans **[../BACKLOG.md](../BACKLOG.md)** quand c’est en cours / livré.
 - **Toute décision** demandée par moi (questionnaire) : tu réponds dans **`docs/decisions/<sujet>/REPONSES.md`**, je continue le travail à partir de là.
 
-*Index mis à jour : 2026-05-13 — ajout **produit/SPRINT-PASS-2026-05.md** (sprint Pass + gel multi-repo).*
+*Index mis à jour : 2026-05-15 — **architecture/ANTI-SPAM-ET-ABUS.md** + **securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md** (anti-spam multi-couches, mail vs Pass) ; liens SYNC § 0e, VISION-SUITE § 6–7, PERFORMANCES § 7, SERVICES (gateway).*

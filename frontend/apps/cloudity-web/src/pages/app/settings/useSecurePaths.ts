@@ -6,8 +6,9 @@
  * codes de récupération, passkeys de l'utilisateur) est exposée derrière
  * un slug HMAC dérivé de `(user_id, purpose, epoch 30 j)`. Le slug est
  * recalculé côté serveur et non devinable. Si l'URL fuit (capture d'écran,
- * historique, partage de tab), elle expire au plus tard sous 60 j (window
- * 30 j + sliding). Voir docs/securite/URL-CAPABILITIES.md.
+ * historique, partage de tab), elle limite surtout les **fuites passives**
+ * à long terme (réutilisation différée sans JWT). Un attaquant actif avec
+ * slug + JWT valide exploite tout de suite — cf. docs/securite/URL-CAPABILITIES.md § 2.2.
  *
  * Stratégie de cache :
  *  - On utilise React Query (`staleTime` 30 min, `gcTime` 1 h) pour

@@ -60,7 +60,7 @@ La règle **[MOBILES.md](MOBILES.md)** § **0** (*stabiliser les flux et API sur
 | Thème | Déjà bien engagé dans le repo | Poursuite typique |
 |--------|-------------------------------|-------------------|
 | **Fondation / perf / sécu** | Gateway JWT, **PERFORMANCES.md**, **make test**, CI Docker | TR-06 mesures, phases **SECURITE.md** |
-| **Mail** | Multi-boîtes, sync IMAP, dossiers spéciaux, **FTS**, règles + réconciliation IMAP, batch actions, sync auto UI, notifications hors page Mail, alias boîte + lien Pass (MVP) | Sous-dossiers IMAP **CREATE**, threads, snooze, anti-spam avancé, stabilité React, archivage PG |
+| **Mail** | Multi-boîtes, sync IMAP, dossiers spéciaux, **FTS**, règles + réconciliation IMAP, batch actions, sync auto UI, notifications hors page Mail, alias boîte + lien Pass (MVP) | Sous-dossiers IMAP **CREATE**, threads, snooze, **anti-spam multi-couches** (Rspamd + gateway + option ML — **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**), stabilité React, archivage PG |
 | **Pass** | MVP coffre web | TOTP, autofill, densité fonctionnelle **ROADMAP** |
 | **Photos** | Timeline API, web galerie, mobile, barre bas, albums partiels | Création album, corbeille dédiée, coffre, sync batterie — **TODO** |
 | **Drive** | Récents, recherche `?q=`, table, corbeille | Mobile liste, ZIP, E2E |
@@ -77,6 +77,7 @@ Ce tableau évite de **réécrire** l’historique : la vision § 2 est la **bou
 | Détail technique sync / mail serveur | **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** |
 | Dépannage dev Mail / console | **[PLAN.md](../operations/PLAN.md)** |
 | Tests | **[TESTS.md](../operations/TESTS.md)** |
+| Anti-spam / abus / chiffrement mail vs Pass | **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**, **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** |
 | Suivi détaillé par app | **[STATUS.md](../../STATUS.md)** |
 
 ---

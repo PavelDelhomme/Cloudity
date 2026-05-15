@@ -55,7 +55,7 @@ en défense en profondeur.
 Le HMAC tronqué à **128 bits** est suffisant : l'attaquant doit déjà
 connaître `user_id` (qu'il peut sortir d'une enum), donc il ne lui reste
 qu'à brute-forcer le HMAC, ce qui est trivialement bloqué par le rate-limit
-applicatif côté `/auth/security-paths/validate` (cf. § 2.4).
+applicatif côté `/auth/security-paths/validate` (cf. § 2.3).
 
 ### 2.2 Sliding window
 
@@ -66,8 +66,27 @@ Conséquences :
   le slug ;
 * à J+30 mais < J+60 (epoch précédent) le slug reste valide ;
 * à J+60 (epoch d'avant l'avant-dernier) le slug est rejeté → le SPA
-  re-fetche `/auth/security-paths` qui renvoie un slug frais ;
-* un slug volé à J+0 ne sert plus à rien à J+60 même avec un JWT volé.
+  re-fetche `/auth/security-paths` (avec le **JWT Bearer déjà en session**)
+  qui renvoie un slug frais — **aucune reconnexion** n'est requise ;
+* **Protection contre les fuites passives à long terme** (historique
+  navigateur, screenshot archivé, bookmark conservé des mois) : un slug
+  capturé à J+0 mais **réexploité** à J+60 **sans** JWT valide ne fonctionne
+  plus — la rotation par epoch limite la fenêtre où l'**URL seule** reste
+  utilisable.
+* **Limitation (attaquant actif)** : un adversaire qui dispose **dès J+0** du
+  slug **et** d'un **JWT d'accès encore valide** peut exploiter la page
+  sensible **immédiatement**. La rotation à J+60 **ne** protège **pas**
+  contre cet usage instantané. La défense contre l'exploitation active reste
+  la **durée courte** du jeton d'accès, la révocation / expiration de session,
+  et le **rate-limit** sur `/auth/security-paths/validate` (cf. § 1).
+* **Règle d'or** : un **slug seul** ne suffit **jamais** — l'accès aux pages
+  sensibles repose toujours sur le **Bearer** + validation HMAC du slug.
+
+**Périmètre** : ce slug ne protège que les **pages Settings sensibles** (2FA,
+codes de récupération, passkeys). Les flux courants (**upload / download**
+Drive et Photos, **mail** en rédaction, **notes**, etc.) n'utilisent **pas** ce
+mécanisme : ils passent par le **JWT Bearer** standard sur les APIs — la
+rotation du slug Settings **n'a aucun impact** sur ces opérations.
 
 ### 2.3 Endpoints
 
@@ -82,8 +101,15 @@ Conséquences :
 * Slug **jamais persisté** (pas de `localStorage`, pas de `sessionStorage`).
 * Repli silencieux si 503 (`URL_TOKEN_SECRET` absent côté serveur) →
   redirige vers `/app/settings/canonical` pour ne pas bloquer l'UX.
-* Re-fetch programmé à `rotates_at - 5 min` (TODO ROADMAP — actuellement
-  on attend l'invalidation par `staleTime`).
+* **Pas de reconnexion** : quand le slug expire côté serveur, le SPA refetch
+  `GET /auth/security-paths` avec le **Bearer existant** ; l'utilisateur ne
+  voit en général rien (React Query). Dans le **pire cas**, un utilisateur qui
+  reste longtemps sur une URL `/app/settings/sec/…` obsolète sans refetch
+  anticipé peut voir une **micro-redirection** vers le chemin canonique le
+  temps du refetch — ce n'est **pas** une déconnexion du compte.
+* Re-fetch **proactif** à `rotates_at - 5 min` (**TODO** — actuellement on
+  attend surtout l'invalidation par `staleTime` 30 min, ce qui retarde le
+  rafraîchissement du slug et augmente légèrement le risque de flash UX).
 
 ### 2.5 Configuration serveur
 
@@ -192,7 +218,9 @@ content="no-referrer">` pendant le montage pour bloquer les fuites par
   mismatch, fenêtre coulissante, tokens malformés, repli `JWT_SECRET`,
   fail-closed sans secret. **9/9 verts** (`go test ./...`).
 * Frontend (TODO Vitest) : `useSecurePaths` cache + repli 503,
-  `SecureSettingsPage` redirection si 403, hardening `<meta>` injecté.
+  **re-fetch à `rotates_at - 5 min`** (TODO **UC-FE-01** / [TODOS.md](../../TODOS.md)),
+  `SecureSettingsPage` redirection si 403, hardening `<meta>` injecté ;
+  **UC-QA-01** : confirmer que mail / drive / notes n’accrochent pas le slug.
 
 ---
 

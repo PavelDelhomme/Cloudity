@@ -2,7 +2,7 @@
 
 **Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service, mail admin-only Zero Trust).
 
-**Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass).
+**Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass). **Messagerie** : **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** (secrets boîte vs corps E2E vs anti-spam) ; **anti-abus multi-couches** : **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** (HTTP vs SMTP, Rspamd, gateway, option ML).
 
 **Branche de référence** (fin 2025 / 2026) : `feat/photos-gallery-mobile-sync-security` — l’état **réel** du code reste la source de vérité ; ce document fixe les **objectifs** et l’**ordre d’implémentation**.
 
@@ -214,7 +214,7 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../ST
 | **Edge / TLS public** | **[REVERSE-PROXY.md](REVERSE-PROXY.md)** — gabarits Caddy / nginx / Traefik, TLS 1.3 strict, HSTS, CSP report-only → enforce, hybride **`X25519MLKEM768`**. |
 | **mTLS interne** | **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — PKI **step-ca**, patterns Go (`internalsec`), bascule progressive `off → permissive → strict`, certs hybrides ML-DSA + ECDSA à terme. |
 | **Vault Pass (E2EE client)** | **[PASS-CRYPTO.md](PASS-CRYPTO.md)** — Argon2id + XChaCha20-Poly1305 + KEM hybride **X25519 ⊕ ML-KEM-768**, format `EnvelopeV1` à figer dès la v1. |
-| **URL capabilities** (slug rotatif 2FA / settings vs. token de partage stable) | **[URL-CAPABILITIES.md](URL-CAPABILITIES.md)** — HMAC-SHA-256 par `(user_id, purpose, epoch 30 j)` + sliding window pour l'auto-service, token aléatoire 192 bits hashé SHA-256 + révocable pour le partage Pass. |
+| **URL capabilities** (slug rotatif 2FA / settings vs. token de partage stable) | **[URL-CAPABILITIES.md](URL-CAPABILITIES.md)** — HMAC-SHA-256 par `(user_id, purpose, epoch 30 j)` + sliding window (protection **passive** long terme ; pas de reconnexion au refetch — § 2.2–2.4), token aléatoire 192 bits hashé SHA-256 + révocable pour le partage Pass. Suivi correctifs : **[TODOS.md](../../TODOS.md)**. |
 
 ---
 

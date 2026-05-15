@@ -60,6 +60,16 @@ Rappel priorite: ce bloc vient **apres** Drive/Mail/Photos/Pass puis Calendar/No
 
 ---
 
+## 0e. Anti-spam et anti-abus — vision multi-couches (HTTP **et** SMTP)
+
+**Principe** : filtrage **progressif** — chaque couche réduit le bruit avant la suivante. Détails, schémas séparés **chemin API** vs **chemin messagerie**, phasage **AS-0..AS-5**, options ML (River, Redis Streams, MLflow), et **corrections** par rapport aux brouillons externes (ex. *Prometheus/Grafana* **non** présents dans le `docker-compose` actuel — métriques fines = backlog **TR-06**) : **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**.
+
+**Chiffrement mail vs Pass vs envoi fiable** (éviter « tout chiffré donc plus d’envoi ») : **[../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**.
+
+**Priorité produit** : **Rspamd + dossier Spam (M7)** et stack **Postfix/Dovecot** avant un microservice **`antispam-service`** ML — cf. **ROADMAP** Mail, **STATUS** § Mail Core.
+
+---
+
 ## 0a. Compte Cloudity, Drive et plusieurs boîtes mail
 
 - **Un utilisateur** (`users.id`, ex. `admin@cloudity.local` ou `pavel@gmail.com` après inscription) possède un **JWT** ; **Drive** et **Mail** utilisent le même `user_id`.

@@ -52,3 +52,11 @@ Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPME
 - **`make rebuild-dashboard`** reconstruit l’image **`cloudity-web`**.
 
 Voir aussi **[TESTS.md](TESTS.md)** pour le détail des commandes.
+
+## 5. Chantiers rate-limit / anti-spam / stack MTA
+
+Si une PR touche **`api-gateway`** (rate limit), **`mail-directory-service`** (envoi / IMAP), ou les futurs fichiers **Postfix / Dovecot / Rspamd** :
+
+- Relire **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** (couches, ordre AS-1 → AS-5).
+- Vérifier qu’aucun changement ne **casse l’envoi légitime** (timeouts, fallback si service ML absent) — **[../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**.
+- Après montée de charge locale : `make perf-snapshot LABEL=after-antispam-tuning` puis comparer si pertinent (**[PERFORMANCES-MONITORING.md](PERFORMANCES-MONITORING.md)**).

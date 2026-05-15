@@ -9,6 +9,8 @@
 > 4 scripts `scripts/dev/perf-*.sh` et les cibles `make perf-watch /
 > perf-snapshot / perf-diff / perf-budgets`.
 
+**Dernière mise à jour** : 2026-05-15 — liens **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** § tableau doc § 7 ; corrections factuelles § 3.1 (**admin-service** = FastAPI ; front = **cloudity-web**) ; note bas de page § 8 : Grafana/Prometheus **si** ajoutés au compose (**TR-06**).
+
 **Dernière mise à jour** : 2026-05-06.
 
 ## Mise à jour 2026-05-06 — base admin runtime
@@ -66,14 +68,14 @@
 | **db-migrate** | image Postgres + scripts | Hors runtime utilisateur. |
 | **auth-service** | Go (Gin), `GIN_MODE=release` en image | JWT, Redis ; point critique auth sur chaque requête gateway. |
 | **api-gateway** | Go | Proxy, validation JWT, fan-out vers services ; **chemin critique** global. |
-| **admin-service** | Python (Flask) | Admin ; volume moindre que le dashboard utilisateur mais à surveiller (cold start, GIL si CPU-bound). |
+| **admin-service** | Python (**FastAPI**) | Admin ; volume moindre que le dashboard utilisateur mais à surveiller (cold start, GIL si CPU-bound). |
 | **passwords-service** | *(stack du service)* | Pass ; sensibilité sécurité > micro-optimisations naïves. |
 | **mail-directory-service** | Go | IMAP + SQL ; sync et listes : **candidates** profiling SQL + goroutines. |
 | **calendar-service**, **notes-service**, **tasks-service** | Go | CRUD + Postgres. |
 | **drive-service** | Go | Fichiers, métadonnées ; IO et requêtes liste. |
 | **photos-service** | Go | Timeline, médias. |
 | **contacts-service** | Go | Liste / fiches. |
-| **admin-dashboard** | React + Vite + TypeScript (Vitest) | **Bundle** client, **React Query**, listes virtuelles à étudier où nécessaire. |
+| **cloudity-web** | React + Vite + TypeScript (Vitest) | **Bundle** client, **React Query**, listes virtuelles à étudier où nécessaire. |
 | **adminer**, **redis-commander** | Outils | Dev uniquement. |
 
 Fichiers de référence : [docker-compose.yml](../../docker-compose.yml), variantes `docker-compose.*.yml`.
@@ -84,7 +86,7 @@ Fichiers de référence : [docker-compose.yml](../../docker-compose.yml), varian
 |-----------|-------------|------------|
 | **mobile/** (Flutter) | Dart, moteur Flutter | `flutter run --profile`, DevTools CPU/Memory ; images cache, isolates pour parsing lourd — [MOBILES.md](../produit/MOBILES.md). |
 
-### 3.3 Front web (admin-dashboard)
+### 3.3 Front web (`cloudity-web`)
 
 - **Build** : Vite (ESM, tree-shaking) ; dépendance à [ARCHITECTURE-FRONTENDS.md](../architecture/ARCHITECTURE-FRONTENDS.md) pour découpage multi-apps.
 - **Données** : TanStack Query (cache, `staleTime`, invalidations ciblées plutôt que « tout invalider »).
@@ -145,6 +147,7 @@ Toute optimisation doit rester compatible avec **[SECURITE.md](../securite/SECUR
 | [PLAN.md](PLAN.md) | Dépannage console / bruit mesuré vs erreur. |
 | [SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md) | Perf côté sync (mail, mobile, session). |
 | [ROADMAP.md](../produit/ROADMAP.md) | **TR-06** observabilité, qualité & performances. |
+| [ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md) | Rate limits, coût des couches « intelligentes », ordre AS-* (ne pas saturer la gateway avant mesure). |
 
 ---
 
@@ -154,4 +157,4 @@ Toute optimisation doit rester compatible avec **[SECURITE.md](../securite/SECUR
 
 ---
 
-*Document vivant : à enrichir au fil des audits (tableaux de métriques réelles, captures Grafana, budgets Web Vitals par route).*
+*Document vivant : à enrichir au fil des audits (tableaux de métriques réelles, budgets Web Vitals par route ; stack **Grafana/Prometheus** uniquement si ajoutés au compose — cf. **TR-06**).*

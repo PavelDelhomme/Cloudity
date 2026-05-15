@@ -33,7 +33,7 @@ avec d'autres stacks Docker éventuelles sur la même machine. Cinq familles :
 | `cloudity-redis` | `redis:7-alpine` | **6079** → 6379 | toujours | Sessions, refresh tokens, challenges WebAuthn. |
 | `cloudity-db-migrate` | build local | — (job) | toujours | Applique `infrastructure/postgresql/migrations/*.sql` puis sort code 0. « Exited (0) » = OK. |
 | `cloudity-auth-service` | build local (Go) | **6081** → 8081 | toujours | `/auth/*` (login, register, 2FA, recovery codes, passkeys, capability URLs). |
-| `cloudity-api-gateway` | build local (Go) | **6080** → 8000 | toujours | **Point d'entrée API unique** côté front. CORS + JWT + proxy vers les services métier. |
+| `cloudity-api-gateway` | build local (Go) | **6080** → 8000 | toujours | **Point d'entrée API unique** côté front. CORS + JWT + proxy vers les services métier ; rate limits (login/register, évolution documentée **[ANTI-SPAM-ET-ABUS.md](ANTI-SPAM-ET-ABUS.md)**). |
 | `cloudity-admin-service` | build local (Python FastAPI) | **6082** → 8082 | toujours | `/admin/*` : tenants, users, stats. Réservé à `/4dm1n`. |
 | `cloudity-passwords-service` | build local (Go) | **6051** → 8051 | toujours | `/pass/*` : vaults, items chiffrés (E2EE — backend ne voit que du ciphertext). |
 | `cloudity-mail-directory-service` | build local (Go) | **6050** → 8050 | toujours | `/mail/*` : domaines, comptes, alias, IMAP, messages. |
