@@ -61,6 +61,7 @@ import {
 import { getExtension, isOfficeIframePreviewName, isWordDocument } from '../office/DocumentEditorPage'
 import { parseCsvToGrid } from '../../../utils/csvGrid'
 import { markdownToHtml } from '../../../utils/htmlMarkdown'
+import { DrivePdfJsPreview } from '../../../components/DrivePdfJsPreview'
 
 /** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
 const OFFICE_PREVIEW_MAX_ROWS = 5000
@@ -645,20 +646,8 @@ function FilePreviewContent({
     )
   }
   if (isPdfNode(node) && blobUrl) {
-    /* iframe seul peut rester vide selon le navigateur ; <embed> affiche souvent mieux le PDF intégré. */
-    return (
-      <div
-        data-testid="drive-pdf-preview"
-        className="mt-4 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 min-h-[420px] max-h-[75vh] flex flex-col"
-      >
-        <embed
-          src={blobUrl}
-          type="application/pdf"
-          title={`PDF ${displayFileName(node.name)}`}
-          className="w-full min-h-[420px] h-[min(72vh,680px)] bg-white dark:bg-slate-950"
-        />
-      </div>
-    )
+    /* PDF.js (canvas) : évite le lecteur natif Chrome / Edge qui injecte des actions Google (« Ajouter à Drive ») sur un blob local — pas d’API Google Drive ici. */
+    return <DrivePdfJsPreview blobUrl={blobUrl} fileTitle={displayFileName(node.name)} />
   }
   if (isTextPreviewNode(node) && textContent != null) {
     const ext = getExtension(node.name)

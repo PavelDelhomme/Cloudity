@@ -1,11 +1,13 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-16 — **TESTS.md** : § *E2E / Playwright — authentification* (pas de bypass `User-Agent` / `X-Mode-Test` ; login réel → JWT). **BACKLOG** : **TEST-AUTH-01** (futur bootstrap CI à secret fort). **UC-QA-01** : Vitest `ucQa01SlugIsolation.test.ts`. **totp** SubtleCrypto fix. Checklist **DEV-VERIFICATION § 0**. **STATUS-JOURNAL-ARCHIVE**. **UC-FE-01** `useSecurePaths`.
+**Dernière mise à jour** : 2026-05-16 — **TEST-AUTH-01** livré ; **aperçu PDF Drive** via PDF.js (sans UI Chrome/Google). **Ports hôte** centralisés `.env` + **`docs/operations/PORTS-HOTES.md`** ; bloc **`PORT_*`** commenté dans **`.env.example`** ; **`make up-lean`** sans Adminer/Redis Commander. **Doc flux travail** : **`docs/INSTRUCTIONS-IA.md`**, **`docs/GIT.md`**, **`docs/LOGS.md`** (journal cumulatif ; exception **`NPNLD`**). **TODOS** / **DEV-VERIFICATION** / **DEVELOPMENT-HOST** / **BACKLOG** alignés sur ce flux. **TESTS.md** § E2E. **J8** runbook § **SPRINT-PASS-2026-05.md** « 3 bis ».
 
 ## À faire maintenant
 
+**Avant toute session (humain ou IA)** : **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** — puis **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0**. **Git** : **[docs/GIT.md](docs/GIT.md)** + tableau rapide **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**. **Journal des tours** : **[docs/LOGS.md](docs/LOGS.md)**.
+
 1. **J8 — Migration Proton** (cible **~20 mai 2026**, marge abonnement **~25 mai**) : import réel depuis l’export JSON ; valider coffre + TOTP + 2FA ; **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** + rollback **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 10 bis.
-2. **URL capabilities** : garde-fou **`ucQa01SlugIsolation.test.ts`** (Vitest) + **TESTS.md** § E2E (pas de bypass UA/header). **TEST-AUTH-01** (jeton bootstrap CI) dans **[BACKLOG.md](./BACKLOG.md)** — optionnel avant prod.
+2. **URL capabilities** : garde-fou **`ucQa01SlugIsolation.test.ts`** (Vitest) + **TESTS.md** § E2E (pas de bypass UA/header). **TEST-AUTH-01** : endpoints bootstrap CI (**BACKLOG** coché, **TESTS.md**).
 3. **Après J8** : **[BACKLOG.md](./BACKLOG.md)** — L2 **mobile/pass** édition, **MP-06** extension, **AS-1** Rspamd/MTA, refactor **REFACTOR-FE-01**, etc.
 
 **État « partiel / minimal »** : beaucoup de lignes BACKLOG/ROADMAP sont des **squelettes** ou **L2** (extension MV3 sans autofill, `mobile/calendar` placeholder, Linux Mail non scaffoldé…) — ce n’est pas du « en cours cassé », c’est du **périmètre volontairement borné** jusqu’après le sprint Pass. La vérité terrain = cases **cochées** + **`make test`** vert.
@@ -14,7 +16,7 @@
 
 **Docs récentes** : [ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md) · [MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md) · [URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md).
 
-**Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers (ex. `feat/photos-gallery-mobile-sync-security`). Détail : **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+**Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers. Détail : **[docs/GIT.md](docs/GIT.md)** · tableau domaines **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 
 **Document de référence** : ce fichier est la **source unique** d’avancement à la racine du repo.
 
@@ -40,7 +42,7 @@
 
 | Action | Commande |
 |--------|----------|
-| **Démarrer la stack** | `make up` |
+| **Démarrer la stack** | `make up` (profil **dev** : Adminer + Redis Commander) ou **`make up-lean`** sans ces UIs — **[docs/operations/PORTS-HOTES.md](docs/operations/PORTS-HOTES.md)** |
 | **Arrêter la stack** | `make down` |
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |

@@ -28,6 +28,7 @@
     "lucide-react": "^0.263.0",
     "mammoth": "^1.8.0",
     "marked": "^17.0.4",
+    "pdfjs-dist": "4.10.38",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",

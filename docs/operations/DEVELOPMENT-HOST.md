@@ -1,5 +1,10 @@
 # Réglages sur la machine hôte (Linux) — dev Cloudity
 
+## 0. Rappel stack & ports (Make + Docker)
+
+- **Démarrage** : **`make up`** (profil **dev** : Adminer + Redis Commander pour debug Postgres/Redis) ou **`make up-lean`** sans ces UIs — voir **[PORTS-HOTES.md](PORTS-HOTES.md)** et **[../architecture/SERVICES.md](../architecture/SERVICES.md)**.
+- **Ports** : surcharge possible via **`.env`** à la racine du dépôt (`PORT_GATEWAY`, `PORT_DASHBOARD`, …) ; le Makefile utilise les mêmes valeurs par défaut pour `make health` / scripts (export ou `make health PORT_GATEWAY=…` si tu changes uniquement Docker).
+
 Ces points concernent le **noyau Linux** de ta machine, pas le code du dépôt. Docker utilise le même noyau que l’hôte.
 
 ---

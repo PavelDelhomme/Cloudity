@@ -64,7 +64,11 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 
 | Fichier | Rôle |
 |---------|------|
+| **[GIT.md](GIT.md)** | **Référence Git unique** : branches, flux, commandes (complète [operations/BRANCHES.md](operations/BRANCHES.md)). |
+| **[INSTRUCTIONS-IA.md](../INSTRUCTIONS-IA.md)** | **Checklist avant / après travail** (assistant ou humain) + exception `NPNLD` pour le journal. |
+| **[LOGS.md](../LOGS.md)** | **Journal cumulatif** des tours de travail (actions résumées). |
 | **[operations/TESTS.md](operations/TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, tests à ajouter. |
+| **[operations/PORTS-HOTES.md](operations/PORTS-HOTES.md)** | **Ports hôte** (`.env` + `docker-compose`) ; Adminer / Redis Commander ; `make up-lean`. |
 | **[operations/PERFORMANCES.md](operations/PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf, artefacts `Trace-*` / `profiling-data*`. |
 | **[operations/PERFORMANCES-MONITORING.md](operations/PERFORMANCES-MONITORING.md)** | **Surveillance CLI temps réel** + **rituel checkpoint perf** (snapshot avant/après feature) : 4 scripts `scripts/dev/perf-*.sh` (`watch`, `snapshot`, `diff`, `budgets`) + cibles Makefile + format JSON + budgets configurables. |
 | **[operations/STATUS-JOURNAL-ARCHIVE.md](operations/STATUS-JOURNAL-ARCHIVE.md)** | **Journal STATUS archivé** (2026-05-12 → 2026-05-15) : sprint Pass J1–J7, infra — le fichier racine **`STATUS.md`** ne garde qu’**une** date + *À faire maintenant*. |
@@ -72,7 +76,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
 | **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS public + **Portainer** + **NPM** partagé ; placeholders neutres (TLD / hostname NPM hors Git) ; ports internes vs dev local ; lien Q15 / homelab ; **§ 10 bis Rollback** (procédure d'urgence A/B/C/D + post-mortem). |
-| **[operations/BRANCHES.md](operations/BRANCHES.md)** | Flux Git : `main`, `dev`, `feat/*` — quelle branche pour quelle fonctionnalité. |
+| **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |
 | **[operations/TODO.md](operations/TODO.md)** | Notes de développement (perf Drive, HMR). Priorités produit : ROADMAP / STATUS. |
 
 ## decisions

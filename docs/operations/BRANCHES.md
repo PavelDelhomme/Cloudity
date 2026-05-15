@@ -1,78 +1,52 @@
 # Flux Git — branches `main`, `dev` et `feat/*`
 
-**Objectif** : tout le monde sait **sur quelle branche travailler** selon la fonctionnalité, et comment intégrer le code sans casser la ligne stable.
+**Référence complète (normes, commandes, règles)** : **[GIT.md](../GIT.md)**.  
+**Démarche assistant / humain** : **[INSTRUCTIONS-IA.md](../INSTRUCTIONS-IA.md)** · **[LOGS.md](../LOGS.md)** (journal cumulatif, sauf préfixe `NPNLD`).
 
-**Documents liés** : [README.md](../README.md) (index `docs/`), [STATUS.md](../../STATUS.md), [BACKLOG.md](../../BACKLOG.md), [ROADMAP.md](../produit/ROADMAP.md), [PHOTOS.md](../produit/PHOTOS.md), [PERFORMANCES.md](PERFORMANCES.md).
+**Documents liés** : [README.md](../README.md), [STATUS.md](../../STATUS.md), [BACKLOG.md](../../BACKLOG.md), [ROADMAP.md](../produit/ROADMAP.md), [PHOTOS.md](../produit/PHOTOS.md), [PERFORMANCES.md](PERFORMANCES.md).
 
 ---
 
-## 1. Rôles des branches
+## 1. Rôles des branches (rappel)
 
 | Branche | Rôle | Qui / quand |
 |---------|------|-------------|
-| **`main`** | Référence **stable** du dépôt ; historique validé, prêt à être tagué ou déployé en prod selon votre processus. | Merges depuis `dev` (ou hotfix direct exceptionnel documenté). |
-| **`dev`** | Branche d’**intégration** : regroupe les fonctionnalités prêtes à être recoupées entre elles avant fusion vers `main`. | Travail quotidien d’équipe ; CI / `make test` doit passer avant merge vers `main`. |
-| **`feat/<sujet>`** | **Une branche par chantier** (Photos mobile, Mail archivage, admin complet, etc.). Nom en **kebab-case**, court et explicite. | Développement isolé ; ouverte depuis **`dev`** (voir § 2). |
-
-**Note** : si une remote historique `develop` existe encore sur un fork, **`dev`** est la branche d’intégration retenue ici ; alignez les remotes ou renommez au besoin (`develop` → `dev`).
+| **`main`** | Référence **stable** du dépôt ; historique validé. | Merges depuis `dev` (ou hotfix documenté). |
+| **`dev`** | Branche d’**intégration** avant `main`. | `make test` / CI verts avant merge vers `main`. |
+| **`feat/<sujet>`** | **Une branche par chantier** ; nom **kebab-case**. | Ouverte depuis **`dev`** (voir [GIT.md](../GIT.md) § 2). |
 
 ---
 
-## 2. Règle de départ des branches `feat/*`
-
-1. Mettre à jour `dev` : `git checkout dev && git pull origin dev` (ou `git fetch && git merge origin/main` si `dev` vient d’être créée depuis `main`).
-2. Créer la feature : `git checkout -b feat/<nom>`.
-3. Commits atomiques sur `feat/<nom>` ; ouvrir une MR/PR vers **`dev`** (pas directement vers `main`, sauf hotfix).
-
-Fusion vers `main` : uniquement depuis **`dev`** après validation (tests, revue).
-
----
-
-## 3. Quelle branche pour quelle fonctionnalité ?
+## 2. Quelle branche pour quelle fonctionnalité ?
 
 | Fonctionnalité / domaine | Branche de travail typique | Fichiers / docs de référence |
 |----------------------------|----------------------------|------------------------------|
-| **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*` si plusieurs PRs) | `docs/produit/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
+| **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*`) | `docs/produit/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
 | **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/produit/MOBILES.md`, `docs/produit/PHOTOS.md` § 5 |
-| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` si chantier transversal | `docs/securite/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
-| **Mail** (IMAP, archivage, tri, alias) | `feat/mail-*` | `docs/produit/SYNC-BACKLOG.md`, ROADMAP **APP-01** |
+| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` | `docs/securite/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
+| **Mail** | `feat/mail-*` | `docs/produit/SYNC-BACKLOG.md`, ROADMAP **APP-01** |
 | **Contacts / Pass / Calendar** | `feat/contacts-*`, `feat/pass-*`, `feat/calendar-*` | ROADMAP APP-xx |
 | **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/produit/SYNC-BACKLOG.md` § 3b |
-| **Back-office admin** (écrans Tenants, Users, Domaines, rôles, **exploitation complète**) | `feat/admin-console-*` | ROADMAP **ADM-01**, **STATUS** § 0b — *l’admin web a été amorcé ; il reste à le rendre **entièrement opérationnel** (rôles fins, audit, parité ops).* |
+| **Back-office admin** | `feat/admin-console-*` | ROADMAP **ADM-01**, **STATUS** § 0b |
 | **Transversal** (gateway, CI, monorepo front) | `feat/tr-*` ou `chore/infra-*` | ROADMAP **TR-03**, **TR-05** |
-| **Performances / observabilité** (métriques, budgets, profilage contrôlé) | `feat/perf-*` ou `chore/observability-*` | **PERFORMANCES.md**, ROADMAP **TR-06** ; ne pas merger des exports lourds (`Trace-*`, `profiling-data*`) |
-
-Si un chantier touche **plusieurs domaines** (ex. Photos + Drive), privilégier **une branche** avec commits logiques séparés, ou deux branches successives après merge du socle commun.
+| **Performances / observabilité** | `feat/perf-*` ou `chore/observability-*` | **PERFORMANCES.md**, ROADMAP **TR-06** |
 
 ---
 
-## 4. Améliorations à suivre (rappel)
+## 3. Améliorations à suivre (rappel)
 
-Les éléments ci-dessous doivent rester visibles dans la roadmap ; les cocher au fil des merges.
-
-- **Photos** : miniatures serveur, index **EXIF** (`taken_at`), albums, **sync mobile** fiable, règles **batterie / réseau**, durcissement **sécurité** (scopes JWT, validation uploads, quotas) — détail [PHOTOS.md](../produit/PHOTOS.md).
-- **Admin dashboard** : finaliser parcours **ADM-01** (toutes les actions admin utiles au quotidien, pas seulement MVP) — voir [ROADMAP.md](../produit/ROADMAP.md) **ADM-01** et **STATUS.md** § 0b.
+- **Photos** : miniatures serveur, index **EXIF**, albums, **sync mobile**, durcissement **sécurité** — [PHOTOS.md](../produit/PHOTOS.md).
+- **Admin dashboard** : parcours **ADM-01** — [ROADMAP.md](../produit/ROADMAP.md), **STATUS.md** § 0b.
 
 ---
 
-## 5. Commandes utiles
+## 4. Commandes utiles & `make feature-finish`
 
-```bash
-# À jour localement
-git fetch origin
-git checkout dev
-git pull origin dev
+Voir **[GIT.md](../GIT.md) § 3** pour les commandes `git` de base.
 
-# Nouvelle feature depuis dev
-git checkout -b feat/mon-sujet
+### `make feature-finish`
 
-# Après merge dans dev, mise à jour main (mainteneur)
-git checkout main && git merge dev && git push origin main
-```
-
-### 5b. Finaliser une feature d’un coup (`make feature-finish`)
-
-Quand une branche `feat/…` contient le travail à publier et que vous voulez **tout indexer**, **committer**, **pousser**, puis **renommer** la branche en `feat/finish-<dérivé-du-nom>` pour marquer la clôture côté GitHub (sans réécrire l’historique) :
+Quand une branche `feat/…` contient le travail à publier et que vous voulez **tout indexer**, **committer**, **pousser**, puis **renommer** la branche en `feat/finish-<slug>` :
 
 ```bash
 make feature-finish MSG="feat(photos): galerie timeline + tests"
@@ -82,26 +56,10 @@ Comportement (script `scripts/feature-finish.sh`) :
 
 1. `git add -A` puis `git commit -m "MSG"` (si des changements sont en attente ; si tout est déjà commité mais **ahead** de `origin`, pas de commit vide).
 2. `git push -u origin HEAD` sur le **nom actuel** de la branche.
-3. Renommage local en `feat/finish-<slug>` (ex. `feat/photos-gallery-mobile-sync-security` → `feat/finish-photos-gallery-mobile-sync-security`).
-4. `git push -u origin` pour la nouvelle branche, puis **`git push origin --delete <ancien_nom>`** sur GitHub (best effort si la branche n’est pas protégée).
+3. Renommage local en `feat/finish-<slug>`, push de la nouvelle branche, suppression distante de l’ancien nom (best effort).
 
-Options :
-
-- `NO_RENAME=1` — commit + push uniquement, **sans** renommage.
-- `ALLOW_MAIN=1` — autoriser l’usage depuis `main` (déconseillé).
-
-Nettoyage des références après suppression sur le dépôt distant :
-
-```bash
-make git-fetch-prune
-```
-
-Supprimer **une** branche distante précise (ex. branche Cursor obsolète) :
-
-```bash
-make git-delete-remote-branch BRANCH=cursor/fix-cors-and-api-errors-on-dashboard-a59d
-```
+Options : `NO_RENAME=1`, `ALLOW_MAIN=1` (déconseillé). Nettoyage : `make git-fetch-prune`, `make git-delete-remote-branch BRANCH=…`.
 
 ---
 
-*Créé / mis à jour : 2026-04-24 — `feature-finish`, nettoyage branches. Ajuster ce fichier si vous renommez des branches ou adoptez GitFlow strict.*
+*Dernière mise à jour : 2026-05-15 — renvoi canonique vers GIT.md + INSTRUCTIONS-IA + LOGS.*

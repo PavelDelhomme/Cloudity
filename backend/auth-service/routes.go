@@ -22,5 +22,7 @@ func registerAuthHTTPRoutes(r *gin.Engine, auth *AuthService, db *sql.DB, rdb *r
 	r.GET("/auth/validate", auth.ValidateToken)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
 
+	registerE2EBootstrapRoutesIfEnabled(r, auth)
+
 	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, auth).RegisterRoutes(r)
 }

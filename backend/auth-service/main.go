@@ -131,6 +131,8 @@ type SessionStore interface {
 type AuthService struct {
 	userStore    UserStore
 	sessionStore SessionStore
+	// e2eKV : stockage OTP bootstrap E2E/CI (TEST-AUTH-01). Nil en tests sans injection.
+	e2eKV e2eBootstrapKV
 	// privateKey/publicKey : RSA-2048 — conservés pour vérifier les tokens
 	// existants (refresh tokens jusqu'à 7-30j, access tokens jusqu'à 60min)
 	// signés en RS256 avant la migration EdDSA. Plus de NOUVEAU token signé
@@ -177,6 +179,7 @@ func main() {
 	authService := &AuthService{
 		userStore:    &postgresUserStore{db: db},
 		sessionStore: &redisSessionStore{rdb: rdb},
+		e2eKV:        &redisE2EBootstrapKV{rdb: rdb},
 		privateKey:   privateKey,
 		publicKey:    publicKey,
 		edPrivateKey: edPrivateKey,

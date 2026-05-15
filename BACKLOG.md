@@ -4,7 +4,7 @@
 
 **Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
 
-**Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (**une** ligne *Dernière mise à jour* + section *À faire maintenant* ; le journal long va dans **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**).
+**Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (**une** ligne *Dernière mise à jour* + section *À faire maintenant* ; le journal long va dans **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**). **Git / agent** : **[docs/GIT.md](docs/GIT.md)** + **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** + **[docs/LOGS.md](docs/LOGS.md)** (sauf `NPNLD` en tête de message).
 
 ---
 
@@ -67,7 +67,7 @@
 
 ### Tests & auth E2E / CI (hors « mode test » fragile)
 
-- [ ] **TEST-AUTH-01 — Bootstrap E2E/CI à secret fort** : aujourd’hui Playwright utilise **`POST /auth/login`** réel (voir **TESTS.md** § E2E). **Objectif** : en **dev/CI uniquement**, endpoint ou script protégé par variable **`E2E_BOOTSTRAP_SECRET`** (≥ 32 oct aléatoires) émettant un **JWT court** ou **code usage unique** consommable une fois — **jamais** en prod ; **aucun** bypass `User-Agent` / `X-Mode-Test`. Spécifier rate-limit + audit.
+- [x] **TEST-AUTH-01 — Bootstrap E2E/CI à secret fort** : **`POST /auth/e2e/bootstrap-mint`** puis **`POST /auth/e2e/bootstrap-exchange`** (OTP Redis **`GetDel`**, non rejouable). Garde-fous **`CLOUDITY_ALLOW_E2E_BOOTSTRAP=1`**, **`E2E_BOOTSTRAP_SECRET`** (≥ 32 car.), refus **`GO_ENV` / `NODE_ENV` = production** ; compte **2FA** → mint **403**. Gateway : pas de Bearer, rate-limit login/register. Détail **TESTS.md** § E2E.
 
 ### Anti-spam, anti-abus et messagerie (phasage AS-*)
 

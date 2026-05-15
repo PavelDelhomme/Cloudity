@@ -2,9 +2,11 @@
 
 **Rôle** : liste **légère** de correctifs et suites immédiates. Le détail produit, jalons et dettes longues restent dans **[BACKLOG.md](./BACKLOG.md)** et **[STATUS.md](./STATUS.md)** (section *À faire maintenant* ; historique détaillé : **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**).
 
+**À chaque changement** : tenir **[STATUS.md](./STATUS.md)** à jour si l’état global bouge ; consigner le tour dans **[docs/LOGS.md](docs/LOGS.md)** (sauf message commençant par **`NPNLD`**) — voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**.
+
 ## Avant chaque session
 
-Ordre recommandé : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — en résumé : `docker info` → **`make test`** → (optionnel) E2E, `flutter test` sous `mobile/pass`, validation `compose` si YAML touché.
+Ordre recommandé : **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** puis **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — en résumé : `docker info` → **`make test`** → (optionnel) E2E, `flutter test` sous `mobile/pass`, validation `compose` si YAML touché. Préférer **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que des commandes npm manuelles sur l’hôte pour valider le front.
 
 ---
 

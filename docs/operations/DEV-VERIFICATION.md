@@ -2,6 +2,8 @@
 
 À appliquer dès qu’un changement touche le **frontend**, **Docker**, la **gateway**, l’**auth**, les **migrations** ou les **données**.
 
+**Avant toute chose** : **[INSTRUCTIONS-IA.md](../INSTRUCTIONS-IA.md)** (checklist + journal **[LOGS.md](../LOGS.md)** ; exception `NPNLD`).
+
 ## 0. Checklist globale — avant chaque reprise de travail
 
 À lancer **dans l’ordre** (ou au minimum les deux premiers) pour repartir sur une base saine. Les items **partiels** du produit (extension Pass sans autofill, Calendar placeholder, etc.) sont listés dans **[BACKLOG.md](../../BACKLOG.md)** et **[docs/produit/ROADMAP.md](../produit/ROADMAP.md)** — ce n’est **pas** une erreur de config locale si une case reste décochée.
@@ -20,9 +22,9 @@
 
 ## 1. Compilation & tests automatisés
 
-- **Frontend** : `cd frontend && npm install` puis `npm run build` (ou `cd frontend/apps/cloudity-web && command npx vite build`) ; **Vitest** : `npm run test -w @cloudity/web` ou `make test-dashboard`.
-- **Stack complète unitaire** : `make test` (Go, pytest, Vitest dans le service **`cloudity-web`**).
-- **E2E** (stack déjà up + compte démo) : `make up`, `make seed-admin`, attendre ~30 s, puis **`make test-e2e`** et **`make test-e2e-playwright`**.
+- **Frontend (recommandé — même environnement que la CI)** : **`make test-dashboard`** (Vitest dans Docker) ; lint : **`make test-dashboard-lint`** ; dépendances après changement de `package.json` : **`make dashboard-npm-install`** ou **`make frontend-install`** à la racine `frontend/`. Éviter `cd frontend && npm run build` sur l’hôte **sauf** besoin IDE ponctuel.
+- **Stack complète unitaire** : **`make test`** (Go, pytest, Vitest dans le service **`cloudity-web`**).
+- **E2E** (stack déjà up + compte démo) : **`make up`** (ou **`make up-lean`** sans Adminer/Redis Commander — voir **[PORTS-HOTES.md](PORTS-HOTES.md)**), **`make seed-admin`**, attendre ~30 s, puis **`make test-e2e`** et **`make test-e2e-playwright`**.
 
 > **Important — accès admin (`/4dm1n`)** : la **gateway** et le **`AdminAccessGate`** front exigent désormais un **claim `role: "admin"`** dans le JWT. **`make seed-admin`** crée le compte **`admin@cloudity.local` / `Admin123!`** et **promeut** le user en `role='admin'` dans la BDD. Si tu étais déjà connecté avec un ancien JWT (sans `role`), **déconnecte-toi puis reconnecte-toi** (ou attends un refresh) pour récupérer un token avec le claim. Dans le cas contraire, l’UI redirige vers `/app` et l’API gateway répond `403 admin role required`.
 

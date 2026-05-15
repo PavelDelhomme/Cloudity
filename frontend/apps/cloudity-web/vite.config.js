@@ -58,6 +58,9 @@ function cloudityEarlyHtmlRoutes() {
 
 export default defineConfig({
   plugins: [cloudityEarlyHtmlRoutes(), react()],
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
+  },
   resolve: {
     alias: {
       '@cloudity/shared': sharedRoot,

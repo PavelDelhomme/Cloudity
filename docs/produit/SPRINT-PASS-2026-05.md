@@ -65,8 +65,19 @@
 | J5 | 17 mai | **Codes de récupération** (migration SQL + API `auth-service` + tests) + **2FA login web étape 2** (saisie code TOTP) + **Passkeys backend** : ouverture aux users non-admin (quota 5/user) + `residentKey: required` + endpoint `login/begin-discoverable` |
 | J6 | 18 mai | **Settings 2FA web** (QR `otpauth://`, secret manuel, vérification, codes de récupération une fois) + **Settings Passkeys user** (réutilise `Passkeys.tsx` admin, branché sur `/app/settings/security/passkeys`) + **Conditional UI sur LoginPage** (`autocomplete="username webauthn"` + `mediation: 'conditional'`) → **Proton Pass / Bitwarden / iCloud Keychain enregistrent et proposent la passkey au login** |
 | J7 | 19 mai | **Mobile Flutter `pass` LECTURE SEULE** : port Dart `cloudity_shared/pass_crypto` ; écrans déverrouillage / liste / détail ; biométrie `local_auth` ; copie presse-papiers auto-clear ; smoke E2E |
-| **J8** | **20 mai** | **Migration réelle** depuis Proton Pass sur compte pilote (export JSON → import → vérification 50+ entrées + 2FA + lecture mobile) ; **bascule** : on lâche Proton Pass |
+| **J8** | **20 mai** | **Migration réelle** depuis Proton Pass sur compte pilote (export JSON → import → vérification 50+ entrées + 2FA + lecture mobile) ; **bascule** : on lâche Proton Pass — **runbook** : § **3 bis** ci-dessous. |
 | J+1..J+5 | 21 → 25 mai | Mobile Flutter Pass **édition complète** + extension Chromium MV3 (popup + autofill domain matching) |
+
+### 3 bis Runbook J8 (migration Proton — exécutable manuellement)
+
+Checklist opérationnelle (hors code) pour le jour J ; cocher au fil de l’eau :
+
+- [ ] **Export** : Proton Pass → export **JSON en clair** (compte pilote) ; stockage chiffré disque / vault interne.
+- [ ] **Prévol** : sauvegarde Cloudity (DB + volumes si applicable) ; noter rollback (**DEPLOIEMENT-VPS-PORTAINER-NPM.md** § 10 bis si VPS).
+- [ ] **Import web** : `PassPage` → import fichier → **≥ 50** entrées visibles / cohérentes (titres, URLs, TOTP item si présents).
+- [ ] **2FA compte Cloudity** : login web complet avec TOTP activé sur le même compte pilote.
+- [ ] **Mobile `pass`** : lecture seule — déverrouillage, liste, détail sur un sous-ensemble représentatif.
+- [ ] **Bascule** : désabonnement / abandon usage quotidien Proton Pass une fois les critères § 5 du sprint validés.
 
 ---
 
@@ -98,4 +109,4 @@
 | **Extension navigateur** | **Reportée J+1..J+5** | Pas bloquante : copie clipboard depuis web ou mobile suffit pour la migration ; autofill améliore le quotidien après. |
 | **WebAuthn comme déverrouillage Pass** | **Phase ultérieure** | Le mot de passe maître reste la base ; WebAuthn complémentaire plus tard. |
 
-*Dernière mise à jour : 2026-05-13.*
+*Dernière mise à jour : 2026-05-16.*

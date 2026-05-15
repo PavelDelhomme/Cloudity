@@ -393,7 +393,8 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 			_, _ = w.Write([]byte(`{"error":"too many requests"}`))
 			return
 		}
-		if r.Method == http.MethodPost && (r.URL.Path == "/auth/login" || r.URL.Path == "/auth/register") {
+		if r.Method == http.MethodPost && (r.URL.Path == "/auth/login" || r.URL.Path == "/auth/register" ||
+			strings.HasPrefix(r.URL.Path, "/auth/e2e/")) {
 			if !loginRegisterLimiter.Allow() {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
@@ -515,6 +516,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		// Skip auth for public endpoints
 		if strings.HasPrefix(r.URL.Path, "/auth/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/register") ||
+			strings.HasPrefix(r.URL.Path, "/auth/e2e/") ||
 			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
 			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||

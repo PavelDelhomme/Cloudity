@@ -184,6 +184,7 @@ func newTestAuthService() *AuthService {
 	return &AuthService{
 		userStore:    newMockUserStore(),
 		sessionStore: newMockSessionStore(),
+		e2eKV:        newMemE2EBootstrapKV(),
 		privateKey:   priv,
 		publicKey:    pub,
 		edPrivateKey: edPriv,

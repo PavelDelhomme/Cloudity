@@ -16,7 +16,9 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 
 **Dev / CI** : compte **`make seed-admin`** et variables **`PLAYWRIGHT_E2E_*`** = **démo locale uniquement** ; en CI, secrets du dépôt, jamais de mots de passe en clair dans les YAML publics.
 
-**Évolution** : jeton bootstrap non rejouable (**TEST-AUTH-01** dans **[BACKLOG.md](../../BACKLOG.md)**) — secret fort `E2E_BOOTSTRAP_*`, hors prod.
+**TEST-AUTH-01 (livré)** : en **dev/CI** uniquement, **`CLOUDITY_ALLOW_E2E_BOOTSTRAP=1`** + **`E2E_BOOTSTRAP_SECRET`** (≥ **32** caractères ; recommandé `openssl rand -hex 32` → 64 hex) sur **auth-service**. Flux en deux étapes (OTP **usage unique** en Redis, **`GetDel`**) :
+1. **`POST /auth/e2e/bootstrap-mint`** — corps JSON `bootstrap_secret`, `email`, `tenant_id` → réponse `one_time_token`, `expires_in` (TTL **10–600** s via **`E2E_BOOTSTRAP_OTP_TTL_SECONDS`**, défaut 120).
+2. **`POST /auth/e2e/bootstrap-exchange`** — `one_time_token` → même enveloppe JWT que **`/auth/login`** (`access_token`, `refresh_token`, `user_id`, `expires_in`). **Rejouer l’échange → 401.** Comptes avec **2FA activé** : le mint est **refusé** (403) — utiliser le login réel + TOTP. **Refus** si **`GO_ENV=production`** ou **`NODE_ENV=production`**. La **gateway** expose les chemins sans Bearer (comme login) avec **rate-limit** aligné login/register. Voir **[BACKLOG.md](../../BACKLOG.md)**.
 
 **Fixtures** : **`e2e/fixtures/auth.ts`**.
 

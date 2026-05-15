@@ -1,4 +1,4 @@
-.PHONY: help up down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -18,12 +18,14 @@ COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
 # Ports 60XX (voir STATUS.md)
-PORT_GATEWAY = 6080
-PORT_DASHBOARD = 6001
-PORT_AUTH = 6081
-PORT_ADMIN = 6082
-PORT_POSTGRES = 6042
-PORT_REDIS = 6079
+PORT_GATEWAY ?= 6080
+PORT_DASHBOARD ?= 6001
+PORT_AUTH ?= 6081
+PORT_ADMIN ?= 6082
+PORT_POSTGRES ?= 6042
+PORT_REDIS ?= 6079
+PORT_ADMINER ?= 6083
+PORT_REDIS_COMMANDER ?= 6084
 
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
@@ -140,7 +142,7 @@ dev-https: ## Lance Vite en HTTPS local via mkcert (https://localhost:5173). Sta
 	@chmod +x scripts/dev/dev-https.sh
 	@./scripts/dev/dev-https.sh
 
-up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Commander)
+up: ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
 	@echo "✅ Stack démarrée. Accès:"
@@ -149,9 +151,15 @@ up: ## Démarre toute la stack (ports 60XX, profil dev pour Adminer/Redis Comman
 	@echo "   API:        http://localhost:$(PORT_GATEWAY)"
 	@echo "   Auth:       http://localhost:$(PORT_AUTH)"
 	@echo "   Admin API:  http://localhost:$(PORT_ADMIN)"
-	@echo "   Adminer:    http://localhost:6083  |  Redis Commander: http://localhost:6084"
+	@echo "   Adminer:    http://localhost:$(PORT_ADMINER)  |  Redis Commander: http://localhost:$(PORT_REDIS_COMMANDER)  (profil dev — pas en prod ; voir docs/architecture/SERVICES.md)"
+	@echo "   Sans ces UIs :  make up-lean"
 	@echo ""
 	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
+
+up-lean: ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
+	@echo "🚀 Démarrage Cloudity (sans outils dev Adminer / Redis Commander)..."
+	@$(COMPOSE) $(COMPOSE_FILES) up -d
+	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
 up-full: down up wait-for-services seed seed-admin test ## Tout-en-un : down, up, seed, compte démo, puis lance les tests pour vérifier
 	@echo "✅ Stack, compte démo et tests OK. Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"

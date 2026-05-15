@@ -10,7 +10,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "6042:5432"
+      - "${PORT_POSTGRES:-6042}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
@@ -33,7 +33,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password_2025}
     command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
     ports:
-      - "6079:6379"
+      - "${PORT_REDIS:-6079}:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -74,7 +74,7 @@ services:
     container_name: cloudity-auth-service
     restart: unless-stopped
     ports:
-      - "6081:8081"
+      - "${PORT_AUTH:-6081}:8081"
     environment:
       - PORT=8081
       - GOTOOLCHAIN=auto
@@ -116,7 +116,7 @@ services:
     container_name: cloudity-api-gateway
     restart: unless-stopped
     ports:
-      - "6080:8000"
+      - "${PORT_GATEWAY:-6080}:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081
@@ -163,7 +163,7 @@ services:
     container_name: cloudity-admin-service
     restart: unless-stopped
     ports:
-      - "6082:8082"
+      - "${PORT_ADMIN:-6082}:8082"
     environment:
       - PORT=8082
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
@@ -234,7 +234,7 @@ services:
     container_name: cloudity-mail-directory-service
     restart: unless-stopped
     ports:
-      - "6050:8050"
+      - "${PORT_MAIL_DIRECTORY:-6050}:8050"
     environment:
       - PORT=8050
       - GOTOOLCHAIN=auto
@@ -274,7 +274,7 @@ services:
     container_name: cloudity-calendar-service
     restart: unless-stopped
     ports:
-      - "6052:8052"
+      - "${PORT_CALENDAR:-6052}:8052"
     environment:
       - PORT=8052
       - GOTOOLCHAIN=auto
@@ -305,7 +305,7 @@ services:
     container_name: cloudity-notes-service
     restart: unless-stopped
     ports:
-      - "6053:8053"
+      - "${PORT_NOTES:-6053}:8053"
     environment:
       - PORT=8053
       - GOTOOLCHAIN=auto
@@ -336,7 +336,7 @@ services:
     container_name: cloudity-tasks-service
     restart: unless-stopped
     ports:
-      - "6054:8054"
+      - "${PORT_TASKS:-6054}:8054"
     environment:
       - PORT=8054
       - GOTOOLCHAIN=auto
@@ -367,7 +367,7 @@ services:
     container_name: cloudity-drive-service
     restart: unless-stopped
     ports:
-      - "6055:8055"
+      - "${PORT_DRIVE:-6055}:8055"
     environment:
       - PORT=8055
       - GOTOOLCHAIN=auto
@@ -429,7 +429,7 @@ services:
     container_name: cloudity-contacts-service
     restart: unless-stopped
     ports:
-      - "6056:8056"
+      - "${PORT_CONTACTS:-6056}:8056"
     environment:
       - PORT=8056
       - GOTOOLCHAIN=auto
@@ -459,7 +459,7 @@ services:
     container_name: cloudity-web
     restart: unless-stopped
     ports:
-      - "6001:3000"
+      - "${PORT_DASHBOARD:-6001}:3000"
     environment:
       - NODE_ENV=development
       # Appel direct au gateway depuis le navigateur (évite 401 sur /drive, /pass, etc.).
@@ -498,7 +498,7 @@ services:
     container_name: cloudity-adminer
     restart: unless-stopped
     ports:
-      - "6083:8080"
+      - "${PORT_ADMINER:-6083}:8080"
     environment:
       ADMINER_DEFAULT_SERVER: postgres
       ADMINER_DESIGN: nette
@@ -516,7 +516,7 @@ services:
     container_name: cloudity-redis-commander
     restart: unless-stopped
     ports:
-      - "6084:8081"
+      - "${PORT_REDIS_COMMANDER:-6084}:8081"
     environment:
       # Obligatoire : host "redis" = nom du service sur le réseau Docker (sinon l'image utilise localhost)
       REDIS_HOSTS: "local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_password_2025}"
