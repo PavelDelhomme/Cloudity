@@ -2,7 +2,7 @@
 
 **Objectif** : cadre **reproductible** pour tout chantier (code, doc, infra). Les humains peuvent suivre la même checklist.
 
-**Documents liés** : [GIT.md](GIT.md) · [LOGS.md](LOGS.md) · [operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md) · [operations/TESTS.md](operations/TESTS.md) · [operations/BRANCHES.md](operations/BRANCHES.md) · [../STATUS.md](../STATUS.md) · [../BACKLOG.md](../BACKLOG.md) · [../TODOS.md](../TODOS.md).
+**Documents liés** : [GIT.md](GIT.md) · [LOGS.md](LOGS.md) · [operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md) · [operations/TESTS.md](operations/TESTS.md) · [operations/BRANCHES.md](operations/BRANCHES.md) · [../STATUS.md](../STATUS.md) (**§ *À faire maintenant*** = checklist court terme alignée sur ce fichier) · [../BACKLOG.md](../BACKLOG.md) · [../TODOS.md](../TODOS.md).
 
 ---
 
@@ -15,7 +15,7 @@ Si le **tout début** du message utilisateur est exactement **`NPNLD`** (sur la 
 ## Partie A — Avant de commencer
 
 1. **Branche** : vérifier `git status`, la branche courante et le suivi `origin` — alignement avec [GIT.md](GIT.md) et le tableau [operations/BRANCHES.md](operations/BRANCHES.md).
-2. **Contexte** : relire **[STATUS.md](../STATUS.md)** (§ *À faire maintenant*) et, si pertinent, **[BACKLOG.md](../BACKLOG.md)** / **[TODOS.md](../TODOS.md)**.
+2. **Contexte** : relire **[STATUS.md](../STATUS.md)** (**§ *À faire maintenant*** — rituel + priorités court terme) et, si pertinent, **[BACKLOG.md](../BACKLOG.md)** / **[TODOS.md](../TODOS.md)**.
 3. **Périmètre** : identifier les docs produit / sécu / ops **réellement** concernées (éviter de tout relire sans lien avec la tâche).
 4. **Journal** : sauf **NPNLD**, préparer une entrée **pendant** le travail pour **[LOGS.md](LOGS.md)** (voir format dans ce fichier).
 
@@ -42,4 +42,4 @@ Ne **supprimer** ni archives de décisions, ni comparatifs ayant servi à tranch
 
 ---
 
-*Dernière mise à jour : 2026-05-15.*
+*Dernière mise à jour : 2026-05-16.*

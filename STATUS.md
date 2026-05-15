@@ -1,14 +1,45 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-16 — **TEST-AUTH-01** livré ; **aperçu PDF Drive** via PDF.js. **Ports hôte** `.env` + **`docs/operations/PORTS-HOTES.md`** ; **`make up-lean`**. **Doc flux** : **`docs/INSTRUCTIONS-IA.md`**, **`docs/GIT.md`**, **`docs/LOGS.md`**. **Déploiement VPS** : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** — **Q23** aligné (`cloudity.<DOMAIN>` shell SPA), **§ 1 bis** DNS + NPM, **§ 1 ter** chemins vs sous-domaines ; **TODOS** § prod VPS. **J8** runbook § **SPRINT-PASS-2026-05.md** « 3 bis ».
+**Dernière mise à jour** : 2026-05-16 — Feuille de route multi-apps : phase **Mail** inclut **alias / domaines / boîtes** (**SYNC-BACKLOG** § 2, § 0e). **À faire maintenant** + **INSTRUCTIONS-IA**. **J8** § **SPRINT-PASS-2026-05**. **TEST-AUTH-01** ; PDF Drive **PDF.js** ; **`make up-lean`**. **Prod VPS** après **HOMELAB** (Q15).
 
 ## À faire maintenant
 
-**Avant toute session (humain ou IA)** : **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** — puis **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0**. **Git** : **[docs/GIT.md](docs/GIT.md)** + tableau rapide **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**. **Journal des tours** : **[docs/LOGS.md](docs/LOGS.md)**.
+### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **J8 — Migration Proton** (cible **~20 mai 2026**, marge abonnement **~25 mai**) : import réel depuis l’export JSON ; valider coffre + TOTP + 2FA ; **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** + rollback **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 10 bis.
-2. **URL capabilities** : garde-fou **`ucQa01SlugIsolation.test.ts`** (Vitest) + **TESTS.md** § E2E (pas de bypass UA/header). **TEST-AUTH-01** : endpoints bootstrap CI (**BACKLOG** coché, **TESTS.md**).
+1. **Git** : `git status` ; branche = chantier en cours (souvent **`feat/photos-gallery-mobile-sync-security`** pour Pass / Photos / sync) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+2. **Contexte** : relire les **priorités numérotées** ci-dessous ; ouvrir **[BACKLOG.md](./BACKLOG.md)** / **[TODOS.md](./TODOS.md)** si la tâche touche une case ouverte.
+3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
+4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
+
+### Priorités (ordre de travail recommandé)
+
+1. **J8 — Migration Proton** (cible **~20 mai 2026**, marge **~25 mai**) : exécuter le **runbook** **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** (export JSON, prévol, import web ≥50 entrées, 2FA, mobile `pass` lecture, bascule). Rollback documenté **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 10 bis **si** la prod est sur VPS (sinon sauvegarde locale / BDD selon ton infra).
+2. **URL capabilities & E2E** : garder le garde-fou **`ucQa01SlugIsolation.test.ts`** ; parcours **TESTS.md** § E2E (pas de bypass `User-Agent` / `X-Mode-Test`). **TEST-AUTH-01** : déjà livré — n’ouvrir un suivi que si la CI/playwright doit consommer les endpoints bootstrap.
 3. **Après J8** : **[BACKLOG.md](./BACKLOG.md)** — L2 **mobile/pass** édition, **MP-06** extension, **AS-1** Rspamd/MTA, refactor **REFACTOR-FE-01**, etc.
+
+### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
+
+> **Rappel** : une **prod** sérieuse suppose **[HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** (Q15) + **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**. Ce qui suit = **ordre de chantier** ; ce n’est pas faisable « en une passe » sans dette.
+
+| Phase | Objectif | Pistes dans le dépôt |
+|-------|-----------|----------------------|
+| **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, **MP-06** extension autofill). |
+| **B — Qualité transverse** | Barrière merge stable | **`make test`**, **`make test-dashboard`**, E2E **TESTS.md** ; mobile **`make test-mobile-suite`** (Mail / Drive / Photos) + variables **`CLOUDITY_E2E_*`** pour device. |
+| **C — Mail « complet »** | Messagerie Internet fiable + **identités** (domaines, boîtes, **alias**, routage) + anti-abus | **BACKLOG** **AS-1** (Postfix/Dovecot/Rspamd, SPF/DKIM) ; **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** (§ **0e** sync, § **2** Pass ↔ **alias mail** — API `…/aliases`, filtres `delivered_to`, envoi **depuis** alias / `from_email`) ; admin gateway **`/mail/domains*`**, **`/mail/mailboxes*`**, **`/mail/aliases*`** (cf. **QUESTIONNAIRE** Q28) ; **`mobile/mail/README.md`** + **ROADMAP APP-01**. |
+| **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; gros fichiers front : **REFACTOR-FE-03** / **FE-02** quand les flux sont stabilisés. |
+| **E — Prod** | Publier | Q15 vert → **TODOS** § Prod VPS + stacks Portainer. |
+
+**Mobile Mail** : déjà **MVP** (login multi-gateway, 2FA, dossiers, PJ, composer — voir **`mobile/mail/README.md`**). « Complètement opérationnel » = **ROADMAP APP-01** + **SYNC-BACKLOG** (sync, brouillons serveur, **alias** : création côté fournisseur + enregistrement Cloudity pour filtres / traçabilité, voir **SYNC-BACKLOG § 2**) plutôt que tout réécrire d’un bloc.
+
+### Rituel (après chaque session) — **INSTRUCTIONS-IA** partie B
+
+- Si l’état global ou l’ordre des priorités change : **mettre à jour ce fichier** (*Dernière mise à jour* + § *À faire maintenant* si besoin).
+- Micro-corrections : **[TODOS.md](./TODOS.md)** ; livrables structurants : **[BACKLOG.md](./BACKLOG.md)**.
+- Finaliser l’entrée **[docs/LOGS.md](docs/LOGS.md)** (sauf **NPNLD**).
+
+### Hors « maintenant » (ne pas confondre avec la suite du jour)
+
+- **Portainer / NPM / stacks prod** : uniquement quand tu **décides de publier** Cloudity ; prérequis **[HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** (Q15). Checklist : **[TODOS.md](./TODOS.md)** § *Prod VPS* + **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
 
 **État « partiel / minimal »** : beaucoup de lignes BACKLOG/ROADMAP sont des **squelettes** ou **L2** (extension MV3 sans autofill, `mobile/calendar` placeholder, Linux Mail non scaffoldé…) — ce n’est pas du « en cours cassé », c’est du **périmètre volontairement borné** jusqu’après le sprint Pass. La vérité terrain = cases **cochées** + **`make test`** vert.
 

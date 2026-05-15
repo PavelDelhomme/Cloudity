@@ -15,6 +15,25 @@
 
 ---
 
+### 2026-05-16 — Feuille de route : phase Mail + alias (SYNC-BACKLOG § 2)
+
+- **Doc** : **[STATUS.md](../STATUS.md)** — ligne phase **C** (domaines, boîtes, **alias**, routes admin `/mail/aliases*`, AS-1, SYNC-BACKLOG § 0e / § 2) ; paragraphe **Mobile Mail** ; en-tête ; restauration titre **§ Rituel après session** (partie B).
+- **Code** : aucun.
+
+---
+
+- **Doc** : **[STATUS.md](../STATUS.md)** — § *À faire maintenant* : tableau phases A–E (Pass → qualité → Mail AS-1 → Drive/Photos → prod) ; rappel mobile Mail MVP + **ROADMAP APP-01** ; **[TODOS.md](../TODOS.md)** § Prod VPS — renvoi vers ce tableau.
+- **Code** : aucun.
+
+---
+
+### 2026-05-16 — STATUS « À faire maintenant » : rituel A/B + INSTRUCTIONS-IA
+
+- **Doc** : **[STATUS.md](../STATUS.md)** — § *À faire maintenant* restructuré (partie A avant session, priorités J8 / URL+E2E / post-J8, partie B après session, bloc hors Portainer + Q15) ; **[INSTRUCTIONS-IA.md](INSTRUCTIONS-IA.md)** — lien explicite vers STATUS § À faire ; date pied de page.
+- **Code** : aucun.
+
+---
+
 ### 2026-05-15 — Auth E2E bootstrap, PDF Drive, ports `.env`, doc Git & Makefile
 
 - Branche : `feat/photos-gallery-mobile-sync-security` (alignée avec chantier en cours sur le dépôt).
