@@ -10,6 +10,16 @@
 | E2E health / proxy | Scripts + conteneurs | **`make test-e2e`** (stack **`make up`**) |
 | **Playwright** (navigateur) | **Hôte** : le binaire Playwright pilote le navigateur ; l’app reste servie par la stack Docker (**`make up`**) | **`make test-e2e-playwright`** |
 
+### E2E / Playwright — authentification (**pas** de mode test « fragile »)
+
+Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu’un navigateur réel : formulaire **login** → **`POST /auth/login`** → **JWT** signé par **auth-service**. Il n’existe **pas** (dans le périmètre audité du monorepo) de contournement basé sur **`User-Agent`**, un en-tête type **`X-Mode-Test`**, ou la détection de Playwright pour émettre un token : l’accès API repose sur le **Bearer** après authentification réelle.
+
+**Dev / CI** : compte **`make seed-admin`** et variables **`PLAYWRIGHT_E2E_*`** = **démo locale uniquement** ; en CI, secrets du dépôt, jamais de mots de passe en clair dans les YAML publics.
+
+**Évolution** : jeton bootstrap non rejouable (**TEST-AUTH-01** dans **[BACKLOG.md](../../BACKLOG.md)**) — secret fort `E2E_BOOTSTRAP_*`, hors prod.
+
+**Fixtures** : **`e2e/fixtures/auth.ts`**.
+
 **Sur la machine hôte, Node / `npm` ne sont pas requis** pour valider le front : pas besoin de `cd frontend/... && npm test` si tu utilises les cibles **Make** ci-dessus. **Exception utile (optionnelle)** : **`make dashboard-npm-install`** ou **`cd frontend && npm install`** uniquement pour l’**IDE** (autocomplétion, TypeScript) — pas pour la barrière de merge.
 
 **Règle** : à chaque nouvelle fonctionnalité, ajouter les tests adéquats exécutables par `make test`. Ne pas merger sans tests associés.
@@ -43,7 +53,8 @@
 
 ---
 
-**Checklist post-modif (build, E2E, UI)** : **[DEV-VERIFICATION.md](DEV-VERIFICATION.md)**.
+**Checklist avant reprise** : **[DEV-VERIFICATION.md](DEV-VERIFICATION.md) § 0** (ordre minimal : Docker → **`make test`** → optionnels).  
+**Checklist post-modif (build, E2E, UI)** : **[DEV-VERIFICATION.md](DEV-VERIFICATION.md)** § 1+.
 
 ## 1. Commandes
 

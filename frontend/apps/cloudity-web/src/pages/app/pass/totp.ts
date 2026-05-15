@@ -143,8 +143,8 @@ async function hotp(
   digits: number,
   algorithm: TotpAlgorithm
 ): Promise<string> {
-  const counterBytes = new ArrayBuffer(8)
-  const view = new DataView(counterBytes)
+  const counterBuf = new Uint8Array(8)
+  const view = new DataView(counterBuf.buffer, counterBuf.byteOffset, counterBuf.byteLength)
   // counter peut dépasser 2^32 ; on stocke en big-endian 64 bits.
   const high = Math.floor(counter / 0x100000000)
   const low = counter >>> 0
@@ -153,12 +153,12 @@ async function hotp(
 
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
-    key as unknown as ArrayBuffer,
+    key.slice(),
     { name: 'HMAC', hash: { name: algorithm } },
     false,
     ['sign']
   )
-  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, counterBytes)
+  const sigBuf = await crypto.subtle.sign('HMAC', cryptoKey, counterBuf)
   const sig = new Uint8Array(sigBuf)
 
   // Truncation RFC 4226 § 5.4 : prend le low-nibble du dernier byte comme offset.

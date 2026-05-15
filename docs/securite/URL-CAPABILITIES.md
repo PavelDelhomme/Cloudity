@@ -107,9 +107,9 @@ rotation du slug Settings **n'a aucun impact** sur ces opérations.
   reste longtemps sur une URL `/app/settings/sec/…` obsolète sans refetch
   anticipé peut voir une **micro-redirection** vers le chemin canonique le
   temps du refetch — ce n'est **pas** une déconnexion du compte.
-* Re-fetch **proactif** à `rotates_at - 5 min` (**TODO** — actuellement on
-  attend surtout l'invalidation par `staleTime` 30 min, ce qui retarde le
-  rafraîchissement du slug et augmente légèrement le risque de flash UX).
+* Re-fetch **proactif** à `rotates_at - 5 min` : `useSecurePaths` programme un
+  `invalidateQueries` sur la clé `security-paths` (**UC-FE-01** livré) — en
+  complément de `staleTime` 30 min.
 
 ### 2.5 Configuration serveur
 
@@ -217,10 +217,10 @@ content="no-referrer">` pendant le montage pour bloquer les fuites par
 * Backend `securetoken_test.go` : génération, vérification user/purpose
   mismatch, fenêtre coulissante, tokens malformés, repli `JWT_SECRET`,
   fail-closed sans secret. **9/9 verts** (`go test ./...`).
-* Frontend (TODO Vitest) : `useSecurePaths` cache + repli 503,
-  **re-fetch à `rotates_at - 5 min`** (TODO **UC-FE-01** / [TODOS.md](../../TODOS.md)),
+* Frontend : `useSecurePaths` cache + repli 503,
+  **re-fetch à `rotates_at - 5 min`** (**UC-FE-01** livré — `invalidateQueries`),
   `SecureSettingsPage` redirection si 403, hardening `<meta>` injecté ;
-  **UC-QA-01** : confirmer que mail / drive / notes n’accrochent pas le slug.
+  **UC-QA-01** : Vitest **`src/security/ucQa01SlugIsolation.test.ts`** (api métier sans slug `/app/settings/sec/`) ; E2E/manuel au besoin.
 
 ---
 

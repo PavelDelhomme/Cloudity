@@ -2,6 +2,22 @@
 
 À appliquer dès qu’un changement touche le **frontend**, **Docker**, la **gateway**, l’**auth**, les **migrations** ou les **données**.
 
+## 0. Checklist globale — avant chaque reprise de travail
+
+À lancer **dans l’ordre** (ou au minimum les deux premiers) pour repartir sur une base saine. Les items **partiels** du produit (extension Pass sans autofill, Calendar placeholder, etc.) sont listés dans **[BACKLOG.md](../../BACKLOG.md)** et **[docs/produit/ROADMAP.md](../produit/ROADMAP.md)** — ce n’est **pas** une erreur de config locale si une case reste décochée.
+
+| # | Vérification | Commande / action |
+|---|----------------|-------------------|
+| 1 | Docker disponible | `docker info` |
+| 2 | **Tests merge (obligatoire avant PR)** | **`make test`** (Go + Vitest dans Docker, **sans** E2E — voir **[TESTS.md](TESTS.md)** § 1) |
+| 3 | Optionnel — lint front | `make test-dashboard-lint` |
+| 4 | Optionnel — E2E navigateur (stack up) | `make up` → attente ~30 s → `make seed-admin` → **`make test-e2e-playwright`** (et **`make test-e2e-playwright-mail`** si PR Mail) |
+| 5 | Optionnel — Pass mobile | `cd mobile/pass && flutter test` |
+| 6 | Compose modifié | `docker compose -f docker-compose.yml config` |
+| 7 | Lire les priorités | **[STATUS.md](../../STATUS.md)** (*À faire maintenant*) + **[TODOS.md](../../TODOS.md)** + **[BACKLOG.md](../../BACKLOG.md)** |
+
+> **Note Vitest / Web Crypto** : les tests TOTP (`totp.ts`) utilisent `crypto.subtle` ; les buffers passés à `sign()` doivent être des **`Uint8Array`** / vues valides pour Node — en cas de régression, voir l’historique `totp.ts` (`hotp`).
+
 ## 1. Compilation & tests automatisés
 
 - **Frontend** : `cd frontend && npm install` puis `npm run build` (ou `cd frontend/apps/cloudity-web && command npx vite build`) ; **Vitest** : `npm run test -w @cloudity/web` ou `make test-dashboard`.

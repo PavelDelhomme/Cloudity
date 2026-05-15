@@ -4,7 +4,7 @@
 
 **Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
 
-**Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (date + § pertinents).
+**Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (**une** ligne *Dernière mise à jour* + section *À faire maintenant* ; le journal long va dans **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**).
 
 ---
 
@@ -32,8 +32,8 @@
 > **Doc** : **[docs/securite/URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md)** (§ 2.2 sliding window, § 2.4 pas de reconnexion, périmètre Bearer). Suivi court : **[TODOS.md](./TODOS.md)** § URL-CAPABILITIES.
 
 - [x] **UC-DOC-01 — § 2.2 sliding window** : préciser que la rotation protège surtout les **fuites passives** à long terme (historique, screenshot, bookmark) ; qu’un **attaquant actif** avec slug + **JWT valide** exploite **tout de suite** ; qu’un **slug seul** ne suffit jamais — défense active = durée du access token + rate-limit sur `/auth/security-paths/validate` (aligné threat model § 1).
-- [ ] **UC-FE-01 — Re-fetch proactif `useSecurePaths`** : invalider / refetch vers `rotates_at - 5 min` (au lieu d’attendre seulement `staleTime` 30 min) pour réduire le flash UX sur Settings ouvert longtemps.
-- [ ] **UC-QA-01 — Confirmer périmètre Bearer** : vérifier en test manuel ou E2E que **upload/download** (drive, photos), **mail** (rédaction / envoi API), **notes** ne dépendent **pas** du slug `/app/settings/sec/…` — uniquement JWT Bearer ; zéro régression quand le slug tourne.
+- [x] **UC-FE-01 — Re-fetch proactif `useSecurePaths`** : `invalidateQueries` planifié à `rotates_at - 5 min` via `useEffect` (`frontend/.../useSecurePaths.ts`, 2026-05-16).
+- [x] **UC-QA-01 — Confirmer périmètre Bearer** : garde-fou Vitest `src/security/ucQa01SlugIsolation.test.ts` (`api.ts` sans slug `/app/settings/sec/` ni `useSecurePaths`) ; E2E/manuel au besoin.
 
 - [x] J7 — **`mobile/pass` Flutter LECTURE SEULE** : squelette `mobile/pass/` (Android + Linux desktop, `cloudity_pass` v0.1.0). Port Dart `lib/pass_crypto.dart` strictement interopérable web : Argon2id (`cryptography` ^2.7.0, profils `mobileLow`/`mobileHigh`/`desktop` alignés sur `ARGON2ID_PROFILES` web), HKDF-SHA-256 (salt 32×0x00, label `cloudity-pass/v1/vault-key:` + vault_id), XChaCha20-Poly1305 (split tag 16 oct ↔ format `noble-ciphers` web), CBOR (`cbor` ^6.3.1) → décodage `EnvelopeV1` v=1 complet (déchiffre `wrap`+VK pour récupérer `IK_item`, puis `ct`+`IK_item`, plaintext = CBOR `{schema, type, fields, notes, tags}`). Préfixe salt utilisateur `cloudity-pass:v1:user-salt:` aligné sur `vaultContext.tsx`. **5 écrans** : `PassLoginScreen` (gateway/email/password/tenant) → `PassUnlockScreen` (mot de passe maître + sélecteur de profil Argon2id) → `PassVaultsScreen` → `PassItemsScreen` (recherche + déchiffrement par item, icône par type) → `PassItemDetailScreen` (champs masquables, copie auto-clear 30 s). `VaultController` central : MK uniquement en mémoire Dart, `WidgetsBindingObserver` re-verrouille à chaque pause/inactive/detached, auto-lock 5 min, `zeroize` au lock + dispose. `PassSessionStore` distinct (clés `cloudity_pass_*`). **Tests 21/21 verts** : 16 unitaires pass-crypto Dart + **5 cross-stack web→mobile** (`cross_stack_vector_test.dart`) qui rejouent le vecteur figé `frontend/packages/pass-crypto/src/__tests__/vectors.test.ts` — MK hex bit-à-bit identique (`46d34f0b75afe0…`), VK hex bit-à-bit identique (`bef6308f2247fa…`), déchiffrement de l'enveloppe figée → plaintext `{title:'Vector test', …}` exact. Garantie d'interop : si une dépendance Dart change sa sortie ces tests cassent **avant** que les coffres deviennent illisibles. `flutter analyze` 0 issue. Édition mobile reste en L2.
 
@@ -64,6 +64,10 @@
 - [x] **PERF-CLI-03 — `docs/operations/PERFORMANCES-MONITORING.md`** : guide complet (10 sections) — outils, rituel checkpoint, template à coller dans la PR, budgets configurables, intégration CI/cron/pré-commit, anti-patterns, cas concrets.
 - [ ] **PERF-CLI-04 — Pré-commit soft-fail** : ajouter un hook `.git/hooks/pre-commit` (ou `pre-push`) qui appelle `make perf-budgets` en mode warning (n'échoue pas le commit, mais affiche les violations). À cadrer après usage du rituel pendant 2-3 sprints.
 - [ ] **PERF-CLI-05 — Ingestion CI** : dans le job e2e GitHub Actions, lancer `make perf-budgets-json` puis `POST /admin/performance/pipeline-run` (header `X-Cloudity-Perf-Ingest`) — la table `cloudity_performance_pipeline_runs` est déjà prête. Permet d'historiser la perf des PR.
+
+### Tests & auth E2E / CI (hors « mode test » fragile)
+
+- [ ] **TEST-AUTH-01 — Bootstrap E2E/CI à secret fort** : aujourd’hui Playwright utilise **`POST /auth/login`** réel (voir **TESTS.md** § E2E). **Objectif** : en **dev/CI uniquement**, endpoint ou script protégé par variable **`E2E_BOOTSTRAP_SECRET`** (≥ 32 oct aléatoires) émettant un **JWT court** ou **code usage unique** consommable une fois — **jamais** en prod ; **aucun** bypass `User-Agent` / `X-Mode-Test`. Spécifier rate-limit + audit.
 
 ### Anti-spam, anti-abus et messagerie (phasage AS-*)
 

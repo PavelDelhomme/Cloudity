@@ -11,8 +11,10 @@
  * slug + JWT valide exploite tout de suite — cf. docs/securite/URL-CAPABILITIES.md § 2.2.
  *
  * Stratégie de cache :
- *  - On utilise React Query (`staleTime` 30 min, `gcTime` 1 h) pour
- *    minimiser les aller-retour.
+ *  - React Query `staleTime` 30 min, `gcTime` 1 h — requêtes rares si pas d’échéance proche.
+ *  - Re-fetch **proactif** : `useEffect` + `invalidateQueries` à
+ *    `rotates_at - 5 min` (cf. **UC-FE-01** / URL-CAPABILITIES § 2.4) pour
+ *    éviter un slug SPA obsolète sans attendre seulement `staleTime`.
  *  - On ne stocke JAMAIS le slug dans `localStorage` / `sessionStorage` —
  *    il vit uniquement dans la cache React Query (= en mémoire).
  *  - En cas d'erreur 503 (`URL_TOKEN_SECRET` absent côté serveur), on
@@ -20,7 +22,8 @@
  *    (aucune régression UX, simple perte du slug rotatif).
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchSecurePaths, type SecurePathsResponse } from '../../../api'
 import { useAuth } from '../../../authContext'
 
@@ -40,8 +43,12 @@ export interface UseSecurePathsResult {
   raw: SecurePathsResponse | undefined
 }
 
+/** Marge avant `rotates_at` pour invalider le cache (slug frais avant rejet serveur). */
+const REFETCH_BEFORE_ROTATE_MS = 5 * 60 * 1000
+
 export function useSecurePaths(): UseSecurePathsResult {
   const { accessToken } = useAuth()
+  const queryClient = useQueryClient()
   const query = useQuery<SecurePathsResponse>({
     queryKey: ['security-paths'],
     enabled: !!accessToken,
@@ -56,6 +63,18 @@ export function useSecurePaths(): UseSecurePathsResult {
       return failureCount < 1
     },
   })
+
+  const rotatesAt = query.data?.paths?.settings_security?.rotates_at
+  useEffect(() => {
+    if (!accessToken || !rotatesAt) return
+    const rotateMs = Date.parse(rotatesAt)
+    if (Number.isNaN(rotateMs)) return
+    const delayMs = Math.max(0, rotateMs - REFETCH_BEFORE_ROTATE_MS - Date.now())
+    const id = window.setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: ['security-paths'] })
+    }, delayMs)
+    return () => window.clearTimeout(id)
+  }, [accessToken, rotatesAt, queryClient])
 
   const entry = query.data?.paths?.settings_security
   return {

@@ -1,6 +1,10 @@
 # TODOS — suivi court
 
-**Rôle** : liste **légère** de correctifs et suites immédiates. Le détail produit, jalons et dettes longues restent dans **[BACKLOG.md](./BACKLOG.md)** et **[STATUS.md](./STATUS.md)**.
+**Rôle** : liste **légère** de correctifs et suites immédiates. Le détail produit, jalons et dettes longues restent dans **[BACKLOG.md](./BACKLOG.md)** et **[STATUS.md](./STATUS.md)** (section *À faire maintenant* ; historique détaillé : **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**).
+
+## Avant chaque session
+
+Ordre recommandé : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — en résumé : `docker info` → **`make test`** → (optionnel) E2E, `flutter test` sous `mobile/pass`, validation `compose` si YAML touché.
 
 ---
 
@@ -9,5 +13,5 @@
 > Référence : **[docs/securite/URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md)** (§ 2.2 fenêtre coulissante, § 2.4 frontend, threat model § 1).
 
 - [x] § 2.2 **sliding window** : clarifier que la protection temporelle cible surtout les **fuites passives** long terme (historique, screenshot, bookmark archivé), **pas** un attaquant actif avec slug + JWT valide à J+0 ; un **slug seul** ne suffit jamais — défense active = **JWT Bearer** (durée courte) + **rate-limit** sur `/auth/security-paths/validate`.
-- [ ] Implémenter **re-fetch proactif** `useSecurePaths` à **`rotates_at - 5 min`** (aujourd’hui on s’appuie surtout sur `staleTime` = 30 min — risque de **flash UX** bénin si l’utilisateur reste sur une URL slug obsolète).
-- [ ] **Confirmer en test** que les opérations courantes (**upload/download** drive-service / photos-service, **mail** en rédaction via mail-directory / API, **notes**) n’utilisent **que** le **JWT Bearer** — **aucune** dépendance au slug Settings ; rotation du slug = **zéro impact** sur ces flux.
+- [x] Implémenter **re-fetch proactif** `useSecurePaths` à **`rotates_at - 5 min`** (`invalidateQueries` + `useEffect`, 2026-05-16).
+- [x] **Confirmer en test** : garde-fou Vitest **`src/security/ucQa01SlugIsolation.test.ts`** (pas de `/app/settings/sec/` ni `useSecurePaths` dans **`api.ts`**) — compléter par **E2E / manuel** si besoin (parcours mail + drive avec slug rotatif actif).

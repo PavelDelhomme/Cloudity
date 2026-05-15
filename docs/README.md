@@ -67,6 +67,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/TESTS.md](operations/TESTS.md)** | Commandes `make test` / E2E / Playwright, couverture, tests à ajouter. |
 | **[operations/PERFORMANCES.md](operations/PERFORMANCES.md)** | Stack actuelle, diagnostic, leviers perf, artefacts `Trace-*` / `profiling-data*`. |
 | **[operations/PERFORMANCES-MONITORING.md](operations/PERFORMANCES-MONITORING.md)** | **Surveillance CLI temps réel** + **rituel checkpoint perf** (snapshot avant/après feature) : 4 scripts `scripts/dev/perf-*.sh` (`watch`, `snapshot`, `diff`, `budgets`) + cibles Makefile + format JSON + budgets configurables. |
+| **[operations/STATUS-JOURNAL-ARCHIVE.md](operations/STATUS-JOURNAL-ARCHIVE.md)** | **Journal STATUS archivé** (2026-05-12 → 2026-05-15) : sprint Pass J1–J7, infra — le fichier racine **`STATUS.md`** ne garde qu’**une** date + *À faire maintenant*. |
 | **[operations/PLAN.md](operations/PLAN.md)** | Dépannage **dev** : console navigateur, favicons, dates corbeille. |
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
@@ -94,4 +95,4 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
   3. ligne dans **[../BACKLOG.md](../BACKLOG.md)** quand c’est en cours / livré.
 - **Toute décision** demandée par moi (questionnaire) : tu réponds dans **`docs/decisions/<sujet>/REPONSES.md`**, je continue le travail à partir de là.
 
-*Index mis à jour : 2026-05-15 — **architecture/ANTI-SPAM-ET-ABUS.md** + **securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md** (anti-spam multi-couches, mail vs Pass) ; liens SYNC § 0e, VISION-SUITE § 6–7, PERFORMANCES § 7, SERVICES (gateway).*
+*Index mis à jour : 2026-05-16 — **DEV-VERIFICATION § 0** checklist avant reprise ; fix **totp** SubtleCrypto ; lien **STATUS** § 0 tableau.*
