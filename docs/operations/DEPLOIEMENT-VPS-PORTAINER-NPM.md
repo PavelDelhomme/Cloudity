@@ -115,6 +115,20 @@ api.cloudity   app.cloudity    admin.cloudity
 
 Dans tous les cas, le réseau **edge** est déclaré en `external: true` côté Compose ; **il ne doit pas être recréé** par la stack Cloudity.
 
+### 4 bis. Héritage « plusieurs ponts » sur un VPS déjà en service
+
+Sur un hôte où **Portainer**, **NPM** et d’autres stacks tournent depuis longtemps, il est fréquent d’avoir **plusieurs réseaux bridge** (`…_npm-network`, `shared-network*`, un bridge par stack applicative, etc.). Points à garder en tête (sans inventaire détaillé dans Git — le tien reste dans un **runbook privé** / coffre) :
+
+| Sujet | Rappel |
+|--------|--------|
+| **Résolution DNS entre conteneurs** | Deux conteneurs sur des **ponts différents** ne se voient **pas** par nom ; NPM ne peut pas atteindre `http://mon-api:8080` si `mon-api` n’est pas sur **au moins un réseau commun** avec le conteneur NPM. |
+| **Alignement avec NPM** | Soit les services exposés (gateway, front) rejoignent le **même réseau externe** que NPM (`external: true` + `name:` exact du réseau créé par la stack NPM), soit on **ajoute** NPM sur le réseau edge de l’app (Portainer → conteneur NPM → *Join network*). |
+| **Ports publiés sur l’hôte** | En prod idéal : **pas** de `ports:` publics pour Postgres/Redis/microservices ; seul NPM expose **80/443** (et éventuellement l’UI admin NPM). Les cibles des *Proxy Hosts* restent **`http://<container_name>:<port_interne>`**. |
+| **Hosts NPM orphelins** | Un *Proxy Host* qui pointe vers un conteneur **absent** ou un mauvais réseau donne **502** / timeout ; à nettoyer dans l’UI NPM ou à corriger après renommage de stack. |
+| **Réseaux doublons / inutilisés** | Fusionner ou documenter hors Git (qui utilise `shared-network` vs `shared-network-copy`, etc.) évite les erreurs de déploiement ; ce n’est pas du code applicatif. |
+
+Référence **même famille d’infra** (autre dépôt, section déjà rédigée sur les ponts multiples) : **JobbingTrack** — `docs/deployment/VPS_PORTAINER_NPM_OVH.md` § **2.1** (NPM sur un bridge, stack sur un autre). Côté Cloudity, la variable **`<EDGE_NETWORK>`** (§ 4) doit désigner **le** réseau que le conteneur NPM utilise réellement pour joindre tes backends.
+
 ---
 
 ## 5. Registry images (Q21=B — GHCR — acté)
