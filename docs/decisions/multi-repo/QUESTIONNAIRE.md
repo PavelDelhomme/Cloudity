@@ -222,7 +222,7 @@
 
 ## Q23 — **Pattern de domaine** pour Cloudity en production *(décidé 2026-05-12)*
 
-- [x] **A** — **`cloudity.<DOMAIN>`** + sous-domaines `api.cloudity.<DOMAIN>` et `admin.cloudity.<DOMAIN>` (cohérent avec les autres apps `<app>.<DOMAIN>` / `api.<app>.<DOMAIN>` du même VPS). Possibilité d'ajouter plus tard `mail.cloudity.<DOMAIN>`, `drive.cloudity.<DOMAIN>` comme alias UX. Le **TLD réel** reste hors Git (Portainer / `.env.deploy.local`).
+- [x] **A** — **`cloudity.<DOMAIN>`** (origine principale du shell SPA, équivalent dev `localhost:6001` + `/app/…`) + **`api.cloudity.<DOMAIN>`** (gateway) + **`admin.cloudity.<DOMAIN>`** (même front ou host dédié admin). Possibilité d’ajouter plus tard `mail.cloudity.<DOMAIN>`, `drive.cloudity.<DOMAIN>` comme **option** (DNS + NPM + routage, cf. **[../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 1 ter / § 8 bis). Le **TLD réel** reste hors Git (Portainer / `.env.deploy.local`).
 - [ ] **B** — **TLD dédié** (`<TLD_CLOUDITY>` distinct du TLD principal). Mieux pour l'image produit, demande un nouveau domaine + DNS.
 - [ ] **C** — **Hybride** : `<DOMAIN>` au début (test / soft launch) ; bascule TLD dédié plus tard sans casser les URLs (redirections 301).
 

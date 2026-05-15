@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-16 — **TEST-AUTH-01** livré ; **aperçu PDF Drive** via PDF.js (sans UI Chrome/Google). **Ports hôte** centralisés `.env` + **`docs/operations/PORTS-HOTES.md`** ; bloc **`PORT_*`** commenté dans **`.env.example`** ; **`make up-lean`** sans Adminer/Redis Commander. **Doc flux travail** : **`docs/INSTRUCTIONS-IA.md`**, **`docs/GIT.md`**, **`docs/LOGS.md`** (journal cumulatif ; exception **`NPNLD`**). **TODOS** / **DEV-VERIFICATION** / **DEVELOPMENT-HOST** / **BACKLOG** alignés sur ce flux. **TESTS.md** § E2E. **J8** runbook § **SPRINT-PASS-2026-05.md** « 3 bis ».
+**Dernière mise à jour** : 2026-05-16 — **TEST-AUTH-01** livré ; **aperçu PDF Drive** via PDF.js. **Ports hôte** `.env` + **`docs/operations/PORTS-HOTES.md`** ; **`make up-lean`**. **Doc flux** : **`docs/INSTRUCTIONS-IA.md`**, **`docs/GIT.md`**, **`docs/LOGS.md`**. **Déploiement VPS** : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** — **Q23** aligné (`cloudity.<DOMAIN>` shell SPA), **§ 1 bis** DNS + NPM, **§ 1 ter** chemins vs sous-domaines ; **TODOS** § prod VPS. **J8** runbook § **SPRINT-PASS-2026-05.md** « 3 bis ».
 
 ## À faire maintenant
 
@@ -451,17 +451,18 @@ Tout ce qui est confidentiel **au-delà de 5–10 ans** (vault **Pass**, **mail*
 
 ### 2.4 Plan DNS (production)
 
-En production, exposer les services via un reverse proxy (Nginx Proxy Manager, Nginx ou Traefik) avec TLS. Plan DNS recommandé (exemple avec un domaine `cloudity.example.com`) :
+En production, exposer les services via un reverse proxy (Nginx Proxy Manager, Nginx ou Traefik) avec TLS. Plan DNS recommandé (**Q23=A**, aligné **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** — exemple RFC 2606 `example.com`, **sans** ton TLD réel dans Git) :
 
 | Sous-domaine | Service | Rôle |
 |--------------|---------|------|
 | **api.cloudity.example.com** | api-gateway (6080) | API unifiée (auth, admin, pass, mail). |
-| **app.cloudity.example.com** | cloudity-web (6001) | App web : landing, login, hub Drive/Pass/Mail, admin UI **`/4dm1n`**. |
+| **cloudity.example.com** | cloudity-web (6001) | **Shell SPA** : landing, login, hub `/app/…` (Drive, Mail, …), **`/4dm1n`** selon routage. |
+| **admin.cloudity.example.com** | cloudity-web (6001) | Host **admin** dédié (même conteneur ; durcissement NPM / ACL). |
 | **auth.cloudity.example.com** | (optionnel) auth-service direct | Si accès direct auth utile (sinon tout via api.). |
 | **mail.cloudity.example.com** | (Phase 2) Webmail / client | Client mail. |
 | **pass.cloudity.example.com** | (optionnel) App Pass web | App Pass Flutter web. |
 
-**À faire** : configurer les enregistrements A/AAAA (ou CNAME) vers le serveur hébergeant Docker ; configurer le proxy avec TLS 1.3 et HSTS ; en Phase 5 documenter les certificats (Let's Encrypt) et la résolution DNS réelle.
+> Variante documentée : **`app.cloudity.<TLD>`** au lieu de **`cloudity.<TLD>`** pour le shell — une seule convention à tenir partout (DNS, NPM, `CORS_ORIGINS`, build).
 
 ---
 

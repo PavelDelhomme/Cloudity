@@ -75,7 +75,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/PLAN.md](operations/PLAN.md)** | Dépannage **dev** : console navigateur, favicons, dates corbeille. |
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
-| **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS public + **Portainer** + **NPM** partagé ; placeholders neutres (TLD / hostname NPM hors Git) ; ports internes vs dev local ; **§ 4 bis** réseaux Docker multiples (héritage) ; lien Q15 / homelab ; **§ 10 bis Rollback** (procédure d'urgence A/B/C/D + post-mortem). |
+| **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS + **Portainer** + **NPM** ; **Q23** `cloudity.<DOMAIN>` + `api` / `admin` ; **§ 1 bis** DNS registrar + NPM ; **§ 1 ter** chemins `/app/…` vs sous-domaines ; **§ 4 bis** multi-ponts ; Q15 homelab ; **§ 10 bis** rollback. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |
 | **[operations/TODO.md](operations/TODO.md)** | Notes de développement (perf Drive, HMR). Priorités produit : ROADMAP / STATUS. |
 

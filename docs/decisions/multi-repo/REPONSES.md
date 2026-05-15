@@ -77,7 +77,7 @@ Q22=A   réseau edge NPM : réutiliser le bridge external déjà branché à NPM
         (<EDGE_NETWORK>, valeur typique `web`) — zéro changement côté NPM ; les
         Compose Cloudity exposeront `cloudity-web`, `cloudity-api-gateway`,
         `cloudity-admin-service` sur ce réseau.
-Q23=A   pattern `cloudity.<DOMAIN>` (app) + `api.cloudity.<DOMAIN>`
+Q23=A   pattern `cloudity.<DOMAIN>` (shell SPA principal) + `api.cloudity.<DOMAIN>`
         + `admin.cloudity.<DOMAIN>` — cohérence avec les autres apps du VPS ;
         TLD dédié à reposer plus tard sans casse via redirections 301.
 Q24=A   build & push : GitHub Actions matrice (push main/master, tag v*.*.*, workflow_dispatch)
@@ -90,7 +90,7 @@ Q24=A   build & push : GitHub Actions matrice (push main/master, tag v*.*.*, wor
 |-------|----------------------|
 | **Q21=B** | Aucun secret Docker Hub à provisionner ; `docker login ghcr.io -u <gh-user> -p <PAT:read:packages>` côté Portainer pour images privées (le repo Cloudity peut rester privé). Auth CI = `GITHUB_TOKEN` natif. |
 | **Q22=A** | Les services exposés via NPM (front, gateway, admin) doivent être attachés au bridge `external: true` déjà branché à NPM (`<EDGE_NETWORK>`) dans leur `docker-compose.yml` Portainer. Les services internes (postgres, redis, services métier) restent sur des réseaux dédiés (`<INTERNAL_NETWORK>`, ex. `cloudity-data`) non joignables par NPM. |
-| **Q23=A** | DNS à créer côté ton registrar : `cloudity`, `api.cloudity`, `admin.cloudity` (CNAME ou A → IP VPS). NPM Proxy Hosts à provisionner avec « Force SSL », HSTS et headers durcis (cf. fiche § 8). |
+| **Q23=A** | DNS à créer côté ton registrar : enregistrements pour **`cloudity`**, **`api.cloudity`**, **`admin.cloudity`** (CNAME ou A → IP VPS). NPM : un **Proxy Host** par FQDN vers `container_name:port` interne (cf. fiche § 1 bis et § 8). |
 | **Q24=A** | Pour publier une release : `git tag v0.x.y && git push --tags` → GHA build matrice (10 Go + admin-service + frontend) en parallèle, push GHCR. Mise à jour Portainer = bump du `TAG=` dans la stack. |
 
 ### Conséquences directes des choix Q11–Q15

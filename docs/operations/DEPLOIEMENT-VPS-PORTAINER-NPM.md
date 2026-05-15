@@ -35,11 +35,25 @@ Le scénario type est : **un VPS public** déjà occupé par d'autres applicatio
 | **Stacks Portainer** | Une stack par domaine produit (Q7=C). | 8 stacks Cloudity à créer (cf. § 3). |
 | **Réseaux Docker partagés** | NPM est typiquement branché à un (ou plusieurs) **bridge external** dont on hérite (`<EDGE_NETWORK>`). | La gateway Cloudity et le front rejoignent ce réseau ; les microservices internes restent sur `<INTERNAL_NETWORK>` privé. Q22=A → réutiliser le réseau edge existant. |
 | **NPM** | Une seule instance, hostname admin `<NPM_HOST>`. | Pour chaque sous-domaine Cloudity, créer un **Proxy Host** pointant vers `http://<container_name>:<port>`. |
-| **Pattern domaine** | `<app>.<DOMAIN>` ou `<sub>.<app>.<DOMAIN>`. Q23=A → `cloudity.<DOMAIN>` + `api.cloudity.<DOMAIN>` + `admin.cloudity.<DOMAIN>`. | Voir § 8. |
-| **Health checks** | `wget --spider http://localhost:<port>/health` toutes les 30 s. | Déjà présents en dev — à conserver. |
+| **Pattern domaine** | **Q23=A** : **`cloudity.<DOMAIN>`** = origine du **shell SPA** (équivalent dev `http://localhost:6001` + chemins `/app/…`) ; **`api.cloudity.<DOMAIN>`** = **gateway** ; **`admin.cloudity.<DOMAIN>`** = **même image `cloudity-web`** pour l’admin (`/4dm1n`, etc.). Variante possible **`app.cloudity.<DOMAIN>`** si tu préfères **trois** noms tous en `<sous>.cloudity.<DOMAIN>` — à décider une fois pour toutes et refléter dans `CORS_ORIGINS` / build. Sous-domaines du type **`mail.cloudity.<DOMAIN>`** / **`drive.cloudity.<DOMAIN>`** : **optionnels** (voir § 1 ter et § 8 bis). **Ne jamais** versionner le TLD réel. | Voir § 1 bis–ter, § 8. |
+| **Health checks** | Dans le **Compose**, test du type `wget`/`curl` vers **`127.0.0.1:<port>/health` à l’intérieur du conteneur** (toutes les ~30 s). | **Identique en prod** : c’est le **liveness Docker interne**, pas l’URL publique HTTPS. Les variables **publiques** (`CORS_ORIGINS`, `WEBAUTHN_ORIGINS`, `VITE_API_URL` au build, etc.) sont **séparées** et pointent vers les FQDN NPM (`https://api.cloudity.<DOMAIN>`, `https://cloudity.<DOMAIN>`, …). |
 | **`container_name`** | Toujours explicite et stable. | NPM résout par `container_name`, pas par le nom de service Compose. **Ne pas omettre** `container_name:`. |
 
 > **Important** : NPM résout les services backend par leur **`container_name`**, pas par le nom de service Compose. Donc `container_name: cloudity-api-gateway` côté Compose ⇒ Proxy Host NPM cible `cloudity-api-gateway:8000`.
+
+### 1 bis. DNS chez le registrar **et** Proxy Hosts NPM — deux couches
+
+Pour **chaque** nom d’hôte public utilisé par Cloudity :
+
+1. **Registrar (ex. zone DNS OVH)** : créer l’enregistrement **A** / **AAAA** vers l’**IP publique du VPS**, ou un **CNAME** vers le nom canonique du VPS. Sans cela, le navigateur ne résout pas le nom et **Let’s Encrypt** (HTTP-01 ou DNS challenge selon config) **échoue** dans NPM.
+2. **Nginx Proxy Manager** : créer un **Proxy Host** dont le champ *Domain Names* correspond **exactement** au FQDN, avec forward **`http://<container_name>:<port_interne>`** sur un **réseau Docker** que le conteneur NPM joint (cf. § 4 et § 4 bis).
+
+NPM **ne crée pas** les enregistrements chez le registrar : la liste des FQDN doit être **dupliquée** (DNS + NPM). Toute entrée NPM **sans** DNS (ou inversement) se traduit par des erreurs **502** / certificat / NXDOMAIN.
+
+### 1 ter. Shell SPA : chemins `/app/...` **vs** sous-domaines par verticale
+
+- **Recommandé (simple, aligné Q23)** : **`https://cloudity.<DOMAIN>`** comme **seule** origine utilisateur pour le hub ; Drive, Mail, Calendrier, etc. restent des **routes** dans la même SPA (`/app/drive`, `/app/mail`, …), comme aujourd’hui sur un seul port en dev. **Pas** de sous-domaines supplémentaires obligatoires.
+- **Option « une URL par app »** : `mail.cloudity.<DOMAIN>`, `drive.cloudity.<DOMAIN>`, … Chaque FQDN implique **DNS + Proxy Host NPM** (souvent la **même** cible `cloudity-web:3000`). Pour envoyer l’utilisateur vers `/app/mail`, il faut en plus des **redirections** dans NPM (ex. `/` → `/app/mail`) ou une **logique front** basée sur `Host` — à traiter comme **évolution produit** explicite ; ce n’est pas magique côté Docker.
 
 ---
 
@@ -56,8 +70,8 @@ Internet
        │            │               │
        │ http       │ http          │ http
        ▼            ▼               ▼
-api.cloudity   app.cloudity    admin.cloudity
-   .<DOMAIN>      .<DOMAIN>       .<DOMAIN>
+api.cloudity   cloudity        admin.cloudity
+   .<DOMAIN>     .<DOMAIN>        .<DOMAIN>
        │            │               │
        ▼            ▼               ▼
 ┌──────────────────┐ ┌──────────────────────────────────────────────┐
@@ -96,7 +110,7 @@ api.cloudity   app.cloudity    admin.cloudity
 | **`cloudity-photos`** | `cloudity-photos-service` | `cloudity-data` | ❌ |
 | **`cloudity-pass`** | `cloudity-passwords-service` | `cloudity-data` | ❌ |
 | **`cloudity-comm`** | `cloudity-calendar-service`, `-contacts-service`, `-notes-service`, `-tasks-service` | `cloudity-data` | ❌ |
-| **`cloudity-web`** | `cloudity-web` (image statique nginx + bundle React buildé) | `cloudity-data` (option) + edge | ✅ `app.cloudity.<DOMAIN>` + `admin.cloudity.<DOMAIN>` → `cloudity-web:3000` |
+| **`cloudity-web`** | `cloudity-web` (image statique nginx + bundle React buildé) | `cloudity-data` (option) + edge | ✅ **`cloudity.<DOMAIN>`** + **`admin.cloudity.<DOMAIN>`** → `cloudity-web:3000` (Q23=A ; variante `app.cloudity.<DOMAIN>` possible, cf. § 1) |
 | **`cloudity-backup`** | runner backup distribué (cf. **[BACKUP-OFFSITE.md](../architecture/BACKUP-OFFSITE.md)**) | `cloudity-data` | ❌ (interne) |
 
 > **Ordre de déploiement** : `cloudity-infra` d'abord (pour créer le réseau `cloudity-data` + lancer DB) → migrations → `cloudity-identity` → un par un les autres.
@@ -115,7 +129,7 @@ api.cloudity   app.cloudity    admin.cloudity
 
 Dans tous les cas, le réseau **edge** est déclaré en `external: true` côté Compose ; **il ne doit pas être recréé** par la stack Cloudity.
 
-### 4 bis. Héritage « plusieurs ponts » sur un VPS déjà en service
+### 4 bis. Héritage « plusieurts ponts » sur un VPS déjà en service
 
 Sur un hôte où **Portainer**, **NPM** et d’autres stacks tournent depuis longtemps, il est fréquent d’avoir **plusieurs réseaux bridge** (`…_npm-network`, `shared-network*`, un bridge par stack applicative, etc.). Points à garder en tête (sans inventaire détaillé dans Git — le tien reste dans un **runbook privé** / coffre) :
 
@@ -288,7 +302,7 @@ services:
       - TASKS_SERVICE_URL=http://cloudity-tasks-service:8054
       - DRIVE_SERVICE_URL=http://cloudity-drive-service:8055
       - PHOTOS_SERVICE_URL=http://cloudity-photos-service:8057
-      - CORS_ORIGINS=https://app.cloudity.${DOMAIN},https://admin.cloudity.${DOMAIN}
+      - CORS_ORIGINS=https://cloudity.${DOMAIN},https://admin.cloudity.${DOMAIN}
       - CORS_ALLOW_LAN=false                                              # prod : Origin strict
       - JWT_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public.pem
       - JWT_ED25519_PUBLIC_KEY_PATH=/var/lib/cloudity/auth-keys/public_ed25519.pem
@@ -380,8 +394,14 @@ Reproduire ce gabarit pour `cloudity-drive`, `cloudity-photos`, `cloudity-pass`,
 | Hostname | Forward Hostname / IP | Port | SSL | Remarques |
 |----------|-----------------------|------|-----|-----------|
 | `api.cloudity.<DOMAIN>` | `cloudity-api-gateway` | `8000` | Let's Encrypt + **Force SSL** + **HSTS** | Cache OFF ; Block Common Exploits ON ; Websockets ON (futur SSE / WS). |
-| `app.cloudity.<DOMAIN>` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Websockets ON si Vite preview ; OFF si nginx pur. |
+| **`cloudity.<DOMAIN>`** | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | **Origine principale** du shell utilisateur (`/app`, `/login`, …). Websockets ON si besoin HMR/preview ; en image nginx statique, selon § 6. |
 | `admin.cloudity.<DOMAIN>` | `cloudity-web` | `3000` | Let's Encrypt + Force SSL + HSTS | Idéal : **ACL IP** côté NPM + **2FA + WebAuthn** côté app (cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** + **[../securite/WEBAUTHN-PLAN.md](../securite/WEBAUTHN-PLAN.md)**). |
+
+> **Variante** : si tu préfères **`app.cloudity.<DOMAIN>`** au lieu de `cloudity.<DOMAIN>` pour le front, remplace la ligne du milieu **et** aligne **DNS**, **CORS**, **`WEBAUTHN_ORIGINS`**, **`VITE_*` au build** et **`SMOKE_APP_URL`** sur ce nom.
+
+### 8 bis. Sous-domaines optionnels (`mail.cloudity.<DOMAIN>`, `drive.cloudity.<DOMAIN>`, …)
+
+À n’ajouter **que** si tu veux des bookmarks dédiés : chaque ligne = **DNS registrar** + **Proxy Host NPM** (cible typiquement **`cloudity-web:3000`**). Prévoir redirections ou routage front (§ 1 ter). Les apps **Mail / Drive / …** continuent en pratique d’appeler l’**API** sur **`https://api.cloudity.<DOMAIN>`** via la gateway ; pas besoin d’un hostname par microservice **Go** côté NPM tant qu’ils ne sont pas exposés directement.
 
 **Custom locations / advanced** (NPM → onglet "Advanced") — durcissement supplémentaire si NPM le permet :
 
@@ -479,7 +499,7 @@ Le jour J (homelab H1 livré) :
 4. **Secrets** (variables Portainer) : générer en local **`make secrets`** (cf. `scripts/dev/gen-secrets.sh`), copier les valeurs dans Portainer → Stack → Variables :
    - `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `JWT_SECRET`, **`PERFORMANCE_INGEST_TOKEN`** (obligatoire prod), `ALIAS_ENCRYPTION_KEY`.
    - Le **`PERFORMANCE_INGEST_TOKEN`** doit avoir **la même valeur** sur `cloudity-api-gateway` **et** `cloudity-admin-service` ; sinon l'endpoint CI `/admin/performance/pipeline-run` répond 401/503.
-5. **Smoke tests** : utiliser **`make smoke-prod`** (cf. **[../../scripts/ops/smoke-prod.sh](../../scripts/ops/smoke-prod.sh)**) en exportant `SMOKE_API_URL=https://api.cloudity.<DOMAIN>` et `SMOKE_APP_URL=https://app.cloudity.<DOMAIN>`. Le script vérifie : `/health` → 200, `/auth/validate` (sans Bearer) → 401, SPA → 200, TLS handshake, HSTS + `X-Content-Type-Options`. Vérifier en plus manuellement que `https://app.cloudity.<DOMAIN>/admin` → **404** (anti-énumération, cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** § 1).
+5. **Smoke tests** : utiliser **`make smoke-prod`** (cf. **[../../scripts/ops/smoke-prod.sh](../../scripts/ops/smoke-prod.sh)**) en exportant `SMOKE_API_URL=https://api.cloudity.<DOMAIN>` et `SMOKE_APP_URL=https://cloudity.<DOMAIN>`. Le script vérifie : `/health` → 200, `/auth/validate` (sans Bearer) → 401, SPA → 200, TLS handshake, HSTS + `X-Content-Type-Options`. Vérifier en plus manuellement que `https://cloudity.<DOMAIN>/admin` → **404** (anti-énumération, cf. **[../securite/AUDIT-SECURITE.md](../securite/AUDIT-SECURITE.md)** § 1).
 6. **Smoke admin API** : depuis un poste admin (cookie/session valides),
    ```bash
    curl -sS -H "Origin: https://admin.cloudity.<DOMAIN>" \
@@ -542,7 +562,7 @@ TAG_PREVIOUS=$(cat /var/lib/cloudity/release-pin | cut -d= -f2)
 
 # 4. Re-tester le smoke
 SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
-SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://cloudity.<DOMAIN> \
 make smoke-prod
 ```
 
@@ -632,13 +652,13 @@ Symptômes : `https://api.cloudity.<DOMAIN>` renvoie un cert expiré, ou NPM red
 ```bash
 # Public
 SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
-SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://cloudity.<DOMAIN> \
 make smoke-prod
 
 # Authentifié (variables seulement en mémoire shell, jamais committées)
 SMOKE_USER=<email-test> SMOKE_PASS=<password-test> \
 SMOKE_API_URL=https://api.cloudity.<DOMAIN> \
-SMOKE_APP_URL=https://app.cloudity.<DOMAIN> \
+SMOKE_APP_URL=https://cloudity.<DOMAIN> \
 make smoke-prod
 ```
 
@@ -672,7 +692,7 @@ Référence rapide : **[BACKLOG.md](../../BACKLOG.md)** section "Sprint d'urgenc
 | **Source** | `docker-compose.yml` racine, `build:` depuis `./backend/<svc>` | Stacks Portainer, `image: ghcr.io/<REGISTRY_OWNER>/cloudity-<svc>:<TAG>` |
 | **Ports hôte** | 6042 (PG), 6079 (Redis), 6080 (gateway), 6081 (auth), 6001 (web), 6082 (admin), … | **Aucun** (tout interne ; seul NPM publie 80/443/UDP/443) |
 | **TLS** | Désactivé (HTTP localhost) | **TLS 1.3** géré par NPM, certs Let's Encrypt |
-| **CORS** | `localhost:6001`, `localhost:5173` | `https://app.cloudity.<DOMAIN>`, `https://admin.cloudity.<DOMAIN>` |
+| **CORS** | `localhost:6001`, `localhost:5173` | `https://cloudity.<DOMAIN>`, `https://admin.cloudity.<DOMAIN>` |
 | **JWT keys** | `private.pem` + `private_ed25519.pem` générées au boot dans le bind-mount `./backend/auth-service` | Volume Docker nommé `cloudity_auth_keys` (persistant entre redéploiements) |
 | **Frontend** | Vite dev server, HMR | Build statique nginx-alpine |
 | **DB** | `cloudity-postgres` local, mot de passe trivial | Idem, mots de passe dans variables Portainer (chiffrées au repos) |
@@ -692,4 +712,4 @@ Référence rapide : **[BACKLOG.md](../../BACKLOG.md)** section "Sprint d'urgenc
 
 ---
 
-*Fiche calquée sur les conventions standard d'un VPS Portainer + NPM partagé (utilisation de placeholders neutres pour rester partageable). Toute valeur réelle (`<DOMAIN>`, `<NPM_HOST>`, `<REGISTRY_OWNER>`, etc.) est à reporter côté infra (Portainer Stack Variables / `.env.deploy.local` git-ignored), jamais dans Git. Mise à jour 2026-05-12.*
+*Fiche calquée sur les conventions standard d'un VPS Portainer + NPM partagé (utilisation de placeholders neutres pour rester partageable). Toute valeur réelle (`<DOMAIN>`, `<NPM_HOST>`, `<REGISTRY_OWNER>`, etc.) est à reporter côté infra (Portainer Stack Variables / `.env.deploy.local` git-ignored), jamais dans Git. Mise à jour 2026-05-15 (Q23 aligné : `cloudity.<DOMAIN>` shell SPA ; DNS + NPM § 1 bis ; healthchecks internes § 1).*

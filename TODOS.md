@@ -10,6 +10,14 @@ Ordre recommandé : **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** puis 
 
 ---
 
+## Prod VPS (quand H1 / Q15 le permettront)
+
+> Détail : **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (8 stacks Portainer, GHCR, **`<EDGE_NETWORK>`**, **Q23** : `cloudity.<DOMAIN>` + `api` + `admin`, **§ 1 bis** DNS + NPM, **§ 1 ter** chemins `/app/…` vs sous-domaines). Pas de **`PLAN.md`** à la racine : planification longue = **[BACKLOG.md](./BACKLOG.md)** + **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)**.
+
+- [ ] **Checklist pré-prod** : DNS registrar (A/CNAME) pour **chaque** FQDN aligné avec les **Proxy Hosts** NPM ; `container_name` stables ; stacks `cloudity-*` + images `TAG` ; `CORS_ORIGINS` / build `VITE_*` / `WEBAUTHN_ORIGINS` cohérents avec les **vrais** noms (hors Git) ; `make smoke-prod` avec `SMOKE_*` sur les URLs choisies.
+
+---
+
 ## URL-CAPABILITIES — correctifs documentation & UX
 
 > Référence : **[docs/securite/URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md)** (§ 2.2 fenêtre coulissante, § 2.4 frontend, threat model § 1).

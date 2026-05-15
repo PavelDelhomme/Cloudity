@@ -19,14 +19,14 @@
 # Variables (toutes optionnelles ; défauts = placeholders RFC 2606
 # domaine `example.org` à remplacer par ton vrai TLD à l'invocation) :
 #   SMOKE_API_URL    URL de la gateway (défaut https://api.cloudity.example.org)
-#   SMOKE_APP_URL    URL du front       (défaut https://app.cloudity.example.org)
+#   SMOKE_APP_URL    URL du front       (défaut https://cloudity.example.org)
 #   SMOKE_USER       email admin pour les tests authentifiés (optionnel)
 #   SMOKE_PASS       mot de passe associé (optionnel)
 #   SMOKE_TIMEOUT    timeout curl en secondes (défaut 10)
 #   SMOKE_VERBOSE    "1" ⇒ affiche les payloads / headers en plus
 #
 # Exemples typiques :
-#   SMOKE_API_URL=https://api.cloudity.<DOMAIN> SMOKE_APP_URL=https://app.cloudity.<DOMAIN> ./scripts/ops/smoke-prod.sh
+#   SMOKE_API_URL=https://api.cloudity.<DOMAIN> SMOKE_APP_URL=https://cloudity.<DOMAIN> ./scripts/ops/smoke-prod.sh
 #   SMOKE_USER=admin@... SMOKE_PASS=... ./scripts/ops/smoke-prod.sh
 #
 # Exit codes :
@@ -40,7 +40,7 @@ set -u
 # Défaut sur un TLD RFC 2606 (`example.org`) — sciemment non fonctionnel
 # pour forcer l'opérateur à fournir SMOKE_API_URL / SMOKE_APP_URL.
 API="${SMOKE_API_URL:-https://api.cloudity.example.org}"
-APP="${SMOKE_APP_URL:-https://app.cloudity.example.org}"
+APP="${SMOKE_APP_URL:-https://cloudity.example.org}"
 TIMEOUT="${SMOKE_TIMEOUT:-10}"
 VERBOSE="${SMOKE_VERBOSE:-0}"
 
