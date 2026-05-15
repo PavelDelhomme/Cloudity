@@ -15,13 +15,23 @@
 
 ---
 
-### 2026-05-16 — Feuille de route : phase Mail + alias (SYNC-BACKLOG § 2)
+### 2026-05-16 — RELEASE doc §8 : renvoi BACKLOG uniquement ; LOGS / TODOS
 
-- **Doc** : **[STATUS.md](../STATUS.md)** — ligne phase **C** (domaines, boîtes, **alias**, routes admin `/mail/aliases*`, AS-1, SYNC-BACKLOG § 0e / § 2) ; paragraphe **Mobile Mail** ; en-tête ; restauration titre **§ Rituel après session** (partie B).
+- **Doc** : **[RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** — § 7 (tableau A–**F**) ; § 8 sans liste dupliquée (suivi = **BACKLOG**) ; **[TODOS.md](../TODOS.md)** — § Prod VPS : paragraphe complet restauré + lien RELEASE ; **[LOGS.md](LOGS.md)** — entrées orphelines regroupées sous *Feuille de route Mail + alias*.
 - **Code** : aucun.
 
 ---
 
+### 2026-05-16 — RELEASE-AND-DISTRIBUTION : prod partielle, OTA Android, Pass/alias
+
+- **Doc** : nouveau **[RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** ; **[docs/README.md](README.md)** ; **[STATUS.md](../STATUS.md)** phase **F** ; **[BACKLOG.md](../BACKLOG.md)** — REL-01..03, PASS-ALIAS-UI, PASS-AUTOFILL-ANDROID ; **[TODOS.md](../TODOS.md)** § Prod VPS.
+- **Code** : aucun.
+
+---
+
+### 2026-05-16 — Feuille de route : phase Mail + alias (SYNC-BACKLOG § 2)
+
+- **Doc** : **[STATUS.md](../STATUS.md)** — ligne phase **C** (domaines, boîtes, **alias**, routes admin `/mail/aliases*`, AS-1, SYNC-BACKLOG § 0e / § 2) ; paragraphe **Mobile Mail** ; en-tête ; restauration titre **§ Rituel après session** (partie B).
 - **Doc** : **[STATUS.md](../STATUS.md)** — § *À faire maintenant* : tableau phases A–E (Pass → qualité → Mail AS-1 → Drive/Photos → prod) ; rappel mobile Mail MVP + **ROADMAP APP-01** ; **[TODOS.md](../TODOS.md)** § Prod VPS — renvoi vers ce tableau.
 - **Code** : aucun.
 

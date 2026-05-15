@@ -106,6 +106,16 @@
 - [ ] **MP-07 — Tests Playwright extension** : voir L2.
 - [ ] **MP-08 — Portage Firefox / Safari extension Pass** : voir L2.
 
+### Release & distribution (prod partielle, OTA mobile, NPM)
+
+> **Cadre complet** : **[docs/operations/RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** (mises à jour par service, Portainer CE, HTTPS NPM, Android vs iOS, Pass + alias).
+
+- [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
+- [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).
+- [ ] **REL-03** — UI in-app « mise à jour » sur **Android** (`PackageInstaller` / intent) + tests sur au moins **2** constructeurs.
+- [ ] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (API existante — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2).
+- [ ] **PASS-AUTOFILL-ANDROID** — Service **Autofill** Android pour Pass (pas d’équivalent universel iOS documenté ici).
+
 > **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
 
 ### Reportés post-20 mai (5 chantiers infra évalués 2026-05-13)

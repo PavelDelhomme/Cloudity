@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-16 — Feuille de route multi-apps : phase **Mail** inclut **alias / domaines / boîtes** (**SYNC-BACKLOG** § 2, § 0e). **À faire maintenant** + **INSTRUCTIONS-IA**. **J8** § **SPRINT-PASS-2026-05**. **TEST-AUTH-01** ; PDF Drive **PDF.js** ; **`make up-lean`**. **Prod VPS** après **HOMELAB** (Q15).
+**Dernière mise à jour** : 2026-05-16 — **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** (prod partielle, OTA Android, Pass/alias, NPM) + **BACKLOG** REL / PASS-ALIAS. Feuille de route **F** dans § *À faire maintenant*. Feuille de route multi-apps (Mail+alias). **INSTRUCTIONS-IA**. **J8**. **TEST-AUTH-01** ; PDF Drive ; **`make up-lean`**. **Prod VPS** après **HOMELAB** (Q15).
 
 ## À faire maintenant
 
@@ -28,6 +28,7 @@
 | **C — Mail « complet »** | Messagerie Internet fiable + **identités** (domaines, boîtes, **alias**, routage) + anti-abus | **BACKLOG** **AS-1** (Postfix/Dovecot/Rspamd, SPF/DKIM) ; **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** (§ **0e** sync, § **2** Pass ↔ **alias mail** — API `…/aliases`, filtres `delivered_to`, envoi **depuis** alias / `from_email`) ; admin gateway **`/mail/domains*`**, **`/mail/mailboxes*`**, **`/mail/aliases*`** (cf. **QUESTIONNAIRE** Q28) ; **`mobile/mail/README.md`** + **ROADMAP APP-01**. |
 | **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; gros fichiers front : **REFACTOR-FE-03** / **FE-02** quand les flux sont stabilisés. |
 | **E — Prod** | Publier | Q15 vert → **TODOS** § Prod VPS + stacks Portainer. |
+| **F — Releases & distribution** | Mises à jour **service par service** ; **OTA Android** ; comptes & secrets | **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** + **BACKLOG** **REL-01…03**, **PASS-ALIAS-UI**, **PASS-AUTOFILL-ANDROID**. |
 
 **Mobile Mail** : déjà **MVP** (login multi-gateway, 2FA, dossiers, PJ, composer — voir **`mobile/mail/README.md`**). « Complètement opérationnel » = **ROADMAP APP-01** + **SYNC-BACKLOG** (sync, brouillons serveur, **alias** : création côté fournisseur + enregistrement Cloudity pour filtres / traçabilité, voir **SYNC-BACKLOG § 2**) plutôt que tout réécrire d’un bloc.
 
