@@ -1,6 +1,8 @@
-# À faire (Cloudity) — pivot quotidien
+# À faire (Cloudity) — dépannage & notes techniques
 
-> **Tu veux travailler sans parcourir toute la doc ?** Tiens **`docs/operations/TODO.md`** (ce fichier) + **`docs/operations/PLAN.md`** : le PLAN explique les **symptômes** (console, Mail) et pointe vers le reste ; le TODO liste **quoi faire** et les **liens** vers les gros documents quand il faut le détail.
+> **Priorité sprint (2026-05-18+)** : **[../../TODOS.md](../../TODOS.md)** § **MAINTENANT** — ne pas confondre avec ce fichier.
+>
+> **Ce fichier** = symptômes Mail/perf, historique des micro-lots ; **`PLAN.md`** = dépannage console. La checklist **quotidienne** vit dans **`TODOS.md`** (racine).
 
 ## Liens utiles (détail ailleurs)
 

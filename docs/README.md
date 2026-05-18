@@ -5,8 +5,9 @@ Ce dossier contient toute la **documentation interne** structurée en 5 sous-dos
 | Fichier racine | Quand le lire |
 |----------------|---------------|
 | **[../README.md](../README.md)** | Première arrivée sur le projet (URLs, `make up`, conventions). |
-| **[../STATUS.md](../STATUS.md)** | **Suivi quotidien** — état réel des chantiers, § 0b checklist monorepo, dates. |
-| **[../BACKLOG.md](../BACKLOG.md)** | Priorités actives + cases à cocher (sprint en cours). |
+| **[../TODOS.md](../TODOS.md)** | **Checklist du jour** — § **MAINTENANT** (à lire en premier chaque session). |
+| **[../STATUS.md](../STATUS.md)** | État global, tableaux détaillés Drive/Mail ; renvoie vers **TODOS.md** § MAINTENANT. |
+| **[../BACKLOG.md](../BACKLOG.md)** | Cases produit à cocher quand tu codes (**MAIL-ALIAS-01**, **MP-06**, …). |
 
 Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 
@@ -86,7 +87,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/ENV-GENERATION.md](operations/ENV-GENERATION.md)** | **`.env`** : `make secrets`, clés mail/alias, Portainer, état du chiffrement. |
 | **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS + **Portainer** + **NPM** ; **Q23** `cloudity.<DOMAIN>` + `api` / `admin` ; **§ 1 bis** DNS registrar + NPM ; **§ 1 ter** chemins `/app/…` vs sous-domaines ; **§ 4 bis** multi-ponts ; Q15 homelab ; **§ 10 bis** rollback. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |
-| **[operations/TODO.md](operations/TODO.md)** | Notes de développement (perf Drive, HMR). Priorités produit : ROADMAP / STATUS. |
+| **[operations/TODO.md](operations/TODO.md)** | Notes techniques / perf / historique Mail — **pas** la checklist sprint (voir **`TODOS.md`** § MAINTENANT). |
 
 ## decisions
 

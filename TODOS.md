@@ -2,6 +2,40 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
+> **Point d’entrée unique** : lis d’abord **§ MAINTENANT** ci-dessous. Les autres fichiers ne dupliquent pas cette liste.
+
+---
+
+## MAINTENANT — ce que tu dois faire (semaine ~18–25 mai 2026)
+
+Ordre **strict** : ne pas ouvrir Portainer / stacks prod tant que les étapes 1–4 ne sont pas vertes (sauf décision explicite de publier).
+
+| # | Action | Comment | Coché |
+|---|--------|---------|-------|
+| **1** | **Santé locale** | `git pull` · `docker info` · `make doctor` (tout ✅) · `make test` | ☐ |
+| **2** | **Mail utilisable** | Dans l’UI : **Paramètres Mail → Sync avec mot de passe…** pour chaque boîte (`imap_auth_ready`) | ☐ |
+| **3** | **J8 — Migration Proton Pass** | Runbook **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** : export Proton → `make pass-j8-prep` → import web **≥ 50** entrées (JSON ou **CSV** OK) → activer **2FA** Cloudity → tester **mobile/pass** lecture → bascule usage quotidien | ☐ |
+| **4** | **Git intégration** | PR **`feat/photos-gallery-mobile-sync-security` → `dev`** · CI **Actions** verte · merge | ☐ |
+| **5** | **Alias mail (toi, pas du code)** | Lire **[MAIL-ALIAS-DEMARRAGE.md](./docs/produit/MAIL-ALIAS-DEMARRAGE.md)** + **[MAIL-ALIAS-VISION.md](./docs/produit/MAIL-ALIAS-VISION.md)** · comprendre : **enregistrer dans Cloudity ≠ créer le MX chez OVH/Proton** · `make ensure-alias-encryption-key` (clé prête, **code Go pas encore**) | ☐ |
+| **6** | **Plus tard (pas maintenant)** | Stacks Portainer dev/preprod/prod → **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** phases C+ · **MAIL-ALIAS-01…06** (code) → **[BACKLOG.md](./BACKLOG.md)** | — |
+
+**Alias** : tu n’as **pas avancé** sur la cible « création sans OVH » — c’est **normal** ; le MVP (enregistrement + filtre + envoi partiel) est documenté, le dev **MAIL-ALIAS-01** vient **après J8**.
+
+---
+
+## Quel fichier lire pour quoi ?
+
+| Fichier | À quoi il sert | Tu l’ouvres quand… |
+|---------|----------------|-------------------|
+| **`TODOS.md`** (racine, **ce fichier**) | **Liste du jour** + secrets + déploiement (liens) | **Chaque session** — § MAINTENANT |
+| **`STATUS.md`** (racine) | État global, historique, tableaux Drive/Mail détaillés | Contexte large, pas la checklist du jour |
+| **`BACKLOG.md`** (racine) | Cases produit (**MAIL-ALIAS-01**, **MP-06**, **AS-1**, …) | Tu codes une feature listée |
+| **`docs/operations/TODO.md`** | Dépannage Mail/perf **ancien** + liens | Symptôme console / PLAN.md — **pas** la priorité sprint |
+| **`docs/LOGS.md`** | Journal des tours **assistant** | Toi : optionnel ; l’IA y écrit après chaque session |
+| **`docs/operations/DEPLOIEMENT-SUIVI.md`** | Phases A→F Portainer / CI / Android | **Après** merge `dev`, quand tu publies sur le VPS |
+
+Il n’y a **pas** de `TODO.md` à la racine : seulement **`TODOS.md`** (avec un **S**).
+
 ---
 
 ## Avant session

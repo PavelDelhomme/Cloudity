@@ -4,18 +4,21 @@
 
 ## À faire maintenant
 
+**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** § **MAINTENANT** — c’est la seule liste à suivre en priorité.
+
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
 1. **Git** : `git status` ; branche = chantier en cours (souvent **`feat/photos-gallery-mobile-sync-security`** pour Pass / Photos / sync) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
-2. **Contexte** : relire les **priorités numérotées** ci-dessous ; ouvrir **[BACKLOG.md](./BACKLOG.md)** / **[TODOS.md](./TODOS.md)** si la tâche touche une case ouverte.
+2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **MAINTENANT** ; puis **[BACKLOG.md](./BACKLOG.md)** seulement si tu attaques une case produit précise.
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
 
-### Priorités (ordre de travail recommandé)
+### Priorités (résumé — détail dans TODOS § MAINTENANT)
 
-1. **J8 — Migration Proton** (cible **~20 mai 2026**, marge **~25 mai**) : exécuter le **runbook** **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** (export JSON, prévol, import web ≥50 entrées, 2FA, mobile `pass` lecture, bascule). Rollback documenté **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 10 bis **si** la prod est sur VPS (sinon sauvegarde locale / BDD selon ton infra).
-2. **URL capabilities & E2E** : garder le garde-fou **`ucQa01SlugIsolation.test.ts`** ; parcours **TESTS.md** § E2E (pas de bypass `User-Agent` / `X-Mode-Test`). **TEST-AUTH-01** : déjà livré — n’ouvrir un suivi que si la CI/playwright doit consommer les endpoints bootstrap.
-3. **Après J8** : **[BACKLOG.md](./BACKLOG.md)** — L2 **mobile/pass** édition, **MP-06** extension, **AS-1** Rspamd/MTA, refactor **REFACTOR-FE-01**, etc.
+1. **J8 — Migration Proton** (cible **~20 mai 2026**, marge **~25 mai**) : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis**.
+2. **PR → `dev`** + CI verte — puis seulement enchaîner **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** (Portainer).
+3. **Alias** : lecture doc + clés `.env` ; **pas** de dev **MAIL-ALIAS-01…** avant J8.
+4. **Après J8** : **[BACKLOG.md](./BACKLOG.md)** — L2 **mobile/pass** édition, **MP-06**, **MAIL-ALIAS-01**, **AS-1**, etc.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
 
