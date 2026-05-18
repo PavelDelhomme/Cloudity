@@ -25,9 +25,46 @@
 | Boîte sans secret IMAP (`imap_auth_ready: false`) | Pas de sync auto ni 400 en boucle — **Paramètres Mail → Sync avec mot de passe…** une fois ; la modale ne se rouvre qu’une fois par session et par boîte. |
 | **J8 Pass / Proton** | `make pass-j8-prep` puis runbook **SPRINT-PASS-2026-05.md** § 3 bis (import ≥50, 2FA, mobile lecture, bascule). |
 
-Référence : **[docs/securite/SECRETS.md](./docs/securite/SECRETS.md)**.
+Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guide complet) · **[SECRETS.md](./docs/securite/SECRETS.md)** · mTLS expliqué : **[MTLS-INTERNE.md](./docs/securite/MTLS-INTERNE.md)** § 0.
 
 ---
+
+## Alias mail — cible produit (Pass ↔ Mail)
+
+**Doc maître** : **[docs/produit/MAIL-ALIAS-VISION.md](./docs/produit/MAIL-ALIAS-VISION.md)** (parcours `hellowork@alias.delhomme.ovh`, sans OVH manuel).
+
+| Priorité | Tâche | État |
+|----------|--------|------|
+| P0 | Comprendre l’écart : enregistrement Cloudity ≠ création MX/OVH | Doc ✅ |
+| P0 | `MAIL_PASSWORD_ENCRYPTION_KEY` renseignée + boîtes sync | `make doctor` |
+| P0 | `ALIAS_ENCRYPTION_KEY` renseignée (parité VPS) | `make ensure-alias-encryption-key` — **Go ne l’utilise pas encore** |
+| P1 | **MAIL-ALIAS-01** — activer/désactiver alias | BACKLOG |
+| P1 | **MAIL-ALIAS-02** — dossier/règle auto par alias | BACKLOG |
+| P2 | **MAIL-ALIAS-05** — provision sans panneau OVH (API ou MTA **AS-1**) | BACKLOG |
+| P2 | Envoi `From` + DKIM alignés sur `alias.*` | **MAIL-ALIAS-06** + **AS-1** |
+
+**Chiffrement (état réel)** :
+
+| Secret | Opérationnel ? |
+|--------|----------------|
+| Pass coffre (client) | Oui — Argon2id + XChaCha20-Poly1305 |
+| `MAIL_PASSWORD_ENCRYPTION_KEY` | Oui — MDP IMAP en base |
+| `ALIAS_ENCRYPTION_KEY` | Non côté code — clé à garder pour la suite |
+
+---
+
+## Déploiement (local · VPS · mobile)
+
+| Besoin | Doc / commande |
+|--------|----------------|
+| **Comprendre les 3 environnements** | **[DEPLOIEMENT-ENVIRONNEMENTS.md](./docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** |
+| Front seul | `make deploy-web` — pas `deploy-web` pour Mail |
+| Mail seul | `make deploy-mail` |
+| API | `make deploy-gateway` |
+| Tout en local | `make up` (sans Portainer/NPM) |
+| VPS (Portainer + NPM) | **[PORTAINER-DELHOMME-OVH.md](./docs/operations/PORTAINER-DELHOMME-OVH.md)** + DNS `api.cloudity.<ton-domaine>` |
+| Monorepo vs multi-repo | **[TRAVAIL-MONOREPO-MAINTENANT.md](./docs/decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** |
+| `.env` prod vs dev | `make secrets-print` → Portainer — **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** § 6 |
 
 ## Prod VPS
 

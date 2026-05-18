@@ -52,6 +52,8 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[produit/VISION-SUITE.md](produit/VISION-SUITE.md)** | Ordre produit long terme (couches P0–P7, phases A–F). |
 | **[produit/ROADMAP.md](produit/ROADMAP.md)** | Fiches par application + transversal (sécurité, infra, API, monorepo) ; template nouvelle app. |
 | **[produit/SPRINT-PASS-2026-05.md](produit/SPRINT-PASS-2026-05.md)** | **Sprint urgence Pass** (~20 mai 2026) : état des lieux, L1/L2/L3, gel scission multi-repo, jalons migration Proton Pass. |
+| **[produit/MAIL-ALIAS-VISION.md](produit/MAIL-ALIAS-VISION.md)** | Cible **Pass → alias@alias.domain.ovh → Mail** (sans catch-all). |
+| **[produit/MAIL-ALIAS-DEMARRAGE.md](produit/MAIL-ALIAS-DEMARRAGE.md)** | **Par où commencer** si OVH / MX pas encore configurés. |
 | **[produit/MOBILES.md](produit/MOBILES.md)** | §0 *web puis mobile* ; matrice web vs mobile par produit ; admin mobile (ADM-02). |
 | **[produit/MULTI-PLATEFORME.md](produit/MULTI-PLATEFORME.md)** | **Matrice transversale** : web + mobile + desktop Linux + extension navigateur par app ; état réel (✅ / 🟡 / ❌) ; plan MP-01..MP-08. |
 | **[produit/PHOTOS.md](produit/PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie. |
@@ -59,6 +61,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[produit/PlanImplementation.md](produit/PlanImplementation.md)** | Phases long terme, métriques, ressources. |
 | **[produit/MAIL-GMAIL-OAUTH.md](produit/MAIL-GMAIL-OAUTH.md)** | Configurer OAuth Google (Gmail « en un clic ») côté hébergeur. |
 | **[produit/editeur-docs.md](produit/editeur-docs.md)** | Éditeur de documents maison (Drive / Office). |
+| **[produit/README.md](produit/README.md)** | Index des fiches produit + alignement chantier actuel. |
 
 ## operations
 
@@ -76,6 +79,10 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
 | **[operations/RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** | **Prod partielle** : maj par service (GHCR + Portainer), **Portainer CE**, **OTA Android** (`version.json` + APK), limites **iOS** ; Pass + **alias mail** ; secrets ; liens **REL-*** dans **BACKLOG**. |
+| **[operations/DEPLOIEMENT-ENVIRONNEMENTS.md](operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** | **Hub déploiement** : local vs VPS, socle obligatoire, mobile, Portainer CE. |
+| **[operations/DEPLOIEMENT-PAR-SERVICE.md](operations/DEPLOIEMENT-PAR-SERVICE.md)** | **`make deploy-web`**, **`deploy-mail`**, … — tableau local ↔ Portainer. |
+| **[operations/PORTAINER-DELHOMME-OVH.md](operations/PORTAINER-DELHOMME-OVH.md)** | Ton VPS (`95.111.227.204`), DNS `cloudity.delhomme.ovh`, réseaux NPM. |
+| **[operations/ENV-GENERATION.md](operations/ENV-GENERATION.md)** | **`.env`** : `make secrets`, clés mail/alias, Portainer, état du chiffrement. |
 | **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS + **Portainer** + **NPM** ; **Q23** `cloudity.<DOMAIN>` + `api` / `admin` ; **§ 1 bis** DNS registrar + NPM ; **§ 1 ter** chemins `/app/…` vs sous-domaines ; **§ 4 bis** multi-ponts ; Q15 homelab ; **§ 10 bis** rollback. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |
 | **[operations/TODO.md](operations/TODO.md)** | Notes de développement (perf Drive, HMR). Priorités produit : ROADMAP / STATUS. |
@@ -86,6 +93,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 
 | Fichier | Rôle |
 |---------|------|
+| **[decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md](decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** | Monorepo sur le disque **maintenant** ; deploy par image ; split Git plus tard. |
 | **[decisions/multi-repo/QUESTIONNAIRE.md](decisions/multi-repo/QUESTIONNAIRE.md)** | Choix multi-repos GitHub : Q1–Q10 (QCM) + 5 lignes texte libre. |
 | **[decisions/multi-repo/REPONSES.md](decisions/multi-repo/REPONSES.md)** | **Tes réponses** (à remplir) — la **synthèse une ligne** déclenche la Phase 0. |
 

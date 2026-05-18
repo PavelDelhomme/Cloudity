@@ -77,6 +77,17 @@
 
 - [x] **AS-0 — Documentation d’architecture** (2026-05-15) : `ANTI-SPAM-ET-ABUS.md` + `MAIL-CHIFFREMENT-ET-ANTI-SPAM.md` + liens **STATUS** / **SYNC-BACKLOG § 0e** / **SECURITE** / **DEV-VERIFICATION § 5** / **docs/README**.
 - [ ] **MAIL-ALIAS-KEY-01 — `ALIAS_ENCRYPTION_KEY` côté Go** : la variable est dans **`.env.example`**, **`gen-secrets.sh`**, **`docker-compose`** (mail-directory) et **Portainer** (doc VPS) ; le service **ne l’utilise pas encore** pour chiffrer des colonnes alias — brancher quand un schéma sensible le exige (aligner **SECRETS.md** / migrations).
+
+### Alias mail « vrais » (Pass → Mail, sans panneau OVH)
+
+> **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.delhomme.ovh`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
+
+- [ ] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail.
+- [ ] **MAIL-ALIAS-02** — À la création : règle + tag/dossier dédié par alias (sync IMAP).
+- [ ] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` + validation `*@alias.<domaine-principal>` à la création.
+- [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
+- [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH.
+- [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
 - [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).
 - [ ] **AS-3 — WAF / fail2ban** : ModSecurity CRS mode détection ; **fail2ban sur hôte VPS** (journal nginx), pas dans le conteneur applicatif.
@@ -111,7 +122,10 @@
 
 ### Release & distribution (prod partielle, OTA mobile, NPM)
 
-> **Cadre complet** : **[docs/operations/RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** (mises à jour par service, Portainer CE, HTTPS NPM, Android vs iOS, Pass + alias).
+> **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-DELHOMME-OVH.md](docs/operations/PORTAINER-DELHOMME-OVH.md)** · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
+
+- [ ] **DEPLOY-DOC-01** — Templates Compose `deploy/portainer/` par stack (infra, identity, web, mail, pass) pour coller Nextcloud sur Portainer CE.
+- [ ] **DEPLOY-DNS-01** — Créer `api.cloudity.delhomme.ovh` (A + NPM) + `CORS_ORIGINS` / build `VITE_API_URL` prod.
 
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).
