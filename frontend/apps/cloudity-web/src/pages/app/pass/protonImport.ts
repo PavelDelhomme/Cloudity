@@ -44,6 +44,10 @@
  * structure entre versions mineures), tout en refusant le contenu chiffré
  * (`encrypted: true`) — l'utilisateur doit ré-exporter en clair via
  * « Export as JSON unencrypted ».
+ *
+ * **Export CSV** (Settings → Export → CSV) : pris en charge via
+ * `parseProtonCsvExport` / `parseProtonImportFile` (colonnes Proton
+ * `type,name,url,email,username,password,note,totp,…,vault`).
  */
 
 import type { ItemPlaintextV1 } from '@cloudity/pass-crypto'
@@ -93,6 +97,185 @@ export class ProtonImportError extends Error {
   }
 }
 
+// --- Détection format + point d'entrée ---------------------------------
+
+/** JSON Proton ou CSV Proton (export complet). */
+export function parseProtonImportFile(raw: string, fileName?: string): ProtonExport {
+  const text = raw.replace(/^\uFEFF/, '')
+  const head = text.trimStart().slice(0, 120)
+  const csvByName = (fileName ?? '').toLowerCase().endsWith('.csv')
+  const csvByHeader = head.startsWith('type,name,') || head.startsWith('type,name\r')
+
+  if (csvByName || csvByHeader) {
+    if (!text.trimStart().startsWith('{')) {
+      return parseProtonCsvExport(text)
+    }
+  }
+
+  if (text.trimStart().startsWith('{')) {
+    return parseProtonExport(text)
+  }
+
+  if (csvByHeader) {
+    return parseProtonCsvExport(text)
+  }
+
+  try {
+    return parseProtonExport(text)
+  } catch (err) {
+    if (
+      err instanceof ProtonImportError &&
+      (text.includes('type,name,url,email') || csvByName)
+    ) {
+      return parseProtonCsvExport(text)
+    }
+    throw err
+  }
+}
+
+// --- Parse CSV (export Proton Pass complet) ----------------------------
+
+/** Parse RFC 4180 (guillemets, retours ligne dans les champs). */
+export function parseCsvRecords(raw: string): string[][] {
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  const s = raw.replace(/^\uFEFF/, '')
+
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (s[i + 1] === '"') {
+          field += '"'
+          i++
+        } else {
+          inQuotes = false
+        }
+      } else {
+        field += c
+      }
+    } else if (c === '"') {
+      inQuotes = true
+    } else if (c === ',') {
+      row.push(field)
+      field = ''
+    } else if (c === '\n') {
+      row.push(field)
+      field = ''
+      rows.push(row)
+      row = []
+    } else if (c === '\r') {
+      if (s[i + 1] === '\n') i++
+      row.push(field)
+      field = ''
+      rows.push(row)
+      row = []
+    } else {
+      field += c
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field)
+    rows.push(row)
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''))
+}
+
+export function parseProtonCsvExport(rawCsv: string): ProtonExport {
+  const records = parseCsvRecords(rawCsv)
+  if (records.length < 2) {
+    throw new ProtonImportError(
+      'Fichier CSV vide ou incomplet.',
+      'Exporte depuis Proton Pass → Settings → Export → CSV (export complet).'
+    )
+  }
+  const header = records[0].map((h) => h.trim().toLowerCase())
+  if (header[0] !== 'type' || !header.includes('vault')) {
+    throw new ProtonImportError(
+      'En-tête CSV Proton introuvable.',
+      'La première ligne doit commencer par type,name,url,…,vault (export Proton Pass).'
+    )
+  }
+  const col = (name: string): number => header.indexOf(name)
+
+  const vaults: Record<string, ProtonVault> = {}
+  let rowIndex = 0
+
+  for (let r = 1; r < records.length; r++) {
+    const cells = records[r]
+    if (cells.length < 2) continue
+    const get = (name: string): string => {
+      const i = col(name)
+      return i >= 0 && i < cells.length ? cells[i].trim() : ''
+    }
+    const type = get('type')
+    if (!type) continue
+
+    const vaultName = get('vault') || 'Importé'
+    const vaultId = `csv-vault-${vaultName.replace(/\s+/g, '-').toLowerCase()}`
+    if (!vaults[vaultId]) {
+      vaults[vaultId] = { name: vaultName, items: [] }
+    }
+
+    const name = get('name')
+    const urlRaw = get('url')
+    const email = get('email')
+    const username = get('username')
+    const password = get('password')
+    const note = get('note')
+    const totp = get('totp')
+    const loginUser = email || username
+
+    const urls = urlRaw
+      ? urlRaw
+          .split(',')
+          .map((u) => u.trim())
+          .filter(Boolean)
+      : []
+
+    const content: Record<string, unknown> = {}
+    if (type === 'login') {
+      if (loginUser) content.username = loginUser
+      if (password) content.password = password
+      if (urls.length) content.urls = urls
+      if (totp) content.totpUri = totp
+    } else if (type === 'alias') {
+      content.aliasEmail = email || name
+    } else if (note && (type === 'identity' || type === 'creditCard')) {
+      content.raw = note
+    }
+
+    rowIndex++
+    vaults[vaultId].items.push({
+      itemId: `csv-${rowIndex}-${crypto.randomUUID()}`,
+      data: {
+        type,
+        metadata: {
+          name: name || email || username || 'Sans titre',
+          note: note || undefined,
+        },
+        content: Object.keys(content).length ? content : undefined,
+      },
+    })
+  }
+
+  const total = Object.values(vaults).reduce((n, v) => n + v.items.length, 0)
+  if (total === 0) {
+    throw new ProtonImportError(
+      'Aucune entrée lisible dans le CSV.',
+      'Vérifie que le fichier est bien un export Proton Pass (pas un autre tableur).'
+    )
+  }
+
+  return {
+    version: 'csv-export',
+    encrypted: false,
+    vaults,
+  }
+}
+
 // --- Parse JSON --------------------------------------------------------
 
 export function parseProtonExport(rawJson: string): ProtonExport {
@@ -100,10 +283,14 @@ export function parseProtonExport(rawJson: string): ProtonExport {
   try {
     parsed = JSON.parse(rawJson)
   } catch (err) {
-    throw new ProtonImportError(
-      'Fichier JSON invalide.',
-      err instanceof Error ? err.message : undefined
-    )
+    const hint =
+      rawJson.trimStart().startsWith('type,name,') ||
+      rawJson.includes('type,name,url,email')
+        ? 'Tu as peut‑être choisi un export CSV : le fichier est accepté (.csv) — réessaie avec le même fichier ou utilise parseProtonImportFile.'
+        : err instanceof Error
+          ? err.message
+          : undefined
+    throw new ProtonImportError('Fichier JSON invalide.', hint)
   }
   if (!isRecord(parsed)) {
     throw new ProtonImportError('Format inattendu : racine non-objet.')
@@ -237,6 +424,9 @@ function convertOneItem(it: ProtonItem): ItemPlaintextV1 {
     noteParts.push(`URLs additionnelles : ${c.urls.slice(1).join(', ')}`)
   }
   if (extras) noteParts.push(`Champs additionnels :\n${extras}`)
+  if (it.data.type === 'alias' && typeof c.aliasEmail === 'string') {
+    noteParts.push(`Adresse alias Proton : ${c.aliasEmail}`)
+  }
   if (it.data.type !== 'login' && it.data.type !== 'note') {
     noteParts.push(
       `Type d'origine Proton non géré : ${it.data.type}. ` +

@@ -3,7 +3,7 @@ import { Button, Card, CardHeader } from '@cloudity/shared'
 import { Upload, AlertTriangle, X, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
-  parseProtonExport,
+  parseProtonImportFile,
   convertProtonToCloudity,
   ProtonImportError,
   type ConvertedItem,
@@ -53,7 +53,7 @@ export default function ProtonImportDialog({
     setError(null)
     try {
       const text = await file.text()
-      const exp = parseProtonExport(text)
+      const exp = parseProtonImportFile(text, file.name)
       const vaults = convertProtonToCloudity(exp)
       setParsed({ fileName: file.name, vaults })
       const total = vaults.reduce((acc, v) => acc + v.items.length, 0)
@@ -112,9 +112,10 @@ export default function ProtonImportDialog({
         {!parsed && !error && (
           <>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Dans Proton Pass &rarr; Settings &rarr; Export &rarr; choisis{' '}
-              <strong>JSON (unencrypted)</strong>. Le fichier ne quitte pas ton
-              navigateur tant que tu n'as pas confirmé.
+              Dans Proton Pass &rarr; Settings &rarr; Export :{' '}
+              <strong>CSV</strong> (export complet, celui que tu as déjà) ou{' '}
+              <strong>JSON (unencrypted)</strong>. Le fichier ne quitte pas ton navigateur
+              tant que tu n&apos;as pas confirmé l&apos;import.
             </p>
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -123,12 +124,13 @@ export default function ProtonImportDialog({
             >
               <Upload className="w-8 h-8 text-slate-400 dark:text-slate-500" aria-hidden />
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Glisse le fichier <code className="font-mono">.json</code> Proton Pass ici
+                Glisse un export Proton Pass <code className="font-mono">.csv</code> ou{' '}
+                <code className="font-mono">.json</code> ici
               </p>
               <label className="cursor-pointer mt-2">
                 <input
                   type="file"
-                  accept="application/json,.json"
+                  accept=".csv,.json,text/csv,application/json"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0]

@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseProtonExport,
+  parseProtonImportFile,
+  parseProtonCsvExport,
+  parseCsvRecords,
   convertProtonToCloudity,
   ProtonImportError,
 } from './protonImport'
@@ -148,6 +151,16 @@ describe('convertProtonToCloudity', () => {
     const out = convertProtonToCloudity(exp)
     const boulot = out.find((v) => v.vaultId === 'vault-bbb')!
     expect(boulot.items).toHaveLength(0)
+  })
+
+  it('convertit un CSV multi-vaults en logins Cloudity', () => {
+    const exp = parseProtonCsvExport(CSV_SAMPLE)
+    const out = convertProtonToCloudity(exp)
+    const all = out.flatMap((v) => v.items)
+    expect(all.filter((i) => i.protonType === 'login')).toHaveLength(1)
+    expect(all.find((i) => i.protonType === 'alias')?.plaintext.notes).toContain(
+      'alias@alias.delhomme.ovh'
+    )
   })
 
   it("attribue un titre par défaut quand le metadata.name est absent", () => {

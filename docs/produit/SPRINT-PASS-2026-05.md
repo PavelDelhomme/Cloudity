@@ -105,7 +105,7 @@ Checklist opérationnelle (hors code) pour le jour J ; cocher au fil de l’eau 
 | Sujet | Décision | Justification |
 |-------|----------|---------------|
 | **Mobile Pass** au 20 mai | **Lecture seule** (option A du calcul calendrier) | 7 j solo ne tiennent pas le scope complet — la lecture seule suffit pour migrer et consulter en mobilité. Édition mobile en J+1..J+5. |
-| **Format import Proton** | **JSON en clair** | Plus simple, contient les TOTP secrets ; PGP / CSV en phase ultérieure. |
+| **Format import Proton** | **CSV (export complet)** ou **JSON en clair** | CSV = export par défaut Proton Pass ; JSON unencrypted pour les coffres multi-vault détaillés. |
 | **PQ ML-KEM-768** dans `EnvelopeV1` | **Reportée v0.2** | Le format `EnvelopeV1` réserve le champ `kem` ; lazy-migration future possible sans casser les coffres. Argon2id + XChaCha20-Poly1305 suffisent pour la sécurité au repos avant 20 mai. |
 | **Extension navigateur** | **Reportée J+1..J+5** | Pas bloquante : copie clipboard depuis web ou mobile suffit pour la migration ; autofill améliore le quotidien après. |
 | **WebAuthn comme déverrouillage Pass** | **Phase ultérieure** | Le mot de passe maître reste la base ; WebAuthn complémentaire plus tard. |

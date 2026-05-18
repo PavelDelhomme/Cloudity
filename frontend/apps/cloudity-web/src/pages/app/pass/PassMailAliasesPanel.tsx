@@ -65,6 +65,12 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
   }, [accounts, selectedAccountId])
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null
+  const mailDomain = selectedAccount?.email?.includes('@')
+    ? selectedAccount.email.split('@').pop()
+    : undefined
+  const aliasPlaceholder = mailDomain
+    ? `inscriptions@alias.${mailDomain}`
+    : 'inscriptions@alias.ton-domaine.ovh'
 
   const aliasesQuery = useQuery({
     queryKey: ['mail-aliases', selectedAccountId],
@@ -118,9 +124,10 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
-                Enregistre ici les adresses d’alias qui livrent dans ta boîte IMAP connectée (après
-                configuration DNS / fournisseur). Tu pourras filtrer les messages par destinataire
-                dans Mail.{' '}
+                Cloudity <strong>ne crée pas</strong> l’adresse chez ton hébergeur (OVH, Proton, …) :
+                configure d’abord l’alias côté fournisseur, puis enregistre-la ici pour filtrer le
+                courrier dans Mail. Une adresse sur un domaine que tu ne possèdes pas ne recevra
+                aucun mail et ne pourra pas servir sur les sites web.{' '}
                 <Link to="/app/mail" className="text-brand-600 dark:text-brand-400 underline">
                   Ouvrir Mail
                 </Link>
@@ -168,7 +175,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                   id="pass-alias-email"
                   type="email"
                   autoComplete="off"
-                  placeholder="newsletter@exemple.com"
+                  placeholder={aliasPlaceholder}
                   value={newAliasEmail}
                   onChange={(e) => setNewAliasEmail(e.target.value)}
                 />
