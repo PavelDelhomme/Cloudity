@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -313,32 +312,16 @@ func NewHandler() http.Handler {
 	}
 	var corsHandler http.Handler
 	if os.Getenv("CORS_ALLOW_LAN") == "true" || os.Getenv("CORS_ALLOW_LAN") == "1" {
-		// Autorise localhost + réseau local (smartphone / autre machine sur le LAN).
-		allowOriginFunc := func(origin string) bool {
-			u, err := url.Parse(origin)
-			if err != nil || u.Scheme != "http" {
-				return false
-			}
-			host := u.Hostname()
-			if host == "localhost" || host == "127.0.0.1" {
-				return true
-			}
-			ip := net.ParseIP(host)
-			if ip != nil && ip.IsPrivate() {
-				return true
-			}
-			return false
-		}
 		corsHandler = cors.New(cors.Options{
-			AllowOriginFunc:  allowOriginFunc,
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowOriginFunc:  isDevBrowserOrigin,
+			AllowedMethods:   corsAllowedMethods,
 			AllowedHeaders:   []string{"*"},
 			AllowCredentials: true,
 		}).Handler(r)
 	} else {
 		c := cors.New(cors.Options{
 			AllowedOrigins:   origins,
-			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedMethods:   corsAllowedMethods,
 			AllowedHeaders:   []string{"*"},
 			AllowCredentials: true,
 		})
@@ -426,35 +409,9 @@ func adminOriginAllowed(origin string) bool {
 	}
 
 	if os.Getenv("CORS_ALLOW_LAN") == "true" || os.Getenv("CORS_ALLOW_LAN") == "1" {
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return false
-		}
-		host := u.Hostname()
-		if host == "localhost" || host == "127.0.0.1" {
-			return true
-		}
-		if ip := net.ParseIP(host); ip != nil && ip.IsPrivate() {
-			return true
-		}
-		return false
+		return isDevBrowserOrigin(o)
 	}
-
-	origins := []string{"http://localhost:6001", "http://localhost:5173"}
-	if v := os.Getenv("CORS_ORIGINS"); v != "" {
-		origins = strings.Split(v, ",")
-		for i, s := range origins {
-			origins[i] = strings.TrimSpace(s)
-		}
-	}
-	for _, allowed := range origins {
-		if allowed == "" {
-			continue
-		}
-		if strings.EqualFold(o, allowed) {
-			return true
-		}
-	}
-	return false
+	return corsOriginAllowedFixedList(o)
 }
 
 func writeJSON(w http.ResponseWriter, status int, body string) {

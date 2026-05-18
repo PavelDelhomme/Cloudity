@@ -1,0 +1,20 @@
+# Stub MAIL-ALIAS-05 — MTA pour domaine alias dédié.
+# Ne pas lancer en prod sans DNS/MX validés (risque perte de courrier).
+# Secrets : Portainer uniquement — pas de domaines réels dans ce fichier.
+
+services:
+  maddy:
+    image: foxcpp/maddy:latest
+    restart: unless-stopped
+    ports:
+      - "25:25"
+      - "587:587"
+    environment:
+      MADDY_HOSTNAME: ${MTA_HOSTNAME}
+      MADDY_DOMAIN: ${MTA_ALIAS_DOMAINS}
+    volumes:
+      - maddy-data:/data
+    # Configuration réelle (tables, DKIM, routage Cloudity) : voir docs/operations/MAIL-MTA-PREPROD.md
+
+volumes:
+  maddy-data:

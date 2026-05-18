@@ -105,7 +105,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const intervalMs = 10 * 60 * 1000 // 10 minutes
     const id = setInterval(async () => {
       const rt = refreshTokenRef.current
-      if (!rt) return
+      const at = accessTokenRef.current
+      if (!rt || !at) return
+      if (isAccessTokenUsable(at, 90_000)) return
       try {
         const res = await refreshAuth(rt)
         setState((prev) => ({
@@ -127,7 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
     const doRefresh = () => {
       const rt = refreshTokenRef.current
-      if (!rt) return
+      const at = accessTokenRef.current
+      if (!rt || !at) return
+      if (isAccessTokenUsable(at, 90_000)) return
       const now = Date.now()
       if (now - lastFocusRefreshAtRef.current < 5000) return // anti double appel visibility + focus + activité
       lastFocusRefreshAtRef.current = now
@@ -167,7 +171,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       lastActivityRefreshAtRef.current = now
       lastFocusRefreshAtRef.current = now
       const rt = refreshTokenRef.current
-      if (!rt) return
+      const at = accessTokenRef.current
+      if (!rt || !at) return
+      if (isAccessTokenUsable(at, 90_000)) return
       void refreshAuth(rt)
         .then((res) => {
           setState((prev) => ({

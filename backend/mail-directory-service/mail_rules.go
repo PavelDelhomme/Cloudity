@@ -718,6 +718,10 @@ func (h *Handler) ensureAliasInboundRule(ctx context.Context, accountID int, ali
 		LIMIT 1
 	`, accountID, rcp).Scan(&existing)
 	if err == nil {
+		_, _ = h.dbex(ctx).Exec(`
+			UPDATE mail_filter_rules SET enabled = true
+			WHERE id = $1 AND account_id = $2
+		`, existing, accountID)
 		return existing, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
@@ -736,4 +740,28 @@ func (h *Handler) ensureAliasInboundRule(ctx context.Context, accountID int, ali
 		RETURNING id
 	`, accountID, name, rcp, criteriaJSON, actionsJSON).Scan(&id)
 	return id, err
+}
+
+func (h *Handler) setAliasInboundRuleEnabled(ctx context.Context, accountID int, aliasEmail string, enabled bool) error {
+	rcp := strings.TrimSpace(strings.ToLower(aliasEmail))
+	if rcp == "" {
+		return nil
+	}
+	_, err := h.dbex(ctx).Exec(`
+		UPDATE mail_filter_rules SET enabled = $3
+		WHERE account_id = $1 AND LOWER(TRIM(COALESCE(recipient_pattern, ''))) = $2
+	`, accountID, rcp, enabled)
+	return err
+}
+
+func (h *Handler) deleteAliasInboundRule(ctx context.Context, accountID int, aliasEmail string) error {
+	rcp := strings.TrimSpace(strings.ToLower(aliasEmail))
+	if rcp == "" {
+		return nil
+	}
+	_, err := h.dbex(ctx).Exec(`
+		DELETE FROM mail_filter_rules
+		WHERE account_id = $1 AND LOWER(TRIM(COALESCE(recipient_pattern, ''))) = $2
+	`, accountID, rcp)
+	return err
 }

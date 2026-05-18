@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Loader2, PenLine, Plus, RefreshCw, Settings, Tag } from 'lucide-react'
+import { ChevronDown, Loader2, MessagesSquare, Plus, RefreshCw, Settings, Tag } from 'lucide-react'
 
 export type MailAppChromeMenuProps = {
-  onNew: () => void
+  conversationMode: boolean
+  onToggleConversations: () => void
   onRefresh: () => void
   onOpenSettings: () => void
   onOpenRules: () => void
@@ -17,7 +18,8 @@ export type MailAppChromeMenuProps = {
  * si le parent ne ré-abonne pas au contexte « affichage ».
  */
 export function MailAppChromeMenu({
-  onNew,
+  conversationMode,
+  onToggleConversations,
   onRefresh,
   onOpenSettings,
   onOpenRules,
@@ -43,14 +45,18 @@ export function MailAppChromeMenu({
     <div ref={rootRef} className="flex items-center gap-1.5">
       <button
         type="button"
-        onClick={onNew}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-600 bg-white dark:bg-slate-700 px-2.5 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-200 hover:bg-brand-50 dark:hover:bg-slate-600"
-        title="Nouveau message"
+        onClick={onToggleConversations}
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+          conversationMode
+            ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
+            : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600'
+        }`}
+        title="Regrouper en conversations (1 ligne par fil)"
       >
-        <PenLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        Nouveau
+        <MessagesSquare className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        Conversations
       </button>
-      <div className="relative">
+      <div className="relative flex items-center gap-1">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -60,6 +66,20 @@ export function MailAppChromeMenu({
         >
           Menu Mail
           <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => onRefresh()}
+          disabled={refreshBusy}
+          className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 p-1.5 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 disabled:opacity-50"
+          title="Actualiser (IMAP)"
+          aria-label="Actualiser la boîte (IMAP)"
+        >
+          {refreshBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          ) : (
+            <RefreshCw className="h-4 w-4" aria-hidden />
+          )}
         </button>
         {open ? (
           <div

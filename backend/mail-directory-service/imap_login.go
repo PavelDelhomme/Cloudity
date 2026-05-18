@@ -81,7 +81,18 @@ func (h *Handler) persistAccountPasswordAfterSync(ctx context.Context, accountID
 		log.Printf("[mail] sync account=%d: impossible de chiffrer le mot de passe: %v", accountID, encErr)
 		return false
 	}
-	res, err := h.dbex(ctx).Exec(`
+	// Conn dédiée : après une longue sync IMAP la conn épinglée du middleware peut être fermée.
+	conn, err := h.db.Conn(ctx)
+	if err != nil {
+		log.Printf("[mail] sync account=%d: persist conn: %v", accountID, err)
+		return false
+	}
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
+		log.Printf("[mail] sync account=%d: persist set_config: %v", accountID, err)
+		return false
+	}
+	res, err := conn.ExecContext(ctx, `
 		UPDATE user_email_accounts SET password_encrypted = $1, updated_at = NOW()
 		WHERE id = $2 AND user_id = $3
 	`, encStr, accountID, userID)

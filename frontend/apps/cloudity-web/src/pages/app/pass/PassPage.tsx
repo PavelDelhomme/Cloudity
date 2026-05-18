@@ -5,8 +5,7 @@
  *  - **Connexion Cloudity** d’abord (route `/app/*` protégée par `RequireAuth`).
  *  - Coffre **verrouillé** par défaut : si `GET /pass/vaults` est vide → écran
  *    **initialisation** (choix maître + confirmation) ; sinon → **déverrouillage**.
- *  - Les **alias mail** (`PassMailAliasesPanel`) restent accessibles **sans**
- *    déverrouiller le coffre (API Mail + JWT seulement).
+ *  - Les **alias mail** (`PassMailAliasesPanel`) : après déverrouillage du coffre.
  *  - Une fois déverrouillé, la **master key** (32 octets) vit uniquement en mémoire
  *    React (`vaultContext`). Auto-lock après 5 min d'inactivité.
  *  - Toutes les entrées sont **chiffrées côté client** via `@cloudity/pass-crypto`
@@ -82,22 +81,6 @@ export default function PassPage() {
 
 // --- Inner ------------------------------------------------------------
 
-function PassPassSetupSteps() {
-  return (
-    <div className="rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-      <span className="font-medium text-slate-800 dark:text-slate-200">Parcours</span>
-      <span className="mx-2 text-slate-400">·</span>
-      <span className="text-emerald-700 dark:text-emerald-400">1. Compte Cloudity</span>
-      <span className="mx-1.5 text-slate-400">→</span>
-      <span className="font-medium text-brand-700 dark:text-brand-300">
-        2. Mot de passe maître du coffre
-      </span>
-      <span className="mx-1.5 text-slate-400">→</span>
-      <span className="text-slate-500 dark:text-slate-400">3. Entrées chiffrées</span>
-    </div>
-  )
-}
-
 function PassPageInner() {
   const { accessToken, logout } = useAuth()
   const userId = useMemo(() => readUserIdFromToken(accessToken), [accessToken])
@@ -142,8 +125,6 @@ function PassPageInner() {
     return (
       <div className="flex flex-col gap-6">
         <PassHeader locked />
-        <PassPassSetupSteps />
-        {aliasesPanel}
         {vaultsProbe.isError && (
           <p
             className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3"

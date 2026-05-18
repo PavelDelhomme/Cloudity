@@ -36,7 +36,9 @@ export default function MailAliasDomainConfig({ accessToken, accountEmail, compa
   }, [effective, storedTick])
 
   const save = () => {
-    setStoredAliasHostSuffix(draft)
+    const v = draft.trim().replace(/^@+/, '')
+    if (!v) return
+    setStoredAliasHostSuffix(v)
     setStoredTick((n) => n + 1)
   }
 

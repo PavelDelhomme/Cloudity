@@ -122,7 +122,12 @@ import {
   type PassItemResponse,
 } from '../../../api'
 import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
-import { effectiveAliasHostSuffix, resolveAliasEmailInput } from '../../../lib/mailAlias'
+import ComposeBodyField from './ComposeBodyField'
+import {
+  effectiveAliasHostSuffix,
+  resolveAliasEmailInput,
+  subscribeAliasSuffixChanges,
+} from '../../../lib/mailAlias'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
@@ -948,20 +953,45 @@ function messageDisplayDate(msg: { date_at?: string; created_at?: string }): str
   return msg.date_at?.trim() || undefined
 }
 
+function startOfCalendarWeek(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+  const day = x.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  x.setDate(x.getDate() + diff)
+  return x
+}
+
+function isSameCalendarWeek(a: Date, b: Date): boolean {
+  return startOfCalendarWeek(a).getTime() === startOfCalendarWeek(b).getTime()
+}
+
+/** Date « Reçu » compacte (style Gmail) : lun. 21:12 · 18/05 21:12 · date complète si ancien. */
 function formatReceivedDetail(dateAt: string | undefined): string {
   if (!dateAt) return '—'
-  try {
-    return new Date(dateAt).toLocaleString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  } catch {
-    return dateAt
+  const d = new Date(dateAt)
+  if (Number.isNaN(d.getTime())) return dateAt
+  const now = new Date()
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const sameYear = d.getFullYear() === now.getFullYear()
+  const sameMonth = sameYear && d.getMonth() === now.getMonth()
+
+  if (isSameCalendarWeek(d, now)) {
+    const wd = d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace(/\.$/, '')
+    return `${wd}, ${time}`
   }
+  if (sameMonth) {
+    return `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, '0')} ${time}`
+  }
+  if (sameYear) {
+    return `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, '0')} ${time}`
+  }
+  return d.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResponse | null }) {
@@ -1095,6 +1125,8 @@ export default function MailPage() {
   const [editAccSmtpPort, setEditAccSmtpPort] = useState('')
   const [savingAccount, setSavingAccount] = useState(false)
   const [recipientAliasFilter, setRecipientAliasFilter] = useState<string | null>(null)
+  /** Adresse « De » préférée après clic sur un alias dans la barre latérale. */
+  const [preferredComposeFrom, setPreferredComposeFrom] = useState<string | null>(null)
   const [newAliasEmail, setNewAliasEmail] = useState('')
   const [newAliasLabel, setNewAliasLabel] = useState('')
   /** Cible de livraison documentée (Pass / transfert) — n’active pas le routage sans DNS / fournisseur. */
@@ -1200,11 +1232,17 @@ export default function MailPage() {
   const { data: mailAliasConfig } = useQuery({
     queryKey: ['mail', 'alias-config'],
     queryFn: () => fetchMailAliasConfig(accessToken!),
-    enabled: !!accessToken && showMailSettings,
+    enabled: !!accessToken,
     staleTime: 5 * 60 * 1000,
   })
 
-  const aliasHostSuffix = effectiveAliasHostSuffix(mailAliasConfig, effectiveAccount?.email)
+  const [aliasSuffixRevision, setAliasSuffixRevision] = useState(0)
+  useEffect(() => subscribeAliasSuffixChanges(() => setAliasSuffixRevision((n) => n + 1)), [])
+
+  const aliasHostSuffix = useMemo(
+    () => effectiveAliasHostSuffix(mailAliasConfig, effectiveAccount?.email),
+    [mailAliasConfig, effectiveAccount?.email, aliasSuffixRevision]
+  )
   const newAliasPreview = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
 
   const { data: accountAliases = [] } = useQuery<MailAccountAliasResponse[]>({
@@ -1947,6 +1985,11 @@ export default function MailPage() {
         const draft = wasEmpty && composeAccountId != null ? loadDraftLocal(composeAccountId) : null
         let fromAddress = primary
         if (initial?.fromAddress && allowedFrom.has(initial.fromAddress.toLowerCase())) fromAddress = initial.fromAddress
+        else if (
+          preferredComposeFrom &&
+          allowedFrom.has(preferredComposeFrom.toLowerCase())
+        )
+          fromAddress = preferredComposeFrom
         else if (draft?.fromAddress && allowedFrom.has(draft.fromAddress.toLowerCase())) fromAddress = draft.fromAddress
         const id = `compose-${Date.now()}-${Math.random().toString(36).slice(2)}`
         const slot: ComposeSlot = {
@@ -1972,7 +2015,7 @@ export default function MailPage() {
         return [...prev.map((s) => ({ ...s, minimized: true })), slot]
       })
     },
-    [effectiveAccountId, accounts, enabledAccountAliases]
+    [effectiveAccountId, accounts, enabledAccountAliases, preferredComposeFrom]
   )
 
   const closeSlot = useCallback(
@@ -2666,15 +2709,12 @@ export default function MailPage() {
         ) : null}
         <button
           type="button"
-          onClick={() => setConversationListMode((v) => !v)}
-          className={`shrink-0 rounded-lg border px-2.5 py-2 text-xs font-medium ${
-            conversationListMode
-              ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
-              : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
-          }`}
-          title="Regrouper en conversations (1 ligne par fil)"
+          onClick={toggleComposeFromChrome}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 px-2.5 py-2 text-xs font-medium text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50"
+          title="Nouveau message"
         >
-          Conversations
+          <PenLine className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          Nouveau
         </button>
         {mailSearchPopoverOpen ? (
           <div className="absolute z-30 top-[calc(100%+0.35rem)] left-0 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-xl p-2.5">
@@ -2720,7 +2760,7 @@ export default function MailPage() {
         ) : null}
       </div>
     ),
-    [appendSearchToken, clearMailSearch, conversationListMode, mailSearchPopoverOpen, mailSearchText]
+    [appendSearchToken, clearMailSearch, mailSearchPopoverOpen, mailSearchText, toggleComposeFromChrome]
   )
 
   useEffect(() => {
@@ -3913,7 +3953,10 @@ export default function MailPage() {
                     <div className="mt-1 ml-1 pl-2 border-l-2 border-slate-200 dark:border-slate-600 space-y-0.5 pb-1">
                       <button
                         type="button"
-                        onClick={() => setRecipientAliasFilter(null)}
+                        onClick={() => {
+                          setRecipientAliasFilter(null)
+                          setPreferredComposeFrom(null)
+                        }}
                           className={`block w-full text-left text-[11px] px-1.5 py-1 rounded ${recipientAliasFilter == null ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                       >
                         Toutes les adresses
@@ -3922,7 +3965,10 @@ export default function MailPage() {
                         <button
                           key={al.id}
                           type="button"
-                          onClick={() => setRecipientAliasFilter(al.alias_email)}
+                          onClick={() => {
+                            setRecipientAliasFilter(al.alias_email)
+                            setPreferredComposeFrom(al.alias_email)
+                          }}
                           className={`block w-full text-left text-[11px] px-1.5 py-1 rounded truncate ${recipientAliasFilter === al.alias_email ? 'bg-brand-100/90 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
                         >
                           {al.label?.trim() ? `${al.label} · ${al.alias_email}` : al.alias_email}
@@ -4595,7 +4641,11 @@ export default function MailPage() {
                                 <div className="min-w-0 flex-1">
                                   <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex items-center gap-1" title={msg.from || undefined}>
                                     {!msg.is_read ? <span className="w-2 h-2 rounded-full bg-brand-500 shrink-0" aria-hidden /> : null}
-                                    <span className="truncate min-w-0">De : {formatSenderOneLine(msg.from, contacts)}</span>
+                                    <span className="truncate min-w-0">
+                                      {activeFolder === 'sent' || activeFolder === 'drafts'
+                                        ? `À : ${formatSenderOneLine(msg.to, contacts) || '—'}`
+                                        : `De : ${formatSenderOneLine(msg.from, contacts)}`}
+                                    </span>
                                   </p>
                                   <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                                     {activeFolder === 'trash' || activeFolder === 'spam'
@@ -6087,9 +6137,6 @@ export default function MailPage() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      Boîte principale ou alias enregistré (Paramètres Mail). Le serveur doit autoriser l’envoi pour cette adresse.
-                    </p>
                   </div>
                 ) : null}
                 <div>
@@ -6111,7 +6158,6 @@ export default function MailPage() {
                     <option key={`c-${c.id}`} value={c.email}>{c.name ? `${c.name} <${c.email}>` : c.email}</option>
                   ))}
                 </datalist>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Suggestions : contacts récents et carnet Contacts.</p>
               </div>
                 <div>
                   <label htmlFor={`mail-subject-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Objet</label>
@@ -6167,12 +6213,11 @@ export default function MailPage() {
                       title="Insérer un lien"
                     ><Link2 className="h-3.5 w-3.5" /></button>
                   </div>
-                  <div
+                  <ComposeBodyField
                     id={`mail-body-${slot.id}`}
-                    contentEditable
-                    suppressContentEditableWarning
-                    onInput={(e) => updateSlot(slot.id, { body: e.currentTarget.innerHTML })}
-                    dangerouslySetInnerHTML={{ __html: slot.body }}
+                    slotId={slot.id}
+                    body={slot.body}
+                    onChange={(html) => updateSlot(slot.id, { body: html })}
                     className="min-h-[160px] w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent overflow-auto"
                   />
               {getMailSignature() && (

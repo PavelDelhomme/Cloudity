@@ -1,5 +1,20 @@
 /** Domaine d’alias (partie après @), ex. alias.exemple.ovh — préférence navigateur. */
 export const ALIAS_HOST_SUFFIX_STORAGE_KEY = 'cloudity.mail.aliasHostSuffix'
+export const ALIAS_SUFFIX_CHANGED_EVENT = 'cloudity:alias-suffix-changed'
+
+export function notifyAliasSuffixChanged(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(ALIAS_SUFFIX_CHANGED_EVENT))
+  } catch {
+    /* SSR */
+  }
+}
+
+export function subscribeAliasSuffixChanges(cb: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener(ALIAS_SUFFIX_CHANGED_EVENT, cb)
+  return () => window.removeEventListener(ALIAS_SUFFIX_CHANGED_EVENT, cb)
+}
 
 export type MailAliasConfigResponse = {
   primary_domain?: string
@@ -25,10 +40,12 @@ export function setStoredAliasHostSuffix(suffix: string): void {
     return
   }
   localStorage.setItem(ALIAS_HOST_SUFFIX_STORAGE_KEY, v)
+  notifyAliasSuffixChanged()
 }
 
 export function clearStoredAliasHostSuffix(): void {
   localStorage.removeItem(ALIAS_HOST_SUFFIX_STORAGE_KEY)
+  notifyAliasSuffixChanged()
 }
 
 export function accountEmailDomain(email: string | undefined): string | undefined {

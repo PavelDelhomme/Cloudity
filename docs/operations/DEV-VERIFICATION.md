@@ -44,8 +44,12 @@ En **dev**, Vite réécrit **`/4dm1n`** vers **`/admin.html`** via un plugin **`
 ### 2.b HTTPS local (option)
 
 - **Prérequis** : [`mkcert`](https://github.com/FiloSottile/mkcert) installé (Arch : `sudo pacman -S mkcert`).
-- Démarrer la stack backend (`make up`) puis : **`make dev-https`**. Vite sert l’app sur **`https://localhost:5173`** (certificat local mkcert).
-- Le certificat est généré dans **`.certs/`** (ignoré par Git) ; on peut le régénérer en supprimant le dossier.
+- **Docker (port 6001)** — recommandé avec `make up` :
+  1. `make dev-certs-docker` (crée **`.certs/`**, ignoré par Git)
+  2. `docker compose up -d cloudity-web` (ou `make up`)
+  3. Ouvrir **`https://localhost:6001`** ou **`https://cloudity.localhost:6001`**
+- **Hors Docker** : `make dev-https` → **`https://localhost:5173`**.
+- Le certificat est généré dans **`.certs/`** ; régénérer en supprimant le dossier puis relancer `make dev-certs-docker`.
 - Inspecter une requête admin :
   ```bash
   curl -ksS -H "Origin: https://localhost:5173" -H "Authorization: Bearer <jwt admin>" \

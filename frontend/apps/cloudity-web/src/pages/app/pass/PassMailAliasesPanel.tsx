@@ -20,7 +20,11 @@ import {
   type MailAccountResponse,
 } from '../../../api'
 import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
-import { effectiveAliasHostSuffix, resolveAliasEmailInput } from '../../../lib/mailAlias'
+import {
+  effectiveAliasHostSuffix,
+  resolveAliasEmailInput,
+  subscribeAliasSuffixChanges,
+} from '../../../lib/mailAlias'
 
 const selectClass =
   'block w-full rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-gray-900 dark:text-slate-100 focus:border-blue-500 dark:focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-brand-500 sm:text-sm'
@@ -76,7 +80,13 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
     staleTime: 5 * 60 * 1000,
   })
 
-  const aliasHostSuffix = effectiveAliasHostSuffix(aliasConfigQuery.data, selectedAccount?.email)
+  const [aliasSuffixRevision, setAliasSuffixRevision] = React.useState(0)
+  React.useEffect(() => subscribeAliasSuffixChanges(() => setAliasSuffixRevision((n) => n + 1)), [])
+
+  const aliasHostSuffix = React.useMemo(
+    () => effectiveAliasHostSuffix(aliasConfigQuery.data, selectedAccount?.email),
+    [aliasConfigQuery.data, selectedAccount?.email, aliasSuffixRevision]
+  )
   const aliasPreview = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
 
   const aliasesQuery = useQuery({
@@ -150,18 +160,11 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
             <Mail className="w-5 h-5 text-brand-500 shrink-0 mt-0.5" aria-hidden />
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
-                <strong>Cible</strong> : alias{' '}
-                <code className="text-[11px]">@{aliasHostSuffix || 'alias.domaine'}</code> créés ici
-                (sans panneau OVH) — doc{' '}
-                <code className="text-[11px]">MAIL-ALIAS-VISION.md</code>.{' '}
-                <strong>MVP</strong> : enregistrement pour filtrer dans Mail ; réception seulement si
-                l’alias existe déjà côté hébergeur — voir{' '}
-                <code className="text-[11px]">MAIL-ALIAS-DEMARRAGE.md</code>.{' '}
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Enregistrement côté Cloudity —{' '}
                 <Link to="/app/mail" className="text-brand-600 dark:text-brand-400 underline">
                   Ouvrir Mail
                 </Link>
-                .
               </p>
             </div>
           </div>
@@ -240,17 +243,22 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                 />
               </div>
               <div>
-                <Label htmlFor="pass-alias-target">Cible documentaire (optionnel)</Label>
-                <Input
+                <Label htmlFor="pass-alias-target">Boîte de réception (optionnel)</Label>
+                <select
                   id="pass-alias-target"
-                  type="email"
-                  placeholder={selectedAccount ? selectedAccount.email : 'boîte réelle cible'}
+                  className={selectClass}
                   value={newDeliverTarget}
                   onChange={(e) => setNewDeliverTarget(e.target.value)}
-                />
+                >
+                  <option value="">— Aucune (filtre Cloudity uniquement) —</option>
+                  {accounts.map((a) => (
+                    <option key={`deliver-${a.id}`} value={a.email}>
+                      {accountLabel(a)}
+                    </option>
+                  ))}
+                </select>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                  Si vide, la cible de livraison reste celle déjà connue pour ce compte. Utile pour
-                  noter une redirection explicite.
+                  Boîte IMAP qui reçoit le courrier redirigé vers cet alias.
                 </p>
               </div>
               <Button

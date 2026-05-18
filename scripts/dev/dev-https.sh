@@ -30,7 +30,7 @@ chmod 700 "$CERT_DIR"
 if [ ! -f "$CERT_DIR/localhost.pem" ] || [ ! -f "$CERT_DIR/localhost-key.pem" ]; then
   echo "🔐 Génération du certificat mkcert (localhost + 127.0.0.1)…"
   mkcert -install >/dev/null
-  (cd "$CERT_DIR" && mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost 127.0.0.1 ::1)
+  (cd "$CERT_DIR" && mkcert -key-file localhost-key.pem -cert-file localhost.pem localhost 127.0.0.1 cloudity.localhost ::1)
 fi
 
 export VITE_HTTPS_KEY="$CERT_DIR/localhost-key.pem"

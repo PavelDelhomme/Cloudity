@@ -33,6 +33,7 @@ test.html
 
 # Env local (secrets, ne pas committer)
 .env
+deploy/mail-mta/.env
 .env.local
 .env.dev
 .env.prod

@@ -223,6 +223,39 @@ func TestPassPrefixRouted(t *testing.T) {
 	}
 }
 
+// TestCORSPatchPreflight — PATCH (marquer lu Mail) doit passer le préflight OPTIONS.
+func TestCORSPatchPreflight(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "true")
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodOptions, "/mail/me/accounts/1/messages/1/read", nil)
+	req.Header.Set("Origin", "http://localhost:6001")
+	req.Header.Set("Access-Control-Request-Method", "PATCH")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK && w.Code != http.StatusNoContent {
+		t.Fatalf("OPTIONS preflight: status %d", w.Code)
+	}
+	allowMethods := w.Header().Get("Access-Control-Allow-Methods")
+	if !strings.Contains(allowMethods, "PATCH") {
+		t.Fatalf("Access-Control-Allow-Methods %q must include PATCH", allowMethods)
+	}
+	if w.Header().Get("Access-Control-Allow-Origin") != "http://localhost:6001" {
+		t.Fatalf("Allow-Origin %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestCORSCloudityLocalhostOrigin(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "true")
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	req.Header.Set("Origin", "https://cloudity.localhost:6001")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Header().Get("Access-Control-Allow-Origin") != "https://cloudity.localhost:6001" {
+		t.Fatalf("got %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
 // TestCORS vérifie que le gateway renvoie Access-Control-Allow-Origin pour une origine autorisée.
 func TestCORS(t *testing.T) {
 	handler := NewHandler()

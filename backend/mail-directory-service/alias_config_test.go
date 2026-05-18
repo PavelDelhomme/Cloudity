@@ -32,10 +32,10 @@ func TestNormalizeAliasEmailFullAddress(t *testing.T) {
 func TestValidateAliasEmailStrict(t *testing.T) {
 	t.Setenv("MAIL_PRIMARY_DOMAIN", "exemple.ovh")
 	t.Setenv("MAIL_ALIAS_SUBDOMAIN", "")
-	if err := validateAliasEmailForAccount("x@alias.exemple.ovh", ""); err != nil {
+	if err := validateAliasEmailForAccount("x@alias.exemple.ovh", "", ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := validateAliasEmailForAccount("x@wrong.com", ""); err == nil {
+	if err := validateAliasEmailForAccount("x@wrong.com", "", ""); err == nil {
 		t.Fatal("expected validation error")
 	}
 }

@@ -151,11 +151,15 @@ dev-https: ## Lance Vite en HTTPS local via mkcert (https://localhost:5173). Sta
 	@chmod +x scripts/dev/dev-https.sh
 	@./scripts/dev/dev-https.sh
 
+dev-certs-docker: ## Génère .certs/ pour HTTPS Vite dans Docker (https://localhost:6001)
+	@chmod +x scripts/dev/mkcert-docker-certs.sh
+	@./scripts/dev/mkcert-docker-certs.sh
+
 up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
 	@echo "✅ Stack démarrée. Accès:"
-	@echo "   Dashboard:  http://localhost:$(PORT_DASHBOARD)  (1er démarrage : npm install dans le conteneur → peut prendre 1–3 min ; logs: docker compose logs -f cloudity-web)"
+	@echo "   Dashboard:  http://localhost:$(PORT_DASHBOARD)  (HTTPS : make dev-certs-docker puis https://localhost:$(PORT_DASHBOARD))"
 	@echo "   Quand :$(PORT_DASHBOARD) répond :  make wait-for-dashboard   (optionnel, timeout ~4 min)"
 	@echo "   API:        http://localhost:$(PORT_GATEWAY)"
 	@echo "   Auth:       http://localhost:$(PORT_AUTH)"

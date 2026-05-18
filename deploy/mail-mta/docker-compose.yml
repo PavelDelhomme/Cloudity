@@ -1,0 +1,41 @@
+# Stack MTA locale / VPS — squelette MAIL-ALIAS-05
+# Usage : cp .env.example .env && docker compose up -d
+# Secrets et FQDN réels uniquement dans .env (gitignored).
+
+services:
+  postfix:
+    image: boky/postfix:v4.3.0
+    container_name: cloudity-mta-postfix
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      ALLOWED_SENDER_DOMAINS: ${ALLOWED_SENDER_DOMAINS}
+      HOSTNAME: ${MTA_HOSTNAME}
+      RELAYHOST: ${RELAYHOST}
+      RELAYHOST_USERNAME: ${RELAYHOST_USERNAME}
+      RELAYHOST_PASSWORD: ${RELAYHOST_PASSWORD}
+      POSTFIX_myhostname: ${MTA_HOSTNAME}
+      POSTFIX_mydomain: ${MAIL_ALIAS_DOMAIN}
+    ports:
+      - "${SMTP_PORT}:25"
+      - "${SUBMISSION_PORT}:587"
+    networks:
+      - mta
+    depends_on:
+      - opendkim
+
+  opendkim:
+    image: instrumentisto/opendkim:2.11
+    container_name: cloudity-mta-opendkim
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${MAIL_ALIAS_DOMAIN}
+      SELECTOR: ${DKIM_SELECTOR}
+    volumes:
+      - ./opendkim/keys:/etc/opendkim/keys
+    networks:
+      - mta
+
+networks:
+  mta:
+    name: cloudity-mta

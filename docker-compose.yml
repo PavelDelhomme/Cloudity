@@ -468,13 +468,15 @@ services:
     environment:
       - NODE_ENV=development
       # Appel direct au gateway depuis le navigateur (évite 401 sur /drive, /pass, etc.).
-      # Pour ouvrir sur smartphone : mets l’IP de ta machine (ex. VITE_API_URL=http://192.168.1.5:6080)
-      # et ouvre sur le téléphone http://<TON_IP>:6001
+      # HTTPS front : make dev-certs-docker puis https://localhost:6001 (certs dans .certs/)
       - VITE_API_URL=${VITE_API_URL:-http://localhost:6080}
+      - VITE_HTTPS_KEY=/ws/.certs/localhost-key.pem
+      - VITE_HTTPS_CERT=/ws/.certs/localhost.pem
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
     volumes:
       - ./frontend:/ws:cached
+      - ./.certs:/ws/.certs:ro
       # Volume dédié : évite d’écraser les node_modules Linux avec ceux de l’hôte.
       # Il faut donc lancer **npm install à la racine /ws au démarrage** (voir command).
       - node_modules_cache:/ws/node_modules
@@ -487,7 +489,13 @@ services:
         "cd /ws && npm install && exec npm run dev -w @cloudity/web -- --host 0.0.0.0 --port 3000",
       ]
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://127.0.0.1:3000/"]
+      test:
+        [
+          "CMD",
+          "sh",
+          "-c",
+          "if [ -f /ws/.certs/localhost.pem ]; then curl -k -sf https://127.0.0.1:3000/; else curl -sf http://127.0.0.1:3000/; fi",
+        ]
       interval: 15s
       timeout: 5s
       retries: 25

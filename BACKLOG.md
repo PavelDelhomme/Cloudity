@@ -88,7 +88,7 @@
 - [ ] **ARCH-DHT-01** — **Phase tardive** : réseau décentralisé (DHT, relais chiffré, pairs sans IP exposée) — cadrage **[docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md](docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md)** ; hors MVP.
 - [ ] **MAIL-STOR-01** — Cache mail PostgreSQL + politique rétention + purge IMAP optionnelle (quota fournisseur) — **[docs/produit/MAIL-STOCKAGE-CACHE.md](docs/produit/MAIL-STOCKAGE-CACHE.md)**.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
-- [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH.
+- [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH. Guide : **[docs/produit/MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** (placeholders DNS, pas d’IP en Git).
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
 - [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).

@@ -6,10 +6,12 @@
 
 | Placeholder | Signification |
 |-------------|----------------|
-| `<domaine-principal>` | Ton domaine (ex. `exemple.ovh`) |
+| `<domaine-principal>` | Domaine de ta boîte IMAP (ex. `exemple.ovh`) |
+| `<domaine-alias>` | Domaine **dédié** aux alias (ex. `maily.exemple` — **vierge**, MX séparés) — optionnel |
 | `<boite-test>` | Boîte IMAP de test (ex. `test@<domaine-principal>`) |
 | `<boite-principale>` | Boîte qui reçoit le courrier (ex. `user@<domaine-principal>`) |
-| `inscriptions@alias.<domaine-principal>` | Exemple d’alias à **créer dans l’app** |
+| `inscriptions@<domaine-alias>` | Exemple si le suffixe UI = `<domaine-alias>` (sans `alias.` devant) |
+| `inscriptions@alias.<domaine-principal>` | Exemple si tu gardes le suffixe dérivé `alias.<domaine-principal>` |
 
 ---
 
@@ -42,9 +44,12 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 
 ### Domaine alias (une fois)
 
-1. **Interface (recommandé)** : **Pass → Alias mail** ou **Mail → Paramètres → Domaine des alias** → suffixe `alias.<domaine-principal>` → **Enregistrer** (préférence navigateur).
-2. **Serveur (optionnel)** : `.env` `MAIL_PRIMARY_DOMAIN` / `MAIL_ALIAS_SUBDOMAIN` pour validation stricte équipe — pas obligatoire en local.
-3. Ensuite tu ne tapes plus que le **nom** (ex. `inscriptions`) : l’app forme `inscriptions@alias.<domaine-principal>`.
+1. **Interface (recommandé)** : **Pass → Alias mail** ou **Mail → Paramètres → Domaine des alias** → suffixe :
+   - soit **`<domaine-alias>`** entier (ex. domaine dédié type Proton : `inscriptions@<domaine-alias>`),
+   - soit `alias.<domaine-principal>` si tu n’as pas de domaine alias séparé.
+   Puis **Enregistrer** (préférence navigateur — **ne pas committer** ton vrai domaine dans Git).
+2. **Serveur (optionnel)** : `.env` `MAIL_PRIMARY_DOMAIN` / `MAIL_ALIAS_SUBDOMAIN` — équipe / prod uniquement.
+3. Ensuite tu ne tapes plus que le **nom** (ex. `inscriptions`) : l’aperçu doit montrer `inscriptions@<suffixe-configuré>`.
 
 > **Sans hébergeur** : tu peux enregistrer l’alias dans Cloudity (filtres, From) ; **recevoir** du courrier Internet sur `@alias.*` exige encore MX/redirection (**MAIL-ALIAS-05** / panneau OVH). Tu ne perds pas ta boîte actuelle : Cloudity **s’ajoute** à l’IMAP existant.
 
@@ -53,7 +58,7 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 1. Ouvrir **http://localhost:6001/app/pass** (coffre verrouillé ou non : le panneau alias est accessible).
 2. Section **Alias mail** → choisir la boîte **`<boite-test>`** → configurer le **domaine des alias** si besoin.
 3. Renseigner :
-   - **Nom de l’alias** : `inscriptions` (affiche `inscriptions@alias.<domaine-principal>`)
+   - **Nom de l’alias** : `inscriptions` (vérifie l’aperçu : `inscriptions@<domaine-alias>` ou `inscriptions@alias.<domaine-principal>`)
    - **Libellé** (optionnel) : `Newsletter test`
    - **Cible de livraison** (optionnel) : `<boite-test>` ou `<boite-principale>`
 4. Cliquer **Enregistrer l’alias** → toast *« Alias enregistré (règle de tri créée si besoin) »*.
@@ -80,7 +85,7 @@ Ensuite envoie un mail **vers** l’alias depuis une autre boîte ; après sync 
 
 | # | Action | OK |
 |---|--------|-----|
-| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ |
+| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ | fait donc et alias enregistrer et fficher donc  via l'application pass donc - test aussi donc avec l'application mail donc 
 | **C2** | Toast enregistrement + règle auto | ☐ |
 | **C3** | **Mail** → barre latérale (sous la boîte) : cliquer l’alias → filtre `delivered_to` | ☐ |
 | **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☐ |

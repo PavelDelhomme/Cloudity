@@ -285,6 +285,7 @@ func main() {
 		mail.GET("/me/oauth/google/authorize", h.oauthGoogleAuthorize)
 		// Routes /me/* en premier pour ne pas être capturées par /domains/:id
 		mail.GET("/me/alias-config", h.getMailAliasConfig)
+		mail.PATCH("/me/alias-config", h.patchMailAliasConfig)
 		mail.GET("/me/accounts", h.listUserAccounts)
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
@@ -1546,12 +1547,14 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	em, normErr := normalizeAliasEmail(body.AliasEmail, accountEmail)
+	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
+	userSuffix, _ := h.loadUserAliasHostSuffix(ctx, userID)
+	em, normErr := normalizeAliasEmailWithSuffix(body.AliasEmail, accountEmail, userSuffix)
 	if normErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": normErr.Error()})
 		return
 	}
-	if valErr := validateAliasEmailForAccount(em, accountEmail); valErr != nil {
+	if valErr := validateAliasEmailForAccount(em, accountEmail, userSuffix); valErr != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
 		return
 	}
@@ -1595,6 +1598,15 @@ func (h *Handler) deleteAccountAlias(c *gin.Context) {
 	if err != nil || aliasID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid alias id"})
 		return
+	}
+	var aliasEmail string
+	if err := h.dbex(ctx).QueryRow(`
+		SELECT a.alias_email FROM user_email_aliases a
+		INNER JOIN user_email_accounts u ON u.id = a.account_id
+		WHERE a.id = $1 AND a.account_id = $2
+		AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, aliasID, accountID).Scan(&aliasEmail); err == nil && strings.TrimSpace(aliasEmail) != "" {
+		_ = h.deleteAliasInboundRule(ctx, accountID, aliasEmail)
 	}
 	res, err := h.dbex(ctx).Exec(`
 		DELETE FROM user_email_aliases a USING user_email_accounts u
@@ -1683,6 +1695,17 @@ func (h *Handler) patchAccountAlias(c *gin.Context) {
 	if naff == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "alias introuvable"})
 		return
+	}
+	if body.Enabled != nil {
+		var aliasEmail string
+		if qerr := h.dbex(ctx).QueryRow(`
+			SELECT alias_email FROM user_email_aliases WHERE id = $1 AND account_id = $2
+		`, aliasID, accountID).Scan(&aliasEmail); qerr == nil {
+			if *body.Enabled {
+				_, _ = h.ensureAliasInboundRule(ctx, accountID, aliasEmail, "")
+			}
+			_ = h.setAliasInboundRuleEnabled(ctx, accountID, aliasEmail, *body.Enabled)
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
@@ -3045,10 +3068,15 @@ func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int,
 	if subject == "" {
 		subject = "(sans objet)"
 	}
+	messageID := generateOutboundMessageID(displayFrom)
 	msg := []byte("From: " + displayFrom + "\r\n" +
 		"To: " + to + "\r\n" +
+		"Message-ID: " + messageID + "\r\n" +
+		"Date: " + time.Now().Format(time.RFC1123Z) + "\r\n" +
 		"Subject: " + subject + "\r\n" +
+		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/plain; charset=UTF-8\r\n" +
+		"Content-Transfer-Encoding: 8bit\r\n" +
 		"\r\n" + bodyInput)
 	// Enveloppe SMTP : compte authentifié (évite les rejets si l’alias n’est pas autorisé comme MAIL FROM).
 	if err := smtp.SendMail(addr, auth, email, []string{to}, msg); err != nil {
