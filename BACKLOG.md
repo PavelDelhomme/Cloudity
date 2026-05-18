@@ -83,7 +83,7 @@
 > **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.delhomme.ovh`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
 
 - [x] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail (migration **40**, PATCH API, Mail + Pass).
-- [ ] **MAIL-ALIAS-02** — À la création : règle + tag/dossier dédié par alias (sync IMAP).
+- [x] **MAIL-ALIAS-02** — À la création : règle filtre `recipient_pattern` = alias (dossier `inbox`, `rule_order` 900) — `ensureAliasInboundRule` au POST alias.
 - [ ] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` + validation `*@alias.<domaine-principal>` à la création.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
 - [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH.

@@ -101,7 +101,19 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
       setNewAliasEmail('')
       setNewAliasLabel('')
       setNewDeliverTarget('')
-      toast.success('Alias enregistré')
+      toast.success('Alias enregistré (règle de tri créée si besoin)')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ aliasId, enabled }: { aliasId: number; enabled: boolean }) => {
+      if (selectedAccountId == null) throw new Error('Choisir une boîte')
+      return patchMailAlias(accessToken, selectedAccountId, aliasId, { enabled })
+    },
+    onSuccess: (_, { enabled }) => {
+      queryClient.invalidateQueries({ queryKey: ['mail-aliases', selectedAccountId] })
+      toast.success(enabled ? 'Alias activé' : 'Alias désactivé')
     },
     onError: (err: Error) => toast.error(err.message),
   })

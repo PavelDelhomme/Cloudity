@@ -49,9 +49,16 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **Drive** | ✅ | ✅ MVP | — | Polish mobile + gros fichiers |
 | **Photos** | ✅ | ✅ | — | Albums, sync galerie |
 | **Pass** | ✅ | ✅ lecture | 🟡 MV3 squelette | J8 import · **MP-06** autofill extension |
-| **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** provision OVH/MTA · **06** DKIM |
+| **Alias mail** | ✅ enregistrement + filtre + on/off + règle auto | (via Mail/Pass) | — | **05** provision OVH/MTA · **06** DKIM |
 
 **Préprod** : possible **après** merge `dev` + variables Portainer — pas avant boîte mail + alias testés en local.
+
+---
+
+## Sécurité avancée (plus tard — pas maintenant)
+
+Feuille de route **menaces IA** + **post-quantique** : **[MENACES-IA-ET-DEFENSE.md](./docs/securite/MENACES-IA-ET-DEFENSE.md)** (SEC-IA-*, SEC-PQC-*).  
+Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS.md**.
 
 ### Où est quoi dans `docs/` ?
 
@@ -100,7 +107,7 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guid
 | P0 | `MAIL_PASSWORD_ENCRYPTION_KEY` renseignée + boîtes sync | `make doctor` |
 | P0 | `ALIAS_ENCRYPTION_KEY` renseignée (parité VPS) | `make ensure-alias-encryption-key` — **Go ne l’utilise pas encore** |
 | P1 | **MAIL-ALIAS-01** — activer/désactiver alias | ✅ (migration 40 + UI Mail/Pass) |
-| P1 | **MAIL-ALIAS-02** — dossier/règle auto par alias | BACKLOG |
+| P1 | **MAIL-ALIAS-02** — dossier/règle auto par alias | ✅ (règle inbox à la création) |
 | P2 | **MAIL-ALIAS-05** — provision sans panneau OVH (API ou MTA **AS-1**) | BACKLOG |
 | P2 | Envoi `From` + DKIM alignés sur `alias.*` | **MAIL-ALIAS-06** + **AS-1** |
 

@@ -1401,7 +1401,7 @@ export default function MailPage() {
         setNewAliasEmail('')
         setNewAliasLabel('')
         setNewAliasDeliverTarget('')
-        toast.success('Alias enregistré')
+        toast.success('Alias enregistré (règle de tri créée si besoin)')
       } else if (mode.type === 'patch') {
         setEditingAliasCibleId(null)
         setAliasCibleDraft('')

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -701,4 +702,38 @@ func (h *Handler) reconcileMessageStateOnIMAP(
 	}
 	storeItem := imap.FormatFlagsOp(op, true)
 	return ic.UidStore(seqset, storeItem, []interface{}{imap.SeenFlag}, nil)
+}
+
+// ensureAliasInboundRule crée une règle de tri pour les messages adressés à l’alias (MAIL-ALIAS-02).
+// Dossier d’action : inbox (toujours valide) ; le filtre UI `delivered_to` reste la vue principale.
+func (h *Handler) ensureAliasInboundRule(ctx context.Context, accountID int, aliasEmail, label string) (int, error) {
+	rcp := strings.TrimSpace(strings.ToLower(aliasEmail))
+	if rcp == "" {
+		return 0, nil
+	}
+	var existing int
+	err := h.dbex(ctx).QueryRow(`
+		SELECT id FROM mail_filter_rules
+		WHERE account_id = $1 AND LOWER(TRIM(COALESCE(recipient_pattern, ''))) = $2
+		LIMIT 1
+	`, accountID, rcp).Scan(&existing)
+	if err == nil {
+		return existing, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	name := "Alias · " + rcp
+	if lab := strings.TrimSpace(label); lab != "" {
+		name = "Alias · " + lab
+	}
+	criteriaJSON, _ := json.Marshal(map[string]interface{}{"recipient_pattern": rcp})
+	actionsJSON, _ := json.Marshal(map[string]interface{}{"action_folder": "inbox"})
+	var id int
+	err = h.dbex(ctx).QueryRow(`
+		INSERT INTO mail_filter_rules(account_id, name, recipient_pattern, action_folder, enabled, rule_order, criteria_json, actions_json)
+		VALUES ($1, $2, $3, 'inbox', true, 900, $4::jsonb, $5::jsonb)
+		RETURNING id
+	`, accountID, name, rcp, criteriaJSON, actionsJSON).Scan(&id)
+	return id, err
 }

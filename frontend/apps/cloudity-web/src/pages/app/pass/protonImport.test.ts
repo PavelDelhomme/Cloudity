@@ -8,6 +8,10 @@ import {
   ProtonImportError,
 } from './protonImport'
 
+const CSV_SAMPLE = `type,name,url,email,username,password,note,totp,vault
+login,Site demo,https://demo.example,,user@demo.example,secret,,,Import
+alias,Newsletter,,newsletter@alias.example.com,,,,,Import`
+
 const VALID_EXPORT = {
   version: '1.21.0',
   userId: 'usr_42',
@@ -159,7 +163,7 @@ describe('convertProtonToCloudity', () => {
     const all = out.flatMap((v) => v.items)
     expect(all.filter((i) => i.protonType === 'login')).toHaveLength(1)
     expect(all.find((i) => i.protonType === 'alias')?.plaintext.notes).toContain(
-      'alias@alias.delhomme.ovh'
+      'newsletter@alias.example.com'
     )
   })
 

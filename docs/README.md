@@ -42,6 +42,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[securite/AUDIT-SECURITE.md](securite/AUDIT-SECURITE.md)** | Audit sécurité **transverse** (admin UI `/4dm1n`, gateway `/admin/*`, mail admin-only, interne Docker, JWT UX). |
 | **[securite/SECRETS.md](securite/SECRETS.md)** | **Politique secrets** : inventaire, génération `make secrets`, rotation, détection (`gitleaks`), procédure incident. |
 | **[securite/MTLS-INTERNE.md](securite/MTLS-INTERNE.md)** | mTLS entre microservices avec **step-ca**, patterns Go, migration `off → permissive → strict`. |
+| **[securite/MENACES-IA-ET-DEFENSE.md](securite/MENACES-IA-ET-DEFENSE.md)** | Menaces **IA offensive** (spear phishing, fuzzing, exfil) + défense augmentée + **PQC** — planification (plus tard). |
 | **[securite/REVERSE-PROXY.md](securite/REVERSE-PROXY.md)** | Edge prod : gabarits **Caddy / nginx / Traefik** (TLS 1.3 strict, HSTS, CSP, hybride `X25519MLKEM768`). |
 | **[securite/PASS-CRYPTO.md](securite/PASS-CRYPTO.md)** | Format de chiffrement **Vault Pass** (Argon2id + XChaCha20-Poly1305 + KEM hybride X25519 ⊕ ML-KEM-768). |
 | **[securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** | **Mail** : secrets boîte (AES-GCM) vs corps E2E (futur) vs **Pass** ; anti-spam sans bloquer l’envoi légitime ; liens vers l’architecture multi-couches. |

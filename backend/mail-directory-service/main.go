@@ -1567,7 +1567,12 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": newID, "alias_email": em})
+	ruleID, ruleErr := h.ensureAliasInboundRule(ctx, accountID, em, body.Label)
+	resp := gin.H{"id": newID, "alias_email": em}
+	if ruleErr == nil && ruleID > 0 {
+		resp["filter_rule_id"] = ruleID
+	}
+	c.JSON(http.StatusCreated, resp)
 }
 
 func (h *Handler) deleteAccountAlias(c *gin.Context) {
