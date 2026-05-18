@@ -31,7 +31,7 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guid
 
 ## Alias mail — cible produit (Pass ↔ Mail)
 
-**Doc maître** : **[docs/produit/MAIL-ALIAS-VISION.md](./docs/produit/MAIL-ALIAS-VISION.md)** (parcours `hellowork@alias.delhomme.ovh`, sans OVH manuel).
+**Doc maître** : **[MAIL-ALIAS-VISION.md](./docs/produit/MAIL-ALIAS-VISION.md)** · pratique : **[MAIL-ALIAS-DEMARRAGE.md](./docs/produit/MAIL-ALIAS-DEMARRAGE.md)**.
 
 | Priorité | Tâche | État |
 |----------|--------|------|
@@ -53,22 +53,38 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guid
 
 ---
 
-## Déploiement (local · VPS · mobile)
+## Feuille de route déploiement (méthodique)
+
+**Document détaillé avec cases ☐** : **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** — à suivre depuis GitHub (web ou mobile).
+
+| Phase | Objectif | Lien rapide |
+|-------|----------|-------------|
+| **A** | Local monorepo (`make up`, `make test`, `deploy-*`) | SUIVI § 2 |
+| **B** | Git : PR → `dev` → `main`, GHA tests + `docker-publish` | SUIVI § 3 |
+| **C** | Portainer : stacks **dev** / **preprod** / **prod** | SUIVI § 4 · **[PORTAINER-DELHOMME-OVH.md](./docs/operations/PORTAINER-DELHOMME-OVH.md)** § 0 |
+| **D** | NPM + DNS + HTTPS | SUIVI § 5 |
+| **E** | Android APK + `version.json` | SUIVI § 6 · **[RELEASE-AND-DISTRIBUTION.md](./docs/operations/RELEASE-AND-DISTRIBUTION.md)** |
+| **F** | Mise à jour **un** service (quotidien) | SUIVI § 7 · `make deploy-web`, etc. |
+
+**IP VPS (`VPS_PUBLIC_IP`)** : uniquement dans **Portainer → variables de stack**, pas dans Git. Voir PORTAINER § 0.
+
+**Prochaine action suggérée** : Phase B — PR branche actuelle vers **`dev`** (code + doc déjà poussés).
+
+---
+
+## Déploiement (références rapides)
 
 | Besoin | Doc / commande |
 |--------|----------------|
-| **Comprendre les 3 environnements** | **[DEPLOIEMENT-ENVIRONNEMENTS.md](./docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** |
-| Front seul | `make deploy-web` — pas `deploy-web` pour Mail |
-| Mail seul | `make deploy-mail` |
-| API | `make deploy-gateway` |
-| Tout en local | `make up` (sans Portainer/NPM) |
-| VPS (Portainer + NPM) | **[PORTAINER-DELHOMME-OVH.md](./docs/operations/PORTAINER-DELHOMME-OVH.md)** + DNS `api.cloudity.<ton-domaine>` |
-| Monorepo vs multi-repo | **[TRAVAIL-MONOREPO-MAINTENANT.md](./docs/decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** |
-| `.env` prod vs dev | `make secrets-print` → Portainer — **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** § 6 |
+| Hub 3 environnements | **[DEPLOIEMENT-ENVIRONNEMENTS.md](./docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** |
+| Front / Mail / API seul | `make deploy-web` · `deploy-mail` · `deploy-gateway` |
+| Secrets | `make secrets-print` → **Portainer** — **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** |
+| Monorepo | **[TRAVAIL-MONOREPO-MAINTENANT.md](./docs/decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** |
+| Compose Portainer (futur) | **[deploy/portainer/README.md](./deploy/portainer/README.md)** |
 
-## Prod VPS
+## Prod VPS (sécurité)
 
-Checklist : **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](./docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** + **[docs/architecture/HOMELAB-SECURITE.md](./docs/architecture/HOMELAB-SECURITE.md)** (Q15).
+**[DEPLOIEMENT-VPS-PORTAINER-NPM.md](./docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** + **[HOMELAB-SECURITE.md](./docs/architecture/HOMELAB-SECURITE.md)** (Q15).
 
 ---
 

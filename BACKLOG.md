@@ -124,8 +124,11 @@
 
 > **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-DELHOMME-OVH.md](docs/operations/PORTAINER-DELHOMME-OVH.md)** · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
 
-- [ ] **DEPLOY-DOC-01** — Templates Compose `deploy/portainer/` par stack (infra, identity, web, mail, pass) pour coller Nextcloud sur Portainer CE.
-- [ ] **DEPLOY-DNS-01** — Créer `api.cloudity.delhomme.ovh` (A + NPM) + `CORS_ORIGINS` / build `VITE_API_URL` prod.
+- [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
+- [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
+- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + `CORS_ORIGINS` / `VITE_API_URL` par environnement.
+- [ ] **DEPLOY-PORTAINER-02** — Script ou doc « Update stack » : pull GHCR tag + redeploy (semi-auto après `docker-publish`).
+- [ ] **DEPLOY-PR-01** — PR `feat/photos-gallery-mobile-sync-security` → `dev`, puis `dev` → `main` quand tests verts.
 
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).

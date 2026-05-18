@@ -79,6 +79,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/DEV-VERIFICATION.md](operations/DEV-VERIFICATION.md)** | Checklist après modifs (build, tests, E2E, `/4dm1n`, Docker). |
 | **[operations/DEVELOPMENT-HOST.md](operations/DEVELOPMENT-HOST.md)** | Hôte Linux : Redis `vm.overcommit_memory`, sysctl — pas configurable dans le conteneur. |
 | **[operations/RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** | **Prod partielle** : maj par service (GHCR + Portainer), **Portainer CE**, **OTA Android** (`version.json` + APK), limites **iOS** ; Pass + **alias mail** ; secrets ; liens **REL-*** dans **BACKLOG**. |
+| **[operations/DEPLOIEMENT-SUIVI.md](operations/DEPLOIEMENT-SUIVI.md)** | **Feuille de route** : phases A–F, cases ☐, dev/preprod/prod, CI, Android. |
 | **[operations/DEPLOIEMENT-ENVIRONNEMENTS.md](operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** | **Hub déploiement** : local vs VPS, socle obligatoire, mobile, Portainer CE. |
 | **[operations/DEPLOIEMENT-PAR-SERVICE.md](operations/DEPLOIEMENT-PAR-SERVICE.md)** | **`make deploy-web`**, **`deploy-mail`**, … — tableau local ↔ Portainer. |
 | **[operations/PORTAINER-DELHOMME-OVH.md](operations/PORTAINER-DELHOMME-OVH.md)** | Ton VPS (`95.111.227.204`), DNS `cloudity.delhomme.ovh`, réseaux NPM. |
