@@ -30,6 +30,7 @@ import GlobalSearchPalette from '../components/GlobalSearchPalette'
 import { NotificationsProvider, useNotifications } from '../notificationsContext'
 import { formatRelativeDate } from '../utils/formatDate'
 import { fetchMailAccounts, syncMailAccount, type MailAccountResponse } from '../api'
+import { accountCanBackgroundImapSync, isMailSyncPasswordRequiredError } from '../pages/app/mail/mailSyncHelpers'
 
 function NotificationBell() {
   const ctx = useNotifications()
@@ -161,11 +162,13 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
       const token = await refreshAccessTokenIfNeeded()
       if (!token) return
       for (const acc of accountsRef.current) {
+        if (!accountCanBackgroundImapSync(acc)) continue
         try {
           const r = await syncMailAccount(token, acc.id)
           notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
-        } catch {
-          // On continue sur les autres comptes.
+        } catch (e) {
+          if (isMailSyncPasswordRequiredError(e)) continue
+          // Autres erreurs IMAP : on continue sur les autres comptes.
         }
       }
       lastSyncAtRef.current = Date.now()
@@ -188,11 +191,12 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
         const token = await refreshAccessTokenIfNeeded()
         if (!token) return
         for (const acc of list) {
+          if (!accountCanBackgroundImapSync(acc)) continue
           try {
             const r = await syncMailAccount(token, acc.id)
             notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
-          } catch {
-            // Ignorer.
+          } catch (e) {
+            if (isMailSyncPasswordRequiredError(e)) continue
           }
         }
         lastSyncAtRef.current = Date.now()

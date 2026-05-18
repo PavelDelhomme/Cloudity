@@ -72,6 +72,7 @@
 
 Checklist opérationnelle (hors code) pour le jour J ; cocher au fil de l’eau :
 
+- [ ] **Prévol automatisé** : `make pass-j8-prep` (lance `make test-pass` puis affiche cette checklist ; `SKIP_TESTS=1 make pass-j8-prep` si les tests ont déjà été validés).
 - [ ] **Export** : Proton Pass → export **JSON en clair** (compte pilote) ; stockage chiffré disque / vault interne.
 - [ ] **Prévol** : sauvegarde Cloudity (DB + volumes si applicable) ; noter rollback (**DEPLOIEMENT-VPS-PORTAINER-NPM.md** § 10 bis si VPS).
 - [ ] **Import web** : `PassPage` → import fichier → **≥ 50** entrées visibles / cohérentes (titres, URLs, TOTP item si présents).
@@ -109,4 +110,4 @@ Checklist opérationnelle (hors code) pour le jour J ; cocher au fil de l’eau 
 | **Extension navigateur** | **Reportée J+1..J+5** | Pas bloquante : copie clipboard depuis web ou mobile suffit pour la migration ; autofill améliore le quotidien après. |
 | **WebAuthn comme déverrouillage Pass** | **Phase ultérieure** | Le mot de passe maître reste la base ; WebAuthn complémentaire plus tard. |
 
-*Dernière mise à jour : 2026-05-16.*
+*Dernière mise à jour : 2026-05-18.*

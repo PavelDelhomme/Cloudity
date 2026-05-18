@@ -1041,8 +1041,10 @@ type UserEmailAccount struct {
 	ImapPort  *int    `json:"imap_port,omitempty"`
 	SmtpHost  *string `json:"smtp_host,omitempty"`
 	SmtpPort  *int    `json:"smtp_port,omitempty"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
+	// true si OAuth ou password_encrypted présent en base (sync auto possible sans saisie).
+	ImapAuthReady bool `json:"imap_auth_ready"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
@@ -1051,7 +1053,12 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 	// peut tomber sur une autre conn du pool, ce qui désactivait silencieusement la RLS éventuelle).
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, user_id, tenant_id, email, label, imap_host, imap_port, smtp_host, smtp_port, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, user_id, tenant_id, email, label, imap_host, imap_port, smtp_host, smtp_port,
+			(
+				(oauth_refresh_token_encrypted IS NOT NULL AND TRIM(oauth_refresh_token_encrypted) <> '')
+				OR (password_encrypted IS NOT NULL AND TRIM(password_encrypted) <> '')
+			),
+			created_at::text, COALESCE(updated_at::text, '')
 		FROM user_email_accounts
 		WHERE user_id = $1
 		ORDER BY created_at DESC
@@ -1073,6 +1080,7 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 		if err := rows.Scan(
 			&a.ID, &a.UserID, &a.TenantID, &a.Email, &label,
 			&imapHost, &imapPort, &smtpHost, &smtpPort,
+			&a.ImapAuthReady,
 			&a.CreatedAt, &uat,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -1,0 +1,34 @@
+import { describe, expect, it, beforeEach } from 'vitest'
+import {
+  accountCanBackgroundImapSync,
+  clearMailSyncPasswordPrompt,
+  isMailSyncPasswordRequiredError,
+  markMailSyncPasswordPrompted,
+  shouldPromptMailSyncPassword,
+} from './mailSyncHelpers'
+
+describe('mailSyncHelpers', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
+  it('detecte erreur mot de passe requis', () => {
+    expect(
+      isMailSyncPasswordRequiredError(new Error('mot de passe requis pour la synchronisation'))
+    ).toBe(true)
+  })
+
+  it('accountCanBackgroundImapSync respecte imap_auth_ready', () => {
+    expect(accountCanBackgroundImapSync({ imap_auth_ready: true })).toBe(true)
+    expect(accountCanBackgroundImapSync({ imap_auth_ready: false })).toBe(false)
+    expect(accountCanBackgroundImapSync({})).toBe(true)
+  })
+
+  it('ne reprompt qu une fois par session', () => {
+    expect(shouldPromptMailSyncPassword(10)).toBe(true)
+    markMailSyncPasswordPrompted(10)
+    expect(shouldPromptMailSyncPassword(10)).toBe(false)
+    clearMailSyncPasswordPrompt(10)
+    expect(shouldPromptMailSyncPassword(10)).toBe(true)
+  })
+})

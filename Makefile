@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -70,6 +70,9 @@ help: ## Affiche ce message d'aide
 	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
+	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
+	@echo '  make pass-j8-prep - Préparation migration J8 Proton (test-pass + checklist runbook)'
+	@echo '  make test-e2e-playwright-pass - E2E Playwright Pass uniquement (e2e/pass.spec.ts)'
 	@echo '  make stack-heal | make doctor - Clé mail + recrée mail-directory + build extension (sans rebuild toutes les images)'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
 	@echo '  make clean-pass-e2e-vaults - Supprime les coffres Pass « e2e-* » (restes Playwright sur le compte démo)'
@@ -477,6 +480,26 @@ test-e2e-playwright-webauthn: ## E2E Playwright — WebAuthn / passkeys (e2e/web
 	@cd frontend && ./node_modules/.bin/playwright install chromium 2>/dev/null || true
 	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/webauthn.spec.ts
 	@echo "✅ E2E WebAuthn OK"
+
+test-e2e-playwright-pass: ## E2E Playwright — Pass uniquement (e2e/pass.spec.ts). Prérequis: make up, make seed-admin
+	@echo "🎭 Tests E2E Playwright — Pass..."
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/pass.spec.ts
+	@echo "✅ E2E Pass OK"
+
+test-pass: ## Tests Pass (passwords-service Go + @cloudity/pass-crypto + protonImport Vitest). Pas d’E2E.
+	@echo "🧪 Tests Pass (socle migration J8)..."
+	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker requis pour passwords-service."; exit 1; fi
+	@echo "  [passwords-service]"
+	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps passwords-service go test -v -count=1 ./... || exit 1
+	@echo "  [@cloudity/pass-crypto]"
+	@(cd frontend/packages/pass-crypto && npm test) || exit 1
+	@echo "  [protonImport — Vitest]"
+	@(cd frontend/apps/cloudity-web && npx vitest run src/pages/app/pass/protonImport.test.ts src/pages/app/mail/mailSyncHelpers.test.ts) || exit 1
+	@echo "✅ test-pass OK"
+
+pass-j8-prep: ## J8 migration Proton : test-pass + checklist (scripts/dev/pass-j8-prep.sh). SKIP_TESTS=1 pour la checklist seule.
+	@chmod +x scripts/dev/pass-j8-prep.sh
+	@./scripts/dev/pass-j8-prep.sh
 
 dashboard-npm-ci: ## npm ci à la racine frontend/ (workspaces : apps/* + packages/*)
 	@echo "📦 npm ci — frontend/ (workspaces)..."

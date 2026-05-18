@@ -57,6 +57,13 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../../authContext'
 import { useAppPageChromeSetters } from '../../../appPageChromeContext'
 import { MailAppChromeMenu } from './MailPageChrome'
+import {
+  accountCanBackgroundImapSync,
+  clearMailSyncPasswordPrompt,
+  isMailSyncPasswordRequiredError,
+  markMailSyncPasswordPrompted,
+  shouldPromptMailSyncPassword,
+} from './mailSyncHelpers'
 import { useNotifications } from '../../../notificationsContext'
 import {
   apiUrl,
@@ -195,23 +202,19 @@ function notifyNewMailForAccount(
   }
 }
 
-/** Réponse 400 sync IMAP : aucun MDP stocké / déchiffrement impossible — ouvrir la modale « Sync avec mot de passe ». */
-function isMailSyncPasswordRequiredError(e: unknown): boolean {
-  const m = e instanceof Error ? e.message : String(e)
-  return (
-    m.includes('mot de passe requis pour la synchronisation') ||
-    m.includes("secret enregistré n'est plus lisible") ||
-    m.includes('MAIL_PASSWORD_ENCRYPTION_KEY changée')
-  )
-}
-
-function warnIfSyncPasswordNotStored(r: { password_stored?: boolean; message?: string }, hadTypedPassword: boolean) {
+function warnIfSyncPasswordNotStored(
+  r: { password_stored?: boolean; message?: string },
+  hadTypedPassword: boolean,
+  accountId?: number
+) {
   if (hadTypedPassword && r.password_stored === false) {
     toast(
       r.message ||
         'Sync OK mais le mot de passe n’a pas été enregistré pour la prochaine fois — vérifiez MAIL_PASSWORD_ENCRYPTION_KEY (`make doctor`) puis resaisissez le mot de passe.',
       { duration: 7000, icon: '⚠️' }
     )
+  } else if (accountId != null && r.password_stored !== false) {
+    clearMailSyncPasswordPrompt(accountId)
   }
 }
 
@@ -2168,7 +2171,7 @@ export default function MailPage() {
       const syncRes = await syncMailAccount(tokenForSync, created.id, password)
       queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
       void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-      warnIfSyncPasswordNotStored(syncRes, true)
+      warnIfSyncPasswordNotStored(syncRes, true, created.id)
       toast.success(syncRes.synced > 0 ? `${syncRes.synced} message(s) récupéré(s)` : syncRes.message)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -2218,8 +2221,9 @@ export default function MailPage() {
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
-        warnIfSyncPasswordNotStored(r, typedPw.length > 0)
+        warnIfSyncPasswordNotStored(r, typedPw.length > 0, syncAccountId)
         toast.success(r.synced > 0 ? `${r.synced} message(s) synchronisé(s)` : r.message)
+        if (r.password_stored !== false) clearMailSyncPasswordPrompt(syncAccountId)
         setShowSyncModal(false)
         setSyncAccountId(null)
         setSyncPassword('')
@@ -5102,6 +5106,11 @@ export default function MailPage() {
                           <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{acc.label?.trim() || acc.email}</p>
                           {acc.label?.trim() ? (
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
+                          ) : null}
+                          {acc.imap_auth_ready === false ? (
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                              Connexion IMAP à configurer — utilisez « Sync avec mot de passe… ».
+                            </p>
                           ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2">

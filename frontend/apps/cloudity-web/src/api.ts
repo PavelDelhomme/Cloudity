@@ -565,6 +565,8 @@ export type MailAccountResponse = {
   imap_port?: number | null
   smtp_host?: string | null
   smtp_port?: number | null
+  /** false = pas de secret IMAP/OAuth en base — ne pas lancer de sync auto sans mot de passe saisi. */
+  imap_auth_ready?: boolean
   created_at: string
   updated_at: string
 }
