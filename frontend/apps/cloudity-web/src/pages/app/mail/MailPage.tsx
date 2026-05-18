@@ -940,8 +940,13 @@ function sanitizeMailHtmlUnsafeInput(raw: string): string {
   }
 }
 
+/** Date affichée pour un message : uniquement `date_at` IMAP (pas `created_at` = heure de sync). */
+function messageDisplayDate(msg: { date_at?: string; created_at?: string }): string | undefined {
+  return msg.date_at?.trim() || undefined
+}
+
 function formatReceivedDetail(dateAt: string | undefined): string {
-  if (!dateAt) return ''
+  if (!dateAt) return '—'
   try {
     return new Date(dateAt).toLocaleString('fr-FR', {
       weekday: 'short',
@@ -4557,7 +4562,9 @@ export default function MailPage() {
                                       {msg.attachment_count}
                                     </span>
                                   ) : null}
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">{formatMessageDate(msg.date_at ?? msg.created_at)}</span>
+                                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                                    {messageDisplayDate(msg) ? formatMessageDate(messageDisplayDate(msg)) : '—'}
+                                  </span>
                                 </span>
                               </div>
                               <div className="flex items-start justify-between gap-2 min-w-0">
@@ -4568,8 +4575,8 @@ export default function MailPage() {
                                   </p>
                                   <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                                     {activeFolder === 'trash' || activeFolder === 'spam'
-                                      ? `Date du message : ${formatReceivedDetail(msg.date_at ?? msg.created_at)}`
-                                      : `Reçu : ${formatReceivedDetail(msg.date_at ?? msg.created_at)}`}
+                                      ? `Date du message : ${formatReceivedDetail(messageDisplayDate(msg))}`
+                                      : `Reçu : ${formatReceivedDetail(messageDisplayDate(msg))}`}
                                   </p>
                                 </div>
                             <div className="flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>

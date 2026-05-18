@@ -12,13 +12,12 @@ Ordre recommandé pour ton **périmètre obligatoire** (mail, alias, web + mobil
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
-| **1** | **Santé locale** | `git pull` · `make doctor` · `make migrate` (migration **40** alias `enabled`) · `make test` | ☐ |
-| **2** | **Boîte mail opérationnelle** | UI : **Sync avec mot de passe…** par boîte · sync IMAP · envoi test | ☐ |
-| **3** | **Alias testables** | Créer un alias (Mail ou Pass) · filtre latéral **delivered_to** · **Activer/Désactiver** (MAIL-ALIAS-01 livré) · lire **[MAIL-ALIAS-DEMARRAGE.md](./docs/produit/MAIL-ALIAS-DEMARRAGE.md)** | ☐ |
-| **4** | **Mobiles sur LAN** | `VITE_API_URL` = IP PC · `make run-mobile` (mail / drive / photos) — voir § *Périmètre obligatoire* | ☐ |
-| **5** | **J8 Pass** (en parallèle si tu veux) | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** | ☐ |
-| **6** | **PR → `dev`** | CI verte puis merge | ☐ |
-| **7** | **Préprod VPS** | **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** phases C+ (après merge) | ☐ |
+| **1** | **Santé locale** | `git pull` · `make doctor` · `make migrate` · **`make test`** ✅ | ☑ |
+| **2** | **Boîte `test@delhomme.ovh`** | IMAP connectée · sync OK · si dates fausses → `make deploy-mail` + **Actualiser (IMAP)** — voir **[MAIL-TEST-DELHOMME.md](./docs/produit/MAIL-TEST-DELHOMME.md)** | ☐ |
+| **3** | **Checklist alias** (15 min) | **[MAIL-TEST-DELHOMME.md](./docs/produit/MAIL-TEST-DELHOMME.md)** § 3 (création + filtre latéral + règle visible + on/off) | ☐ |
+| **4** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** — **après** alias OK | ☐ |
+| **5** | **PR → `dev`** | CI verte puis merge | ☐ |
+| **6** | **Mobiles / préprod** | LAN + **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** | ☐ |
 
 **Pas de `TODOS.md` dans `docs/`** — uniquement **`TODOS.md` à la racine** (ce fichier) et **`docs/operations/TODO.md`** (dépannage technique ancien).
 

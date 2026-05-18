@@ -330,7 +330,7 @@ func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic
 	seqset.AddRange(from, to)
 	messages := make(chan *imap.Message, 24)
 	go func() {
-		if err := ic.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}, messages); err != nil {
+		if err := ic.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid, imap.FetchInternalDate}, messages); err != nil {
 			log.Printf("[mail] Fetch %s: %v", dbFolder, err)
 		}
 	}()
@@ -344,11 +344,13 @@ func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic
 		}
 		toAddrs := formatImapAddressList(msg.Envelope.To)
 		subject := msg.Envelope.Subject
-		// Ne pas utiliser time.Now() : une enveloppe sans date (souvent dossiers Trash / copies)
-		// faisait apparaître « reçu à l'instant » côté web (liste utilise date_at puis created_at).
+		// Ne pas utiliser time.Now() ni created_at pour l’affichage « Reçu ».
+		// Ordre : Date enveloppe → InternalDate IMAP (date serveur) → rien (le front n’affiche pas created_at).
 		var dateAt interface{}
 		if !msg.Envelope.Date.IsZero() {
 			dateAt = msg.Envelope.Date
+		} else if !msg.InternalDate.IsZero() {
+			dateAt = msg.InternalDate
 		}
 		mid := normalizeMessageID(msg.Envelope.MessageId)
 		irt := normalizeMessageID(msg.Envelope.InReplyTo)
