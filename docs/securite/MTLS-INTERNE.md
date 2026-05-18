@@ -6,6 +6,55 @@
 
 ---
 
+## 0. Comprendre TLS et mTLS (vulgarisé)
+
+### 0.1 TLS — le cadenas du navigateur
+
+**TLS** (*Transport Layer Security*) chiffre la connexion entre **deux machines** sur le réseau. Quand tu ouvres `https://app.ton-domaine.tld` :
+
+- le **navigateur** vérifie le **certificat** du serveur (signé par une autorité de confiance ou Let’s Encrypt) ;
+- la session est **chiffrée** (personne sur le Wi‑Fi ne lit le HTML/API en clair) ;
+- tu es en général **authentifié en tant qu’utilisateur** avec ton **login / JWT / passkey** *après* l’ouverture TLS.
+
+Dans Cloudity aujourd’hui, ce TLS « public » est en pratique terminé par **Nginx Proxy Manager (NPM)** vers l’extérieur. Entre NPM et les conteneurs, ou **entre conteneurs entre eux**, le trafic peut encore être en **HTTP clair** — c’est ce que ce document appelle le besoin **mTLS interne**.
+
+### 0.2 mTLS — « TLS dans les deux sens »
+
+**mTLS** = **mutual** TLS : **le client ET le serveur** présentent chacun un **certificat**.
+
+| | TLS classique (HTTPS) | mTLS |
+|---|----------------------|------|
+| Qui prouve son identité au départ ? | Souvent **le serveur seulement** | **Serveur + client** |
+| Exemple Cloudity | Navigateur → NPM → gateway | `api-gateway` → `auth-service` avec certificat de service |
+| À quoi ça sert ? | Confidentialité vers l’utilisateur | Empêcher un faux service sur le réseau Docker/VPS de se faire passer pour `mail-directory-service` |
+
+L’**utilisateur final** ne voit pas le mTLS interne : il utilise toujours **HTTPS + JWT**. Le mTLS protège **l’intérieur** de la plateforme (microservices, Postgres, Redis en TLS).
+
+### 0.3 « Interne » vs « Internet »
+
+| Lien | Protocole cible | Variable / doc |
+|------|-----------------|----------------|
+| Internet → NPM → dashboard | **HTTPS** (TLS 1.3) | Certificat Let’s Encrypt dans NPM |
+| Navigateur → API (JWT) | **HTTPS** + **JWT** | `CORS_*`, auth-service |
+| **Gateway ↔ auth, mail, drive…** | **mTLS** (ce document) | `MTLS_MODE`, `step-ca`, **[MTLS-INTERNE.md](MTLS-INTERNE.md)** |
+| Service ↔ Postgres / Redis | **TLS** + identité DB | migrations / compose `sslmode` |
+
+### 0.4 État Cloudity aujourd’hui
+
+- **`MTLS_MODE=off`** (défaut dans `.env.example`) : microservices se parlent en **HTTP** sur `cloudity-network`. Suffisant en **dev local** isolé.  
+- **`permissive` / `strict`** : chemins expérimentaux (`make mtls-up`, `step-ca`) — **pas** obligatoire pour faire tourner Mail ou Pass.  
+- **Ce n’est pas** le chiffrement du coffre Pass (c’est **côté client**, voir **PASS-CRYPTO.md**).
+
+### 0.5 Où configurer
+
+| Fichier | Contenu |
+|---------|---------|
+| `.env` | `MTLS_MODE`, `MTLS_CERT_FILE`, `MTLS_CA_FILE`, `MTLS_ALLOWED_PEERS` |
+| **[ENV-GENERATION.md](../operations/ENV-GENERATION.md)** | génération des autres secrets |
+| § 3+ ci-dessous | PKI `step-ca`, rotation, mode strict |
+
+---
+
 ## 1. État actuel (résumé code)
 
 | Brique | État | Source |

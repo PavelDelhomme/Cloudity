@@ -26,10 +26,14 @@
 
 ## 2. Génération recommandée
 
+**Guide pas à pas (tableau de toutes les variables)** : **[../operations/ENV-GENERATION.md](../operations/ENV-GENERATION.md)**.
+
 ```bash
 # Cloudity, racine du repo :
 make secrets             # crée .env (chmod 600) avec POSTGRES, REDIS, JWT, PERFORMANCE_INGEST_TOKEN, MAIL_*, ALIAS_*
 make secrets-print       # affiche un set de secrets sans rien écrire
+make ensure-mail-encryption-key   # ajoute MAIL_PASSWORD_ENCRYPTION_KEY si manquante
+make ensure-alias-encryption-key  # ajoute ALIAS_ENCRYPTION_KEY si manquante
 ./scripts/dev/gen-secrets.sh --force                   # écrase .env existant
 OUTPUT=.env.production.example ./scripts/dev/gen-secrets.sh   # template prod
 openssl rand -hex 32     # secret 256 bits (utilisable comme clé AES-256)
