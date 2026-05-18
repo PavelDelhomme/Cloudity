@@ -284,6 +284,7 @@ func main() {
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
 		mail.GET("/me/oauth/google/authorize", h.oauthGoogleAuthorize)
 		// Routes /me/* en premier pour ne pas être capturées par /domains/:id
+		mail.GET("/me/alias-config", h.getMailAliasConfig)
 		mail.GET("/me/accounts", h.listUserAccounts)
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.PATCH("/me/accounts/:id", h.patchUserAccount)
@@ -1534,9 +1535,24 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	em := strings.TrimSpace(strings.ToLower(body.AliasEmail))
-	if em == "" || !strings.Contains(em, "@") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "alias_email invalide"})
+	var accountEmail string
+	if err := h.dbex(ctx).QueryRow(`
+		SELECT email FROM user_email_accounts
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, accountID).Scan(&accountEmail); err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	em, normErr := normalizeAliasEmail(body.AliasEmail, accountEmail)
+	if normErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": normErr.Error()})
+		return
+	}
+	if valErr := validateAliasEmailForAccount(em, accountEmail); valErr != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": valErr.Error()})
 		return
 	}
 	dt := strings.TrimSpace(body.DeliverTargetEmail)
@@ -1545,14 +1561,6 @@ func (h *Handler) createAccountAlias(c *gin.Context) {
 		dtArg = dt
 	} else {
 		dtArg = nil
-	}
-	var n int
-	if err := h.dbex(ctx).QueryRow(`
-		SELECT COUNT(*) FROM user_email_accounts
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, accountID).Scan(&n); err != nil || n == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "compte introuvable"})
-		return
 	}
 	var newID int
 	err = h.dbex(ctx).QueryRow(`
@@ -2118,6 +2126,9 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 					m.ThreadKey = parsed.Meta.ThreadKey
 				}
 				m.AttachmentCount = parsed.Meta.AttachmentCount
+				if !parsed.Meta.Date.IsZero() {
+					m.DateAt = parsed.Meta.Date.UTC().Format(time.RFC3339)
+				}
 			}
 		}
 	}
@@ -2155,6 +2166,10 @@ func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed
 	if len(rh) > maxRawHeadersBytes {
 		rh = rh[:maxRawHeadersBytes]
 	}
+	var dateAt interface{}
+	if !parsed.Meta.Date.IsZero() {
+		dateAt = parsed.Meta.Date
+	}
 	_, err = tx.Exec(`
 		UPDATE mail_messages SET
 			body_plain = $1, body_html = $2,
@@ -2163,10 +2178,11 @@ func (h *Handler) persistParsedMail(c *gin.Context, accountID, msgID int, parsed
 			references_header = COALESCE($5, references_header),
 			thread_key = CASE WHEN $6 <> '' THEN $6 ELSE thread_key END,
 			attachment_count = $7,
-			raw_headers = COALESCE(NULLIF(BTRIM($8::text), ''), raw_headers)
-		WHERE id = $9 AND account_id = $10
+			raw_headers = COALESCE(NULLIF(BTRIM($8::text), ''), raw_headers),
+			date_at = COALESCE($9, date_at)
+		WHERE id = $10 AND account_id = $11
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, nullStr(parsed.Plain), nullStr(parsed.HTML), nullStr(parsed.Meta.InternetMsgID), nullStr(parsed.Meta.InReplyTo), ref, nullStr(parsed.Meta.ThreadKey), parsed.Meta.AttachmentCount, nullStr(rh), msgID, accountID)
+	`, nullStr(parsed.Plain), nullStr(parsed.HTML), nullStr(parsed.Meta.InternetMsgID), nullStr(parsed.Meta.InReplyTo), ref, nullStr(parsed.Meta.ThreadKey), parsed.Meta.AttachmentCount, nullStr(rh), dateAt, msgID, accountID)
 	if err != nil {
 		return err
 	}
@@ -2840,6 +2856,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		}
 	}
 	totalSynced += h.syncListedImapFoldersExtra(ctx, accountID, imapClient)
+	h.backfillMissingMessageDates(ctx, accountID, imapClient)
 	for _, p := range body.ExtraImapFolders {
 		path := strings.TrimSpace(p)
 		if path == "" {

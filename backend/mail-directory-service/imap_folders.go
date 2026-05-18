@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -13,6 +14,14 @@ import (
 	"github.com/emersion/go-imap/client"
 	"github.com/gin-gonic/gin"
 )
+
+var imapDateHeaderSection = &imap.BodySectionName{
+	Peek: true,
+	BodyPartName: imap.BodyPartName{
+		Specifier: imap.HeaderSpecifier,
+		Fields:    []string{"Date"},
+	},
+}
 
 func isStandardMailFolder(f string) bool {
 	switch strings.TrimSpace(strings.ToLower(f)) {
@@ -329,8 +338,14 @@ func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic
 	}
 	seqset.AddRange(from, to)
 	messages := make(chan *imap.Message, 24)
+	fetchItems := []imap.FetchItem{
+		imap.FetchEnvelope,
+		imap.FetchUid,
+		imap.FetchInternalDate,
+		imapDateHeaderSection.FetchItem(),
+	}
 	go func() {
-		if err := ic.Fetch(seqset, []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid, imap.FetchInternalDate}, messages); err != nil {
+		if err := ic.Fetch(seqset, fetchItems, messages); err != nil {
 			log.Printf("[mail] Fetch %s: %v", dbFolder, err)
 		}
 	}()
@@ -344,14 +359,7 @@ func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic
 		}
 		toAddrs := formatImapAddressList(msg.Envelope.To)
 		subject := msg.Envelope.Subject
-		// Ne pas utiliser time.Now() ni created_at pour l’affichage « Reçu ».
-		// Ordre : Date enveloppe → InternalDate IMAP (date serveur) → rien (le front n’affiche pas created_at).
-		var dateAt interface{}
-		if !msg.Envelope.Date.IsZero() {
-			dateAt = msg.Envelope.Date
-		} else if !msg.InternalDate.IsZero() {
-			dateAt = msg.InternalDate
-		}
+		dateAt := resolveImapMessageDateAt(msg)
 		mid := normalizeMessageID(msg.Envelope.MessageId)
 		irt := normalizeMessageID(msg.Envelope.InReplyTo)
 		tk := mid
@@ -418,6 +426,102 @@ func (h *Handler) syncImapMailboxMessages(ctx context.Context, accountID int, ic
 		}
 	}
 	return n, true
+}
+
+// resolveImapMessageDateAt — enveloppe → InternalDate → en-tête Date (BODY.PEEK[HEADER.FIELDS (DATE)]).
+func resolveImapMessageDateAt(msg *imap.Message) interface{} {
+	if msg.Envelope != nil && !msg.Envelope.Date.IsZero() {
+		return msg.Envelope.Date
+	}
+	if !msg.InternalDate.IsZero() {
+		return msg.InternalDate
+	}
+	if r := msg.GetBody(imapDateHeaderSection); r != nil {
+		b, err := io.ReadAll(r)
+		if err == nil {
+			if t := parseDateFromHeaderBlock(b); !t.IsZero() {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
+// backfillMissingMessageDates complète date_at pour les lignes sans date (après une sync).
+func (h *Handler) backfillMissingMessageDates(ctx context.Context, accountID int, ic *client.Client) {
+	rows, err := h.dbex(ctx).Query(`
+		SELECT id, folder, message_uid
+		FROM mail_messages
+		WHERE account_id = $1 AND date_at IS NULL AND message_uid > 0
+		ORDER BY id DESC
+		LIMIT 80
+	`, accountID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	type row struct {
+		id      int
+		folder  string
+		uid     uint32
+	}
+	var pending []row
+	for rows.Next() {
+		var r row
+		var uid int64
+		if err := rows.Scan(&r.id, &r.folder, &uid); err != nil {
+			continue
+		}
+		r.uid = uint32(uid)
+		pending = append(pending, r)
+	}
+	if len(pending) == 0 {
+		return
+	}
+	byFolder := map[string][]row{}
+	for _, r := range pending {
+		byFolder[r.folder] = append(byFolder[r.folder], r)
+	}
+	for dbFolder, items := range byFolder {
+		candidates := h.mergeImapFolderCandidates(ctx, accountID, dbFolder, imapMailboxCandidatesForDbFolder(dbFolder))
+		selected := false
+		for _, imapName := range candidates {
+			if _, selErr := ic.Select(imapName, false); selErr != nil {
+				continue
+			}
+			selected = true
+			for _, it := range items {
+				seqset := new(imap.SeqSet)
+				seqset.AddNum(it.uid)
+				ch := make(chan *imap.Message, 2)
+				done := make(chan error, 1)
+				go func() {
+					done <- ic.UidFetch(seqset, []imap.FetchItem{imapDateHeaderSection.FetchItem()}, ch)
+				}()
+				var msg *imap.Message
+				for m := range ch {
+					if msg == nil && m != nil {
+						msg = m
+					}
+				}
+				if err := <-done; err != nil || msg == nil {
+					continue
+				}
+				dateAt := resolveImapMessageDateAt(msg)
+				if dateAt == nil {
+					continue
+				}
+				_, _ = h.dbex(ctx).Exec(`
+					UPDATE mail_messages SET date_at = $1
+					WHERE id = $2 AND account_id = $3 AND date_at IS NULL
+				`, dateAt, it.id, accountID)
+			}
+			break
+		}
+		if !selected {
+			log.Printf("[mail] backfill dates: dossier %q introuvable compte %d", dbFolder, accountID)
+		}
+	}
 }
 
 // standardImapPathsAlreadySyncedAsStandard recense les chemins de boîte déjà couverts par syncAccountIMAP (clés standard inbox, sent, …).

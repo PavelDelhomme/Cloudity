@@ -787,6 +787,22 @@ export type MailAccountAliasResponse = {
   created_at: string
 }
 
+export type MailAliasConfigResponse = {
+  primary_domain?: string
+  alias_host_suffix?: string
+  validation_strict: boolean
+  env_configured: boolean
+}
+
+export async function fetchMailAliasConfig(token: string): Promise<MailAliasConfigResponse> {
+  return apiJson<MailAliasConfigResponse>(
+    token,
+    '/mail/me/alias-config',
+    { json: false },
+    'Mail alias config'
+  )
+}
+
 export async function fetchMailAliases(token: string, accountId: number): Promise<MailAccountAliasResponse[]> {
   const data = await apiJson<unknown>(
     token,

@@ -84,7 +84,9 @@
 
 - [x] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail (migration **40**, PATCH API, Mail + Pass).
 - [x] **MAIL-ALIAS-02** — À la création : règle filtre `recipient_pattern` = alias (dossier `inbox`, `rule_order` 900) — `ensureAliasInboundRule` au POST alias.
-- [ ] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` + validation `*@alias.<domaine-principal>` à la création.
+- [x] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` / `MAIL_PRIMARY_DOMAIN` + GET `/mail/me/alias-config` + validation `*@alias.<domaine>` ; UI domaine (Mail/Pass) + saisie local-part.
+- [ ] **ARCH-DHT-01** — **Phase tardive** : réseau décentralisé (DHT, relais chiffré, pairs sans IP exposée) — cadrage **[docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md](docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md)** ; hors MVP.
+- [ ] **MAIL-STOR-01** — Cache mail PostgreSQL + politique rétention + purge IMAP optionnelle (quota fournisseur) — **[docs/produit/MAIL-STOCKAGE-CACHE.md](docs/produit/MAIL-STOCKAGE-CACHE.md)**.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
 - [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH.
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.

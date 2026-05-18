@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	netmail "net/mail"
 	"strings"
+	"time"
 
 	"github.com/emersion/go-message/mail"
 )
@@ -16,11 +18,12 @@ const (
 )
 
 type mailParsedMeta struct {
-	InternetMsgID     string
-	InReplyTo         string
-	ReferencesHeader  string
-	ThreadKey         string
-	AttachmentCount   int
+	InternetMsgID    string
+	InReplyTo        string
+	ReferencesHeader string
+	ThreadKey        string
+	AttachmentCount  int
+	Date             time.Time
 }
 
 type mailAttachmentParsed struct {
@@ -55,6 +58,26 @@ func extractRawMIMEHeaders(raw []byte) string {
 		return string(hdr[:maxRawHeadersBytes])
 	}
 	return string(hdr)
+}
+
+// parseDateFromHeaderBlock lit un bloc HEADER.FIELDS (DATE) renvoyé par IMAP.
+func parseDateFromHeaderBlock(header []byte) time.Time {
+	if len(header) == 0 {
+		return time.Time{}
+	}
+	msg, err := netmail.ReadMessage(bytes.NewReader(header))
+	if err != nil {
+		return time.Time{}
+	}
+	ds := strings.TrimSpace(msg.Header.Get("Date"))
+	if ds == "" {
+		return time.Time{}
+	}
+	t, err := netmail.ParseDate(ds)
+	if err != nil || t.IsZero() {
+		return time.Time{}
+	}
+	return t
 }
 
 func normalizeMessageID(s string) string {
@@ -93,6 +116,13 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 	res.Meta.InReplyTo = normalizeMessageID(mr.Header.Get("In-Reply-To"))
 	res.Meta.ReferencesHeader = strings.TrimSpace(mr.Header.Get("References"))
 	res.Meta.ThreadKey = threadKeyFromHeaders(res.Meta.InternetMsgID, res.Meta.InReplyTo, res.Meta.ReferencesHeader)
+	if d, err := mr.Header.Date(); err == nil && !d.IsZero() {
+		res.Meta.Date = d
+	} else if ds := strings.TrimSpace(mr.Header.Get("Date")); ds != "" {
+		if t, perr := netmail.ParseDate(ds); perr == nil && !t.IsZero() {
+			res.Meta.Date = t
+		}
+	}
 
 	ordinal := 0
 	for {

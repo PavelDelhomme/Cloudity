@@ -27,9 +27,10 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 ## 2. Prérequis
 
 - [ ] `make migrate` · `make doctor` · **`make test`** vert
+- [ ] **`make deploy-mail`** suffit pour le service mail (pas besoin de tout redémarrer) ; recharger la page web (F5) pour le front
 - [ ] Mail → **Sync avec mot de passe…** pour `<boite-test>`
 - [ ] **Actualiser (IMAP)** : des messages visibles
-- [ ] Si dates « Reçu » fausses : `git pull` · `make deploy-mail` · **Actualiser (IMAP)** à nouveau
+- [ ] Si « Reçu : — » : `make deploy-mail` puis **Actualiser (IMAP)** (dates depuis en-tête `Date` IMAP)
 
 ---
 
@@ -39,12 +40,20 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 > **Recevoir** du courrier Internet sur une **nouvelle** adresse `@alias.<domaine>` nécessite encore le routage DNS/MX (**MAIL-ALIAS-05**) ou une redirection chez ton hébergeur.  
 > Tu peux quand même **créer**, **filtrer** (si le mail arrive déjà sur la boîte), et souvent **envoyer** avec **From** = alias.
 
+### Domaine alias (une fois)
+
+1. **Interface (recommandé)** : **Pass → Alias mail** ou **Mail → Paramètres → Domaine des alias** → suffixe `alias.<domaine-principal>` → **Enregistrer** (préférence navigateur).
+2. **Serveur (optionnel)** : `.env` `MAIL_PRIMARY_DOMAIN` / `MAIL_ALIAS_SUBDOMAIN` pour validation stricte équipe — pas obligatoire en local.
+3. Ensuite tu ne tapes plus que le **nom** (ex. `inscriptions`) : l’app forme `inscriptions@alias.<domaine-principal>`.
+
+> **Sans hébergeur** : tu peux enregistrer l’alias dans Cloudity (filtres, From) ; **recevoir** du courrier Internet sur `@alias.*` exige encore MX/redirection (**MAIL-ALIAS-05** / panneau OVH). Tu ne perds pas ta boîte actuelle : Cloudity **s’ajoute** à l’IMAP existant.
+
 ### Option A — depuis **Pass** (recommandé, style Proton)
 
 1. Ouvrir **http://localhost:6001/app/pass** (coffre verrouillé ou non : le panneau alias est accessible).
-2. Section **Alias mail** → choisir la boîte **`<boite-test>`**.
+2. Section **Alias mail** → choisir la boîte **`<boite-test>`** → configurer le **domaine des alias** si besoin.
 3. Renseigner :
-   - **Adresse alias** : `inscriptions@alias.<domaine-principal>` (ou toute adresse `@alias.<domaine-principal>` valide)
+   - **Nom de l’alias** : `inscriptions` (affiche `inscriptions@alias.<domaine-principal>`)
    - **Libellé** (optionnel) : `Newsletter test`
    - **Cible de livraison** (optionnel) : `<boite-test>` ou `<boite-principale>`
 4. Cliquer **Enregistrer l’alias** → toast *« Alias enregistré (règle de tri créée si besoin) »*.

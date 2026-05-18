@@ -87,6 +87,7 @@ import {
   fetchContacts,
   createCalendarEvent,
   fetchMailAliases,
+  fetchMailAliasConfig,
   fetchMailFilterRules,
   fetchMailFolderSummary,
   fetchMailImapFolders,
@@ -120,6 +121,8 @@ import {
   type VaultResponse,
   type PassItemResponse,
 } from '../../../api'
+import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
+import { effectiveAliasHostSuffix, resolveAliasEmailInput } from '../../../lib/mailAlias'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
@@ -1189,6 +1192,21 @@ export default function MailPage() {
     return { extra_imap_folders: [f] }
   }, [])
 
+  const effectiveAccount = useMemo(
+    () => accounts.find((a) => a.id === effectiveAccountId) ?? null,
+    [accounts, effectiveAccountId]
+  )
+
+  const { data: mailAliasConfig } = useQuery({
+    queryKey: ['mail', 'alias-config'],
+    queryFn: () => fetchMailAliasConfig(accessToken!),
+    enabled: !!accessToken && showMailSettings,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const aliasHostSuffix = effectiveAliasHostSuffix(mailAliasConfig, effectiveAccount?.email)
+  const newAliasPreview = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
+
   const { data: accountAliases = [] } = useQuery<MailAccountAliasResponse[]>({
     queryKey: ['mail', 'aliases', effectiveAccountId],
     queryFn: () => fetchMailAliases(accessToken!, effectiveAccountId!),
@@ -1375,8 +1393,14 @@ export default function MailPage() {
     ) => {
       if (!accessToken || effectiveAccountId == null) return
       if (mode.type === 'add') {
-        const em = newAliasEmail.trim().toLowerCase()
-        if (!em) throw new Error('Adresse alias requise')
+        const em = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
+        if (!em || !em.includes('@')) {
+          throw new Error(
+            aliasHostSuffix
+              ? 'Indiquez un nom d’alias (ex. newsletter)'
+              : 'Configurez le domaine alias ou saisissez une adresse complète'
+          )
+        }
         const target = newAliasDeliverTarget.trim()
         if (!isAliasDeliverTargetValid(target)) throw new Error(aliasDeliverTargetValidationMessage(target) || 'Cible invalide')
         await createMailAlias(accessToken, effectiveAccountId, {
@@ -5214,6 +5238,10 @@ export default function MailPage() {
                 </Link>
               </div>
 
+              {effectiveAccountId != null && accessToken && (
+                <MailAliasDomainConfig accessToken={accessToken} accountEmail={effectiveAccount?.email} />
+              )}
+
               {effectiveAccountId != null && (
                 <div>
                   <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">Alias</h3>
@@ -5320,14 +5348,19 @@ export default function MailPage() {
                     ))}
                   </ul>
                   <div className="flex flex-col gap-2">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <input
-                        type="email"
+                        type="text"
                         value={newAliasEmail}
                         onChange={(e) => setNewAliasEmail(e.target.value)}
-                        placeholder="alias@domaine.com"
-                        className="flex-1 min-w-[160px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
+                        placeholder="newsletter"
+                        className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
                       />
+                      {aliasHostSuffix ? (
+                        <span className="text-xs text-slate-600 dark:text-slate-300 shrink-0">
+                          @{aliasHostSuffix}
+                        </span>
+                      ) : null}
                       <input
                         type="text"
                         value={newAliasLabel}
@@ -5336,6 +5369,11 @@ export default function MailPage() {
                         className="flex-1 min-w-[120px] rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-2 py-1 text-xs"
                       />
                     </div>
+                    {newAliasPreview && newAliasPreview.includes('@') ? (
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        Adresse : <span className="font-mono">{newAliasPreview}</span>
+                      </p>
+                    ) : null}
                     <input
                       type="text"
                       value={newAliasDeliverTarget}

@@ -320,6 +320,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	mail := r.Group("/mail")
 	{
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
+		mail.GET("/me/alias-config", h.getMailAliasConfig)
 		mail.GET("/me/accounts", h.listUserAccounts)
 		mail.POST("/me/accounts", h.createUserAccount)
 		mail.PATCH("/me/accounts/:id", h.patchUserAccount)

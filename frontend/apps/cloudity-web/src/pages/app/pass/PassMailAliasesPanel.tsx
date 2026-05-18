@@ -13,11 +13,14 @@ import { Mail } from 'lucide-react'
 import {
   fetchMailAccounts,
   fetchMailAliases,
+  fetchMailAliasConfig,
   createMailAlias,
   patchMailAlias,
   deleteMailAlias,
   type MailAccountResponse,
 } from '../../../api'
+import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
+import { effectiveAliasHostSuffix, resolveAliasEmailInput } from '../../../lib/mailAlias'
 
 const selectClass =
   'block w-full rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-gray-900 dark:text-slate-100 focus:border-blue-500 dark:focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:focus:ring-brand-500 sm:text-sm'
@@ -66,12 +69,15 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
   }, [accounts, selectedAccountId])
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null
-  const mailDomain = selectedAccount?.email?.includes('@')
-    ? selectedAccount.email.split('@').pop()
-    : undefined
-  const aliasPlaceholder = mailDomain
-    ? `inscriptions@alias.${mailDomain}`
-    : 'inscriptions@alias.ton-domaine.ovh'
+
+  const aliasConfigQuery = useQuery({
+    queryKey: ['mail', 'alias-config', 'pass-panel'],
+    queryFn: () => fetchMailAliasConfig(accessToken),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const aliasHostSuffix = effectiveAliasHostSuffix(aliasConfigQuery.data, selectedAccount?.email)
+  const aliasPreview = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
 
   const aliasesQuery = useQuery({
     queryKey: ['mail-aliases', selectedAccountId],
@@ -90,8 +96,16 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
   const createMutation = useMutation({
     mutationFn: () => {
       if (selectedAccountId == null) throw new Error('Choisir une boîte')
+      const em = resolveAliasEmailInput(newAliasEmail, aliasHostSuffix)
+      if (!em || !em.includes('@')) {
+        throw new Error(
+          aliasHostSuffix
+            ? 'Indiquez un nom d’alias (ex. newsletter)'
+            : 'Configurez le domaine alias ou saisissez une adresse complète'
+        )
+      }
       return createMailAlias(accessToken, selectedAccountId, {
-        alias_email: newAliasEmail.trim(),
+        alias_email: em,
         label: newAliasLabel.trim() || undefined,
         deliver_target_email: newDeliverTarget.trim() || undefined,
       })
@@ -138,7 +152,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
                 <strong>Cible</strong> : alias{' '}
-                <code className="text-[11px]">@alias.{mailDomain ?? 'exemple.com'}</code> créés ici
+                <code className="text-[11px]">@{aliasHostSuffix || 'alias.domaine'}</code> créés ici
                 (sans panneau OVH) — doc{' '}
                 <code className="text-[11px]">MAIL-ALIAS-VISION.md</code>.{' '}
                 <strong>MVP</strong> : enregistrement pour filtrer dans Mail ; réception seulement si
@@ -183,18 +197,37 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
               </select>
             </div>
 
+            <MailAliasDomainConfig
+              accessToken={accessToken}
+              accountEmail={selectedAccount?.email}
+              compact
+            />
+
             <div className="border border-slate-200 dark:border-slate-600 rounded-lg p-3 space-y-3 bg-slate-50/80 dark:bg-slate-800/40">
               <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Nouvel alias</p>
               <div>
-                <Label htmlFor="pass-alias-email">Adresse alias</Label>
-                <Input
-                  id="pass-alias-email"
-                  type="email"
-                  autoComplete="off"
-                  placeholder={aliasPlaceholder}
-                  value={newAliasEmail}
-                  onChange={(e) => setNewAliasEmail(e.target.value)}
-                />
+                <Label htmlFor="pass-alias-local">Nom de l’alias</Label>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <Input
+                    id="pass-alias-local"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="newsletter"
+                    value={newAliasEmail}
+                    onChange={(e) => setNewAliasEmail(e.target.value)}
+                    className="flex-1 min-w-[120px]"
+                  />
+                  {aliasHostSuffix ? (
+                    <span className="text-sm text-slate-600 dark:text-slate-300 shrink-0">
+                      @{aliasHostSuffix}
+                    </span>
+                  ) : null}
+                </div>
+                {aliasPreview && aliasPreview.includes('@') ? (
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                    → <span className="font-mono">{aliasPreview}</span>
+                  </p>
+                ) : null}
               </div>
               <div>
                 <Label htmlFor="pass-alias-label">Libellé (optionnel)</Label>
