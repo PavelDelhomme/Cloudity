@@ -4,7 +4,7 @@
 
 > Le calendrier de mise en prod est contraint par **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** (Q15=A : H1 backup RPi avant prod publique). Cette fiche sert de **plan d'attaque** prêt-à-coller le jour J.
 >
-> **Ton VPS `delhomme.ovh`** (DNS, réseaux Portainer existants) : **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)**. **Hub local vs prod** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)**.
+> **Ton VPS `<domaine-principal>`** (DNS, réseaux Portainer existants) : **[PORTAINER-VPS.md](PORTAINER-VPS.md)**. **Hub local vs prod** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)**.
 
 ---
 

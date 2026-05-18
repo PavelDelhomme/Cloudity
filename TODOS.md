@@ -13,8 +13,8 @@ Ordre recommandé pour ton **périmètre obligatoire** (mail, alias, web + mobil
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `git pull` · `make doctor` · `make migrate` · **`make test`** ✅ | ☑ |
-| **2** | **Boîte `test@delhomme.ovh`** | IMAP connectée · sync OK · si dates fausses → `make deploy-mail` + **Actualiser (IMAP)** — voir **[MAIL-TEST-DELHOMME.md](./docs/produit/MAIL-TEST-DELHOMME.md)** | ☐ |
-| **3** | **Checklist alias** (15 min) | **[MAIL-TEST-DELHOMME.md](./docs/produit/MAIL-TEST-DELHOMME.md)** § 3 (création + filtre latéral + règle visible + on/off) | ☐ |
+| **2** | **Boîte `test@<domaine-principal>`** | IMAP connectée · sync OK · si dates fausses → `make deploy-mail` + **Actualiser (IMAP)** — voir **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
+| **3** | **Checklist alias** (15 min) | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** § 3–4 : **créer** l’alias dans Pass/Mail, filtre, règle, on/off, From | ☐ |
 | **4** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** — **après** alias OK | ☐ |
 | **5** | **PR → `dev`** | CI verte puis merge | ☐ |
 | **6** | **Mobiles / préprod** | LAN + **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** | ☐ |
@@ -128,7 +128,7 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guid
 |-------|----------|-------------|
 | **A** | Local monorepo (`make up`, `make test`, `deploy-*`) | SUIVI § 2 |
 | **B** | Git : PR → `dev` → `main`, GHA tests + `docker-publish` | SUIVI § 3 |
-| **C** | Portainer : stacks **dev** / **preprod** / **prod** | SUIVI § 4 · **[PORTAINER-DELHOMME-OVH.md](./docs/operations/PORTAINER-DELHOMME-OVH.md)** § 0 |
+| **C** | Portainer : stacks **dev** / **preprod** / **prod** | SUIVI § 4 · **[PORTAINER-VPS.md](./docs/operations/PORTAINER-VPS.md)** § 0 |
 | **D** | NPM + DNS + HTTPS | SUIVI § 5 |
 | **E** | Android APK + `version.json` | SUIVI § 6 · **[RELEASE-AND-DISTRIBUTION.md](./docs/operations/RELEASE-AND-DISTRIBUTION.md)** |
 | **F** | Mise à jour **un** service (quotidien) | SUIVI § 7 · `make deploy-web`, etc. |

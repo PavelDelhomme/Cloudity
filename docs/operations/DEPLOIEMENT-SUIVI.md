@@ -9,7 +9,7 @@
 | Hub 3 environnements | **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)** |
 | Un service à la fois | **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)** |
 | Secrets | **[ENV-GENERATION.md](ENV-GENERATION.md)** |
-| VPS + NPM | **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)** · **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** |
+| VPS + NPM | **[PORTAINER-VPS.md](PORTAINER-VPS.md)** · **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** |
 | Mobile / APK | **[RELEASE-AND-DISTRIBUTION.md](RELEASE-AND-DISTRIBUTION.md)** |
 | Suivi court (cases) | **[../../TODOS.md](../../TODOS.md)** § *Feuille de route déploiement* |
 | Monorepo → multi-repo | **[../decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md](../decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** |
@@ -121,7 +121,7 @@ Même VPS possible ; **3 jeux de stacks** (noms à adapter) pour ne pas mélange
 | C6 | Variables Portainer | `POSTGRES_PASSWORD`, `JWT_SECRET`, `VITE_API_URL`, **`VPS_PUBLIC_IP`** si script shell, `CORS_ORIGINS`, … | ☐ |
 | C7 | **Update stack** après push GHCR | changer `TAG=` → Pull & redeploy | ☐ |
 
-Ordre détaillé : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 3. Exemple domaine : **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)**.
+Ordre détaillé : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 3. Exemple domaine : **[PORTAINER-VPS.md](PORTAINER-VPS.md)**.
 
 **Backlog** : fichiers Compose prêts à coller — **`DEPLOY-DOC-01`** dans **[BACKLOG.md](../../BACKLOG.md)** (`deploy/portainer/` à créer).
 

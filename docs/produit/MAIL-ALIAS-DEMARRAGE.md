@@ -6,21 +6,23 @@ Vision complète : **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)**.
 
 ---
 
-## 1. Noms de domaine (convention)
+## 1. Noms de domaine (convention — placeholders uniquement)
 
-| Placeholder doc | Exemple réel |
-|-----------------|--------------|
-| `domain.ovh` | `delhomme.ovh` |
-| `paul@domain.ovh` | `paul@delhomme.ovh` |
-| Sous-domaine alias `subdomain.domain.ovh` | `alias.delhomme.ovh` |
-| Adresse alias | `hellowork@alias.domain.ovh` |
+| Placeholder | Usage |
+|-------------|--------|
+| `<domaine-principal>` | Ton domaine (ne pas committer dans Git) |
+| `user@<domaine-principal>` | Boîte principale IMAP |
+| `alias.<domaine-principal>` | Sous-domaine des alias mail |
+| `nom@alias.<domaine-principal>` | Adresse alias créée dans Pass/Mail |
 
 Dans **`.env`** (futur) :
 
 ```env
-MAIL_PRIMARY_DOMAIN=domain.ovh
-MAIL_ALIAS_SUBDOMAIN=alias.domain.ovh
+MAIL_PRIMARY_DOMAIN=<domaine-principal>
+MAIL_ALIAS_SUBDOMAIN=alias.<domaine-principal>
 ```
+
+**Checklist test manuel** : **[MAIL-ALIAS-CHECKLIST.md](MAIL-ALIAS-CHECKLIST.md)**.
 
 ---
 

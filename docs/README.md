@@ -84,7 +84,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/DEPLOIEMENT-SUIVI.md](operations/DEPLOIEMENT-SUIVI.md)** | **Feuille de route** : phases A–F, cases ☐, dev/preprod/prod, CI, Android. |
 | **[operations/DEPLOIEMENT-ENVIRONNEMENTS.md](operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** | **Hub déploiement** : local vs VPS, socle obligatoire, mobile, Portainer CE. |
 | **[operations/DEPLOIEMENT-PAR-SERVICE.md](operations/DEPLOIEMENT-PAR-SERVICE.md)** | **`make deploy-web`**, **`deploy-mail`**, … — tableau local ↔ Portainer. |
-| **[operations/PORTAINER-DELHOMME-OVH.md](operations/PORTAINER-DELHOMME-OVH.md)** | Ton VPS (`95.111.227.204`), DNS `cloudity.delhomme.ovh`, réseaux NPM. |
+| **[operations/PORTAINER-VPS.md](operations/PORTAINER-VPS.md)** | Ton VPS (IP dans Portainer), DNS `cloudity.<domaine-principal>`, réseaux NPM. |
 | **[operations/ENV-GENERATION.md](operations/ENV-GENERATION.md)** | **`.env`** : `make secrets`, clés mail/alias, Portainer, état du chiffrement. |
 | **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS + **Portainer** + **NPM** ; **Q23** `cloudity.<DOMAIN>` + `api` / `admin` ; **§ 1 bis** DNS registrar + NPM ; **§ 1 ter** chemins `/app/…` vs sous-domaines ; **§ 4 bis** multi-ponts ; Q15 homelab ; **§ 10 bis** rollback. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |

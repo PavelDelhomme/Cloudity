@@ -1,0 +1,90 @@
+# Checklist — Mail + alias (test manuel)
+
+**Rôle** : valider **création d’alias dans l’UI** (Pass ou Mail), filtre, règle auto, envoi — avant J8 Pass / PR `dev`.
+
+**Convention** : remplace les placeholders par **tes** valeurs (ne jamais les committer dans Git).
+
+| Placeholder | Signification |
+|-------------|----------------|
+| `<domaine-principal>` | Ton domaine (ex. `exemple.ovh`) |
+| `<boite-test>` | Boîte IMAP de test (ex. `test@<domaine-principal>`) |
+| `<boite-principale>` | Boîte qui reçoit le courrier (ex. `user@<domaine-principal>`) |
+| `inscriptions@alias.<domaine-principal>` | Exemple d’alias à **créer dans l’app** |
+
+---
+
+## 1. Deux comptes différents
+
+| Quoi | Exemple (à adapter) | Rôle |
+|------|---------------------|------|
+| **Login Cloudity** | `admin@cloudity.local` (`make seed-admin`) ou compte `/register` | Ouvre Mail, Pass |
+| **Boîte IMAP** (Mail → Paramètres) | `<boite-test>` | Courrier synchronisé |
+
+Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`** comme boîte dans Mail.
+
+---
+
+## 2. Prérequis
+
+- [ ] `make migrate` · `make doctor` · **`make test`** vert
+- [ ] Mail → **Sync avec mot de passe…** pour `<boite-test>`
+- [ ] **Actualiser (IMAP)** : des messages visibles
+- [ ] Si dates « Reçu » fausses : `git pull` · `make deploy-mail` · **Actualiser (IMAP)** à nouveau
+
+---
+
+## 3. Créer un alias **dans l’interface** (comme Proton — enregistrement Cloudity)
+
+> **MVP aujourd’hui** : l’app **enregistre** l’alias + crée une **règle de filtre**.  
+> **Recevoir** du courrier Internet sur une **nouvelle** adresse `@alias.<domaine>` nécessite encore le routage DNS/MX (**MAIL-ALIAS-05**) ou une redirection chez ton hébergeur.  
+> Tu peux quand même **créer**, **filtrer** (si le mail arrive déjà sur la boîte), et souvent **envoyer** avec **From** = alias.
+
+### Option A — depuis **Pass** (recommandé, style Proton)
+
+1. Ouvrir **http://localhost:6001/app/pass** (coffre verrouillé ou non : le panneau alias est accessible).
+2. Section **Alias mail** → choisir la boîte **`<boite-test>`**.
+3. Renseigner :
+   - **Adresse alias** : `inscriptions@alias.<domaine-principal>` (ou toute adresse `@alias.<domaine-principal>` valide)
+   - **Libellé** (optionnel) : `Newsletter test`
+   - **Cible de livraison** (optionnel) : `<boite-test>` ou `<boite-principale>`
+4. Cliquer **Enregistrer l’alias** → toast *« Alias enregistré (règle de tri créée si besoin) »*.
+
+### Option B — depuis **Mail**
+
+1. **Mail** → icône **Paramètres Mail** (engrenage).
+2. Section **Alias** → même formulaire (adresse + libellé + cible).
+3. **Enregistrer**.
+
+### Pour **recevoir** un vrai mail sur l’alias (hors MVP auto)
+
+| Méthode | Effort |
+|---------|--------|
+| **Redirection hébergeur** | Créer l’alias chez OVH/… → redirige vers `<boite-test>` → enregistrer la **même** adresse dans Cloudity |
+| **Transfert Proton** | Si tu utilises un domaine alias chez Proton |
+| **Attendre MAIL-ALIAS-05** | MX / API Cloudity sans panneau OVH |
+
+Ensuite envoie un mail **vers** l’alias depuis une autre boîte ; après sync IMAP, il doit apparaître sous le filtre alias.
+
+---
+
+## 4. Checklist à cocher (15 min)
+
+| # | Action | OK |
+|---|--------|-----|
+| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ |
+| **C2** | Toast enregistrement + règle auto | ☐ |
+| **C3** | **Mail** → barre latérale (sous la boîte) : cliquer l’alias → filtre `delivered_to` | ☐ |
+| **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☐ |
+| **C5** | **Désactiver** l’alias → disparaît du filtre · **Activer** → revient | ☐ |
+| **C6** | **Nouveau message** → **From** : choisir l’alias dans la liste (si SMTP autorise) | ☐ |
+| **C7** | (Si routage OK) Recevoir un mail **vers** l’alias → visible après sync + filtre | ☐ |
+
+---
+
+## 5. Suite
+
+1. Cocher **C1–C7** puis **`TODOS.md`** § MAINTENANT.
+2. **[SPRINT-PASS-2026-05.md](SPRINT-PASS-2026-05.md)** § 3 bis (J8).
+3. PR → **`dev`**.
+
+Voir aussi : **[MAIL-ALIAS-DEMARRAGE.md](MAIL-ALIAS-DEMARRAGE.md)** · **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)**.

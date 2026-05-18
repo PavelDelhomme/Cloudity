@@ -8,7 +8,7 @@
 
 ## 1. Parcours utilisateur cible
 
-Compte Cloudity unique (ex. **`paul@domain.ovh`** — aujourd’hui dev : `admin@cloudity.local`) : Drive, Calendar, Office, Mail, Pass, panel admin si compte principal. Convention doc : **`domain.ovh`** = ton domaine réel (ex. `delhomme.ovh`).
+Compte Cloudity unique (ex. **`paul@domain.ovh`** — aujourd’hui dev : `admin@cloudity.local`) : Drive, Calendar, Office, Mail, Pass, panel admin si compte principal. Convention doc : **`domain.ovh`** = ton domaine réel (ex. `<domaine-principal>`).
 
 ```mermaid
 sequenceDiagram
@@ -19,7 +19,7 @@ sequenceDiagram
   participant IMAP as Boîte paul@domain.ovh
   participant Mail as App Mail Cloudity
 
-  Note over Pass: Création hellowork@alias.domain.ovh
+  Note over Pass: Création hellowork@alias.<domaine-principal>
   Pass->>API: POST alias (provision + enregistrement)
   API->>MTA: Créer alias → livrer vers IMAP
   Site->>MTA: Mail à hellowork@alias…
@@ -38,21 +38,21 @@ sequenceDiagram
 ### 1.2 Pass (coffre + alias)
 
 1. Coffre Pass par défaut (comme Proton) ; sous-coffres / dossiers d’entrées optionnels.
-2. Section **Alias mail** : créer `hellowork@alias.domain.ovh` (sous-domaine fixe **`alias.<domaine-principal>`** — ex. `alias.delhomme.ovh` si le compte est `@delhomme.ovh` ; placeholder générique : **`subdomain.domain.ovh`** = `alias.domain.ovh`).
+2. Section **Alias mail** : créer `hellowork@alias.<domaine-principal>` (sous-domaine fixe **`alias.<domaine-principal>`** — ex. `alias.<domaine-principal>` si le compte est `@<domaine-principal>` ; placeholder générique : **`subdomain.domain.ovh`** = `alias.domain.ovh`).
 3. Depuis l’**extension** ou le **web** : lors d’une inscription, proposer « créer un alias pour ce site » → même API.
 4. **Pas de catch-all** : chaque alias est explicite (`local@alias.domain.ovh`).
 
 ### 1.3 Réception et tri (Mail)
 
-1. Les messages envoyés à `hellowork@alias.domain.ovh` arrivent dans la boîte reliée au compte Cloudity.
+1. Les messages envoyés à `hellowork@alias.<domaine-principal>` arrivent dans la boîte reliée au compte Cloudity.
 2. Dans **Mail** : vue / dossier / filtre **par alias** (ex. section « HelloWork »), accessible quelle que soit la boîte IMAP connectée sur ce compte.
 3. **Activer / désactiver** un alias (pause, anti-spam) sans supprimer l’historique.
 4. Règles Cloudity (tags, dossiers, `mail_filter_rules`) appliquées à la sync.
 
 ### 1.4 Envoi
 
-1. Composer avec **De :** `hellowork@alias.domain.ovh`.
-2. Le destinataire voit **`hellowork@alias.domain.ovh`** (en-tête `From`), pas seulement la boîte technique d’authentification SMTP.
+1. Composer avec **De :** `hellowork@alias.<domaine-principal>`.
+2. Le destinataire voit **`hellowork@alias.<domaine-principal>`** (en-tête `From`), pas seulement la boîte technique d’authentification SMTP.
 3. Authentification SMTP alignée (SPF/DKIM sur le domaine alias ou relais signé) — voir infra § 4.
 
 ---

@@ -138,7 +138,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
                 <strong>Cible</strong> : alias{' '}
-                <code className="text-[11px]">@alias.{mailDomain ?? 'domain.ovh'}</code> créés ici
+                <code className="text-[11px]">@alias.{mailDomain ?? 'exemple.com'}</code> créés ici
                 (sans panneau OVH) — doc{' '}
                 <code className="text-[11px]">MAIL-ALIAS-VISION.md</code>.{' '}
                 <strong>MVP</strong> : enregistrement pour filtrer dans Mail ; réception seulement si

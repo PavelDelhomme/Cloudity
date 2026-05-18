@@ -80,7 +80,7 @@
 
 ### Alias mail « vrais » (Pass → Mail, sans panneau OVH)
 
-> **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.delhomme.ovh`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
+> **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.<domaine-principal>`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
 
 - [x] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail (migration **40**, PATCH API, Mail + Pass).
 - [x] **MAIL-ALIAS-02** — À la création : règle filtre `recipient_pattern` = alias (dossier `inbox`, `rule_order` 900) — `ensureAliasInboundRule` au POST alias.
@@ -122,7 +122,7 @@
 
 ### Release & distribution (prod partielle, OTA mobile, NPM)
 
-> **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-DELHOMME-OVH.md](docs/operations/PORTAINER-DELHOMME-OVH.md)** · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
+> **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-VPS.md](docs/operations/PORTAINER-VPS.md)** · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
 
 - [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.

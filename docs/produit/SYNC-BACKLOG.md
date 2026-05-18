@@ -160,7 +160,7 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 
 ## 2. Pass ↔ alias mail
 
-**Vision cible (parcours HelloWork, `@alias.delhomme.ovh`, sans panneau OVH)** : **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)** — à lire avant tout chantier alias.
+**Vision cible (parcours HelloWork, `@alias.<domaine-principal>`, sans panneau OVH)** : **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)** — à lire avant tout chantier alias.
 
 | Niveau | Résumé |
 |--------|--------|

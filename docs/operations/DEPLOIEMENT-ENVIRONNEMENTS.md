@@ -6,7 +6,7 @@
 |-------|---------|
 | **Checklist ordonnée (dev → CI → Portainer → mobile)** | **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)** |
 | **Un seul service** (front, mail, gateway…) | **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)** |
-| **VPS + Portainer + NPM** (stacks, réseaux, DNS) | **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** · **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)** |
+| **VPS + Portainer + NPM** (stacks, réseaux, DNS) | **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** · **[PORTAINER-VPS.md](PORTAINER-VPS.md)** |
 | **Secrets `.env`** | **[ENV-GENERATION.md](ENV-GENERATION.md)** |
 | **Mobile → API** | **[RELEASE-AND-DISTRIBUTION.md](RELEASE-AND-DISTRIBUTION.md)** § 4 |
 | **Monorepo aujourd’hui → multi-repo plus tard** | **[../decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md](../decisions/multi-repo/TRAVAIL-MONOREPO-MAINTENANT.md)** |
@@ -40,7 +40,7 @@ flowchart LR
   subgraph vps [VPS prod]
     P1[Portainer stacks]
     P2[NPM TLS]
-    P3[cloudity.delhomme.ovh]
+    P3[cloudity.<domaine-principal>]
   end
   subgraph mobile [Téléphone]
     M1[APK dev]
@@ -58,9 +58,9 @@ flowchart LR
 | **Fichier secrets** | `.env` (gitignored) | Variables **stack Portainer** (jamais Git) |
 | **Mise à jour front** | `make deploy-web` | Redeploy conteneur `cloudity-web` |
 | **Mise à jour mail** | `make deploy-mail` | Redeploy `cloudity-mail-directory-service` |
-| **Mobile** | `VITE_API_URL=http://IP_LAN:6080` | `https://api.cloudity.delhomme.ovh` (à créer en DNS+NPM) |
+| **Mobile** | `VITE_API_URL=http://IP_LAN:6080` | `https://api.cloudity.<domaine-principal>` (à créer en DNS+NPM) |
 
-**Préprod** = même VPS et même mode Portainer que la prod, avec un autre tag d’image (`TAG=preprod`) ou un sous-domaine de test (ex. `staging.cloudity.delhomme.ovh`) — pas un troisième outil.
+**Préprod** = même VPS et même mode Portainer que la prod, avec un autre tag d’image (`TAG=preprod`) ou un sous-domaine de test (ex. `staging.cloudity.<domaine-principal>`) — pas un troisième outil.
 
 ---
 
@@ -95,7 +95,7 @@ Même logique que ta stack **`nextcloud-stack`** :
 5. Stack **`cloudity-web`** (rejoint le réseau **NPM**).  
 6. Dans **NPM** : Proxy Hosts vers les `container_name` stables.
 
-Ton cas DNS / réseaux déjà en place : **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)**.
+Ton cas DNS / réseaux déjà en place : **[PORTAINER-VPS.md](PORTAINER-VPS.md)**.
 
 ---
 
@@ -104,18 +104,18 @@ Ton cas DNS / réseaux déjà en place : **[PORTAINER-DELHOMME-OVH.md](PORTAINER
 | Mode | API | Front |
 |------|-----|-------|
 | **100 % local** | `http://<IP_PC>:6080` dans `.env` / build Flutter | `http://<IP_PC>:6001` |
-| **API sur VPS, dev local** | `https://api.cloudity.delhomme.ovh` | émulateur + machine locale |
-| **Tout sur VPS** | idem | `https://cloudity.delhomme.ovh` |
+| **API sur VPS, dev local** | `https://api.cloudity.<domaine-principal>` | émulateur + machine locale |
+| **Tout sur VPS** | idem | `https://cloudity.<domaine-principal>` |
 
 CORS : en prod, `CORS_ORIGINS` doit lister l’origine exacte du front. En dev LAN : `CORS_ALLOW_LAN=true`.
 
 ---
 
-## 6. Alias Proton (`alias.delhomme.ovh`) vs Cloudity
+## 6. Alias Proton (`alias.<domaine-principal>`) vs Cloudity
 
-Tu as déjà **MX Proton** sur `alias.delhomme.ovh` (alias mail Proton). Ce n’est **pas** incompatible avec Cloudity :
+Tu as déjà **MX Proton** sur `alias.<domaine-principal>` (alias mail Proton). Ce n’est **pas** incompatible avec Cloudity :
 
-- **Proton** reçoit les mails des alias `@alias.delhomme.ovh` et peut les **transférer** vers ta boîte principale.  
+- **Proton** reçoit les mails des alias `@alias.<domaine-principal>` et peut les **transférer** vers ta boîte principale.  
 - **Cloudity** (MVP) **enregistre** les mêmes adresses pour **filtrer** dans Mail une fois le message dans la boîte IMAP sync.  
 - **Cible** : création d’alias **depuis Pass sans OVH** = chantier **MAIL-ALIAS-05** (MTA Cloudity ou API), pas urgent si Proton gère déjà la réception.
 
