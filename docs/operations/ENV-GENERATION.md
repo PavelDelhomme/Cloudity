@@ -78,7 +78,8 @@ make seed-admin   # compte démo local uniquement
 ## 5. Prod (Portainer / VPS)
 
 1. Générer sur une machine de confiance : `make secrets-print` ou `OUTPUT=.env.prod ./scripts/dev/gen-secrets.sh`.  
-2. Copier **chaque** variable dans l’éditeur d’environnement de la stack Portainer (jamais dans Git).  
+2. Copier **chaque** variable dans **Portainer → Stack → Environment variables** (jamais dans Git). C’est aussi l’endroit pour noter **`VPS_PUBLIC_IP`** (IP publique du serveur) si tu t’en sers comme référence — voir **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)** § 0.  
+3. Trois jeux de stacks possibles : **dev**, **preprod**, **prod** — secrets **distincts** par environnement.  
 3. **Même** `POSTGRES_PASSWORD` / `REDIS_PASSWORD` sur toutes les stacks qui partagent Postgres/Redis.  
 4. Après changement de `MAIL_PASSWORD_ENCRYPTION_KEY` : resynchroniser les boîtes Mail (saisie MDP).  
 5. Checklist déploiement : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.

@@ -2,15 +2,39 @@
 
 **Rôle** : coller la doc générique **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** à **ton** VPS déjà en service (Nextcloud, n8n, Cyna, …).
 
-> Ne pas committer de secrets ni l’**IP publique** du VPS dans Git. Remplace **`<VPS_PUBLIC_IP>`** par l’adresse A de ta zone DNS (fichier local / notes Portainer uniquement).
+> Ne pas committer de secrets ni l’**IP publique** du VPS dans Git. La valeur réelle se saisit dans **Portainer** (voir § 0 ci-dessous), pas dans un fichier du dépôt.
+
+**Suivi méthodique** : **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)**.
 
 ---
 
-## 1. Ce qui existe déjà
+## 0. Variables à saisir dans Portainer (dont l’IP)
+
+Pour **chaque stack** Cloudity (`cloudity-preprod-infra`, `cloudity-prod-web`, …) :
+
+1. Portainer → **Stacks** → ta stack → **Editor** ou **Environment variables**.  
+2. Coller les secrets générés par `make secrets-print` (sur ton PC, **sans** les committer).  
+3. Ajouter si besoin une variable d’infra (non consommée par tous les services) :
+
+| Variable (exemple) | Exemple de valeur | Où la trouver |
+|--------------------|-------------------|---------------|
+| `POSTGRES_PASSWORD` | 64 hex | `make secrets-print` |
+| `JWT_SECRET` | 64 hex | idem |
+| `MAIL_PASSWORD_ENCRYPTION_KEY` | 64 hex | idem |
+| `ALIAS_ENCRYPTION_KEY` | base64 | idem |
+| `VPS_PUBLIC_IP` | ton IP publique VPS | Zone DNS OVH → enregistrement **A** (référence pour toi / scripts ; **pas** dans Git) |
+| `CORS_ORIGINS` | `https://cloudity.<domaine>` | URL NPM du front |
+| `VITE_API_URL` (build web) | `https://api.cloudity.<domaine>` | au build image ou variable runtime selon stack |
+
+**Pas de fichier `*.local.md` dans le projet** : Portainer (ou un `.env` **sur le disque du VPS**, hors Git) suffit.
+
+---
+
+## 1. Ce qui existe déjà (schéma)
 
 | Élément | Détail |
 |---------|--------|
-| **IP VPS** | `95.111.227.204` |
+| **IP VPS** | `<VPS_PUBLIC_IP>` — voir § 0 |
 | **Portainer** | CE, conteneur `portainer`, port `9000` |
 | **NPM** | Stack `nginx-proxy-manager`, réseau `nginx-proxy-manager_npm-network` (`172.26.0.0/16`) |
 | **Réseau apps** | `shared-network-copy` (`172.28.0.0/16`, **attachable**) — Nextcloud, n8n, Cyna, … |

@@ -4,6 +4,7 @@
 
 | Sujet | Fichier |
 |-------|---------|
+| **Checklist ordonnée (dev → CI → Portainer → mobile)** | **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)** |
 | **Un seul service** (front, mail, gateway…) | **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)** |
 | **VPS + Portainer + NPM** (stacks, réseaux, DNS) | **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** · **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)** |
 | **Secrets `.env`** | **[ENV-GENERATION.md](ENV-GENERATION.md)** |

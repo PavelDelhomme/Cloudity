@@ -19,6 +19,8 @@
 
 ## 2. Mises à jour **par microservice** (sans tout casser)
 
+**Feuille de route complète** : **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)** (phases Git → GHCR → Portainer → mobile).
+
 **Guide détaillé** (commandes `make deploy-*`, matrice front/back/mobile) : **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)**.
 
 1. **CI** : images **`ghcr.io/<owner>/cloudity-<svc>:<tag>`** (cf. **BACKLOG** Q24, workflow `docker-publish.yml`).
