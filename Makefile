@@ -70,6 +70,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
+	@echo '  make deploy-web | deploy-mail | deploy-gateway | deploy-auth | deploy-admin | deploy-pass | deploy-drive | deploy-photos - Un service (docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)'
 	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
 	@echo '  make pass-j8-prep - Préparation migration J8 Proton (test-pass + checklist runbook)'
 	@echo '  make test-e2e-playwright-pass - E2E Playwright Pass uniquement (e2e/pass.spec.ts)'
@@ -347,6 +348,43 @@ build-admin: ## Build uniquement le service admin
 
 build-dashboard: ## Build uniquement le dashboard
 	@$(COMPOSE) $(COMPOSE_FILES) build cloudity-web
+
+# Déploiement partiel (build + up -d un service) — docs/operations/DEPLOIEMENT-PAR-SERVICE.md
+deploy-web: build-dashboard ## Rebuild + redémarre cloudity-web (front SPA)
+	@$(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web
+	@echo "✅ cloudity-web redéployé — http://localhost:$(PORT_DASHBOARD)"
+
+deploy-gateway: build-gateway ## Rebuild + redémarre api-gateway
+	@$(COMPOSE) $(COMPOSE_FILES) up -d api-gateway
+	@echo "✅ api-gateway redéployé"
+
+deploy-auth: build-auth ## Rebuild + redémarre auth-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d auth-service
+	@echo "✅ auth-service redéployé"
+
+deploy-admin: build-admin ## Rebuild + redémarre admin-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d admin-service
+	@echo "✅ admin-service redéployé"
+
+deploy-mail: ## Rebuild + redémarre mail-directory-service
+	@$(COMPOSE) $(COMPOSE_FILES) build mail-directory-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d mail-directory-service
+	@echo "✅ mail-directory-service redéployé"
+
+deploy-pass: ## Rebuild + redémarre passwords-service (coffre Pass API)
+	@$(COMPOSE) $(COMPOSE_FILES) build passwords-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d passwords-service
+	@echo "✅ passwords-service redéployé"
+
+deploy-drive: ## Rebuild + redémarre drive-service
+	@$(COMPOSE) $(COMPOSE_FILES) build drive-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d drive-service
+	@echo "✅ drive-service redéployé"
+
+deploy-photos: ## Rebuild + redémarre photos-service
+	@$(COMPOSE) $(COMPOSE_FILES) build photos-service
+	@$(COMPOSE) $(COMPOSE_FILES) up -d photos-service
+	@echo "✅ photos-service redéployé"
 
 # make test = unitaires + applicatifs uniquement (PAS les E2E), **dans Docker** (sauf Playwright E2E = host).
 # Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
