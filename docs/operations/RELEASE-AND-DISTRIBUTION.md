@@ -19,10 +19,14 @@
 
 ## 2. Mises à jour **par microservice** (sans tout casser)
 
+**Guide détaillé** (commandes `make deploy-*`, matrice front/back/mobile) : **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)**.
+
 1. **CI** : images **`ghcr.io/<owner>/cloudity-<svc>:<tag>`** (cf. **BACKLOG** Q24, workflow `docker-publish.yml`).
 2. **Portainer** : dans la stack concernée, monter uniquement le **`TAG=`** (ou digest) du service modifié ; **`docker compose pull && up -d`** sur cette stack — les autres stacks **inchangées** continuent de tourner.
 3. **Migrations SQL** : appliquer **`cloudity-db-migrate`** (ou équivalent) **avant** ou **avec** la montée de version du service qui lit le nouveau schéma — ordre documenté dans **TESTS.md** / **DEPLOIEMENT** § ordre des stacks.
 4. **Rollback** : tag d’image précédent + **§ 10 bis** **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
+
+**Dev local (un seul service)** : `make deploy-web`, `make deploy-mail`, `make deploy-gateway`, etc. — voir **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)** § 2.
 
 > **Portainer « Business »** : l’édition **Community Edition (CE)** suffit pour stacks + registry pull ; les fonctionnalités payantes ne sont **pas** requises pour déployer Cloudity.
 

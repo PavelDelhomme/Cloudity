@@ -3,6 +3,8 @@
 **Rôle** : décrire **comment** Cloudity sera mis en ligne sur un **VPS public** (Portainer + Nginx Proxy Manager — NPM), en s'alignant sur les conventions des autres applications déjà déployées sur le même VPS (NPM partagé, réseaux Docker partagés). Le **dev local** (`docker-compose` à la racine, ports `6080/6001`) reste **complètement séparé** et inchangé.
 
 > Le calendrier de mise en prod est contraint par **[../architecture/HOMELAB-SECURITE.md](../architecture/HOMELAB-SECURITE.md)** (Q15=A : H1 backup RPi avant prod publique). Cette fiche sert de **plan d'attaque** prêt-à-coller le jour J.
+>
+> **Ton VPS `delhomme.ovh`** (DNS, réseaux Portainer existants) : **[PORTAINER-DELHOMME-OVH.md](PORTAINER-DELHOMME-OVH.md)**. **Hub local vs prod** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)**.
 
 ---
 
