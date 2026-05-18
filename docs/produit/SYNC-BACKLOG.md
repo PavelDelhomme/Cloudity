@@ -160,10 +160,19 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 
 ## 2. Pass ↔ alias mail
 
-- **Aujourd’hui (web)** : `POST /mail/me/accounts/:id/aliases` avec `alias_email`, `label`, `deliver_target_email` (cible documentée : vers quelle boîte réelle le message doit aller — **Cloudity ne configure pas le DNS / MX** seul). `PATCH` sur le même alias pour mettre à jour la cible. Liste des messages : `delivered_to=<alias>` filtre sur le champ **À** (`to_addrs` en base), tandis que **sans filtre** = tout le dossier (principale + alias). **Pass (web)** : panneau **Alias mail** sur `/app/pass` (`PassMailAliasesPanel`) une fois le coffre déverrouillé — même API.
-- **Tester les alias** : créer l’alias côté **fournisseur** (OVH, Google « adresse secondaire », etc.) pour que les mails arrivent bien dans l’**INBOX** IMAP de la boîte connectée ; dans Cloudity, **enregistrer** le même `alias_email` pour le filtre latéral et la traçabilité Pass.
-- **DNS** : pour un domaine géré par Cloudity, les enregistrements MX / redirections restent côté **infra mail** (table `mail_aliases` domaine vs `user_email_aliases` par utilisateur) — à documenter par cas (self-host vs relais).
-- **Pass (extension / app)** : même API + token utilisateur ; flux type Proton : création d’alias + **cible** en un appel — **APP-04** dans ROADMAP.
+**Vision cible (parcours HelloWork, `@alias.delhomme.ovh`, sans panneau OVH)** : **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)** — à lire avant tout chantier alias.
+
+| Niveau | Résumé |
+|--------|--------|
+| **MVP (aujourd’hui)** | Enregistrement `user_email_aliases` (Pass + Mail), filtre `delivered_to`, envoi `from_email` si alias listé. **Ne crée pas** l’alias chez OVH ni sur le MX. |
+| **P1** | Toggle actif/inactif, dossier/règle auto par alias (**MAIL-ALIAS-01/02**). |
+| **P2** | Création depuis extension « pour ce site » (**MAIL-ALIAS-04**). |
+| **P3** | Provision réelle : API OVH **ou** MTA Cloudity sur `alias.*` (**MAIL-ALIAS-05**, **AS-1**) — **sans catch-all**. |
+
+- **API actuelle** : `POST /mail/me/accounts/:id/aliases` (`alias_email`, `label`, `deliver_target_email`). `PATCH` pour la cible. Messages : `delivered_to=<alias>` sur **À** (`to_addrs`). **Pass** : `PassMailAliasesPanel` (coffre verrouillé ou non).
+- **Test MVP** : alias **d’abord** chez le fournisseur **ou** MX `alias.*` vers Cloudity → puis **même** adresse dans Cloudity pour filtre/envoi.
+- **Admin domaine** : `mail_aliases` + `/mail/domains/:id/aliases` (admin) = couche MTA future, distincte des alias utilisateur.
+- **Extension** : **MP-06** + **MAIL-ALIAS-04**.
 
 ---
 

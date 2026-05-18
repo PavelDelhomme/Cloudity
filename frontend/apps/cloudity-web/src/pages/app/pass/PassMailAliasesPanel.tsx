@@ -124,10 +124,13 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 max-w-2xl">
-                Cloudity <strong>ne crée pas</strong> l’adresse chez ton hébergeur (OVH, Proton, …) :
-                configure d’abord l’alias côté fournisseur, puis enregistre-la ici pour filtrer le
-                courrier dans Mail. Une adresse sur un domaine que tu ne possèdes pas ne recevra
-                aucun mail et ne pourra pas servir sur les sites web.{' '}
+                <strong>Cible</strong> : alias{' '}
+                <code className="text-[11px]">@alias.{mailDomain ?? 'domain.ovh'}</code> créés ici
+                (sans panneau OVH) — doc{' '}
+                <code className="text-[11px]">MAIL-ALIAS-VISION.md</code>.{' '}
+                <strong>MVP</strong> : enregistrement pour filtrer dans Mail ; réception seulement si
+                l’alias existe déjà côté hébergeur — voir{' '}
+                <code className="text-[11px]">MAIL-ALIAS-DEMARRAGE.md</code>.{' '}
                 <Link to="/app/mail" className="text-brand-600 dark:text-brand-400 underline">
                   Ouvrir Mail
                 </Link>
