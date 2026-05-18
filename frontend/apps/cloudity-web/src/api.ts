@@ -782,6 +782,8 @@ export type MailAccountAliasResponse = {
   label?: string | null
   /** Cible de livraison / routage documenté (Pass, transfert — non appliqué seul sans config DNS / fournisseur). */
   deliver_target_email?: string | null
+  /** false = ignoré pour filtre `delivered_to`, envoi From et barre latérale. */
+  enabled?: boolean
   created_at: string
 }
 
@@ -897,11 +899,12 @@ export async function patchMailAlias(
   token: string,
   accountId: number,
   aliasId: number,
-  patch: { label?: string; deliver_target_email?: string }
+  patch: { label?: string; deliver_target_email?: string; enabled?: boolean }
 ): Promise<{ ok: boolean }> {
-  const body: Record<string, string> = {}
+  const body: Record<string, string | boolean> = {}
   if (patch.label !== undefined) body.label = patch.label
   if (patch.deliver_target_email !== undefined) body.deliver_target_email = patch.deliver_target_email
+  if (patch.enabled !== undefined) body.enabled = patch.enabled
   const res = await apiFetch(token, `/mail/me/accounts/${accountId}/aliases/${aliasId}`, {
     method: 'PATCH',
     body: JSON.stringify(body),

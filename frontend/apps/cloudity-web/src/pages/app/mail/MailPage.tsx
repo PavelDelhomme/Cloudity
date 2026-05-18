@@ -1190,6 +1190,11 @@ export default function MailPage() {
     enabled: !!accessToken && effectiveAccountId != null,
   })
 
+  const enabledAccountAliases = useMemo(
+    () => accountAliases.filter((a) => a.enabled !== false),
+    [accountAliases]
+  )
+
   const { data: passVaults = [] } = useQuery({
     queryKey: ['pass', 'vaults'],
     queryFn: () => fetchVaults(accessToken!),
@@ -1325,6 +1330,12 @@ export default function MailPage() {
   }, [recipientAliasFilter])
 
   useEffect(() => {
+    if (!recipientAliasFilter) return
+    const stillEnabled = enabledAccountAliases.some((a) => a.alias_email === recipientAliasFilter)
+    if (!stillEnabled) setRecipientAliasFilter(null)
+  }, [recipientAliasFilter, enabledAccountAliases])
+
+  useEffect(() => {
     if (!mailSelectionMode && selectedMessageIds.length === 0) {
       setBulkTagPickerOpen(false)
     }
@@ -1351,7 +1362,11 @@ export default function MailPage() {
 
   const aliasMutation = useMutation({
     mutationFn: async (
-      mode: { type: 'add' } | { type: 'del'; id: number } | { type: 'patch'; id: number; deliver_target_email: string }
+      mode:
+        | { type: 'add' }
+        | { type: 'del'; id: number }
+        | { type: 'patch'; id: number; deliver_target_email: string }
+        | { type: 'toggle'; id: number; enabled: boolean }
     ) => {
       if (!accessToken || effectiveAccountId == null) return
       if (mode.type === 'add') {
@@ -1372,6 +1387,10 @@ export default function MailPage() {
         await patchMailAlias(accessToken, effectiveAccountId, mode.id, { deliver_target_email: target })
         return
       }
+      if (mode.type === 'toggle') {
+        await patchMailAlias(accessToken, effectiveAccountId, mode.id, { enabled: mode.enabled })
+        return
+      }
       await deleteMailAlias(accessToken, effectiveAccountId, mode.id)
     },
     onSuccess: (_, mode) => {
@@ -1387,6 +1406,8 @@ export default function MailPage() {
         setEditingAliasCibleId(null)
         setAliasCibleDraft('')
         toast.success('Cible de livraison mise à jour')
+      } else if (mode.type === 'toggle') {
+        toast.success(mode.enabled ? 'Alias activé' : 'Alias désactivé')
       } else toast.success('Alias supprimé')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur alias'),
@@ -1697,8 +1718,8 @@ export default function MailPage() {
   const composeFromOptions = useMemo(() => {
     const p = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
     if (!p) return [] as string[]
-    return [p, ...accountAliases.map((a) => a.alias_email)]
-  }, [accounts, effectiveAccountId, accountAliases])
+    return [p, ...enabledAccountAliases.map((a) => a.alias_email)]
+  }, [accounts, effectiveAccountId, enabledAccountAliases])
 
   const handleDownloadAttachment = useCallback(
     async (messageId: number, attachmentId: number, filename: string, accountId?: number) => {
@@ -1885,7 +1906,7 @@ export default function MailPage() {
       const allowedFrom = new Set<string>()
       allowedFrom.add(primary.toLowerCase())
       if (composeAccountId === effectiveAccountId) {
-        for (const a of accountAliases) allowedFrom.add(a.alias_email.toLowerCase())
+        for (const a of enabledAccountAliases) allowedFrom.add(a.alias_email.toLowerCase())
       }
       const maxSlots = typeof window === 'undefined' ? 1 : Math.max(1, Math.floor((window.innerWidth - 40) / 320))
       setComposeSlots((prev) => {
@@ -1922,7 +1943,7 @@ export default function MailPage() {
         return [...prev.map((s) => ({ ...s, minimized: true })), slot]
       })
     },
-    [effectiveAccountId, accounts, accountAliases]
+    [effectiveAccountId, accounts, enabledAccountAliases]
   )
 
   const closeSlot = useCallback(
@@ -2071,7 +2092,7 @@ export default function MailPage() {
   useEffect(() => {
     const primary = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
     if (!primary) return
-    const allowed = new Set([primary.toLowerCase(), ...accountAliases.map((a) => a.alias_email.toLowerCase())])
+    const allowed = new Set([primary.toLowerCase(), ...enabledAccountAliases.map((a) => a.alias_email.toLowerCase())])
     setComposeSlots((prev) => {
       let changed = false
       const next = prev.map((s) => {
@@ -2081,7 +2102,7 @@ export default function MailPage() {
       })
       return changed ? next : prev
     })
-  }, [effectiveAccountId, accounts, accountAliases])
+  }, [effectiveAccountId, accounts, enabledAccountAliases])
 
   useEffect(() => {
     const oauth = searchParams.get('oauth')
@@ -3868,7 +3889,7 @@ export default function MailPage() {
                       >
                         Toutes les adresses
                       </button>
-                      {accountAliases.map((al) => (
+                      {enabledAccountAliases.map((al) => (
                         <button
                           key={al.id}
                           type="button"
@@ -5196,15 +5217,30 @@ export default function MailPage() {
                         className="flex flex-col gap-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-2 py-1.5"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate font-medium">{al.alias_email}</span>
-                          <button
-                            type="button"
-                            className="text-red-600 dark:text-red-400 shrink-0"
-                            onClick={() => aliasMutation.mutate({ type: 'del', id: al.id })}
-                            disabled={aliasMutation.isPending}
-                          >
-                            Retirer
-                          </button>
+                          <span className={`truncate font-medium ${al.enabled === false ? 'text-slate-400 dark:text-slate-500' : ''}`}>
+                            {al.alias_email}
+                            {al.enabled === false ? ' (désactivé)' : ''}
+                          </span>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              type="button"
+                              className="text-brand-600 dark:text-brand-400 shrink-0 text-[11px]"
+                              onClick={() =>
+                                aliasMutation.mutate({ type: 'toggle', id: al.id, enabled: al.enabled === false })
+                              }
+                              disabled={aliasMutation.isPending}
+                            >
+                              {al.enabled === false ? 'Activer' : 'Désactiver'}
+                            </button>
+                            <button
+                              type="button"
+                              className="text-red-600 dark:text-red-400 shrink-0 text-[11px]"
+                              onClick={() => aliasMutation.mutate({ type: 'del', id: al.id })}
+                              disabled={aliasMutation.isPending}
+                            >
+                              Retirer
+                            </button>
+                          </div>
                         </div>
                         {al.deliver_target_email ? (
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate" title={al.deliver_target_email}>

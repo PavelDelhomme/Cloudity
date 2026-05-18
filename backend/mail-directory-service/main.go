@@ -1469,6 +1469,7 @@ type MailAlias struct {
 	AliasEmail         string  `json:"alias_email"`
 	Label              *string `json:"label,omitempty"`
 	DeliverTargetEmail *string `json:"deliver_target_email,omitempty"`
+	Enabled            bool    `json:"enabled"`
 	CreatedAt          string  `json:"created_at"`
 }
 
@@ -1481,7 +1482,7 @@ func (h *Handler) listAccountAliases(c *gin.Context) {
 		return
 	}
 	rows, err := h.dbex(ctx).Query(`
-		SELECT a.id, a.account_id, a.alias_email, a.label, a.deliver_target_email, a.created_at::text
+		SELECT a.id, a.account_id, a.alias_email, a.label, a.deliver_target_email, a.enabled, a.created_at::text
 		FROM user_email_aliases a
 		INNER JOIN user_email_accounts u ON u.id = a.account_id
 		WHERE a.account_id = $1 AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
@@ -1496,7 +1497,7 @@ func (h *Handler) listAccountAliases(c *gin.Context) {
 	for rows.Next() {
 		var x MailAlias
 		var lab, dte sql.NullString
-		if err := rows.Scan(&x.ID, &x.AccountID, &x.AliasEmail, &lab, &dte, &x.CreatedAt); err != nil {
+		if err := rows.Scan(&x.ID, &x.AccountID, &x.AliasEmail, &lab, &dte, &x.Enabled, &x.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -1615,13 +1616,14 @@ func (h *Handler) patchAccountAlias(c *gin.Context) {
 	var body struct {
 		Label              *string `json:"label"`
 		DeliverTargetEmail *string `json:"deliver_target_email"`
+		Enabled            *bool   `json:"enabled"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if body.Label == nil && body.DeliverTargetEmail == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "aucun champ à modifier (label ou deliver_target_email)"})
+	if body.Label == nil && body.DeliverTargetEmail == nil && body.Enabled == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "aucun champ à modifier (label, deliver_target_email ou enabled)"})
 		return
 	}
 	var sets []string
@@ -1646,6 +1648,11 @@ func (h *Handler) patchAccountAlias(c *gin.Context) {
 			args = append(args, t)
 			p++
 		}
+	}
+	if body.Enabled != nil {
+		sets = append(sets, fmt.Sprintf("enabled = $%d", p))
+		args = append(args, *body.Enabled)
+		p++
 	}
 	args = append(args, aliasID, accountID)
 	q := fmt.Sprintf(`
@@ -2998,6 +3005,7 @@ func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int,
 				SELECT a.alias_email FROM user_email_aliases a
 				INNER JOIN user_email_accounts u ON u.id = a.account_id
 				WHERE a.account_id = $1 AND LOWER(a.alias_email) = $2
+				AND a.enabled = true
 				AND u.user_id = current_setting('app.current_user_id', true)::INTEGER
 			`, accountID, dfLower).Scan(&canon)
 			if aerr == sql.ErrNoRows || strings.TrimSpace(canon) == "" {

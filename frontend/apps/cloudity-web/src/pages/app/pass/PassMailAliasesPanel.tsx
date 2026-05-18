@@ -14,6 +14,7 @@ import {
   fetchMailAccounts,
   fetchMailAliases,
   createMailAlias,
+  patchMailAlias,
   deleteMailAlias,
   type MailAccountResponse,
 } from '../../../api'
@@ -235,6 +236,9 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                       <div className="min-w-0">
                         <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                           {al.alias_email}
+                          {al.enabled === false ? (
+                            <span className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400">(désactivé)</span>
+                          ) : null}
                         </div>
                         {(al.label || al.deliver_target_email) && (
                           <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
@@ -245,24 +249,37 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                         )}
                       </div>
                       {selectedAccountId != null && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="shrink-0 text-red-600 dark:text-red-400"
-                          disabled={deleteMutation.isPending}
-                          onClick={() => {
-                            if (
-                              confirm(
-                                `Retirer l’alias « ${al.alias_email} » de Cloudity ? (ne supprime pas l’adresse chez le fournisseur.)`
-                              )
-                            ) {
-                              deleteMutation.mutate({ accountId: selectedAccountId, aliasId: al.id })
+                        <div className="flex shrink-0 gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={toggleMutation.isPending}
+                            onClick={() =>
+                              toggleMutation.mutate({ aliasId: al.id, enabled: al.enabled === false })
                             }
-                          }}
-                        >
-                          Retirer
-                        </Button>
+                          >
+                            {al.enabled === false ? 'Activer' : 'Désactiver'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-600 dark:text-red-400"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Retirer l’alias « ${al.alias_email} » de Cloudity ? (ne supprime pas l’adresse chez le fournisseur.)`
+                                )
+                              ) {
+                                deleteMutation.mutate({ accountId: selectedAccountId, aliasId: al.id })
+                              }
+                            }}
+                          >
+                            Retirer
+                          </Button>
+                        </div>
                       )}
                     </li>
                   ))}

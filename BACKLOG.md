@@ -82,7 +82,7 @@
 
 > **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.delhomme.ovh`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
 
-- [ ] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail.
+- [x] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail (migration **40**, PATCH API, Mail + Pass).
 - [ ] **MAIL-ALIAS-02** — À la création : règle + tag/dossier dédié par alias (sync IMAP).
 - [ ] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` + validation `*@alias.<domaine-principal>` à la création.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
