@@ -1,0 +1,118 @@
+{
+  "hash": "81277161",
+  "configHash": "18bd793e",
+  "lockfileHash": "b94670be",
+  "browserHash": "3f22440f",
+  "optimized": {
+    "@noble/ciphers/chacha": {
+      "src": "../../../../node_modules/@noble/ciphers/esm/chacha.js",
+      "file": "@noble_ciphers_chacha.js",
+      "fileHash": "7cbf80d6",
+      "needsInterop": false
+    },
+    "@noble/hashes/hkdf": {
+      "src": "../../../../node_modules/@noble/hashes/esm/hkdf.js",
+      "file": "@noble_hashes_hkdf.js",
+      "fileHash": "3b12ee77",
+      "needsInterop": false
+    },
+    "@noble/hashes/sha2": {
+      "src": "../../../../node_modules/@noble/hashes/esm/sha2.js",
+      "file": "@noble_hashes_sha2.js",
+      "fileHash": "46b2533e",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../../../node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "c0db8a81",
+      "needsInterop": false
+    },
+    "cbor-x": {
+      "src": "../../../../node_modules/cbor-x/index.js",
+      "file": "cbor-x.js",
+      "fileHash": "84b694e0",
+      "needsInterop": false
+    },
+    "hash-wasm": {
+      "src": "../../../../node_modules/hash-wasm/dist/index.esm.js",
+      "file": "hash-wasm.js",
+      "fileHash": "d7de3942",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../../../node_modules/lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "87c7c2d8",
+      "needsInterop": false
+    },
+    "marked": {
+      "src": "../../../../node_modules/marked/lib/marked.esm.js",
+      "file": "marked.js",
+      "fileHash": "6223e0ad",
+      "needsInterop": false
+    },
+    "pdfjs-dist": {
+      "src": "../../../../node_modules/pdfjs-dist/build/pdf.mjs",
+      "file": "pdfjs-dist.js",
+      "fileHash": "5a9fab81",
+      "needsInterop": false
+    },
+    "react-dom": {
+      "src": "../../../../node_modules/react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "b235276e",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "43ef3ba9",
+      "needsInterop": true
+    },
+    "react-hot-toast": {
+      "src": "../../../../node_modules/react-hot-toast/dist/index.mjs",
+      "file": "react-hot-toast.js",
+      "fileHash": "a4afa8ee",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../../../node_modules/react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "1dc00438",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "3e2eed00",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../../../node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "b8578218",
+      "needsInterop": true
+    },
+    "turndown": {
+      "src": "../../../../node_modules/turndown/lib/turndown.browser.es.js",
+      "file": "turndown.js",
+      "fileHash": "4fb1118a",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "react-COpN5FaC": {
+      "file": "react-COpN5FaC.js",
+      "isDynamicEntry": false
+    },
+    "react-dom-nVbxAvSE": {
+      "file": "react-dom-nVbxAvSE.js",
+      "isDynamicEntry": false
+    },
+    "utils-BYX1wpYQ": {
+      "file": "utils-BYX1wpYQ.js",
+      "isDynamicEntry": false
+    }
+  }
+}
