@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../authContext'
 import { fetchVaults, createVault, fetchVaultItems } from '../../api'
 import toast from 'react-hot-toast'
-import { PageLayout, Card, CardHeader, Button, Input, Badge } from '@cloudity/shared'
+import { Badge, Button, Card, CardHeader, Input, PageLayout } from '@cloudity/ui'
 
 export default function Vaults() {
   const { accessToken } = useAuth()

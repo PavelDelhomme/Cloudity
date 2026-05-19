@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { fetchUsersPage, updateUser } from '../../api'
-import { PageLayout, Card, TableWrapper, TableHead, Th, TBody, Td, Badge } from '@cloudity/shared'
+import { Badge, Card, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
 function maskEmail(email: string): string {

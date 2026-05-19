@@ -181,7 +181,7 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 | **A3** | **Package client API partagé** | **`packages/cloudity-shared`** (`cloudityCore.ts`, `jwtRole.ts`, …) — consommé par **`@cloudity/web`** ; suite : **`getAuthHeaders`**, types API, réduction des imports directs depuis l’app | 🟡 Minimal |
 | **A3.1** | **Mail IMAP ↔ BDD & dossiers** | Sync IMAP reste source des en-têtes ; **`mail_messages`** = cache/query côté Cloudity. **À faire** : création **sous-dossiers** sous INBOX (IMAP `CREATE` + ligne **`mail_imap_folders`**), déplacement message = **IMAP COPY/APPEND + expunge** + **UPDATE** BDD ; vue **`folder=all`** exclut **trash/spam/drafts** (API + badge UI) ; barre latérale sans doublon **Trash** vs **Corbeille** (filtre `imap_special_use` + chemins réservés). Livré partiellement : filtre **`folder=all`**, UI dossiers / libellés. | 🟡 Partiel |
 | **A3.2** | **Règles de tri Mail (type Proton)** | **Livré partiellement** : assistant **« créer une règle à partir de ce message »** (⋯ liste + détail), **édition + activer/désactiver** des règles, critères **from / domaine / destinataire / sujet / PJ / étiquette**, actions dossier standard **ou dossier IMAP personnalisé** + marquer lu + **ajout d’étiquette**, **appliquer aux existants** ; recherche liste **FTS** (FR+EN, HTML léger, **`sort=date`** ou **`sort=rank`** (défaut)); stockage **JSON** (`criteria_json`, `actions_json`) + **ordre d’exécution** (`rule_order`) livré ; **réconciliation IMAP** à l’application des règles (move + `\\Seen`, best-effort) livrée. Voir **SYNC-BACKLOG** §0b. | 🟡 Partiel |
-| **A4** | **Package `@cloudity/ui`** | Moteur UI partagé (tokens, Button, Card, layout) — extrait de **`PageLayout.tsx`** dans `@cloudity/shared` — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · branche **`feat/cloudity-ui-design-system`** | 🟡 En cours |
+| **A4** | **Package `@cloudity/ui`** | **UI-1 livré** : `packages/cloudity-ui`, preset Tailwind, réexports deprecated `@cloudity/shared`, admin `/4dm1n` migré, catalogue **`/4dm1n/dev/ui`** — suite : Pass/Settings, App chrome, Mail/Drive — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · branche **`feat/cloudity-ui-design-system`** | 🟡 En cours |
 | **A5** | **App suite utilisateur** | Projet Vite dédié : hub + produits ; **aucune** route admin métier ; consomme A2/A3 | ⬜ |
 | **A6** | **App admin-console** | Projet Vite dédié : login (même JWT), Tenants, Users, Domaines, Settings admin uniquement | ⬜ |
 | **A7** | **URLs & ports dev** | Ex. `localhost:6001` = suite, `localhost:6002` = admin — ou sous-domaines locaux (`app.cloudity.test` / `admin.cloudity.test`) + proxy | ⬜ |
@@ -197,7 +197,7 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 ### Étape technique immédiate (après A0)
 
 1. ~~**A1**~~ — Workspaces **`frontend/`** + app **`@cloudity/web`**.  
-2. **A4 (priorité)** — Créer **`packages/cloudity-ui`** (`@cloudity/ui`) — phases **UI-0…UI-6** dans **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.  
+2. **A4 (priorité)** — **`packages/cloudity-ui`** créé (**UI-1** ✅) — en cours : **UI-2** (admin ✅), **UI-3** Pass/Settings, **UI-4–6** — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.  
 3. **A2 + A3** — API/auth dans **`@cloudity/shared`** (sans nouveaux composants visuels).  
 4. **ENSUITE produit** : corps mail MIME · checklist alias · **A3.1** / **A3.2** · admin pagination · mobile.
 

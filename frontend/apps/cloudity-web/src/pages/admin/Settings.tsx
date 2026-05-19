@@ -1,6 +1,6 @@
 import React from 'react'
 import { useAuth } from '../../authContext'
-import { PageLayout, Card } from '@cloudity/shared'
+import { Card, PageLayout } from '@cloudity/ui'
 
 export default function Settings() {
   const { email, tenantId } = useAuth()

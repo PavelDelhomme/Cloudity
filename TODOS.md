@@ -12,13 +12,13 @@
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
-| **U0** | **Lire la cible** | **[CLOUDITY-UI-DESIGN-SYSTEM.md](./docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** + **STATUS.md** § 0b **A4** | ☐ |
-| **U1** | **Branche** | `git checkout feat/cloudity-ui-design-system` (depuis `dev` à jour) | ☐ |
-| **U2** | **Scaffold package** | `frontend/packages/cloudity-ui` + `package.json` + preset Tailwind + export `Button`, `Card`, `Input`… | ☐ |
-| **U3** | **Réexports** | `@cloudity/shared` réexporte depuis `@cloudity/ui` (deprecated) pour ne pas casser les imports | ☐ |
-| **U4** | **Première migration** | Pages **admin** `/4dm1n` → imports `@cloudity/ui` | ☐ |
+| **U0** | **Lire la cible** | **[CLOUDITY-UI-DESIGN-SYSTEM.md](./docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** + **STATUS.md** § 0b **A4** | ☑ |
+| **U1** | **Branche** | `git checkout feat/cloudity-ui-design-system` (depuis `dev` à jour) | ☑ |
+| **U2** | **Scaffold package** | `frontend/packages/cloudity-ui` + `package.json` + preset Tailwind + export `Button`, `Card`, `Input`… | ☑ |
+| **U3** | **Réexports** | `@cloudity/shared` réexporte depuis `@cloudity/ui` (deprecated) pour ne pas casser les imports | ☑ |
+| **U4** | **Première migration** | Pages **admin** `/4dm1n` → imports `@cloudity/ui` | ☑ |
 | **U5** | **Tests** | `make test-dashboard` · pas de régression Vitest | ☐ |
-| **U6** | **Catalogue** | Storybook minimal **ou** route dev `/dev/ui` (admin only) | ☐ |
+| **U6** | **Catalogue** | Storybook minimal **ou** route dev `/4dm1n/dev/ui` (admin only) | ☑ |
 
 **Branche Git** : `feat/cloudity-ui-design-system`  
 **Case BACKLOG** : **UI-DS-01**

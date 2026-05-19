@@ -181,7 +181,7 @@
 | 3 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
 | 4 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 5 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** ✅ ; **A4** `@cloudity/ui` **en cours** ; **A2/A3** API) |
-| 5b | **UI-DS-01** — Design system | Package **`@cloudity/ui`** — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · branche **`feat/cloudity-ui-design-system`** · **priorité avant** mail alias / corps MIME |
+| 5b | **UI-DS-01** — Design system | **UI-1** ✅ package + admin + `/4dm1n/dev/ui` — suite UI-3 Pass/Settings — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · **`feat/cloudity-ui-design-system`** |
 | 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
 | 8 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |

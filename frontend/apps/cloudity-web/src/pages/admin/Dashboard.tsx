@@ -11,7 +11,8 @@ import {
   fetchPipelineRuns,
   recordPerformanceSnapshot,
 } from '../../api'
-import { PageLayout, Card, adminUiPath } from '@cloudity/shared'
+import { adminUiPath } from '@cloudity/shared'
+import { Card, PageLayout } from '@cloudity/ui'
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US')

@@ -7,6 +7,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "dependencies": {
+    "@cloudity/ui": "file:../cloudity-ui"
+  },
   "peerDependencies": {
     "react": "^18.2.0"
   }

@@ -19,4 +19,4 @@ export {
   Button,
   Input,
   Label,
-} from './PageLayout'
+} from './uiReexports'

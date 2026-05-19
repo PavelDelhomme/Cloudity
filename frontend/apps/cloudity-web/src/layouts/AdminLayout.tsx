@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Shield,
   Key,
+  Palette,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
@@ -24,6 +25,7 @@ const adminNav = [
   { name: 'CVE / dépendances', href: adminUiPath('securite-cve'), icon: Shield, end: false },
   { name: 'Passkeys', href: adminUiPath('passkeys'), icon: Key, end: false },
   { name: 'Paramètres', href: adminUiPath('settings'), icon: Settings, end: false },
+  { name: 'Catalogue UI', href: adminUiPath('dev/ui'), icon: Palette, end: false },
 ]
 
 export default function AdminLayout() {

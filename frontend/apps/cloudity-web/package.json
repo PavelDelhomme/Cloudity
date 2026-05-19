@@ -22,6 +22,7 @@
   "dependencies": {
     "@cloudity/pass-crypto": "file:../../packages/pass-crypto",
     "@cloudity/shared": "file:../../packages/cloudity-shared",
+    "@cloudity/ui": "file:../../packages/cloudity-ui",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.16.0",
     "docx": "^9.6.0",

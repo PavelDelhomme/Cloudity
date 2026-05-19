@@ -2,7 +2,7 @@
   "name": "cloudity-frontend",
   "private": true,
   "version": "0.0.0",
-  "description": "Monorepo frontend : @cloudity/web (SPA utilisateur + bundle admin) et @cloudity/shared.",
+  "description": "Monorepo frontend : @cloudity/web, @cloudity/ui (design system) et @cloudity/shared.",
   "workspaces": [
     "apps/*",
     "packages/*"

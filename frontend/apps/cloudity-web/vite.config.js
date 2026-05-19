@@ -8,6 +8,7 @@ import react from '@vitejs/plugin-react-swc'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 const sharedRoot = path.resolve(__dirname, '../../packages/cloudity-shared/src')
+const uiRoot = path.resolve(__dirname, '../../packages/cloudity-ui/src')
 
 /** Résolution explicite : le code source du workspace `@cloudity/shared` utilise le React hoisted de l’app (Vitest/Vite). */
 const reactPkgRoot = path.dirname(require.resolve('react/package.json'))
@@ -64,6 +65,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@cloudity/shared': sharedRoot,
+      '@cloudity/ui': uiRoot,
       react: reactPkgRoot,
       'react-dom': reactDomPkgRoot,
       'react/jsx-dev-runtime': reactJsxDevRuntime,

@@ -16,7 +16,7 @@ import {
   patchDomainAlias,
 } from '../../api'
 import toast from 'react-hot-toast'
-import { PageLayout, Card, TableWrapper, TableHead, Th, TBody, Td, Badge, Button, Input } from '@cloudity/shared'
+import { Badge, Button, Card, Input, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
 export default function Domaines() {

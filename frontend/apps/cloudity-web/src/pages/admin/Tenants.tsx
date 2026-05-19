@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { deleteTenant, fetchTenantsPage } from '../../api'
-import { PageLayout, Card, TableWrapper, TableHead, Th, TBody, Td, Badge, Button, Input } from '@cloudity/shared'
+import { Badge, Button, Card, Input, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
 const DEFAULT_TENANT_ID = 1

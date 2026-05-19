@@ -2,7 +2,7 @@ import React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../authContext'
 import { fetchCveReport, refreshCveReport, type CveReportResponse } from '../../api'
-import { PageLayout, Card } from '@cloudity/shared'
+import { Card, PageLayout } from '@cloudity/ui'
 import { AlertTriangle, ExternalLink, RefreshCw, Shield } from 'lucide-react'
 
 function CveTable({ report }: { report: CveReportResponse }) {

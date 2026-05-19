@@ -1,0 +1,14 @@
+{
+  "name": "@cloudity/ui",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Design system React/Tailwind partagé des applications web Cloudity.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./tailwind.preset": "./tailwind.preset.js"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0"
+  }
+}
