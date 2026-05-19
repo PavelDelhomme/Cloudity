@@ -11,6 +11,8 @@ Trace-*.tgz
 node_modules/
 dist/
 **/dist/
+# Cache pré-bundle Vite (généré localement / dans Docker — jamais versionner)
+**/.vite/
 backend/api-gateway/tmp/
 # Binaires Go produits par `go build` dans chaque service (mêmes nom que le dossier)
 backend/auth-service/auth-service

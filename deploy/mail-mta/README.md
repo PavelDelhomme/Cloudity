@@ -1,5 +1,14 @@
 # Stack MTA alias Cloudity (squelette)
 
+Deux fichiers compose :
+
+| Fichier | Usage |
+|---------|--------|
+| `docker-compose.yml` | Postfix + OpenDKIM (expérimental) |
+| `docker-compose.maddy.yml` | **Maddy** — recommandé pour Portainer/VPS |
+
+DNS : **docs/operations/MAIL-ALIAS-DNS-MADDY.md**
+
 **Ne pas committer** de FQDN réels, IP VPS ni clés DKIM. Copier `.env.example` → `.env` (gitignored) sur le serveur.
 
 ## Rôle
