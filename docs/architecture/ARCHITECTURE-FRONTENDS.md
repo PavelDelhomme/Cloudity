@@ -14,7 +14,7 @@
 
 C’est volontairement **simple à déployer** (un conteneur, un build) et cohérent avec une **API Gateway** unique qui route vers les microservices (mail, drive, calendrier, …).
 
-**Prochaine étape (cible)** : scinder en **`apps/web-shell`**, **`apps/web-admin`**, etc., en réutilisant et enrichissant **`@cloudity/shared`** (ou un futur **`packages/cloudity-ui`**) pour éviter de dupliquer chrome métier entre apps.
+**Prochaine étape (cible)** : scinder en **`apps/web-shell`**, **`apps/web-admin`**, etc., avec le moteur UI **`@cloudity/ui`** (**[CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md)**) ; **`@cloudity/shared`** reste API/auth uniquement à terme.
 
 ## Objectif « multi-apps » (web + mobile)
 
