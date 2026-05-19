@@ -44,6 +44,12 @@
 
 ---
 
+## 3 bis. Distribution **Linux** & bureaux (`.deb`, Flatpak, Snap, AUR…)
+
+Plan détaillé (sans date figée) : **[DISTRIBUTION-LINUX-DESKTOP.md](DISTRIBUTION-LINUX-DESKTOP.md)**.
+
+---
+
 ## 4. Distribution **mobile** hors Google Play (Android d’abord)
 
 ### 4.1 Chaîne minimale réaliste

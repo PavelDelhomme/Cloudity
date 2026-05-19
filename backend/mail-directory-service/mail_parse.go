@@ -135,17 +135,13 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 		}
 		switch h := p.Header.(type) {
 		case *mail.InlineHeader:
-			ct := strings.ToLower(strings.TrimSpace(h.Get("Content-Type")))
-			if strings.HasPrefix(ct, "text/plain") && res.Plain == "" {
-				b, _ := io.ReadAll(p.Body)
-				res.Plain = strings.TrimSpace(string(b))
-			} else if strings.HasPrefix(ct, "text/html") && res.HTML == "" {
-				b, _ := io.ReadAll(p.Body)
-				res.HTML = strings.TrimSpace(string(b))
-			} else {
-				_, _ = io.Copy(io.Discard, p.Body)
-			}
+			absorbTextMIMEPart(h.Get("Content-Type"), p.Body, res)
 		case *mail.AttachmentHeader:
+			ct := strings.ToLower(strings.TrimSpace(h.Get("Content-Type")))
+			if strings.HasPrefix(ct, "text/plain") || strings.HasPrefix(ct, "text/html") {
+				absorbTextMIMEPart(ct, p.Body, res)
+				continue
+			}
 			if ordinal >= maxAttachmentsPerMessage {
 				_, _ = io.Copy(io.Discard, p.Body)
 				continue
@@ -155,12 +151,12 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 			if fn == "" {
 				fn = "piece-jointe"
 			}
-			ct := h.Get("Content-Type")
-			if ct == "" {
-				ct = "application/octet-stream"
+			attachCT := h.Get("Content-Type")
+			if attachCT == "" {
+				attachCT = "application/octet-stream"
 			}
-			if i := strings.Index(ct, ";"); i >= 0 {
-				ct = strings.TrimSpace(ct[:i])
+			if i := strings.Index(attachCT, ";"); i >= 0 {
+				attachCT = strings.TrimSpace(attachCT[:i])
 			}
 			lim := io.LimitedReader{R: p.Body, N: maxAttachmentBytesPerPart + 1}
 			buf, rerr := io.ReadAll(&lim)
@@ -179,7 +175,7 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 			res.Attachments = append(res.Attachments, mailAttachmentParsed{
 				Ordinal:     ordinal,
 				Filename:    fn,
-				ContentType: ct,
+				ContentType: attachCT,
 				SizeBytes:   size,
 				Content:     content,
 			})
@@ -191,6 +187,28 @@ func parseRFC822Mail(raw []byte) (*mailParsedResult, error) {
 	res.Meta.AttachmentCount = len(res.Attachments)
 	res.RawHeaders = extractRawMIMEHeaders(raw)
 	return res, nil
+}
+
+// absorbTextMIMEPart extrait text/plain ou text/html (impots.gouv et autres envois
+// avec Content-Disposition: attachment sur la partie HTML).
+func absorbTextMIMEPart(contentType string, body io.Reader, res *mailParsedResult) {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	if i := strings.Index(ct, ";"); i >= 0 {
+		ct = strings.TrimSpace(ct[:i])
+	}
+	b, err := io.ReadAll(body)
+	if err != nil || len(b) == 0 {
+		return
+	}
+	text := strings.TrimSpace(string(b))
+	if text == "" {
+		return
+	}
+	if strings.HasPrefix(ct, "text/plain") && res.Plain == "" {
+		res.Plain = text
+	} else if strings.HasPrefix(ct, "text/html") && res.HTML == "" {
+		res.HTML = text
+	}
 }
 
 // extractAttachmentOrdinal relit le MIME et renvoie le contenu de la pièce jointe d’indice ordinal (0-based, même ordre que parseRFC822Mail).

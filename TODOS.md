@@ -12,12 +12,24 @@ Ordre recommandé pour ton **périmètre obligatoire** (mail, alias, web + mobil
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
-| **1** | **Santé locale** | `git pull` · `make doctor` · `make migrate` · **`make test`** ✅ | ☑ |
-| **2** | **Boîte `test@<domaine-principal>`** | IMAP connectée · sync OK · si dates fausses → `make deploy-mail` + **Actualiser (IMAP)** — voir **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
-| **3** | **Checklist alias** (15 min) | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** § 3–4 : **créer** l’alias dans Pass/Mail, filtre, règle, on/off, From | ☐ |
-| **4** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** — **après** alias OK | ☐ |
-| **5** | **PR → `dev`** | CI verte puis merge | ☐ |
-| **6** | **Mobiles / préprod** | LAN + **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** | ☐ |
+| **1** | **Santé locale** | `git pull` · `make doctor` · `make migrate` · **`make test`** · `docker compose restart api-gateway` si `ERR_CONNECTION_RESET` | ☑ |
+| **2** | **Corps mail manquant** | `make deploy-mail` · rouvrir le message impôts · **Recharger le message** ou sync IMAP — correctif MIME HTML en `attachment` | ☐ |
+| **3** | **Boîte `test@<domaine-principal>`** | IMAP connectée · sync OK — **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
+| **4** | **Checklist alias** (15 min) | Créer alias, filtre, règle, on/off, From — **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** avant MX prod | ☐ |
+| **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § **3 bis** — **après** alias OK | ☐ |
+| **6** | **Maddy VPS** (quand prêt) | DNS `@ MX` → `mail.<domaine>.` · stack **`deploy/mail-mta/docker-compose.maddy.yml`** · **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** | ☐ |
+| **7** | **Registry + Portainer** | GHA → GHCR · webhook / pull stack — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
+| **8** | **Mobiles / Linux / stores** | APK OTA · `.deb` / Flatpak / Snap plan — **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** | ☐ |
+
+### Git — ne jamais versionner
+
+| Dossier / fichier | Pourquoi |
+|-------------------|----------|
+| **`frontend/apps/cloudity-web/.vite/`** | Cache Vite (comme `node_modules/`) — déjà dans `.gitignore` ; si commité par erreur : `git rm -r --cached …` |
+| **`deploy/mail-mta/.env`** | FQDN / IP réels |
+| **`.certs/`** | mkcert local |
+
+**Ne pas** `git add *` — toujours `git status` puis chemins ciblés.
 
 **Pas de `TODOS.md` dans `docs/`** — uniquement **`TODOS.md` à la racine** (ce fichier) et **`docs/operations/TODO.md`** (dépannage technique ancien).
 
@@ -127,15 +139,28 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** (guid
 | Phase | Objectif | Lien rapide |
 |-------|----------|-------------|
 | **A** | Local monorepo (`make up`, `make test`, `deploy-*`) | SUIVI § 2 |
-| **B** | Git : PR → `dev` → `main`, GHA tests + `docker-publish` | SUIVI § 3 |
-| **C** | Portainer : stacks **dev** / **preprod** / **prod** | SUIVI § 4 · **[PORTAINER-VPS.md](./docs/operations/PORTAINER-VPS.md)** § 0 |
-| **D** | NPM + DNS + HTTPS | SUIVI § 5 |
+| **B** | Git : PR → `dev` → `main`, GHA tests + **`docker-publish.yml`** → **GHCR** | SUIVI § 3 |
+| **C** | Portainer : stacks **Cloudity** (web/API) **séparées** de **Maddy** (mail ports 25/993) | SUIVI § 4 · **[PORTAINER-MAIL-ALIAS.md](./docs/operations/PORTAINER-MAIL-ALIAS.md)** |
+| **D** | NPM + DNS + HTTPS (web uniquement — pas SMTP via NPM) | SUIVI § 5 · **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** |
 | **E** | Android APK + `version.json` | SUIVI § 6 · **[RELEASE-AND-DISTRIBUTION.md](./docs/operations/RELEASE-AND-DISTRIBUTION.md)** |
-| **F** | Mise à jour **un** service (quotidien) | SUIVI § 7 · `make deploy-web`, etc. |
+| **F** | Mise à jour **un** service (quotidien) | SUIVI § 7 · `make deploy-web`, `deploy-mail`, `deploy-gateway` |
+| **G** | Linux desktop (.deb, Flatpak, Snap, AUR) | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** |
 
-**IP VPS (`VPS_PUBLIC_IP`)** : uniquement dans **Portainer → variables de stack**, pas dans Git. Voir PORTAINER § 0.
+### Registry Docker → mise à jour Portainer (objectif)
 
-**Prochaine action suggérée** : Phase B — PR branche actuelle vers **`dev`** (code + doc déjà poussés).
+| Étape | Action |
+|-------|--------|
+| 1 | Configurer secrets GHA : `GHCR_TOKEN` / permissions package |
+| 2 | Push images `ghcr.io/<owner>/cloudity-{gateway,web,mail-directory,...}:<tag>` |
+| 3 | Stack Portainer : `image:` + variable `TAG` (pas de `build:` sur le VPS) |
+| 4 | Après chaque push : **webhook Portainer** (redeploy stack) ou Watchtower (homelab) |
+| 5 | Smoke : `/health` gateway + login + ouverture Mail |
+
+**Cloudflare** : utile pour le **site** (CDN/TLS) ; **pas obligatoire** pour Maddy. Email Routing CF ≠ MTA self-hosted.
+
+**IP VPS** : uniquement dans **Portainer / `.env` local**, jamais dans Git.
+
+**Prochaine action suggérée** : corriger corps mail (`make deploy-mail`) → checklist alias → phase B GHCR quand `dev` stable.
 
 ---
 

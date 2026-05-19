@@ -26,3 +26,14 @@ func TestParseRFC822Mail_IncludesRawHeaders(t *testing.T) {
 		t.Fatalf("RawHeaders should not include body: %q", res.RawHeaders)
 	}
 }
+
+func TestParseRFC822Mail_HTMLAsAttachmentDisposition(t *testing.T) {
+	raw := []byte("From: impots@test\r\nTo: user@test\r\nSubject: Declaration\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/html; charset=utf-8\r\nContent-Disposition: attachment; filename=\"no-name\"\r\n\r\n<html><body>Corps impots</body></html>\r\n--b--\r\n")
+	res, err := parseRFC822Mail(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.HTML, "Corps impots") {
+		t.Fatalf("expected HTML body, got plain=%q html=%q", res.Plain, res.HTML)
+	}
+}

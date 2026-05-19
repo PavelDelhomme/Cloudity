@@ -2144,6 +2144,9 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 				}
 				m.BodyPlain = parsed.Plain
 				m.BodyHTML = parsed.HTML
+				if strings.TrimSpace(m.BodyPlain) == "" && strings.TrimSpace(m.BodyHTML) == "" && len(raw) > 0 {
+					log.Printf("[mail] parse MIME id=%d: corps vide après RFC822 (%d octets bruts)", msgID, len(raw))
+				}
 				m.RawHeaders = parsed.RawHeaders
 				if parsed.Meta.ThreadKey != "" {
 					m.ThreadKey = parsed.Meta.ThreadKey
