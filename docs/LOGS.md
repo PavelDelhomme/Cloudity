@@ -15,6 +15,23 @@
 
 ---
 
+### 2026-05-20 — Git : fusion UI-DS dans `dev` + branche mail/alias
+
+- Branche source : `feat/cloudity-ui-design-system` → `dev` (merge).
+- Contenu : package `@cloudity/ui`, admin responsive, polish admin, correctifs Mail recherche/conversations.
+- Prochaine branche : `feat/mail-alias-checklist` — **TODOS** § ENSUITE #3–#4.
+- Reporté : **U9** (2FA admin), **U10** (CVE enrichies).
+
+---
+
+### 2026-05-20 — Suivi : CVE admin à enrichir
+
+- Branche : `feat/cloudity-ui-design-system`.
+- Constat utilisateur : l’analyse CVE affiche encore trop de lignes avec résumé `—` (ex. `golang.org/x/crypto`, `golang.org/x/net`, `grpc`, `python-multipart`) et pas assez d’informations actionnables.
+- Suivi : `TODOS.md` — ajout `U10 CVE enrichies`; `BACKLOG.md` — tâche TR-06/CVE pour afficher alias, sévérité, impact, affected ranges et version de remédiation quand OSV/GHSA/NVD les exposent.
+
+---
+
 ### 2026-05-20 — Admin : polish exploitation, sécurité et CVE
 
 - Branche : `feat/cloudity-ui-design-system`.

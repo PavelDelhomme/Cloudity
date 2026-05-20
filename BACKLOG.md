@@ -379,6 +379,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 - [x] Endpoint admin runtime de base : `GET /admin/performance/overview` (snapshot cgroup + docker stats si disponible) + rendu dashboard admin.
 - [x] Dashboard admin : clarification UX du fallback **cgroup seul** quand Docker n’est pas disponible dans le runtime admin-service.
+- [ ] CVE admin : enrichir les vulnérabilités OSV quand `summary` est vide (`—`) avec alias GHSA/CVE, sévérité, plages affectées, liens GHSA/NVD/OSV, et version de remédiation si connue.
 - [ ] Collecte métriques **par service** (gateway + microservices + front) : latence p50/p95/p99, erreurs, CPU/Mémoire/IO.
 - [ ] Historisation métriques + exploration dans l’admin (filtres service/route/période).
 - [ ] Traçabilité des exécutions CI/dev (`make test`, E2E, mobile) avec empreinte ressources.

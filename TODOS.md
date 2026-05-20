@@ -2,7 +2,7 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : lis d’abord **§ MAINTENANT** (moteur UI), puis **§ ENSUITE** (mail, alias, déploiement).
+> **Point d’entrée unique** : **§ MAINTENANT** (UI-DS) est livré et fusionné dans **`dev`** — enchaîner sur **§ ENSUITE** (mail, alias, déploiement), branche **`feat/mail-alias-checklist`**.
 
 ---
 
@@ -22,9 +22,11 @@
 | **U7** | **Responsive UI-DS** | Composants `Responsive*` dans `@cloudity/ui` ; Admin `ResponsiveShell` (drawer &lt;lg) ; catalogue `ResponsivePage/Grid` ; Mail pile nav/liste/lecture &lt;lg | ☑ |
 | **U8** | **Admin polish opérationnel** | Domaines mail résiste aux réponses `null` ; Dashboard explique le mode cgroup ; Users affiche 2FA/dernière connexion sans faux reset ; CVE priorise les dépendances ; Passkeys/Settings explicitent le périmètre web/mobile/extension | ☑ |
 | **U9** | **Admin sécurité 2FA avancée** | À concevoir backend + UI : reset TOTP utilisateur avec step-up admin, audit log, codes de récupération et garde anti-lockout | ☐ |
+| **U10** | **CVE enrichies** | Analyse CVE trop pauvre quand OSV renvoie `summary = null` : récupérer/afficher alias, sévérité, impact, affected ranges et remediation/version cible (OSV/GHSA/NVD), avec fallback clair au lieu de `—` | ☐ |
 
-**Branche Git** : `feat/cloudity-ui-design-system`  
-**Case BACKLOG** : **UI-DS-01**
+**Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  
+**Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
+**Prochaine branche** : `feat/mail-alias-checklist` (depuis `dev`) — § ENSUITE #3–#4.
 
 ---
 
