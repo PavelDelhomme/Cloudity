@@ -15,6 +15,17 @@
 
 ---
 
+### 2026-05-20 — UI-DS U5 : tests dashboard verts
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Front** : **`MailPage.tsx`** — le bouton chrome **Conversations** reçoit maintenant `conversationMode` et `onToggleConversations`, ce qui réactive le regroupement par `thread_key`.
+- **Tests** : **`PassMailAliasesPanel.test.tsx`** — mocks alias complétés (`fetchMailAliasConfig`, `patchMailAlias`) et sélecteur “Boîte” rendu exact pour éviter l’ambiguïté avec “Boîte de réception”.
+- **Suivi** : **[TODOS.md](../TODOS.md)** — `U5` coché ; **[STATUS.md](../STATUS.md)** — en-tête mis à jour.
+- **Mail** : `make test-go-one SERVICE=mail-directory-service` ✅, dont **`TestParseRFC822Mail_HTMLAsAttachmentDisposition`** ; `make deploy-mail` ✅. La validation du vrai message IMAP reste manuelle (`Recharger le message`).
+- **Checks** : `make test-dashboard-one FILE=src/pages/app/pass/PassMailAliasesPanel.test.tsx` ✅ ; `make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx` ✅ ; `make test-dashboard` ✅ (37 fichiers, 294 tests passés, 3 ignorés).
+
+---
+
 ### 2026-05-16 — make status : bloc URLs (LAN + ports .env)
 
 - **Script** : **`scripts/dev/status.sh`** — après le tableau conteneurs : hub, login, register, Pass, Mail, Drive, `/4dm1n`, gateway `/health`, `/auth/health`, rappel **PLAYWRIGHT_API_URL**, Adminer, Redis Commander, Postgres/Redis ; variables **`CLOUDITY_STATUS_HOST`**, **`CLOUDITY_STATUS_PROTO`**.

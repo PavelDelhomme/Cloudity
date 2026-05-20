@@ -9,7 +9,9 @@ import * as api from '../../../api'
 vi.mock('../../../api', () => ({
   fetchMailAccounts: vi.fn(),
   fetchMailAliases: vi.fn(),
+  fetchMailAliasConfig: vi.fn(),
   createMailAlias: vi.fn(),
+  patchMailAlias: vi.fn(),
   deleteMailAlias: vi.fn(),
 }))
 
@@ -33,8 +35,14 @@ describe('PassMailAliasesPanel', () => {
   beforeEach(() => {
     vi.mocked(api.fetchMailAccounts).mockReset()
     vi.mocked(api.fetchMailAliases).mockReset()
+    vi.mocked(api.fetchMailAliasConfig).mockReset()
     vi.mocked(api.createMailAlias).mockReset()
+    vi.mocked(api.patchMailAlias).mockReset()
     vi.mocked(api.deleteMailAlias).mockReset()
+    vi.mocked(api.fetchMailAliasConfig).mockResolvedValue({
+      alias_subdomain: '',
+      primary_domain: '',
+    })
   })
 
   it('invite à connecter Mail quand aucun compte', async () => {
@@ -66,6 +74,6 @@ describe('PassMailAliasesPanel', () => {
     ])
     wrap(<PassMailAliasesPanel accessToken="tok" logout={vi.fn()} />)
     expect(await screen.findByText('alias@b.com')).toBeTruthy()
-    expect((screen.getByLabelText(/boîte/i) as HTMLSelectElement).value).toBe('1')
+    expect((screen.getByLabelText(/^Boîte$/i) as HTMLSelectElement).value).toBe('1')
   })
 })

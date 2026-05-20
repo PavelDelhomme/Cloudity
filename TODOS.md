@@ -17,7 +17,7 @@
 | **U2** | **Scaffold package** | `frontend/packages/cloudity-ui` + `package.json` + preset Tailwind + export `Button`, `Card`, `Input`… | ☑ |
 | **U3** | **Réexports** | `@cloudity/shared` réexporte depuis `@cloudity/ui` (deprecated) pour ne pas casser les imports | ☑ |
 | **U4** | **Première migration** | Pages **admin** `/4dm1n` → imports `@cloudity/ui` | ☑ |
-| **U5** | **Tests** | `make test-dashboard` · pas de régression Vitest | ☐ |
+| **U5** | **Tests** | `make test-dashboard` · pas de régression Vitest | ☑ |
 | **U6** | **Catalogue** | Storybook minimal **ou** route dev `/4dm1n/dev/ui` (admin only) | ☑ |
 
 **Branche Git** : `feat/cloudity-ui-design-system`  
@@ -30,7 +30,7 @@
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
-| **2** | **Corps mail manquant** | `make deploy-mail` · message impôts · **Recharger le message** — fix MIME HTML `attachment` | ☐ |
+| **2** | **Corps mail manquant** | `make deploy-mail` ✅ · message impôts · **Recharger le message** — fix MIME HTML `attachment` couvert par test Go ; validation IMAP réelle à faire | ☐ |
 | **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
 | **4** | **Checklist alias** | **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** | ☐ |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |

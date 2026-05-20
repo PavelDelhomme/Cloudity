@@ -2654,6 +2654,8 @@ export default function MailPage() {
     if (accounts.length === 0) return null
     return (
       <MailAppChromeMenu
+        conversationMode={conversationListMode}
+        onToggleConversations={() => setConversationListMode((v) => !v)}
         onNew={toggleComposeFromChrome}
         onRefresh={handleRefreshFromServer}
         onOpenSettings={() => setShowMailSettings(true)}
@@ -2666,6 +2668,7 @@ export default function MailPage() {
     )
   }, [
     accounts.length,
+    conversationListMode,
     toggleComposeFromChrome,
     handleRefreshFromServer,
     openMailSettingsAtRules,
