@@ -30,7 +30,7 @@
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
-| **2** | **Corps mail manquant** | `make deploy-mail` ✅ · message impôts · **Recharger le message** — fix MIME HTML `attachment` couvert par test Go ; validation IMAP réelle à faire | ☐ |
+| **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts (clic dans Mail) | ☐ |
 | **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
 | **4** | **Checklist alias** | **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** | ☐ |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |

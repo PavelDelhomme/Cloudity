@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-20 — Mail : test Vitest « Recharger le message »
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Tests** : **`MailPage.test.tsx`** — scénario corps vide puis refetch HTML (type impôts.gouv) ; mock **`markMailMessageRead`** en **`beforeEach`**.
+- **Commit** : `b4b1325f` — conversations Mail + Pass alias + U5.
+- **Checks** : `make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx` ✅ (23 tests).
+
+---
+
 ### 2026-05-20 — UI-DS U5 : tests dashboard verts
 
 - Branche : `feat/cloudity-ui-design-system`.

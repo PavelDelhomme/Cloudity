@@ -122,6 +122,8 @@ describe('MailPage', () => {
     vi.mocked(api.moveMailMessageToFolder).mockClear()
     vi.mocked(api.moveMailMessagesToFolderBulk).mockClear()
     vi.mocked(api.markMailMessagesReadBulk).mockClear()
+    vi.mocked(api.fetchMailMessage).mockReset()
+    vi.mocked(api.markMailMessageRead).mockResolvedValue({ ok: true } as any)
     mockAddNotification.mockClear()
   })
 
@@ -859,5 +861,54 @@ describe('MailPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Conversations' }))
     expect(await screen.findByText('2 messages')).toBeTruthy()
+  })
+
+  it('affiche Recharger le message puis le corps HTML après refetch IMAP', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 99,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'impots@test.com',
+          to: 'user@test.com',
+          subject: 'Déclaration impôts',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 1,
+    } as any)
+
+    let detailCalls = 0
+    vi.mocked(api.fetchMailMessage).mockImplementation(async () => {
+      detailCalls += 1
+      const base = {
+        id: 99,
+        account_id: 1,
+        from: 'impots@test.com',
+        to: 'user@test.com',
+        subject: 'Déclaration impôts',
+        date_at: new Date().toISOString(),
+      }
+      if (detailCalls === 1) {
+        return { ...base, body_plain: '', body_html: '' } as any
+      }
+      return { ...base, body_html: '<html><body>Corps impots</body></html>' } as any
+    })
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Déclaration impôts')
+    fireEvent.click(screen.getByText('Déclaration impôts'))
+
+    fireEvent.click(await screen.findByRole('button', { name: /Recharger le message/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Corps impots')).toBeTruthy()
+    })
+    expect(detailCalls).toBeGreaterThanOrEqual(2)
   })
 })

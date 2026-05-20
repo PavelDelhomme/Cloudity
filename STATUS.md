@@ -15,8 +15,8 @@
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **MAINTENANT — Moteur UI** : package **`@cloudity/ui`** (design system réutilisable) — branche **`feat/cloudity-ui-design-system`** — doc **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · cases **UI-DS-01** / **STATUS § 0b A4**.
-2. **ENSUITE — Mail** : corps message (impôts / MIME), checklist alias, **`make deploy-mail`**.
+1. **ENSUITE — Mail** : corps message (validation IMAP impôts), checklist alias **[TODOS.md](./TODOS.md)** § ENSUITE #2–#4.
+2. **UI-DS-01 (quasi livré)** : **`@cloudity/ui`** sur branche **`feat/cloudity-ui-design-system`** — U0–U6 cochés ; suite = merge **`dev`** puis **UI-3** Pass/Settings — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
 3. **J8 Pass** : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis (en parallèle ou juste après UI-1).
 4. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
