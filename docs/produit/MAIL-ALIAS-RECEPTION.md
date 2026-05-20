@@ -9,42 +9,70 @@
 | Enregistrer `nom@<domaine-alias>` | UI Pass / Mail |
 | Filtre `delivered_to`, règle auto, on/off | Cloudity |
 | Envoi `From` = alias | SMTP fournisseur (si autorisé) |
-| **Recevoir depuis Internet** sur `@<domaine-alias>` | **Pas encore** — ce document |
+| **Recevoir depuis Internet** sur `@<domaine-alias>` | **MTA Cloudity** (phase 2) |
 
-## Test sans risque (redirections)
-
-Voir **MAIL-ALIAS-REDIRECTION-SAFE.md** (domaine jetable, sous-adresse, rollback).
-
-## Option A — Court terme (sans MTA Cloudity)
+## Option A — Redirection registrar (secours / rollback)
 
 Chez le registrar du **`<domaine-alias>`** :
 
-1. Créer une **redirection** ou alias mail : `inscriptions@<domaine-alias>` → `<boite-test>@<domaine-principal>`.
-2. Dans Cloudity, enregistrer **exactement** la même adresse `inscriptions@<domaine-alias>` (suffixe UI = `<domaine-alias>`).
-3. Le courrier arrive sur la boîte IMAP déjà synchronisée → **C7** possible après sync.
+1. Redirection `inscriptions@<domaine-alias>` → `<boite-test>@<domaine-principal>`.
+2. Dans Cloudity, enregistrer la **même** adresse.
+3. Sync IMAP → **C7** possible.
 
-Avantage : pas de port 25, pas de MX custom sur le VPS. Inconvénient : gestion manuelle par alias chez l’hébergeur (ou API OVH plus tard).
+Utile en secours si le MTA est indisponible. **Ne remplace pas** la cible auto-hébergée si tu veux contrôler SPF/DKIM/MX toi-même.
 
-## Option B — Moyen terme (`MAIL-ALIAS-05` + `AS-1`)
+## Option B — MTA Cloudity (recommandé)
 
-1. Déployer un **MTA** Cloudity (Postfix / Maddy / Haraka) sur le VPS — stack **`AS-1`** dans **BACKLOG**.
-2. DNS sur **`<domaine-alias>`** (exemple générique, à adapter) :
-   - MX `10 mail.<domaine-principal>.` (ou hostname MTA du VPS — **pas d’IP en dur dans Git**)
-   - SPF, DKIM, DMARC pour **`<domaine-alias>`** (**MAIL-ALIAS-06**)
-3. Port **25 entrant** ouvert sur le VPS (pare-feu + fournisseur cloud).
-4. Backend : tout `*@<domaine-alias>` → lookup `user_email_aliases` → livraison boîte cible / injection IMAP.
+Flux :
 
-Voir **DEPLOIEMENT-VPS-PORTAINER-NPM.md** (secrets Portainer uniquement) et le squelette ops **docs/operations/MAIL-ALIAS-MTA-DEPLOY.md** (phases, DNS, migration sans perte).
+```text
+Internet → MX @<domaine-alias> → mail.<domaine-alias> (VPS)
+  → Maddy/Postfix → POST /mail/internal/alias-resolve
+  → relais SMTP + en-têtes Delivered-To → boîte IMAP cible → sync Cloudity
+```
 
-## Checklist DNS (quand tu passes en option B)
+### Étapes
 
-- [ ] MX OVH par défaut du domaine alias retirés ou remplacés
-- [ ] MX vers le MTA Cloudity
-- [ ] SPF + DKIM + DMARC
-- [ ] Test envoi externe → `test@<domaine-alias>`
-- [ ] C7 dans **MAIL-ALIAS-CHECKLIST.md**
+1. Déployer **`deploy/mail-mta`** (local `2525` puis VPS) — voir **[MAIL-MTA-LOCAL-TEST.md](../operations/MAIL-MTA-LOCAL-TEST.md)**.
+2. Configurer `MTA_INTERNAL_TOKEN` + `MAIL_ALIAS_SUBDOMAIN` dans `.env` / Portainer.
+3. DNS sur **`<domaine-alias>`** :
+   - `A` `mail` → `<IP-VPS>`
+   - `MX` `@` → `10 mail.<domaine-alias>.`
+   - Remplacer SPF OVH par SPF Cloudity quand le MTA envoie (**MAIL-ALIAS-06**)
+4. Port **25** ouvert (pare-feu + hébergeur).
+5. Enregistrer chaque alias dans Cloudity **avant** de recevoir du courrier (pas de catch-all).
+
+### API interne MTA
+
+```http
+POST /mail/internal/alias-resolve
+X-MTA-Internal-Token: <secret>
+{"alias_email":"inscriptions@<domaine-alias>"}
+```
+
+Réponse : `deliver_to`, `account_id`. Alias inconnu ou `enabled=false` → **404**.
+
+## Checklist DNS (bascule MTA)
+
+- [ ] `MTA_INTERNAL_TOKEN` aligné mail-directory + stack MTA
+- [ ] Test local API + optionnel port 2525
+- [ ] MX `@` vers `mail.<domaine-alias>.` (TTL 24–48 h avant bascule)
+- [ ] Nettoyer SPF/DKIM OVH → enregistrements Cloudity
+- [ ] Test externe → `test@<domaine-alias>`
+- [ ] **C7** dans **MAIL-ALIAS-CHECKLIST.md**
+
+## Zone « héritée OVH »
+
+Tant qu’un domaine alias a été créé sans MX Plan OVH, la zone peut encore contenir :
+
+- SPF `include:mx.ovh.com`
+- DKIM `ovhmo-selector-*`
+- CNAME `imap` / `smtp` → `ssl0.ovh.net`
+
+**À remplacer** au moment où le MTA Cloudity devient autoritaire (réception + envoi). Garder une copie / screenshot hors Git pour rollback.
 
 ## Liens
 
-- Test manuel MVP : **MAIL-ALIAS-CHECKLIST.md**
-- Vision produit : **MAIL-ALIAS-VISION.md** (si présent) · **BACKLOG** MAIL-ALIAS-05/06, AS-1
+- **MAIL-ALIAS-CHECKLIST.md** · **MAIL-ALIAS-DNS-MADDY.md**
+- **MAIL-ALIAS-MTA-DEPLOY.md** · **deploy/mail-mta/README.md**
+- **BACKLOG** MAIL-ALIAS-05/06, AS-1

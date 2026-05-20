@@ -16,6 +16,19 @@ L’**option A** (redirection registrar) ne touche **pas** aux MX du domaine pri
 
 Pour valider Cloudity **avant** maily.ovh en prod : préférer **A1** ou **A2**.
 
+## Phase 2 actuelle — MTA Cloudity (recommandé)
+
+Objectif : recevoir `*@<domaine-alias>` sur **ton** MTA (Maddy), résolution alias via Cloudity, livraison vers la boîte IMAP cible.
+
+1. Configurer `MTA_INTERNAL_TOKEN` + suffixe alias dans l’UI / `.env`.
+2. Tester en local : **[MAIL-MTA-LOCAL-TEST.md](../operations/MAIL-MTA-LOCAL-TEST.md)** (API puis port **2525**).
+3. Déployer `deploy/mail-mta` sur le VPS ; MX `@` → `mail.<domaine-alias>.`.
+4. Enregistrer chaque alias dans Cloudity **avant** réception (pas de catch-all).
+
+**Secours** : redirection registrar (A1/A3 ci-dessous) si le MTA est coupé.
+
+**À ne pas faire** : catch-all, publier IP/clés dans Git, laisser SPF OVH `include:mx.ovh.com` une fois le MTA actif.
+
 ### A1 — Exemple (placeholders)
 
 1. Chez OVH : redirection `test-alias@<domaine-principal>` → `mailtest@<domaine-principal>`.

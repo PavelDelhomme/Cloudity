@@ -337,6 +337,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	r := gin.New()
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
 	h := &Handler{db: db}
+	r.POST("/mail/internal/alias-resolve", h.internalAliasResolve)
 	r.Use(h.requireTenantAndUser)
 	r.Use(h.requireAdminRoleForMailDirectory)
 	mail := r.Group("/mail")

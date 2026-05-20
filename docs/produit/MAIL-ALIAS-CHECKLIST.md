@@ -51,6 +51,15 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 2. **Serveur (optionnel)** : `.env` `MAIL_PRIMARY_DOMAIN` / `MAIL_ALIAS_SUBDOMAIN` — équipe / prod uniquement.
 3. Ensuite tu ne tapes plus que le **nom** (ex. `inscriptions`) : l’aperçu doit montrer `inscriptions@<suffixe-configuré>`.
 
+### Phase 2 — MTA Cloudity (réception auto-hébergée)
+
+1. `MTA_INTERNAL_TOKEN` dans `.env` + `make deploy-mail`.
+2. Test API : **[MAIL-MTA-LOCAL-TEST.md](../operations/MAIL-MTA-LOCAL-TEST.md)**.
+3. Optionnel : `deploy/mail-mta` local port **2525**, puis VPS + MX documentés.
+4. Crée l’alias dans Cloudity, envoie vers `inscriptions@<domaine-alias>`, **Actualiser (IMAP)**.
+
+Secours : redirection fournisseur (**MAIL-ALIAS-REDIRECTION-SAFE.md**).
+
 > **Sans hébergeur** : tu peux enregistrer l’alias dans Cloudity (filtres, From) ; **recevoir** du courrier Internet sur `@alias.*` exige encore MX/redirection (**MAIL-ALIAS-05** / panneau OVH). Tu ne perds pas ta boîte actuelle : Cloudity **s’ajoute** à l’IMAP existant.
 
 ### Option A — depuis **Pass** (recommandé, style Proton)
@@ -91,7 +100,7 @@ Ensuite envoie un mail **vers** l’alias depuis une autre boîte ; après sync 
 | **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☐ |
 | **C5** | **Désactiver** l’alias → disparaît du filtre · **Activer** → revient | ☐ |
 | **C6** | **Nouveau message** → **From** : choisir l’alias dans la liste (si SMTP autorise) | ☐ |
-| **C7** | (Si routage OK) Recevoir un mail **vers** l’alias → visible après sync + filtre | ☐ |
+| **C7** | Redirection fournisseur : recevoir un mail **vers** l’alias → visible après sync + filtre | ☐ |
 
 ---
 

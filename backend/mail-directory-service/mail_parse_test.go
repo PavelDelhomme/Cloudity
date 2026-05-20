@@ -27,6 +27,27 @@ func TestParseRFC822Mail_IncludesRawHeaders(t *testing.T) {
 	}
 }
 
+func TestHeaderContainsDeliveredTo(t *testing.T) {
+	hdr := "Delivered-To: inscriptions@alias.example\r\nTo: user@main.example\r\n"
+	if !headerContainsDeliveredTo(hdr, "inscriptions@alias.example") {
+		t.Fatal("expected match on Delivered-To")
+	}
+	if headerContainsDeliveredTo(hdr, "other@alias.example") {
+		t.Fatal("unexpected match")
+	}
+	hdr2 := "X-Original-To: shop@alias.example\r\n"
+	if !headerContainsDeliveredTo(hdr2, "shop@alias.example") {
+		t.Fatal("expected X-Original-To match")
+	}
+}
+
+func TestDeliveredToSQLClause(t *testing.T) {
+	cl := deliveredToSQLClause(3)
+	if !strings.Contains(cl, "$3") || !strings.Contains(cl, "$4") || !strings.Contains(cl, "raw_headers") {
+		t.Fatalf("unexpected clause: %s", cl)
+	}
+}
+
 func TestParseRFC822Mail_HTMLAsAttachmentDisposition(t *testing.T) {
 	raw := []byte("From: impots@test\r\nTo: user@test\r\nSubject: Declaration\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/html; charset=utf-8\r\nContent-Disposition: attachment; filename=\"no-name\"\r\n\r\n<html><body>Corps impots</body></html>\r\n--b--\r\n")
 	res, err := parseRFC822Mail(raw)

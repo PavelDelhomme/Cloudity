@@ -11,6 +11,8 @@ services:
     environment:
       MADDY_HOSTNAME: ${MADDY_HOSTNAME}
       MADDY_DOMAIN: ${MADDY_DOMAIN}
+      MAIL_DIRECTORY_URL: ${MAIL_DIRECTORY_URL}
+      MTA_INTERNAL_TOKEN: ${MTA_INTERNAL_TOKEN}
     ports:
       - "${SMTP_PORT}:25"
       - "${IMAP_PORT}:143"
@@ -19,6 +21,8 @@ services:
       - "${IMAPS_PORT}:993"
     volumes:
       - maddy_data:/data
+      - ./maddy/maddy.conf:/data/maddy.conf:ro
+      - ./scripts:/scripts:ro
       - ${MADDY_CERTS_PATH}:/data/tls:ro
     networks:
       - mta_net

@@ -9,8 +9,8 @@ Objectif : recevoir et envoyer depuis `*@<DOMAINE-ALIAS>` sans perte de courrier
 | Phase | Où | Risque mail | Contenu |
 |-------|-----|-------------|---------|
 | **0 — MVP** | Local + Cloudity UI | Aucun | Alias enregistrés, filtres `delivered_to`, envoi SMTP fournisseur |
-| **1 — Redirection** | Registrar `<DOMAINE-ALIAS>` | Faible | Option A dans **MAIL-ALIAS-RECEPTION.md** |
-| **2 — MTA Cloudity** | VPS + Portainer | Moyen (MX) | Postfix/Maddy, port 25, routage vers boîte cible |
+| **1 — Redirection** | Registrar `<DOMAINE-ALIAS>` | Faible | Option A — secours / rollback |
+| **2 — MTA Cloudity** | Local 2525 puis VPS | Moyen (MX) | Maddy + `POST /mail/internal/alias-resolve` |
 | **3 — Auth sortante** | DNS + MTA | Bounces / spam | SPF, DKIM, DMARC alignés sur `<DOMAINE-ALIAS>` |
 
 ## Prérequis VPS (phase 2)
@@ -55,8 +55,19 @@ Services typiques (noms génériques) :
 Flux entrant cible :
 
 ```text
-Internet → MX (DOMAINE-ALIAS) → MTA → lookup user_email_aliases → injection IMAP boîte mère
+Internet → MX (DOMAINE-ALIAS) → MTA → POST /mail/internal/alias-resolve
+  → relais vers deliver_target + Delivered-To → sync IMAP Cloudity
 ```
+
+API interne (token `MTA_INTERNAL_TOKEN`, hors JWT utilisateur) :
+
+```http
+POST /mail/internal/alias-resolve
+X-MTA-Internal-Token: <secret>
+{"alias_email":"inscriptions@<DOMAINE-ALIAS>"}
+```
+
+Test local : **[MAIL-MTA-LOCAL-TEST.md](./MAIL-MTA-LOCAL-TEST.md)**.
 
 ## Migration sans perte
 

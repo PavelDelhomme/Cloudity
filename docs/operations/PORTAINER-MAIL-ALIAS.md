@@ -11,7 +11,7 @@ Tu n’as **pas encore** déployé sur le VPS : ce guide part de zéro. La stack
 [Internet SMTP] → port 25 VPS → deploy/mail-mta (Postfix)  (stack séparée, plus tard)
 ```
 
-Phase actuelle recommandée : **redirections OVH uniquement** — pas de stack MTA sur le VPS tant que les tests locaux ne sont pas verts.
+Phase actuelle : **MTA auto-hébergé** — tests locaux (**MAIL-MTA-LOCAL-TEST.md**) puis stack `deploy/mail-mta` sur le VPS. Redirections OVH = secours uniquement.
 
 ## 1. Prérequis VPS
 
@@ -29,8 +29,8 @@ Déjà documentée dans **DEPLOIEMENT-VPS-PORTAINER-NPM.md** :
 
 **Mail alias côté app** (sans MTA) :
 
-- `MAIL_PRIMARY_DOMAIN`, `MAIL_ALIAS_SUBDOMAIN` dans le service **mail-directory-service** (placeholders dans la doc, valeurs dans Portainer).
-- Pas besoin du compose `deploy/mail-mta` pour l’option redirection.
+- `MAIL_PRIMARY_DOMAIN`, `MAIL_ALIAS_SUBDOMAIN`, **`MTA_INTERNAL_TOKEN`** dans **mail-directory-service** (valeurs dans Portainer uniquement).
+- Stack **`deploy/mail-mta`** : même `MTA_INTERNAL_TOKEN` + `MAIL_DIRECTORY_URL=http://mail-directory-service:8050` sur le réseau Docker interne.
 
 ## 3. Stack MTA (`deploy/mail-mta`) — quand tu es prêt
 

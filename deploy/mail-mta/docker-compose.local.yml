@@ -1,0 +1,45 @@
+# Stack MTA — tests locaux (SMTP entrant sur 2525, pas de conflit avec le port 25 système).
+# Usage : cp .env.local.example .env && docker compose -f docker-compose.local.yml up -d
+# Prérequis : mail-directory-service joignable (stack Cloudity `make up`).
+
+services:
+  mta-alias-deliver:
+    image: curlimages/curl:8.11.1
+    container_name: cloudity-mta-alias-deliver
+    restart: "no"
+    profiles:
+      - tools
+    env_file: .env
+    environment:
+      MAIL_DIRECTORY_URL: ${MAIL_DIRECTORY_URL:-http://host.docker.internal:6050}
+      MTA_INTERNAL_TOKEN: ${MTA_INTERNAL_TOKEN}
+    volumes:
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/sh", "/scripts/alias-deliver.sh"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  maddy:
+    image: foxcpp/maddy:latest
+    container_name: cloudity-maddy-local
+    hostname: ${MADDY_HOSTNAME:-mail.alias.example.invalid}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${SMTP_PORT:-2525}:25"
+      - "${SUBMISSION_PORT:-2587}:587"
+    volumes:
+      - maddy_data:/data
+      - ./maddy/maddy.conf:/data/maddy.conf:ro
+      - ./scripts:/scripts:ro
+    networks:
+      - mta_local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  mta_local:
+    name: cloudity-mta-local
+
+volumes:
+  maddy_data:

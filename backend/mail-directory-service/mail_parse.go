@@ -17,6 +17,37 @@ const (
 	maxRawHeadersBytes        = 512 * 1024
 )
 
+// deliveredToSQLClause filtre to_addrs et en-têtes préservés par le MTA (Delivered-To, etc.).
+func deliveredToSQLClause(paramIdx int) string {
+	hdr := fmt.Sprintf("$%d", paramIdx+1)
+	to := fmt.Sprintf("$%d", paramIdx)
+	return fmt.Sprintf(` AND (
+		LOWER(m.to_addrs) LIKE %s
+		OR LOWER(COALESCE(m.raw_headers, '')) LIKE %s
+	)`, to, hdr)
+}
+
+// headerContainsDeliveredTo indique si raw_headers contient l’adresse alias recherchée.
+func headerContainsDeliveredTo(rawHeaders, aliasLower string) bool {
+	if rawHeaders == "" || aliasLower == "" {
+		return false
+	}
+	h := strings.ToLower(rawHeaders)
+	needle := strings.ToLower(aliasLower)
+	for _, prefix := range []string{"delivered-to:", "x-original-to:", "x-envelope-to:"} {
+		if idx := strings.Index(h, prefix); idx >= 0 {
+			rest := h[idx+len(prefix):]
+			if end := strings.IndexAny(rest, "\r\n"); end >= 0 {
+				rest = rest[:end]
+			}
+			if strings.Contains(rest, needle) {
+				return true
+			}
+		}
+	}
+	return strings.Contains(h, needle)
+}
+
 type mailParsedMeta struct {
 	InternetMsgID    string
 	InReplyTo        string

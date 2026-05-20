@@ -15,6 +15,25 @@
 
 ---
 
+### 2026-05-20 — MTA alias auto-hébergé (MAIL-ALIAS-05 partiel)
+
+- Branche : `feat/mail-alias-checklist`.
+- Backend : `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`) ; filtre `delivered_to` étendu à `raw_headers` (Delivered-To, X-Original-To).
+- Infra : `deploy/mail-mta` — `docker-compose.local.yml`, `maddy.conf`, `alias-deliver.sh`, `.env.local.example`.
+- Doc : TODOS, STATUS, BACKLOG, MAIL-ALIAS-RECEPTION, MAIL-ALIAS-DNS-MADDY, MAIL-MTA-LOCAL-TEST, PORTAINER.
+- Tests : `go test` mail-directory-service OK.
+
+---
+
+### 2026-05-20 — Mail/alias : cadrage phase 2 domaine dédié
+
+- Branche : `feat/mail-alias-checklist`.
+- Décision : travailler avec un domaine alias dédié en conditions proches prod, mais via **redirection fournisseur** uniquement.
+- Sécurité : ne pas changer les MX, ne pas committer le vrai FQDN/IP ; configurer le suffixe réel dans l’UI ou chez le registrar.
+- Docs : **TODOS**, **STATUS**, **BACKLOG**, **MAIL-ALIAS-CHECKLIST**, **MAIL-ALIAS-REDIRECTION-SAFE** recentrés sur la phase 2.
+
+---
+
 ### 2026-05-20 — Mail/alias : stack validée + tests Paramètres Mail
 
 - Branche : `feat/mail-alias-checklist`.

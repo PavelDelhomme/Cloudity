@@ -4,7 +4,7 @@
 
 ## À faire maintenant
 
-**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** — **§ ENSUITE** #3–#4 = boîte test IMAP + checklist alias (**`feat/mail-alias-checklist`**) ; UI-DS livré sur **`dev`**.
+**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** — **§ ENSUITE** #3–#4 = MTA alias (local 2525 → VPS MX), checklist C1–C7 ; UI-DS livré sur **`dev`**.
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
@@ -15,7 +15,7 @@
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **ENSUITE — Mail** : boîte test IMAP + checklist alias sur branche **`feat/mail-alias-checklist`** — **[TODOS.md](./TODOS.md)** § ENSUITE #3–#4.
+1. **ENSUITE — Mail** : MTA alias auto-hébergé sur **`feat/mail-alias-checklist`** — API `/mail/internal/alias-resolve`, stack `deploy/mail-mta`, DNS/MX doc ; valider **[TODOS.md](./TODOS.md)** § ENSUITE #3–#4.
 2. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
 3. **J8 Pass** : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis (en parallèle ou juste après UI-1).
 4. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.

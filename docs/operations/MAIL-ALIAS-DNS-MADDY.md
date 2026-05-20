@@ -1,59 +1,65 @@
 # DNS + Maddy (domaine alias) — checklist
 
-**Ne jamais committer** : IP VPS, FQDN réels. Les exemples utilisent `<domaine-alias>` et `<IP-VPS>`.
+**Ne jamais committer** : IP VPS, FQDN réels. Les exemples utilisent `<domaine-alias>`, `<hostname-mta>`, `<IP-VPS>`.
 
 ## MX : erreur fréquente
 
 | Faux | Correct |
 |------|---------|
 | Sous-domaine `mail.<domaine>` avec MX dessus | MX sur la **racine** `@` (ou champ vide OVH) |
-| `mail.<domaine> MX 10 mail.<domaine>` | `@ MX 10 mail.<domaine>.` (point final selon UI) |
+| `mail.<domaine> MX 10 mail.<domaine>` | `@ MX 10 mail.<domaine-alias>.` (point final selon UI) |
 
 Le courrier pour `user@<domaine-alias>` utilise le MX de **la racine** du domaine, pas celui du sous-domaine `mail`.
 
-## Enregistrements minimaux (phase Maddy)
+## Enregistrements cible (MTA Cloudity)
 
 | Type | Nom | Valeur |
 |------|-----|--------|
 | A | `mail` | `<IP-VPS>` |
 | MX | `@` | `10 mail.<domaine-alias>.` |
+| TXT | `@` | SPF Cloudity : `v=spf1 mx a:mail.<domaine-alias> -all` (à affiner) |
+| TXT | `cloudity._domainkey` | clé publique DKIM (générée sur le MTA, **hors Git**) |
+| TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:dmarc@<domaine-alias>` puis durcir |
 
-Tant que Maddy n’est pas validé : **garder** une redirection OVH ou ne pas supprimer les MX OVH par défaut (voir **MAIL-ALIAS-REDIRECTION-SAFE.md**).
+PTR / reverse DNS : cohérent avec `mail.<domaine-alias>` (fournisseur VPS).
 
-## Zone « pas encore propre »
+## Migration depuis une zone OVH « mail par défaut »
 
-Tant que tu restes chez OVH Mail en parallèle, la zone peut encore contenir :
+Si le domaine alias n’a **pas** de MX Plan OVH actif mais affiche encore des entrées OVH :
 
-- SPF `include:mx.ovh.com`
-- DKIM `ovhmo-selector-*`
-- `imap` / `smtp` / `pop3` → `ssl0.ovh.net`
-- `autoconfig` / `autodiscover` OVH
+| Entrée héritée | Action lors de la bascule MTA |
+|----------------|-------------------------------|
+| SPF `include:mx.ovh.com` | **Remplacer** par SPF du MTA Cloudity |
+| DKIM `ovhmo-selector-*` | Supprimer ou laisser jusqu’à DKIM Cloudity prêt |
+| `imap` / `smtp` / `pop3` → `ssl0.ovh.net` | Supprimer si IMAP reste sur le domaine principal |
+| `A` racine → parking OVH | Optionnel ; le MX suffit pour la réception mail |
+| `@ MX 10 mail.<domaine>.` + `mail A <IP>` | **Garder la forme** ; pointer `mail A` vers **ton** VPS |
 
-À **remplacer ou supprimer** seulement au moment de la bascule réelle (pas avant les tests).
+**Ne pas** activer catch-all. Chaque alias = une ligne dans Cloudity + résolution API.
 
-## Cloudflare : est-ce nécessaire ?
+## Ordre d’exécution
 
-**Non** pour faire tourner Maddy sur ton VPS avec DNS chez OVH.
+1. Baisser TTL MX 24–48 h
+2. `MTA_INTERNAL_TOKEN` + `make deploy-mail`
+3. Test local : **[MAIL-MTA-LOCAL-TEST.md](./MAIL-MTA-LOCAL-TEST.md)**
+4. Déployer `deploy/mail-mta` sur VPS (Portainer)
+5. Ouvrir pare-feu 25, 587
+6. Vérifier MX + test mail externe
+7. SPF / DKIM / DMARC Cloudity (**MAIL-ALIAS-06**)
+8. Checklist produit **C7**
 
-| Besoin | Solution |
-|--------|----------|
-| Recevoir sur alias **sans** MTA | OVH redirection, ou **Cloudflare Email Routing** (produit séparé, pas Maddy) |
-| MTA self-hosted (Maddy) | DNS chez OVH (ou CF en **DNS only**, pas proxy orange sur `mail`) |
-| CDN / HTTPS web Cloudity | Cloudflare devant le **site**, pas le port 25 |
+## Rollback (30 s)
 
-Attention : en proxy Cloudflare (nuage orange), le **SMTP entrant (25)** ne passe pas comme pour le web. Pour le mail, enregistrement `mail` en **DNS only** (gris).
+1. Remettre MX précédent ou couper le MX
+2. Arrêter stack `cloudity-mail-mta`
+3. Les alias Cloudity restent ; plus de réception Internet sur le domaine alias
 
-## Ordre d’exécution (ne pas tout faire d’un coup)
+## Cloudflare
 
-1. Corriger MX `@` → `mail.<domaine-alias>.`
-2. Déployer stack **deploy/mail-mta/docker-compose.maddy.yml** sur Portainer
-3. Certificats dans `/data/tls/fullchain.pem` et `privkey.pem`
-4. Ouvrir pare-feu : 25, 587, 993 (et 143/465 si besoin)
-5. Test `swaks` ou mail externe vers `test@<domaine-alias>`
-6. Brancher Cloudity (résolution alias) — phase suivante
-7. Nettoyer SPF/DKIM/DMARC OVH → enregistrements Maddy
+**Non requis** si DNS reste chez OVH. Si Cloudflare : enregistrement `mail` en **DNS only** (gris) — le proxy orange ne gère pas SMTP entrant.
 
 ## Liens
 
 - **PORTAINER-MAIL-ALIAS.md** · **MAIL-ALIAS-MTA-DEPLOY.md**
 - **deploy/mail-mta/README.md**
+- **MAIL-ALIAS-REDIRECTION-SAFE.md** (secours redirection)

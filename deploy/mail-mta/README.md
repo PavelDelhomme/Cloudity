@@ -1,45 +1,84 @@
-# Stack MTA alias Cloudity (squelette)
+# Stack MTA alias Cloudity
 
-Deux fichiers compose :
+Deux modes :
 
 | Fichier | Usage |
 |---------|--------|
+| `docker-compose.local.yml` | **Dev** — SMTP sur **2525** (hôte), lookup API Cloudity |
+| `docker-compose.maddy.yml` | **VPS / Portainer** — ports **25**, **587**, **993** |
 | `docker-compose.yml` | Postfix + OpenDKIM (expérimental) |
-| `docker-compose.maddy.yml` | **Maddy** — recommandé pour Portainer/VPS |
 
-DNS : **docs/operations/MAIL-ALIAS-DNS-MADDY.md**
+DNS : **[docs/operations/MAIL-ALIAS-DNS-MADDY.md](../../docs/operations/MAIL-ALIAS-DNS-MADDY.md)**  
+Déploiement : **[docs/operations/MAIL-ALIAS-MTA-DEPLOY.md](../../docs/operations/MAIL-ALIAS-MTA-DEPLOY.md)**  
+Test local : **[docs/operations/MAIL-MTA-LOCAL-TEST.md](../../docs/operations/MAIL-MTA-LOCAL-TEST.md)**
 
-**Ne pas committer** de FQDN réels, IP VPS ni clés DKIM. Copier `.env.example` → `.env` (gitignored) sur le serveur.
+**Ne pas committer** de FQDN réels, IP VPS ni clés DKIM. Copier `.env.local.example` ou `.env.example` → `.env` (gitignored).
 
 ## Rôle
 
-Réception SMTP sur le **domaine alias** (`*@<DOMAINE-ALIAS>`) et remise vers la boîte IMAP principale (phase 2 de `docs/operations/MAIL-ALIAS-MTA-DEPLOY.md`).
+Réception SMTP sur le **domaine alias** (`*@<domaine-alias>`) :
 
-En **phase 1**, préférer la redirection registrar (option A dans `docs/produit/MAIL-ALIAS-RECEPTION.md`) — aucun port 25 requis.
+1. MTA reçoit `RCPT TO` alias@…
+2. `scripts/alias-deliver.sh` appelle `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
+3. Relais vers `deliver_to` (boîte IMAP) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
 
-## Démarrage (VPS / homelab)
+## Prérequis Cloudity
 
-Toutes les variables du `.env` sont **obligatoires** (le compose n’a pas de valeurs par défaut).
+Dans le `.env` racine (ou Portainer) :
+
+```bash
+MTA_INTERNAL_TOKEN=<openssl rand -hex 32>
+MAIL_PRIMARY_DOMAIN=<domaine-principal>
+MAIL_ALIAS_SUBDOMAIN=<domaine-alias>
+```
+
+Redémarrer le service mail : `make deploy-mail`.
+
+## Démarrage local
 
 ```bash
 cd deploy/mail-mta
-cp .env.example .env
-# Éditer .env sur la machine (jamais dans Git)
-docker compose config   # vérifie que rien n’est vide
-docker compose up -d
+cp .env.local.example .env
+# Éditer .env (même MTA_INTERNAL_TOKEN que le .env racine Cloudity)
+docker compose -f docker-compose.local.yml up -d maddy
 ```
 
-Portainer : voir **docs/operations/PORTAINER-MAIL-ALIAS.md**.
+Test API (sans Maddy) :
 
-Ports exposés par défaut : **25** (SMTP entrant), **587** (soumission). Ouvrir le pare-feu + MX DNS uniquement après tests internes.
+```bash
+curl -sS -X POST http://localhost:6050/mail/internal/alias-resolve \
+  -H "Content-Type: application/json" \
+  -H "X-MTA-Internal-Token: $MTA_INTERNAL_TOKEN" \
+  -d '{"alias_email":"inscriptions@alias.example.invalid"}'
+```
 
-## Intégration Cloudity (à venir)
+Test SMTP local (si `swaks` installé) :
 
-1. `mail-directory-service` : endpoint ou script de lookup `user_email_aliases` → `deliver_target_email`.
-2. Postfix `transport_maps` ou pipe vers script `scripts/alias-deliver.sh` (stub).
-3. DKIM : clés dans `opendkim/keys/` (volume local, **hors Git**).
+```bash
+swaks --to inscriptions@alias.example.invalid --server localhost --port 2525
+```
+
+## Démarrage VPS
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.maddy.yml config
+docker compose -f docker-compose.maddy.yml up -d
+```
+
+Ouvrir pare-feu : **25**, **587**. Aligner MX `@` → `mail.<domaine-alias>.` (voir doc DNS).
+
+## Intégration
+
+| Composant | État |
+|-----------|------|
+| `POST /mail/internal/alias-resolve` | Livré |
+| Filtre `delivered_to` + `raw_headers` | Livré |
+| Maddy `maddy.conf` | Squelette — ajuster selon version Maddy |
+| DKIM/SPF/DMARC Cloudity | Phase **MAIL-ALIAS-06** |
 
 ## Liens
 
-- `docs/operations/MAIL-ALIAS-MTA-DEPLOY.md`
+- `docs/produit/MAIL-ALIAS-RECEPTION.md`
 - `docs/produit/MAIL-ALIAS-CHECKLIST.md`
+- `docs/operations/PORTAINER-MAIL-ALIAS.md`

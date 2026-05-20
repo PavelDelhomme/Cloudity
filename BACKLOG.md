@@ -82,13 +82,15 @@
 
 > **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.<domaine-principal>`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
 
+> **Phase 2 en cours** : MTA auto-hébergé (`deploy/mail-mta`, API `/mail/internal/alias-resolve`, filtre `delivered_to` + `raw_headers`). Redirection fournisseur = secours. **MAIL-ALIAS-05** partiellement livré (lookup + stack squelette).
+
 - [x] **MAIL-ALIAS-01** — `enabled` / désactivation temporaire sur `user_email_aliases` + UI Pass/Mail (migration **40**, PATCH API, Mail + Pass).
 - [x] **MAIL-ALIAS-02** — À la création : règle filtre `recipient_pattern` = alias (dossier `inbox`, `rule_order` 900) — `ensureAliasInboundRule` au POST alias.
 - [x] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` / `MAIL_PRIMARY_DOMAIN` + GET `/mail/me/alias-config` + validation `*@alias.<domaine>` ; UI domaine (Mail/Pass) + saisie local-part.
 - [ ] **ARCH-DHT-01** — **Phase tardive** : réseau décentralisé (DHT, relais chiffré, pairs sans IP exposée) — cadrage **[docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md](docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md)** ; hors MVP.
 - [ ] **MAIL-STOR-01** — Cache mail PostgreSQL + politique rétention + purge IMAP optionnelle (quota fournisseur) — **[docs/produit/MAIL-STOCKAGE-CACHE.md](docs/produit/MAIL-STOCKAGE-CACHE.md)**.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
-- [ ] **MAIL-ALIAS-05** — Provision réelle : **5a** API OVH **ou** **5b** MTA Cloudity (`mail_aliases` + **AS-1**) ; utilisateur ne ouvre plus le manager OVH. Guide : **[docs/produit/MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** (placeholders DNS, pas d’IP en Git).
+- [ ] **MAIL-ALIAS-05** — MTA Cloudity : lookup alias livré (`/mail/internal/alias-resolve`) ; reste prod hardening (Maddy conf, injection IMAP directe, **5a** API OVH optionnelle). Guide : **[MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** · **[MAIL-MTA-LOCAL-TEST.md](docs/operations/MAIL-MTA-LOCAL-TEST.md)**.
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
 - [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).

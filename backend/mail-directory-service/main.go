@@ -319,6 +319,7 @@ func main() {
 	r.GET("/mail/favicon", h.mailFaviconProxy)
 	// Callback OAuth Google : pas d'auth (redirection navigateur depuis Google)
 	r.GET("/mail/me/oauth/google/callback", h.oauthGoogleCallback)
+	r.POST("/mail/internal/alias-resolve", h.internalAliasResolve)
 	r.Use(h.requireTenantAndUser)
 	r.Use(h.requireAdminRoleForMailDirectory)
 
@@ -1937,9 +1938,9 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		p++
 	}
 	if dlv != "" {
-		extraWhere += fmt.Sprintf(" AND LOWER(m.to_addrs) LIKE $%d", p)
-		args = append(args, dlv)
-		p++
+		extraWhere += deliveredToSQLClause(p)
+		args = append(args, dlv, dlv)
+		p += 2
 	} else if rcp != "" {
 		extraWhere += fmt.Sprintf(" AND (LOWER(m.to_addrs) LIKE $%d OR LOWER(m.from_addr) LIKE $%d OR LOWER(m.subject) LIKE $%d)", p, p, p)
 		args = append(args, rcp)
@@ -2033,9 +2034,9 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 		p++
 	}
 	if dlv != "" {
-		extraWhere += fmt.Sprintf(" AND LOWER(m.to_addrs) LIKE $%d", p)
-		args = append(args, dlv)
-		p++
+		extraWhere += deliveredToSQLClause(p)
+		args = append(args, dlv, dlv)
+		p += 2
 	} else if rcp != "" {
 		extraWhere += fmt.Sprintf(" AND (LOWER(m.to_addrs) LIKE $%d OR LOWER(m.from_addr) LIKE $%d OR LOWER(m.subject) LIKE $%d)", p, p, p)
 		args = append(args, rcp)
