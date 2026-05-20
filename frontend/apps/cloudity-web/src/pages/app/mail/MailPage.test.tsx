@@ -684,6 +684,58 @@ describe('MailPage', () => {
     expect(screen.queryByText('Réunion équipe')).toBeNull()
   })
 
+  it('accepte les opérateurs rapides avec un espace après from:, subject: et tag:', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailTags).mockResolvedValue([{ id: 7, name: 'Actu' }] as any)
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 171,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'Pavel Delhomme <paveldelhomme@test.com>',
+          to: 'user@test.com',
+          subject: 'Actualités Cloudity',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          tag_ids: [7],
+        },
+        {
+          id: 172,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'Autre <autre@test.com>',
+          to: 'user@test.com',
+          subject: 'Actualités autres',
+          created_at: new Date().toISOString(),
+          is_read: false,
+          tag_ids: [],
+        },
+      ],
+      total: 2,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Actualités Cloudity')
+    await screen.findByText('Actualités autres')
+
+    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    fireEvent.change(input, { target: { value: 'from: paveldelhomme subject: cloudity tag: actu' } })
+
+    await waitFor(() => {
+      expect(api.fetchMailMessages).toHaveBeenLastCalledWith(
+        'token',
+        1,
+        'inbox',
+        expect.objectContaining({ q: 'paveldelhomme cloudity', sort: 'rank' })
+      )
+    })
+    expect(await screen.findByText('Actualités Cloudity')).toBeTruthy()
+    expect(screen.queryByText('Actualités autres')).toBeNull()
+  })
+
   it('place Effacer la recherche dans le champ et envoie une recherche serveur partielle', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'principal@test.com' },

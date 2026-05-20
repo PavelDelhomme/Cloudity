@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-20 — Mail : filtres rapides `from:` / `subject:` / `tag:`
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Frontend** : **`MailPage.tsx`** — les opérateurs insérés par les boutons rapides acceptent désormais la saisie avec espace (`from: paveldelhomme`, `subject: actu`, `tag: important`) et déclenchent aussi une recherche serveur quand utile.
+- **Tests** : **`MailPage.test.tsx`** — couverture des opérateurs avec espace + combinaison `from:` / `subject:` / `tag:`, en plus des filtres `has:attachment` et `is:unread` déjà couverts.
+- **Checks** : `make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx` ✅ (25 tests).
+
+---
+
 ### 2026-05-20 — Mail : recherche partielle + bouton effacer
 
 - Branche : `feat/cloudity-ui-design-system`.

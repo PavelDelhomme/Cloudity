@@ -880,47 +880,74 @@ function parseMailSearchQuery(raw: string): {
   let unreadOnly = false
   let readOnly = false
   let withAttachmentsOnly = false
+  let pendingOperator: 'from' | 'subject' | 'tag' | null = null
 
   for (const t of tokens) {
     const low = t.toLowerCase()
     if (/^[a-z][a-z0-9_-]*:$/.test(low)) {
-      // Opérateur incomplet (`from:`, `subject:`, `tag:`...) :
-      // ne pas l'envoyer en FTS serveur, sinon résultats bruités/non pertinents.
+      if (low === 'from:' || low === 'expediteur:' || low === 'expéditeur:') pendingOperator = 'from'
+      else if (low === 'subject:' || low === 'objet:') pendingOperator = 'subject'
+      else if (low === 'tag:' || low === 'label:' || low === 'etiquette:' || low === 'étiquette:') pendingOperator = 'tag'
+      else pendingOperator = null
       continue
     }
     if (t.startsWith('#') && t.length > 1) {
       tagTerms.push(t.slice(1).toLowerCase())
+      pendingOperator = null
       continue
     }
     if (t.startsWith('$') && t.length > 1) {
       senderTerms.push(t.slice(1).toLowerCase())
+      pendingOperator = null
       continue
     }
     if (low.startsWith('from:') && low.length > 'from:'.length) {
       senderTerms.push(low.slice('from:'.length))
+      pendingOperator = null
       continue
     }
     if (low.startsWith('subject:') && low.length > 'subject:'.length) {
       subjectTerms.push(low.slice('subject:'.length))
+      pendingOperator = null
       continue
     }
     if (low.startsWith('tag:') && low.length > 'tag:'.length) {
       tagTerms.push(low.slice('tag:'.length))
+      pendingOperator = null
       continue
     }
     if (low === 'is:unread' || low === 'is:nonlu') {
       unreadOnly = true
+      pendingOperator = null
       continue
     }
     if (low === 'is:read' || low === 'is:lu') {
       readOnly = true
+      pendingOperator = null
       continue
     }
     if (low === 'has:att' || low === 'has:pj' || low === 'has:attachment') {
       withAttachmentsOnly = true
+      pendingOperator = null
+      continue
+    }
+    if (pendingOperator === 'from') {
+      senderTerms.push(low)
+      pendingOperator = null
+      continue
+    }
+    if (pendingOperator === 'subject') {
+      subjectTerms.push(low)
+      pendingOperator = null
+      continue
+    }
+    if (pendingOperator === 'tag') {
+      tagTerms.push(low)
+      pendingOperator = null
       continue
     }
     plainTerms.push(low)
+    pendingOperator = null
   }
   return { plainTerms, tagTerms, senderTerms, subjectTerms, unreadOnly, readOnly, withAttachmentsOnly }
 }
@@ -1595,7 +1622,11 @@ export default function MailPage() {
 
   const mailSearchParsed = useMemo(() => parseMailSearchQuery(mailSearchText), [mailSearchText])
   const mailServerSearchQ = useMemo(() => {
-    const j = mailSearchParsed.plainTerms.join(' ').trim()
+    const j = [
+      ...mailSearchParsed.plainTerms,
+      ...mailSearchParsed.senderTerms,
+      ...mailSearchParsed.subjectTerms,
+    ].join(' ').trim()
     if (j.length < 2) return ''
     return j.slice(0, 200)
   }, [mailSearchParsed])
