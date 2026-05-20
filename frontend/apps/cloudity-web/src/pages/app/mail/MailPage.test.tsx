@@ -572,6 +572,28 @@ describe('MailPage', () => {
     expect(screen.getByRole('button', { name: /Toutes les adresses/i })).toBeTruthy()
   })
 
+  it('filtre la liste des messages par alias (delivered_to) au clic barre latérale', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([
+      { id: 10, account_id: 1, alias_email: 'alias@exemple.fr', label: 'Travail', created_at: new Date().toISOString() },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+
+    render(wrap(<MailPage />))
+
+    const aliasBtn = await screen.findByRole('button', { name: /Travail · alias@exemple\.fr/i })
+    fireEvent.click(aliasBtn)
+
+    await waitFor(() => {
+      const withFilter = vi
+        .mocked(api.fetchMailMessages)
+        .mock.calls.some(([, , , opts]) => opts?.delivered_to === 'alias@exemple.fr')
+      expect(withFilter).toBe(true)
+    })
+  })
+
   it('affiche l’icône indésirable probable quand spam_score ≥ 52 en boîte de réception', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },

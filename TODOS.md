@@ -36,8 +36,8 @@
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
-| **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | ☐ |
-| **4** | **Checklist alias** | **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** | ☐ |
+| **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** — prérequis § 2 + cases **C1–C7** (branche **`feat/mail-alias-checklist`**) | ☐ |
+| **4** | **Checklist alias** | **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** — stratégie **A1** ou **A2** avant MX prod | ☐ |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |
 | **6** | **Maddy VPS** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · stack Portainer séparée | ☐ |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
@@ -77,7 +77,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 
 | Produit | Web | Mobile Android | Extension | Prochaine brique code |
 |---------|-----|----------------|-----------|------------------------|
-| **UI transverse** | 🟡 partiel (`PageLayout` dans shared) | — | — | **@cloudity/ui** (MAINTENANT) |
+| **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP | — | Polish mobile + gros fichiers |
 | **Photos** | ✅ | ✅ | — | Albums, sync galerie |
@@ -107,9 +107,9 @@ Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS
 
 ## Avant session
 
-1. **`git status`** — branche = chantier en cours (**`feat/cloudity-ui-design-system`** pour l’UI).
+1. **`git status`** — branche = chantier en cours (**`feat/mail-alias-checklist`** pour mail/alias).
 2. **`docker info`** puis **`make test`** — **[docs/operations/DEV-VERIFICATION.md](./docs/operations/DEV-VERIFICATION.md)** § 0.
-3. Relire **§ MAINTENANT** de ce fichier.
+3. Relire **§ ENSUITE** #3–#4 de ce fichier.
 
 ---
 

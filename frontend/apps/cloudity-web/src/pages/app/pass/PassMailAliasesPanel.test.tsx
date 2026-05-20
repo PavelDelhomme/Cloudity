@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TestRouter } from '../../../test-utils'
 import PassMailAliasesPanel from './PassMailAliasesPanel'
@@ -75,5 +75,38 @@ describe('PassMailAliasesPanel', () => {
     wrap(<PassMailAliasesPanel accessToken="tok" logout={vi.fn()} />)
     expect(await screen.findByText('alias@b.com')).toBeTruthy()
     expect((screen.getByLabelText(/^Boîte$/i) as HTMLSelectElement).value).toBe('1')
+  })
+
+  it('enregistre un alias via createMailAlias avec suffixe domaine', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      {
+        id: 1,
+        user_id: 1,
+        tenant_id: 1,
+        email: 'a@b.com',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([])
+    vi.mocked(api.fetchMailAliasConfig).mockResolvedValue({
+      alias_subdomain: 'alias.b.com',
+      primary_domain: 'b.com',
+    })
+    vi.mocked(api.createMailAlias).mockResolvedValue({ id: 99, alias_email: 'newsletter@alias.b.com' })
+
+    wrap(<PassMailAliasesPanel accessToken="tok" logout={vi.fn()} />)
+
+    const local = await screen.findByLabelText(/Nom de l’alias/i)
+    fireEvent.change(local, { target: { value: 'newsletter' } })
+    fireEvent.click(screen.getByRole('button', { name: /Enregistrer l’alias/i }))
+
+    await waitFor(() => {
+      expect(api.createMailAlias).toHaveBeenCalledWith('tok', 1, {
+        alias_email: 'newsletter@alias.b.com',
+        label: undefined,
+        deliver_target_email: undefined,
+      })
+    })
   })
 })

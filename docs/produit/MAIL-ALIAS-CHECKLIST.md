@@ -85,7 +85,7 @@ Ensuite envoie un mail **vers** l’alias depuis une autre boîte ; après sync 
 
 | # | Action | OK |
 |---|--------|-----|
-| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ | fait donc et alias enregistrer et fficher donc  via l'application pass donc - test aussi donc avec l'application mail donc 
+| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ | Pass validé en manuel ; Mail (Paramètres → Alias) à rejouer sur la même boîte |
 | **C2** | Toast enregistrement + règle auto | ☐ |
 | **C3** | **Mail** → barre latérale (sous la boîte) : cliquer l’alias → filtre `delivered_to` | ☐ |
 | **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☐ |

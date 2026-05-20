@@ -15,9 +15,19 @@
 
 ---
 
+### 2026-05-20 — Mail/alias : branche checklist + tests filtre
+
+- Branche : `feat/mail-alias-checklist` (depuis `dev` à jour après merge UI-DS).
+- Git : `feat/cloudity-ui-design-system` → `dev` (fast-forward) ; push `dev` + création/push `feat/mail-alias-checklist`.
+- Tests : `MailPage` — clic alias → `fetchMailMessages` avec `delivered_to` ; `PassMailAliasesPanel` — création alias avec suffixe.
+- Doc : **TODOS** / **STATUS** recentrés ENSUITE #3–#4 ; **MAIL-ALIAS-CHECKLIST** C1 note Pass OK / Mail à rejouer.
+- Suite manuelle : cases **C2–C7** + **MAIL-ALIAS-REDIRECTION-SAFE** (A1/A2).
+
+---
+
 ### 2026-05-20 — Git : fusion UI-DS dans `dev` + branche mail/alias
 
-- Branche source : `feat/cloudity-ui-design-system` → `dev` (merge).
+- Branche source : `feat/cloudity-ui-design-system` → `dev` (fast-forward).
 - Contenu : package `@cloudity/ui`, admin responsive, polish admin, correctifs Mail recherche/conversations.
 - Prochaine branche : `feat/mail-alias-checklist` — **TODOS** § ENSUITE #3–#4.
 - Reporté : **U9** (2FA admin), **U10** (CVE enrichies).
