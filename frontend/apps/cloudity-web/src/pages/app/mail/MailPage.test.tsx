@@ -32,6 +32,7 @@ vi.mock('../../../api', () => ({
   deleteMailAccount: vi.fn(),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
   fetchMailAliases: vi.fn().mockResolvedValue([]),
+  fetchMailAliasConfig: vi.fn().mockResolvedValue({ alias_subdomain: '', primary_domain: '' }),
   fetchMailFilterRules: vi.fn().mockResolvedValue([]),
   fetchMailImapFolders: vi.fn().mockResolvedValue([]),
   createMailImapFolder: vi.fn().mockResolvedValue({ ok: true, imap_path: 'INBOX.Test' }),
@@ -570,6 +571,60 @@ describe('MailPage', () => {
     })
     expect(await screen.findByRole('button', { name: /alias@exemple\.fr/i })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Toutes les adresses/i })).toBeTruthy()
+  })
+
+  it('crée un alias depuis Paramètres Mail (Ajouter l’alias)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com', imap_auth_ready: true },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([])
+    vi.mocked(api.fetchMailAliasConfig).mockResolvedValue({
+      alias_subdomain: 'alias.test.com',
+      primary_domain: 'test.com',
+    })
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.createMailAlias).mockResolvedValue({ id: 42, alias_email: 'newsletter@alias.test.com' })
+
+    render(wrap(<MailPage />))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Mail' }))
+    const local = await screen.findByPlaceholderText('newsletter')
+    fireEvent.change(local, { target: { value: 'newsletter' } })
+    fireEvent.click(screen.getByRole('button', { name: /Ajouter l’alias/i }))
+
+    await waitFor(() => {
+      expect(api.createMailAlias).toHaveBeenCalledWith('token', 1, {
+        alias_email: 'newsletter@alias.test.com',
+        label: undefined,
+        deliver_target_email: undefined,
+      })
+    })
+  })
+
+  it('désactive un alias depuis Paramètres Mail (toggle)', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com', imap_auth_ready: true },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([
+      {
+        id: 10,
+        account_id: 1,
+        alias_email: 'alias@exemple.fr',
+        label: 'Travail',
+        enabled: true,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+
+    render(wrap(<MailPage />))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Mail' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Désactiver' }))
+
+    await waitFor(() => {
+      expect(api.patchMailAlias).toHaveBeenCalledWith('token', 1, 10, { enabled: false })
+    })
   })
 
   it('filtre la liste des messages par alias (delivered_to) au clic barre latérale', async () => {

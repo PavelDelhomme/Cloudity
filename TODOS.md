@@ -36,7 +36,7 @@
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
-| **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** — prérequis § 2 + cases **C1–C7** (branche **`feat/mail-alias-checklist`**) | ☐ |
+| **3** | **Boîte test IMAP** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** — § 2 stack OK · cases **C1–C7** en manuel (Pass + Mail Paramètres) | ☐ |
 | **4** | **Checklist alias** | **[MAIL-ALIAS-REDIRECTION-SAFE.md](./docs/produit/MAIL-ALIAS-REDIRECTION-SAFE.md)** — stratégie **A1** ou **A2** avant MX prod | ☐ |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |
 | **6** | **Maddy VPS** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · stack Portainer séparée | ☐ |

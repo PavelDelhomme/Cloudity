@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-20 — Mail/alias : stack validée + tests Paramètres Mail
+
+- Branche : `feat/mail-alias-checklist`.
+- Utilisateur : `make doctor` · `make migrate` · `make test` (304 tests) · `make deploy-mail` — OK.
+- Code : tests Vitest création/désactivation alias via **Paramètres Mail** ; checklist § 2 cochée.
+- Suite : validation manuelle **C1–C7** (sync IMAP, toast, filtre latéral, règle « Alias · … », From, C7 si redirection A1).
+
+---
+
 ### 2026-05-20 — Mail/alias : branche checklist + tests filtre
 
 - Branche : `feat/mail-alias-checklist` (depuis `dev` à jour après merge UI-DS).

@@ -28,8 +28,8 @@ Tu peux te connecter en **`admin@cloudity.local`** et ajouter **`<boite-test>`**
 
 ## 2. Prérequis
 
-- [ ] `make migrate` · `make doctor` · **`make test`** vert
-- [ ] **`make deploy-mail`** suffit pour le service mail (pas besoin de tout redémarrer) ; recharger la page web (F5) pour le front
+- [x] `make migrate` · `make doctor` · **`make test`** vert (2026-05-20 — 304 tests front, services Go/Python OK)
+- [x] **`make deploy-mail`** — `mail-directory-service` redéployé ; recharger la page web (F5) pour le front
 - [ ] Mail → **Sync avec mot de passe…** pour `<boite-test>`
 - [ ] **Actualiser (IMAP)** : des messages visibles
 - [ ] Si « Reçu : — » : `make deploy-mail` puis **Actualiser (IMAP)** (dates depuis en-tête `Date` IMAP)
