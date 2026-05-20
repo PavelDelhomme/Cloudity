@@ -80,10 +80,10 @@ func (h *Handler) internalAliasResolve(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"ok":           true,
-		"alias_email":  strings.TrimSpace(strings.ToLower(body.AliasEmail)),
-		"deliver_to":   deliverTo,
-		"account_id":   accountID,
+		"ok":               true,
+		"alias_email":      strings.TrimSpace(strings.ToLower(body.AliasEmail)),
+		"deliver_to":       deliverTo,
+		"account_id":       accountID,
 		"preserve_headers": []string{"Delivered-To", "X-Original-To", "X-Envelope-To"},
 	})
 }

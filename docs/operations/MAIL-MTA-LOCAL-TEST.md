@@ -5,8 +5,26 @@
 ## Prérequis
 
 1. Stack Cloudity : `make up` ou au minimum postgres + `make deploy-mail`
-2. `MTA_INTERNAL_TOKEN` identique dans `.env` racine et `deploy/mail-mta/.env`
+2. `MTA_INTERNAL_TOKEN` **décommenté** et identique dans `.env` racine et `deploy/mail-mta/.env`
 3. Alias enregistré dans l’UI (Pass ou Mail) pour `test@<domaine-alias>` avec cible = boîte IMAP sync
+
+## 0. `.env` local Cloudity
+
+Dans le `.env` racine, les lignes doivent être **actives** (pas préfixées par `#`) :
+
+```bash
+MAIL_PRIMARY_DOMAIN=<domaine-principal>
+MAIL_ALIAS_SUBDOMAIN=<domaine-alias>
+MTA_INTERNAL_TOKEN=<openssl rand -hex 32>
+```
+
+`MAIL_ALIAS_DOMAIN` est utilisé par la stack `deploy/mail-mta`; côté `mail-directory-service`, le suffixe UI attendu est `MAIL_ALIAS_SUBDOMAIN`.
+
+Après modification :
+
+```bash
+make deploy-mail
+```
 
 ## 1. Test API (sans port 25)
 

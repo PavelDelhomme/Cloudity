@@ -47,6 +47,7 @@ deploy/mail-mta/.env
 
 # Garde-fou : autoriser uniquement les exemples documentés.
 !.env.example
+!deploy/mail-mta/.env.local.example
 
 # Certificats locaux (mkcert) — dev HTTPS
 .certs/

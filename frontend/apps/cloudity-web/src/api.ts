@@ -369,6 +369,14 @@ export type MailDomainResponse = {
   tenant_id: number
   domain: string
   is_active: boolean
+  role?: 'standard' | 'alias' | string
+  mta_enabled?: boolean
+  mta_provider?: string
+  mta_hostname?: string
+  mx_target?: string
+  spf_policy?: string
+  dkim_selector?: string
+  dmarc_policy?: 'none' | 'quarantine' | 'reject' | string
   created_at: string
   updated_at: string
 }
@@ -406,7 +414,17 @@ export async function createDomain(token: string, domain: string): Promise<{ id:
 export async function patchDomain(
   token: string,
   domainId: number,
-  patch: { is_active?: boolean }
+  patch: {
+    is_active?: boolean
+    role?: 'standard' | 'alias' | string
+    mta_enabled?: boolean
+    mta_provider?: string
+    mta_hostname?: string
+    mx_target?: string
+    spf_policy?: string
+    dkim_selector?: string
+    dmarc_policy?: 'none' | 'quarantine' | 'reject' | string
+  }
 ): Promise<{ ok: boolean }> {
   return apiJsonOk(
     token,

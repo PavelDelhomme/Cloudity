@@ -597,12 +597,46 @@ func (h *Handler) requireTenantAndUser(c *gin.Context) {
 }
 
 type Domain struct {
-	ID        int    `json:"id"`
-	TenantID  int    `json:"tenant_id"`
-	Domain    string `json:"domain"`
-	IsActive  bool   `json:"is_active"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID           int    `json:"id"`
+	TenantID     int    `json:"tenant_id"`
+	Domain       string `json:"domain"`
+	IsActive     bool   `json:"is_active"`
+	Role         string `json:"role"`
+	MTAEnabled   bool   `json:"mta_enabled"`
+	MTAProvider  string `json:"mta_provider"`
+	MTAHostname  string `json:"mta_hostname"`
+	MXTarget     string `json:"mx_target"`
+	SPFPolicy    string `json:"spf_policy"`
+	DKIMSelector string `json:"dkim_selector"`
+	DMARCPolicy  string `json:"dmarc_policy"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+func normalizeMailDomainRole(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "alias", "mta-alias", "alias_mta":
+		return "alias"
+	default:
+		return "standard"
+	}
+}
+
+func normalizeNullableDomainText(raw string, fallback string) string {
+	v := strings.TrimSpace(raw)
+	if v == "" {
+		return fallback
+	}
+	return strings.ToLower(v)
+}
+
+func normalizeDMARCPolicy(raw string) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "quarantine", "reject":
+		return strings.ToLower(strings.TrimSpace(raw))
+	default:
+		return "none"
+	}
 }
 
 func parsePagination(c *gin.Context, defaultLimit int, maxLimit int) (int, int) {
@@ -632,7 +666,16 @@ func (h *Handler) listDomains(c *gin.Context) {
 	skip, limit := parsePagination(c, 50, 200)
 
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, domain, is_active, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, domain, is_active,
+			COALESCE(role, 'standard'),
+			COALESCE(mta_enabled, false),
+			COALESCE(mta_provider, 'maddy'),
+			COALESCE(mta_hostname, ''),
+			COALESCE(mx_target, ''),
+			COALESCE(spf_policy, ''),
+			COALESCE(dkim_selector, ''),
+			COALESCE(dmarc_policy, ''),
+			created_at::text, COALESCE(updated_at::text, '')
 		FROM mail_domains ORDER BY domain
 		OFFSET $1 LIMIT $2
 	`, skip, limit)
@@ -645,7 +688,12 @@ func (h *Handler) listDomains(c *gin.Context) {
 	for rows.Next() {
 		var d Domain
 		var uat string
-		if err := rows.Scan(&d.ID, &d.TenantID, &d.Domain, &d.IsActive, &d.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(
+			&d.ID, &d.TenantID, &d.Domain, &d.IsActive,
+			&d.Role, &d.MTAEnabled, &d.MTAProvider, &d.MTAHostname, &d.MXTarget,
+			&d.SPFPolicy, &d.DKIMSelector, &d.DMARCPolicy,
+			&d.CreatedAt, &uat,
+		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -661,6 +709,7 @@ func (h *Handler) createDomain(c *gin.Context) {
 	ctx := c.Request.Context()
 	var body struct {
 		Domain string `json:"domain" binding:"required"`
+		Role   string `json:"role"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "domain required"})
@@ -673,11 +722,12 @@ func (h *Handler) createDomain(c *gin.Context) {
 		return
 	}
 	var id int
+	role := normalizeMailDomainRole(body.Role)
 	err := h.dbex(ctx).QueryRow(`
-		INSERT INTO mail_domains (tenant_id, domain)
-		VALUES ($1, $2)
+		INSERT INTO mail_domains (tenant_id, domain, role)
+		VALUES ($1, $2, $3)
 		RETURNING id
-	`, tid, body.Domain).Scan(&id)
+	`, tid, strings.TrimSpace(strings.ToLower(body.Domain)), role).Scan(&id)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
 			c.JSON(http.StatusConflict, gin.H{"error": "domain already exists"})
@@ -697,17 +747,74 @@ func (h *Handler) patchDomain(c *gin.Context) {
 		return
 	}
 	var body struct {
-		IsActive *bool `json:"is_active"`
+		IsActive     *bool   `json:"is_active"`
+		Role         *string `json:"role"`
+		MTAEnabled   *bool   `json:"mta_enabled"`
+		MTAProvider  *string `json:"mta_provider"`
+		MTAHostname  *string `json:"mta_hostname"`
+		MXTarget     *string `json:"mx_target"`
+		SPFPolicy    *string `json:"spf_policy"`
+		DKIMSelector *string `json:"dkim_selector"`
+		DMARCPolicy  *string `json:"dmarc_policy"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	if body.IsActive == nil {
+	set := []string{}
+	args := []interface{}{}
+	p := 1
+	if body.IsActive != nil {
+		set = append(set, fmt.Sprintf("is_active = $%d", p))
+		args = append(args, *body.IsActive)
+		p++
+	}
+	if body.Role != nil {
+		set = append(set, fmt.Sprintf("role = $%d", p))
+		args = append(args, normalizeMailDomainRole(*body.Role))
+		p++
+	}
+	if body.MTAEnabled != nil {
+		set = append(set, fmt.Sprintf("mta_enabled = $%d", p))
+		args = append(args, *body.MTAEnabled)
+		p++
+	}
+	if body.MTAProvider != nil {
+		set = append(set, fmt.Sprintf("mta_provider = $%d", p))
+		args = append(args, normalizeNullableDomainText(*body.MTAProvider, "maddy"))
+		p++
+	}
+	if body.MTAHostname != nil {
+		set = append(set, fmt.Sprintf("mta_hostname = NULLIF(TRIM($%d), '')", p))
+		args = append(args, strings.ToLower(strings.TrimSpace(*body.MTAHostname)))
+		p++
+	}
+	if body.MXTarget != nil {
+		set = append(set, fmt.Sprintf("mx_target = NULLIF(TRIM($%d), '')", p))
+		args = append(args, strings.ToLower(strings.TrimSpace(*body.MXTarget)))
+		p++
+	}
+	if body.SPFPolicy != nil {
+		set = append(set, fmt.Sprintf("spf_policy = NULLIF(TRIM($%d), '')", p))
+		args = append(args, strings.TrimSpace(*body.SPFPolicy))
+		p++
+	}
+	if body.DKIMSelector != nil {
+		set = append(set, fmt.Sprintf("dkim_selector = NULLIF(TRIM($%d), '')", p))
+		args = append(args, strings.TrimSpace(*body.DKIMSelector))
+		p++
+	}
+	if body.DMARCPolicy != nil {
+		set = append(set, fmt.Sprintf("dmarc_policy = $%d", p))
+		args = append(args, normalizeDMARCPolicy(*body.DMARCPolicy))
+		p++
+	}
+	if len(set) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no field to update"})
 		return
 	}
-	res, err := h.dbex(ctx).Exec(`UPDATE mail_domains SET is_active = $1 WHERE id = $2`, *body.IsActive, domainID)
+	args = append(args, domainID)
+	res, err := h.dbex(ctx).Exec(fmt.Sprintf(`UPDATE mail_domains SET %s WHERE id = $%d`, strings.Join(set, ", "), p), args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

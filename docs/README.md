@@ -56,6 +56,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[produit/SPRINT-PASS-2026-05.md](produit/SPRINT-PASS-2026-05.md)** | **Sprint urgence Pass** (~20 mai 2026) : état des lieux, L1/L2/L3, gel scission multi-repo, jalons migration Proton Pass. |
 | **[produit/MAIL-ALIAS-VISION.md](produit/MAIL-ALIAS-VISION.md)** | Cible **Pass → alias@alias.domain.ovh → Mail** (sans catch-all). |
 | **[produit/MAIL-ALIAS-DEMARRAGE.md](produit/MAIL-ALIAS-DEMARRAGE.md)** | **Par où commencer** si OVH / MX pas encore configurés. |
+| **[produit/MAIL-ALIAS-MTA.md](produit/MAIL-ALIAS-MTA.md)** | MTA alias auto-hébergé : `.env`, admin Domaines, stack séparée, DNS. |
 | **[produit/MOBILES.md](produit/MOBILES.md)** | §0 *web puis mobile* ; matrice web vs mobile par produit ; admin mobile (ADM-02). |
 | **[produit/MULTI-PLATEFORME.md](produit/MULTI-PLATEFORME.md)** | **Matrice transversale** : web + mobile + desktop Linux + extension navigateur par app ; état réel (✅ / 🟡 / ❌) ; plan MP-01..MP-08. |
 | **[produit/PHOTOS.md](produit/PHOTOS.md)** | Produit Photos (type Google Photos), API timeline, web, mobile, batterie. |

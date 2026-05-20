@@ -56,6 +56,24 @@ func TestMailDomainsRejectsInvalidTenantID(t *testing.T) {
 	}
 }
 
+func TestNormalizeMailDomainMTAConfig(t *testing.T) {
+	if got := normalizeMailDomainRole("alias_mta"); got != "alias" {
+		t.Fatalf("role got %q", got)
+	}
+	if got := normalizeMailDomainRole("unknown"); got != "standard" {
+		t.Fatalf("role fallback got %q", got)
+	}
+	if got := normalizeDMARCPolicy("quarantine"); got != "quarantine" {
+		t.Fatalf("dmarc got %q", got)
+	}
+	if got := normalizeDMARCPolicy("bad"); got != "none" {
+		t.Fatalf("dmarc fallback got %q", got)
+	}
+	if got := normalizeNullableDomainText("", "maddy"); got != "maddy" {
+		t.Fatalf("nullable fallback got %q", got)
+	}
+}
+
 // setAdminMailHeaders applique les headers que la gateway pose après vérif JWT
 // pour les routes admin-only mail (X-Tenant-ID, X-User-ID, X-Admin-Role).
 func setAdminMailHeaders(req *http.Request) {

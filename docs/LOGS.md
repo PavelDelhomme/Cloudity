@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-20 — Admin Domaines : configuration MTA/DNS
+
+- Branche : `feat/mail-alias-checklist`.
+- DB/API : migration `41-mail-domain-mta-config.sql` ; `mail_domains` suit rôle domaine, MTA activé, hostname, MX, SPF, DKIM, DMARC.
+- Front admin : `/4dm1n/domaines` permet d’éditer la configuration MTA/DNS attendue sans exposer secrets/IP/clés privées.
+- Docs : ajout `MAIL-ALIAS-MTA.md` et rappel que `MAIL_ALIAS_SUBDOMAIN` + `MTA_INTERNAL_TOKEN` doivent être décommentés localement.
+
+---
+
 ### 2026-05-20 — MTA alias auto-hébergé (MAIL-ALIAS-05 partiel)
 
 - Branche : `feat/mail-alias-checklist`.

@@ -32,6 +32,7 @@ Vous n’avez **rien à faire** : une base déjà existante recevra automatiquem
 - `20250225_mail_schema.sql` — schéma Mail (domaines, boîtes, alias).
 - `16-mail-user-aliases.sql` — alias utilisateur par boîte connectée (`user_email_aliases`).
 - `18-mail-alias-deliver-target.sql` — cible de livraison documentée par alias (`deliver_target_email`, Pass / transfert).
+- `41-mail-domain-mta-config.sql` — configuration admin MTA/DNS par domaine (`role`, hostname, SPF/DKIM/DMARC attendus).
 
 Pour ajouter une migration : créez un fichier `YYYYMMDD_nom.sql` ou `NN-schema-nom.sql` (ordre alphabétique = ordre d’application). Contenu de préférence **idempotent** (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS` puis `CREATE POLICY`, etc.).
 

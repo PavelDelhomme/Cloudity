@@ -10,6 +10,7 @@
 | **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** | Oui | Sync Mail/Drive ; § 2 Pass ↔ alias. |
 | **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)** | Oui — **cible** | Parcours `hellowork@alias.domain.ovh` sans OVH manuel. |
 | **[MAIL-ALIAS-DEMARRAGE.md](MAIL-ALIAS-DEMARRAGE.md)** | Oui — **pratique** | Que faire **sans** OVH / sans MX Cloudity (complète VISION, ne la remplace pas). |
+| **[MAIL-ALIAS-MTA.md](MAIL-ALIAS-MTA.md)** | Oui — **phase 2** | MTA auto-hébergé, `.env`, admin Domaines, Portainer, DNS. |
 | **[MAIL-ALIAS-CHECKLIST.md](MAIL-ALIAS-CHECKLIST.md)** | Oui — **tests** | Créer alias dans Pass/Mail, filtre, règle, on/off — cases ☐ |
 | **[MAIL-GMAIL-OAUTH.md](MAIL-GMAIL-OAUTH.md)** | Oui | Gmail OAuth — variables `GOOGLE_OAUTH_*` dans `.env`. |
 | **[MOBILES.md](MOBILES.md)** | Oui | Web avant mobile ; API = gateway. |
@@ -24,4 +25,4 @@
 
 ---
 
-*Dernière mise à jour : 2026-05-18.*
+*Dernière mise à jour : 2026-05-20.*

@@ -59,6 +59,7 @@ make seed-admin   # compte démo local uniquement
 | `MTLS_MODE` | mTLS interne microservices | `off` | `permissive` puis `strict` — voir **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)** |
 | `MAIL_ALIAS_SUBDOMAIN` | Cible alias Pass | commenté | ex. `alias.domain.ovh` |
 | `MAIL_PRIMARY_DOMAIN` | Domaine compte principal | commenté | ex. `domain.ovh` |
+| `MTA_INTERNAL_TOKEN` | Lookup MTA → Cloudity | `openssl rand -hex 32` | Même valeur dans `mail-directory-service` et `deploy/mail-mta` |
 | `OVH_API_*` | Provision alias sans UI OVH | commenté | Backlog **MAIL-ALIAS-05** |
 
 ---

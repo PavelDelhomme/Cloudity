@@ -37,7 +37,7 @@
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
 | **3** | **MTA alias auto-hébergé** | Stack **`deploy/mail-mta`** (local `2525` puis VPS `25`) · API **`/mail/internal/alias-resolve`** · filtre `delivered_to` sur en-têtes | 🟡 |
-| **4** | **Checklist alias C1–C7** | **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** après MTA local + bascule MX documentée | ☐ |
+| **4** | **Admin Domaines + checklist C1–C7** | `/4dm1n/domaines` configure rôle **Domaine alias MTA**, hostname/MX/SPF/DKIM/DMARC attendus ; puis **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | 🟡 |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |
 | **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · MX `@` → `mail.<domaine-alias>` · SPF/DKIM/DMARC Cloudity | ☐ |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
@@ -84,7 +84,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **Pass** | ✅ | ✅ lecture | 🟡 MV3 squelette | J8 import · **MP-06** |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 
-**Phase 2 alias (MTA)** : domaine alias réel **dans l’UI / `.env` / Portainer** (pas en Git) · réception `*@<domaine-alias>` via **Maddy/Postfix** → lookup Cloudity → livraison boîte IMAP · puis **C1–C7**.  
+**Phase 2 alias (MTA)** : domaine alias réel **dans l’UI / `.env` / Portainer** (pas en Git) · réception `*@<domaine-alias>` via **Maddy/Postfix** → lookup Cloudity → livraison boîte IMAP · **Admin Domaines** suit hostname/MX/SPF/DKIM/DMARC attendus · puis **C1–C7**.  
 **Préprod** : possible **après** merge `dev` + variables Portainer — pas avant boîte mail + alias testés en local.
 
 ---

@@ -37,6 +37,13 @@ export default function Domaines() {
   const [editingMailboxQuota, setEditingMailboxQuota] = useState('')
   const [editingAliasId, setEditingAliasId] = useState<number | null>(null)
   const [editingAliasDestination, setEditingAliasDestination] = useState('')
+  const [domainRole, setDomainRole] = useState<'standard' | 'alias'>('standard')
+  const [domainMtaEnabled, setDomainMtaEnabled] = useState(false)
+  const [domainMtaHostname, setDomainMtaHostname] = useState('')
+  const [domainMxTarget, setDomainMxTarget] = useState('')
+  const [domainSpfPolicy, setDomainSpfPolicy] = useState('')
+  const [domainDkimSelector, setDomainDkimSelector] = useState('cloudity')
+  const [domainDmarcPolicy, setDomainDmarcPolicy] = useState<'none' | 'quarantine' | 'reject'>('none')
 
   const { data: domainsData, isLoading, error } = useQuery({
     queryKey: ['mail-domains', page, pageSize],
@@ -74,8 +81,10 @@ export default function Domaines() {
     },
   })
   const patchDomainMutation = useMutation({
-    mutationFn: (payload: { domainId: number; is_active: boolean }) =>
-      patchDomain(accessToken!, payload.domainId, { is_active: payload.is_active }),
+    mutationFn: (payload: {
+      domainId: number
+      patch: Parameters<typeof patchDomain>[2]
+    }) => patchDomain(accessToken!, payload.domainId, payload.patch),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['mail-domains'] })
       toast.success('Domaine mis à jour')
@@ -164,6 +173,20 @@ export default function Domaines() {
     createMutation.mutate(domain)
   }
 
+  const loadDomainMtaDraft = (d: NonNullable<typeof domainsData>['items'][number]) => {
+    setDomainRole(d.role === 'alias' ? 'alias' : 'standard')
+    setDomainMtaEnabled(Boolean(d.mta_enabled))
+    setDomainMtaHostname(d.mta_hostname || `mail.${d.domain}`)
+    setDomainMxTarget(d.mx_target || `mail.${d.domain}.`)
+    setDomainSpfPolicy(d.spf_policy || `v=spf1 mx a:mail.${d.domain} -all`)
+    setDomainDkimSelector(d.dkim_selector || 'cloudity')
+    setDomainDmarcPolicy(
+      d.dmarc_policy === 'quarantine' || d.dmarc_policy === 'reject'
+        ? d.dmarc_policy
+        : 'none'
+    )
+  }
+
   if (!accessToken) {
     return (
       <PageLayout title="Domaines mail">
@@ -246,12 +269,13 @@ export default function Domaines() {
           <TableHead>
             <Th>Domaine</Th>
             <Th>Statut</Th>
+            <Th>Mail alias</Th>
             <Th className="text-right">Actions</Th>
           </TableHead>
           <TBody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
                   Aucun domaine. Ajoutez-en un pour la Phase 2 Mail.
                 </td>
               </tr>
@@ -263,12 +287,20 @@ export default function Domaines() {
                     <button
                       type="button"
                       className="inline-flex"
-                      onClick={() => patchDomainMutation.mutate({ domainId: d.id, is_active: !d.is_active })}
+                      onClick={() => patchDomainMutation.mutate({ domainId: d.id, patch: { is_active: !d.is_active } })}
                     >
                       <Badge variant={d.is_active ? 'success' : 'default'}>
                         {d.is_active ? 'Actif' : 'Inactif'}
                       </Badge>
                     </button>
+                  </Td>
+                  <Td>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant={d.role === 'alias' ? 'secondary' : 'default'}>
+                        {d.role === 'alias' ? 'Domaine alias' : 'Standard'}
+                      </Badge>
+                      {d.mta_enabled ? <Badge variant="success">MTA</Badge> : null}
+                    </div>
                   </Td>
                   <Td className="text-right">
                     <Button
@@ -276,6 +308,7 @@ export default function Domaines() {
                       className="!px-2 !py-1 text-xs"
                       onClick={() => {
                         setSelectedDomainId((prev) => (prev === d.id ? null : d.id))
+                        loadDomainMtaDraft(d)
                         setDetailsPage(0)
                         setDetailsTab('mailboxes')
                       }}
@@ -341,6 +374,94 @@ export default function Domaines() {
               </Button>
             </div>
           </div>
+          {selectedDomain ? (
+            <form
+              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 space-y-3 bg-slate-50/70 dark:bg-slate-900/30"
+              onSubmit={(e) => {
+                e.preventDefault()
+                patchDomainMutation.mutate({
+                  domainId: selectedDomain.id,
+                  patch: {
+                    role: domainRole,
+                    mta_enabled: domainMtaEnabled,
+                    mta_provider: 'maddy',
+                    mta_hostname: domainMtaHostname,
+                    mx_target: domainMxTarget,
+                    spf_policy: domainSpfPolicy,
+                    dkim_selector: domainDkimSelector,
+                    dmarc_policy: domainDmarcPolicy,
+                  },
+                })
+              }}
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Configuration MTA / DNS du domaine
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Pilote l’état attendu pour la réception alias auto-hébergée. Les secrets (`MTA_INTERNAL_TOKEN`,
+                  clés DKIM privées, IP réelles) restent dans `.env`, Portainer et OVH.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Rôle
+                  <select
+                    value={domainRole}
+                    onChange={(e) => setDomainRole(e.target.value === 'alias' ? 'alias' : 'standard')}
+                    className="mt-1 block w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="alias">Domaine alias MTA</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Hostname MTA
+                  <Input value={domainMtaHostname} onChange={(e) => setDomainMtaHostname(e.target.value)} />
+                </label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Cible MX
+                  <Input value={domainMxTarget} onChange={(e) => setDomainMxTarget(e.target.value)} />
+                </label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 xl:col-span-2">
+                  SPF attendu
+                  <Input value={domainSpfPolicy} onChange={(e) => setDomainSpfPolicy(e.target.value)} />
+                </label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  Sélecteur DKIM
+                  <Input value={domainDkimSelector} onChange={(e) => setDomainDkimSelector(e.target.value)} />
+                </label>
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                  DMARC
+                  <select
+                    value={domainDmarcPolicy}
+                    onChange={(e) => setDomainDmarcPolicy(e.target.value as 'none' | 'quarantine' | 'reject')}
+                    className="mt-1 block w-full rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm"
+                  >
+                    <option value="none">none (observation)</option>
+                    <option value="quarantine">quarantine</option>
+                    <option value="reject">reject</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={domainMtaEnabled}
+                    onChange={(e) => setDomainMtaEnabled(e.target.checked)}
+                  />
+                  MTA actif/prévu pour ce domaine
+                </label>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="submit" disabled={patchDomainMutation.isPending}>
+                  {patchDomainMutation.isPending ? 'Enregistrement…' : 'Enregistrer config MTA'}
+                </Button>
+                <span className="text-xs text-slate-500">
+                  Commandes : `make migrate`, `make deploy-mail`, puis test local MTA port 2525.
+                </span>
+              </div>
+            </form>
+          ) : null}
           {detailsTab === 'mailboxes' ? (
             <form
               className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-2 sm:flex-row sm:items-end"

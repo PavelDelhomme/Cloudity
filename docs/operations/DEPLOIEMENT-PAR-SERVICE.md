@@ -32,6 +32,7 @@ En **Portainer** : changer le tag/digest **d’une seule** image dans la stack, 
 | **Auth** | `auth-service` | `make deploy-auth` | Stack `cloudity-identity` → `cloudity-auth-service` |
 | **Admin Python** | `admin-service` | `make deploy-admin` | Stack `cloudity-identity` → `cloudity-admin-service` |
 | **Mail** | `mail-directory-service` | `make deploy-mail` | Stack `cloudity-mail` |
+| **MTA alias** | `deploy/mail-mta` / `cloudity-maddy` | `docker compose -f deploy/mail-mta/docker-compose.local.yml up -d` | Stack séparée `cloudity-mail-mta` |
 | **Pass** | `passwords-service` | `make deploy-pass` | Stack `cloudity-pass` |
 | **Drive** | `drive-service` | `make deploy-drive` | Stack `cloudity-drive` |
 | **Photos** | `photos-service` | `make deploy-photos` | Stack `cloudity-photos` |
@@ -80,6 +81,7 @@ docker compose up -d cloudity-web
 | `api-gateway` | `api-gateway` | Rarement |
 | `auth-service` | `auth-service` | Parfois |
 | `mail-directory-service` | `mail-directory-service` | Souvent — `migrate` d’abord |
+| `deploy/mail-mta` / DNS alias | stack `cloudity-mail-mta` séparée | Non, sauf ajout colonnes admin domaines |
 | `passwords-service` | `passwords-service` | Parfois |
 | `drive-service`, `photos-service`, … | service ciblé | Selon migration |
 | `.env` secrets seulement | **Restart** services qui lisent la variable | Non |
@@ -113,4 +115,4 @@ Pas de push automatique vers le VPS : tu choisis **quel** service redéployer da
 
 ---
 
-*Dernière mise à jour : 2026-05-18.*
+*Dernière mise à jour : 2026-05-20.*
