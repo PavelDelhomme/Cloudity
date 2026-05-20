@@ -15,6 +15,37 @@
 
 ---
 
+### 2026-05-20 — UI-DS : responsive Admin, catalogue et Mail mobile
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **@cloudity/ui** : `ResponsiveShell`, `ResponsivePage`, `ResponsiveGrid`, `ResponsivePanel`, `ResponsiveToolbar`, `ResponsiveStack`, `ResponsiveSplitView` exportés ; `ResponsiveShell` accepte `pathname`, `renderNavLink`, `brandLink`.
+- **Admin** : `AdminLayout.tsx` — drawer &lt;lg via `ResponsiveShell` + `Link` React Router ; `UiCatalogPage.tsx` — grille responsive.
+- **Mail** : pile `nav → liste → lecture` sous 1024px, barre Retour/Dossiers, raccourcis et actions ligne masqués, split liste/aperçu à partir de `lg`.
+- **Tests** : `MailPage.test.tsx` (26), `uiCatalog.smoke.test.tsx` ; garde `matchMedia` pour jsdom.
+- **Suivi** : `TODOS.md` — `U7` coché.
+
+---
+
+### 2026-05-20 — UI-DS : audit responsive multi-écrans
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Audit code** : `@cloudity/ui` couvre les primitives et `PageLayout`, mais les règles responsive restent surtout dans `AppLayout`, `AdminLayout` et les pages métier.
+- **Validation navigateur** : test rapide Mail + catalogue UI à largeur smartphone (`375×667`) et tablette (`768×1024`) ; l’app shell a une base mobile, mais Mail est trop dense en petit écran et l’admin/catalogue garde une sidebar fixe non mobile-first.
+- **Doc** : **`docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md`** — ajout des formats cibles (smartphones, tablettes, laptop, grand écran/2K), règles UI et critères de sortie.
+- **Suivi** : **`TODOS.md`** — ajout `U7 Responsive UI-DS` pour traiter Mail mobile, Admin shell et catalogue responsive.
+
+---
+
+### 2026-05-20 — Mail : validation message impôts IMAP
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Validation navigateur** : connexion locale `admin@cloudity.local`, Mail → compte `dumb@delhomme.ovh` → ouverture du message **« Avis d’impôt sur les revenus 2025 – cette année, vous ne recevrez plus de papier ! »**.
+- **Résultat** : le message était présent en base avec corps vide (`plain_len=0`, `html_len=0`) puis le parcours de lecture a rechargé le corps IMAP (`plain_len=1110`, `html_len=22655`) et affiché le contenu.
+- **Filtres vérifiés** : `from: jobbingtrack` avec espace retourne bien les expéditeurs JobbingTrack ; `Actu` / `impots` ne retournaient rien tant que le mauvais compte (`test@delhomme.ovh`) était actif, puis les messages impôts apparaissent sur `dumb@delhomme.ovh`.
+- **Suivi** : **`TODOS.md`** — ENSUITE #2 coché ; **`STATUS.md`** — priorités recentrées sur ENSUITE #3–#4.
+
+---
+
 ### 2026-05-20 — Mail : filtres rapides `from:` / `subject:` / `tag:`
 
 - Branche : `feat/cloudity-ui-design-system`.

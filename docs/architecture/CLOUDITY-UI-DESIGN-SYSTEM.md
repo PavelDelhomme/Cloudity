@@ -35,6 +35,27 @@
 5. **Data display** — `Table` (wrapper actuel), `DataList` simple.
 6. **Documentation** — Storybook **ou** page `/dev/ui` dans l’app (privée admin).
 
+### Responsive / écrans cibles
+
+Le design system doit porter les règles responsive communes, pas les laisser dispersées dans chaque page métier.
+
+| Format | Cible | Règle UI |
+|--------|-------|----------|
+| **Petit smartphone** | ~320–375 px | Une colonne, actions secondaires en menu / drawer, aucune largeur fixe bloquante. |
+| **Smartphone moyen / grand** | ~390–480 px | Header compact, recherche et actions empilables, panneaux type Mail en pile plutôt qu’en 3 colonnes. |
+| **Petite tablette** | ~600–768 px | Navigation latérale en drawer ou rail ; contenu principal lisible sans scroll horizontal global. |
+| **Tablette / laptop** | ~900–1366 px | Layout 2 colonnes possible, sidebars repliables, tables dans `TableWrapper`. |
+| **Grand écran / 2K** | ~1440–2560 px | Largeurs maximales lisibles (`max-w-*`) et densité maîtrisée, sans étirer les formulaires à pleine largeur inutilement. |
+
+**Constats audit 2026-05-20** :
+
+- **App shell `/app/*`** : bonne base (`dvh`, drawer mobile, `min-w-0`, scroll interne), mais la barre chrome peut saturer quand beaucoup d’actions sont injectées par une page.
+- **Mail** : utilisable sur desktop/tablette large, mais trop dense sur smartphone et tablette étroite ; il faut un comportement dédié `MobileMailShell` / pile `dossiers → liste → lecture`, avec actions dans un menu compact.
+- **Admin `/4dm1n`** : sidebar fixe `w-56` non adaptée aux petits écrans ; prévoir un `AdminShell` responsive ou réutiliser un futur `SidebarShell`.
+- **Catalogue UI** : doit inclure des exemples responsive et pas seulement les primitives en desktop.
+
+Critère de sortie UI-DS responsive : vérifier au moins **375×667**, **390×844**, **768×1024**, **1366×768**, **1440×900** et **2560×1440** sur App, Admin, Mail, Drive/Photos et Pass/Settings.
+
 ### Hors périmètre v1 (reste dans les features)
 
 - `MailPageChrome`, composeur mail, arborescence Drive, éditeur Office.

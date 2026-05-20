@@ -1003,4 +1003,53 @@ describe('MailPage', () => {
     })
     expect(detailCalls).toBeGreaterThanOrEqual(2)
   })
+
+  it('affiche la barre mobile Retour après ouverture d’un message (< lg)', async () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      configurable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('max-width: 1023px'),
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 12,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'a@test.com',
+          to: 'user@test.com',
+          subject: 'Sujet mobile',
+          created_at: new Date().toISOString(),
+          is_read: true,
+        },
+      ],
+      total: 1,
+    } as any)
+    vi.mocked(api.fetchMailMessage).mockResolvedValue({
+      id: 12,
+      account_id: 1,
+      from: 'a@test.com',
+      to: 'user@test.com',
+      subject: 'Sujet mobile',
+      body_plain: 'Corps',
+      body_html: '<p>Corps</p>',
+      date_at: new Date().toISOString(),
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Sujet mobile')
+    fireEvent.click(screen.getByText('Sujet mobile'))
+
+    expect(await screen.findByRole('button', { name: 'Retour à la liste' })).toBeTruthy()
+  })
 })

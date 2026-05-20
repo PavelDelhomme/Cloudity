@@ -1091,6 +1091,8 @@ export default function MailPage() {
   const mailSearchInputRef = useRef<HTMLInputElement | null>(null)
   const [similarSenderFilter, setSimilarSenderFilter] = useState<string | null>(null)
   const [mailCompactUi, setMailCompactUi] = useState(false)
+  type MailMobilePane = 'nav' | 'list' | 'read'
+  const [mailMobilePane, setMailMobilePane] = useState<MailMobilePane>('list')
   const [selectedMessageId, setSelectedMessageId] = useState<number | null>(null)
   /** Compte IMAP du message ouvert (obligatoire en vue unifiée). */
   const [selectedMessageAccountId, setSelectedMessageAccountId] = useState<number | null>(null)
@@ -1107,6 +1109,21 @@ export default function MailPage() {
   useEffect(() => {
     sidebarWidthPxRef.current = sidebarWidthPx
   }, [sidebarWidthPx])
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') {
+      setMailCompactUi(false)
+      return
+    }
+    const mq = window.matchMedia('(max-width: 1023px)')
+    const syncCompact = () => setMailCompactUi(mq.matches)
+    syncCompact()
+    mq.addEventListener('change', syncCompact)
+    return () => mq.removeEventListener('change', syncCompact)
+  }, [])
+  useEffect(() => {
+    if (!mailCompactUi) return
+    if (selectedMessageId == null && mailMobilePane === 'read') setMailMobilePane('list')
+  }, [mailCompactUi, selectedMessageId, mailMobilePane])
   const [drivePickerForComposeId, setDrivePickerForComposeId] = useState<string | null>(null)
   const composeDragRef = useRef<{
     id: string
@@ -2147,18 +2164,23 @@ export default function MailPage() {
     }
   }, [])
 
+  const closeMailReadingPane = useCallback(() => {
+    setSelectedMessageId(null)
+    setSelectedMessageAccountId(null)
+    setMailMobilePane('list')
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return
       const activeEl = document.activeElement as HTMLElement | null
       if (activeEl?.closest('[data-compose-slot="true"]')) return
       if (selectedMessageId == null) return
-      setSelectedMessageId(null)
-      setSelectedMessageAccountId(null)
+      closeMailReadingPane()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [selectedMessageId])
+  }, [selectedMessageId, closeMailReadingPane])
 
   const onComposeHeaderPointerDown = useCallback((id: string, e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-compose-header-action="true"]')) return
@@ -3326,6 +3348,7 @@ export default function MailPage() {
       }
       setSelectedMessageId(msg.id)
       setSelectedMessageAccountId(msg.account_id)
+      setMailMobilePane('read')
       const senderEmail = extractEmailFromSender(msg.from)
       if (senderEmail) addRecentRecipient(senderEmail)
       if (!msg.is_read && accessToken) {
@@ -3652,6 +3675,33 @@ export default function MailPage() {
     )
   }, [])
 
+  useEffect(() => {
+    if (!mailCompactUi) return
+    setMailMobilePane('list')
+  }, [activeFolder, effectiveAccountId, mailCompactUi])
+
+  useEffect(() => {
+    if (!mailCompactUi) return
+    if (sidebarCollapsed) setSidebarCollapsed(false)
+  }, [mailCompactUi, sidebarCollapsed])
+
+  const showMailNavPane = !mailCompactUi || mailMobilePane === 'nav'
+  const showMailListPane = !mailCompactUi || mailMobilePane === 'list'
+  const showMailReadPane = !mailCompactUi || mailMobilePane === 'read'
+  const mailMobileFolderTitle = useMemo(() => {
+    if (activeFolder === 'all') return 'Tous les dossiers'
+    if (activeFolder === 'unified') return 'Unifié'
+    if (activeFolder === 'scheduled') return 'Programmée'
+    const std = FOLDERS.find((f) => f.id === activeFolder)
+    if (std) return std.label
+    const custom = customImapSidebarRows.find((r) => r.imap_path === activeFolder)
+    if (custom) return custom.label?.trim() || custom.imap_path
+    return 'Messages'
+  }, [activeFolder, customImapSidebarRows])
+  const mailMobileReadTitle =
+    (selectedMessageDetail?.subject || messages.find((m) => m.id === selectedMessageId)?.subject || 'Message').trim() ||
+    '(Sans objet)'
+
   return (
     <div className="flex flex-col gap-2 min-h-0 h-full">
       {/* Titre document (a11y + E2E) — aligné sur DrivePage (h1 sr-only) */}
@@ -3845,13 +3895,47 @@ export default function MailPage() {
       )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[260px] flex-1">
-        <div className="flex flex-col md:flex-row flex-1 min-h-0 min-w-0">
+        {mailCompactUi && accounts.length > 0 ? (
+          <div className="lg:hidden shrink-0 flex items-center gap-2 border-b border-slate-200 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-800/90 px-3 py-2">
+            {mailMobilePane !== 'nav' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (mailMobilePane === 'read') closeMailReadingPane()
+                  else setMailMobilePane('nav')
+                }}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0"
+                aria-label={mailMobilePane === 'read' ? 'Retour à la liste' : 'Retour aux dossiers'}
+              >
+                <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                Retour
+              </button>
+            ) : null}
+            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {mailMobilePane === 'nav'
+                ? 'Boîtes et dossiers'
+                : mailMobilePane === 'list'
+                  ? mailMobileFolderTitle
+                  : mailMobileReadTitle}
+            </p>
+            {mailMobilePane === 'list' ? (
+              <button
+                type="button"
+                onClick={() => setMailMobilePane('nav')}
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+              >
+                Dossiers
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="flex flex-col lg:flex-row flex-1 min-h-0 min-w-0">
           <aside
-            className={`border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 max-h-full overflow-y-auto overscroll-contain transition-[width] duration-150 ease-out gap-2 shrink-0 ${
-              sidebarCollapsed ? 'md:w-14 md:min-w-14 md:max-w-14 p-2' : 'p-3'
-            }`}
+            className={`border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-700/30 flex flex-col min-h-0 max-h-full overflow-y-auto overscroll-contain transition-[width] duration-150 ease-out gap-2 shrink-0 ${
+              showMailNavPane ? 'max-lg:flex' : 'max-lg:hidden'
+            } lg:flex ${mailCompactUi ? 'max-lg:w-full max-lg:max-w-none p-3' : sidebarCollapsed ? 'lg:w-14 lg:min-w-14 lg:max-w-14 p-2' : 'p-3'}`}
             style={
-              sidebarCollapsed
+              mailCompactUi || sidebarCollapsed
                 ? undefined
                 : {
                     width: sidebarWidthPx,
@@ -4305,26 +4389,30 @@ export default function MailPage() {
             <button
               type="button"
               onClick={toggleSidebar}
-              className="mt-auto p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 flex items-center justify-center"
+              className="mt-auto p-2 rounded-lg text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-600 hidden lg:flex items-center justify-center"
               title={sidebarCollapsed ? 'Agrandir le panneau' : 'Réduire le panneau'}
               aria-label={sidebarCollapsed ? 'Agrandir le panneau' : 'Réduire le panneau'}
             >
               {sidebarCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
             </button>
           </aside>
-          {!sidebarCollapsed && (
+          {!sidebarCollapsed && !mailCompactUi && (
             <div
               role="separator"
               aria-orientation="vertical"
               aria-label="Redimensionner le panneau des boîtes et dossiers"
-              className="hidden md:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
+              className="hidden lg:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
               onPointerDown={handleSidebarResizePointerDown}
               title="Glisser pour élargir ou réduire la colonne des dossiers"
             >
               <span className="w-px self-stretch bg-slate-300 dark:bg-slate-600" aria-hidden />
             </div>
           )}
-          <div className="flex flex-col min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div
+            className={`flex flex-col min-h-0 min-w-0 flex-1 overflow-hidden ${
+              mailCompactUi && mailMobilePane === 'nav' ? 'max-lg:hidden' : ''
+            }`}
+          >
             {filterTagId != null && !conversationThreadKey ? (
               <div className="px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
                 Filtre par étiquette actif (dossier courant).
@@ -4373,6 +4461,7 @@ export default function MailPage() {
                 </button>
               </div>
             ) : null}
+            {!mailCompactUi ? (
             <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
                 {mailServerSearchQ ? (
@@ -4416,6 +4505,7 @@ export default function MailPage() {
                 )}
               </div>
             </div>
+            ) : null}
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
                     <div className="flex flex-wrap items-center gap-2">
@@ -4501,11 +4591,13 @@ export default function MailPage() {
                     </div>
               </div>
             ) : null}
-            <div ref={listPreviewSplitRef} className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+            <div ref={listPreviewSplitRef} className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
               <div
-                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 md:border-b-0 ${
+                className={`flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden border-b border-slate-200 dark:border-slate-600 lg:border-b-0 ${
+                  showMailListPane ? 'max-lg:flex' : 'max-lg:hidden'
+                } ${
                   selectedMessageId != null
-                    ? 'md:w-[var(--mail-list-split-pct)] md:max-w-[92%] md:min-w-[8rem] md:shrink-0 md:flex-none md:border-r'
+                    ? 'lg:w-[var(--mail-list-split-pct)] lg:max-w-[92%] lg:min-w-[8rem] lg:shrink-0 lg:flex-none lg:border-r'
                     : ''
                 }`}
                 style={
@@ -4562,7 +4654,7 @@ export default function MailPage() {
                               thread_key: msg.thread_key,
                             })
                           }}
-                          className={`relative rounded-xl px-4 py-3 transition-[background-color,box-shadow,border-color,ring-color] duration-200 cursor-pointer flex flex-col gap-0.5 group ${rowSurface} ${rowFlash}`}
+                          className={`relative rounded-xl px-3 py-2.5 lg:px-4 lg:py-3 transition-[background-color,box-shadow,border-color,ring-color] duration-200 cursor-pointer flex flex-col gap-0.5 group ${rowSurface} ${rowFlash}`}
                         >
                           <div className="flex items-start gap-2 min-w-0">
                             <div
@@ -4689,7 +4781,7 @@ export default function MailPage() {
                                       : `Reçu : ${formatReceivedDetail(messageDisplayDate(msg))}`}
                                   </p>
                                 </div>
-                            <div className="flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+                            <div className="hidden lg:flex items-center gap-0.5 shrink-0" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -4853,7 +4945,7 @@ export default function MailPage() {
                 </div>
                 )}
               </div>
-              {selectedMessageId != null && (
+              {selectedMessageId != null && showMailReadPane && (
                 <>
                   <div
                     role="separator"
@@ -4862,13 +4954,13 @@ export default function MailPage() {
                     aria-valuemin={MAIL_LIST_PREVIEW_MIN_PCT}
                     aria-valuemax={MAIL_LIST_PREVIEW_MAX_PCT}
                     aria-label="Redimensionner la liste des messages et l’aperçu"
-                    className="hidden md:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
+                    className="hidden lg:flex w-3 shrink-0 touch-none cursor-col-resize select-none items-stretch justify-center hover:bg-brand-500/15 dark:hover:bg-brand-400/20 active:bg-brand-500/25 border-x border-transparent"
                     onPointerDown={handleListPreviewResizePointerDown}
                     title="Glisser pour redimensionner la liste et l’aperçu (souris ou doigt)"
                   >
                     <span className="w-px self-stretch bg-slate-300 dark:bg-slate-600" aria-hidden />
                   </div>
-                  <div className="flex-1 flex flex-col min-w-0 border-t md:border-t-0 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                  <div className="flex-1 flex flex-col min-w-0 border-t lg:border-t-0 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 max-lg:flex-1">
                   {selectedMessageError && !selectedMessageDetail ? (
                     <div className="flex flex-col flex-1 min-h-0 p-4">
                       <div className="flex items-start justify-between gap-3 mb-3">

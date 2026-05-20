@@ -15,81 +15,76 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
+import { ResponsiveShell } from '@cloudity/ui'
 
 const adminNav = [
-  { name: 'Tableau de bord', href: adminUiPath(), icon: LayoutDashboard, end: true },
-  { name: 'Tenants', href: adminUiPath('tenants'), icon: Building2, end: false },
-  { name: 'Utilisateurs', href: adminUiPath('users'), icon: Users, end: false },
-  { name: 'Coffres (Pass)', href: adminUiPath('vaults'), icon: Lock, end: false },
-  { name: 'Domaines mail', href: adminUiPath('domaines'), icon: Mail, end: false },
-  { name: 'CVE / dépendances', href: adminUiPath('securite-cve'), icon: Shield, end: false },
-  { name: 'Passkeys', href: adminUiPath('passkeys'), icon: Key, end: false },
-  { name: 'Paramètres', href: adminUiPath('settings'), icon: Settings, end: false },
-  { name: 'Catalogue UI', href: adminUiPath('dev/ui'), icon: Palette, end: false },
+  { key: 'dashboard', name: 'Tableau de bord', href: adminUiPath(), icon: <LayoutDashboard className="w-4 h-4 shrink-0" />, end: true },
+  { key: 'tenants', name: 'Tenants', href: adminUiPath('tenants'), icon: <Building2 className="w-4 h-4 shrink-0" /> },
+  { key: 'users', name: 'Utilisateurs', href: adminUiPath('users'), icon: <Users className="w-4 h-4 shrink-0" /> },
+  { key: 'vaults', name: 'Coffres (Pass)', href: adminUiPath('vaults'), icon: <Lock className="w-4 h-4 shrink-0" /> },
+  { key: 'domaines', name: 'Domaines mail', href: adminUiPath('domaines'), icon: <Mail className="w-4 h-4 shrink-0" /> },
+  { key: 'cve', name: 'CVE / dépendances', href: adminUiPath('securite-cve'), icon: <Shield className="w-4 h-4 shrink-0" /> },
+  { key: 'passkeys', name: 'Passkeys', href: adminUiPath('passkeys'), icon: <Key className="w-4 h-4 shrink-0" /> },
+  { key: 'settings', name: 'Paramètres', href: adminUiPath('settings'), icon: <Settings className="w-4 h-4 shrink-0" /> },
+  { key: 'ui', name: 'Catalogue UI', href: adminUiPath('dev/ui'), icon: <Palette className="w-4 h-4 shrink-0" /> },
 ]
 
 export default function AdminLayout() {
   const location = useLocation()
   const { logout } = useAuth()
 
-  const isActive = (href: string, end: boolean) =>
-    end ? location.pathname === href : location.pathname.startsWith(href)
+  const navLinkClass = (active: boolean) =>
+    `flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${
+      active
+        ? 'bg-blue-600 dark:bg-blue-500 text-white'
+        : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+    }`
 
   return (
-    <div className="h-dvh min-h-0 max-h-dvh overflow-hidden bg-gray-100 dark:bg-slate-900 flex">
-      <aside className="w-56 min-h-0 bg-white dark:bg-slate-800 border-r border-gray-200 dark:border-slate-700 flex flex-col shrink-0 overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-slate-700 shrink-0">
-          <Link to={ADMIN_UI_BASE_PATH} className="text-base font-semibold text-gray-900 dark:text-slate-100">Cloudity</Link>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Administration</p>
-        </div>
-        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-2 space-y-0.5">
-          {adminNav.map((item) => {
-            const Icon = item.icon
-            const active = isActive(item.href, item.end)
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
-                  active
-                    ? 'bg-blue-600 dark:bg-blue-500 text-white'
-                    : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {item.name}
-              </Link>
-            )
-          })}
-        </nav>
-        <div className="p-2 border-t border-gray-200 dark:border-slate-700 space-y-0.5 shrink-0">
-          {/* `/app` est servi par `index.html` (bundle utilisateur), pas par le bundle admin
-              `admin.html` : navigation pleine page obligatoire — on force `window.location.assign`
-              pour qu'un clic programmatique (Playwright/MCP) charge bien le bon bundle. */}
-          <a
-            href="/app"
-            onClick={(e) => {
-              e.preventDefault()
-              window.location.assign('/app')
-            }}
-            className="flex items-center gap-2 px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Retour à l’app
-          </a>
-          <button
-            type="button"
-            onClick={logout}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded text-sm font-medium text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
-          >
-            <LogOut className="w-4 h-4" />
-            Déconnexion
-          </button>
-        </div>
-      </aside>
-      <main className="flex-1 min-w-0 min-h-0 overflow-y-auto overscroll-y-contain p-6">
-        <Outlet />
-      </main>
-    </div>
+    <ResponsiveShell
+      brandTitle="Cloudity"
+      brandSubtitle="Administration"
+      brandLink={
+        <Link to={ADMIN_UI_BASE_PATH} className="text-base font-semibold text-gray-900 dark:text-slate-100">
+          Cloudity
+        </Link>
+      }
+      pathname={location.pathname}
+      navItems={adminNav.map((item) => ({
+        key: item.key,
+        label: item.name,
+        href: item.href,
+        icon: item.icon,
+        end: item.end,
+      }))}
+      renderNavLink={(item, { active, onNavigate }) => (
+        <Link
+          key={item.key}
+          to={item.href}
+          onClick={() => onNavigate?.()}
+          className={navLinkClass(active)}
+        >
+          {item.icon}
+          <span className="truncate">{item.label}</span>
+        </Link>
+      )}
+      footerItems={[
+        {
+          key: 'back',
+          label: 'Retour à l’app',
+          icon: <ArrowLeft className="w-4 h-4" />,
+          onClick: () => window.location.assign('/app'),
+        },
+        {
+          key: 'logout',
+          label: 'Déconnexion',
+          icon: <LogOut className="w-4 h-4" />,
+          onClick: logout,
+        },
+      ]}
+      mainClassName="p-4 sm:p-6"
+    >
+      <Outlet />
+    </ResponsiveShell>
   )
 }
