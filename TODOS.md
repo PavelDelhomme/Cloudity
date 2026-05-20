@@ -37,7 +37,7 @@
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
 | **3** | **MTA alias auto-hébergé** | Stack **`deploy/mail-mta`** (local `2525` puis VPS `25`) · API **`/mail/internal/alias-resolve`** · filtre `delivered_to` sur en-têtes | 🟡 |
-| **4** | **Admin Domaines + checklist C1–C7** | `/4dm1n/domaines` configure rôle **Domaine alias MTA**, hostname/MX/SPF/DKIM/DMARC attendus ; puis **[MAIL-ALIAS-CHECKLIST.md](./docs/produit/MAIL-ALIAS-CHECKLIST.md)** | 🟡 |
+| **4** | **Admin Domaines + checklist C1–C7** | `.env` local : `MAIL_ALIAS_DOMAIN` + `MTA_INTERNAL_TOKEN` suffisent en dev ; `/4dm1n/domaines` configure rôle **Domaine alias MTA**, hostname/MX/SPF/DKIM/DMARC attendus | 🟡 |
 | **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |
 | **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · MX `@` → `mail.<domaine-alias>` · SPF/DKIM/DMARC Cloudity | ☐ |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |

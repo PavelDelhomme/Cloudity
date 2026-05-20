@@ -58,6 +58,8 @@ make seed-admin   # compte démo local uniquement
 | `GOOGLE_OAUTH_*` | Gmail OAuth | Console Google Cloud | Idem prod |
 | `MTLS_MODE` | mTLS interne microservices | `off` | `permissive` puis `strict` — voir **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)** |
 | `MAIL_ALIAS_SUBDOMAIN` | Cible alias Pass | commenté | ex. `alias.domain.ovh` |
+| `MAIL_ALIAS_DOMAIN` | Mode dev MTA alias (fallback suffixe) | ex. `alias.domain.ovh` | utilisé surtout par `deploy/mail-mta` |
+| `MAIL_ALIAS_PORT` | Port SMTP local MTA | `2525` | généralement non utilisé (prod = 25 via stack MTA) |
 | `MAIL_PRIMARY_DOMAIN` | Domaine compte principal | commenté | ex. `domain.ovh` |
 | `MTA_INTERNAL_TOKEN` | Lookup MTA → Cloudity | `openssl rand -hex 32` | Même valeur dans `mail-directory-service` et `deploy/mail-mta` |
 | `OVH_API_*` | Provision alias sans UI OVH | commenté | Backlog **MAIL-ALIAS-05** |

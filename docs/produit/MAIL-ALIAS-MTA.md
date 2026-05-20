@@ -18,15 +18,17 @@
 Les lignes doivent être actives, pas commentées :
 
 ```bash
-MAIL_PRIMARY_DOMAIN=<domaine-principal>
-MAIL_ALIAS_SUBDOMAIN=<domaine-alias>
+MAIL_ALIAS_DOMAIN=<domaine-alias>       # mode dev accepté par mail-directory-service
+# ou, nom canonique backend/Portainer :
+# MAIL_ALIAS_SUBDOMAIN=<domaine-alias>
 MTA_INTERNAL_TOKEN=<openssl rand -hex 32>
 ```
 
 Notes :
 
-- `MAIL_ALIAS_SUBDOMAIN` pilote le suffixe proposé par Mail/Pass.
-- `MAIL_ALIAS_DOMAIN` sert à la stack `deploy/mail-mta`, pas au backend Cloudity principal.
+- `MAIL_ALIAS_DOMAIN` suffit en local si tu ne veux pas encore déclarer `MAIL_PRIMARY_DOMAIN`.
+- `MAIL_ALIAS_SUBDOMAIN` reste le nom canonique côté backend/Portainer.
+- `MAIL_ALIAS_PORT=2525` sert au test local MTA, pas au `mail-directory-service`.
 - Après modification : `make deploy-mail`.
 
 ## 3. Admin Domaines

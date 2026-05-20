@@ -29,11 +29,18 @@ type MailAliasConfigResponse struct {
 func mailAliasConfigFromEnv() (primaryDomain, aliasHostSuffix string, validationStrict bool) {
 	primaryDomain = strings.TrimSpace(strings.ToLower(os.Getenv("MAIL_PRIMARY_DOMAIN")))
 	aliasHostSuffix = strings.TrimSpace(strings.ToLower(os.Getenv("MAIL_ALIAS_SUBDOMAIN")))
+	if aliasHostSuffix == "" {
+		// Mode MTA alias : deploy/mail-mta utilise MAIL_ALIAS_DOMAIN. En dev local,
+		// on accepte cette variable comme suffixe direct sans exiger MAIL_PRIMARY_DOMAIN.
+		aliasHostSuffix = strings.TrimSpace(strings.ToLower(os.Getenv("MAIL_ALIAS_DOMAIN")))
+	}
 	aliasHostSuffix = strings.TrimPrefix(aliasHostSuffix, "@")
 	if aliasHostSuffix == "" && primaryDomain != "" {
 		aliasHostSuffix = "alias." + primaryDomain
 	}
-	validationStrict = primaryDomain != "" || strings.TrimSpace(os.Getenv("MAIL_ALIAS_SUBDOMAIN")) != ""
+	validationStrict = primaryDomain != "" ||
+		strings.TrimSpace(os.Getenv("MAIL_ALIAS_SUBDOMAIN")) != "" ||
+		strings.TrimSpace(os.Getenv("MAIL_ALIAS_DOMAIN")) != ""
 	return primaryDomain, aliasHostSuffix, validationStrict
 }
 

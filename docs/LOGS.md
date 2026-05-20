@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-21 — MTA alias local : fallback `.env` dev
+
+- Branche : `feat/mail-alias-checklist`.
+- Config : `MAIL_ALIAS_DOMAIN` est accepté comme suffixe alias en dev si `MAIL_ALIAS_SUBDOMAIN` est vide ; `MAIL_ALIAS_PORT=2525` documenté pour la stack locale.
+- Outils : ajout `make ensure-mta-internal-token` et intégration dans `make doctor` / `stack-heal`.
+- Docs : `MAIL-ALIAS-MTA.md`, `MAIL-MTA-LOCAL-TEST.md`, `ENV-GENERATION.md`, `DEPLOIEMENT-SUIVI.md`.
+
+---
+
 ### 2026-05-20 — Admin Domaines : configuration MTA/DNS
 
 - Branche : `feat/mail-alias-checklist`.

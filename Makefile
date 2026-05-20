@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -69,6 +69,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
 	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
+	@echo '  make ensure-mta-internal-token - Ajoute/décommente MTA_INTERNAL_TOKEN (lookup MTA alias)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
 	@echo '  make deploy-web | deploy-mail | deploy-gateway | deploy-auth | deploy-admin | deploy-pass | deploy-drive | deploy-photos - Un service (docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)'
 	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
@@ -214,6 +215,10 @@ ensure-mail-encryption-key: ## Ajoute MAIL_PASSWORD_ENCRYPTION_KEY (64 hex) au .
 ensure-alias-encryption-key: ## Ajoute ALIAS_ENCRYPTION_KEY (openssl rand -base64 32) au .env si absente — parité prod / futur
 	@chmod +x scripts/dev/ensure-alias-encryption-key.sh 2>/dev/null || true
 	@./scripts/dev/ensure-alias-encryption-key.sh
+
+ensure-mta-internal-token: ## Ajoute/décommente MTA_INTERNAL_TOKEN (openssl rand -hex 32) — lookup MTA alias
+	@chmod +x scripts/dev/ensure-mta-internal-token.sh 2>/dev/null || true
+	@./scripts/dev/ensure-mta-internal-token.sh
 
 build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity-pass/dist)
 	@echo "🔌 Build extension Cloudity Pass (MV3)…"

@@ -13,12 +13,13 @@
 Dans le `.env` racine, les lignes doivent être **actives** (pas préfixées par `#`) :
 
 ```bash
-MAIL_PRIMARY_DOMAIN=<domaine-principal>
-MAIL_ALIAS_SUBDOMAIN=<domaine-alias>
+MAIL_ALIAS_DOMAIN=<domaine-alias>
+MAIL_ALIAS_PORT=2525
 MTA_INTERNAL_TOKEN=<openssl rand -hex 32>
 ```
 
-`MAIL_ALIAS_DOMAIN` est utilisé par la stack `deploy/mail-mta`; côté `mail-directory-service`, le suffixe UI attendu est `MAIL_ALIAS_SUBDOMAIN`.
+En dev, `mail-directory-service` accepte `MAIL_ALIAS_DOMAIN` comme suffixe direct si `MAIL_ALIAS_SUBDOMAIN` est vide.  
+En Portainer/prod, préférer le nom canonique `MAIL_ALIAS_SUBDOMAIN=<domaine-alias>` côté service Cloudity, et `MAIL_ALIAS_DOMAIN=<domaine-alias>` côté stack `deploy/mail-mta`.
 
 Après modification :
 

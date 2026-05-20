@@ -32,6 +32,7 @@ func TestNormalizeAliasEmailFullAddress(t *testing.T) {
 func TestValidateAliasEmailStrict(t *testing.T) {
 	t.Setenv("MAIL_PRIMARY_DOMAIN", "exemple.ovh")
 	t.Setenv("MAIL_ALIAS_SUBDOMAIN", "")
+	t.Setenv("MAIL_ALIAS_DOMAIN", "")
 	if err := validateAliasEmailForAccount("x@alias.exemple.ovh", "", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -40,9 +41,26 @@ func TestValidateAliasEmailStrict(t *testing.T) {
 	}
 }
 
+func TestMailAliasDomainFallbackForMTA(t *testing.T) {
+	t.Setenv("MAIL_PRIMARY_DOMAIN", "")
+	t.Setenv("MAIL_ALIAS_SUBDOMAIN", "")
+	t.Setenv("MAIL_ALIAS_DOMAIN", "mta-alias.example")
+	got, err := normalizeAliasEmail("newsletter", "user@exemple.ovh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "newsletter@mta-alias.example" {
+		t.Fatalf("got %q", got)
+	}
+	if err := validateAliasEmailForAccount("newsletter@wrong.example", "user@exemple.ovh", ""); err == nil {
+		t.Fatal("expected strict validation with MAIL_ALIAS_DOMAIN")
+	}
+}
+
 func TestEffectiveAliasHostSuffixFromAccount(t *testing.T) {
 	os.Unsetenv("MAIL_PRIMARY_DOMAIN")
 	os.Unsetenv("MAIL_ALIAS_SUBDOMAIN")
+	os.Unsetenv("MAIL_ALIAS_DOMAIN")
 	if got := effectiveAliasHostSuffix("test@cloudity.local"); got != "alias.cloudity.local" {
 		t.Fatalf("got %q", got)
 	}
