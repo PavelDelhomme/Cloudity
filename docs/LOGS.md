@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-20 — Admin : polish exploitation, sécurité et CVE
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Domaines mail** : helpers API durcis contre les réponses liste `null` (`domains`, `mailboxes`, `aliases`) ; page Domaines enrichie avec états vides/erreurs de détail et formulaires responsive.
+- **Users / 2FA** : dernière connexion rendue explicitement (`Jamais enregistrée`) ; statut actif pilotable ; note sécurité indiquant que le reset 2FA admin doit passer par step-up + audit, pas par un toggle.
+- **Dashboard / CVE / Passkeys / Settings** : dashboard explique le fallback cgroup sans Docker ; CVE ajoute priorités par paquet et synthèse écosystème ; passkeys affiche quota, fallback de nom et périmètre web vs mobile/extension ; settings ajoute raccourcis sécurité/exploitation.
+- **Suivi** : `TODOS.md` — ajout `U8` coché et `U9` pour la gestion 2FA admin avancée.
+
+---
+
 ### 2026-05-20 — UI-DS : responsive Admin, catalogue et Mail mobile
 
 - Branche : `feat/cloudity-ui-design-system`.

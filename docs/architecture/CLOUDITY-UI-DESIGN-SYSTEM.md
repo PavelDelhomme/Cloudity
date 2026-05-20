@@ -50,9 +50,9 @@ Le design system doit porter les règles responsive communes, pas les laisser di
 **Constats audit 2026-05-20** :
 
 - **App shell `/app/*`** : bonne base (`dvh`, drawer mobile, `min-w-0`, scroll interne), mais la barre chrome peut saturer quand beaucoup d’actions sont injectées par une page.
-- **Mail** : utilisable sur desktop/tablette large, mais trop dense sur smartphone et tablette étroite ; il faut un comportement dédié `MobileMailShell` / pile `dossiers → liste → lecture`, avec actions dans un menu compact.
-- **Admin `/4dm1n`** : sidebar fixe `w-56` non adaptée aux petits écrans ; prévoir un `AdminShell` responsive ou réutiliser un futur `SidebarShell`.
-- **Catalogue UI** : doit inclure des exemples responsive et pas seulement les primitives en desktop.
+- **Mail** : corrigé en v1 responsive par une pile `dossiers → liste → lecture` sous `lg`, avec actions secondaires moins visibles sur écran étroit.
+- **Admin `/4dm1n`** : corrigé par `ResponsiveShell` (drawer mobile, sidebar fixe seulement à partir de `lg`).
+- **Catalogue UI** : migré vers `ResponsivePage` / `ResponsiveGrid` / `ResponsivePanel`.
 
 Critère de sortie UI-DS responsive : vérifier au moins **375×667**, **390×844**, **768×1024**, **1366×768**, **1440×900** et **2560×1440** sur App, Admin, Mail, Drive/Photos et Pass/Settings.
 
@@ -74,6 +74,7 @@ Critère de sortie UI-DS responsive : vérifier au moins **375×667**, **390×84
 | **UI-4** | **App chrome** partagé (`AppLayout` tokens) + hub `/app` | Cohérence visuelle suite |
 | **UI-5** | Migrer **Mail** / **Drive** par blocs (chrome d’abord) | Pas de régression E2E mail |
 | **UI-6** | Storybook ou catalogue ; semver **0.2.0** | Doc consommateur |
+| **UI-7** | Polish admin opérationnel (Domaines, Users, CVE, Passkeys, Settings) | Écrans robustes aux états vides et notes sécurité visibles |
 
 ---
 

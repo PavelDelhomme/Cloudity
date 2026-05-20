@@ -88,6 +88,8 @@ export default function Dashboard() {
   }
 
   const s = stats ?? { active_tenants: 0, total_users: 0, api_calls_today: 0 }
+  const hasContainerStats = (perf?.containers?.length ?? 0) > 0
+  const perfModeLabel = hasContainerStats ? `${perf?.containers.length} conteneur(s)` : 'mode cgroup seul'
 
   const cards = [
     {
@@ -181,7 +183,12 @@ export default function Dashboard() {
 
       <Card className="p-6 mt-6">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Performance runtime (snapshot)</h3>
+          <div>
+            <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">Performance runtime (snapshot)</h3>
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+              Source live admin-service : {perf?.source ?? '—'} · {perfModeLabel}
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -197,6 +204,12 @@ export default function Dashboard() {
             </span>
           </div>
         </div>
+        {!hasContainerStats ? (
+          <div className="mb-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-sm text-amber-900 dark:text-amber-100">
+            Docker n’est pas visible depuis ce runtime : l’admin affiche donc les métriques cgroup du service courant. Pour obtenir
+            les conteneurs, monter le socket Docker côté admin-service et vérifier les permissions.
+          </div>
+        ) : null}
         {recordSnapshot.isError ? (
           <p className="text-xs text-amber-700 dark:text-amber-300 mb-2">
             {(recordSnapshot.error as Error)?.message ?? 'Impossible d’enregistrer (migration DB ou droits).'}

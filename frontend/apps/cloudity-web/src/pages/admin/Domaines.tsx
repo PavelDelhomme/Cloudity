@@ -43,7 +43,7 @@ export default function Domaines() {
     queryFn: () => fetchDomainsPage(accessToken!, { skip: page * pageSize, pageSize }),
     enabled: Boolean(accessToken),
   })
-  const { data: mailboxesData, isLoading: mailboxesLoading } = useQuery({
+  const { data: mailboxesData, isLoading: mailboxesLoading, error: mailboxesError } = useQuery({
     queryKey: ['mail-domain-mailboxes', selectedDomainId, detailsPage, detailsPageSize],
     queryFn: () =>
       fetchDomainMailboxesPage(accessToken!, selectedDomainId!, {
@@ -52,7 +52,7 @@ export default function Domaines() {
       }),
     enabled: Boolean(accessToken && selectedDomainId != null && detailsTab === 'mailboxes'),
   })
-  const { data: aliasesData, isLoading: aliasesLoading } = useQuery({
+  const { data: aliasesData, isLoading: aliasesLoading, error: aliasesError } = useQuery({
     queryKey: ['mail-domain-aliases', selectedDomainId, detailsPage, detailsPageSize],
     queryFn: () =>
       fetchDomainAliasesPage(accessToken!, selectedDomainId!, {
@@ -192,6 +192,7 @@ export default function Domaines() {
   }
 
   const list = domainsData?.items ?? []
+  const selectedDomain = list.find((d) => d.id === selectedDomainId) ?? null
   const domainsHasMore = domainsData?.hasMore ?? false
   const canPrev = page > 0
   const canNext = domainsHasMore
@@ -213,15 +214,15 @@ export default function Domaines() {
   return (
     <PageLayout
       title="Domaines mail"
-      description="Domaines pour la Phase 2 Mail"
+      description="Domaines, boîtes et alias du mail-directory-service. Les réponses vides/null sont traitées comme des listes vides."
       action={
-        <form onSubmit={handleCreate} className="flex items-center gap-2">
+        <form onSubmit={handleCreate} className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Input
             type="text"
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
             placeholder="exemple.com"
-            className="w-44"
+            className="w-full sm:w-44"
           />
           <Button
             type="submit"
@@ -232,6 +233,14 @@ export default function Domaines() {
         </form>
       }
     >
+      <Card className="p-4 mb-4 border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/20">
+        <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">État opérationnel</p>
+        <p className="mt-1 text-sm text-blue-900/90 dark:text-blue-100/90">
+          Cette page admin pilote l’annuaire mail Cloudity. Si le service renvoie une liste vide ou un corps nul pendant un
+          chargement, l’UI reste en état vide au lieu de casser la page.
+        </p>
+      </Card>
+
       <Card>
         <TableWrapper>
           <TableHead>
@@ -301,8 +310,15 @@ export default function Domaines() {
       {selectedDomainId != null ? (
         <Card>
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2">
-            <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Détails du domaine</div>
-            <div className="flex items-center gap-1">
+            <div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Détails du domaine{selectedDomain ? ` · ${selectedDomain.domain}` : ''}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Boîtes locales et alias routés pour ce domaine.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
               <Button
                 variant={detailsTab === 'mailboxes' ? 'secondary' : 'ghost'}
                 className="!px-3 !py-1.5 text-xs"
@@ -327,7 +343,7 @@ export default function Domaines() {
           </div>
           {detailsTab === 'mailboxes' ? (
             <form
-              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-end gap-2"
+              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!selectedDomainId) return
@@ -341,7 +357,7 @@ export default function Domaines() {
                 placeholder="local-part"
                 value={newLocalPart}
                 onChange={(e) => setNewLocalPart(e.target.value)}
-                className="max-w-[220px]"
+                className="w-full sm:max-w-[220px]"
               />
               <Input
                 type="number"
@@ -349,7 +365,7 @@ export default function Domaines() {
                 placeholder="Quota (Mo)"
                 value={newQuotaMb}
                 onChange={(e) => setNewQuotaMb(e.target.value)}
-                className="max-w-[140px]"
+                className="w-full sm:max-w-[140px]"
               />
               <Button type="submit" disabled={createMailboxMutation.isPending || !newLocalPart.trim()}>
                 {createMailboxMutation.isPending ? 'Création…' : 'Créer boîte'}
@@ -357,7 +373,7 @@ export default function Domaines() {
             </form>
           ) : (
             <form
-              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-end gap-2"
+              className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-col gap-2 sm:flex-row sm:items-end"
               onSubmit={(e) => {
                 e.preventDefault()
                 if (!selectedDomainId) return
@@ -371,13 +387,13 @@ export default function Domaines() {
                 placeholder="source_local"
                 value={newAliasSource}
                 onChange={(e) => setNewAliasSource(e.target.value)}
-                className="max-w-[220px]"
+                className="w-full sm:max-w-[220px]"
               />
               <Input
                 placeholder="destination@exemple.com"
                 value={newAliasDestination}
                 onChange={(e) => setNewAliasDestination(e.target.value)}
-                className="max-w-[280px]"
+                className="w-full sm:max-w-[280px]"
               />
               <Button type="submit" disabled={createAliasMutation.isPending || !newAliasSource.trim() || !newAliasDestination.trim()}>
                 {createAliasMutation.isPending ? 'Création…' : 'Créer alias'}
@@ -404,7 +420,13 @@ export default function Domaines() {
             </TableHead>
             <TBody>
               {detailsTab === 'mailboxes' ? (
-                mailboxesLoading ? (
+                mailboxesError ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-8 text-center text-red-600">
+                      {mailboxesError instanceof Error ? mailboxesError.message : 'Erreur chargement boîtes mail'}
+                    </td>
+                  </tr>
+                ) : mailboxesLoading ? (
                   <tr>
                     <td colSpan={4} className="px-6 py-8 text-center text-slate-500">
                       Chargement des boîtes…
@@ -495,6 +517,12 @@ export default function Domaines() {
                     </tr>
                   ))
                 )
+              ) : aliasesError ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-red-600">
+                    {aliasesError instanceof Error ? aliasesError.message : 'Erreur chargement aliases'}
+                  </td>
+                </tr>
               ) : aliasesLoading ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-8 text-center text-slate-500">

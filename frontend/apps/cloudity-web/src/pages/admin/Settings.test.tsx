@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import React from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import SettingsPage from './Settings'
 
 vi.mock('../../authContext', () => ({
@@ -8,6 +9,14 @@ vi.mock('../../authContext', () => ({
 }))
 
 const useAuth = vi.mocked(await import('../../authContext')).useAuth
+
+function renderSettings() {
+  return render(
+    <MemoryRouter>
+      <SettingsPage />
+    </MemoryRouter>
+  )
+}
 
 describe('SettingsPage', () => {
   beforeEach(() => {
@@ -23,18 +32,18 @@ describe('SettingsPage', () => {
   })
 
   it('renders Settings title', () => {
-    render(<SettingsPage />)
+    renderSettings()
     expect(screen.getByRole('heading', { name: /Paramètres/ })).toBeTruthy()
   })
 
   it('displays session email and tenant id', () => {
-    render(<SettingsPage />)
+    renderSettings()
     expect(screen.getByText('admin@cloudity.io')).toBeTruthy()
     expect(screen.getByText('42')).toBeTruthy()
   })
 
   it('shows Session section', () => {
-    render(<SettingsPage />)
+    renderSettings()
     expect(screen.getByText('Session')).toBeTruthy()
   })
 })

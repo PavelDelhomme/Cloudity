@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
 import { fetchUsersPage, updateUser } from '../../api'
-import { Badge, Card, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
+import { Badge, Button, Card, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
 function maskEmail(email: string): string {
@@ -13,6 +13,15 @@ function maskEmail(email: string): string {
   const parts = domain.split('.')
   const safeDomain = parts.length >= 2 ? `${parts[0].slice(0, 2)}***.${parts.slice(1).join('.')}` : `${domain.slice(0, 2)}***`
   return `${safeLocal}@${safeDomain}`
+}
+
+function formatLastLogin(value: string | null): string {
+  if (!value) return 'Jamais enregistrée'
+  try {
+    return new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  } catch {
+    return value
+  }
 }
 
 export default function Users() {
@@ -36,12 +45,13 @@ export default function Users() {
   })
 
   const updateUserMutation = useMutation({
-    mutationFn: (payload: { userId: number; email: string }) => updateUser(payload.userId, { email: payload.email }, accessToken!),
+    mutationFn: (payload: { userId: number; patch: { email?: string; is_active?: boolean } }) =>
+      updateUser(payload.userId, payload.patch, accessToken!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['users', tenantId ?? 0] })
       setEditingUserId(null)
       setEditingEmail('')
-      toast.success('Adresse de connexion mise à jour')
+      toast.success('Utilisateur mis à jour')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur de mise à jour'),
   })
@@ -81,9 +91,17 @@ export default function Users() {
   return (
     <PageLayout
       title="Utilisateurs"
-      description="Utilisateurs du tenant actuel (adresse de connexion modifiable)"
+      description="Utilisateurs du tenant actuel : identité de connexion, statut, 2FA et dernière activité connue."
     >
-      <div className="mb-3">
+      <Card className="p-4 mb-4 border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20">
+        <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">Gestion 2FA admin</p>
+        <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+          L’admin affiche l’état 2FA, mais ne force pas encore la réinitialisation TOTP d’un utilisateur. Cette action doit passer
+          par un endpoint dédié avec step-up admin, journal d’audit et génération de codes de récupération, pas par un simple toggle UI.
+        </p>
+      </Card>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => setShowEmails((v) => !v)}
@@ -91,6 +109,9 @@ export default function Users() {
         >
           {showEmails ? 'Masquer les e-mails' : 'Afficher les e-mails'}
         </button>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Dernière connexion = valeur exposée par l’auth-service ; « jamais » signifie qu’aucun login n’a encore été journalisé.
+        </span>
       </div>
       <Card>
         <TableWrapper>
@@ -100,11 +121,12 @@ export default function Users() {
             <Th>2FA</Th>
             <Th>Actif</Th>
             <Th>Dernière connexion</Th>
+            <Th className="text-right">Actions</Th>
           </TableHead>
           <TBody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                   Aucun utilisateur pour ce tenant.
                 </td>
               </tr>
@@ -123,7 +145,7 @@ export default function Users() {
                         />
                         <button
                           type="button"
-                          onClick={() => updateUserMutation.mutate({ userId: u.id, email: editingEmail.trim().toLowerCase() })}
+                          onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { email: editingEmail.trim().toLowerCase() } })}
                           disabled={updateUserMutation.isPending || !editingEmail.trim()}
                           className="rounded-md bg-brand-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                         >
@@ -161,14 +183,37 @@ export default function Users() {
                     <Badge variant={u.is_2fa_enabled ? 'success' : 'default'}>
                       {u.is_2fa_enabled ? 'Oui' : 'Non'}
                     </Badge>
+                    {!u.is_2fa_enabled ? (
+                      <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">à activer côté utilisateur</span>
+                    ) : null}
                   </Td>
                   <Td>
-                    <Badge variant={u.is_active ? 'success' : 'error'}>
-                      {u.is_active ? 'Oui' : 'Non'}
-                    </Badge>
+                    <button
+                      type="button"
+                      className="inline-flex"
+                      onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { is_active: !u.is_active } })}
+                      disabled={updateUserMutation.isPending}
+                      title={u.is_active ? 'Suspendre ce compte' : 'Réactiver ce compte'}
+                    >
+                      <Badge variant={u.is_active ? 'success' : 'error'}>
+                        {u.is_active ? 'Oui' : 'Non'}
+                      </Badge>
+                    </button>
                   </Td>
                   <Td className="text-slate-500 whitespace-nowrap">
-                    {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
+                    {formatLastLogin(u.last_login)}
+                  </Td>
+                  <Td className="text-right">
+                    <Button
+                      variant="ghost"
+                      className="!px-2 !py-1 text-xs"
+                      onClick={() => {
+                        setEditingUserId(u.id)
+                        setEditingEmail(u.email)
+                      }}
+                    >
+                      Modifier email
+                    </Button>
                   </Td>
                 </tr>
               ))

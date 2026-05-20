@@ -2,8 +2,21 @@ import React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../authContext'
 import { fetchCveReport, refreshCveReport, type CveReportResponse } from '../../api'
-import { Card, PageLayout } from '@cloudity/ui'
+import { Badge, Card, PageLayout } from '@cloudity/ui'
 import { AlertTriangle, ExternalLink, RefreshCw, Shield } from 'lucide-react'
+
+function formatScanDate(iso?: string | null): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })
+  } catch {
+    return iso
+  }
+}
+
+function vulnIds(v: { cve_aliases?: string[] | null; osv_id: string }): string[] {
+  return v.cve_aliases?.length ? v.cve_aliases : [v.osv_id]
+}
 
 function CveTable({ report }: { report: CveReportResponse }) {
   if (report.findings.length === 0) {
@@ -34,7 +47,7 @@ function CveTable({ report }: { report: CveReportResponse }) {
                 <td className="px-3 py-2 font-mono text-xs text-slate-600 dark:text-slate-300">{f.version}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-wrap gap-1">
-                    {(v.cve_aliases.length ? v.cve_aliases : [v.osv_id]).map((id) => (
+                    {vulnIds(v).map((id) => (
                       <a
                         key={id}
                         href={
@@ -94,6 +107,22 @@ export default function SecurityCvePage() {
   }
 
   const busy = isLoading || isFetching || refreshMut.isPending
+  const packagePriorities = report
+    ? [...report.findings]
+        .sort((a, b) => b.vulns.length - a.vulns.length)
+        .slice(0, 6)
+    : []
+  const ecosystems = report
+    ? [...new Set(report.findings.map((f) => f.ecosystem))]
+        .sort()
+        .map((ecosystem) => ({
+          ecosystem,
+          packages: report.findings.filter((f) => f.ecosystem === ecosystem).length,
+          vulns: report.findings
+            .filter((f) => f.ecosystem === ecosystem)
+            .reduce((sum, f) => sum + f.vulns.length, 0),
+        }))
+    : []
 
   return (
     <PageLayout
@@ -163,10 +192,49 @@ export default function SecurityCvePage() {
             </Card>
           </div>
 
+          {packagePriorities.length > 0 ? (
+            <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-amber-950 dark:text-amber-100">Priorités de mise à jour</p>
+                  <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+                    OSV signale des versions vulnérables. La prochaine étape utile est de monter ces dépendances et relancer les tests,
+                    pas seulement conserver la liste brute.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {packagePriorities.map((f) => (
+                      <span
+                        key={`${f.ecosystem}-${f.package}-${f.version}`}
+                        className="inline-flex items-center gap-1 rounded-full border border-amber-300/70 dark:border-amber-700 bg-white/70 dark:bg-amber-950/40 px-2.5 py-1 text-xs text-amber-950 dark:text-amber-100"
+                      >
+                        <span className="font-mono">{f.package}</span>
+                        <Badge variant="warning">{f.vulns.length}</Badge>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ) : null}
+
+          {ecosystems.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {ecosystems.map((row) => (
+                <Card key={row.ecosystem} className="p-4">
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">{row.ecosystem}</p>
+                  <p className="mt-1 text-sm text-slate-700 dark:text-slate-200">
+                    {row.packages} paquet(s), {row.vulns} entrée(s)
+                  </p>
+                </Card>
+              ))}
+            </div>
+          ) : null}
+
           <Card>
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                Dernier scan : <span className="font-mono text-xs">{report.scanned_at}</span>
+                Dernier scan : <span className="font-mono text-xs">{formatScanDate(report.scanned_at)}</span>
                 {report.from_cache ? (
                   <span className="ml-2 rounded bg-slate-200 dark:bg-slate-600 px-2 py-0.5 text-xs">cache DB</span>
                 ) : (

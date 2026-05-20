@@ -181,7 +181,7 @@
 | 3 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
 | 4 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 5 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** ✅ ; **A4** `@cloudity/ui` **en cours** ; **A2/A3** API) |
-| 5b | **UI-DS-01** — Design system | **UI-1** ✅ package + admin + `/4dm1n/dev/ui` — suite UI-3 Pass/Settings — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · **`feat/cloudity-ui-design-system`** |
+| 5b | **UI-DS-01** — Design system | **UI-1** ✅ package + admin + `/4dm1n/dev/ui` + responsive + polish admin (`Users`, `Domaines`, CVE, Passkeys, Settings) — suite UI-3 Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · **`feat/cloudity-ui-design-system`** |
 | 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
 | 8 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
@@ -308,6 +308,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [x] **Gateway — anti-énumération & durcissement** : 404/405 JSON homogènes ; en-têtes `nosniff` / `X-Frame-Options` / `Referrer-Policy` / `Permissions-Policy` ; rate limit global + **login/register** ; `429` en JSON ; **`Cache-Control: no-store`** sur `/auth/*`, `/pass/*`, `/admin/*` ; auth : message inscription doublon générique, plancher temps réponse login — **SECURITE.md** § 6.1, tests `TestSensitivePath_*`, `TestLoginRateLimit_*`, `TestUnknownPath_*`.
 - [x] **Frontend** : `public/robots.txt` (`Disallow` `/4dm1n`, `/admin`, `/auth/`, etc.) ; navigation **shell utilisateur ↔ admin** en pleine page (`window.location.assign`) pour charger le bon bundle.
 - [x] **Admin UI — suppression `/admin* → /4dm1n`** : pas de redirection SPA ; **404** explicite côté Vite + nginx — **`docs/securite/AUDIT-SECURITE.md` §1**, `frontend/apps/cloudity-web/{vite.config.js,nginx.conf,src/AdminApp.tsx}`.
+- [x] **Admin UI — polish exploitation (2026-05-20)** : Domaines résiste aux réponses liste `null`, Users clarifie dernière connexion / 2FA / statut actif, Dashboard explique le mode cgroup sans Docker, CVE affiche priorités par paquet, Passkeys/Settings cadrent web vs mobile/extension. **Reste** : reset 2FA utilisateur sécurisé (step-up admin + audit + codes de récupération).
 - [x] **Gateway — `/admin/*` durcie** : JWT admin obligatoire partout + contrôle **`Origin`** + double jeton `POST /admin/performance/pipeline-run` (`Authorization` + `X-Cloudity-Perf-Ingest` / `PERFORMANCE_INGEST_TOKEN`) — **`docs/securite/AUDIT-SECURITE.md` §2–3**, `docker-compose*.yml`, `scripts/ci/test-e2e.sh`, `scripts/ci/report-pipeline-run.sh`.
 - [x] **admin-service — ingestion perf** : `PERFORMANCE_INGEST_TOKEN` **obligatoire** (sinon **503**) — évite l’ingestion « ouverte » si la variable est absente.
 - [x] **Mail admin-only Zero Trust** : double contrôle gateway (JWT + rôle admin + `Origin`) **et** `mail-directory-service` (`X-Admin-Role: admin` requis sur `/mail/{domains,mailboxes,aliases}*`). La gateway **strippe** `X-User-ID`/`X-Tenant-ID`/`X-Admin-Role` à l'entrée (`stripInternalTrustHeaders`) — **`docs/securite/AUDIT-SECURITE.md` §2.4**, `docs/securite/SECURITE.md §6.2`, tests Go `TestStripInternalTrustHeaders`, `TestMailDomainsRequiresAdminRole`, `TestIsAdminOnlyMailDirectoryPath`.
@@ -377,6 +378,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 ### Observabilité / Performance (TR-06)
 
 - [x] Endpoint admin runtime de base : `GET /admin/performance/overview` (snapshot cgroup + docker stats si disponible) + rendu dashboard admin.
+- [x] Dashboard admin : clarification UX du fallback **cgroup seul** quand Docker n’est pas disponible dans le runtime admin-service.
 - [ ] Collecte métriques **par service** (gateway + microservices + front) : latence p50/p95/p99, erreurs, CPU/Mémoire/IO.
 - [ ] Historisation métriques + exploration dans l’admin (filtres service/route/période).
 - [ ] Traçabilité des exécutions CI/dev (`make test`, E2E, mobile) avec empreinte ressources.

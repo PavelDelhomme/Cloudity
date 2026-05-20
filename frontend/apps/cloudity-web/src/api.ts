@@ -2,6 +2,10 @@ import { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJ
 
 export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY, getAuthHeaders, apiFetch, apiJson, apiJsonOk }
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : []
+}
+
 export type TenantResponse = {
   id: number
   name: string
@@ -22,7 +26,7 @@ export async function fetchTenants(
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   if (options?.domainContains?.trim()) params.set('domain_contains', options.domainContains.trim())
   const path = `/admin/tenants${params.toString() ? `?${params.toString()}` : ''}`
-  return apiJson<TenantResponse[]>(token, path, undefined, 'Tenants')
+  return asArray(await apiJson<TenantResponse[] | null>(token, path, undefined, 'Tenants'))
 }
 
 /** Liste paginée : une ligne de plus est demandée pour savoir s'il existe une page suivante. */
@@ -67,7 +71,7 @@ export async function fetchUsers(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const path = `/admin/tenants/${tenantId}/users${params.toString() ? `?${params.toString()}` : ''}`
-  return apiJson<UserResponse[]>(token, path, undefined, 'Users')
+  return asArray(await apiJson<UserResponse[] | null>(token, path, undefined, 'Users'))
 }
 
 export async function fetchUsersPage(
@@ -377,7 +381,7 @@ export async function fetchDomains(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const path = `/mail/domains${params.toString() ? `?${params.toString()}` : ''}`
-  return apiJson<MailDomainResponse[]>(token, path, undefined, 'Domains')
+  return asArray(await apiJson<MailDomainResponse[] | null>(token, path, undefined, 'Domains'))
 }
 
 export async function fetchDomainsPage(
@@ -436,7 +440,7 @@ export async function fetchDomainMailboxes(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const path = `/mail/domains/${domainId}/mailboxes${params.toString() ? `?${params.toString()}` : ''}`
-  return apiJson<MailboxResponse[]>(token, path, undefined, 'Mailboxes')
+  return asArray(await apiJson<MailboxResponse[] | null>(token, path, undefined, 'Mailboxes'))
 }
 
 export async function fetchDomainMailboxesPage(
@@ -504,7 +508,7 @@ export async function fetchDomainAliases(
   if (options?.skip != null && options.skip >= 0) params.set('skip', String(options.skip))
   if (options?.limit != null && options.limit > 0) params.set('limit', String(options.limit))
   const path = `/mail/domains/${domainId}/aliases${params.toString() ? `?${params.toString()}` : ''}`
-  return apiJson<DomainAliasResponse[]>(token, path, undefined, 'Aliases')
+  return asArray(await apiJson<DomainAliasResponse[] | null>(token, path, undefined, 'Aliases'))
 }
 
 export async function fetchDomainAliasesPage(

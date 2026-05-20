@@ -250,6 +250,15 @@ describe('api', () => {
       expect(out.items).toHaveLength(3)
       expect(out.hasMore).toBe(true)
     })
+
+    it('treats a null users response as an empty page', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(null),
+      } as Response)
+      const out = await fetchUsersPage(1, 't', { skip: 0, pageSize: 3 })
+      expect(out).toEqual({ items: [], hasMore: false })
+    })
   })
 
   describe('deleteTenant', () => {
@@ -387,6 +396,12 @@ describe('api', () => {
       expect(out.hasMore).toBe(true)
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('limit=3'), expect.anything())
     })
+
+    it('treats a null domains response as an empty page', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve(null) } as Response)
+      const out = await fetchDomainsPage('t', { skip: 0, pageSize: 2 })
+      expect(out).toEqual({ items: [], hasMore: false })
+    })
   })
 
   describe('fetchDomainMailboxesPage', () => {
@@ -398,6 +413,12 @@ describe('api', () => {
       expect(out.items).toHaveLength(1)
       expect(out.hasMore).toBe(false)
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/mail/domains/5/mailboxes'), expect.anything())
+    })
+
+    it('treats a null mailboxes response as an empty page', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve(null) } as Response)
+      const out = await fetchDomainMailboxesPage('t', 5, { skip: 0, pageSize: 1 })
+      expect(out).toEqual({ items: [], hasMore: false })
     })
   })
 
@@ -412,6 +433,12 @@ describe('api', () => {
       const out = await fetchDomainAliasesPage('t', 1, { skip: 0, pageSize: 1 })
       expect(out.items).toHaveLength(1)
       expect(out.hasMore).toBe(true)
+    })
+
+    it('treats a null aliases response as an empty page', async () => {
+      vi.mocked(fetch).mockResolvedValue({ ok: true, json: () => Promise.resolve(null) } as Response)
+      const out = await fetchDomainAliasesPage('t', 1, { skip: 0, pageSize: 1 })
+      expect(out).toEqual({ items: [], hasMore: false })
     })
   })
 

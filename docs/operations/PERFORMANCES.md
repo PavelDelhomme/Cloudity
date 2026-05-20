@@ -9,6 +9,8 @@
 > 4 scripts `scripts/dev/perf-*.sh` et les cibles `make perf-watch /
 > perf-snapshot / perf-diff / perf-budgets`.
 
+**Dernière mise à jour** : 2026-05-20 — dashboard admin clarifié : quand Docker n’est pas visible dans le runtime admin-service, la carte performance affiche explicitement le mode **cgroup seul** au lieu de laisser croire que la liste des conteneurs est cassée.
+
 **Dernière mise à jour** : 2026-05-15 — liens **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** § tableau doc § 7 ; corrections factuelles § 3.1 (**admin-service** = FastAPI ; front = **cloudity-web**) ; note bas de page § 8 : Grafana/Prometheus **si** ajoutés au compose (**TR-06**).
 
 **Dernière mise à jour** : 2026-05-06.
