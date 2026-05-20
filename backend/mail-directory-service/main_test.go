@@ -204,6 +204,28 @@ func TestEncryptPasswordRejectsZeroKey(t *testing.T) {
 	}
 }
 
+func TestBuildMailFullTextSearchIncludesPartialLikeFallback(t *testing.T) {
+	where, order, args, next, ok := buildMailFullTextSearch("", nil, 1, "Actu", true)
+	if !ok {
+		t.Fatal("expected search to be enabled")
+	}
+	if !strings.Contains(where, "m.search_tsv @@") {
+		t.Fatalf("expected FTS predicate, got %q", where)
+	}
+	if !strings.Contains(where, "LOWER(m.subject) LIKE $2") {
+		t.Fatalf("expected partial LIKE fallback on subject, got %q", where)
+	}
+	if !strings.Contains(order, "CASE WHEN LOWER(m.subject) LIKE $2") {
+		t.Fatalf("expected subject/date relevance order prefix, got %q", order)
+	}
+	if next != 3 {
+		t.Fatalf("next placeholder = %d, want 3", next)
+	}
+	if len(args) != 2 || args[0] != "Actu" || args[1] != "%actu%" {
+		t.Fatalf("unexpected args: %#v", args)
+	}
+}
+
 func TestIsAdminOnlyMailDirectoryPath(t *testing.T) {
 	cases := []struct {
 		path string

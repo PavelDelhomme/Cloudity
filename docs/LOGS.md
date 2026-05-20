@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-20 — Mail : recherche partielle + bouton effacer
+
+- Branche : `feat/cloudity-ui-design-system`.
+- **Frontend** : **`MailPage.tsx`** — le bouton **Effacer la recherche** est maintenant ancré dans le champ, plus au-dessus du bouton **Nouveau**.
+- **Backend** : **`mail-directory-service`** — la recherche `q=` garde le FTS FR/EN mais ajoute un fallback `LIKE` sur sujet / expéditeur / destinataires / corps, pour trouver des termes partiels comme `Actu` → `Actualités`.
+- **Tests** : **`MailPage.test.tsx`** — recherche partielle + position du bouton ; **`main_test.go`** — SQL FTS + fallback partiel + tri pertinence.
+- **Checks** : `make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx` ✅ (24 tests) ; `make test-go-one SERVICE=mail-directory-service` ✅ ; `make deploy-mail` ✅.
+
+---
+
 ### 2026-05-20 — Mail : test Vitest « Recharger le message »
 
 - Branche : `feat/cloudity-ui-design-system`.

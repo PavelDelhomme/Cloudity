@@ -167,6 +167,26 @@ func safeLikeContains(s string) string {
 	return "%" + s + "%"
 }
 
+func mailSearchLikeInput(raw string) (string, bool) {
+	raw = strings.TrimSpace(clampMailSearchQ(raw))
+	if len(raw) < 2 {
+		return "", false
+	}
+	var b strings.Builder
+	for _, r := range raw {
+		switch {
+		case unicode.IsLetter(r), unicode.IsNumber(r), unicode.IsSpace(r):
+			b.WriteRune(unicode.ToLower(r))
+		case r == '@', r == '.', r == '-', r == '_', r == '+':
+			b.WriteRune(unicode.ToLower(r))
+		default:
+			b.WriteRune(' ')
+		}
+	}
+	s := safeLikeContains(strings.Join(strings.Fields(b.String()), " "))
+	return s, s != ""
+}
+
 func clampMailSearchQ(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -214,14 +234,37 @@ func buildMailFullTextSearch(extraWhere string, args []interface{}, p int, rawQ 
 		return extraWhere, "", args, p, false
 	}
 	ph := fmt.Sprintf("$%d", p)
+	like, hasLike := mailSearchLikeInput(rawQ)
+	likePh := ""
+	if hasLike {
+		likePh = fmt.Sprintf("$%d", p+1)
+	}
 	tsq := fmt.Sprintf("(websearch_to_tsquery('french', %s::text) || websearch_to_tsquery('english', %s::text))", ph, ph)
-	extraWhere += " AND m.search_tsv @@ " + tsq
+	if hasLike {
+		extraWhere += fmt.Sprintf(
+			" AND (m.search_tsv @@ %s OR LOWER(m.subject) LIKE %s OR LOWER(m.from_addr) LIKE %s OR LOWER(m.to_addrs) LIKE %s OR LOWER(COALESCE(m.body_plain, '')) LIKE %s OR LOWER(COALESCE(m.body_html, '')) LIKE %s)",
+			tsq, likePh, likePh, likePh, likePh, likePh,
+		)
+	} else {
+		extraWhere += " AND m.search_tsv @@ " + tsq
+	}
 	orderPrefix := ""
 	if useRankOrder {
-		orderPrefix = fmt.Sprintf("ts_rank_cd(m.search_tsv, %s) DESC NULLS LAST, ", tsq)
+		if hasLike {
+			orderPrefix = fmt.Sprintf(
+				"CASE WHEN LOWER(m.subject) LIKE %s THEN 0 WHEN LOWER(m.from_addr) LIKE %s OR LOWER(m.to_addrs) LIKE %s THEN 1 WHEN m.search_tsv @@ %s THEN 2 ELSE 3 END ASC, ts_rank_cd(m.search_tsv, %s) DESC NULLS LAST, ",
+				likePh, likePh, likePh, tsq, tsq,
+			)
+		} else {
+			orderPrefix = fmt.Sprintf("ts_rank_cd(m.search_tsv, %s) DESC NULLS LAST, ", tsq)
+		}
 	}
 	args = append(args, q)
 	p++
+	if hasLike {
+		args = append(args, like)
+		p++
+	}
 	return extraWhere, orderPrefix, args, p, true
 }
 
@@ -1039,12 +1082,12 @@ type UserEmailAccount struct {
 	Label    string `json:"label,omitempty"`
 	// IMAP/SMTP options override des valeurs déduites du domaine.
 	// Valeurs null => détection automatique côté backend.
-	ImapHost  *string `json:"imap_host,omitempty"`
-	ImapPort  *int    `json:"imap_port,omitempty"`
-	SmtpHost  *string `json:"smtp_host,omitempty"`
-	SmtpPort  *int    `json:"smtp_port,omitempty"`
+	ImapHost *string `json:"imap_host,omitempty"`
+	ImapPort *int    `json:"imap_port,omitempty"`
+	SmtpHost *string `json:"smtp_host,omitempty"`
+	SmtpPort *int    `json:"smtp_port,omitempty"`
 	// true si OAuth ou password_encrypted présent en base (sync auto possible sans saisie).
-	ImapAuthReady bool `json:"imap_auth_ready"`
+	ImapAuthReady bool   `json:"imap_auth_ready"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }

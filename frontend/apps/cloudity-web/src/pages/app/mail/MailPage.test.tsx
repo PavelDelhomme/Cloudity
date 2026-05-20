@@ -684,6 +684,46 @@ describe('MailPage', () => {
     expect(screen.queryByText('Réunion équipe')).toBeNull()
   })
 
+  it('place Effacer la recherche dans le champ et envoie une recherche serveur partielle', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'principal@test.com' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [
+        {
+          id: 73,
+          account_id: 1,
+          folder: 'inbox',
+          from: 'actu@test.com',
+          to: 'principal@test.com',
+          subject: 'Actualités importantes',
+          created_at: new Date().toISOString(),
+          is_read: false,
+        },
+      ],
+      total: 1,
+    } as any)
+
+    render(wrap(<MailPage />))
+    await screen.findByText('Actualités importantes')
+
+    const input = screen.getByPlaceholderText(/mail:\s*from:/i) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Actu' } })
+
+    await waitFor(() => {
+      expect(api.fetchMailMessages).toHaveBeenLastCalledWith(
+        'token',
+        1,
+        'inbox',
+        expect.objectContaining({ q: 'actu', sort: 'rank' })
+      )
+    })
+    const clearButton = screen.getByRole('button', { name: /Effacer la recherche/i })
+    expect(clearButton.className).toContain('right-2')
+    fireEvent.click(clearButton)
+    expect(input.value).toBe('')
+  })
+
   it('filtre la liste avec has:attachment et is:unread', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },

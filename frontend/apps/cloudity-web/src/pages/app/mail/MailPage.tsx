@@ -2682,34 +2682,36 @@ export default function MailPage() {
   const mailAppChromeSearch = useMemo(
     () => (
       <div ref={mailSearchPopoverRef} className="relative w-full min-w-0 flex items-center gap-2">
-        <input
-          ref={mailSearchInputRef}
-          type="text"
-          value={mailSearchText}
-          onChange={(e) => setMailSearchText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault()
-              setMailSearchPopoverOpen(false)
-              e.currentTarget.blur()
-            }
-          }}
-          onFocus={() => setMailSearchPopoverOpen(true)}
-          onClick={() => setMailSearchPopoverOpen(true)}
-          placeholder="Mail: from:, subject:, tag:, has:attachment, is:unread"
-          className="w-full min-w-[14rem] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 pr-10 text-sm"
-        />
-        {mailSearchText.trim() ? (
-          <button
-            type="button"
-            onClick={clearMailSearch}
-            className="absolute right-[3.15rem] h-7 w-7 inline-flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-            title="Effacer la recherche"
-            aria-label="Effacer la recherche"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        ) : null}
+        <div className="relative min-w-[14rem] flex-1">
+          <input
+            ref={mailSearchInputRef}
+            type="text"
+            value={mailSearchText}
+            onChange={(e) => setMailSearchText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                e.preventDefault()
+                setMailSearchPopoverOpen(false)
+                e.currentTarget.blur()
+              }
+            }}
+            onFocus={() => setMailSearchPopoverOpen(true)}
+            onClick={() => setMailSearchPopoverOpen(true)}
+            placeholder="Mail: from:, subject:, tag:, has:attachment, is:unread"
+            className="w-full rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 pr-10 text-sm"
+          />
+          {mailSearchText.trim() ? (
+            <button
+              type="button"
+              onClick={clearMailSearch}
+              className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 inline-flex items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+              title="Effacer la recherche"
+              aria-label="Effacer la recherche"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={toggleComposeFromChrome}
