@@ -27,7 +27,8 @@
 | **H5b** | **Photos — mobile Android** | Navigation Photos/Albums/Archivé/Corbeille/Verrouillé/Paramètres, viewer, corbeille Drive, verrou local biométrique, WorkManager + choix dossiers | ☑ |
 | **H5c** | **Photos — vignettes & dates** | `GET /drive/nodes/:id/thumbnail`, `taken_at` (EXIF/galerie + nom fichier), exclusion PDF timeline, rate-limit gateway assoupli médias, file chargement mobile, défilement horizontal par jour, retour viewer → scroll | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
-| **H6b** | **Auth suite mobile** | Tenant masqué, gateway auto (`127.0.0.1` USB), compte démo debug, messages réseau (`friendlyNetworkMessage`) ; reste partage OS (AccountManager) | 🟡 |
+| **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
+| **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
@@ -59,7 +60,7 @@ Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (20
 **Suite Photos (prochaine itération)** :
 
 - Décodeur **HEIC/HEIF** côté serveur pour vignettes si JPEG natif échoue.
-- **AccountManager** / Auth Broker inter-apps (session partagée réelle).
+- **Broker Android** ☑ pilote (`mobile/cloudity_auth_broker`) — iOS Keychain Access Group + AccountManager natif à faire.
 - Archive / Verrouillé **serveur** (pas seulement UI + biométrie locale).
 - Indicateur **état sync par photo** (uploadé / en attente / erreur).
 
@@ -201,7 +202,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ vignettes + dates | ✅ timeline + sync galerie + viewer | — | HEIC serveur · Auth Broker · archive/verrouillé serveur · état sync par photo |
+| **Photos** | ✅ vignettes + dates + HEIC | ✅ timeline + sync + viewer + Auth Broker | — | archive/verrouillé serveur · état sync par photo · iOS broker |
 | **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill + popup L3 (v0.2.1) | Icônes · **MP-08** Firefox · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 

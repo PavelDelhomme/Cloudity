@@ -33,7 +33,7 @@
 
 **Filtre image** : mime `image/*` ou extensions usuelles ; **exclusion** `.pdf` et `application/pdf` (évite les faux positifs si MIME upload incorrect).
 
-**Miniatures** : `GET /drive/nodes/:id/thumbnail?size=360` (drive-service, JPEG redimensionné, cache `private`). Les clients web/mobile doivent l’utiliser pour la grille ; le plein écran reste sur `GET /drive/nodes/:id/content?inline=1`.
+**Miniatures** : `GET /drive/nodes/:id/thumbnail?size=360` (drive-service, JPEG redimensionné, cache `private`). Décodage **HEIC/HEIF** via `goheif` si `image/jpeg`/`image/png` échouent. Les clients web/mobile doivent l’utiliser pour la grille ; le plein écran reste sur `GET /drive/nodes/:id/content?inline=1`.
 
 **Date de prise** : colonne `drive_nodes.taken_at` ; envoyée à l’upload mobile (`asset.createDateTime`) ; repli parsing nom fichier côté serveur pour imports anciens.
 

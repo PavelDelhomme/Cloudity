@@ -1,0 +1,19 @@
+name: cloudity_auth_broker
+description: Broker de session Cloudity entre apps Android signées avec la même clé.
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.0
+  flutter: '>=3.3.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: fr.cloudity.cloudity_auth_broker
+        pluginClass: CloudityAuthBrokerPlugin

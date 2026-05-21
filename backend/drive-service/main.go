@@ -962,7 +962,7 @@ func (h *Handler) getNodeThumbnail(c *gin.Context) {
 		c.Data(http.StatusOK, "image/jpeg", []byte{})
 		return
 	}
-	img, _, err := image.Decode(bytes.NewReader(content))
+	img, err := decodeThumbnailImage(name, ct, content)
 	if err != nil {
 		if isNonPhotoThumbnail(name, ct) || (len(content) >= 4 && string(content[0:4]) == "%PDF") {
 			c.JSON(http.StatusNotFound, gin.H{"error": "not_an_image"})
@@ -1331,6 +1331,11 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	var takenAt sql.NullTime
 	if rawTakenAt := strings.TrimSpace(c.PostForm("taken_at")); rawTakenAt != "" {
 		if parsed, err := time.Parse(time.RFC3339, rawTakenAt); err == nil {
+			takenAt = sql.NullTime{Time: parsed, Valid: true}
+		}
+	}
+	if !takenAt.Valid {
+		if parsed, ok := photoTakenAtFromExif(name, mimeType, content); ok {
 			takenAt = sql.NullTime{Time: parsed, Valid: true}
 		}
 	}

@@ -1,3 +1,4 @@
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/auth_2fa.dart';
 import 'package:cloudity_shared/network_errors.dart';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _busy = false;
   bool _advancedGateway = false;
+  List<CloudityAuthAccount> _brokerAccounts = [];
 
   bool _twoFactorRequired = false;
   String? _pendingEmail;
@@ -41,6 +43,45 @@ class _LoginScreenState extends State<LoginScreen> {
     SessionStore.gatewayOrDefault().then((url) {
       if (mounted && !_advancedGateway) _gatewayCtrl.text = url;
     });
+    SessionStore.listBrokerAccounts().then((accounts) {
+      if (mounted) setState(() => _brokerAccounts = accounts);
+    });
+  }
+
+  Future<void> _continueWithBroker(CloudityAuthAccount account) async {
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
+    try {
+      final api = AuthApi(account.gatewayUrl);
+      if (!await api.authHealth()) {
+        throw AuthException('Gateway Cloudity introuvable pour ce compte.');
+      }
+      final pair = await api
+          .ensureValidTokens(
+            accessToken: account.accessToken,
+            refreshToken: account.refreshToken,
+          )
+          .timeout(const Duration(seconds: 10));
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: api.baseUrl,
+        accessToken: pair.access,
+        refreshToken: pair.refresh,
+        email: account.email,
+        tenantId: account.tenantId,
+      );
+      if (!mounted) return;
+      widget.onLoggedIn(
+        UserSession(api: api, accessToken: pair.access, refreshToken: pair.refresh),
+      );
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = friendlyNetworkMessage(e, action: 'reprendre la session'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -96,10 +137,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
-      await SessionStore.saveSession(
+      await SessionStore.saveSessionWithEmail(
         gatewayUrl: api.baseUrl,
         accessToken: access,
         refreshToken: refresh,
+        email: email,
+        tenantId: int.tryParse(tenant) ?? 1,
       );
       widget.onLoggedIn(UserSession(api: api, accessToken: access, refreshToken: refresh));
     } on AuthException catch (e) {
@@ -130,10 +173,12 @@ class _LoginScreenState extends State<LoginScreen> {
         tenantId: tenant,
         code: _codeCtrl.text,
       );
-      await SessionStore.saveSession(
+      await SessionStore.saveSessionWithEmail(
         gatewayUrl: gateway,
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
+        email: email,
+        tenantId: int.tryParse(tenant) ?? 1,
       );
       if (!mounted) return;
       widget.onLoggedIn(UserSession(
@@ -203,6 +248,24 @@ class _LoginScreenState extends State<LoginScreen> {
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
         ),
         const SizedBox(height: 20),
+        if (_brokerAccounts.isNotEmpty) ...[
+          Text(
+            'Compte déjà connecté sur une autre app Cloudity',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 8),
+          for (final acc in _brokerAccounts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FilledButton.tonal(
+                onPressed: _busy ? null : () => _continueWithBroker(acc),
+                child: Text('Continuer avec ${acc.email}'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+        ],
         if (kDebugMode) ...[
           OutlinedButton.icon(
             onPressed: _busy ? null : _fillLocalDemoAccount,

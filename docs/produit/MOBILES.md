@@ -94,7 +94,9 @@ Chantier requis pour le vrai partage sécurisé :
 3. Les apps consommatrices demandent un token via broker : sélection compte existant, ajout compte, création compte.
 4. iOS équivalent : Keychain Access Group + Associated Domains.
 
-Premier incrément recommandé : créer un broker Android pilote (Photos → Drive) avec `listAccounts`, `saveSession`, `getSession`, `clearAccount`, puis migrer `SessionStore` dans `mobile/cloudity_shared`. Pass reste explicitement isolé tant qu’une revue crypto n’a pas validé le partage.
+**Broker Android livré (2026-05-21)** : package `mobile/cloudity_auth_broker` — `ContentProvider` chiffré par app (`${applicationId}.cloudity.auth`), permissions `fr.cloudity.permission.*_AUTH_BROKER` (signature). Photos, Drive et Mail : bouton **« Continuer avec … »** sur l’écran connexion, `SessionStore.saveSessionWithEmail` + reprise via `listAccounts` si pas de jeton local.
+
+Suite : iOS Keychain Access Group · AccountManager natif · migrer `SessionStore` dans `mobile/cloudity_shared`. **Pass** reste isolé tant qu’une revue crypto n’a pas validé le partage.
 
 ---
 
