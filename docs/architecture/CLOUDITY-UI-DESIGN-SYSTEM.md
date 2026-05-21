@@ -70,7 +70,7 @@ Critère de sortie UI-DS responsive : vérifier au moins **375×667**, **390×84
 | **UI-0** | Ce doc + cases **TODOS** / **BACKLOG** **UI-DS-01** | Alignement équipe |
 | **UI-1** | Package `cloudity-ui` + preset Tailwind + réexport temporaire depuis `@cloudity/shared` (deprecated re-exports) | `make test-dashboard` vert |
 | **UI-2** | Migrer **admin** (`/4dm1n`) sur `@cloudity/ui` | Aucun import `Button` depuis `PageLayout.tsx` côté admin |
-| **UI-3** | Migrer **Pass** + **Settings** | Moins de classes Tailwind dupliquées |
+| **UI-3** | Migrer **Pass** + **Settings** | ☑ 2026-05-21 — `@cloudity/ui` sur Pass (7 fichiers) + Settings (`ResponsivePage`) |
 | **UI-4** | **App chrome** partagé (`AppLayout` tokens) + hub `/app` | Cohérence visuelle suite |
 | **UI-5** | Migrer **Mail** / **Drive** par blocs (chrome d’abord) | Pas de régression E2E mail |
 | **UI-6** | Storybook ou catalogue ; semver **0.2.0** | Doc consommateur |

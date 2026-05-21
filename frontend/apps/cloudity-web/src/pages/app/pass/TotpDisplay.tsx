@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button } from '@cloudity/shared'
+import { Button } from '@cloudity/ui'
 import { Copy, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateTotp, parseOtpauthUri, totpSecondsRemaining } from './totp'

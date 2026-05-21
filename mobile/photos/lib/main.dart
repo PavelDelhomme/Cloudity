@@ -13,7 +13,7 @@ import 'user_session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
-    await Workmanager().initialize(gallerySyncCallbackDispatcher, isInDebugMode: false);
+    await Workmanager().initialize(gallerySyncCallbackDispatcher);
     await applyGallerySyncSchedule();
   }
   runApp(const CloudityPhotosApp());

@@ -27,7 +27,7 @@ Future<void> applyGallerySyncSchedule() async {
       requiresBatteryNotLow: true,
       requiresCharging: requireCharging,
     ),
-    existingWorkPolicy: ExistingWorkPolicy.replace,
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
   );
 }
 

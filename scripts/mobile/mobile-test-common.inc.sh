@@ -77,6 +77,11 @@ cloudity_auto_e2e_gateway() {
     printf 'http://10.0.2.2:%s' "$port"
     return 0
   fi
+  # Téléphone physique (USB) : le LAN est souvent bloqué (firewall) — tunnel ADB fiable.
+  if adb -s "$serial" reverse "tcp:${port}" "tcp:${port}" 2>/dev/null; then
+    printf 'http://127.0.0.1:%s' "$port"
+    return 0
+  fi
   local lan
   if lan="$(cloudity_lan_ipv4)"; then
     printf 'http://%s:%s' "$lan" "$port"

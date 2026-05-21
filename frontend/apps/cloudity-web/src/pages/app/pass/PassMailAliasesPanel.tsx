@@ -8,7 +8,7 @@ import React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Card, CardHeader, Button, Input, Label } from '@cloudity/shared'
+import { Button, Card, CardHeader, Input, Label } from '@cloudity/ui'
 import { Mail } from 'lucide-react'
 import {
   fetchMailAccounts,

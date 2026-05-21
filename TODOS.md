@@ -25,10 +25,23 @@
 | **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
 | **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + prefs Wi‑Fi / charge · upload dossier Drive `Photos` (MVP initial) | ☑ |
-| **H6** | **UI-3 Pass/Settings** | Migration `@cloudity/ui` pages utilisateur Pass + Settings | ☐ |
+| **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
+
+Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device`.
+
+| App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
+|-----|---------------------------|-----------------------------------|
+| **Photos** | ✅ (widget + prefs galerie) | ✅ E2E connexion + timeline (`adb reverse` auto USB) |
+| **Drive** | ✅ | ✅ E2E connexion + écran Drive |
+| **Mail** | ✅ | ✅ E2E connexion + boîte |
+| **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
+
+Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
 
 ---
 

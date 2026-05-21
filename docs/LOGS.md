@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-21 — UI-3 Pass/Settings + validation mobile appareil
+
+- Branche : `feat/photos-gallery-mobile-sync-security`.
+- UI-3 : imports `@cloudity/ui` sur Pass (7 fichiers) + Settings (`ResponsivePage` sur `AppSettingsPage`).
+- Mobile : `workmanager` 0.9.x (fix build Android) · `adb reverse` auto pour téléphones USB dans `mobile-test-common.inc.sh`.
+- Checks : `PassPage.test.tsx` ✅ · `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ · `make test-mobile-2fa` ✅.
+
+---
+
 ### 2026-05-21 — Git sync branches + Photos WorkManager (galerie Android)
 
 - Branche : `feat/photos-gallery-mobile-sync-security` (active).

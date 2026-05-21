@@ -1,6 +1,6 @@
 import React from 'react'
+import { Card, ResponsivePage } from '@cloudity/ui'
 import { useAuth } from '../../../authContext'
-import { Card } from '@cloudity/shared'
 import PasskeysSection from './PasskeysSection'
 import TwoFactorSection from './TwoFactorSection'
 import RecoveryCodesSection from './RecoveryCodesSection'
@@ -10,13 +10,12 @@ export default function AppSettingsPage() {
   const { email, tenantId } = useAuth()
 
   return (
-    <div className="flex flex-col gap-6 min-h-0">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Paramètres</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Votre compte, sécurité et préférences.</p>
-      </div>
-
-      <Card className="max-w-3xl">
+    <ResponsivePage
+      title="Paramètres"
+      description="Votre compte, sécurité et préférences."
+      className="max-w-3xl"
+    >
+      <Card>
         <div className="p-6">
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Session</h3>
           <dl className="space-y-3 text-sm">
@@ -49,6 +48,6 @@ export default function AppSettingsPage() {
           <RecoveryCodesSection />
         </div>
       </section>
-    </div>
+    </ResponsivePage>
   )
 }
