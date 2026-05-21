@@ -116,8 +116,8 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 |---------|-----|----------------|-----------|------------------------|
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
-| **Drive** | ✅ | ✅ MVP | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ | ✅ | — | Albums, sync galerie |
+| **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
+| **Photos** | ✅ | ✅ + Linux desktop build validé | — | Albums, sync galerie |
 | **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill initial + E2E MP-07 | UX popup avancée · Firefox/Safari · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 

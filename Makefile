@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -88,6 +88,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make mobile-devices - Liste les appareils ADB'
 	@echo '  make mobile-adb-authorize - Redémarre ADB et aide à autoriser le téléphone'
 	@echo '  make mobile-doctor - Vérifie Flutter/ADB/SDK local pour mobile'
+	@echo '  make test-mobile-desktop-linux - Valide Drive/Photos Linux desktop (test + build debug)'
 	@echo '  make mobile-logcat-clear - Vide le buffer logcat du device ADB'
 	@echo '  make mobile-logcat - Suit logcat en direct (ADB_SERIAL optionnel)'
 	@echo '  make mobile-logcat-mail - Suit logcat filtré Cloudity/Mail/Flutter'
@@ -525,6 +526,10 @@ test-mobile-drive: ## Flutter mobile/drive uniquement (wrapper test-mobile-app.s
 test-mobile-mail: ## Flutter mobile/mail uniquement (wrapper test-mobile-app.sh mail)
 	@chmod +x scripts/mobile/test-mobile-mail.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh
 	@./scripts/mobile/test-mobile-mail.sh
+
+test-mobile-desktop-linux: ## Flutter Linux desktop Drive/Photos : pub get + test + build debug (run smoke: CLOUDITY_DESKTOP_RUN_SMOKE=1)
+	@chmod +x scripts/mobile/test-mobile-desktop-linux.sh
+	@./scripts/mobile/test-mobile-desktop-linux.sh
 
 test-mobile-2fa: ## Flutter 2FA sur ADB (Drive+Mail+Photos, compte e2e-2fa@cloudity.local). Prérequis: make up, téléphone USB/Wi‑Fi
 	@chmod +x scripts/mobile/test-mobile-2fa.sh scripts/dev/prepare-e2e-2fa-mobile.sh scripts/dev/generate-totp.mjs

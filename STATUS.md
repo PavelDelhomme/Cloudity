@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-21 — **Git** : `feat/mail-mta-alias-delivery` fusionné dans **`dev`** (fast-forward `04a9c68c`) ; chantier actif **`feat/mobile-desktop-validation`**. **Mail alias / Maddy / déploiement est en pause volontaire** : ne reprendre que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. État figé Mail : Maddy local/prod route vers `alias-router:2527`, notifications Mail web activables depuis `/app/settings`, DNS OVH/VPS à faire manuellement plus tard. En attendant, travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass.
+**Dernière mise à jour** : 2026-05-21 — **Git** : `feat/mail-mta-alias-delivery` fusionné dans **`dev`** (fast-forward `04a9c68c`) ; chantier actif **`feat/mobile-desktop-validation`**. **Mail alias / Maddy / déploiement est en pause volontaire** : ne reprendre que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. **MP-04 livré** : Drive/Photos Linux desktop validés par `make test-mobile-desktop-linux` (`flutter test` + `flutter build linux --debug`), avec correctif CMake ciblé pour `flutter_secure_storage_linux` sur Clang/Arch. En attendant, travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass.
 
 ## À faire maintenant
 
@@ -19,7 +19,7 @@
 2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
 3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
 4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **Suite hors Mail** : priorités disponibles = MP-04 validation Linux Drive/Photos, MP-08 extension Firefox/Safari, Photos albums/sync galerie, Pass UX popup avancée, frontend/refactor ciblé.
+5. **Suite hors Mail** : MP-04 validé ; priorités disponibles = MP-08 extension Firefox/Safari, Photos albums/sync galerie, Pass UX popup avancée, frontend/refactor ciblé.
 6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)

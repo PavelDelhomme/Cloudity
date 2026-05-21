@@ -78,6 +78,7 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 | **`make test-mobile-photos`** | Wrapper **`scripts/test-mobile-app.sh` photos** — **`mobile/photos`**. |
 | **`make test-mobile-drive`** | Wrapper **`scripts/test-mobile-app.sh` drive** — **`mobile/drive`**. |
 | **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
+| **`make test-mobile-desktop-linux`** | **Drive + Photos Linux desktop** : `flutter pub get`, `flutter test`, `flutter build linux --debug` ; smoke `flutter run -d linux` optionnel avec `CLOUDITY_DESKTOP_RUN_SMOKE=1`. |
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 | **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
@@ -190,6 +191,28 @@ make test-mobile-suite
 ```
 
 **Convention** : mêmes idées que Playwright (**`BASE_URL`** + identifiants) ; ici le « navigateur » est l’**APK** sous contrôle du **WidgetTester** + moteur d’intégration Flutter.
+
+### 1c. Linux desktop Flutter — Drive / Photos
+
+Validation reproductible :
+
+```bash
+make test-mobile-desktop-linux
+```
+
+Cette cible couvre `mobile/drive` et `mobile/photos` :
+
+- `flutter pub get`
+- `flutter test`
+- `flutter build linux --debug`
+
+Smoke interactif optionnel :
+
+```bash
+CLOUDITY_DESKTOP_RUN_SMOKE=1 make test-mobile-desktop-linux
+```
+
+Sur Arch / Clang récents, `flutter_secure_storage_linux` embarque un `json.hpp` qui remonte `-Wdeprecated-literal-operator`. Les CMake Linux Drive/Photos gardent `-Werror`, mais ajoutent `-Wno-error=deprecated-literal-operator` pour ce warning tiers uniquement.
 
 **Dépannage** :
 

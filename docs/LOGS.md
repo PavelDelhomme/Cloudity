@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-21 — MP-04 : Linux desktop Drive/Photos validé
+
+- Branche : `feat/mobile-desktop-validation`.
+- Mobile/desktop : ajout `make test-mobile-desktop-linux` (`scripts/mobile/test-mobile-desktop-linux.sh`) pour valider `mobile/drive` et `mobile/photos`.
+- Correctif : CMake Linux Drive/Photos conserve `-Werror` mais ajoute `-Wno-error=deprecated-literal-operator` pour le `json.hpp` de `flutter_secure_storage_linux` avec Clang/Arch récents.
+- Checks : `make test-mobile-desktop-linux` ✅ (`flutter test` + `flutter build linux --debug` pour Drive et Photos).
+- Docs : `BACKLOG.md` MP-04 ☑, `docs/operations/TESTS.md`, `docs/produit/MULTI-PLATEFORME.md`, `TODOS.md`, `STATUS.md`.
+
+---
+
 ### 2026-05-21 — Pause Mail et bascule hors déploiement
 
 - Branche : `feat/mail-mta-alias-delivery` fusionnée dans `dev` (`04a9c68c`), puis nouvelle branche `feat/mobile-desktop-validation`.

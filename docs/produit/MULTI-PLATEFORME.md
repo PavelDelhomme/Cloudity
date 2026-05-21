@@ -176,7 +176,7 @@ Un scaffold passe en « ✅ livré » quand :
 | **MP-01** | Squelette extension Pass MV3 (manifest + popup + background + content) | 2026-05-13 | `extensions/cloudity-pass/` |
 | **MP-02** | Placeholder `mobile/calendar/` (README seul, pas de `flutter create`) | 2026-05-13 | `mobile/calendar/README.md` |
 | **MP-03** | Cible `linux/` Flutter pour `mobile/mail` (lancement futur) | post-20 mai | TODO dans ce doc § 3.3 |
-| **MP-04** | Validation `flutter run -d linux` Drive/Photos | post-20 mai | `docs/operations/TESTS.md` § desktop |
+| **MP-04** | Validation Linux desktop Drive/Photos | livré 2026-05-21 | `make test-mobile-desktop-linux` · `docs/operations/TESTS.md` § desktop |
 | **MP-05** | Service backend `calendar-service` + page web Calendar | post-20 mai (juin) | nouveau guide `docs/produit/CALENDAR.md` |
 | **MP-06** | Autofill réel extension Pass (content script + domain matcher) | post-20 mai (J+1..J+5) | `extensions/cloudity-pass/src/content/` |
 | **MP-07** | Édition complète `mobile/pass` | post-20 mai (J+1..J+5) | BACKLOG L2 sprint Pass |

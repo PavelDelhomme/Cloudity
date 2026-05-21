@@ -118,7 +118,7 @@
 - [x] **MP-01 — Extension navigateur Pass MV3** : squelette livré (cf. L2).
 - [x] **MP-02 — `mobile/calendar/` placeholder** : README + `pubspec.yaml` stub livrés. Pas de scaffold `flutter create` tant que le backend `calendar-service` et la page web Calendar ne sont pas amorcés (cf. règle « web avant mobile » MOBILES.md § 0).
 - [ ] **MP-03 — Cible `linux/` Flutter pour `mobile/mail`** : aujourd'hui Mail n'a que `android/` + `ios/`. À scaffolder par `flutter create --platforms=linux .` quand le chantier desktop Mail démarre. Drive / Photos / Pass ont déjà leurs cibles `linux/` (mais seul Pass a été testé).
-- [ ] **MP-04 — Validation `flutter run -d linux`** sur Drive et Photos : leurs cibles existent (`mobile/{drive,photos}/linux/`) mais aucun build Linux n'a jamais été validé. Documenter dans `docs/operations/TESTS.md` § desktop la procédure (toolchain GTK + `clang` + `cmake`).
+- [x] **MP-04 — Validation Linux desktop Drive/Photos** : `make test-mobile-desktop-linux` ajouté ; `flutter test` + `flutter build linux --debug` OK pour `mobile/drive` et `mobile/photos`. Correctif ciblé CMake : `-Wno-error=deprecated-literal-operator` pour le `json.hpp` de `flutter_secure_storage_linux` avec Clang/Arch récents.
 - [ ] **MP-05 — Service backend `calendar-service` + page web Calendar** : pré-requis avant de scaffolder l'app mobile (cf. ROADMAP APP-05). Estim. 5-7 j. Embarque migrations DB events/recurrences + endpoints REST + interop iCal/CalDAV.
 - [x] **MP-06 — Autofill réel extension Pass** : voir L2 (initial livré).
 - [x] **MP-07 — Tests Playwright extension** : voir L2.
