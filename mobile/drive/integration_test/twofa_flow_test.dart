@@ -100,11 +100,14 @@ void main() {
 
       if (_onFiles(tester)) return;
 
-      expect(find.byKey(kGateway), findsOneWidget);
-      await tester.enterText(find.byKey(kGateway), kE2eGateway);
+      if (find.byKey(kGateway).evaluate().isNotEmpty) {
+        await tester.enterText(find.byKey(kGateway), kE2eGateway);
+      }
       await tester.enterText(find.byKey(kEmail), kE2eEmail);
       await tester.enterText(find.byKey(kPassword), kE2ePassword);
-      await tester.enterText(find.byKey(kTenant), kE2eTenant);
+      if (find.byKey(kTenant).evaluate().isNotEmpty) {
+        await tester.enterText(find.byKey(kTenant), kE2eTenant);
+      }
       await tester.pump();
       await tester.tap(find.byKey(kSubmit));
       await tester.pump();

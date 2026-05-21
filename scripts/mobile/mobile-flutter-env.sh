@@ -42,7 +42,11 @@ cloudity_prepare_flutter_env() {
   fi
 
   # SDK readonly -> bascule sur un SDK local.
-  local local_root="${CLOUDITY_LOCAL_FLUTTER_ROOT:-$HOME/.cache/cloudity/flutter-sdk}"
+  local default_local_root="$HOME/.local/share/cloudity-flutter"
+  if [[ ! -x "$default_local_root/bin/flutter" && -x "$HOME/.cache/cloudity/flutter-sdk/bin/flutter" ]]; then
+    default_local_root="$HOME/.cache/cloudity/flutter-sdk"
+  fi
+  local local_root="${CLOUDITY_LOCAL_FLUTTER_ROOT:-$default_local_root}"
   local local_bin="$local_root/bin/flutter"
   if [[ ! -x "$local_bin" ]]; then
     echo "📦 SDK Flutter système readonly détecté, installation locale dans: $local_root"

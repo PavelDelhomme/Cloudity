@@ -26,13 +26,14 @@
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
 | **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + prefs Wi‑Fi / charge · upload dossier Drive `Photos` (MVP initial) | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
+| **H6b** | **Auth suite mobile** | Tenant masqué, gateway auto (`127.0.0.1` USB), compte démo debug, messages réseau (`friendlyNetworkMessage`) ; reste partage OS (AccountManager) | 🟡 |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 
-Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device`.
+Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
 
 | App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
 |-----|---------------------------|-----------------------------------|
@@ -42,6 +43,26 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 
 Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Incident Photos mobile — app installée mais bloquée au chargement (2026-05-21)
+
+Constat : l’APK installée sur `R5CT7263YJL` restait sur l’écran de démarrage. Cause probable : ancienne session/gateway conservée en stockage sécurisé, appels HTTP sans timeout → bootstrap bloqué. Correctifs :
+
+- `pm clear fr.cloudity.cloudity_photos` appliqué sur le téléphone puis relance.
+- Timeouts ajoutés dans `mobile/photos/lib/auth_api.dart`, `drive_api.dart`, `session_store.dart`.
+- SDK Flutter système `/usr/lib/flutter` est `root:root` et casse `flutter build apk` (`.kotlin/sessions/*.salive`). SDK utilisateur préparé dans `~/.local/share/cloudity-flutter` (copie sans cache root illisible, puis cache lisible recopié). `mobile-flutter-env.sh` le préfère désormais quand le SDK système est readonly.
+- APK corrigée rebuildée avec ce SDK utilisateur, installée puis lancée ; écran observé : **Connexion — Cloudity Photos**.
+
+### Blocage auth mobile — avant suite fonctionnelle (2026-05-21)
+
+Problème UX : Photos/Drive demandaient gateway + e-mail + mot de passe + `tenant_id`, et une app installée ne pouvait pas récupérer un compte déjà utilisé par une autre app Cloudity.
+
+Décisions / correctifs :
+
+- **Court terme dev** : champs e-mail/mot de passe préremplis en debug (`admin@cloudity.local` / `Admin123!`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
+- **Court terme code** : aligner Photos + Drive sur Mail (gateway candidates, health-check auth, tenant optionnel, timeouts).
+- **Vrai partage inter-app** : `flutter_secure_storage` est isolé par package Android ; les noms `cloudity_suite_*` ne partagent pas réellement les jetons. À implémenter ensuite : **Cloudity Auth Broker / Android AccountManager** + iOS Keychain Access Group, avec écran « Continuer avec ce compte / Ajouter un compte / Créer un compte ».
+- Référence : `docs/produit/MOBILES.md` § **4.1 Auth suite mobile**.
 
 ---
 

@@ -41,6 +41,7 @@ class SessionStore {
     final saved = prefs.getString(CloudityStorageKeys.gatewayUrl);
     final candidates = <String>[
       if (_kBuildGateway.trim().isNotEmpty) _kBuildGateway.trim(),
+      'http://127.0.0.1:6080',
       if (saved != null && saved.trim().isNotEmpty) saved.trim(),
       CloudityStorageKeys.defaultGateway,
       'http://10.0.2.2:6080',

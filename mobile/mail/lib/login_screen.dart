@@ -1,6 +1,6 @@
-import 'dart:async';
-
 import 'package:cloudity_shared/auth_2fa.dart';
+import 'package:cloudity_shared/network_errors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
@@ -30,6 +30,21 @@ class _LoginScreenState extends State<LoginScreen> {
   AuthApi? _pendingApi;
 
   @override
+  void initState() {
+    super.initState();
+    if (kDebugMode) {
+      _emailCtrl.text = const String.fromEnvironment(
+        'CLOUDITY_DEV_EMAIL',
+        defaultValue: 'admin@cloudity.local',
+      );
+      _passwordCtrl.text = const String.fromEnvironment(
+        'CLOUDITY_DEV_PASSWORD',
+        defaultValue: 'Admin123!',
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -47,10 +62,16 @@ class _LoginScreenState extends State<LoginScreen> {
       final password = _passwordCtrl.text;
       AuthApi? selectedApi;
       Map<String, dynamic>? tokens;
+      Object? lastReachError;
       final gateways = await SessionStore.gatewayCandidates();
       for (final gateway in gateways) {
         final api = AuthApi(gateway);
-        if (!await api.authHealth()) continue;
+        try {
+          if (!await api.authHealth()) continue;
+        } catch (e) {
+          lastReachError = e;
+          continue;
+        }
         selectedApi = api;
         try {
           tokens = await api.login(email: email, password: password);
@@ -68,6 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
         break;
       }
       if (selectedApi == null || tokens == null) {
+        if (lastReachError != null) throw lastReachError;
         throw AuthException(
           'Impossible de joindre Cloudity automatiquement. Vérifiez la stack (make up) et USB debug (make mobile-adb-authorize).',
         );
@@ -82,10 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
       widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
     } on AuthException catch (e) {
       setState(() => _error = e.message);
-    } on TimeoutException {
-      setState(() => _error = 'Connexion timeout. Vérifiez Cloudity (make up) et USB debug.');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyNetworkMessage(e, action: 'se connecter'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -123,7 +143,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on Auth2FAException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyNetworkMessage(e, action: 'valider le code 2FA'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -150,15 +170,22 @@ class _LoginScreenState extends State<LoginScreen> {
       final password = _passwordCtrl.text;
       AuthApi? selectedApi;
       Map<String, dynamic>? tokens;
+      Object? lastReachError;
       final gateways = await SessionStore.gatewayCandidates();
       for (final gateway in gateways) {
         final api = AuthApi(gateway);
-        if (!await api.authHealth()) continue;
+        try {
+          if (!await api.authHealth()) continue;
+        } catch (e) {
+          lastReachError = e;
+          continue;
+        }
         selectedApi = api;
         tokens = await api.register(email: email, password: password);
         break;
       }
       if (selectedApi == null || tokens == null) {
+        if (lastReachError != null) throw lastReachError;
         throw AuthException('Inscription impossible: gateway Cloudity introuvable.');
       }
       final access = tokens['access_token']! as String;
@@ -171,10 +198,8 @@ class _LoginScreenState extends State<LoginScreen> {
       widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
     } on AuthException catch (e) {
       setState(() => _error = e.message);
-    } on TimeoutException {
-      setState(() => _error = 'Inscription timeout. Vérifiez Cloudity (make up) et USB debug.');
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyNetworkMessage(e, action: 'créer le compte'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

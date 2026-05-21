@@ -5,6 +5,9 @@ import 'package:http/http.dart' as http;
 
 import 'package:cloudity_shared/http_helpers.dart';
 
+const _httpTimeout = Duration(seconds: 8);
+const _uploadTimeout = Duration(minutes: 2);
+
 /// Appels Drive nécessaires à la sauvegarde galerie (dossier Photos + upload).
 class DriveApi {
   DriveApi(String gatewayBase)
@@ -15,7 +18,7 @@ class DriveApi {
   Future<List<Map<String, dynamic>>> fetchNodes(String accessToken, int? parentId) async {
     final path = parentId == null ? '/drive/nodes' : '/drive/nodes?parent_id=$parentId';
     final uri = Uri.parse('$_base$path');
-    final res = await http.get(uri, headers: authHeaders(accessToken, json: false));
+    final res = await http.get(uri, headers: authHeaders(accessToken, json: false)).timeout(_httpTimeout);
     if (res.statusCode != 200) {
       throw DriveApiException('Liste Drive HTTP ${res.statusCode}');
     }
@@ -36,9 +39,9 @@ class DriveApi {
       body: jsonEncode({
         'name': name,
         'is_folder': true,
-        if (parentId != null) 'parent_id': parentId,
+        'parent_id': ?parentId,
       }),
-    );
+    ).timeout(_httpTimeout);
     if (res.statusCode != 200 && res.statusCode != 201) {
       throw DriveApiException('Création dossier HTTP ${res.statusCode}');
     }
@@ -69,8 +72,8 @@ class DriveApi {
       ..fields['name'] = fileName
       ..fields['parent_id'] = '$parentId'
       ..files.add(await http.MultipartFile.fromPath('file', file.path, filename: fileName));
-    final streamed = await req.send();
-    final res = await http.Response.fromStream(streamed);
+    final streamed = await req.send().timeout(_uploadTimeout);
+    final res = await http.Response.fromStream(streamed).timeout(_uploadTimeout);
     if (res.statusCode < 200 || res.statusCode >= 300) {
       if (res.statusCode == 409) return;
       throw DriveApiException('Upload HTTP ${res.statusCode}: ${res.body}');

@@ -75,6 +75,24 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 - **Tests** : **Vitest** (dashboard web) + **Flutter** — **`make test-mobile-suite`** = **Photos** → **Drive** → **Mail** : `flutter test` (hôte) + **`integration_test`** sur **ADB** si appareil + SDK inscriptible (gateway **auto**, compte démo par défaut). **`make test-mobile-{photos,drive,mail}`** pour une app. **Phase 5** **`make tests`** — **[TESTS.md](../operations/TESTS.md)** § 1b. **Stockage partagé** `cloudity_suite_*` (Photos, Drive, Mail).
 - **Package Dart partagé `mobile/cloudity_shared`** : helpers HTTP communs (`http_helpers.dart` — `getAuthHeaders`, headers `application/json`, etc.) consommés par **`mobile/mail`**, **`mobile/drive`** et **`mobile/photos`** via une dépendance `path: ../cloudity_shared`. Ajouter ici toute logique mobile **transverse pure Dart** (parsing, formats, sémantique JWT) ; éviter d’y mettre du Flutter widget ou du runtime spécifique à une app. Import : `package:cloudity_shared/http_helpers.dart` (ou le barrel `package:cloudity_shared/cloudity_shared.dart`). Pendant lié côté web : **`@cloudity/web/apiFetch`** (`apiJson`, `apiJsonOk`).
 
+### 4.1 Auth suite mobile (compte déjà enregistré)
+
+Objectif UX : lorsqu’une app Cloudity est déjà connectée sur le téléphone, une nouvelle app (Photos, Drive, Mail, Pass…) doit proposer **« Continuer avec ce compte »**, **« Ajouter un autre compte »** ou **« Créer un compte »**. L’utilisateur ne doit pas saisir un `tenant_id` technique.
+
+État actuel (2026-05-21) :
+
+- **Tenant masqué côté mobile** : les apps utilisent `tenant_id=1` en dev local ; la cible produit est la résolution tenant par e-mail côté auth-service (ROADMAP APP-00).
+- **Gateway auto en dev** : intégration USB via `adb reverse` → `http://127.0.0.1:6080`; émulateur → `http://10.0.2.2:6080`.
+- **Compte démo debug** : builds debug préremplissent `admin@cloudity.local` / `Admin123!` pour ne pas bloquer les validations locales. À ne jamais activer en release.
+- **Limite technique importante** : `flutter_secure_storage` et `SharedPreferences` sont isolés par package Android. Les clés `cloudity_suite_*` harmonisent les noms, mais **ne suffisent pas** à partager un refresh token entre `fr.cloudity.cloudity_drive`, `fr.cloudity.cloudity_photos`, etc.
+
+Chantier requis pour le vrai partage sécurisé :
+
+1. **Android AccountManager** ou **Cloudity Auth Broker** signé avec le même certificat que les apps Cloudity.
+2. Stocker refresh token / compte dans un stockage OS partagé, protégé par Keystore/biométrie si nécessaire.
+3. Les apps consommatrices demandent un token via broker : sélection compte existant, ajout compte, création compte.
+4. iOS équivalent : Keychain Access Group + Associated Domains.
+
 ---
 
 ## 5. Lancer une app en local (`make run-mobile`)
@@ -102,7 +120,7 @@ make run-mobile APP="Photos"
 
 Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code **2** (comportement voulu : *pas encore implémenté*, pas un crash). Dans le dépôt actuel : **`Photos`**, **`Drive`**, **`Mail`** et **`Admin`** (si présent) sont lançables ; **Calendar**, **Contacts**, etc. le seront une fois le dossier Flutter créé.
 
-Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** (ex. `http://10.0.2.2:6080` pour émulateur Android, IP LAN pour appareil physique). **SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — soit `sudo chown -R "$(whoami)" /usr/lib/flutter`, soit Flutter clone dans `$HOME` puis **`export FLUTTER_ROOT="$HOME/flutter"`** et **`export PATH="$FLUTTER_ROOT/bin:$PATH"`** (honoré par `scripts/run-mobile.sh` et `test-mobile-app.sh`).
+Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** — **émulateur** `http://10.0.2.2:6080` ; **téléphone USB** `adb reverse tcp:6080 tcp:6080` puis `http://127.0.0.1:6080` (priorité dans `SessionStore.gatewayCandidates`). Erreurs réseau brutes (`errno = 101`, timeout, refus) → message lisible via `cloudity_shared` **`friendlyNetworkMessage`** sur les écrans de connexion. **SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — soit `sudo chown -R "$(whoami)" /usr/lib/flutter`, soit Flutter clone dans `$HOME` puis **`export FLUTTER_ROOT="$HOME/flutter"`** et **`export PATH="$FLUTTER_ROOT/bin:$PATH"`** (honoré par `scripts/run-mobile.sh` et `test-mobile-app.sh`).
 
 **Note** : `make init-mobile` parcourt aussi `mobile/contacts`, `mobile/photos`, `mobile/pass` lorsqu’ils existent. Suite produit : **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** (scaffold + CI).
 

@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:cloudity_shared/auth_2fa.dart';
 import 'package:cloudity_shared/http_helpers.dart';
 
+const _httpTimeout = Duration(seconds: 8);
+
 /// Appels HTTP vers le **api-gateway** (auth + photos + drive…).
 class AuthApi {
   AuthApi(String gatewayBase) : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
@@ -16,7 +18,7 @@ class AuthApi {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
-    required String tenantId,
+    String tenantId = '1',
   }) async {
     final uri = Uri.parse('$_base/auth/login');
     final res = await http.post(
@@ -27,7 +29,7 @@ class AuthApi {
         'password': password,
         'tenant_id': tenantId,
       }),
-    );
+    ).timeout(_httpTimeout);
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -49,6 +51,12 @@ class AuthApi {
     return {'access_token': access, 'refresh_token': refresh ?? ''};
   }
 
+  Future<bool> authHealth() async {
+    final uri = Uri.parse('$_base/auth/health');
+    final res = await http.get(uri).timeout(const Duration(seconds: 3));
+    return res.statusCode == 200;
+  }
+
   /// Étape 2 du login : POST `/auth/2fa/verify` via [Auth2FAClient].
   Future<Auth2FAResult> verify2FA({
     required String email,
@@ -68,7 +76,7 @@ class AuthApi {
       uri,
       headers: authHeaders(null),
       body: jsonEncode({'refresh_token': refreshToken}),
-    );
+    ).timeout(_httpTimeout);
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -101,7 +109,7 @@ class AuthApi {
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
-    );
+    ).timeout(_httpTimeout);
     return res.statusCode == 200;
   }
 
@@ -114,7 +122,7 @@ class AuthApi {
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
-    );
+    ).timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }
