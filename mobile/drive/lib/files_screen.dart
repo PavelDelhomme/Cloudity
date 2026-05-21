@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
@@ -21,6 +23,8 @@ class _FilesScreenState extends State<FilesScreen> {
   final List<String> _folderNameStack = ['Mon Drive'];
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
+  bool _actionBusy = false;
+  double? _uploadProgress;
   String? _error;
 
   int? get _parentId => _parentStack.last;
@@ -129,6 +133,174 @@ class _FilesScreenState extends State<FilesScreen> {
       ),
     );
     if (ok == true) await widget.onLogout();
+  }
+
+  Future<void> _runDriveAction(Future<void> Function() action) async {
+    setState(() {
+      _actionBusy = true;
+      _uploadProgress = null;
+    });
+    try {
+      await widget.session.refreshIfNeeded();
+      await action();
+      await _reload();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      final message = e.message == 'non_autorisé'
+          ? 'Session expirée. Reconnectez-vous.'
+          : e.message;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Action Drive impossible : $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _actionBusy = false;
+          _uploadProgress = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _showNewMenu() async {
+    final action = await showModalBottomSheet<_DriveNewAction>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.create_new_folder_outlined),
+                title: const Text('Créer un dossier'),
+                subtitle: Text('Dans $_folderTitle'),
+                onTap: () =>
+                    Navigator.pop(context, _DriveNewAction.createFolder),
+              ),
+              ListTile(
+                leading: const Icon(Icons.upload_file_outlined),
+                title: const Text('Importer des fichiers'),
+                subtitle: const Text('Sélection multiple, upload sécurisé'),
+                onTap: () =>
+                    Navigator.pop(context, _DriveNewAction.uploadFiles),
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder_copy_outlined),
+                title: const Text('Importer un dossier'),
+                subtitle: const Text(
+                  'Android limite l’accès dossier complet ; utilisez une sélection multiple pour le moment.',
+                ),
+                onTap: () =>
+                    Navigator.pop(context, _DriveNewAction.uploadFiles),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _DriveNewAction.createFolder:
+        await _createFolder();
+      case _DriveNewAction.uploadFiles:
+        await _importFiles();
+    }
+  }
+
+  Future<void> _createFolder() async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Nouveau dossier'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: 'Nom du dossier',
+            border: OutlineInputBorder(),
+          ),
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => Navigator.pop(context, ctrl.text.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    final clean = name?.trim();
+    if (clean == null || clean.isEmpty) return;
+    await _runDriveAction(() async {
+      await widget.session.api.createFolder(
+        accessToken: widget.session.accessToken,
+        name: clean,
+        parentId: _parentId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Dossier "$clean" créé.')));
+    });
+  }
+
+  Future<void> _importFiles() async {
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      withData: false,
+      lockParentWindow: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final files = result.files
+        .where((f) => f.path != null && f.path!.trim().isNotEmpty)
+        .toList();
+    if (files.isEmpty) return;
+
+    await _runDriveAction(() async {
+      var done = 0;
+      for (final picked in files) {
+        final path = picked.path;
+        if (path == null) continue;
+        final file = File(path);
+        final name = picked.name.trim().isEmpty
+            ? path.split(Platform.pathSeparator).last
+            : picked.name.trim();
+        await widget.session.api.uploadFile(
+          accessToken: widget.session.accessToken,
+          file: file,
+          fileName: name,
+          parentId: _parentId,
+          onProgress: (sent, total) {
+            if (!mounted || total <= 0) return;
+            setState(() {
+              _uploadProgress = (done + (sent / total)) / files.length;
+            });
+          },
+        );
+        done++;
+        if (mounted) {
+          setState(() => _uploadProgress = done / files.length);
+        }
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${files.length} fichier(s) importé(s).')),
+      );
+    });
   }
 
   String _accountFromToken(String token) {
@@ -498,9 +670,13 @@ class _FilesScreenState extends State<FilesScreen> {
   Widget _buildBody() {
     if (_loading) {
       return ListView(
-        children: const [
-          SizedBox(height: 120),
-          Center(child: CircularProgressIndicator()),
+        children: [
+          const SizedBox(height: 120),
+          const Center(child: CircularProgressIndicator()),
+          if (_actionBusy) ...[
+            const SizedBox(height: 24),
+            Center(child: Text(_busyLabel)),
+          ],
         ],
       );
     }
@@ -531,7 +707,7 @@ class _FilesScreenState extends State<FilesScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'Les futurs boutons Nouveau, Importer et Créer un dossier arriveront ici.',
+            'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
             textAlign: TextAlign.center,
           ),
         ],
@@ -571,17 +747,25 @@ class _FilesScreenState extends State<FilesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Création / import Drive bientôt disponible.'),
-            ),
-          );
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Nouveau'),
+        onPressed: _actionBusy ? null : _showNewMenu,
+        icon: _actionBusy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.add),
+        label: Text(_actionBusy ? _busyLabel : 'Nouveau'),
       ),
       body: RefreshIndicator(onRefresh: _reload, child: _buildBody()),
     );
   }
+
+  String get _busyLabel {
+    final progress = _uploadProgress;
+    if (progress == null) return 'Traitement...';
+    return 'Import ${(progress.clamp(0, 1) * 100).round()} %';
+  }
 }
+
+enum _DriveNewAction { createFolder, uploadFiles }

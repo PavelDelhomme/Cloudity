@@ -26,8 +26,10 @@
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
 | **H5b** | **Photos — mobile Android** | Navigation Photos/Albums/Archivé/Corbeille/Verrouillé/Paramètres, viewer, corbeille Drive, verrou local biométrique, WorkManager + choix dossiers | ☑ |
 | **H5c** | **Photos — vignettes & dates** | `GET /drive/nodes/:id/thumbnail`, `taken_at` (EXIF/galerie + nom fichier), exclusion PDF timeline, rate-limit gateway assoupli médias, file chargement mobile, défilement horizontal par jour, retour viewer → scroll | ☑ |
+| **H5d** | **Drive — mobile Android** | Drawer + compte connecté ☑ ; FAB **Nouveau** avec création dossier + import multi-fichiers sécurisé JWT ☑ ; suite : upload dossier complet SAF, corbeille, partage, recherche réelle, grille/liste | 🟡 |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
+| **H6c** | **Sécurité mobile transverse** | Les apps mobiles doivent rester alignées avec la sécurité API : JWT/refresh, RLS backend, messages réseau propres, aucun token en clair, broker signature-only ; à auditer à chaque feature mobile | 🟡 |
 | **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
 
@@ -40,7 +42,7 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 | App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
 |-----|---------------------------|-----------------------------------|
 | **Photos** | ✅ (widget + prefs galerie) | ✅ E2E connexion + timeline ; vignettes `/thumbnail` + file chargement (anti-429) |
-| **Drive** | ✅ | ✅ E2E connexion + écran Drive |
+| **Drive** | ✅ | ✅ E2E connexion + écran Drive ; FAB Nouveau (dossier + import fichiers) |
 | **Mail** | ✅ | ✅ E2E connexion + boîte |
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 

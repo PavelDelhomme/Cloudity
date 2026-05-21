@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -6,10 +8,12 @@ import 'package:cloudity_shared/auth_2fa.dart';
 import 'package:cloudity_shared/http_helpers.dart';
 
 const _httpTimeout = Duration(seconds: 8);
+const _uploadTimeout = Duration(minutes: 2);
 
 /// Appels HTTP vers le **api-gateway** (auth + drive…).
 class AuthApi {
-  AuthApi(String gatewayBase) : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
+  AuthApi(String gatewayBase)
+    : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
 
   final String _base;
 
@@ -21,11 +25,17 @@ class AuthApi {
     String tenantId = '1',
   }) async {
     final uri = Uri.parse('$_base/auth/login');
-    final res = await http.post(
-      uri,
-      headers: authHeaders(null),
-      body: jsonEncode({'email': email, 'password': password, 'tenant_id': tenantId}),
-    ).timeout(_httpTimeout);
+    final res = await http
+        .post(
+          uri,
+          headers: authHeaders(null),
+          body: jsonEncode({
+            'email': email,
+            'password': password,
+            'tenant_id': tenantId,
+          }),
+        )
+        .timeout(_httpTimeout);
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -62,20 +72,22 @@ class AuthApi {
     required String tenantId,
     required String code,
   }) {
-    return Auth2FAClient(_base).verify(
-      email: email,
-      tenantId: tenantId,
-      code: code,
-    );
+    return Auth2FAClient(
+      _base,
+    ).verify(email: email, tenantId: tenantId, code: code);
   }
 
-  Future<({String access, String refresh})> refreshTokens(String refreshToken) async {
+  Future<({String access, String refresh})> refreshTokens(
+    String refreshToken,
+  ) async {
     final uri = Uri.parse('$_base/auth/refresh');
-    final res = await http.post(
-      uri,
-      headers: authHeaders(null),
-      body: jsonEncode({'refresh_token': refreshToken}),
-    ).timeout(_httpTimeout);
+    final res = await http
+        .post(
+          uri,
+          headers: authHeaders(null),
+          body: jsonEncode({'refresh_token': refreshToken}),
+        )
+        .timeout(_httpTimeout);
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -104,10 +116,9 @@ class AuthApi {
 
   Future<bool> validate(String accessToken) async {
     final uri = Uri.parse('$_base/auth/validate');
-    final res = await http.get(
-      uri,
-      headers: authHeaders(accessToken, json: false),
-    ).timeout(_httpTimeout);
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
     return res.statusCode == 200;
   }
 
@@ -118,10 +129,9 @@ class AuthApi {
   }) async {
     final q = parentId == null ? '' : '?parent_id=$parentId';
     final uri = Uri.parse('$_base/drive/nodes$q');
-    final res = await http.get(
-      uri,
-      headers: authHeaders(accessToken, json: false),
-    ).timeout(_httpTimeout);
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }
@@ -134,6 +144,101 @@ class AuthApi {
     }
     return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
+
+  Future<Map<String, dynamic>> createFolder({
+    required String accessToken,
+    required String name,
+    int? parentId,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes');
+    final payload = <String, dynamic>{'name': name, 'is_folder': true};
+    if (parentId != null) {
+      payload['parent_id'] = parentId;
+    }
+    final res = await http
+        .post(uri, headers: authHeaders(accessToken), body: jsonEncode(payload))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    final body = res.body.isEmpty ? '{}' : res.body;
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final msg =
+          decoded['message']?.toString() ??
+          decoded['error']?.toString() ??
+          'Drive HTTP ${res.statusCode}';
+      throw AuthException(msg);
+    }
+    return decoded;
+  }
+
+  Future<Map<String, dynamic>> uploadFile({
+    required String accessToken,
+    required File file,
+    required String fileName,
+    int? parentId,
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/upload');
+    final length = await file.length();
+    var uploadedBytes = 0;
+    final stream = http.ByteStream(file.openRead()).transform(
+      StreamTransformer<List<int>, List<int>>.fromHandlers(
+        handleData: (chunk, sink) {
+          sink.add(chunk);
+          if (onProgress != null) {
+            uploadedBytes += chunk.length;
+            onProgress(uploadedBytes, length);
+          }
+        },
+      ),
+    );
+    final req = http.MultipartRequest('POST', uri)
+      ..headers.addAll(authHeaders(accessToken, json: false))
+      ..fields['name'] = fileName
+      ..fields['mime_type'] = _mimeFromFileName(fileName);
+    if (parentId != null) {
+      req.fields['parent_id'] = '$parentId';
+    }
+    req.files.add(
+      http.MultipartFile('file', stream, length, filename: fileName),
+    );
+    final streamed = await req.send().timeout(_uploadTimeout);
+    final res = await http.Response.fromStream(
+      streamed,
+    ).timeout(_uploadTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    final body = res.body.isEmpty ? '{}' : res.body;
+    final decoded = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final msg =
+          decoded['message']?.toString() ??
+          decoded['error']?.toString() ??
+          'Upload HTTP ${res.statusCode}';
+      throw AuthException(msg);
+    }
+    return decoded;
+  }
+}
+
+String _mimeFromFileName(String name) {
+  final lower = name.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.heic')) return 'image/heic';
+  if (lower.endsWith('.heif')) return 'image/heif';
+  if (lower.endsWith('.avif')) return 'image/avif';
+  if (lower.endsWith('.txt')) return 'text/plain; charset=utf-8';
+  if (lower.endsWith('.md')) return 'text/markdown; charset=utf-8';
+  if (lower.endsWith('.csv')) return 'text/csv; charset=utf-8';
+  if (lower.endsWith('.zip')) return 'application/zip';
+  return 'application/octet-stream';
 }
 
 class AuthException implements Exception {
