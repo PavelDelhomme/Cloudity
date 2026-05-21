@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-21 — Git : fusion feat/mail-alias-checklist → dev, branche prod
+
+- Branche : `feat/mail-alias-checklist` → **`dev`** (fast-forward `946611c4..00a0474c`, 9 commits) ; nouvelle branche **`feat/mail-alias-prod`** depuis `dev`.
+- Remote : `git push origin dev` ✅ ; `git push -u origin feat/mail-alias-prod` ✅.
+- Docs : `TODOS.md`, `STATUS.md` — chantier actif = DNS/Maddy prod + C7 réel (§ ENSUITE #6–#7).
+- Liens : [GIT.md](GIT.md), [operations/BRANCHES.md](operations/BRANCHES.md).
+
+---
+
 ### 2026-05-21 — Pass extension MP-07 : E2E Chromium autofill
 
 - Branche : `feat/mail-alias-checklist`.
