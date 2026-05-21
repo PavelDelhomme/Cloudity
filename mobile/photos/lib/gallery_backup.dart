@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'drive_api.dart';
+import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'session_store.dart';
 
@@ -23,11 +24,11 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
     return GalleryBackupResult(skipped: true, reason: 'session_absente');
   }
 
-  final perm = await PhotoManager.requestPermissionExtend();
-  if (!perm.isAuth) {
+  final perm = await requestGalleryPermission();
+  if (!hasGalleryAccess(perm)) {
     return GalleryBackupResult(
       skipped: true,
-      reason: 'permission_galerie_refusée',
+      reason: galleryPermissionMessage(perm),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'gallery_backup.dart';
+import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_sync_scheduler.dart';
 
@@ -47,6 +48,22 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   }
 
   Future<void> _setEnabled(bool value) async {
+    if (value) {
+      final perm = await requestGalleryPermission();
+      if (!hasGalleryAccess(perm)) {
+        await GallerySyncPrefs.setBackupEnabled(false);
+        await applyGallerySyncSchedule();
+        if (!mounted) return;
+        setState(() {
+          _enabled = false;
+          _lastMessage = galleryPermissionMessage(perm);
+        });
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _lastMessage = galleryPermissionMessage(perm));
+    }
+
     setState(() => _enabled = value);
     await GallerySyncPrefs.setBackupEnabled(value);
     await applyGallerySyncSchedule();
@@ -86,10 +103,10 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   }
 
   Future<void> _selectAlbums() async {
-    final perm = await PhotoManager.requestPermissionExtend();
-    if (!perm.isAuth) {
+    final perm = await requestGalleryPermission();
+    if (!hasGalleryAccess(perm)) {
       if (mounted) {
-        setState(() => _lastMessage = 'Permission galerie refusée.');
+        setState(() => _lastMessage = galleryPermissionMessage(perm));
       }
       return;
     }
@@ -161,6 +178,10 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
           ? 'Sauvegarde configurée sur toutes les photos.'
           : 'Sauvegarde configurée sur ${selected.length} dossier(s).';
     });
+  }
+
+  Future<void> _openAndroidSettings() async {
+    await PhotoManager.openSetting();
   }
 
   @override
@@ -257,6 +278,11 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
                   )
                 : const Icon(Icons.cloud_upload_outlined, size: 20),
             label: Text(_running ? 'Sauvegarde…' : 'Sauvegarder maintenant'),
+          ),
+          TextButton.icon(
+            onPressed: _openAndroidSettings,
+            icon: const Icon(Icons.settings_outlined, size: 18),
+            label: const Text('Ouvrir les permissions Android'),
           ),
           if (_lastMessage != null) ...[
             const SizedBox(height: 12),

@@ -24,7 +24,7 @@
 | **H3** | **MP-08 Firefox** | `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox` | ☑ |
 | **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
-| **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + prefs Wi‑Fi / charge + choix dossiers Android · upload dossier Drive `Photos` (MVP) | ☑ |
+| **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + permissions Android 13/14, prefs Wi‑Fi / charge + choix dossiers Android · upload Drive `Photos` | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H6b** | **Auth suite mobile** | Tenant masqué, gateway auto (`127.0.0.1` USB), compte démo debug, messages réseau (`friendlyNetworkMessage`) ; reste partage OS (AccountManager) | 🟡 |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |

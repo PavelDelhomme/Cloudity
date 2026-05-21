@@ -71,6 +71,7 @@
 Google Photos s’appuie sur des **jobs système** (iOS BGProcessing, Android WorkManager) avec contraintes réseau et charge. Pour Cloudity, la cible documentaire est :
 
 - **Ne pas** scanner la galerie en boucle : **WorkManager** avec intervalle minimal raisonnable (ex. 15 min+), **uniquement si** « sauvegarde Cloudity » activée.
+- **Permissions Android** : `READ_EXTERNAL_STORAGE` jusqu’à Android 12, `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` sur Android 13, `READ_MEDIA_VISUAL_USER_SELECTED` sur Android 14+ ; l’activation de la sauvegarde demande la permission avant de planifier le job.
 - **Contraintes** : `requiresCharging` optionnel côté utilisateur ; `requiresBatteryNotLow` ; upload **uniquement en Wi‑Fi** si l’utilisateur coche l’option ; choix des dossiers/albums Android à inclure (liste vide = toutes les photos).
 - **Batching** : upload par petits lots ; marquage local des assets déjà envoyés ; pas de re-téléchargement des miniatures déjà en cache (ETag / `updated_at` côté futur index).
 - **Pas de wake lock** prolongé ; reprise après `FAILED` réseau.
