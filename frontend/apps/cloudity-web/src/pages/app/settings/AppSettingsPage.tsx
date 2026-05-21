@@ -4,6 +4,7 @@ import { Card } from '@cloudity/shared'
 import PasskeysSection from './PasskeysSection'
 import TwoFactorSection from './TwoFactorSection'
 import RecoveryCodesSection from './RecoveryCodesSection'
+import MailNotificationsSection from './MailNotificationsSection'
 
 export default function AppSettingsPage() {
   const { email, tenantId } = useAuth()
@@ -30,6 +31,11 @@ export default function AppSettingsPage() {
           </dl>
         </div>
       </Card>
+
+      <section>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Notifications</h2>
+        <MailNotificationsSection />
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sécurité — Passkeys</h2>

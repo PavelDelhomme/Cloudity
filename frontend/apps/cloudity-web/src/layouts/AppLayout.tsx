@@ -31,6 +31,7 @@ import { NotificationsProvider, useNotifications } from '../notificationsContext
 import { formatRelativeDate } from '../utils/formatDate'
 import { fetchMailAccounts, syncMailAccount, type MailAccountResponse } from '../api'
 import { accountCanBackgroundImapSync, isMailSyncPasswordRequiredError } from '../pages/app/mail/mailSyncHelpers'
+import { showMailDesktopNotification } from '../lib/mailDesktopNotifications'
 
 function NotificationBell() {
   const ctx = useNotifications()
@@ -117,15 +118,10 @@ function notifyNewMailForAccountGlobal(
     title: synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
     message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
   })
-  if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-    try {
-      new Notification('Cloudity Mail', {
-        body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
-      })
-    } catch {
-      // Ignorer les erreurs de notification navigateur.
-    }
-  }
+  showMailDesktopNotification('Cloudity Mail', {
+    body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
+    tag: `cloudity-mail-global-${account.id}`,
+  })
 }
 
 /** Sync mail globale hors page Mail pour garder les notifications actives dans toute l'app. */

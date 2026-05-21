@@ -128,6 +128,7 @@ import {
   resolveAliasEmailInput,
   subscribeAliasSuffixChanges,
 } from '../../../lib/mailAlias'
+import { showMailDesktopNotification } from '../../../lib/mailDesktopNotifications'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
@@ -196,18 +197,14 @@ function notifyNewMailForAccount(
     message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
     type: 'info',
   })
-  if (typeof globalThis.Notification !== 'undefined' && globalThis.Notification.permission === 'granted') {
-    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-      try {
-        new globalThis.Notification('Cloudity — Courrier', {
-          body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
-          tag: `cloudity-mail-${account.id}`,
-        })
-      } catch {
-        /* navigateur peut refuser même avec permission */
-      }
-    }
-  }
+  showMailDesktopNotification(
+    'Cloudity — Courrier',
+    {
+      body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
+      tag: `cloudity-mail-${account.id}`,
+    },
+    { requireHidden: true }
+  )
 }
 
 function warnIfSyncPasswordNotStored(

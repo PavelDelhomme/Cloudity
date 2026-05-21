@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-21 — Mail web : notifications système activables
+
+- Branche : `feat/mail-mta-alias-delivery`.
+- Front web : ajout `MailNotificationsSection` dans `/app/settings` pour activer/désactiver/tester les notifications système Mail sur l’ordinateur courant.
+- Notifications : factorisation `mailDesktopNotifications.ts` ; les notifications Mail existantes (page Mail + watcher global) respectent maintenant ce réglage local.
+- Check : `make test-dashboard-lint` ✅.
+
+---
+
 ### 2026-05-21 — Maddy alias-router : routage local/prod réel
 
 - Branche : `feat/mail-mta-alias-delivery` depuis `dev` après fusion de `feat/mail-alias-prod` (`dev` poussé à `0a31874a`).
