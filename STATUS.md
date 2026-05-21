@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-21 — **Git** : `feat/mail-alias-prod` fusionné dans **`dev`** (fast-forward `0a31874a`) ; chantier actif **`feat/mail-mta-alias-delivery`**. **MTA alias** : Maddy local/prod ne route plus vers `dummy`, il livre en SMTP interne vers `alias-router:2527` ; `alias-router` appelle `/mail/internal/alias-resolve`, ajoute `Delivered-To` / `X-Original-To`, puis relaie vers `RELAY_SMTP_*`. **Admin Domaines** affiche les DNS copiables (A/MX/SPF/DKIM/DMARC) pour le rôle alias. **Checks** : `GOWORK=off go test ./...` dans `deploy/mail-mta/alias-router`, `docker compose --env-file ... config --quiet`, `make mail-mta-local-up`, `make test-mail-mta-local` (alias absent = 404 API + 550 SMTP attendu). Secrets / **IP VPS** : **Portainer uniquement** (pas Git) — **[PORTAINER-VPS.md](docs/operations/PORTAINER-VPS.md)** § 0. Suite : créer alias réel `inscriptions@maily.ovh`, retester, puis Portainer/VPS et C7 réel.
+**Dernière mise à jour** : 2026-05-21 — **Git** : `feat/mail-mta-alias-delivery` fusionné dans **`dev`** (fast-forward `04a9c68c`) ; chantier actif **`feat/mobile-desktop-validation`**. **Mail alias / Maddy / déploiement est en pause volontaire** : ne reprendre que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. État figé Mail : Maddy local/prod route vers `alias-router:2527`, notifications Mail web activables depuis `/app/settings`, DNS OVH/VPS à faire manuellement plus tard. En attendant, travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass.
 
 ## À faire maintenant
 
@@ -8,8 +8,8 @@
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **Git** : `git status` ; branche = **`feat/mail-mta-alias-delivery`** (Maddy `alias-router`, Portainer, C7) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
-2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **ENSUITE** #3–#4 ; puis **[BACKLOG.md](./BACKLOG.md)** si case produit précise.
+1. **Git** : `git status` ; branche = **`feat/mobile-desktop-validation`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
 
@@ -17,9 +17,9 @@
 
 1. **Barrière qualité** : avant mail alias prod, garder verts `make test`, `make test-pass`, `make test-e2e`, `make test-e2e-playwright`, mobile hôte ; trier les warnings sécurité (`govulncheck` Go 1.25.10 / `x/net`, `gosec`, `gitleaks`) et perf (`LOADAVG_1M`) listés dans **TODOS.md**.
 2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
-3. **ENSUITE — Mail** : MTA alias livré sur **`dev`** jusqu’au bloc DNS/admin ; sur **`feat/mail-mta-alias-delivery`** : Maddy → `alias-router`, relais SMTP final, Portainer/VPS, C7 réel (réception IMAP / redirection fournisseur), secrets VPS/Portainer avant mise en ligne.
+3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
 4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **J8 Pass / extension** : **MP-06 + MP-07** livrés localement — domain matcher, déchiffrement service worker, candidats par domaine, remplissage au clic, et E2E Chromium avec extension chargée via `make test-e2e-playwright-pass-extension`. Suite : UX popup avancée, icônes, Firefox/Safari.
+5. **Suite hors Mail** : priorités disponibles = MP-04 validation Linux Drive/Photos, MP-08 extension Firefox/Safari, Photos albums/sync galerie, Pass UX popup avancée, frontend/refactor ciblé.
 6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)

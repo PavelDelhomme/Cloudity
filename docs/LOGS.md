@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-05-21 — Pause Mail et bascule hors déploiement
+
+- Branche : `feat/mail-mta-alias-delivery` fusionnée dans `dev` (`04a9c68c`), puis nouvelle branche `feat/mobile-desktop-validation`.
+- Consigne utilisateur notée : ne pas reprendre Mail alias / Maddy / Portainer / C7 tant que l’utilisateur ne dit pas explicitement **« on retourne sur la partie mail »**.
+- Suite de travail : Photos, mobile, frontend, applications, Pass ; première cible pressentie : validation Linux desktop Drive/Photos (BACKLOG MP-04).
+- Docs : `TODOS.md`, `STATUS.md`, `docs/LOGS.md`.
+
+---
+
 ### 2026-05-21 — Mail web : notifications système activables
 
 - Branche : `feat/mail-mta-alias-delivery`.

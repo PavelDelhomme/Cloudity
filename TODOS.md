@@ -2,7 +2,7 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : **§ MAINTENANT**, **`feat/mail-alias-checklist`** et le premier bloc **`feat/mail-alias-prod`** sont fusionnés dans **`dev`** — enchaîner sur **§ ENSUITE** #6–#7 (Maddy `alias-router`, Portainer, C7 réel), branche **`feat/mail-mta-alias-delivery`**.
+> **Point d’entrée unique** : Mail alias / Maddy / déploiement est **en pause volontaire** après fusion dans **`dev`** (`04a9c68c`). Ne reprendre cette partie que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. En attendant : travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass. Branche active : **`feat/mobile-desktop-validation`**.
 
 ---
 
@@ -28,7 +28,8 @@
 **Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
 **Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
 **Branche précédente** : `feat/mail-alias-prod` → **fusionnée dans `dev`** (2026-05-21, fast-forward `0a31874a`).  
-**Branche active** : `feat/mail-mta-alias-delivery` (depuis `dev`) — Maddy → `alias-router`, Portainer, C7 réel, secrets VPS avant prod.
+**Branche précédente** : `feat/mail-mta-alias-delivery` → **fusionnée dans `dev`** (2026-05-21, fast-forward `04a9c68c` : Maddy `alias-router` + notifications Mail web).  
+**Branche active** : `feat/mobile-desktop-validation` (depuis `dev`) — hors Mail : mobile/desktop, Photos, Drive, Pass, frontend.
 
 ---
 
@@ -46,7 +47,9 @@
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
 | **8** | **Linux / mobile / stores** | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** | ☐ |
 
-### Barrière qualité avant reprise Mail alias / déploiement
+### Barrière qualité avant reprise Mail alias / déploiement — PAUSE
+
+Ne pas reprendre DNS/Maddy/VPS/C7 tant que l’utilisateur ne dit pas explicitement **« on retourne sur la partie mail »**.
 
 Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les résultats :
 
