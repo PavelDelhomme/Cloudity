@@ -41,6 +41,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
+  cloudity_auth_broker:
+    dependency: "direct main"
+    description:
+      path: "../cloudity_auth_broker"
+      relative: true
+    source: path
+    version: "0.1.0"
   cloudity_shared:
     dependency: "direct main"
     description:
