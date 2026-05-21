@@ -452,12 +452,59 @@ export default function Domaines() {
                   MTA actif/prévu pour ce domaine
                 </label>
               </div>
+              {domainRole === 'alias' && selectedDomain ? (
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 space-y-2">
+                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                    Enregistrements DNS attendus (OVH / registrar)
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    MX sur la racine <code>@</code>, pas sur le sous-domaine seul. Remplacez{' '}
+                    <code>&lt;IP-VPS&gt;</code> par l’IP réelle (Portainer, hors Git).
+                  </p>
+                  <ul className="space-y-2 text-xs">
+                    {[
+                      { label: 'A · mail', value: `mail → <IP-VPS>` },
+                      { label: 'MX · @', value: `10 ${domainMxTarget || `mail.${selectedDomain.domain}.`}` },
+                      { label: 'TXT · SPF @', value: domainSpfPolicy || `v=spf1 mx a:${domainMtaHostname || `mail.${selectedDomain.domain}`} -all` },
+                      {
+                        label: `TXT · ${domainDkimSelector}._domainkey`,
+                        value: 'clé publique DKIM générée sur le MTA (hors Git)',
+                      },
+                      {
+                        label: 'TXT · _dmarc',
+                        value: `v=DMARC1; p=${domainDmarcPolicy}; rua=mailto:dmarc@${selectedDomain.domain}`,
+                      },
+                    ].map((row) => (
+                      <li
+                        key={row.label}
+                        className="flex flex-wrap items-center gap-2 justify-between gap-y-1"
+                      >
+                        <span className="font-medium text-slate-700 dark:text-slate-300 shrink-0">{row.label}</span>
+                        <code className="flex-1 min-w-0 break-all text-slate-600 dark:text-slate-400">{row.value}</code>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="shrink-0 text-xs py-1 px-2"
+                          onClick={() => {
+                            void navigator.clipboard.writeText(row.value).then(
+                              () => toast.success(`${row.label} copié`),
+                              () => toast.error('Copie impossible')
+                            )
+                          }}
+                        >
+                          Copier
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="submit" disabled={patchDomainMutation.isPending}>
                   {patchDomainMutation.isPending ? 'Enregistrement…' : 'Enregistrer config MTA'}
                 </Button>
                 <span className="text-xs text-slate-500">
-                  Commandes : `make migrate`, `make deploy-mail`, puis test local MTA port 2525.
+                  Commandes : `make migrate`, `make deploy-mail`, `make test-mail-mta-local`, `make mail-mta-local-up`.
                 </span>
               </div>
             </form>

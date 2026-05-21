@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-21 — MTA prod : make targets + admin DNS copiable
+
+- Branche : `feat/mail-alias-prod`.
+- Scripts : `sync-mail-mta-env.sh`, `test-mail-mta-local.sh` ; Makefile `sync-mail-mta-env`, `test-mail-mta-local`, `mail-mta-local-up|down|logs`.
+- Admin `/4dm1n/domaines` : bloc enregistrements DNS (MX/SPF/DKIM/DMARC) avec boutons Copier pour domaines rôle alias.
+- Docs : `MAIL-MTA-LOCAL-TEST.md`, `deploy/mail-mta/README.md`, `TODOS.md` #6 🟡.
+- Checks : `make test-mail-mta-local` ✅ health + Maddy:2526 ; `make test-go-one SERVICE=mail-directory-service` ✅.
+
+---
+
 ### 2026-05-21 — Git : fusion feat/mail-alias-checklist → dev, branche prod
 
 - Branche : `feat/mail-alias-checklist` → **`dev`** (fast-forward `946611c4..00a0474c`, 9 commits) ; nouvelle branche **`feat/mail-alias-prod`** depuis `dev`.
