@@ -25,6 +25,14 @@ Après modification :
 
 ```bash
 make deploy-mail
+make sync-mail-mta-env
+make test-mail-mta-local
+```
+
+Optionnel : alias réel déjà créé dans l’UI :
+
+```bash
+ALIAS_TEST_EMAIL=inscriptions@<domaine-alias> make test-mail-mta-local
 ```
 
 ## 1. Test API (sans port 25)
@@ -39,12 +47,19 @@ curl -sS -X POST "http://localhost:${PORT_MAIL_DIRECTORY:-6050}/mail/internal/al
 
 Réponse attendue : `{"ok":true,"deliver_to":"…","account_id":…}`.
 
-## 2. Stack Maddy locale (port 2525)
+## 2. Stack Maddy locale (port 2526 par défaut si 2525 = MailHog)
+
+```bash
+make sync-mail-mta-env
+make mail-mta-local-up
+```
+
+Équivalent manuel :
 
 ```bash
 cd deploy/mail-mta
 cp .env.local.example .env
-# Aligner MTA_INTERNAL_TOKEN avec le .env racine
+# ou : make sync-mail-mta-env
 docker compose -f docker-compose.local.yml up -d maddy
 ```
 

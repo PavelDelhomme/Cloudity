@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -70,6 +70,9 @@ help: ## Affiche ce message d'aide
 	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
 	@echo '  make ensure-mta-internal-token - Ajoute/décommente MTA_INTERNAL_TOKEN (lookup MTA alias)'
+	@echo '  make sync-mail-mta-env - Aligne deploy/mail-mta/.env avec le .env racine'
+	@echo '  make test-mail-mta-local - Smoke API alias-resolve + SMTP local (prérequis: make deploy-mail)'
+	@echo '  make mail-mta-local-up|down|logs - Stack Maddy locale (deploy/mail-mta, port SMTP_PORT)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
 	@echo '  make deploy-web | deploy-mail | deploy-gateway | deploy-auth | deploy-admin | deploy-pass | deploy-drive | deploy-photos - Un service (docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)'
 	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
@@ -221,6 +224,24 @@ ensure-alias-encryption-key: ## Ajoute ALIAS_ENCRYPTION_KEY (openssl rand -base6
 ensure-mta-internal-token: ## Ajoute/décommente MTA_INTERNAL_TOKEN (openssl rand -hex 32) — lookup MTA alias
 	@chmod +x scripts/dev/ensure-mta-internal-token.sh 2>/dev/null || true
 	@./scripts/dev/ensure-mta-internal-token.sh
+
+sync-mail-mta-env: ensure-mta-internal-token ## Copie MTA_INTERNAL_TOKEN + domaine alias vers deploy/mail-mta/.env
+	@chmod +x scripts/dev/sync-mail-mta-env.sh 2>/dev/null || true
+	@./scripts/dev/sync-mail-mta-env.sh
+
+test-mail-mta-local: sync-mail-mta-env ## Smoke MTA : /health, alias-resolve, port SMTP (ALIAS_TEST_EMAIL optionnel)
+	@chmod +x scripts/dev/test-mail-mta-local.sh 2>/dev/null || true
+	@./scripts/dev/test-mail-mta-local.sh
+
+mail-mta-local-up: sync-mail-mta-env ## Démarre Maddy local (deploy/mail-mta/docker-compose.local.yml)
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml up -d maddy
+	@echo "✅ Maddy local — SMTP hôte : port $(grep -E '^SMTP_PORT=' deploy/mail-mta/.env 2>/dev/null | tail -1 | cut -d= -f2 || echo 2526)"
+
+mail-mta-local-down: ## Arrête la stack Maddy locale
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml down
+
+mail-mta-local-logs: ## Logs Maddy local
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml logs -f --tail=80 maddy
 
 build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity-pass/dist)
 	@echo "🔌 Build extension Cloudity Pass (MV3)…"

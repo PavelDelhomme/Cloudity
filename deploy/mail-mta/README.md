@@ -41,10 +41,20 @@ Redémarrer le service mail : `make deploy-mail`.
 
 ## Démarrage local
 
+Depuis la racine du monorepo :
+
+```bash
+make sync-mail-mta-env
+make mail-mta-local-up
+make test-mail-mta-local
+```
+
+Manuel :
+
 ```bash
 cd deploy/mail-mta
 cp .env.local.example .env
-# Éditer .env (même MTA_INTERNAL_TOKEN que le .env racine Cloudity)
+# ou make sync-mail-mta-env depuis la racine
 docker compose -f docker-compose.local.yml up -d maddy
 ```
 
