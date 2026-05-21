@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -73,6 +73,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
 	@echo '  make deploy-web | deploy-mail | deploy-gateway | deploy-auth | deploy-admin | deploy-pass | deploy-drive | deploy-photos - Un service (docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)'
 	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
+	@echo '  make test-pass-extension - Tests extension Pass MV3 (domain matcher MP-06)'
 	@echo '  make pass-j8-prep - Préparation migration J8 Proton (test-pass + checklist runbook)'
 	@echo '  make test-e2e-playwright-pass - E2E Playwright Pass uniquement (e2e/pass.spec.ts)'
 	@echo '  make stack-heal | make doctor - Clé mail + recrée mail-directory + build extension (sans rebuild toutes les images)'
@@ -227,6 +228,14 @@ build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity
 	fi
 	@cd extensions/cloudity-pass && npm install --no-audit --fund=false && npm run build
 	@echo "✅ Extension : extensions/cloudity-pass/dist (Chrome → Mode développeur → Charger l’extension non empaquetée)"
+
+test-pass-extension: ## Tests extension Pass MV3 (domain matcher MP-06)
+	@echo "🧪 Extension Cloudity Pass (MV3)…"
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "❌ npm requis (install Node.js) pour test-pass-extension."; exit 1; \
+	fi
+	@cd extensions/cloudity-pass && npm test && npm run build
+	@echo "✅ Extension Pass OK."
 
 stack-heal: ## Réparation dev : clés MAIL + ALIAS dans .env, recrée mail-directory, build extension Pass (sans rebuild toutes les images)
 	@chmod +x scripts/dev/stack-heal.sh 2>/dev/null || true
@@ -495,6 +504,12 @@ test-mobile-mail: ## Flutter mobile/mail uniquement (wrapper test-mobile-app.sh 
 	@chmod +x scripts/mobile/test-mobile-mail.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh
 	@./scripts/mobile/test-mobile-mail.sh
 
+test-mobile-2fa: ## Flutter 2FA sur ADB (Drive+Mail+Photos, compte e2e-2fa@cloudity.local). Prérequis: make up, téléphone USB/Wi‑Fi
+	@chmod +x scripts/mobile/test-mobile-2fa.sh scripts/dev/prepare-e2e-2fa-mobile.sh scripts/dev/generate-totp.mjs
+	@./scripts/mobile/test-mobile-2fa.sh
+
+test-local-realistic: seed-admin seed-e2e-2fa test-pass-extension test-e2e-playwright-twofa test-mobile-suite test-mobile-2fa ## Batterie « vie réelle » locale (web+mobile+2FA). Long (~15–40 min)
+
 test-all: test test-e2e test-e2e-playwright test-security test-mobile-suite ## TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile P+D+M (stack up + seed-admin pour E2E web)
 
 test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s que les services soient healthy)
@@ -533,6 +548,11 @@ test-e2e-playwright-pass: ## E2E Playwright — Pass uniquement (e2e/pass.spec.t
 	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/pass.spec.ts
 	@echo "✅ E2E Pass OK"
 
+test-e2e-playwright-twofa: ## E2E Playwright — 2FA (e2e/twofa.spec.ts). Prérequis: make up (seed dans beforeAll du spec)
+	@echo "🎭 Tests E2E Playwright — 2FA..."
+	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/twofa.spec.ts
+	@echo "✅ E2E 2FA OK"
+
 test-pass: ## Tests Pass (passwords-service Go + @cloudity/pass-crypto + protonImport Vitest). Pas d’E2E.
 	@echo "🧪 Tests Pass (socle migration J8)..."
 	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker requis pour passwords-service."; exit 1; fi
@@ -542,6 +562,8 @@ test-pass: ## Tests Pass (passwords-service Go + @cloudity/pass-crypto + protonI
 	@(cd frontend/packages/pass-crypto && npm test) || exit 1
 	@echo "  [protonImport — Vitest]"
 	@(cd frontend/apps/cloudity-web && npx vitest run src/pages/app/pass/protonImport.test.ts src/pages/app/mail/mailSyncHelpers.test.ts) || exit 1
+	@echo "  [extension Pass MV3]"
+	@(cd extensions/cloudity-pass && npm test && npm run build) || exit 1
 	@echo "✅ test-pass OK"
 
 pass-j8-prep: ## J8 migration Proton : test-pass + checklist (scripts/dev/pass-j8-prep.sh). SKIP_TESTS=1 pour la checklist seule.
@@ -905,6 +927,20 @@ seed-admin: ## Crée le compte admin@cloudity.local / Admin123! ET le promeut en
 	  -c "UPDATE users SET role='admin' WHERE email='admin@cloudity.local' AND tenant_id=1;" >/dev/null \
 	  && echo "✅ Rôle admin appliqué. Connexion: admin@cloudity.local / Admin123! (UI back-office /4dm1n)" \
 	  || (echo "❌ Promotion role='admin' échouée — vérifier que la stack est up et que le tenant 1 existe."; exit 1)
+
+seed-e2e-2fa: ## Compte E2E 2FA dédié : e2e-2fa@cloudity.local / E2faTest123! (recrée le user si besoin)
+	@echo "👤 Compte E2E 2FA (e2e-2fa@cloudity.local) — suppression éventuelle puis inscription..."
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1 \
+	  -c "DELETE FROM users WHERE email='e2e-2fa@cloudity.local' AND tenant_id=1;"
+	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
+	  -H "Content-Type: application/json" \
+	  -d '{"email":"e2e-2fa@cloudity.local","password":"E2faTest123!","tenant_id":"1"}' >/dev/null \
+	  && echo "✅ Compte E2E 2FA créé (E2faTest123!)." \
+	  || (echo "❌ Inscription e2e-2fa échouée — stack up ?"; exit 1)
+
+reset-e2e-2fa: ## Désactive 2FA + supprime codes récup pour e2e-2fa@cloudity.local (avant e2e/twofa.spec.ts)
+	@chmod +x scripts/dev/reset-user-2fa.sh
+	@./scripts/dev/reset-user-2fa.sh e2e-2fa@cloudity.local
 
 format: ## Formate le code de tous les services
 	@echo "✨ Formatage du code..."

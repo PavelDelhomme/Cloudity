@@ -11,10 +11,8 @@ const String kE2ePassword = String.fromEnvironment('CLOUDITY_E2E_PASSWORD', defa
 const String kE2eTenant = String.fromEnvironment('CLOUDITY_E2E_TENANT', defaultValue: '1');
 
 const Key kInbox = ValueKey('cloudity_mail_inbox');
-const Key kGateway = ValueKey('cloudity_mail_login_gateway');
 const Key kEmail = ValueKey('cloudity_mail_login_email');
 const Key kPassword = ValueKey('cloudity_mail_login_password');
-const Key kTenant = ValueKey('cloudity_mail_login_tenant');
 const Key kSubmit = ValueKey('cloudity_mail_login_submit');
 
 bool _onLogin(WidgetTester tester) =>
@@ -48,11 +46,9 @@ void main() {
         return;
       }
 
-      expect(find.byKey(kGateway), findsOneWidget);
-      await tester.enterText(find.byKey(kGateway), kE2eGateway);
+      expect(find.byKey(kEmail), findsOneWidget);
       await tester.enterText(find.byKey(kEmail), kE2eEmail);
       await tester.enterText(find.byKey(kPassword), kE2ePassword);
-      await tester.enterText(find.byKey(kTenant), kE2eTenant);
       await tester.pump();
 
       await tester.tap(find.byKey(kSubmit));

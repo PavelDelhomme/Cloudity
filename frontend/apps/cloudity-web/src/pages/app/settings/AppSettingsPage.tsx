@@ -2,6 +2,7 @@ import React from 'react'
 import { useAuth } from '../../../authContext'
 import { Card } from '@cloudity/shared'
 import PasskeysSection from './PasskeysSection'
+import TwoFactorSection from './TwoFactorSection'
 import RecoveryCodesSection from './RecoveryCodesSection'
 
 export default function AppSettingsPage() {
@@ -37,7 +38,10 @@ export default function AppSettingsPage() {
 
       <section>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sécurité — 2FA</h2>
-        <RecoveryCodesSection />
+        <TwoFactorSection />
+        <div className="mt-4">
+          <RecoveryCodesSection />
+        </div>
       </section>
     </div>
   )

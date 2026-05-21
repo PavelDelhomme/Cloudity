@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_api.dart';
 import 'storage_keys.dart';
 
+/// Injecté par `scripts/mobile/test-mobile-*.sh` (`--dart-define=CLOUDITY_E2E_GATEWAY=…`).
+const String _kBuildGateway = String.fromEnvironment('CLOUDITY_E2E_GATEWAY', defaultValue: '');
+
 class SessionStore {
   SessionStore._();
 
@@ -37,6 +40,7 @@ class SessionStore {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(CloudityStorageKeys.gatewayUrl);
     final candidates = <String>[
+      if (_kBuildGateway.trim().isNotEmpty) _kBuildGateway.trim(),
       if (saved != null && saved.trim().isNotEmpty) saved.trim(),
       CloudityStorageKeys.defaultGateway,
       'http://10.0.2.2:6080',
