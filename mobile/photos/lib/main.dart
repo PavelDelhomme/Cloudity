@@ -1,12 +1,21 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
 
+import 'package:flutter/material.dart';
+import 'package:workmanager/workmanager.dart';
+
+import 'gallery_sync_scheduler.dart';
+import 'gallery_sync_worker.dart';
 import 'login_screen.dart';
 import 'session_store.dart';
 import 'timeline_screen.dart';
 import 'user_session.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isAndroid) {
+    await Workmanager().initialize(gallerySyncCallbackDispatcher, isInDebugMode: false);
+    await applyGallerySyncSchedule();
+  }
   runApp(const CloudityPhotosApp());
 }
 

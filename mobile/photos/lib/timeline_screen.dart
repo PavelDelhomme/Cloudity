@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
 import 'package:cloudity_shared/http_helpers.dart';
+import 'gallery_sync_settings_sheet.dart';
 import 'user_session.dart';
 
 const _pageSize = 48;
@@ -186,6 +187,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
       appBar: AppBar(
         title: const Text('Cloudity Photos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload_outlined),
+            tooltip: 'Sauvegarde galerie',
+            onPressed: () {
+              showModalBottomSheet<void>(
+                context: context,
+                showDragHandle: true,
+                isScrollControlled: true,
+                builder: (ctx) => const GallerySyncSettingsSheet(),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loading ? null : _reload,

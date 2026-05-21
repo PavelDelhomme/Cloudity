@@ -5,11 +5,11 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/mobile-desktop-validation`** (depuis `dev`).
+**Branche active** : **`feat/photos-gallery-mobile-sync-security`** — alignée sur **`dev`** (`1ae4e708`, 2026-05-21).
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
-| **Hors mail prod** (priorité) | MP-04 ☑ · Pass popup L3 ☑ · MP-08 Firefox · icônes extension · Photos albums · UI-3 | **EN COURS** |
+| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** · UI-3 · U9/U10 | **EN COURS** |
 | **Mail local** (régression) | `make test-mail-mta-local` · alias-router · notifications Mail web | OK, pas bloquant |
 | **Mail prod** (pause) | MX/SPF OVH · stack Portainer · `RELAY_SMTP_*` VPS · C7 livraison réelle | **NE PAS TOUCHER** |
 
@@ -24,6 +24,7 @@
 | **H3** | **MP-08 Firefox** | `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox` | ☑ |
 | **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
+| **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + prefs Wi‑Fi / charge · upload dossier Drive `Photos` (MVP initial) | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Migration `@cloudity/ui` pages utilisateur Pass + Settings | ☐ |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
 
@@ -54,7 +55,7 @@
 **Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
 **Branche précédente** : `feat/mail-alias-prod` → **fusionnée dans `dev`** (2026-05-21, fast-forward `0a31874a`).  
 **Branche précédente** : `feat/mail-mta-alias-delivery` → **fusionnée dans `dev`** (2026-05-21, fast-forward `04a9c68c` : Maddy `alias-router` + notifications Mail web).  
-**Branche active** : `feat/mobile-desktop-validation` (depuis `dev`) — hors Mail : mobile/desktop, Photos, Drive, Pass, frontend.
+**Branche active** : **`feat/photos-gallery-mobile-sync-security`** — **`dev`** et toutes les branches `feat/*` locales synchronisées (`1ae4e708`, 2026-05-21).
 
 ---
 

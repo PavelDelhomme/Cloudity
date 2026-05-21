@@ -288,7 +288,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 | Bloc | Web | Mobile | Notes |
 |------|-----|--------|-------|
-| **Photos** (galerie + sync) | Timeline, albums partiels, upload | `mobile/photos` : timeline paginée (`offset`) ; **à renforcer** : **WorkManager**, reprise après coupure, option Wi‑Fi uniquement — **PHOTOS.md** § 4–5, **MOBILES.md** |
+| **Photos** (galerie + sync) | Timeline, albums web + mobile, upload web | `mobile/photos` : **WorkManager** initial (sauvegarde galerie → Drive `Photos`, Wi‑Fi / charge, lots 12) — reprise curseur / SQLite · iOS sync ☐ — **PHOTOS.md** § 4–5 |
 | **Mail** (dont alias) | Très avancé ; alias boîte **MVP** ; alias domaine (**`/4dm1n`** → Domaines) | `mobile/mail` : envoi, PJ, dossiers ; **reste** : brouillon serveur, push — **MOBILES.md** § 5 |
 | **Drive** | Récents, corbeille, recherche `?q=` | `mobile/drive` : navigation dossiers ; vérifier **upload** / téléchargement vs besoin Proton |
 | **Pass** | MVP coffre web + **`mobile/pass` Flutter LECTURE SEULE** (J7 sprint Pass : crypto Dart interop bit-à-bit web, écrans login/unlock/vaults/items/détail, copie auto-clear 30 s, auto-lock 5 min, lock à chaque pause/background) | **Édition mobile = L2** ; **extension navigateur** : chantier **non démarré** (cible **MV3**, dossier type `extensions/cloudity-pass/`) — **ROADMAP APP-04** |

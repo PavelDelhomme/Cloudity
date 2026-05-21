@@ -36,6 +36,8 @@ dependencies:
   http: ^1.2.2
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.3.3
+  photo_manager: ^3.6.4
+  workmanager: ^0.5.2
 
 dev_dependencies:
   flutter_test:
