@@ -256,6 +256,19 @@ func TestCORSCloudityLocalhostOrigin(t *testing.T) {
 	}
 }
 
+func TestCORSChromeExtensionOrigin(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "true")
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+	req.Header.Set("Origin", "chrome-extension://abcdefghijklmnopabcdefghijklmnop")
+	req.Header.Set("Access-Control-Request-Method", "POST")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Header().Get("Access-Control-Allow-Origin") != "chrome-extension://abcdefghijklmnopabcdefghijklmnop" {
+		t.Fatalf("got %q", w.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
 // TestCORS vérifie que le gateway renvoie Access-Control-Allow-Origin pour une origine autorisée.
 func TestCORS(t *testing.T) {
 	handler := NewHandler()

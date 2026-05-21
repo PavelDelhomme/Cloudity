@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -76,6 +76,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make test-pass-extension - Tests extension Pass MV3 (domain matcher MP-06)'
 	@echo '  make pass-j8-prep - Préparation migration J8 Proton (test-pass + checklist runbook)'
 	@echo '  make test-e2e-playwright-pass - E2E Playwright Pass uniquement (e2e/pass.spec.ts)'
+	@echo '  make test-e2e-playwright-pass-extension - E2E Chromium extension Pass autofill (MP-07)'
 	@echo '  make stack-heal | make doctor - Clé mail + recrée mail-directory + build extension (sans rebuild toutes les images)'
 	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
 	@echo '  make clean-pass-e2e-vaults - Supprime les coffres Pass « e2e-* » (restes Playwright sur le compte démo)'
@@ -547,6 +548,11 @@ test-e2e-playwright-pass: ## E2E Playwright — Pass uniquement (e2e/pass.spec.t
 	@echo "🎭 Tests E2E Playwright — Pass..."
 	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/pass.spec.ts
 	@echo "✅ E2E Pass OK"
+
+test-e2e-playwright-pass-extension: test-pass-extension ## E2E Chromium — extension Pass autofill (MP-07). Prérequis: make up, make seed-admin
+	@echo "🎭 Tests E2E Playwright — extension Pass (MP-07)..."
+	@cd frontend/apps/cloudity-web && PLAYWRIGHT_RUN_PASS_EXTENSION=1 BASE_URL=http://localhost:$(PORT_DASHBOARD) PLAYWRIGHT_API_URL=http://localhost:$(PORT_GATEWAY) FORCE_COLOR=0 NO_COLOR=1 npx playwright test e2e/pass-extension.spec.ts
+	@echo "✅ E2E extension Pass OK"
 
 test-e2e-playwright-twofa: ## E2E Playwright — 2FA (e2e/twofa.spec.ts). Prérequis: make up (seed dans beforeAll du spec)
 	@echo "🎭 Tests E2E Playwright — 2FA..."

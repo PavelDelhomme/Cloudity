@@ -38,7 +38,7 @@
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
 | **3** | **MTA alias auto-hébergé** | Local validé : alias créé, règle auto, `/mail/internal/alias-resolve` OK, on/off OK, Maddy smoke SMTP RCPT OK sur port `2526` (2525 occupé par MailHog). C7 réel reste la livraison IMAP/redirection fournisseur hors local contrôlé | 🟡 |
 | **4** | **Admin Domaines + checklist C1–C7** | C1–C6 ☑ ; C6 couvert par Vitest + Playwright Mail (`from_email` alias actif, alias désactivé exclu) ; C7 🟡 (Maddy local accepte RCPT, livraison IMAP réelle/redirection fournisseur non rejouée) | 🟡 |
-| **5** | **J8 Pass / extension** | **MP-06** : domain matcher + déchiffrement service worker + candidats par domaine + autofill au clic livrés ; prochain : UX popup/liste avancée + E2E extension Chromium | 🟡 |
+| **5** | **J8 Pass / extension** | **MP-06 + MP-07** : autofill réel livré + E2E Chromium extension (`make test-e2e-playwright-pass-extension`) ; prochain : UX popup/liste avancée, icônes, hardening Firefox/Safari | ☑ |
 | **5b** | **2FA locale compte démo** | Web + mobile ADB automatisés (`test-mobile-2fa`). Optionnel : scan QR manuel authenticator (hors CI) | ☑ |
 | **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · MX `@` → `mail.<domaine-alias>` · SPF/DKIM/DMARC Cloudity | ☐ |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
@@ -50,7 +50,7 @@ Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les ré
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
-| **Q0** | **Tests Pass extension** | `make test-pass-extension` — domain matcher + autofill MP-06 + build MV3 | ☑ |
+| **Q0** | **Tests Pass extension** | `make test-pass-extension` — domain matcher + build MV3 ; `make test-e2e-playwright-pass-extension` — Chromium extension + autofill MP-07 | ☑ |
 | **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
 | **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
 | **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
@@ -113,7 +113,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP | — | Polish mobile + gros fichiers |
 | **Photos** | ✅ | ✅ | — | Albums, sync galerie |
-| **Pass** | ✅ | ✅ lecture | 🟡 MV3 autofill initial | J8 import · **MP-07** |
+| **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill initial + E2E MP-07 | UX popup avancée · Firefox/Safari · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 
 **Phase 2 alias (MTA)** : domaine alias réel **dans l’UI / `.env` / Portainer** (pas en Git) · réception `*@<domaine-alias>` via **Maddy/Postfix** → lookup Cloudity → livraison boîte IMAP · **Admin Domaines** suit hostname/MX/SPF/DKIM/DMARC attendus · puis **C1–C7**.  

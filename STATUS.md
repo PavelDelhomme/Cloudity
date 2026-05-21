@@ -19,7 +19,7 @@
 2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
 3. **ENSUITE — Mail** : MTA alias auto-hébergé sur **`feat/mail-alias-checklist`** — API `/mail/internal/alias-resolve`, stack `deploy/mail-mta`, admin `/4dm1n/domaines` pour hostname/MX/SPF/DKIM/DMARC attendus ; C1–C6 validés dont composer `From` alias, C7 reste livraison IMAP/redirection fournisseur hors local contrôlé ; régénérer les secrets locaux avant toute mise en ligne.
 4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **J8 Pass / MP-06 extension** : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis ; suite locale hors déploiement = extension Pass autofill initial livré/testé le 2026-05-21 (domain matcher, déchiffrement, candidats, remplissage au clic).
+5. **J8 Pass / extension** : **MP-06 + MP-07** livrés localement — domain matcher, déchiffrement service worker, candidats par domaine, remplissage au clic, et E2E Chromium avec extension chargée via `make test-e2e-playwright-pass-extension`. Suite : UX popup avancée, icônes, Firefox/Safari.
 6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
@@ -28,7 +28,7 @@
 
 | Phase | Objectif | Pistes dans le dépôt |
 |-------|-----------|----------------------|
-| **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, **MP-06** extension autofill). |
+| **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, extension MP-06/MP-07 livrée). |
 | **B — Qualité transverse** | Barrière merge stable | **`make test`**, **`make test-dashboard`**, E2E **TESTS.md** ; mobile **`make test-mobile-suite`** (Mail / Drive / Photos) + variables **`CLOUDITY_E2E_*`** pour device. |
 | **C — Mail « complet »** | Messagerie + **alias créés dans Cloudity** (sans panneau OVH) | **[MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** (cible) ; MVP § 2 **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** ; **MAIL-ALIAS-01…06** + **AS-1** (MTA/DKIM) dans **BACKLOG** ; admin **`/mail/domains*`** pour couche domaine. |
 | **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; gros fichiers front : **REFACTOR-FE-03** / **FE-02** quand les flux sont stabilisés. |

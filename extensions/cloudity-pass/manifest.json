@@ -44,7 +44,7 @@
     "open_in_tab": true
   },
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    "extension_pages": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src http://*/* https://*/*; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
   },
   "web_accessible_resources": []
 }

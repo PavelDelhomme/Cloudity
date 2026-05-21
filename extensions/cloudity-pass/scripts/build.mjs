@@ -15,7 +15,7 @@
  */
 
 import { build, context } from 'esbuild';
-import { copyFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,10 +33,17 @@ const entryPoints = {
 
 async function copyStatic() {
   await mkdir(dist, { recursive: true });
-  await copyFile(join(root, 'manifest.json'), join(dist, 'manifest.json'));
+  const iconsDir = join(root, 'icons');
+  const hasIcons = await fileExistsSafe(iconsDir);
+  const manifest = JSON.parse(await readFile(join(root, 'manifest.json'), 'utf8'));
+  if (!hasIcons) {
+    delete manifest.icons;
+    if (manifest.action) delete manifest.action.default_icon;
+  }
+  await writeFile(join(dist, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
   await copyDir(join(root, 'src/popup/static'), join(dist, 'popup'));
   await copyDir(join(root, 'src/options/static'), join(dist, 'options'));
-  await copyDir(join(root, 'icons'), join(dist, 'icons')).catch(() => {
+  await copyDir(iconsDir, join(dist, 'icons')).catch(() => {
     console.warn(
       '[build] dossier icons/ manquant — squelette livré sans icônes.\n' +
       '         Ajoute des PNG 16/32/48/128 dans extensions/cloudity-pass/icons/.',

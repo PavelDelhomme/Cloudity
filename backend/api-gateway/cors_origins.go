@@ -22,6 +22,9 @@ func isDevBrowserOrigin(origin string) bool {
 		return false
 	}
 	scheme := strings.ToLower(u.Scheme)
+	if scheme == "chrome-extension" {
+		return true
+	}
 	if scheme != "http" && scheme != "https" {
 		return false
 	}

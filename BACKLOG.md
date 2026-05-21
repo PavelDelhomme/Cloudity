@@ -43,8 +43,8 @@
 
 - [ ] **`mobile/pass` Flutter ÉDITION** : création / modif / suppression d’items, générateur, sync optimiste, gestion conflits.
 - [x] **Extension navigateur Pass — squelette MV3 livré (J7 ter, 2026-05-13)** : `extensions/cloudity-pass/` (manifest MV3, popup, background service worker avec auto-lock 5 min via `chrome.alarms`, content script avec badge passif, page options pour gateway URL, build esbuild). `npm run build` ✅, `tsc --noEmit` ✅. **L'autofill réel et l'intégration `@cloudity/pass-crypto` arrivent en MP-06** (cf. `docs/produit/MULTI-PLATEFORME.md`).
-- [x] **MP-06 — Extension navigateur Pass autofill réel (initial)** : `@cloudity/pass-crypto` branché dans le service worker (MK en RAM, auto-lock conservé), appels `/pass/vaults` + `/pass/vaults/:id/items`, déchiffrement `EnvelopeV1`, filtrage strict par domaine (`hostMatchesEntry`), menu content-script sur badge Cloudity et remplissage username/password uniquement après clic utilisateur. `make test-pass-extension` ✅. Reste L3 : UX popup/liste avancée, E2E extension Chromium (MP-07), icônes et hardening multi-browser.
-- [ ] **MP-07 — Tests Playwright extension** : Chromium headless avec `--load-extension=extensions/cloudity-pass/dist`, scénarios déverrouillage maître + autofill 1 entrée.
+- [x] **MP-06 — Extension navigateur Pass autofill réel (initial)** : `@cloudity/pass-crypto` branché dans le service worker (MK en RAM, auto-lock conservé), appels `/pass/vaults` + `/pass/vaults/:id/items`, déchiffrement `EnvelopeV1`, filtrage strict par domaine (`hostMatchesEntry`), menu content-script sur badge Cloudity et remplissage username/password uniquement après clic utilisateur. `make test-pass-extension` ✅. Reste L3 : UX popup/liste avancée, icônes et hardening multi-browser.
+- [x] **MP-07 — Tests Playwright extension** : Chromium headless avec `--load-extension=extensions/cloudity-pass/dist` via `make test-e2e-playwright-pass-extension` ; crée une entrée Pass via l’UI web, charge l’extension MV3, déverrouille le service worker, liste un candidat par domaine et vérifie l’autofill username/password après clic utilisateur. CORS `chrome-extension://` couvert côté gateway.
 - [ ] **MP-08 — Portage Firefox / Safari** de l'extension Pass (le manifest MV3 est cross-browser ; Safari = wrapper Xcode).
 
 ### L3 — fond de roadmap (après stabilisation Pass)
@@ -121,7 +121,7 @@
 - [ ] **MP-04 — Validation `flutter run -d linux`** sur Drive et Photos : leurs cibles existent (`mobile/{drive,photos}/linux/`) mais aucun build Linux n'a jamais été validé. Documenter dans `docs/operations/TESTS.md` § desktop la procédure (toolchain GTK + `clang` + `cmake`).
 - [ ] **MP-05 — Service backend `calendar-service` + page web Calendar** : pré-requis avant de scaffolder l'app mobile (cf. ROADMAP APP-05). Estim. 5-7 j. Embarque migrations DB events/recurrences + endpoints REST + interop iCal/CalDAV.
 - [x] **MP-06 — Autofill réel extension Pass** : voir L2 (initial livré).
-- [ ] **MP-07 — Tests Playwright extension** : voir L2.
+- [x] **MP-07 — Tests Playwright extension** : voir L2.
 - [ ] **MP-08 — Portage Firefox / Safari extension Pass** : voir L2.
 
 ### Release & distribution (prod partielle, OTA mobile, NPM)

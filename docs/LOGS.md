@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-21 — Pass extension MP-07 : E2E Chromium autofill
+
+- Branche : `feat/mail-alias-checklist`.
+- Extension : ajout `e2e/pass-extension.spec.ts`, cible `make test-e2e-playwright-pass-extension`, chargement Chromium avec `--load-extension=extensions/cloudity-pass/dist`.
+- Scénario : création d’une entrée Pass via l’UI web, déverrouillage extension, candidat domaine dans le menu content-script, puis autofill username/password après clic utilisateur.
+- Correctifs réels découverts par le test : manifest généré sans références d’icônes absentes (sinon Chromium refuse l’extension) ; CSP extension avec `connect-src`; gateway CORS autorise les origines `chrome-extension://…` en dev (`CORS_ALLOW_LAN=true`).
+- Checks : `go test ./...` dans `backend/api-gateway` ✅ ; `make deploy-gateway` ✅ local ; `make test-e2e-playwright-pass-extension` ✅.
+
+---
+
 ### 2026-05-21 — Tests réalistes 2FA/Mail alias : cas négatifs et C6
 
 - Branche : `feat/mail-alias-checklist`.

@@ -1,9 +1,10 @@
 # Cloudity Pass — Extension navigateur (Manifest V3)
 
 > **Statut** : 🟡 squelette livré le **2026-05-13** (J7 ter sprint Pass).
-> Build OK, popup et options fonctionnels en local. **MP-06 initial livré le
+> Build OK, popup et options fonctionnels en local. **MP-06 + MP-07 livrés le
 > 2026-05-21** : domain matcher, déchiffrement des items, candidats par
-> domaine et autofill username/password au clic utilisateur.
+> domaine, autofill username/password au clic utilisateur et E2E Chromium avec
+> extension chargée.
 
 ## Sommaire
 
@@ -78,6 +79,14 @@ npm test            # domain matcher MP-06
 npm run build       # produit dist/
 ```
 
+Test E2E Chromium de l’autofill extension :
+
+```bash
+make test-e2e-playwright-pass-extension
+```
+
+Ce test charge `dist/` dans Chromium, crée une entrée Pass via l’UI web, déverrouille le service worker, ouvre une page de login synthétique et vérifie le remplissage après clic sur le badge Cloudity.
+
 Puis dans Chrome / Edge :
 
 1. `chrome://extensions/`
@@ -121,7 +130,7 @@ Voir aussi :
 |---|---|---|
 | **MP-01** (livré 2026-05-13) | Squelette MV3 (manifest, popup, background, content, options, build esbuild) | ✅ |
 | **MP-06** (2026-05-21) | `@cloudity/pass-crypto` dans le service worker ; appels gateway `/pass/vaults` + items ; déchiffrement local ; filtrage domaine ; menu candidats ; autofill au clic | ✅ initial |
-| **MP-07** | Tests Playwright extension (Chromium headless avec `--load-extension`) | ⏳ |
+| **MP-07** (2026-05-21) | Tests Playwright extension (Chromium headless avec `--load-extension`) : création entrée web, déverrouillage extension, candidat domaine, autofill après clic | ✅ |
 | **MP-08** | Portage **Firefox** (manifest MV3 cross-browser) puis **Safari** (wrapper Xcode) | ⏳ |
 
 Suivi : [`BACKLOG.md`](../../BACKLOG.md) (entrée
