@@ -1,7 +1,16 @@
 import { test, expect } from '@playwright/test'
 import { login } from './fixtures/auth'
 
-async function mockMailRulesStack(page: import('@playwright/test').Page) {
+type MockAlias = {
+  id: number
+  account_id: number
+  alias_email: string
+  label?: string
+  enabled?: boolean
+  created_at: string
+}
+
+async function mockMailRulesStack(page: import('@playwright/test').Page, aliases: MockAlias[] = []) {
   await page.route('**/mail/me/accounts', async (route, request) => {
     if (request.method() !== 'GET') return route.continue()
     return route.fulfill({
@@ -16,7 +25,7 @@ async function mockMailRulesStack(page: import('@playwright/test').Page) {
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ messages: [], total: 0 }) })
   )
   await page.route('**/mail/me/accounts/1/aliases', async (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(aliases) })
   )
   await page.route('**/mail/me/accounts/1/imap-folders', async (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
@@ -130,13 +139,13 @@ test.describe('Mail (E2E)', () => {
 
     await page.goto('/app/mail')
     await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
-    await page.getByRole('button', { name: /Filtres et règles/i }).first().click()
+    await page.getByRole('button', { name: /Paramètres Mail/i }).first().click()
     await expect(page.getByRole('heading', { name: /Paramètres Mail/i })).toBeVisible()
     await expect(page.getByRole('heading', { name: /Règles automatiques \(tri\)/i })).toBeVisible()
 
     await page.getByPlaceholder('Nom règle (optionnel)').fill('Règle combinée E2E')
-    await page.getByPlaceholder('From contient (ex: newsletter@)').fill('newsletter@')
-    await page.getByPlaceholder('Sujet contient (ex: facture)').fill('facture')
+    await page.getByRole('textbox', { name: 'Expéditeur contient' }).fill('newsletter@')
+    await page.getByRole('textbox', { name: 'Sujet contient' }).fill('facture')
     await page.getByLabel('Uniquement avec PJ').check()
     await page.getByRole('button', { name: /Ajouter la règle/i }).click()
 
@@ -162,10 +171,56 @@ test.describe('Mail (E2E)', () => {
 
     await page.goto('/app/mail')
     await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
-    await page.getByRole('button', { name: /Filtres et règles/i }).first().click()
+    await page.getByRole('button', { name: /Paramètres Mail/i }).first().click()
     await expect(page.getByRole('button', { name: /Appliquer aux mails existants/i })).toBeVisible()
     await page.getByRole('button', { name: /Appliquer aux mails existants/i }).click()
 
     await expect.poll(() => applyCalls).toBe(1)
+  })
+
+  test('alias Mail : composer depuis un alias actif envoie le bon from_email', async ({ page }) => {
+    await mockMailRulesStack(page, [
+      {
+        id: 10,
+        account_id: 1,
+        alias_email: 'alias@exemple.fr',
+        label: 'Travail',
+        enabled: true,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 11,
+        account_id: 1,
+        alias_email: 'desactive@exemple.fr',
+        label: 'Désactivé',
+        enabled: false,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    let captured: any = null
+    await page.route('**/mail/me/send', async (route, request) => {
+      if (request.method() !== 'POST') return route.continue()
+      captured = request.postDataJSON()
+      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ message: 'OK' }) })
+    })
+
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: /Nouveau/i }).click()
+
+    const fromSelect = page.getByLabel('De', { exact: true })
+    await expect(fromSelect).toContainText('alias@exemple.fr')
+    await expect(page.getByRole('option', { name: 'desactive@exemple.fr' })).toHaveCount(0)
+    await fromSelect.selectOption('alias@exemple.fr')
+    await page.getByLabel('Destinataire').fill('dest@example.net')
+    await page.getByLabel('Objet').fill('Alias C6 E2E')
+    await page.getByRole('button', { name: 'Envoyer' }).click()
+
+    await expect.poll(() => captured).toMatchObject({
+      account_id: 1,
+      to: 'dest@example.net',
+      subject: 'Alias C6 E2E',
+      from_email: 'alias@exemple.fr',
+    })
   })
 })

@@ -40,6 +40,15 @@ test.describe('WebAuthn (passkeys)', () => {
       await page.getByRole('link', { name: /^passkeys$/i }).click()
       await expect(page).toHaveURL(/\/4dm1n\/passkeys/, { timeout: 15_000 })
 
+      page.on('dialog', (dialog) => dialog.accept())
+      for (let i = 0; i < 5; i += 1) {
+        const deleteButtons = page.getByRole('button', { name: /supprimer passkey/i })
+        const count = await deleteButtons.count()
+        if (count === 0) break
+        await deleteButtons.first().click()
+        await expect(deleteButtons).toHaveCount(count - 1, { timeout: 10_000 })
+      }
+
       await page.getByRole('button', { name: /ajouter une passkey/i }).click()
       await expect(page.getByText(/passkey enregistrée/i)).toBeVisible({ timeout: 25_000 })
 

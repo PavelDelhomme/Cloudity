@@ -649,6 +649,53 @@ describe('MailPage', () => {
     })
   })
 
+  it('envoie depuis un alias actif (from_email) quand l’utilisateur le choisit au composer', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com', imap_auth_ready: true },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([
+      {
+        id: 10,
+        account_id: 1,
+        alias_email: 'alias@exemple.fr',
+        label: 'Travail',
+        enabled: true,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 11,
+        account_id: 1,
+        alias_email: 'off@exemple.fr',
+        label: 'Off',
+        enabled: false,
+        created_at: new Date().toISOString(),
+      },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.sendMailMessage).mockResolvedValue({ ok: true } as any)
+
+    render(wrap(<MailPage />))
+
+    fireEvent.click(await screen.findByRole('button', { name: /Nouveau/i }))
+    const fromSelect = await screen.findByLabelText('De')
+    expect(screen.getByRole('option', { name: 'alias@exemple.fr' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'off@exemple.fr' })).toBeNull()
+
+    fireEvent.change(fromSelect, { target: { value: 'alias@exemple.fr' } })
+    fireEvent.change(screen.getByLabelText('Destinataire'), { target: { value: 'dest@example.net' } })
+    fireEvent.change(screen.getByLabelText('Objet'), { target: { value: 'Alias C6' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
+
+    await waitFor(() => {
+      expect(api.sendMailMessage).toHaveBeenCalledWith('token', expect.objectContaining({
+        account_id: 1,
+        to: 'dest@example.net',
+        subject: 'Alias C6',
+        from_email: 'alias@exemple.fr',
+      }))
+    })
+  })
+
   it('affiche l’icône indésirable probable quand spam_score ≥ 52 en boîte de réception', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },

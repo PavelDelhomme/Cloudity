@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { login } from './fixtures/auth'
 
 /**
  * Smoke E2E /4dm1n — connexion admin → ouverture du back-office.
@@ -25,11 +26,7 @@ test.describe('Back-office admin (/4dm1n)', () => {
   })
 
   test('connexion admin via ?next=/4dm1n ouvre le back-office', async ({ page }) => {
-    await page.goto('/login?next=%2F4dm1n')
-    await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
-    await page.getByLabel(/mot de passe|password/i).fill(ADMIN_PASSWORD)
-    await page.getByRole('button', { name: /se connecter/i }).click()
-
+    await login(page, { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, returnTo: '/4dm1n' })
     await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 20_000 })
     await expect(page.getByRole('link', { name: /tenants/i })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole('link', { name: /utilisateurs/i })).toBeVisible()
@@ -37,10 +34,7 @@ test.describe('Back-office admin (/4dm1n)', () => {
   })
 
   test('navigation latérale : Tenants puis Utilisateurs', async ({ page }) => {
-    await page.goto('/login?next=%2F4dm1n')
-    await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
-    await page.getByLabel(/mot de passe|password/i).fill(ADMIN_PASSWORD)
-    await page.getByRole('button', { name: /se connecter/i }).click()
+    await login(page, { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, returnTo: '/4dm1n' })
     await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 20_000 })
 
     await page.getByRole('link', { name: /^tenants$/i }).click()

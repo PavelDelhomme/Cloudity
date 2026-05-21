@@ -4,6 +4,10 @@ import { Page } from '@playwright/test'
 export const DEMO_EMAIL = process.env.PLAYWRIGHT_E2E_EMAIL || 'admin@cloudity.local'
 export const DEMO_PASSWORD = process.env.PLAYWRIGHT_E2E_PASSWORD || 'Admin123!'
 
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Connecte l'utilisateur via le formulaire de login.
  * Attend la redirection vers /app (hub) ou la page demandée.
@@ -19,8 +23,25 @@ export async function login(
   await page.getByLabel(/mot de passe|password/i).fill(password)
   // Le formulaire expose désormais 2 boutons (mot de passe + passkey).
   // On cible exactement le bouton submit "Se connecter" (sans "avec une passkey").
-  await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
-  await page.waitForURL(/\/(app|app\/)/, { timeout: 15000 })
+  const expectedURL = options.returnTo
+    ? new RegExp(`${escapeRegExp(options.returnTo)}(\\/|$)`)
+    : /\/(app|app\/)/
+  const submit = page.getByRole('button', { name: 'Se connecter', exact: true })
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt === 0) {
+      await submit.click()
+    } else if (attempt === 1) {
+      await page.getByLabel(/mot de passe|password/i).press('Enter')
+    } else {
+      await submit.click({ force: true })
+    }
+    const reached = await page
+      .waitForURL(expectedURL, { timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false)
+    if (reached) return
+  }
+  await page.waitForURL(expectedURL, { timeout: 1_000 })
 }
 
 /**

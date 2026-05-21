@@ -19,8 +19,13 @@ Test local : **[docs/operations/MAIL-MTA-LOCAL-TEST.md](../../docs/operations/MA
 Réception SMTP sur le **domaine alias** (`*@<domaine-alias>`) :
 
 1. MTA reçoit `RCPT TO` alias@…
-2. `scripts/alias-deliver.sh` appelle `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
+2. En prod/preprod, le routage devra appeler `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
 3. Relais vers `deliver_to` (boîte IMAP) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
+
+Le mode `docker-compose.local.yml` actuel est volontairement un **smoke SMTP**
+du domaine alias (`deliver_to dummy`) : il valide que Maddy accepte le RCPT sur
+le domaine configuré. Le lookup Cloudity est testé séparément par l’API interne
+et par `scripts/alias-deliver.sh`.
 
 ## Prérequis Cloudity
 
@@ -74,7 +79,7 @@ Ouvrir pare-feu : **25**, **587**. Aligner MX `@` → `mail.<domaine-alias>.` (v
 |-----------|------|
 | `POST /mail/internal/alias-resolve` | Livré |
 | Filtre `delivered_to` + `raw_headers` | Livré |
-| Maddy `maddy.conf` | Squelette — ajuster selon version Maddy |
+| Maddy `maddy.conf` | Smoke local Maddy 0.9.4 (`deliver_to dummy`) |
 | DKIM/SPF/DMARC Cloudity | Phase **MAIL-ALIAS-06** |
 
 ## Liens

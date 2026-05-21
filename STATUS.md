@@ -4,7 +4,7 @@
 
 ## À faire maintenant
 
-**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** — **§ ENSUITE** #3–#4 = MTA alias (local 2525 → VPS MX), admin Domaines MTA/DNS, checklist C1–C7 ; UI-DS livré sur **`dev`**.
+**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** — **barrière qualité avant reprise mail alias/déploiement** : `make test`, `make test-pass`, lint, E2E API/Playwright et mobile hôte verts ; sécurité/perf en 🟡 à trier avant prod. **§ ENSUITE** #3–#4 = MTA alias local/admin prêts, mais VPS/DNS/prod volontairement remis à demain ; suite immédiate sans déploiement = **§ ENSUITE #5 J8 Pass / MP-06 extension** + **#5b validation 2FA locale compte démo**. UI-DS livré sur **`dev`**.
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
@@ -15,10 +15,12 @@
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **ENSUITE — Mail** : MTA alias auto-hébergé sur **`feat/mail-alias-checklist`** — API `/mail/internal/alias-resolve`, stack `deploy/mail-mta`, admin `/4dm1n/domaines` pour hostname/MX/SPF/DKIM/DMARC attendus ; valider **[TODOS.md](./TODOS.md)** § ENSUITE #3–#4.
-2. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-3. **J8 Pass** : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis (en parallèle ou juste après UI-1).
-4. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
+1. **Barrière qualité** : avant mail alias prod, garder verts `make test`, `make test-pass`, `make test-e2e`, `make test-e2e-playwright`, mobile hôte ; trier les warnings sécurité (`govulncheck` Go 1.25.10 / `x/net`, `gosec`, `gitleaks`) et perf (`LOADAVG_1M`) listés dans **TODOS.md**.
+2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
+3. **ENSUITE — Mail** : MTA alias auto-hébergé sur **`feat/mail-alias-checklist`** — API `/mail/internal/alias-resolve`, stack `deploy/mail-mta`, admin `/4dm1n/domaines` pour hostname/MX/SPF/DKIM/DMARC attendus ; C1–C6 validés dont composer `From` alias, C7 reste livraison IMAP/redirection fournisseur hors local contrôlé ; régénérer les secrets locaux avant toute mise en ligne.
+4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
+5. **J8 Pass / MP-06 extension** : **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis ; suite locale hors déploiement = extension Pass autofill initial livré/testé le 2026-05-21 (domain matcher, déchiffrement, candidats, remplissage au clic).
+6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
 
@@ -45,7 +47,7 @@
 
 - **Portainer / NPM / stacks prod** : uniquement quand tu **décides de publier** Cloudity ; prérequis **[HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** (Q15). Checklist : **[TODOS.md](./TODOS.md)** § *Prod VPS* + **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
 
-**État « partiel / minimal »** : beaucoup de lignes BACKLOG/ROADMAP sont des **squelettes** ou **L2** (extension MV3 sans autofill, `mobile/calendar` placeholder, Linux Mail non scaffoldé…) — ce n’est pas du « en cours cassé », c’est du **périmètre volontairement borné** jusqu’après le sprint Pass. La vérité terrain = cases **cochées** + **`make test`** vert.
+**État « partiel / minimal »** : beaucoup de lignes BACKLOG/ROADMAP sont des **squelettes** ou **L2** (extension MV3 avec autofill initial, `mobile/calendar` placeholder, Linux Mail non scaffoldé…) — ce n’est pas du « en cours cassé », c’est du **périmètre volontairement borné** jusqu’après le sprint Pass. La vérité terrain = cases **cochées** + **`make test`** vert.
 
 **Sprint Pass L1** : J1→J7 ter **livrés** (voir archive). **Gel multi-repo** jusqu’après la deadline Pass.
 

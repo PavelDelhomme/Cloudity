@@ -36,12 +36,44 @@
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
-| **3** | **MTA alias auto-hébergé** | Stack **`deploy/mail-mta`** (local `2525` puis VPS `25`) · API **`/mail/internal/alias-resolve`** · filtre `delivered_to` sur en-têtes | 🟡 |
-| **4** | **Admin Domaines + checklist C1–C7** | `.env` local : `MAIL_ALIAS_DOMAIN` + `MTA_INTERNAL_TOKEN` suffisent en dev ; `/4dm1n/domaines` configure rôle **Domaine alias MTA**, hostname/MX/SPF/DKIM/DMARC attendus | 🟡 |
-| **5** | **J8 Pass** | **[SPRINT-PASS-2026-05.md](./docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis | ☐ |
+| **3** | **MTA alias auto-hébergé** | Local validé : alias créé, règle auto, `/mail/internal/alias-resolve` OK, on/off OK, Maddy smoke SMTP RCPT OK sur port `2526` (2525 occupé par MailHog). C7 réel reste la livraison IMAP/redirection fournisseur hors local contrôlé | 🟡 |
+| **4** | **Admin Domaines + checklist C1–C7** | C1–C6 ☑ ; C6 couvert par Vitest + Playwright Mail (`from_email` alias actif, alias désactivé exclu) ; C7 🟡 (Maddy local accepte RCPT, livraison IMAP réelle/redirection fournisseur non rejouée) | 🟡 |
+| **5** | **J8 Pass / extension** | **MP-06** : domain matcher + déchiffrement service worker + candidats par domaine + autofill au clic livrés ; prochain : UX popup/liste avancée + E2E extension Chromium | 🟡 |
+| **5b** | **2FA locale compte démo** | Web + mobile ADB automatisés (`test-mobile-2fa`). Optionnel : scan QR manuel authenticator (hors CI) | ☑ |
 | **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · MX `@` → `mail.<domaine-alias>` · SPF/DKIM/DMARC Cloudity | ☐ |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
 | **8** | **Linux / mobile / stores** | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** | ☐ |
+
+### Barrière qualité avant reprise Mail alias / déploiement
+
+Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les résultats :
+
+| # | Action | Comment | Coché |
+|---|--------|---------|-------|
+| **Q0** | **Tests Pass extension** | `make test-pass-extension` — domain matcher + autofill MP-06 + build MV3 | ☑ |
+| **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
+| **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
+| **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
+| **Q4** | **Sécurité** | `make test-security` ✅ avec warnings : Go toolchain `1.25.9 → 1.25.10`, `golang.org/x/net`, `gosec` (G115 mail UID, timeouts HTTP, chemins fichiers), `gitleaks` faux positifs/test à baseliner, `npm audit` modéré | 🟡 |
+| **Q5** | **E2E web** | `make test-e2e` ✅ ; `make test-e2e-playwright` ✅ — 72 passed, 4 skipped après corrections login/passkeys/mail/pass | ☑ |
+| **Q6** | **Mobile** | `make test-mobile-suite` ✅ Photos/Drive/Mail hôte ; integration_test device ignorés car aucun appareil ADB détecté | ☑ |
+| **Q7** | **Perf** | `make perf-snapshot LABEL=before-mail-alias-prod` ✅ ; `make perf-budgets` 🟡 KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie tests, conteneurs OK (`CPU 4.7%`, `MEM 1145 MiB`) | 🟡 |
+| **Q8** | **2FA locale fonctionnelle** | Web E2E 5/5 (activation, TOTP, mauvais code, recovery, recovery réutilisé refusé) + mobile ADB 2FA Drive/Mail/Photos avec mauvais code puis TOTP frais (`make test-mobile-2fa`, Samsung `R5CT7263YJL`, gateway LAN) | ☑ |
+
+### 2FA locale — à valider rapidement
+
+Objectif : même en local, le compte de dev doit pouvoir activer la 2FA et prouver que tout Cloudity reste utilisable.
+
+| Étape | Validation attendue | État |
+|-------|---------------------|------|
+| **2FA-1** | `/app/settings` (ou `/app/settings/canonical`) : activation TOTP, QR, secret manuel, codes de récup (`TwoFactorSection`) | ☑ |
+| **2FA-2** | Activer TOTP sur compte dédié `e2e-2fa@cloudity.local` (`make seed-e2e-2fa`), copier les codes, se déconnecter | ☑ (E2E) |
+| **2FA-3** | Login web : email + mot de passe → étape code TOTP → accès `/app` | ☑ (E2E) |
+| **2FA-4** | Login web avec un code de récupération → accès OK + rappel de régénérer | ☑ (E2E) |
+| **2FA-5** | E2E Playwright dédié `e2e/twofa.spec.ts` + `make test-e2e-playwright-twofa` : activation, TOTP, mauvais code, recovery, recovery réutilisé refusé (ne touche pas `admin@cloudity.local`) | ☑ |
+| **2FA-6** | Mobile Drive/Mail/Photos : écran 2FA + mauvais code refusé + TOTP frais calculé au moment du test → écran principal (`integration_test/twofa_flow_test.dart`, `make test-mobile-2fa`) | ☑ |
+
+Note : ne pas laisser le compte démo dans un état qui casse les E2E standards. Prévoir une remise à zéro contrôlée ou un utilisateur de test dédié `e2e-2fa@cloudity.local`.
 
 ### Git — ne jamais versionner
 
@@ -81,7 +113,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP | — | Polish mobile + gros fichiers |
 | **Photos** | ✅ | ✅ | — | Albums, sync galerie |
-| **Pass** | ✅ | ✅ lecture | 🟡 MV3 squelette | J8 import · **MP-06** |
+| **Pass** | ✅ | ✅ lecture | 🟡 MV3 autofill initial | J8 import · **MP-07** |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 
 **Phase 2 alias (MTA)** : domaine alias réel **dans l’UI / `.env` / Portainer** (pas en Git) · réception `*@<domaine-alias>` via **Maddy/Postfix** → lookup Cloudity → livraison boîte IMAP · **Admin Domaines** suit hostname/MX/SPF/DKIM/DMARC attendus · puis **C1–C7**.  
@@ -124,6 +156,8 @@ Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS
 | Sync IMAP après rotation de clé | Ré-enregistrer le MDP boîte dans l’UI Mail |
 
 Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** · **[SECRETS.md](./docs/securite/SECRETS.md)**
+
+**À faire avant VPS/prod mail** : régénérer les secrets partagés visibles/utilisés en local pendant la mise au point (`MTA_INTERNAL_TOKEN`, clés alias/mail si elles ont été exposées dans des échanges ou terminaux), puis reporter uniquement les nouvelles valeurs dans `.env` / Portainer — jamais dans Git.
 
 ---
 

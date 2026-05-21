@@ -50,7 +50,7 @@ test.describe('Pass (E2E)', () => {
     await expect(page.getByText('Coffre créé')).toBeVisible()
 
     // Sélectionne le vault qu'on vient de créer.
-    await page.getByRole('button', { name: new RegExp(vaultName) }).click()
+    await page.getByRole('button').filter({ hasText: vaultName }).click()
 
     // Crée une nouvelle entrée.
     await page.getByRole('button', { name: /Nouvelle entrée/ }).click()
@@ -89,7 +89,7 @@ test.describe('Pass (E2E)', () => {
     const vaultName = `e2e-import-${Date.now()}`
     await page.getByPlaceholder(/Nouveau coffre/).fill(vaultName)
     await page.getByRole('button', { name: 'Créer un coffre' }).click()
-    await page.getByRole('button', { name: new RegExp(vaultName) }).click()
+    await page.getByRole('button').filter({ hasText: vaultName }).click()
 
     // Ouvre le dialogue d'import.
     await page.getByRole('button', { name: /Importer Proton/ }).click()

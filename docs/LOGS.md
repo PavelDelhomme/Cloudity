@@ -15,6 +15,84 @@
 
 ---
 
+### 2026-05-21 — Tests réalistes 2FA/Mail alias : cas négatifs et C6
+
+- Branche : `feat/mail-alias-checklist`.
+- 2FA web : `e2e/twofa.spec.ts` étendu à 5 scénarios — activation TOTP, login TOTP, mauvais code refusé puis TOTP valide, recovery code, recovery code consommé refusé.
+- 2FA mobile : Drive/Mail/Photos testent désormais mauvais code puis code TOTP valide ; le TOTP est calculé côté Flutter au moment de la saisie avec le secret de test pour éviter l’expiration pendant le build Android.
+- Mail alias C6 : Vitest `MailPage` + Playwright Mail vérifient le composer `De` avec alias actif, exclusion alias désactivé, et POST `/mail/me/send` avec `from_email`.
+- Checks : `command npx vitest run src/pages/app/mail/MailPage.test.tsx --reporter=verbose` ✅ (30/30), `make test-e2e-playwright-mail` ✅ (9/9), `make test-e2e-playwright-twofa` ✅ (5/5), `make test-pass-extension` ✅, `make test-mobile-2fa` ✅ sur Samsung `R5CT7263YJL` (Drive/Mail/Photos).
+
+---
+
+### 2026-05-21 — Mail alias local : création, résolution MTA et smoke SMTP
+
+- Branche : `feat/mail-alias-checklist`.
+- Alias local : création d’un alias `e2e-alias-*` sur une boîte admin existante, vérification liste + règle auto (`recipient_pattern`) + résolution `/mail/internal/alias-resolve`.
+- On/off alias : `PATCH enabled=false` → résolution MTA 404 ; `enabled=true` → résolution 200.
+- Maddy local : `deploy/mail-mta/maddy/maddy.conf` corrigé pour Maddy 0.9.4 (syntaxe `{env:...}`, `hostname`, suppression des directives invalides `table.local_relay`, `target.pipe`, `queue`; smoke local `deliver_to dummy`). Port `2525` occupé par MailHog, test réalisé sur `2526`.
+- SMTP smoke : `swaks --quit-after RCPT` vers l’alias → RCPT accepté (`250`). Livraison IMAP réelle/redirection fournisseur non rejouée en local contrôlé.
+
+---
+
+### 2026-05-21 — Admin 2FA réinitialisée + MP-06 autofill initial
+
+- Branche : `feat/mail-alias-checklist`.
+- Sécurité locale : 2FA désactivée sur `admin@cloudity.local` via `scripts/dev/reset-user-2fa.sh`; les codes de récupération/secret TOTP collés dans le chat sont considérés exposés et invalidés (non consignés dans le dépôt). Vérif login : `requires_2fa=false`, access token présent.
+- Extension Pass : MP-06 initial — service worker récupère `/pass/vaults` + `/pass/vaults/:id/items`, déchiffre `EnvelopeV1` avec `@cloudity/pass-crypto`, filtre par domaine (`hostMatchesEntry`) et renvoie les candidats au content script.
+- UX autofill : badge Cloudity cliquable → menu d’entrées candidates → remplissage username/password uniquement après clic utilisateur.
+- Checks : `make test-pass-extension` ✅ (test domain matcher + build MV3). Avertissement attendu : icônes extension manquantes.
+
+---
+
+### 2026-05-21 — Batterie locale « vie réelle » + 2FA mobile Samsung (ADB)
+
+- Appareil : Samsung `R5CT7263YJL` (SM-G990B2), gateway auto `http://192.168.1.134:6080`.
+- **2FA mobile** : `scripts/dev/prepare-e2e-2fa-mobile.sh`, `scripts/mobile/test-mobile-2fa.sh`, `integration_test/twofa_flow_test.dart` (Drive/Mail/Photos) — login mot de passe → écran 2FA → TOTP → écran principal. **3/3 OK**.
+- **Mail** : `SessionStore.gatewayCandidates()` prend `CLOUDITY_E2E_GATEWAY` ; tests Mail sans champ gateway (auto-détection).
+- **Suite standard mobile** : `make test-mobile-suite` — Photos + Drive + Mail (admin, pas 2FA) **OK** sur le même téléphone.
+- **Web** : `make test` (306 Vitest), `make test-e2e`, `make test-e2e-playwright` (**75 passed**, 4 skipped, inclut `twofa.spec.ts`), `make test-pass-extension`, `make test-e2e-playwright-twofa`.
+- Cible agrégée : `make test-local-realistic` (seed + pass + 2FA web + mobile suite + mobile 2FA).
+
+---
+
+### 2026-05-21 — 2FA web : activation Settings + E2E dédié
+
+- Branche : `feat/mail-alias-checklist`.
+- UI : `TwoFactorSection.tsx` (QR otpauth, secret, vérification TOTP, affichage codes récup) branché sur `AppSettingsPage`.
+- Dev/E2E : `make seed-e2e-2fa`, `make reset-e2e-2fa`, `scripts/dev/reset-user-2fa.sh`, `e2e/twofa.spec.ts` + `e2e/fixtures/twofa.ts`, cible `make test-e2e-playwright-twofa` — **3 passed**.
+- Compte isolé : `e2e-2fa@cloudity.local` / `E2faTest123!` (ne pas activer 2FA sur `admin@cloudity.local`).
+
+---
+
+### 2026-05-21 — Suivi : validation 2FA locale à prioriser
+
+- Branche : `feat/mail-alias-checklist`.
+- Décision : la 2FA doit être testable en local, pas seulement prévue pour la prod, car elle conditionne la connexion web et mobile de toute la suite.
+- Suivi : `TODOS.md` — ajout **ENSUITE #5b** et **Q8 / 2FA locale** : activation TOTP, codes de récupération, login web étape 2, code de récupération, E2E dédié, validation mobile avec ADB.
+- Attention E2E : ne pas laisser `admin@cloudity.local` dans un état 2FA permanent qui casse les tests standards ; préférer un utilisateur dédié ou un reset contrôlé.
+
+---
+
+### 2026-05-21 — Barrière qualité pré-déploiement : tests complets et E2E stabilisés
+
+- Branche : `feat/mail-alias-checklist`.
+- Makefile/tests : ajout `test-pass-extension` et inclusion du build/test MV3 dans le socle Pass ; correction `scripts/ci/test-security.sh` pour monter `backend/internalsec` dans les scans Go Docker.
+- E2E : stabilisation login Playwright avec bouton submit exact + `returnTo`, correction sélecteurs Pass/Mail, nettoyage quota passkeys avant test WebAuthn.
+- Checks verts : `make test-pass-extension`, `make test-pass`, `make test`, `make test-dashboard-lint`, `make test-e2e`, `make test-e2e-playwright`, `make test-mobile-suite` (hôte Photos/Drive/Mail ; integration_test ignorés faute ADB).
+- Checks orange : `make test-security` termine avec warnings (npm modéré, Go stdlib/toolchain, `gosec`, `gitleaks`) ; `make perf-budgets` KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie, conteneurs OK.
+
+---
+
+### 2026-05-21 — Pass extension MP-06 : domain matcher local
+
+- Branche : `feat/mail-alias-checklist` (suite hors déploiement demandée ; VPS/DNS mail laissé de côté).
+- Code : `extensions/cloudity-pass/src/shared/domainMatcher.ts` ajoute normalisation hôte, domaine enregistrable et matching strict ; le content script affiche le domaine candidat détecté dans le badge Cloudity.
+- Tests : `extensions/cloudity-pass` — `command npm test` ✅ ; `command npm run build` ✅ (avertissement connu : icônes manquantes du squelette).
+- Suivi : `TODOS.md` note la régénération des secrets locaux avant VPS/prod ; `STATUS.md` recentre la suite sur J8 Pass / MP-06 sans déploiement.
+
+---
+
 ### 2026-05-21 — MTA alias local : fallback `.env` dev
 
 - Branche : `feat/mail-alias-checklist`.

@@ -88,6 +88,7 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   logf="$ROOT/reports/govulncheck-${name}.txt"
   if docker run --rm \
     -v "$ROOT/$dir:/src" \
+    -v "$ROOT/backend/internalsec:/internalsec:ro" \
     -w /src \
     golang:1.25.9-alpine \
     sh -c "apk add --no-cache git >/dev/null 2>&1 && go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1 && /go/bin/govulncheck ./..." >"$logf" 2>&1; then
@@ -114,6 +115,7 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   logf="$ROOT/reports/gosec-${name}.txt"
   if docker run --rm \
     -v "$ROOT/$dir:/src" \
+    -v "$ROOT/backend/internalsec:/internalsec:ro" \
     -w /src \
     golang:1.25.9-alpine \
     sh -c "apk add --no-cache git >/dev/null 2>&1 && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && /go/bin/gosec -quiet -fmt=text ./..." >"$logf" 2>&1; then

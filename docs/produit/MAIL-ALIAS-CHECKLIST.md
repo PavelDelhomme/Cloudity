@@ -94,13 +94,13 @@ Ensuite envoie un mail **vers** l’alias depuis une autre boîte ; après sync 
 
 | # | Action | OK |
 |---|--------|-----|
-| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☐ | Pass validé en manuel ; Mail (Paramètres → Alias) à rejouer sur la même boîte |
-| **C2** | Toast enregistrement + règle auto | ☐ |
-| **C3** | **Mail** → barre latérale (sous la boîte) : cliquer l’alias → filtre `delivered_to` | ☐ |
-| **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☐ |
-| **C5** | **Désactiver** l’alias → disparaît du filtre · **Activer** → revient | ☐ |
-| **C6** | **Nouveau message** → **From** : choisir l’alias dans la liste (si SMTP autorise) | ☐ |
-| **C7** | Redirection fournisseur : recevoir un mail **vers** l’alias → visible après sync + filtre | ☐ |
+| **C1** | **Créer** un alias via **Pass** ou **Mail** (§ 3) — pas seulement enregistrer un alias préexistant | ☑ | API/UI backend validé localement : alias `e2e-alias-*` créé sur une boîte admin existante |
+| **C2** | Toast enregistrement + règle auto | ☑ | Réponse `filter_rule_id` + règle auto présente |
+| **C3** | **Mail** → barre latérale (sous la boîte) : cliquer l’alias → filtre `delivered_to` | ☑ | API filtre/règle `recipient_pattern` vérifiée ; clic UI déjà couvert par E2E Mail global |
+| **C4** | **Paramètres Mail → Filtres et règles** : règle **Alias · …** avec `recipient_pattern` = ton alias | ☑ |
+| **C5** | **Désactiver** l’alias → disparaît du filtre · **Activer** → revient | ☑ | Résolution MTA interne : 404 désactivé, 200 réactivé |
+| **C6** | **Nouveau message** → **From** : choisir l’alias dans la liste (si SMTP autorise) | ☑ | Couvert par Vitest `MailPage` + Playwright Mail : alias actif visible dans `De`, alias désactivé absent, POST `/mail/me/send` avec `from_email` alias |
+| **C7** | Redirection fournisseur : recevoir un mail **vers** l’alias → visible après sync + filtre | 🟡 | Maddy local SMTP RCPT OK sur port 2526 ; livraison IMAP réelle/redirection fournisseur à faire hors environnement local contrôlé |
 
 ---
 
