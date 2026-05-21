@@ -85,6 +85,7 @@ Objectif UX : lorsqu’une app Cloudity est déjà connectée sur le téléphone
 - **Gateway auto en dev** : intégration USB via `adb reverse` → `http://127.0.0.1:6080`; émulateur → `http://10.0.2.2:6080`.
 - **Compte démo debug** : builds debug préremplissent `admin@cloudity.local` / `Admin123!` pour ne pas bloquer les validations locales. À ne jamais activer en release.
 - **Limite technique importante** : `flutter_secure_storage` et `SharedPreferences` sont isolés par package Android. Les clés `cloudity_suite_*` harmonisent les noms, mais **ne suffisent pas** à partager un refresh token entre `fr.cloudity.cloudity_drive`, `fr.cloudity.cloudity_photos`, etc.
+- **Sécurité session actuelle** : refresh token conservé dans `flutter_secure_storage` chiffré par app ; access token rafraîchi au démarrage. UX correcte sans ressaisie tant que le refresh reste valide, mais pas encore de SSO inter-apps.
 
 Chantier requis pour le vrai partage sécurisé :
 
@@ -92,6 +93,8 @@ Chantier requis pour le vrai partage sécurisé :
 2. Stocker refresh token / compte dans un stockage OS partagé, protégé par Keystore/biométrie si nécessaire.
 3. Les apps consommatrices demandent un token via broker : sélection compte existant, ajout compte, création compte.
 4. iOS équivalent : Keychain Access Group + Associated Domains.
+
+Premier incrément recommandé : créer un broker Android pilote (Photos → Drive) avec `listAccounts`, `saveSession`, `getSession`, `clearAccount`, puis migrer `SessionStore` dans `mobile/cloudity_shared`. Pass reste explicitement isolé tant qu’une revue crypto n’a pas validé le partage.
 
 ---
 

@@ -13,7 +13,7 @@
 | Fonctionnalité | Comportement cible | État Cloudity |
 |----------------|-------------------|---------------|
 | **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (lecture `drive_nodes`, même DB que Drive) |
-| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload + **glisser-déposer** racine Drive ; **mobile** : `mobile/photos` (session) ; **WorkManager** à faire (§ 5) |
+| **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload + **glisser-déposer** racine Drive ; **mobile Android** : WorkManager + `photo_manager`, Wi‑Fi/charge, choix des dossiers/albums locaux, upload vers Drive `Photos` |
 | **Albums / regroupements** | Albums utilisateur, « lieux », dates | **Web** : onglet **Albums** = dossiers racine Drive ; ouverture d’un album → **`/app/photos?tab=albums&album=<id>`** (grille images + lightbox, retour liste). **À faire** : création d’album UI, tables métadonnées / albums natifs + API |
 | **Partage** | Liens, albums partagés | **À faire** (alignement APP-02 partage Drive) |
 | **Corbeille** | Suppression réversible | **Web** : onglet **Corbeille** = photos dans la corbeille Drive, **restauration** ; lien vers vue Drive complète. **À faire** : purge définitive depuis Photos |
@@ -61,8 +61,8 @@
 **Phases** :
 
 1. **Fait (base)** : liste des noms / ids depuis l’API.
-2. Vignettes, login intégré (refresh), upload, WorkManager.
-3. **Sync** : curseur serveur (`offset` / futur curseur opaque) + cache local SQLite (optionnel).
+2. **Fait (MVP)** : login intégré (refresh), upload Drive, WorkManager Android, réglages Wi‑Fi/charge et choix des dossiers locaux à sauvegarder.
+3. **Sync suivante** : scan complet paginé, curseur serveur (`offset` / futur curseur opaque), déduplication contenu (hash/taille/date), cache local SQLite (optionnel).
 
 ---
 
@@ -71,8 +71,8 @@
 Google Photos s’appuie sur des **jobs système** (iOS BGProcessing, Android WorkManager) avec contraintes réseau et charge. Pour Cloudity, la cible documentaire est :
 
 - **Ne pas** scanner la galerie en boucle : **WorkManager** avec intervalle minimal raisonnable (ex. 15 min+), **uniquement si** « sauvegarde Cloudity » activée.
-- **Contraintes** : `requiresCharging` optionnel côté utilisateur ; `requiresBatteryNotLow` ; upload **uniquement en Wi‑Fi** si l’utilisateur coche l’option.
-- **Batching** : files d’attente d’upload par petits lots ; pas de re-téléchargement des miniatures déjà en cache (ETag / `updated_at` côté futur index).
+- **Contraintes** : `requiresCharging` optionnel côté utilisateur ; `requiresBatteryNotLow` ; upload **uniquement en Wi‑Fi** si l’utilisateur coche l’option ; choix des dossiers/albums Android à inclure (liste vide = toutes les photos).
+- **Batching** : upload par petits lots ; marquage local des assets déjà envoyés ; pas de re-téléchargement des miniatures déjà en cache (ETag / `updated_at` côté futur index).
 - **Pas de wake lock** prolongé ; reprise après `FAILED` réseau.
 
 Ces règles seront détaillées dans **MOBILES.md** au fur et à mesure de l’implémentation.

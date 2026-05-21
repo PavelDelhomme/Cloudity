@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:photo_manager/photo_manager.dart';
 
 import 'gallery_backup.dart';
 import 'gallery_sync_prefs.dart';
@@ -11,7 +12,8 @@ class GallerySyncSettingsSheet extends StatefulWidget {
   const GallerySyncSettingsSheet({super.key});
 
   @override
-  State<GallerySyncSettingsSheet> createState() => _GallerySyncSettingsSheetState();
+  State<GallerySyncSettingsSheet> createState() =>
+      _GallerySyncSettingsSheetState();
 }
 
 class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
@@ -20,6 +22,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   bool _wifiOnly = true;
   bool _requireCharging = false;
   bool _running = false;
+  Set<String> _selectedAlbumIds = {};
   String? _lastMessage;
 
   @override
@@ -32,11 +35,13 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     final enabled = await GallerySyncPrefs.isBackupEnabled();
     final wifi = await GallerySyncPrefs.wifiOnly();
     final charging = await GallerySyncPrefs.requireCharging();
+    final selectedAlbumIds = await GallerySyncPrefs.selectedAlbumIds();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
       _wifiOnly = wifi;
       _requireCharging = charging;
+      _selectedAlbumIds = selectedAlbumIds;
       _loading = false;
     });
   }
@@ -48,7 +53,10 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (value) {
       await enqueueGalleryBackupNow();
       if (mounted) {
-        setState(() => _lastMessage = 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).');
+        setState(
+          () => _lastMessage =
+              'Première sauvegarde planifiée (Wi‑Fi / charge selon options).',
+        );
       }
     }
   }
@@ -68,6 +76,90 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
         _lastMessage =
             '${result.uploaded} photo(s) envoyée(s) · ${result.skippedCount} déjà à jour ou ignorée(s).';
       }
+    });
+  }
+
+  String get _albumSummary {
+    if (_selectedAlbumIds.isEmpty) return 'Toutes les photos';
+    if (_selectedAlbumIds.length == 1) return '1 dossier sélectionné';
+    return '${_selectedAlbumIds.length} dossiers sélectionnés';
+  }
+
+  Future<void> _selectAlbums() async {
+    final perm = await PhotoManager.requestPermissionExtend();
+    if (!perm.isAuth) {
+      if (mounted) {
+        setState(() => _lastMessage = 'Permission galerie refusée.');
+      }
+      return;
+    }
+    final albums = await PhotoManager.getAssetPathList(
+      type: RequestType.image,
+      hasAll: false,
+    );
+    if (!mounted) return;
+
+    var draft = Set<String>.of(_selectedAlbumIds);
+    final selected = await showDialog<Set<String>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Dossiers à sauvegarder'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: albums.isEmpty
+                ? const Text('Aucun dossier photo trouvé sur ce téléphone.')
+                : ListView(
+                    shrinkWrap: true,
+                    children: [
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Toutes les photos'),
+                        subtitle: const Text(
+                          'Recommandé pour une sauvegarde complète',
+                        ),
+                        value: draft.isEmpty,
+                        onChanged: (_) =>
+                            setDialogState(() => draft = <String>{}),
+                      ),
+                      const Divider(),
+                      for (final album in albums)
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(album.name),
+                          value: draft.contains(album.id),
+                          onChanged: (value) => setDialogState(() {
+                            if (value == true) {
+                              draft.add(album.id);
+                            } else {
+                              draft.remove(album.id);
+                            }
+                          }),
+                        ),
+                    ],
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, draft),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+
+    await GallerySyncPrefs.setSelectedAlbumIds(selected);
+    setState(() {
+      _selectedAlbumIds = selected;
+      _lastMessage = selected.isEmpty
+          ? 'Sauvegarde configurée sur toutes les photos.'
+          : 'Sauvegarde configurée sur ${selected.length} dossier(s).';
     });
   }
 
@@ -103,7 +195,9 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
         children: [
           Text(
             'Sauvegarde galerie',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           Text(
@@ -142,6 +236,15 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
                     await applyGallerySyncSchedule();
                   }
                 : null,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.folder_copy_outlined),
+            title: const Text('Dossiers à sauvegarder'),
+            subtitle: Text(_albumSummary),
+            trailing: const Icon(Icons.chevron_right),
+            enabled: _enabled,
+            onTap: _enabled ? _selectAlbums : null,
           ),
           const SizedBox(height: 8),
           FilledButton.icon(

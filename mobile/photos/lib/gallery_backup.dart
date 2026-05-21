@@ -25,7 +25,10 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
 
   final perm = await PhotoManager.requestPermissionExtend();
   if (!perm.isAuth) {
-    return GalleryBackupResult(skipped: true, reason: 'permission_galerie_refusée');
+    return GalleryBackupResult(
+      skipped: true,
+      reason: 'permission_galerie_refusée',
+    );
   }
 
   final drive = DriveApi(session.api.baseUrl);
@@ -44,40 +47,60 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
     return GalleryBackupResult(uploaded: 0, skippedCount: 0);
   }
 
-  final recent = paths.first;
-  final assets = await recent.getAssetListPaged(page: 0, size: 80);
+  final selectedIds = await GallerySyncPrefs.selectedAlbumIds();
+  final selectedPaths = selectedIds.isEmpty
+      ? <AssetPathEntity>[_allPhotosPath(paths)]
+      : paths.where((path) => selectedIds.contains(path.id)).toList();
+  if (selectedPaths.isEmpty) {
+    return GalleryBackupResult(
+      skipped: true,
+      reason: 'albums_sélectionnés_introuvables',
+    );
+  }
+
   var uploaded = 0;
   var skipped = 0;
 
-  for (final asset in assets) {
+  for (final path in selectedPaths) {
+    final assets = await path.getAssetListPaged(page: 0, size: 80);
+    for (final asset in assets) {
+      if (uploaded >= _batchSize) break;
+      if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
+        skipped++;
+        continue;
+      }
+      final file = await asset.file;
+      if (file == null) {
+        skipped++;
+        continue;
+      }
+      final name = asset.title?.trim().isNotEmpty == true
+          ? asset.title!.trim()
+          : 'photo_${asset.id}.jpg';
+      try {
+        await drive.uploadFile(
+          accessToken: session.access,
+          parentId: folderId,
+          file: file,
+          fileName: name.contains('.') ? name : '$name.jpg',
+        );
+        await GallerySyncPrefs.markAssetUploaded(asset.id);
+        uploaded++;
+      } on DriveApiException {
+        skipped++;
+      }
+    }
     if (uploaded >= _batchSize) break;
-    if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
-      skipped++;
-      continue;
-    }
-    final file = await asset.file;
-    if (file == null) {
-      skipped++;
-      continue;
-    }
-    final name = asset.title?.trim().isNotEmpty == true
-        ? asset.title!.trim()
-        : 'photo_${asset.id}.jpg';
-    try {
-      await drive.uploadFile(
-        accessToken: session.access,
-        parentId: folderId,
-        file: file,
-        fileName: name.contains('.') ? name : '$name.jpg',
-      );
-      await GallerySyncPrefs.markAssetUploaded(asset.id);
-      uploaded++;
-    } on DriveApiException {
-      skipped++;
-    }
   }
 
   return GalleryBackupResult(uploaded: uploaded, skippedCount: skipped);
+}
+
+AssetPathEntity _allPhotosPath(List<AssetPathEntity> paths) {
+  for (final path in paths) {
+    if (path.isAll) return path;
+  }
+  return paths.first;
 }
 
 class GalleryBackupResult {
