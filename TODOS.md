@@ -2,7 +2,7 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : **§ MAINTENANT** (UI-DS) est livré et fusionné dans **`dev`** — enchaîner sur **§ ENSUITE** (mail, alias, déploiement), branche **`feat/mail-alias-checklist`**.
+> **Point d’entrée unique** : **§ MAINTENANT** (UI-DS) et **`feat/mail-alias-checklist`** sont fusionnés dans **`dev`** — enchaîner sur **§ ENSUITE** #6–#7 (DNS/Maddy prod, C7 réel), branche **`feat/mail-alias-prod`**.
 
 ---
 
@@ -26,7 +26,8 @@
 
 **Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  
 **Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
-**Prochaine branche** : `feat/mail-alias-checklist` (depuis `dev`) — § ENSUITE #3–#4.
+**Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
+**Branche active** : `feat/mail-alias-prod` (depuis `dev`) — § ENSUITE #6–#7, C7 réel, secrets VPS avant prod.
 
 ---
 
