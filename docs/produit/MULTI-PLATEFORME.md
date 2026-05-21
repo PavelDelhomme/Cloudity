@@ -180,7 +180,7 @@ Un scaffold passe en « ✅ livré » quand :
 | **MP-05** | Service backend `calendar-service` + page web Calendar | post-20 mai (juin) | nouveau guide `docs/produit/CALENDAR.md` |
 | **MP-06** | Autofill réel extension Pass (content script + domain matcher) | post-20 mai (J+1..J+5) | `extensions/cloudity-pass/src/content/` |
 | **MP-07** | Édition complète `mobile/pass` | post-20 mai (J+1..J+5) | BACKLOG L2 sprint Pass |
-| **MP-08** | Portage Firefox / Safari extension Pass | mois suivant | `extensions/cloudity-pass-firefox/` |
+| **MP-08** | Portage Firefox / Safari extension Pass | Firefox build initial ☑ 2026-05-21 | `extensions/cloudity-pass-firefox/` · Safari ☐ |
 
 ---
 

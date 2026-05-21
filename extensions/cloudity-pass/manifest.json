@@ -3,7 +3,7 @@
   "name": "Cloudity Pass",
   "short_name": "Cloudity",
   "description": "Coffre Cloudity Pass — autofill et accès rapide à vos identifiants chiffrés (Argon2id + XChaCha20-Poly1305).",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minimum_chrome_version": "120",
   "icons": {
     "16": "icons/icon-16.png",
@@ -35,6 +35,7 @@
   "permissions": [
     "storage",
     "activeTab",
+    "tabs",
     "scripting",
     "alarms"
   ],

@@ -175,6 +175,13 @@ interface ListCandidatesMessage {
   pageUrl: string;
 }
 
+interface FillActiveTabMessage {
+  kind: 'fill-active-tab';
+  pageUrl: string;
+  itemId: number;
+  vaultId: number;
+}
+
 type PassMessage =
   | LoginMessage
   | LogoutMessage
@@ -183,7 +190,8 @@ type PassMessage =
   | LockMessage
   | StatusMessage
   | SaveGatewayMessage
-  | ListCandidatesMessage;
+  | ListCandidatesMessage
+  | FillActiveTabMessage;
 
 interface StatusResponse {
   ok?: undefined;
@@ -354,6 +362,32 @@ async function handleMessage(msg: PassMessage): Promise<PassResponse> {
       return { ok: true };
     case 'list-candidates':
       return { ok: true, candidates: await listAutofillCandidates(msg.pageUrl) };
+    case 'fill-active-tab': {
+      if (!state.unlocked) {
+        return { ok: false, error: 'Coffre verrouillé.' };
+      }
+      const candidates = await listAutofillCandidates(msg.pageUrl);
+      const match = candidates.find((c) => c.id === msg.itemId && c.vaultId === msg.vaultId);
+      if (!match) {
+        return { ok: false, error: 'Entrée introuvable pour ce domaine.' };
+      }
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0]?.id;
+      if (tabId == null) {
+        return { ok: false, error: 'Aucun onglet actif.' };
+      }
+      try {
+        await chrome.tabs.sendMessage(tabId, { kind: 'fill-login', candidate: match });
+      } catch {
+        return {
+          ok: false,
+          error:
+            'Impossible de joindre la page — recharge l’onglet ou ouvre un site avec formulaire de connexion.',
+        };
+      }
+      bumpActivity();
+      return { ok: true };
+    }
     case 'login': {
       const gateway = await getGatewayUrl();
       if (!gateway) {

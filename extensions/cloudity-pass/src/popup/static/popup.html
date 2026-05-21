@@ -59,10 +59,14 @@
           Coffre <strong>déverrouillé</strong>. Auto-lock dans
           <span id="lock-countdown">--:--</span>.
         </p>
-        <p class="hint todo">
-          (Liste des entrées et autofill : <code>MP-06</code> — voir
-          <code>docs/produit/MULTI-PLATEFORME.md</code>.)
-        </p>
+        <p id="tab-context" class="hint minor" hidden></p>
+        <label id="candidates-filter-label" class="filter" hidden>
+          Filtrer
+          <input id="candidates-filter" type="search" placeholder="titre, identifiant…" autocomplete="off" />
+        </label>
+        <p id="candidates-status" class="hint minor" hidden></p>
+        <ul id="candidates-list" class="candidates" hidden></ul>
+        <p id="candidates-error" class="error" hidden></p>
         <button id="lock-btn" type="button">Verrouiller le coffre</button>
         <button id="logout-btn-2" type="button" class="secondary">Se déconnecter (compte)</button>
       </section>

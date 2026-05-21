@@ -1,6 +1,9 @@
 /**
  * Popup MV3 — connexion Cloudity puis initialisation / déverrouillage du coffre.
  * Aligné sur le hub web (`PassPage` / `UnlockScreen`) et `mobile/pass`.
+ *
+ * Coffre déverrouillé : entrées login pour le domaine de l’onglet actif
+ * (copie identifiant / mot de passe, remplissage sur clic utilisateur).
  */
 
 export {};
@@ -16,6 +19,21 @@ interface StatusResp {
   sessionApiAvailable: boolean;
 }
 
+interface AutofillCandidate {
+  id: number;
+  vaultId: number;
+  vaultName: string;
+  title: string;
+  url: string;
+  username: string;
+  password: string;
+}
+
+interface CandidatesResp {
+  ok: true;
+  candidates: AutofillCandidate[];
+}
+
 interface OkResp {
   ok: true;
 }
@@ -25,7 +43,7 @@ interface ErrResp {
   error: string;
 }
 
-type AnyResp = StatusResp | OkResp | ErrResp;
+type AnyResp = StatusResp | OkResp | ErrResp | CandidatesResp;
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -42,6 +60,8 @@ function send(msg: unknown): Promise<AnyResp> {
 }
 
 let countdownTimer: number | undefined;
+let allCandidates: AutofillCandidate[] = [];
+let activeTabUrl: string | null = null;
 
 function formatRemaining(ms: number): string {
   if (ms <= 0) return '00:00';
@@ -75,6 +95,179 @@ function setVisible(el: HTMLElement, visible: boolean): void {
   el.hidden = !visible;
 }
 
+function escapeText(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function getActiveTabUrl(): Promise<string | null> {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const url = tabs[0]?.url;
+      if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+        resolve(null);
+        return;
+      }
+      resolve(url);
+    });
+  });
+}
+
+function hostLabel(pageUrl: string): string {
+  try {
+    return new URL(pageUrl).hostname;
+  } catch {
+    return pageUrl;
+  }
+}
+
+function matchesFilter(c: AutofillCandidate, q: string): boolean {
+  if (!q) return true;
+  const hay = `${c.title} ${c.username} ${c.vaultName} ${c.url}`.toLowerCase();
+  return hay.includes(q);
+}
+
+function renderCandidates(): void {
+  const list = $('#candidates-list');
+  const status = $('#candidates-status');
+  const filterLabel = $('#candidates-filter-label');
+  const filterInput = $('#candidates-filter') as HTMLInputElement;
+  const errBox = $('#candidates-error');
+
+  errBox.hidden = true;
+  list.innerHTML = '';
+
+  if (!activeTabUrl) {
+    setVisible(filterLabel, false);
+    setVisible(list, false);
+    status.hidden = false;
+    status.textContent =
+      'Ouvre un site web (http/https) dans l’onglet actif pour voir les entrées correspondantes.';
+    return;
+  }
+
+  setVisible(filterLabel, true);
+  const q = filterInput.value.trim().toLowerCase();
+  const filtered = allCandidates.filter((c) => matchesFilter(c, q));
+
+  if (allCandidates.length === 0) {
+    setVisible(list, false);
+    status.hidden = false;
+    status.textContent = `Aucune entrée login pour ${hostLabel(activeTabUrl)}.`;
+    return;
+  }
+
+  status.hidden = false;
+  status.textContent =
+    filtered.length === allCandidates.length
+      ? `${allCandidates.length} entrée(s) pour ${hostLabel(activeTabUrl)}.`
+      : `${filtered.length} / ${allCandidates.length} entrée(s).`;
+
+  if (filtered.length === 0) {
+    setVisible(list, false);
+    return;
+  }
+
+  setVisible(list, true);
+  for (const c of filtered) {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span class="candidate-title">${escapeText(c.title)}</span>
+      <span class="candidate-meta">${escapeText(c.username || '—')} · ${escapeText(c.vaultName)}</span>
+      <div class="candidate-actions"></div>
+    `;
+    const actions = li.querySelector('.candidate-actions') as HTMLDivElement;
+
+    const fillBtn = document.createElement('button');
+    fillBtn.type = 'button';
+    fillBtn.className = 'primary-fill';
+    fillBtn.textContent = 'Remplir l’onglet';
+    fillBtn.addEventListener('click', () => void fillActiveTab(c));
+
+    const copyUserBtn = document.createElement('button');
+    copyUserBtn.type = 'button';
+    copyUserBtn.className = 'secondary';
+    copyUserBtn.textContent = 'Copier identifiant';
+    copyUserBtn.disabled = !c.username;
+    copyUserBtn.addEventListener('click', () => void copyText(c.username, copyUserBtn));
+
+    const copyPassBtn = document.createElement('button');
+    copyPassBtn.type = 'button';
+    copyPassBtn.className = 'secondary';
+    copyPassBtn.textContent = 'Copier mot de passe';
+    copyPassBtn.addEventListener('click', () => void copyText(c.password, copyPassBtn));
+
+    actions.append(fillBtn, copyUserBtn, copyPassBtn);
+    list.appendChild(li);
+  }
+}
+
+async function copyText(value: string, btn: HTMLButtonElement): Promise<void> {
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    const prev = btn.textContent;
+    btn.textContent = 'Copié ✓';
+    window.setTimeout(() => {
+      btn.textContent = prev;
+    }, 1200);
+    await send({ kind: 'ping' });
+  } catch {
+    const errBox = $('#candidates-error');
+    errBox.textContent = 'Copie refusée par le navigateur.';
+    errBox.hidden = false;
+  }
+}
+
+async function fillActiveTab(c: AutofillCandidate): Promise<void> {
+  const errBox = $('#candidates-error');
+  errBox.hidden = true;
+  if (!activeTabUrl) {
+    errBox.textContent = 'Aucun onglet web actif.';
+    errBox.hidden = false;
+    return;
+  }
+  const resp = (await send({
+    kind: 'fill-active-tab',
+    pageUrl: activeTabUrl,
+    itemId: c.id,
+    vaultId: c.vaultId,
+  })) as OkResp | ErrResp;
+  if (!('ok' in resp) || !resp.ok) {
+    errBox.textContent = (resp as ErrResp).error || 'Remplissage impossible.';
+    errBox.hidden = false;
+  }
+}
+
+async function loadCandidatesForActiveTab(): Promise<void> {
+  const tabCtx = $('#tab-context');
+  const filterInput = $('#candidates-filter') as HTMLInputElement;
+
+  activeTabUrl = await getActiveTabUrl();
+  allCandidates = [];
+  filterInput.value = '';
+
+  if (!activeTabUrl) {
+    tabCtx.hidden = true;
+    renderCandidates();
+    return;
+  }
+
+  tabCtx.hidden = false;
+  tabCtx.textContent = `Onglet : ${hostLabel(activeTabUrl)}`;
+
+  const resp = (await send({ kind: 'list-candidates', pageUrl: activeTabUrl })) as
+    | CandidatesResp
+    | ErrResp;
+  if ('ok' in resp && resp.ok && 'candidates' in resp) {
+    allCandidates = resp.candidates;
+  } else {
+    const errBox = $('#candidates-error');
+    errBox.textContent = (resp as ErrResp).error || 'Impossible de charger les entrées.';
+    errBox.hidden = false;
+  }
+  renderCandidates();
+}
+
 async function refresh(): Promise<void> {
   const resp = (await send({ kind: 'status' })) as StatusResp;
   const badge = $('#status-badge');
@@ -101,11 +294,14 @@ async function refresh(): Promise<void> {
     if (resp.lastActivityAt > 0) {
       startCountdown(resp.lastActivityAt + resp.autoLockMs);
     }
+    await loadCandidatesForActiveTab();
     return;
   }
 
   stopCountdown();
   setVisible(unlocked, false);
+  allCandidates = [];
+  activeTabUrl = null;
 
   if (!hasGateway) {
     setVisible(sessionMissing, false);
@@ -158,6 +354,10 @@ async function refresh(): Promise<void> {
 
 document.addEventListener('DOMContentLoaded', () => {
   void refresh();
+
+  ($('#candidates-filter') as HTMLInputElement).addEventListener('input', () => {
+    renderCandidates();
+  });
 
   $('#login-btn').addEventListener('click', async () => {
     const errBox = $('#login-error') as HTMLElement;

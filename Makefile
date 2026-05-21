@@ -252,6 +252,14 @@ build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity
 	@cd extensions/cloudity-pass && npm install --no-audit --fund=false && npm run build
 	@echo "✅ Extension : extensions/cloudity-pass/dist (Chrome → Mode développeur → Charger l’extension non empaquetée)"
 
+build-pass-extension-firefox: ## Build extension Pass pour Firefox (MP-08, dist dérivé de cloudity-pass)
+	@echo "🦊 Build extension Cloudity Pass (Firefox)…"
+	@if ! command -v npm >/dev/null 2>&1; then \
+		echo "❌ npm requis pour build-pass-extension-firefox."; exit 1; \
+	fi
+	@cd extensions/cloudity-pass-firefox && npm run build
+	@echo "✅ Extension Firefox : extensions/cloudity-pass-firefox/dist (about:debugging → module temporaire)"
+
 test-pass-extension: ## Tests extension Pass MV3 (domain matcher MP-06)
 	@echo "🧪 Extension Cloudity Pass (MV3)…"
 	@if ! command -v npm >/dev/null 2>&1; then \

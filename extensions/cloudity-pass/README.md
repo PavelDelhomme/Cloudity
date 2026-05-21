@@ -131,6 +131,7 @@ Voir aussi :
 | **MP-01** (livré 2026-05-13) | Squelette MV3 (manifest, popup, background, content, options, build esbuild) | ✅ |
 | **MP-06** (2026-05-21) | `@cloudity/pass-crypto` dans le service worker ; appels gateway `/pass/vaults` + items ; déchiffrement local ; filtrage domaine ; menu candidats ; autofill au clic | ✅ initial |
 | **MP-07** (2026-05-21) | Tests Playwright extension (Chromium headless avec `--load-extension`) : création entrée web, déverrouillage extension, candidat domaine, autofill après clic | ✅ |
+| **Pass L3 popup** (2026-05-21) | Liste entrées pour l’onglet actif, filtre, copie, « Remplir l’onglet » (`fill-active-tab`) | ✅ partiel |
 | **MP-08** | Portage **Firefox** (manifest MV3 cross-browser) puis **Safari** (wrapper Xcode) | ⏳ |
 
 Suivi : [`BACKLOG.md`](../../BACKLOG.md) (entrée

@@ -15,6 +15,25 @@
 
 ---
 
+### 2026-05-21 — Hors mail prod : Firefox Pass, icônes, Photos albums
+
+- Branche : `feat/mobile-desktop-validation`.
+- Pass : icônes PNG (`scripts/sync-icons.mjs`) · `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox`.
+- Photos web : bouton « Nouvel album », exclusion dossier bibliothèque `Photos` de la grille albums, Vitest.
+- `TODOS.md` : distinction **mail prod (pause)** vs **hors mail prod (priorité)**.
+- Checks : `make test-pass-extension` ✅ · `make build-pass-extension-firefox` ✅ · `make test-dashboard-one FILE=src/pages/app/photos/PhotosPage.test.tsx` ✅.
+
+---
+
+### 2026-05-21 — Pass extension : popup L3 (liste onglet actif)
+
+- Branche : `feat/mobile-desktop-validation`.
+- Extension : popup déverrouillée — entrées login filtrées par domaine de l’onglet actif, recherche locale, copie identifiant/mot de passe, bouton « Remplir l’onglet » (`fill-active-tab` → `fill-login` content script). Permission `tabs`, version `0.2.1`.
+- Checks : `make test-pass-extension` ✅ (domain matcher + build MV3).
+- Docs : `BACKLOG.md`, `TODOS.md`, `STATUS.md`.
+
+---
+
 ### 2026-05-21 — MP-04 : Linux desktop Drive/Photos validé
 
 - Branche : `feat/mobile-desktop-validation`.

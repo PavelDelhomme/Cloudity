@@ -93,10 +93,68 @@ button.secondary:hover {
   line-height: 1.4;
 }
 
-.hint.todo {
-  font-style: italic;
-  opacity: 0.65;
+.hint.minor {
   font-size: 11px;
+  opacity: 0.75;
+  margin-bottom: 8px;
+  word-break: break-all;
+}
+
+label.filter {
+  margin-bottom: 8px;
+}
+
+ul.candidates {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  border-radius: 6px;
+}
+
+ul.candidates li {
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+  padding: 8px;
+}
+
+ul.candidates li:last-child {
+  border-bottom: none;
+}
+
+.candidate-title {
+  display: block;
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.candidate-meta {
+  display: block;
+  font-size: 11px;
+  opacity: 0.8;
+  margin-bottom: 6px;
+}
+
+.candidate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.candidate-actions button {
+  width: auto;
+  flex: 1 1 45%;
+  margin-top: 0;
+  padding: 5px 6px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.candidate-actions button.primary-fill {
+  flex: 1 1 100%;
+  font-weight: 600;
 }
 
 .error {

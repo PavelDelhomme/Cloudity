@@ -14,6 +14,7 @@ vi.mock('../../../api', () => ({
   fetchDriveTrash: vi.fn(),
   downloadDriveFile: vi.fn(),
   uploadDriveFileWithProgress: vi.fn(),
+  createDriveFolder: vi.fn(),
   deleteDriveNode: vi.fn(),
   restoreDriveNode: vi.fn(),
 }))
@@ -211,6 +212,71 @@ describe('PhotosPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mettre à la corbeille' }))
     await waitFor(() => {
       expect(api.deleteDriveNode).toHaveBeenCalledWith('token', 10)
+    })
+  })
+
+  it('onglet Albums : Nouvel album appelle createDriveFolder et exclut le dossier Photos', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDriveNodes).mockResolvedValue([
+      {
+        id: 1,
+        tenant_id: 1,
+        user_id: 1,
+        parent_id: null,
+        name: 'Photos',
+        is_folder: true,
+        size: 0,
+        mime_type: null,
+        created_at: '2026-01-01',
+        updated_at: '2026-01-01',
+      },
+      {
+        id: 2,
+        tenant_id: 1,
+        user_id: 1,
+        parent_id: null,
+        name: 'Vacances',
+        is_folder: true,
+        size: 0,
+        mime_type: null,
+        created_at: '2026-01-02',
+        updated_at: '2026-01-02',
+      },
+    ])
+    vi.mocked(api.createDriveFolder).mockResolvedValue({
+      id: 99,
+      tenant_id: 1,
+      user_id: 1,
+      parent_id: null,
+      name: 'Été',
+      is_folder: true,
+      size: 0,
+      mime_type: null,
+      created_at: '2026-01-03',
+      updated_at: '2026-01-03',
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=albums']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByRole('link', { name: /Vacances/ })).toBeTruthy()
+    expect(screen.queryByRole('link', { name: /^Photos$/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Nouvel album' }))
+    fireEvent.change(screen.getByPlaceholderText('Vacances 2026'), { target: { value: 'Été' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+    await waitFor(() => {
+      expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Été')
     })
   })
 })

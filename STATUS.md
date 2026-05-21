@@ -19,7 +19,7 @@
 2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
 3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
 4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **Suite hors Mail** : MP-04 validé ; priorités disponibles = MP-08 extension Firefox/Safari, Photos albums/sync galerie, Pass UX popup avancée, frontend/refactor ciblé.
+5. **Suite hors mail prod** : MP-04 ☑ · Pass popup L3 ☑ · icônes extension ☑ · **MP-08 Firefox** (build initial) ☑ · Photos « Nouvel album » web ☑ ; prochain = UI-3, sync galerie mobile, Safari extension.
 6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)

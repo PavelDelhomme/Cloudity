@@ -14,6 +14,7 @@ import {
   Check,
   ChevronLeft,
   RotateCcw,
+  Plus,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
@@ -537,10 +538,41 @@ export default function PhotosPage() {
     [uploadMutation, tab]
   )
 
+  const [newAlbumOpen, setNewAlbumOpen] = useState(false)
+  const [newAlbumName, setNewAlbumName] = useState('')
+
   const rootFolders = useMemo(
-    () => (albumsQuery.data ?? []).filter((n) => n.is_folder),
-    [albumsQuery.data]
+    () =>
+      (albumsQuery.data ?? []).filter(
+        (n) => n.is_folder && n.name.trim().toLowerCase() !== 'photos',
+      ),
+    [albumsQuery.data],
   )
+
+  const createAlbumMutation = useMutation({
+    mutationFn: async (name: string) => {
+      if (!accessToken) throw new Error('Non connecté')
+      const trimmed = name.trim()
+      if (!trimmed) throw new Error('Nom d’album requis')
+      return createDriveFolder(accessToken, null, trimmed)
+    },
+    onSuccess: (folder) => {
+      toast.success(`Album « ${folder.name} » créé`)
+      setNewAlbumOpen(false)
+      setNewAlbumName('')
+      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'albums'] })
+      setSearchParams(
+        (prev) => {
+          const n = new URLSearchParams(prev)
+          n.set('tab', 'albums')
+          n.set('album', String(folder.id))
+          return n
+        },
+        { replace: true },
+      )
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec de la création'),
+  })
 
   const albumImageItems = useMemo(() => {
     const raw = albumChildrenQuery.data ?? []
@@ -857,9 +889,60 @@ export default function PhotosPage() {
             </>
           ) : (
             <>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                Regroupez vos souvenirs par album. Touchez un album pour voir les photos.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Regroupez vos souvenirs par album. Touchez un album pour voir les photos.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setNewAlbumOpen(true)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:border-blue-300 hover:bg-blue-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-700"
+                >
+                  <Plus className="h-4 w-4" aria-hidden />
+                  Nouvel album
+                </button>
+              </div>
+              {newAlbumOpen && (
+                <form
+                  className="flex flex-wrap items-end gap-3 rounded-xl border border-neutral-200 bg-neutral-50/90 p-4 dark:border-slate-600 dark:bg-slate-800/50"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    createAlbumMutation.mutate(newAlbumName)
+                  }}
+                >
+                  <label className="flex min-w-[12rem] flex-1 flex-col gap-1 text-sm">
+                    Nom de l’album
+                    <input
+                      type="text"
+                      value={newAlbumName}
+                      onChange={(e) => setNewAlbumName(e.target.value)}
+                      className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-900"
+                      placeholder="Vacances 2026"
+                      autoFocus
+                      maxLength={120}
+                    />
+                  </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={createAlbumMutation.isPending || !newAlbumName.trim()}
+                      className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {createAlbumMutation.isPending ? 'Création…' : 'Créer'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewAlbumOpen(false)
+                        setNewAlbumName('')
+                      }}
+                      className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                </form>
+              )}
               {albumsQuery.isPending ? (
                 <div className="flex justify-center py-16">
                   <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />

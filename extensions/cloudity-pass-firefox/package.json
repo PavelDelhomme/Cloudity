@@ -1,0 +1,11 @@
+{
+  "name": "@cloudity/pass-extension-firefox",
+  "version": "0.2.1",
+  "private": true,
+  "description": "Build Firefox MV3 pour Cloudity Pass (dérivé de extensions/cloudity-pass).",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-firefox.mjs",
+    "clean": "rm -rf dist"
+  }
+}

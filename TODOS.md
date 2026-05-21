@@ -2,11 +2,36 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : Mail alias / Maddy / déploiement est **en pause volontaire** après fusion dans **`dev`** (`04a9c68c`). Ne reprendre cette partie que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. En attendant : travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass. Branche active : **`feat/mobile-desktop-validation`**.
+> **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
+> **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
+
+**Branche active** : **`feat/mobile-desktop-validation`** (depuis `dev`).
+
+| Zone | Exemples | État session |
+|------|----------|--------------|
+| **Hors mail prod** (priorité) | MP-04 ☑ · Pass popup L3 ☑ · MP-08 Firefox · icônes extension · Photos albums · UI-3 | **EN COURS** |
+| **Mail local** (régression) | `make test-mail-mta-local` · alias-router · notifications Mail web | OK, pas bloquant |
+| **Mail prod** (pause) | MX/SPF OVH · stack Portainer · `RELAY_SMTP_*` VPS · C7 livraison réelle | **NE PAS TOUCHER** |
 
 ---
 
-## MAINTENANT — moteur UI partagé (`@cloudity/ui`)
+## MAINTENANT — hors mail prod (`feat/mobile-desktop-validation`)
+
+| # | Action | Comment | Coché |
+|---|--------|---------|-------|
+| **H1** | **Pass popup L3** | Liste onglet actif, filtre, copie, « Remplir l’onglet » — extension v0.2.1 | ☑ |
+| **H2** | **Icônes extension Pass** | PNG 16/32/48/128 via `npm run icons` (source `mobile/photos` Icon-192) | ☑ |
+| **H3** | **MP-08 Firefox** | `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox` | ☑ |
+| **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
+| **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
+| **H6** | **UI-3 Pass/Settings** | Migration `@cloudity/ui` pages utilisateur Pass + Settings | ☐ |
+| **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
+
+**Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+---
+
+## RÉFÉRENCE — moteur UI partagé (`@cloudity/ui`) — livré sur `dev`
 
 **Priorité immédiate** — avant corps mail / checklist alias / Maddy VPS.
 
@@ -33,7 +58,12 @@
 
 ---
 
-## ENSUITE — mail, alias, déploiement (après U1–U5 minimum)
+## PAUSE — mail prod uniquement (OVH · VPS · Portainer)
+
+Reprendre **uniquement** sur demande explicite **« on retourne sur la partie mail »**.  
+Le **mail local** (docker, tests, admin checklist) peut servir de régression sans avancer la prod.
+
+## ENSUITE — mail prod, alias, déploiement (après chantiers hors mail prod)
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
@@ -41,15 +71,15 @@
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
 | **3** | **MTA alias auto-hébergé** | Local validé : alias créé, règle auto, `/mail/internal/alias-resolve` OK, on/off OK. Maddy local route maintenant vers `alias-router:2527` (plus de `dummy`) ; port hôte `2526`, alias absent = 550 propre. C7 réel reste livraison IMAP/redirection fournisseur | 🟡 |
 | **4** | **Admin Domaines + checklist C1–C7** | C1–C6 ☑ ; C6 couvert par Vitest + Playwright Mail (`from_email` alias actif, alias désactivé exclu) ; C7 🟡 (Maddy local accepte RCPT, livraison IMAP réelle/redirection fournisseur non rejouée) | 🟡 |
-| **5** | **J8 Pass / extension** | **MP-06 + MP-07** : autofill réel livré + E2E Chromium extension (`make test-e2e-playwright-pass-extension`) ; prochain : UX popup/liste avancée, icônes, hardening Firefox/Safari | ☑ |
+| **5** | **J8 Pass / extension** | **MP-06 + MP-07** : autofill + E2E Chromium ; **popup L3** : liste onglet actif, copie, remplir (v0.2.1) ; prochain : icônes PNG, **MP-08** Firefox/Safari | 🟡 |
 | **5b** | **2FA locale compte démo** | Web + mobile ADB automatisés (`test-mobile-2fa`). Optionnel : scan QR manuel authenticator (hors CI) | ☑ |
 | **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · Admin Domaines : bloc DNS copiable · `make test-mail-mta-local` / `make mail-mta-local-up` · MX/SPF/DKIM sur VPS (manuel) | 🟡 |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
 | **8** | **Linux / mobile / stores** | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** | ☐ |
 
-### Barrière qualité avant reprise Mail alias / déploiement — PAUSE
+### Barrière qualité avant reprise mail prod — PAUSE
 
-Ne pas reprendre DNS/Maddy/VPS/C7 tant que l’utilisateur ne dit pas explicitement **« on retourne sur la partie mail »**.
+Ne pas reprendre **DNS OVH / Maddy VPS / Portainer mail / relais SMTP prod / C7 réel** tant que l’utilisateur ne dit pas **« on retourne sur la partie mail »**.
 
 Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les résultats :
 
@@ -117,8 +147,8 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ | ✅ + Linux desktop build validé | — | Albums, sync galerie |
-| **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill initial + E2E MP-07 | UX popup avancée · Firefox/Safari · édition mobile |
+| **Photos** | ✅ | ✅ + Linux desktop build validé | — | **Créer album** (web) · sync galerie mobile |
+| **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill + popup L3 (v0.2.1) | Icônes · **MP-08** Firefox · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 
 **Phase 2 alias (MTA)** : domaine alias réel **dans l’UI / `.env` / Portainer** (pas en Git) · réception `*@<domaine-alias>` via **Maddy/Postfix** → lookup Cloudity → livraison boîte IMAP · **Admin Domaines** suit hostname/MX/SPF/DKIM/DMARC attendus · puis **C1–C7**.  
@@ -145,7 +175,7 @@ Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS
 
 ## Avant session
 
-1. **`git status`** — branche = chantier en cours (**`feat/mail-alias-checklist`** pour mail/alias).
+1. **`git status`** — branche = **`feat/mobile-desktop-validation`** (hors mail prod) sauf reprise mail explicite.
 2. **`docker info`** puis **`make test`** — **[docs/operations/DEV-VERIFICATION.md](./docs/operations/DEV-VERIFICATION.md)** § 0.
 3. Relire **§ ENSUITE** #3–#4 de ce fichier.
 

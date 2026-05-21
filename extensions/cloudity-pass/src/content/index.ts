@@ -277,3 +277,36 @@ document.addEventListener('click', (event) => {
   if (target instanceof Element && target.closest(`.${MENU_CLASS}, .${BADGE_CLASS}`)) return;
   closeMenus();
 });
+
+function findFillAnchor(): HTMLInputElement | null {
+  const password = document.querySelector('input[type="password"]');
+  if (password instanceof HTMLInputElement && !password.disabled && !password.readOnly) {
+    return password;
+  }
+  const loginish = document.querySelector(
+    'input[type="email"], input[autocomplete="username"], input[autocomplete="email"]',
+  );
+  if (loginish instanceof HTMLInputElement && !loginish.disabled && !loginish.readOnly) {
+    return loginish;
+  }
+  return null;
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (!msg || typeof msg !== 'object' || (msg as { kind?: string }).kind !== 'fill-login') {
+    return false;
+  }
+  const candidate = (msg as { candidate?: AutofillCandidate }).candidate;
+  if (!candidate?.password) {
+    sendResponse({ ok: false, error: 'candidate_missing' });
+    return true;
+  }
+  const anchor = findFillAnchor();
+  if (!anchor) {
+    sendResponse({ ok: false, error: 'no_login_form' });
+    return true;
+  }
+  fillCandidate(anchor, candidate);
+  sendResponse({ ok: true });
+  return true;
+});
