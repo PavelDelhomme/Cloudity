@@ -14,7 +14,7 @@ Dans le `.env` racine, les lignes doivent être **actives** (pas préfixées par
 
 ```bash
 MAIL_ALIAS_DOMAIN=<domaine-alias>
-MAIL_ALIAS_PORT=2525
+MAIL_ALIAS_PORT=2526
 MTA_INTERNAL_TOKEN=<openssl rand -hex 32>
 ```
 
@@ -60,7 +60,7 @@ make mail-mta-local-up
 cd deploy/mail-mta
 cp .env.local.example .env
 # ou : make sync-mail-mta-env
-docker compose -f docker-compose.local.yml up -d maddy
+docker compose -f docker-compose.local.yml up -d --build alias-router maddy
 ```
 
 Envoi test :
@@ -68,10 +68,13 @@ Envoi test :
 ```bash
 swaks --to inscriptions@<domaine-alias> \
   --from sender@external.example \
-  --server localhost --port 2525
+  --server localhost --port 2526
 ```
 
-Puis **Mail → Actualiser (IMAP)** et filtre alias dans la barre latérale.
+Le flux réel est : Maddy → `alias-router` → `/mail/internal/alias-resolve` → `RELAY_SMTP_HOST:RELAY_SMTP_PORT`.  
+En local, `RELAY_SMTP_PORT=1025` vise MailHog/SMTP dev par défaut ; en prod, renseigner le relais SMTP autorisé dans Portainer.
+
+Puis **Mail → Actualiser (IMAP)** et filtre alias dans la barre latérale si le relais final livre bien dans la boîte cible.
 
 ## 3. Filtre `delivered_to`
 
@@ -80,7 +83,7 @@ Le MTA ajoute `Delivered-To` / `X-Original-To`. Cloudity filtre aussi `raw_heade
 ## 4. Avant bascule DNS prod
 
 - [ ] Test API OK
-- [ ] Test local 2525 OK (ou preprod VPS)
+- [ ] Test local 2526 OK (ou preprod VPS)
 - [ ] MX `@` → `mail.<domaine-alias>.` (TTL baissé 24–48 h)
 - [ ] SPF/DKIM/DMARC Cloudity (pas OVH `include:mx.ovh.com`)
 - [ ] Rollback documenté : **[MAIL-ALIAS-REDIRECTION-SAFE.md](../produit/MAIL-ALIAS-REDIRECTION-SAFE.md)**

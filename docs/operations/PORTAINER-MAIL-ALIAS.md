@@ -47,16 +47,18 @@ mkdir -p /opt/cloudity/mail-mta
 ### 3.2 Créer la stack dans Portainer
 
 1. **Stacks** → **Add stack** → nom `cloudity-mail-mta`.
-2. **Web editor** : coller le contenu de `deploy/mail-mta/docker-compose.maddy.yml` (recommandé).
+2. **Web editor** : coller le contenu de `deploy/mail-mta/docker-compose.maddy.yml` (recommandé). Le dossier doit contenir aussi `deploy/mail-mta/alias-router/` pour le build du routeur SMTP interne.
 3. **Environment variables** : charger depuis `.env` (UI Portainer) — **toutes** les variables sont obligatoires (pas de défaut dans le compose) :
    - `MAIL_ALIAS_DOMAIN`
    - `MADDY_DOMAIN`, `MADDY_HOSTNAME`
    - `MAIL_DIRECTORY_URL=http://mail-directory-service:8050`
    - `MTA_INTERNAL_TOKEN` (même valeur que la stack Cloudity)
+   - `RELAY_SMTP_HOST`, `RELAY_SMTP_PORT`, `RELAY_SMTP_USERNAME`, `RELAY_SMTP_PASSWORD`, `RELAY_FROM`
    - `SMTP_PORT=25`, `SUBMISSION_PORT=587`
    - `MADDY_DOCKER_NETWORK`, `MADDY_CERTS_PATH`
-4. **Volumes** : monter `maddy_data` et le chemin TLS (`fullchain.pem`, `privkey.pem`) hors Git.
-5. **Deploy** — vérifier les logs Maddy puis tester `POST /mail/internal/alias-resolve`.
+4. **Réseau Docker** : `MADDY_DOCKER_NETWORK` doit être le même réseau que `mail-directory-service` si `MAIL_DIRECTORY_URL=http://mail-directory-service:8050`.
+5. **Volumes** : monter `maddy_data` et le chemin TLS (`fullchain.pem`, `privkey.pem`) hors Git.
+6. **Deploy** — vérifier les logs Maddy + `alias-router`, puis tester `POST /mail/internal/alias-resolve`.
 
 ### 3.3 DNS (domaine alias uniquement)
 

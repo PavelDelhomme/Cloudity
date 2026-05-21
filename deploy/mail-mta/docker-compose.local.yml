@@ -1,21 +1,25 @@
-# Stack MTA — tests locaux (SMTP entrant sur 2525, pas de conflit avec le port 25 système).
+# Stack MTA — tests locaux (SMTP entrant sur 2526, pas de conflit avec le port 25 système).
 # Usage : cp .env.local.example .env && docker compose -f docker-compose.local.yml up -d
 # Prérequis : mail-directory-service joignable (stack Cloudity `make up`).
 
 services:
-  mta-alias-deliver:
-    image: curlimages/curl:8.11.1
-    container_name: cloudity-mta-alias-deliver
-    restart: "no"
-    profiles:
-      - tools
+  alias-router:
+    build:
+      context: ./alias-router
+    container_name: cloudity-alias-router-local
+    restart: unless-stopped
     env_file: .env
     environment:
+      ALIAS_ROUTER_LISTEN_ADDR: :2527
       MAIL_DIRECTORY_URL: ${MAIL_DIRECTORY_URL:-http://host.docker.internal:6050}
       MTA_INTERNAL_TOKEN: ${MTA_INTERNAL_TOKEN}
-    volumes:
-      - ./scripts:/scripts:ro
-    entrypoint: ["/bin/sh", "/scripts/alias-deliver.sh"]
+      RELAY_SMTP_HOST: ${RELAY_SMTP_HOST:-host.docker.internal}
+      RELAY_SMTP_PORT: ${RELAY_SMTP_PORT:-1025}
+      RELAY_SMTP_USERNAME: ${RELAY_SMTP_USERNAME:-}
+      RELAY_SMTP_PASSWORD: ${RELAY_SMTP_PASSWORD:-}
+      RELAY_FROM: ${RELAY_FROM:-}
+    networks:
+      - mta_local
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -34,6 +38,8 @@ services:
       - ./scripts:/scripts:ro
     networks:
       - mta_local
+    depends_on:
+      - alias-router
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

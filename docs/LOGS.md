@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-05-21 — Maddy alias-router : routage local/prod réel
+
+- Branche : `feat/mail-mta-alias-delivery` depuis `dev` après fusion de `feat/mail-alias-prod` (`dev` poussé à `0a31874a`).
+- MTA : ajout `deploy/mail-mta/alias-router` (Go) ; Maddy livre vers `alias-router:2527` via target SMTP nommé, plus de `deliver_to dummy`.
+- Compose : `docker-compose.local.yml` et `docker-compose.maddy.yml` démarrent `alias-router` + Maddy ; env `RELAY_SMTP_*` ajouté aux exemples Portainer/local.
+- Docs : `deploy/mail-mta/README.md`, `MAIL-MTA-LOCAL-TEST.md`, `PORTAINER-MAIL-ALIAS.md`, `TODOS.md`, `STATUS.md`.
+- Checks : `GOWORK=off go test ./...` (`alias-router`) ✅ ; compose config local/prod avec exemples ✅ ; `make mail-mta-local-up` ✅ ; `make test-mail-mta-local` ✅ (alias absent : 404 API + 550 SMTP attendu).
+
+---
+
 ### 2026-05-21 — MTA prod : make targets + admin DNS copiable
 
 - Branche : `feat/mail-alias-prod`.

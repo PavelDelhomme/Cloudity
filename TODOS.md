@@ -2,7 +2,7 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : **§ MAINTENANT** (UI-DS) et **`feat/mail-alias-checklist`** sont fusionnés dans **`dev`** — enchaîner sur **§ ENSUITE** #6–#7 (DNS/Maddy prod, C7 réel), branche **`feat/mail-alias-prod`**.
+> **Point d’entrée unique** : **§ MAINTENANT**, **`feat/mail-alias-checklist`** et le premier bloc **`feat/mail-alias-prod`** sont fusionnés dans **`dev`** — enchaîner sur **§ ENSUITE** #6–#7 (Maddy `alias-router`, Portainer, C7 réel), branche **`feat/mail-mta-alias-delivery`**.
 
 ---
 
@@ -27,7 +27,8 @@
 **Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  
 **Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
 **Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
-**Branche active** : `feat/mail-alias-prod` (depuis `dev`) — § ENSUITE #6–#7, C7 réel, secrets VPS avant prod.
+**Branche précédente** : `feat/mail-alias-prod` → **fusionnée dans `dev`** (2026-05-21, fast-forward `0a31874a`).  
+**Branche active** : `feat/mail-mta-alias-delivery` (depuis `dev`) — Maddy → `alias-router`, Portainer, C7 réel, secrets VPS avant prod.
 
 ---
 
@@ -37,7 +38,7 @@
 |---|--------|---------|-------|
 | **1** | **Santé locale** | `make doctor` · `make migrate` · **`make test`** · gateway OK | ☑ |
 | **2** | **Corps mail manquant** | `make deploy-mail` ✅ · test Go MIME `attachment` ✅ · test Vitest **Recharger le message** ✅ · validation manuelle message impôts ✅ (`dumb@delhomme.ovh`, corps IMAP rechargé) | ☑ |
-| **3** | **MTA alias auto-hébergé** | Local validé : alias créé, règle auto, `/mail/internal/alias-resolve` OK, on/off OK, Maddy smoke SMTP RCPT OK sur port `2526` (2525 occupé par MailHog). C7 réel reste la livraison IMAP/redirection fournisseur hors local contrôlé | 🟡 |
+| **3** | **MTA alias auto-hébergé** | Local validé : alias créé, règle auto, `/mail/internal/alias-resolve` OK, on/off OK. Maddy local route maintenant vers `alias-router:2527` (plus de `dummy`) ; port hôte `2526`, alias absent = 550 propre. C7 réel reste livraison IMAP/redirection fournisseur | 🟡 |
 | **4** | **Admin Domaines + checklist C1–C7** | C1–C6 ☑ ; C6 couvert par Vitest + Playwright Mail (`from_email` alias actif, alias désactivé exclu) ; C7 🟡 (Maddy local accepte RCPT, livraison IMAP réelle/redirection fournisseur non rejouée) | 🟡 |
 | **5** | **J8 Pass / extension** | **MP-06 + MP-07** : autofill réel livré + E2E Chromium extension (`make test-e2e-playwright-pass-extension`) ; prochain : UX popup/liste avancée, icônes, hardening Firefox/Safari | ☑ |
 | **5b** | **2FA locale compte démo** | Web + mobile ADB automatisés (`test-mobile-2fa`). Optionnel : scan QR manuel authenticator (hors CI) | ☑ |

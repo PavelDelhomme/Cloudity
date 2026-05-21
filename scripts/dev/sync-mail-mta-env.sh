@@ -61,6 +61,15 @@ set_env_kv "$MTA_ENV" MADDY_HOSTNAME "mail.${ALIAS_DOMAIN}"
 PORT_MAIL="$(read_env PORT_MAIL_DIRECTORY "$ROOT_ENV")"
 [ -z "$PORT_MAIL" ] && PORT_MAIL="6050"
 set_env_kv "$MTA_ENV" MAIL_DIRECTORY_URL "http://host.docker.internal:${PORT_MAIL}"
+if [ -z "$(read_env RELAY_SMTP_HOST "$MTA_ENV")" ]; then
+  set_env_kv "$MTA_ENV" RELAY_SMTP_HOST "host.docker.internal"
+fi
+if [ -z "$(read_env RELAY_SMTP_PORT "$MTA_ENV")" ]; then
+  set_env_kv "$MTA_ENV" RELAY_SMTP_PORT "1025"
+fi
+if [ -z "$(read_env SMTP_PORT "$MTA_ENV")" ]; then
+  set_env_kv "$MTA_ENV" SMTP_PORT "2526"
+fi
 
 chmod 600 "$MTA_ENV" 2>/dev/null || true
 echo "✅ deploy/mail-mta/.env aligné (domaine=${ALIAS_DOMAIN}, mail-directory=${PORT_MAIL})."

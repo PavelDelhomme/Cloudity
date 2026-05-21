@@ -234,14 +234,14 @@ test-mail-mta-local: sync-mail-mta-env ## Smoke MTA : /health, alias-resolve, po
 	@./scripts/dev/test-mail-mta-local.sh
 
 mail-mta-local-up: sync-mail-mta-env ## Démarre Maddy local (deploy/mail-mta/docker-compose.local.yml)
-	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml up -d maddy
-	@echo "✅ Maddy local — SMTP hôte : port $(grep -E '^SMTP_PORT=' deploy/mail-mta/.env 2>/dev/null | tail -1 | cut -d= -f2 || echo 2526)"
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml up -d --build alias-router maddy
+	@echo "✅ Maddy local — SMTP hôte : port $$(sed -n 's/^SMTP_PORT=//p' deploy/mail-mta/.env 2>/dev/null | tail -1 | grep -E '.+' || echo 2526)"
 
 mail-mta-local-down: ## Arrête la stack Maddy locale
 	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml down
 
 mail-mta-local-logs: ## Logs Maddy local
-	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml logs -f --tail=80 maddy
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml logs -f --tail=80 alias-router maddy
 
 build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity-pass/dist)
 	@echo "🔌 Build extension Cloudity Pass (MV3)…"

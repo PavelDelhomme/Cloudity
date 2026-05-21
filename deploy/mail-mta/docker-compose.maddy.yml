@@ -3,6 +3,33 @@
 # Ne pas passer SMTP/IMAP par Nginx Proxy Manager : ports exposés sur l’hôte.
 
 services:
+  alias-router:
+    build:
+      context: ./alias-router
+    container_name: cloudity-alias-router
+    restart: unless-stopped
+    environment:
+      ALIAS_ROUTER_LISTEN_ADDR: :2527
+      MAIL_DIRECTORY_URL: ${MAIL_DIRECTORY_URL}
+      MTA_INTERNAL_TOKEN: ${MTA_INTERNAL_TOKEN}
+      RELAY_SMTP_HOST: ${RELAY_SMTP_HOST}
+      RELAY_SMTP_PORT: ${RELAY_SMTP_PORT}
+      RELAY_SMTP_USERNAME: ${RELAY_SMTP_USERNAME}
+      RELAY_SMTP_PASSWORD: ${RELAY_SMTP_PASSWORD}
+      RELAY_FROM: ${RELAY_FROM}
+    networks:
+      - mta_net
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 2527"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
   maddy:
     image: foxcpp/maddy:latest
     container_name: cloudity-maddy
@@ -26,6 +53,8 @@ services:
       - ${MADDY_CERTS_PATH}:/data/tls:ro
     networks:
       - mta_net
+    depends_on:
+      - alias-router
     security_opt:
       - no-new-privileges:true
     cap_drop:

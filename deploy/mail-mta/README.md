@@ -4,7 +4,7 @@ Deux modes :
 
 | Fichier | Usage |
 |---------|--------|
-| `docker-compose.local.yml` | **Dev** — SMTP sur **2525** (hôte), lookup API Cloudity |
+| `docker-compose.local.yml` | **Dev** — SMTP sur **2526** (hôte), Maddy → `alias-router` → lookup API Cloudity |
 | `docker-compose.maddy.yml` | **VPS / Portainer** — ports **25**, **587**, **993** |
 | `docker-compose.yml` | Postfix + OpenDKIM (expérimental) |
 
@@ -19,13 +19,11 @@ Test local : **[docs/operations/MAIL-MTA-LOCAL-TEST.md](../../docs/operations/MA
 Réception SMTP sur le **domaine alias** (`*@<domaine-alias>`) :
 
 1. MTA reçoit `RCPT TO` alias@…
-2. En prod/preprod, le routage devra appeler `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
-3. Relais vers `deliver_to` (boîte IMAP) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
+2. Maddy relaie en SMTP interne vers `alias-router:2527`
+3. `alias-router` appelle `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
+4. `alias-router` relaie vers `deliver_to` (boîte IMAP / SMTP cible) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
 
-Le mode `docker-compose.local.yml` actuel est volontairement un **smoke SMTP**
-du domaine alias (`deliver_to dummy`) : il valide que Maddy accepte le RCPT sur
-le domaine configuré. Le lookup Cloudity est testé séparément par l’API interne
-et par `scripts/alias-deliver.sh`.
+Le même chemin est utilisé en local et en Portainer : plus de mode `dummy`.
 
 ## Prérequis Cloudity
 
@@ -55,7 +53,7 @@ Manuel :
 cd deploy/mail-mta
 cp .env.local.example .env
 # ou make sync-mail-mta-env depuis la racine
-docker compose -f docker-compose.local.yml up -d maddy
+docker compose -f docker-compose.local.yml up -d --build alias-router maddy
 ```
 
 Test API (sans Maddy) :
@@ -70,7 +68,7 @@ curl -sS -X POST http://localhost:6050/mail/internal/alias-resolve \
 Test SMTP local (si `swaks` installé) :
 
 ```bash
-swaks --to inscriptions@alias.example.invalid --server localhost --port 2525
+swaks --to inscriptions@alias.example.invalid --server localhost --port 2526
 ```
 
 ## Démarrage VPS
@@ -89,7 +87,8 @@ Ouvrir pare-feu : **25**, **587**. Aligner MX `@` → `mail.<domaine-alias>.` (v
 |-----------|------|
 | `POST /mail/internal/alias-resolve` | Livré |
 | Filtre `delivered_to` + `raw_headers` | Livré |
-| Maddy `maddy.conf` | Smoke local Maddy 0.9.4 (`deliver_to dummy`) |
+| Maddy `maddy.conf` | Livre vers `alias-router:2527` |
+| `alias-router` | Lookup Cloudity + relais SMTP final |
 | DKIM/SPF/DMARC Cloudity | Phase **MAIL-ALIAS-06** |
 
 ## Liens

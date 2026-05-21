@@ -61,30 +61,15 @@ case "$HTTP_CODE" in
     ;;
 esac
 
-pick_smtp_port() {
-  local prefer="${1:-2526}"
-  for p in "$prefer" 2526 2525; do
-    if command -v ss >/dev/null 2>&1; then
-      if ss -ltn 2>/dev/null | grep -qE ":${p}[[:space:]]"; then
-        echo "$p"
-        return 0
-      fi
-    elif command -v nc >/dev/null 2>&1 && nc -z 127.0.0.1 "$p" 2>/dev/null; then
-      echo "$p"
-      return 0
-    fi
-  done
-  echo "$prefer"
-}
-
-SMTP_PORT="$(pick_smtp_port "$(read_env MAIL_ALIAS_PORT .env)")"
+SMTP_PORT="$(read_env SMTP_PORT deploy/mail-mta/.env)"
+[ -z "$SMTP_PORT" ] && SMTP_PORT="$(read_env MAIL_ALIAS_PORT .env)"
 SMTP_PORT="${SMTP_PORT:-2526}"
 
 if command -v swaks >/dev/null 2>&1; then
   SWAKS_LOG="$(mktemp)"
-  if swaks --to "probe@${ALIAS_DOMAIN}" --from "sender@external.example" \
+  if swaks --to "$ALIAS_TEST_EMAIL" --from "sender@external.example" \
     --server 127.0.0.1 --port "$SMTP_PORT" --timeout 8 >"$SWAKS_LOG" 2>&1; then
-    ok "SMTP RCPT accepté sur 127.0.0.1:${SMTP_PORT} (swaks, domaine ${ALIAS_DOMAIN})"
+    ok "SMTP accepté sur 127.0.0.1:${SMTP_PORT} pour ${ALIAS_TEST_EMAIL} (Maddy → alias-router)"
   elif grep -qE '220 |250 ' "$SWAKS_LOG" 2>/dev/null; then
     ok "Maddy répond sur 127.0.0.1:${SMTP_PORT} (relancez make mail-mta-local-up si RCPT rejeté — domaine .env ≠ MADDY_DOMAIN conteneur)"
     grep -E '550|553|554' "$SWAKS_LOG" 2>/dev/null | tail -3 >&2 || true
