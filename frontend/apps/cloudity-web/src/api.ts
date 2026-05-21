@@ -1567,6 +1567,7 @@ export type DriveNode = {
   is_folder: boolean
   size: number
   mime_type?: string | null
+  taken_at?: string | null
   created_at: string
   updated_at: string
   /** Nombre d'éléments au 1er niveau (dossiers uniquement, renvoyé par l'API). */
@@ -1800,6 +1801,23 @@ export async function downloadDriveFile(
     hdr !== 'application/octet-stream' &&
     (!blob.type || blob.type === 'application/octet-stream')
   ) {
+    return new Blob([await blob.arrayBuffer()], { type: hdr })
+  }
+  return blob
+}
+
+export async function downloadDriveThumbnail(
+  token: string,
+  nodeId: number,
+  size = 360
+): Promise<Blob> {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/thumbnail?size=${encodeURIComponent(String(size))}`, {
+    json: false,
+  })
+  if (!res.ok) throw new Error(`Thumbnail: ${res.status}`)
+  const blob = await res.blob()
+  const hdr = res.headers.get('Content-Type')?.split(';')[0]?.trim()
+  if (hdr && (!blob.type || blob.type === 'application/octet-stream')) {
     return new Blob([await blob.arrayBuffer()], { type: hdr })
   }
   return blob

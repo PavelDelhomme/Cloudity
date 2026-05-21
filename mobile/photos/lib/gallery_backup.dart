@@ -9,27 +9,26 @@ import 'session_store.dart';
 
 /// Nombre max de nouvelles photos par passage WorkManager (évite wake lock prolongé).
 const _batchSize = 12;
+const _scanPageSize = 80;
+const _maxPagesPerAlbum = 25;
 
 /// Sauvegarde incrémentale galerie → dossier Drive « Photos ».
 Future<GalleryBackupResult> runGalleryBackupJob() async {
   if (!Platform.isAndroid) {
-    return GalleryBackupResult(skipped: true, reason: 'ios_non_supporté');
+    return _skipped('ios_non_supporté');
   }
   if (!await GallerySyncPrefs.isBackupEnabled()) {
-    return GalleryBackupResult(skipped: true, reason: 'désactivé');
+    return _skipped('désactivé');
   }
 
   final session = await SessionStore.loadValidatedSession();
   if (session == null) {
-    return GalleryBackupResult(skipped: true, reason: 'session_absente');
+    return _skipped('session_absente');
   }
 
   final perm = await requestGalleryPermission();
   if (!hasGalleryAccess(perm)) {
-    return GalleryBackupResult(
-      skipped: true,
-      reason: galleryPermissionMessage(perm),
-    );
+    return _skipped(galleryPermissionMessage(perm));
   }
 
   final drive = DriveApi(session.api.baseUrl);
@@ -37,7 +36,7 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
   try {
     folderId = await drive.ensurePhotosFolderId(session.access);
   } catch (e) {
-    return GalleryBackupResult(skipped: true, reason: 'drive: $e');
+    return _skipped('drive: $e');
   }
 
   final paths = await PhotoManager.getAssetPathList(
@@ -45,6 +44,7 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
     hasAll: true,
   );
   if (paths.isEmpty) {
+    await GallerySyncPrefs.saveLastRun(uploaded: 0, skipped: 0);
     return GalleryBackupResult(uploaded: 0, skippedCount: 0);
   }
 
@@ -53,48 +53,59 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
       ? <AssetPathEntity>[_allPhotosPath(paths)]
       : paths.where((path) => selectedIds.contains(path.id)).toList();
   if (selectedPaths.isEmpty) {
-    return GalleryBackupResult(
-      skipped: true,
-      reason: 'albums_sélectionnés_introuvables',
-    );
+    return _skipped('albums_sélectionnés_introuvables');
   }
 
   var uploaded = 0;
   var skipped = 0;
 
   for (final path in selectedPaths) {
-    final assets = await path.getAssetListPaged(page: 0, size: 80);
-    for (final asset in assets) {
-      if (uploaded >= _batchSize) break;
-      if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
-        skipped++;
-        continue;
+    for (var page = 0; page < _maxPagesPerAlbum; page++) {
+      final assets = await path.getAssetListPaged(
+        page: page,
+        size: _scanPageSize,
+      );
+      if (assets.isEmpty) break;
+      for (final asset in assets) {
+        if (uploaded >= _batchSize) break;
+        if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
+          skipped++;
+          continue;
+        }
+        final file = await asset.file;
+        if (file == null) {
+          skipped++;
+          continue;
+        }
+        final name = asset.title?.trim().isNotEmpty == true
+            ? asset.title!.trim()
+            : 'photo_${asset.id}.jpg';
+        try {
+          await drive.uploadFile(
+            accessToken: session.access,
+            parentId: folderId,
+            file: file,
+            fileName: name.contains('.') ? name : '$name.jpg',
+            takenAt: asset.createDateTime,
+          );
+          await GallerySyncPrefs.markAssetUploaded(asset.id);
+          uploaded++;
+        } on DriveApiException {
+          skipped++;
+        }
       }
-      final file = await asset.file;
-      if (file == null) {
-        skipped++;
-        continue;
-      }
-      final name = asset.title?.trim().isNotEmpty == true
-          ? asset.title!.trim()
-          : 'photo_${asset.id}.jpg';
-      try {
-        await drive.uploadFile(
-          accessToken: session.access,
-          parentId: folderId,
-          file: file,
-          fileName: name.contains('.') ? name : '$name.jpg',
-        );
-        await GallerySyncPrefs.markAssetUploaded(asset.id);
-        uploaded++;
-      } on DriveApiException {
-        skipped++;
-      }
+      if (uploaded >= _batchSize || assets.length < _scanPageSize) break;
     }
     if (uploaded >= _batchSize) break;
   }
 
+  await GallerySyncPrefs.saveLastRun(uploaded: uploaded, skipped: skipped);
   return GalleryBackupResult(uploaded: uploaded, skippedCount: skipped);
+}
+
+Future<GalleryBackupResult> _skipped(String reason) async {
+  await GallerySyncPrefs.saveLastRun(uploaded: 0, skipped: 0, error: reason);
+  return GalleryBackupResult(skipped: true, reason: reason);
 }
 
 AssetPathEntity _allPhotosPath(List<AssetPathEntity> paths) {

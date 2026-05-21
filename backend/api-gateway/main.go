@@ -368,9 +368,21 @@ func main() {
 	http.ListenAndServe(":"+port, NewHandler())
 }
 
+// isDriveMediaRead : miniatures / contenu Drive (grilles Photos) — pas de plafond global
+// (sinon 429 dès ~20 vignettes affichées en parallèle).
+func isDriveMediaRead(path, method string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	if !strings.HasPrefix(path, "/drive/nodes/") {
+		return false
+	}
+	return strings.HasSuffix(path, "/thumbnail") || strings.HasSuffix(path, "/content")
+}
+
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !limiter.Allow() {
+		if !isDriveMediaRead(r.URL.Path, r.Method) && !limiter.Allow() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)
 			_, _ = w.Write([]byte(`{"error":"too many requests"}`))

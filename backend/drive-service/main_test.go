@@ -14,6 +14,9 @@ func TestMimeFromFileName(t *testing.T) {
 		{"doc.pdf", "application/pdf"},
 		{"X.PDF", "application/pdf"},
 		{"a.png", "image/png"},
+		{"photo.HEIC", "image/heic"},
+		{"photo.heif", "image/heif"},
+		{"photo.avif", "image/avif"},
 		{"b.Mp4", "video/mp4"},
 		{"noext", ""},
 	}
@@ -22,6 +25,38 @@ func TestMimeFromFileName(t *testing.T) {
 		if got != tc.want {
 			t.Errorf("mimeFromFileName(%q) = %q, want %q", tc.name, got, tc.want)
 		}
+	}
+}
+
+func TestIsNonPhotoThumbnail(t *testing.T) {
+	if !isNonPhotoThumbnail("scan.pdf", "application/pdf") {
+		t.Fatal("expected pdf to be non-photo thumbnail")
+	}
+	if isNonPhotoThumbnail("photo.jpg", "image/jpeg") {
+		t.Fatal("expected jpg to be photo thumbnail")
+	}
+}
+
+func TestPhotoTakenAtFromFileName(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"IMG_20240521_143015.jpg", "2024-05-21T14:30:15Z"},
+		{"PXL_20231201_081122123.jpg", "2023-12-01T08:11:22Z"},
+		{"Screenshot_2026-05-21-220001.png", "2026-05-21T22:00:01Z"},
+	}
+	for _, tc := range tests {
+		got, ok := photoTakenAtFromFileName(tc.name)
+		if !ok {
+			t.Fatalf("photoTakenAtFromFileName(%q) was not detected", tc.name)
+		}
+		if got.Format("2006-01-02T15:04:05Z") != tc.want {
+			t.Errorf("photoTakenAtFromFileName(%q) = %s, want %s", tc.name, got.Format("2006-01-02T15:04:05Z"), tc.want)
+		}
+	}
+	if _, ok := photoTakenAtFromFileName("photo.jpg"); ok {
+		t.Fatal("photoTakenAtFromFileName detected a date in a plain file name")
 	}
 }
 

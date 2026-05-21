@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Tests Flutter Cloudity (Photos, Drive, Mail) : widget hôte + integration_test ADB si dispo.
 # CLOUDITY_KEEP_APP_OPEN=1 : après integration_test OK, lance l'app en "flutter run" (garde l'application ouverte).
+# CLOUDITY_SKIP_POST_TEST_INSTALL=1 : ne réinstalle pas l'APK debug normale après integration_test.
 # Usage : ./scripts/mobile/test-mobile-app.sh photos|drive|mail
 # Variables : identiques à test-mobile-photos historique (voir scripts/mobile/mobile-test-common.inc.sh).
 set -euo pipefail
@@ -116,6 +117,13 @@ fi
 
 flutter test "$INT_FILE" -d "$SERIAL" "${DEFS[@]}"
 echo "✅ test-mobile-app ${APP_LABEL} : integration_test device OK."
+
+if [[ "${CLOUDITY_SKIP_POST_TEST_INSTALL:-}" != "1" ]]; then
+  echo "📦 Cloudity ${APP_LABEL} — réinstallation APK debug normale après integration_test"
+  flutter build apk --debug
+  adb -s "$SERIAL" install -r build/app/outputs/flutter-apk/app-debug.apk >/dev/null
+  echo "✅ Cloudity ${APP_LABEL} reste installée sur ${SERIAL}."
+fi
 
 if [[ "${CLOUDITY_KEEP_APP_OPEN:-}" == "1" ]]; then
   echo "ℹ️  CLOUDITY_KEEP_APP_OPEN=1 — lancement interactif de l'app (${APP_LABEL}) sur ${SERIAL}."

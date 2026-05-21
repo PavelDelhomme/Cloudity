@@ -9,7 +9,7 @@
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
-| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** · UI-3 · U9/U10 | **EN COURS** |
+| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** ☑ · vignettes/dates Photos ☑ · UI-3 ☑ · U9/U10 | **EN COURS** |
 | **Mail local** (régression) | `make test-mail-mta-local` · alias-router · notifications Mail web | OK, pas bloquant |
 | **Mail prod** (pause) | MX/SPF OVH · stack Portainer · `RELAY_SMTP_*` VPS · C7 livraison réelle | **NE PAS TOUCHER** |
 
@@ -24,7 +24,8 @@
 | **H3** | **MP-08 Firefox** | `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox` | ☑ |
 | **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
-| **H5b** | **Photos — sync galerie Android** | WorkManager + `photo_manager` + permissions Android 13/14, prefs Wi‑Fi / charge + choix dossiers Android · upload Drive `Photos` | ☑ |
+| **H5b** | **Photos — mobile Android** | Navigation Photos/Albums/Archivé/Corbeille/Verrouillé/Paramètres, viewer, corbeille Drive, verrou local biométrique, WorkManager + choix dossiers | ☑ |
+| **H5c** | **Photos — vignettes & dates** | `GET /drive/nodes/:id/thumbnail`, `taken_at` (EXIF/galerie + nom fichier), exclusion PDF timeline, rate-limit gateway assoupli médias, file chargement mobile, défilement horizontal par jour, retour viewer → scroll | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H6b** | **Auth suite mobile** | Tenant masqué, gateway auto (`127.0.0.1` USB), compte démo debug, messages réseau (`friendlyNetworkMessage`) ; reste partage OS (AccountManager) | 🟡 |
 | **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
@@ -37,12 +38,30 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 
 | App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
 |-----|---------------------------|-----------------------------------|
-| **Photos** | ✅ (widget + prefs galerie) | ✅ E2E connexion + timeline (`adb reverse` auto USB) |
+| **Photos** | ✅ (widget + prefs galerie) | ✅ E2E connexion + timeline ; vignettes `/thumbnail` + file chargement (anti-429) |
 | **Drive** | ✅ | ✅ E2E connexion + écran Drive |
 | **Mail** | ✅ | ✅ E2E connexion + boîte |
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 
 Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Session Photos — vignettes, dates, UX mobile (2026-05-21)
+
+**Problème** : miniatures en échec (429 gateway sur `/content` en masse), PDF mal typés affichés comme photos, dates de prise = date d’import, viewer sans retour à la position dans la grille.
+
+**Livré** :
+
+- **Backend** : migration `42-drive-photos-taken-at.sql` ; upload `taken_at` (RFC3339) ; timeline triée sur `taken_at` ; `GET /drive/nodes/:id/thumbnail` (JPEG redimensionné) ; PDF exclus de la timeline ; repli date depuis nom `IMG_*` / `PXL_*` / `Screenshot_*`.
+- **Gateway** : pas de rate-limit global sur GET thumbnail/content Drive.
+- **Web** : vignettes via `downloadDriveThumbnail` (concurrence 6) ; filtre client anti-PDF.
+- **Mobile** : `photo_load_queue.dart` (4 req parallèles + retry 429) ; grille horizontale par jour ; sélection jour toggle ; viewer date en titre, glisser bas = retour grille à la bonne photo ; plein écran sur toute la timeline.
+
+**Suite Photos (prochaine itération)** :
+
+- Décodeur **HEIC/HEIF** côté serveur pour vignettes si JPEG natif échoue.
+- **AccountManager** / Auth Broker inter-apps (session partagée réelle).
+- Archive / Verrouillé **serveur** (pas seulement UI + biométrie locale).
+- Indicateur **état sync par photo** (uploadé / en attente / erreur).
 
 ### Incident Photos mobile — app installée mais bloquée au chargement (2026-05-21)
 
@@ -182,7 +201,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ | ✅ + Linux desktop build validé | — | **Créer album** (web) · sync galerie mobile |
+| **Photos** | ✅ vignettes + dates | ✅ timeline + sync galerie + viewer | — | HEIC serveur · Auth Broker · archive/verrouillé serveur · état sync par photo |
 | **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill + popup L3 (v0.2.1) | Icônes · **MP-08** Firefox · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 

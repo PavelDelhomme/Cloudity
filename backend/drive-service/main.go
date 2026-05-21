@@ -6,13 +6,18 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"image"
+	"image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -20,6 +25,8 @@ import (
 )
 
 const defaultPort = "8055"
+
+var photoNameDateRe = regexp.MustCompile(`(?i)(?:IMG|VID|PXL|Screenshot)?[_ -]*([12][0-9]{3})[-_]?([01][0-9])[-_]?([0-3][0-9])[_ -]?([0-2][0-9])([0-5][0-9])([0-5][0-9])`)
 
 // mimeFromFileName complète le Content-Type quand la colonne mime_type est vide (uploads anciens ou clients sans MIME).
 func mimeFromFileName(name string) string {
@@ -34,6 +41,12 @@ func mimeFromFileName(name string) string {
 		return "image/gif"
 	case ".webp":
 		return "image/webp"
+	case ".heic":
+		return "image/heic"
+	case ".heif":
+		return "image/heif"
+	case ".avif":
+		return "image/avif"
 	case ".svg":
 		return "image/svg+xml"
 	case ".bmp":
@@ -83,6 +96,30 @@ func mimeFromFileName(name string) string {
 	}
 }
 
+func isNonPhotoThumbnail(name, contentType string) bool {
+	lower := strings.ToLower(name)
+	if strings.HasSuffix(lower, ".pdf") {
+		return true
+	}
+	base := strings.ToLower(strings.TrimSpace(contentType))
+	if i := strings.Index(base, ";"); i > 0 {
+		base = strings.TrimSpace(base[:i])
+	}
+	return base == "application/pdf"
+}
+
+func photoTakenAtFromFileName(name string) (time.Time, bool) {
+	m := photoNameDateRe.FindStringSubmatch(name)
+	if len(m) != 7 {
+		return time.Time{}, false
+	}
+	parsed, err := time.Parse("20060102150405", strings.Join(m[1:], ""))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return parsed.UTC(), true
+}
+
 func dispositionFilename(name string) string {
 	s := strings.ReplaceAll(name, `"`, "'")
 	s = strings.ReplaceAll(s, "\r", " ")
@@ -116,6 +153,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.POST("/nodes/:id/restore", h.restoreNode)
 		drive.DELETE("/nodes/trash/:id", h.purgeNode)
 		drive.DELETE("/nodes/:id", h.deleteNode)
+		drive.GET("/nodes/:id/thumbnail", h.getNodeThumbnail)
 		drive.GET("/nodes/:id/content", h.getNodeContent)
 		drive.GET("/nodes/:id/archive/entries", h.getZipEntries)
 		drive.GET("/nodes/:id/zip", h.downloadFolderZip)
@@ -211,6 +249,7 @@ type Node struct {
 	IsFolder     bool    `json:"is_folder"`
 	Size         int64   `json:"size"`
 	MimeType     *string `json:"mime_type,omitempty"`
+	TakenAt      string  `json:"taken_at,omitempty"`
 	CreatedAt    string  `json:"created_at"`
 	UpdatedAt    string  `json:"updated_at"`
 	ChildCount   int     `json:"child_count,omitempty"`
@@ -378,7 +417,8 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 		limit = 20
 	}
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
+		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
 		ORDER BY updated_at DESC NULLS LAST, id DESC
@@ -442,16 +482,19 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 	// Demander une ligne de plus pour savoir s'il reste des pages (évite COUNT(*)).
 	fetch := limit + 1
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
+		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
 		  AND is_folder = false
+		  AND LOWER(name) !~ '\.pdf$'
+		  AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'application/pdf%'
 		  AND (
-			LOWER(COALESCE(mime_type, '')) LIKE 'image/%'
+			(LOWER(COALESCE(mime_type, '')) LIKE 'image/%' AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'image/pdf%')
 			OR LOWER(name) ~ '\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif|tiff|tif)$'
 		  )
-		ORDER BY COALESCE(updated_at, created_at) DESC NULLS LAST, id DESC
+		ORDER BY COALESCE(taken_at, created_at) DESC NULLS LAST, id DESC
 		LIMIT $1 OFFSET $2
 	`, fetch, offset)
 	if err != nil {
@@ -464,8 +507,8 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 		var n Node
 		var pid sql.NullInt64
 		var mime sql.NullString
-		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat); err != nil {
+		var takenAt, uat string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -476,6 +519,7 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 		if mime.Valid {
 			n.MimeType = &mime.String
 		}
+		n.TakenAt = takenAt
 		n.UpdatedAt = uat
 		list = append(list, n)
 	}
@@ -869,6 +913,98 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	c.Data(http.StatusOK, ct, content)
 }
 
+func (h *Handler) getNodeThumbnail(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	size := 360
+	if s, err := strconv.Atoi(c.DefaultQuery("size", "360")); err == nil && s >= 96 && s <= 1024 {
+		size = s
+	}
+	ctx := c.Request.Context()
+	var name string
+	var content []byte
+	var mime sql.NullString
+	err = h.dbex(ctx).QueryRow(`
+		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
+		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+	`, id).Scan(&name, &content, &mime)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ct := "application/octet-stream"
+	if mime.Valid && strings.TrimSpace(mime.String) != "" {
+		ct = strings.TrimSpace(mime.String)
+	}
+	if ct == "application/octet-stream" || ct == "" {
+		if inf := mimeFromFileName(name); inf != "" {
+			ct = inf
+		}
+	}
+	c.Header("Cache-Control", "private, max-age=3600")
+	if isNonPhotoThumbnail(name, ct) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not_an_image"})
+		return
+	}
+	if len(content) == 0 {
+		c.Data(http.StatusOK, "image/jpeg", []byte{})
+		return
+	}
+	img, _, err := image.Decode(bytes.NewReader(content))
+	if err != nil {
+		if isNonPhotoThumbnail(name, ct) || (len(content) >= 4 && string(content[0:4]) == "%PDF") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not_an_image"})
+			return
+		}
+		c.Header("Content-Disposition", `inline; filename="`+dispositionFilename(name)+`"`)
+		c.Data(http.StatusOK, ct, content)
+		return
+	}
+	thumb := resizeNearest(img, size)
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, thumb, &jpeg.Options{Quality: 78}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "thumbnail encode failed"})
+		return
+	}
+	c.Header("Content-Disposition", `inline; filename="thumbnail.jpg"`)
+	c.Data(http.StatusOK, "image/jpeg", buf.Bytes())
+}
+
+func resizeNearest(src image.Image, maxSide int) image.Image {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w <= 0 || h <= 0 || (w <= maxSide && h <= maxSide) {
+		return src
+	}
+	newW, newH := maxSide, maxSide
+	if w >= h {
+		newH = max(1, h*maxSide/w)
+	} else {
+		newW = max(1, w*maxSide/h)
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
+	for y := 0; y < newH; y++ {
+		sy := b.Min.Y + y*h/newH
+		for x := 0; x < newW; x++ {
+			sx := b.Min.X + x*w/newW
+			dst.Set(x, y, src.At(sx, sy))
+		}
+	}
+	return dst
+}
+
 // getZipEntries retourne la liste des entrées d'un fichier ZIP (nœud fichier) sans extraire. GET /drive/nodes/:id/archive/entries
 func (h *Handler) getZipEntries(c *gin.Context) {
 	if h.db == nil {
@@ -1192,6 +1328,17 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	if ct := c.PostForm("mime_type"); ct != "" {
 		mimeType = ct
 	}
+	var takenAt sql.NullTime
+	if rawTakenAt := strings.TrimSpace(c.PostForm("taken_at")); rawTakenAt != "" {
+		if parsed, err := time.Parse(time.RFC3339, rawTakenAt); err == nil {
+			takenAt = sql.NullTime{Time: parsed, Valid: true}
+		}
+	}
+	if !takenAt.Valid {
+		if parsed, ok := photoTakenAtFromFileName(name); ok {
+			takenAt = sql.NullTime{Time: parsed, Valid: true}
+		}
+	}
 	size := int64(len(content))
 	ctx := c.Request.Context()
 
@@ -1215,9 +1362,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		}
 		if err == nil {
 			_, err = h.dbex(ctx).Exec(`
-				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
-				WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
-			`, content, size, mimeType, existingID)
+				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, taken_at = COALESCE($4, taken_at), updated_at = CURRENT_TIMESTAMP
+				WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+			`, content, size, mimeType, takenAt, existingID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -1234,9 +1381,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	var id int
 	if parentIDStr == "" || parentIDStr == "null" {
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content)
-			VALUES ($1, $2, NULL, $3, false, $4, $5, $6) RETURNING id
-		`, tid, uid, name, size, mimeType, content).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
+			VALUES ($1, $2, NULL, $3, false, $4, $5, $6, $7) RETURNING id
+		`, tid, uid, name, size, mimeType, content, takenAt).Scan(&id)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
 		if perr != nil || parentID <= 0 {
@@ -1244,9 +1391,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 			return
 		}
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content)
-			VALUES ($1, $2, $3, $4, false, $5, $6, $7) RETURNING id
-		`, tid, uid, parentID, name, size, mimeType, content).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
+			VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8) RETURNING id
+		`, tid, uid, parentID, name, size, mimeType, content, takenAt).Scan(&id)
 	}
 	if err != nil {
 		var perr *pq.Error

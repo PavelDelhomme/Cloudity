@@ -24,6 +24,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   bool _requireCharging = false;
   bool _running = false;
   Set<String> _selectedAlbumIds = {};
+  GallerySyncLastRun? _lastRun;
   String? _lastMessage;
 
   @override
@@ -37,12 +38,14 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     final wifi = await GallerySyncPrefs.wifiOnly();
     final charging = await GallerySyncPrefs.requireCharging();
     final selectedAlbumIds = await GallerySyncPrefs.selectedAlbumIds();
+    final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
       _wifiOnly = wifi;
       _requireCharging = charging;
       _selectedAlbumIds = selectedAlbumIds;
+      _lastRun = lastRun;
       _loading = false;
     });
   }
@@ -75,7 +78,17 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
               'Première sauvegarde planifiée (Wi‑Fi / charge selon options).',
         );
       }
+    } else if (mounted) {
+      setState(
+        () => _lastMessage =
+            'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.',
+      );
     }
+  }
+
+  Future<void> _stopBackup() async {
+    if (!_enabled) return;
+    await _setEnabled(false);
   }
 
   Future<void> _runNow() async {
@@ -84,9 +97,11 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _lastMessage = null;
     });
     final result = await runGalleryBackupJob();
+    final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _running = false;
+      _lastRun = lastRun;
       if (result.skipped) {
         _lastMessage = result.reason ?? 'Passage ignoré.';
       } else {
@@ -97,9 +112,24 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   }
 
   String get _albumSummary {
-    if (_selectedAlbumIds.isEmpty) return 'Toutes les photos';
+    if (_selectedAlbumIds.isEmpty) {
+      return 'Toutes les photos, dont Appareil photo';
+    }
     if (_selectedAlbumIds.length == 1) return '1 dossier sélectionné';
     return '${_selectedAlbumIds.length} dossiers sélectionnés';
+  }
+
+  String get _lastRunSummary {
+    final run = _lastRun;
+    if (run == null) {
+      return 'Aucune sauvegarde lancée depuis cette installation.';
+    }
+    final at = run.at?.toLocal();
+    final when = at == null
+        ? 'date inconnue'
+        : '${at.day.toString().padLeft(2, '0')}/${at.month.toString().padLeft(2, '0')} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    if (run.failed) return 'Dernier passage $when : ${run.error}';
+    return 'Dernier passage $when : ${run.uploaded} envoyée(s), ${run.skipped} déjà à jour/ignorée(s).';
   }
 
   Future<void> _selectAlbums() async {
@@ -133,7 +163,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Toutes les photos'),
                         subtitle: const Text(
-                          'Recommandé pour une sauvegarde complète',
+                          'Par défaut : inclut Appareil photo / Camera et les dossiers de base',
                         ),
                         value: draft.isEmpty,
                         onChanged: (_) =>
@@ -210,85 +240,105 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
         top: 16,
         bottom: 16 + MediaQuery.paddingOf(context).bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Sauvegarde galerie',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
-            'Jobs espacés (≥ 15 min), petits lots, sans scan continu.',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Activer la sauvegarde'),
-            value: _enabled,
-            onChanged: _setEnabled,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Wi‑Fi uniquement'),
-            subtitle: const Text('Pas d’upload sur données mobiles'),
-            value: _wifiOnly,
-            onChanged: _enabled
-                ? (v) async {
-                    setState(() => _wifiOnly = v);
-                    await GallerySyncPrefs.setWifiOnly(v);
-                    await applyGallerySyncSchedule();
-                  }
-                : null,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Uniquement en charge'),
-            value: _requireCharging,
-            onChanged: _enabled
-                ? (v) async {
-                    setState(() => _requireCharging = v);
-                    await GallerySyncPrefs.setRequireCharging(v);
-                    await applyGallerySyncSchedule();
-                  }
-                : null,
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.folder_copy_outlined),
-            title: const Text('Dossiers à sauvegarder'),
-            subtitle: Text(_albumSummary),
-            trailing: const Icon(Icons.chevron_right),
-            enabled: _enabled,
-            onTap: _enabled ? _selectAlbums : null,
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: !_enabled || _running ? null : _runNow,
-            icon: _running
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.cloud_upload_outlined, size: 20),
-            label: Text(_running ? 'Sauvegarde…' : 'Sauvegarder maintenant'),
-          ),
-          TextButton.icon(
-            onPressed: _openAndroidSettings,
-            icon: const Icon(Icons.settings_outlined, size: 18),
-            label: const Text('Ouvrir les permissions Android'),
-          ),
-          if (_lastMessage != null) ...[
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Sauvegarde galerie',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
+              'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: 12),
-            Text(_lastMessage!, style: Theme.of(context).textTheme.bodySmall),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Activer la sauvegarde'),
+              subtitle: const Text(
+                'Désactiver arrête la synchronisation, sans supprimer les photos locales.',
+              ),
+              value: _enabled,
+              onChanged: _setEnabled,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Wi‑Fi uniquement'),
+              subtitle: const Text('Pas d’upload sur données mobiles'),
+              value: _wifiOnly,
+              onChanged: _enabled
+                  ? (v) async {
+                      setState(() => _wifiOnly = v);
+                      await GallerySyncPrefs.setWifiOnly(v);
+                      await applyGallerySyncSchedule();
+                    }
+                  : null,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Uniquement en charge'),
+              value: _requireCharging,
+              onChanged: _enabled
+                  ? (v) async {
+                      setState(() => _requireCharging = v);
+                      await GallerySyncPrefs.setRequireCharging(v);
+                      await applyGallerySyncSchedule();
+                    }
+                  : null,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.folder_copy_outlined),
+              title: const Text('Dossiers à sauvegarder'),
+              subtitle: Text(_albumSummary),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _selectAlbums,
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                _lastRun?.failed == true
+                    ? Icons.error_outline
+                    : Icons.verified_outlined,
+              ),
+              title: const Text('État de la sauvegarde'),
+              subtitle: Text(_lastRunSummary),
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: !_enabled || _running ? null : _runNow,
+              icon: _running
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload_outlined, size: 20),
+              label: Text(_running ? 'Sauvegarde…' : 'Sauvegarder maintenant'),
+            ),
+            TextButton.icon(
+              onPressed: _openAndroidSettings,
+              icon: const Icon(Icons.settings_outlined, size: 18),
+              label: const Text('Ouvrir les permissions Android'),
+            ),
+            if (_enabled)
+              OutlinedButton.icon(
+                onPressed: _stopBackup,
+                icon: const Icon(Icons.cloud_off_outlined, size: 18),
+                label: const Text('Arrêter la synchronisation'),
+              ),
+            if (_lastMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(_lastMessage!, style: Theme.of(context).textTheme.bodySmall),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

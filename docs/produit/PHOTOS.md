@@ -12,7 +12,7 @@
 
 | Fonctionnalité | Comportement cible | État Cloudity |
 |----------------|-------------------|---------------|
-| **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (lecture `drive_nodes`, même DB que Drive) |
+| **Bibliothèque unique** | Toutes les images visibles en une chronologie | **MVP** : `photos-service` → **`GET /photos/timeline`** (tri **`taken_at`** puis `created_at` ; PDF exclus) |
 | **Sauvegarde** | Téléversement depuis téléphone / web | **Web** : upload + **glisser-déposer** racine Drive ; **mobile Android** : WorkManager + `photo_manager`, Wi‑Fi/charge, choix des dossiers/albums locaux, upload vers Drive `Photos` |
 | **Albums / regroupements** | Albums utilisateur, « lieux », dates | **Web** : onglet **Albums** = dossiers racine Drive ; ouverture d’un album → **`/app/photos?tab=albums&album=<id>`** (grille images + lightbox, retour liste). **À faire** : création d’album UI, tables métadonnées / albums natifs + API |
 | **Partage** | Liens, albums partagés | **À faire** (alignement APP-02 partage Drive) |
@@ -31,7 +31,11 @@
 
 **Compat** : `drive-service` conserve encore `GET /drive/photos/timeline` (même logique) pour outils anciens ; le **client web** et les **nouveaux clients** doivent utiliser **`/photos/timeline`** pour éviter les confusions de déploiement.
 
-**Filtre image** : identique au Drive (mime `image/*` ou extensions usuelles).
+**Filtre image** : mime `image/*` ou extensions usuelles ; **exclusion** `.pdf` et `application/pdf` (évite les faux positifs si MIME upload incorrect).
+
+**Miniatures** : `GET /drive/nodes/:id/thumbnail?size=360` (drive-service, JPEG redimensionné, cache `private`). Les clients web/mobile doivent l’utiliser pour la grille ; le plein écran reste sur `GET /drive/nodes/:id/content?inline=1`.
+
+**Date de prise** : colonne `drive_nodes.taken_at` ; envoyée à l’upload mobile (`asset.createDateTime`) ; repli parsing nom fichier côté serveur pour imports anciens.
 
 **Authentification** : JWT → `X-User-ID` / `X-Tenant-ID` (comme Calendar / Drive).
 
@@ -48,7 +52,7 @@
 - **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive, lien vers Drive avec fil d’Ariane) | **Archivé** / **Verrouillé** (guidage + roadmap ; pas d’API dédiée encore) | **Corbeille** (lien vers `/app/drive?view=trash`).
 - **État synchro** : libellé relatif basé sur le dernier `dataUpdatedAt` de la requête timeline + indicateur « mise à jour… ».
 - **Rafraîchissement** : `refetchInterval` 60 s + focus.
-- **Upload** : `POST /drive/nodes/upload` (racine `parent_id` absent).
+- **Upload / affichage** : `POST /drive/nodes/upload` (racine `parent_id` absent) ; vignettes téléchargées avec concurrence limitée pour éviter le rate-limit gateway ; HEIC/HEIF/AVIF typés côté Drive/Web.
 
 **Suite** : **sélection multiple** (chronologie : mode Sélectionner → corbeille Drive via `DELETE /drive/nodes/:id`) ✅ ; albums métier (API), corbeille « photos uniquement » côté serveur si besoin.
 
@@ -61,8 +65,9 @@
 **Phases** :
 
 1. **Fait (base)** : liste des noms / ids depuis l’API.
-2. **Fait (MVP)** : login intégré (refresh), upload Drive, WorkManager Android, réglages Wi‑Fi/charge et choix des dossiers locaux à sauvegarder.
+2. **Fait (MVP)** : login intégré (refresh), navigation mobile **Photos / Albums / Archivé / Corbeille / Verrouillé / Paramètres**, viewer plein écran (date en titre, retour grille à la photo courante, glisser bas pour fermer), corbeille Drive (suppression/restauration), verrou local par authentification système, upload Drive avec **`taken_at`**, WorkManager Android, réglages Wi‑Fi/charge et choix des dossiers locaux, vignettes via **`/thumbnail`** + file de chargement (anti-429), défilement horizontal par jour.
 3. **Sync suivante** : scan complet paginé, curseur serveur (`offset` / futur curseur opaque), déduplication contenu (hash/taille/date), cache local SQLite (optionnel).
+4. **Sécurité suivante** : vrai coffre Photos verrouillé côté serveur (masqué de la timeline, chiffrement dédié, migration/restore), puis action “Archiver” avec champ serveur pour masquer sans supprimer.
 
 ---
 
