@@ -9,7 +9,7 @@
     "watch": "node scripts/build.mjs --watch",
     "clean": "rm -rf dist",
     "lint": "echo \"(lint TODO post-sprint)\"",
-    "test": "echo \"(tests TODO post-sprint — voir ROADMAP MP-06)\""
+    "test": "node scripts/test-domain-matcher.mjs"
   },
   "dependencies": {
     "@cloudity/pass-crypto": "file:../../frontend/packages/pass-crypto"

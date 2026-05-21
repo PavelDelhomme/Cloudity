@@ -1,9 +1,9 @@
 # Cloudity Pass — Extension navigateur (Manifest V3)
 
 > **Statut** : 🟡 squelette livré le **2026-05-13** (J7 ter sprint Pass).
-> Build OK, popup et options fonctionnels en local. **Pas encore
-> d'autofill réel ni d'intégration `@cloudity/pass-crypto`** : ces
-> capacités sont planifiées en **MP-06** (post-migration Proton, J+1..J+5).
+> Build OK, popup et options fonctionnels en local. **MP-06 initial livré le
+> 2026-05-21** : domain matcher, déchiffrement des items, candidats par
+> domaine et autofill username/password au clic utilisateur.
 
 ## Sommaire
 
@@ -28,10 +28,11 @@ Ce squelette livre :
 * un **service worker** `background/` qui garde la master key en
   mémoire et applique l'**auto-lock 5 min** identique à
   `mobile/pass/lib/vault_controller.dart` ;
-* un **content script** qui détecte les champs login et affiche un
-  badge discret quand le coffre est déverrouillé ;
-* un **popup** de déverrouillage / verrouillage maître (sans logique
-  cryptographique réelle pour l'instant) ;
+* un **content script** qui détecte les champs login, affiche un badge
+  discret quand le coffre est déverrouillé, liste les entrées candidates
+  du domaine et remplit username/password après clic utilisateur ;
+* un **popup** de connexion + déverrouillage maître ; la dérivation
+  Argon2id et la master key vivent dans le service worker uniquement ;
 * une page **options** pour configurer l'URL du gateway Cloudity ;
 * un **build esbuild** (`npm run build` / `npm run watch`).
 
@@ -73,6 +74,7 @@ extensions/cloudity-pass/
 ```bash
 cd extensions/cloudity-pass
 npm install
+npm test            # domain matcher MP-06
 npm run build       # produit dist/
 ```
 
@@ -100,7 +102,7 @@ chaque rebuild.
 
 | Vecteur | Mitigation |
 |---|---|
-| Page web malveillante lit le DOM | content script ne touche pas au DOM avant déverrouillage explicite ; aucun champ rempli sans clic utilisateur (post MP-06). |
+| Page web malveillante lit le DOM | content script ne remplit rien avant déverrouillage + clic utilisateur ; aucune donnée n’est stockée durablement dans le DOM. |
 | Sniff inter-extension via `chrome.runtime.connectExternal` | non utilisé (pas de `externally_connectable`). |
 | Persistance de la master key | inexistante : `chrome.storage` ne reçoit que des métadonnées ; le service worker `zeroize` la clé sur lock + à la fermeture. |
 | Auto-lock contourné par suspension MV3 | `chrome.alarms` réveille le service worker à l'échéance. |
@@ -118,7 +120,7 @@ Voir aussi :
 | ID | Tâche | État |
 |---|---|---|
 | **MP-01** (livré 2026-05-13) | Squelette MV3 (manifest, popup, background, content, options, build esbuild) | ✅ |
-| **MP-06** (post-20 mai, J+1..J+5) | Intégrer `@cloudity/pass-crypto` (Argon2id + déchiffrement) ; appel `passwords-service` via gateway ; liste des entrées dans le popup ; autofill réel sur clic utilisateur ; domain matcher | ⏳ |
+| **MP-06** (2026-05-21) | `@cloudity/pass-crypto` dans le service worker ; appels gateway `/pass/vaults` + items ; déchiffrement local ; filtrage domaine ; menu candidats ; autofill au clic | ✅ initial |
 | **MP-07** | Tests Playwright extension (Chromium headless avec `--load-extension`) | ⏳ |
 | **MP-08** | Portage **Firefox** (manifest MV3 cross-browser) puis **Safari** (wrapper Xcode) | ⏳ |
 

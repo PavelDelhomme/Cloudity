@@ -11,7 +11,13 @@
 
 export {};
 
-import { ARGON2ID_PROFILES, deriveMasterKey } from '@cloudity/pass-crypto';
+import {
+  ARGON2ID_PROFILES,
+  decryptItemFromVault,
+  deriveMasterKey,
+  type ItemPlaintextV1,
+} from '@cloudity/pass-crypto';
+import { hostMatchesEntry } from '../shared/domainMatcher';
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 const ALARM_NAME = 'cloudity-pass-auto-lock';
@@ -164,6 +170,11 @@ interface SaveGatewayMessage {
   gatewayUrl: string;
 }
 
+interface ListCandidatesMessage {
+  kind: 'list-candidates';
+  pageUrl: string;
+}
+
 type PassMessage =
   | LoginMessage
   | LogoutMessage
@@ -171,7 +182,8 @@ type PassMessage =
   | PingMessage
   | LockMessage
   | StatusMessage
-  | SaveGatewayMessage;
+  | SaveGatewayMessage
+  | ListCandidatesMessage;
 
 interface StatusResponse {
   ok?: undefined;
@@ -196,7 +208,99 @@ interface ErrResponse {
   error: string;
 }
 
-type PassResponse = StatusResponse | OkResponse | ErrResponse;
+interface AutofillCandidate {
+  id: number;
+  vaultId: number;
+  vaultName: string;
+  title: string;
+  url: string;
+  username: string;
+  password: string;
+}
+
+interface CandidatesResponse {
+  ok: true;
+  candidates: AutofillCandidate[];
+}
+
+type PassResponse = StatusResponse | OkResponse | ErrResponse | CandidatesResponse;
+
+interface VaultResponse {
+  id: number;
+  name: string;
+}
+
+interface PassItemResponse {
+  id: number;
+  vault_id: number;
+  ciphertext: string;
+}
+
+async function apiJson<T>(gateway: string, accessToken: string, path: string): Promise<T> {
+  const res = await fetch(`${gateway}${path}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} sur ${path}`);
+  }
+  return (await res.json()) as T;
+}
+
+function stringField(plain: ItemPlaintextV1, key: string): string {
+  const value = plain.fields[key];
+  return typeof value === 'string' ? value : '';
+}
+
+async function listAutofillCandidates(pageUrl: string): Promise<AutofillCandidate[]> {
+  if (!state.unlocked || !state.masterKey) {
+    throw new Error('Coffre verrouillé.');
+  }
+  const sess = await readSession();
+  const gateway = await getGatewayUrl();
+  if (!sess?.access || !gateway) {
+    throw new Error('Session Cloudity ou gateway manquant.');
+  }
+
+  const pageHost = new URL(pageUrl).hostname;
+  const vaults = await apiJson<VaultResponse[]>(gateway, sess.access, '/pass/vaults');
+  const out: AutofillCandidate[] = [];
+
+  for (const vault of vaults) {
+    const items = await apiJson<PassItemResponse[]>(
+      gateway,
+      sess.access,
+      `/pass/vaults/${vault.id}/items`,
+    );
+    for (const item of items) {
+      try {
+        const plain = decryptItemFromVault({
+          masterKey: state.masterKey,
+          vaultId: String(vault.id),
+          encoded: item.ciphertext,
+        });
+        if (plain.type !== 'login') continue;
+        const url = stringField(plain, 'url');
+        const username = stringField(plain, 'username');
+        const password = stringField(plain, 'password');
+        if (!url || !password || !hostMatchesEntry(pageHost, url)) continue;
+        out.push({
+          id: item.id,
+          vaultId: vault.id,
+          vaultName: vault.name || `Coffre #${vault.id}`,
+          title: stringField(plain, 'title') || username || url,
+          url,
+          username,
+          password,
+        });
+      } catch (e) {
+        console.warn('[cloudity-pass] item non déchiffrable ignoré', item.id, e);
+      }
+    }
+  }
+
+  bumpActivity();
+  return out.slice(0, 10);
+}
 
 chrome.runtime.onMessage.addListener(
   (msg: PassMessage, _sender, sendResponse: (r: PassResponse) => void) => {
@@ -248,6 +352,8 @@ async function handleMessage(msg: PassMessage): Promise<PassResponse> {
         [STORAGE_GATEWAY_URL]: msg.gatewayUrl.trim().replace(/\/$/, ''),
       });
       return { ok: true };
+    case 'list-candidates':
+      return { ok: true, candidates: await listAutofillCandidates(msg.pageUrl) };
     case 'login': {
       const gateway = await getGatewayUrl();
       if (!gateway) {
