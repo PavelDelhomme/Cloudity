@@ -378,6 +378,7 @@ services:
     environment:
       - PORT=8055
       - GOTOOLCHAIN=auto
+      - CGO_ENABLED=1
       - GIN_MODE=release
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}?sslmode=disable
     volumes:

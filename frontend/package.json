@@ -18,6 +18,11 @@
     "node": ">=20"
   },
   "devDependencies": {
-    "jsdom": "^29.1.1"
+    "esbuild": "^0.28.0",
+    "jsdom": "^29.1.1",
+    "vite": "^8.0.16"
+  },
+  "dependencies": {
+    "react-router-dom": "^6.30.4"
   }
 }

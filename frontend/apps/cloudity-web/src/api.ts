@@ -237,8 +237,13 @@ export async function recordPerformanceSnapshot(token: string): Promise<{ id: nu
 export type CveVulnEntryResponse = {
   osv_id: string
   summary?: string | null
+  details?: string | null
   modified?: string | null
+  aliases: string[]
   cve_aliases: string[]
+  severity?: string | null
+  fixed_versions: string[]
+  affected_ranges: string[]
 }
 
 export type CveFindingResponse = {
@@ -257,6 +262,8 @@ export type CveReportResponse = {
   findings: CveFindingResponse[]
   notes: string[]
   summary: Record<string, unknown>
+  manifests?: Record<string, number>
+  ecosystem_package_counts?: Record<string, number>
   error?: string | null
   from_cache: boolean
   snapshot_id?: number | null

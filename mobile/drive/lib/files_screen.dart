@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
+import 'drive_folder_picker.dart';
 import 'user_session.dart';
 
 class FilesScreen extends StatefulWidget {
@@ -26,9 +27,24 @@ class _FilesScreenState extends State<FilesScreen> {
   bool _actionBusy = false;
   double? _uploadProgress;
   String? _error;
+  _DriveSection _section = _DriveSection.home;
+  _ListLayout _layout = _ListLayout.list;
+  String _searchQuery = '';
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searchLoading = false;
 
   int? get _parentId => _parentStack.last;
-  String get _folderTitle => _folderNameStack.last;
+  String get _folderTitle => switch (_section) {
+    _DriveSection.trash => 'Corbeille',
+    _DriveSection.recent => 'Récents',
+    _DriveSection.home => _folderNameStack.last,
+  };
+  bool get _isTrashView => _section == _DriveSection.trash;
+  bool get _isRecentView => _section == _DriveSection.recent;
+  bool get _showFab => _section == _DriveSection.home;
+  bool get _isSearchActive => _searchQuery.trim().isNotEmpty;
+  List<Map<String, dynamic>> get _visibleItems =>
+      _isSearchActive ? _searchResults : _items;
   String get _accountLabel => _accountFromToken(widget.session.accessToken);
 
   @override
@@ -44,23 +60,42 @@ class _FilesScreenState extends State<FilesScreen> {
     });
     try {
       await widget.session.refreshIfNeeded();
-      final raw = await widget.session.api.fetchDriveNodes(
-        accessToken: widget.session.accessToken,
-        parentId: _parentId,
-      );
+      final raw = switch (_section) {
+        _DriveSection.trash => await widget.session.api.fetchDriveTrash(
+          accessToken: widget.session.accessToken,
+        ),
+        _DriveSection.recent => await widget.session.api.fetchDriveRecent(
+          accessToken: widget.session.accessToken,
+        ),
+        _DriveSection.home => await widget.session.api.fetchDriveNodes(
+          accessToken: widget.session.accessToken,
+          parentId: _parentId,
+        ),
+      };
       if (!mounted) return;
       setState(() {
         _items = raw;
         _loading = false;
       });
+      if (_isSearchActive) {
+        await _runSearch(_searchQuery, showLoading: false);
+      }
     } on AuthException catch (e) {
       if (e.message == 'non_autorisé') {
         try {
           await widget.session.refreshIfNeeded();
-          final raw = await widget.session.api.fetchDriveNodes(
-            accessToken: widget.session.accessToken,
-            parentId: _parentId,
-          );
+          final raw = switch (_section) {
+            _DriveSection.trash => await widget.session.api.fetchDriveTrash(
+              accessToken: widget.session.accessToken,
+            ),
+            _DriveSection.recent => await widget.session.api.fetchDriveRecent(
+              accessToken: widget.session.accessToken,
+            ),
+            _DriveSection.home => await widget.session.api.fetchDriveNodes(
+              accessToken: widget.session.accessToken,
+              parentId: _parentId,
+            ),
+          };
           if (!mounted) return;
           setState(() {
             _items = raw;
@@ -104,6 +139,9 @@ class _FilesScreenState extends State<FilesScreen> {
   void _goRoot() {
     Navigator.of(context).maybePop();
     setState(() {
+      _section = _DriveSection.home;
+      _searchQuery = '';
+      _searchResults = [];
       _parentStack
         ..clear()
         ..add(null);
@@ -112,6 +150,112 @@ class _FilesScreenState extends State<FilesScreen> {
         ..add('Mon Drive');
     });
     _reload();
+  }
+
+  void _openTrash() {
+    Navigator.of(context).maybePop();
+    setState(() {
+      _section = _DriveSection.trash;
+      _searchQuery = '';
+      _searchResults = [];
+      _parentStack
+        ..clear()
+        ..add(null);
+      _folderNameStack
+        ..clear()
+        ..add('Mon Drive');
+    });
+    _reload();
+  }
+
+  void _openRecent() {
+    Navigator.of(context).maybePop();
+    setState(() {
+      _section = _DriveSection.recent;
+      _searchQuery = '';
+      _searchResults = [];
+      _parentStack
+        ..clear()
+        ..add(null);
+      _folderNameStack
+        ..clear()
+        ..add('Mon Drive');
+    });
+    _reload();
+  }
+
+  Future<void> _runSearch(String query, {bool showLoading = true}) async {
+    final q = query.trim();
+    if (q.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _searchQuery = '';
+        _searchResults = [];
+        _searchLoading = false;
+      });
+      return;
+    }
+    if (showLoading) {
+      setState(() {
+        _searchQuery = q;
+        _searchLoading = true;
+      });
+    } else {
+      setState(() => _searchQuery = q);
+    }
+    try {
+      await widget.session.refreshIfNeeded();
+      final raw = await widget.session.api.searchDriveNodes(
+        accessToken: widget.session.accessToken,
+        query: q,
+        parentId: _section == _DriveSection.home ? _parentId : null,
+      );
+      if (!mounted) return;
+      setState(() {
+        _searchResults = raw;
+        _searchLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _searchLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Recherche impossible : $e')),
+      );
+    }
+  }
+
+  Future<void> _openSearch() async {
+    final ctrl = TextEditingController(text: _searchQuery);
+    final submitted = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rechercher dans Drive'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Nom de fichier ou dossier',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.search),
+          ),
+          textInputAction: TextInputAction.search,
+          onSubmitted: (value) => Navigator.pop(context, value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            child: const Text('Effacer'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            child: const Text('Rechercher'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (!mounted || submitted == null) return;
+    await _runSearch(submitted);
   }
 
   Future<void> _confirmLogout() async {
@@ -195,10 +339,10 @@ class _FilesScreenState extends State<FilesScreen> {
                 leading: const Icon(Icons.folder_copy_outlined),
                 title: const Text('Importer un dossier'),
                 subtitle: const Text(
-                  'Android limite l’accès dossier complet ; utilisez une sélection multiple pour le moment.',
+                  'Sélection SAF Android — structure des sous-dossiers conservée',
                 ),
                 onTap: () =>
-                    Navigator.pop(context, _DriveNewAction.uploadFiles),
+                    Navigator.pop(context, _DriveNewAction.uploadFolder),
               ),
             ],
           ),
@@ -211,6 +355,8 @@ class _FilesScreenState extends State<FilesScreen> {
         await _createFolder();
       case _DriveNewAction.uploadFiles:
         await _importFiles();
+      case _DriveNewAction.uploadFolder:
+        await _importFolder();
     }
   }
 
@@ -303,6 +449,120 @@ class _FilesScreenState extends State<FilesScreen> {
     });
   }
 
+  Future<void> _importFolder() async {
+    final dirPath = await FilePicker.getDirectoryPath(
+      dialogTitle: 'Choisir un dossier à importer',
+    );
+    if (dirPath == null || dirPath.trim().isEmpty) return;
+    final root = Directory(dirPath);
+    if (!await root.exists()) return;
+
+    final entries = <({File file, String relativePath})>[];
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final rel = entity.path.length <= dirPath.length
+          ? entity.path.split(Platform.pathSeparator).last
+          : entity.path.substring(dirPath.length + 1);
+      if (rel.trim().isEmpty) continue;
+      entries.add((file: entity, relativePath: rel));
+    }
+    if (entries.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le dossier sélectionné est vide.')),
+      );
+      return;
+    }
+
+    await _runDriveAction(() async {
+      final folderCache = <String, int?>{'': _parentId};
+      var done = 0;
+      for (final entry in entries) {
+        final parts = entry.relativePath.split(Platform.pathSeparator);
+        final fileName = parts.removeLast();
+        final dirKey = parts.join(Platform.pathSeparator);
+        final targetParent = await _ensureFolderPath(
+          dirKey,
+          _parentId,
+          folderCache,
+        );
+        await widget.session.api.uploadFile(
+          accessToken: widget.session.accessToken,
+          file: entry.file,
+          fileName: fileName,
+          parentId: targetParent,
+          onProgress: (sent, total) {
+            if (!mounted || total <= 0) return;
+            setState(() {
+              _uploadProgress = (done + (sent / total)) / entries.length;
+            });
+          },
+        );
+        done++;
+        if (mounted) {
+          setState(() => _uploadProgress = done / entries.length);
+        }
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${entries.length} fichier(s) importé(s) depuis le dossier.',
+          ),
+        ),
+      );
+    });
+  }
+
+  Future<int?> _ensureFolderPath(
+    String relativeDir,
+    int? baseParentId,
+    Map<String, int?> cache,
+  ) async {
+    final key = relativeDir.trim();
+    if (key.isEmpty) return baseParentId;
+    if (cache.containsKey(key)) return cache[key];
+
+    final parts = key.split(Platform.pathSeparator);
+    var currentKey = '';
+    int? parent = baseParentId;
+    for (final part in parts) {
+      if (part.trim().isEmpty) continue;
+      currentKey = currentKey.isEmpty ? part : '$currentKey${Platform.pathSeparator}$part';
+      if (cache.containsKey(currentKey)) {
+        parent = cache[currentKey];
+        continue;
+      }
+      parent = await _findOrCreateFolder(part, parent);
+      cache[currentKey] = parent;
+    }
+    return parent;
+  }
+
+  Future<int?> _findOrCreateFolder(String name, int? parentId) async {
+    try {
+      final created = await widget.session.api.createFolder(
+        accessToken: widget.session.accessToken,
+        name: name,
+        parentId: parentId,
+      );
+      final id = created['id'];
+      return id is num ? id.toInt() : null;
+    } on AuthException {
+      final siblings = await widget.session.api.fetchDriveNodes(
+        accessToken: widget.session.accessToken,
+        parentId: parentId,
+      );
+      for (final node in siblings) {
+        if (node['is_folder'] == true && node['name']?.toString() == name) {
+          final id = node['id'];
+          if (id is num) return id.toInt();
+        }
+      }
+      rethrow;
+    }
+  }
+
   String _accountFromToken(String token) {
     try {
       final parts = token.split('.');
@@ -392,10 +652,23 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   String _dateLabel(Map<String, dynamic> node) {
-    final raw = (node['updated_at'] ?? node['created_at'])?.toString();
-    final date = raw == null ? null : DateTime.tryParse(raw)?.toLocal();
-    if (date == null) return '';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    final raw = _isTrashView
+        ? (node['deleted_at'] ?? node['updated_at'] ?? node['created_at'])
+        : (node['updated_at'] ?? node['created_at']);
+    final date = raw?.toString();
+    final parsed = date == null ? null : DateTime.tryParse(date)?.toLocal();
+    if (parsed == null) return '';
+    return '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+  }
+
+  String _parentPathLabel(Map<String, dynamic> node) {
+    final parentName = node['parent_name']?.toString();
+    if (parentName != null && parentName.isNotEmpty) {
+      return parentName;
+    }
+    final parentId = node['parent_id'];
+    if (parentId == null) return 'Racine';
+    return 'Dossier #$parentId';
   }
 
   Widget _accountAvatar({double radius = 18}) {
@@ -411,15 +684,28 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Widget _buildDrawer() {
+    final selectedIndex = switch (_section) {
+      _DriveSection.home => 0,
+      _DriveSection.recent => 1,
+      _DriveSection.trash => 4,
+    };
     return NavigationDrawer(
-      selectedIndex: 0,
+      selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
         if (index == 0) {
           _goRoot();
+        } else if (index == 1) {
+          _openRecent();
+        } else if (index == 4) {
+          _openTrash();
         } else {
           Navigator.of(context).maybePop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Section Drive bientôt disponible.')),
+            const SnackBar(
+              content: Text(
+                'Partagés et favoris arrivent avec le partage Drive côté serveur.',
+              ),
+            ),
           );
         }
       },
@@ -499,8 +785,9 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Widget _buildTopPanel() {
-    final folderCount = _items.where((e) => e['is_folder'] == true).length;
-    final fileCount = _items.length - folderCount;
+    final folderCount =
+        _visibleItems.where((e) => e['is_folder'] == true).length;
+    final fileCount = _visibleItems.length - folderCount;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Column(
@@ -511,13 +798,7 @@ class _FilesScreenState extends State<FilesScreen> {
             borderRadius: BorderRadius.circular(28),
             child: InkWell(
               borderRadius: BorderRadius.circular(28),
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Recherche Drive bientôt disponible.'),
-                  ),
-                );
-              },
+              onTap: _openSearch,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -527,7 +808,21 @@ class _FilesScreenState extends State<FilesScreen> {
                   children: [
                     const Icon(Icons.search),
                     const SizedBox(width: 12),
-                    const Expanded(child: Text('Rechercher dans Drive')),
+                    Expanded(
+                      child: Text(
+                        _isSearchActive
+                            ? 'Recherche : $_searchQuery'
+                            : 'Rechercher dans Drive',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (_isSearchActive)
+                      IconButton(
+                        tooltip: 'Effacer la recherche',
+                        onPressed: () => _runSearch(''),
+                        icon: const Icon(Icons.close, size: 20),
+                      ),
                     _accountAvatar(radius: 16),
                   ],
                 ),
@@ -548,26 +843,40 @@ class _FilesScreenState extends State<FilesScreen> {
                 ),
               ),
               IconButton(
-                tooltip: 'Changer l’affichage',
+                tooltip: _layout == _ListLayout.list
+                    ? 'Affichage grille'
+                    : 'Affichage liste',
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Affichage grille bientôt disponible.'),
-                    ),
-                  );
+                  setState(() {
+                    _layout = _layout == _ListLayout.list
+                        ? _ListLayout.grid
+                        : _ListLayout.list;
+                  });
                 },
-                icon: const Icon(Icons.grid_view_outlined),
+                icon: Icon(
+                  _layout == _ListLayout.list
+                      ? Icons.grid_view_outlined
+                      : Icons.view_list_outlined,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            '$folderCount dossier(s) · $fileCount fichier(s)',
+            _isSearchActive
+                ? '${_visibleItems.length} résultat(s)'
+                : _isRecentView
+                ? '${_visibleItems.length} élément(s) récent(s)'
+                : '$folderCount dossier(s) · $fileCount fichier(s)',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          if (_parentStack.length > 1) ...[
+          if (_searchLoading) ...[
+            const SizedBox(height: 10),
+            const LinearProgressIndicator(),
+          ],
+          if (_section == _DriveSection.home && _parentStack.length > 1) ...[
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
               onPressed: _goUp,
@@ -608,10 +917,12 @@ class _FilesScreenState extends State<FilesScreen> {
         ),
         subtitle: Text(
           [
+            if (_isSearchActive || _isRecentView) _parentPathLabel(node),
             _sizeLabel(node),
-            if (date.isNotEmpty) 'Modifié le $date',
-          ].join(' · '),
-          maxLines: 1,
+            if (date.isNotEmpty)
+              _isTrashView ? 'Supprimé le $date' : 'Modifié le $date',
+          ].where((part) => part.isNotEmpty).join(' · '),
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         trailing: IconButton(
@@ -619,13 +930,63 @@ class _FilesScreenState extends State<FilesScreen> {
           icon: const Icon(Icons.more_vert),
           onPressed: () => _showNodeActions(node),
         ),
-        onTap: isFolder && id != null ? () => _openFolder(id, name) : null,
+        onTap: () => _onNodeTap(node, id, name, isFolder),
       ),
     );
   }
 
+  void _onNodeTap(
+    Map<String, dynamic> node,
+    int? id,
+    String name,
+    bool isFolder,
+  ) {
+    if (_isTrashView) {
+      _showNodeActions(node);
+      return;
+    }
+    if (_isRecentView && isFolder && id != null) {
+      setState(() {
+        _section = _DriveSection.home;
+        _searchQuery = '';
+        _searchResults = [];
+        _parentStack
+          ..clear()
+          ..add(null)
+          ..add(id);
+        _folderNameStack
+          ..clear()
+          ..add('Mon Drive')
+          ..add(name);
+      });
+      _reload();
+      return;
+    }
+    if (_isSearchActive && isFolder && id != null) {
+      setState(() {
+        _searchQuery = '';
+        _searchResults = [];
+        _section = _DriveSection.home;
+        _parentStack
+          ..clear()
+          ..add(null)
+          ..add(id);
+        _folderNameStack
+          ..clear()
+          ..add('Mon Drive')
+          ..add(name);
+      });
+      _reload();
+      return;
+    }
+    if (isFolder && id != null) {
+      _openFolder(id, name);
+    }
+  }
+
   void _showNodeActions(Map<String, dynamic> node) {
     final name = node['name'] as String? ?? 'Élément';
+    final id = node['id'] is num ? (node['id'] as num).toInt() : null;
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -650,21 +1011,153 @@ class _FilesScreenState extends State<FilesScreen> {
                 title: const Text('Informations'),
                 subtitle: Text(_sizeLabel(node)),
               ),
-              const ListTile(
-                leading: Icon(Icons.drive_file_move_outline),
-                title: Text('Déplacer'),
-                subtitle: Text('Bientôt disponible'),
-              ),
-              const ListTile(
-                leading: Icon(Icons.delete_outline),
-                title: Text('Mettre à la corbeille'),
-                subtitle: Text('Bientôt disponible'),
-              ),
+              if (_isTrashView && id != null) ...[
+                ListTile(
+                  leading: const Icon(Icons.restore_outlined),
+                  title: const Text('Restaurer'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _restoreNode(id, name);
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    Icons.delete_forever_outlined,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  title: Text(
+                    'Supprimer définitivement',
+                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _purgeNode(id, name);
+                  },
+                ),
+              ] else if (id != null) ...[
+                ListTile(
+                  leading: const Icon(Icons.drive_file_move_outline),
+                  title: const Text('Déplacer'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _moveNode(id, name, node['is_folder'] == true);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete_outline),
+                  title: const Text('Mettre à la corbeille'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteNode(id, name);
+                  },
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _moveNode(int id, String name, bool isFolder) async {
+    final pick = await showDriveFolderPicker(
+      context,
+      session: widget.session,
+      title: 'Déplacer « $name »',
+      excludeNodeId: isFolder ? id : null,
+    );
+    if (pick == null || !mounted) return;
+    await _runDriveAction(() async {
+      await widget.session.api.moveDriveNode(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+        parentId: pick.parentId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('« $name » déplacé.')),
+      );
+    });
+  }
+
+  Future<void> _deleteNode(int id, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Mettre à la corbeille'),
+        content: Text('Déplacer « $name » vers la corbeille ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Corbeille'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _runDriveAction(() async {
+      await widget.session.api.deleteDriveNode(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('« $name » déplacé vers la corbeille.')),
+      );
+    });
+  }
+
+  Future<void> _restoreNode(int id, String name) async {
+    await _runDriveAction(() async {
+      await widget.session.api.restoreDriveNode(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('« $name » restauré.')),
+      );
+    });
+  }
+
+  Future<void> _purgeNode(int id, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Suppression définitive'),
+        content: Text(
+          'Supprimer définitivement « $name » ? Cette action est irréversible.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await _runDriveAction(() async {
+      await widget.session.api.purgeDriveNode(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('« $name » supprimé définitivement.')),
+      );
+    });
   }
 
   Widget _buildBody() {
@@ -693,33 +1186,125 @@ class _FilesScreenState extends State<FilesScreen> {
         ],
       );
     }
-    if (_items.isEmpty) {
+    if (_visibleItems.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
-        children: const [
-          SizedBox(height: 80),
-          Icon(Icons.folder_open_outlined, size: 56),
-          SizedBox(height: 16),
-          Text(
-            'Ce dossier est vide.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        children: [
+          const SizedBox(height: 80),
+          Icon(
+            _isTrashView
+                ? Icons.delete_outline
+                : _isRecentView
+                ? Icons.schedule_outlined
+                : _isSearchActive
+                ? Icons.search_off_outlined
+                : Icons.folder_open_outlined,
+            size: 56,
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
-            'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
+            _isTrashView
+                ? 'La corbeille est vide.'
+                : _isRecentView
+                ? 'Aucun fichier récent.'
+                : _isSearchActive
+                ? 'Aucun résultat pour cette recherche.'
+                : 'Ce dossier est vide.',
             textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _isTrashView
+                ? 'Les éléments supprimés apparaîtront ici.'
+                : _isRecentView
+                ? 'Les fichiers modifiés récemment s’afficheront ici.'
+                : _isSearchActive
+                ? 'Essayez un autre nom de fichier ou dossier.'
+                : 'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+    if (_layout == _ListLayout.grid) {
+      return CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(child: _buildTopPanel()),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.92,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, i) => _buildGridTile(_visibleItems[i]),
+                childCount: _visibleItems.length,
+              ),
+            ),
           ),
         ],
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 96),
-      itemCount: _items.length + 1,
+      itemCount: _visibleItems.length + 1,
       itemBuilder: (context, i) {
         if (i == 0) return _buildTopPanel();
-        return _buildFileTile(_items[i - 1]);
+        return _buildFileTile(_visibleItems[i - 1]);
       },
+    );
+  }
+
+  Widget _buildGridTile(Map<String, dynamic> node) {
+    final name = node['name'] as String? ?? 'Sans nom';
+    final id = node['id'] is num ? (node['id'] as num).toInt() : null;
+    final isFolder = node['is_folder'] == true;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _onNodeTap(node, id, name, isFolder),
+        onLongPress: () => _showNodeActions(node),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: _iconColor(
+                  context,
+                  node,
+                ).withValues(alpha: 0.14),
+                foregroundColor: _iconColor(context, node),
+                child: Icon(_iconFor(node)),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const Spacer(),
+              Text(
+                _sizeLabel(node),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -746,17 +1331,19 @@ class _FilesScreenState extends State<FilesScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _actionBusy ? null : _showNewMenu,
-        icon: _actionBusy
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.add),
-        label: Text(_actionBusy ? _busyLabel : 'Nouveau'),
-      ),
+      floatingActionButton: !_showFab
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _actionBusy ? null : _showNewMenu,
+              icon: _actionBusy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add),
+              label: Text(_actionBusy ? _busyLabel : 'Nouveau'),
+            ),
       body: RefreshIndicator(onRefresh: _reload, child: _buildBody()),
     );
   }
@@ -768,4 +1355,8 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 }
 
-enum _DriveNewAction { createFolder, uploadFiles }
+enum _DriveSection { home, recent, trash }
+
+enum _ListLayout { list, grid }
+
+enum _DriveNewAction { createFolder, uploadFiles, uploadFolder }

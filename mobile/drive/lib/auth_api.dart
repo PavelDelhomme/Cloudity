@@ -145,6 +145,155 @@ class AuthApi {
     return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  /// Recherche par nom sur tout le Drive (optionnellement sous un dossier).
+  Future<List<Map<String, dynamic>>> searchDriveNodes({
+    required String accessToken,
+    required String query,
+    int? parentId,
+    int limit = 50,
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final params = <String, String>{'q': q, 'limit': '$limit'};
+    if (parentId != null) {
+      params['parent_id'] = '$parentId';
+    }
+    final uri = Uri.parse('$_base/drive/nodes/search').replace(
+      queryParameters: params,
+    );
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Recherche Drive HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) {
+      throw AuthException('Réponse recherche Drive invalide');
+    }
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDriveTrash({
+    required String accessToken,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/trash');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Corbeille Drive HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) {
+      throw AuthException('Réponse corbeille Drive invalide');
+    }
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> deleteDriveNode({
+    required String accessToken,
+    required int nodeId,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId');
+    final res = await http
+        .delete(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Suppression Drive HTTP ${res.statusCode}');
+    }
+  }
+
+  Future<void> restoreDriveNode({
+    required String accessToken,
+    required int nodeId,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId/restore');
+    final res = await http
+        .post(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Restauration Drive HTTP ${res.statusCode}');
+    }
+  }
+
+  /// Fichiers et dossiers récemment modifiés (tous emplacements).
+  Future<List<Map<String, dynamic>>> fetchDriveRecent({
+    required String accessToken,
+    int limit = 30,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/recent?limit=$limit');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Récents Drive HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) {
+      throw AuthException('Réponse récents Drive invalide');
+    }
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// Déplace un nœud vers [parentId] (`null` ou `0` = racine).
+  Future<void> moveDriveNode({
+    required String accessToken,
+    required int nodeId,
+    int? parentId,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId');
+    final res = await http
+        .put(
+          uri,
+          headers: authHeaders(accessToken),
+          body: jsonEncode({'parent_id': parentId ?? 0}),
+        )
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final body = res.body.isEmpty ? '{}' : res.body;
+      final decoded = jsonDecode(body);
+      final msg = decoded is Map
+          ? (decoded['error'] ?? decoded['message'])?.toString()
+          : null;
+      throw AuthException(msg ?? 'Déplacement Drive HTTP ${res.statusCode}');
+    }
+  }
+
+  Future<void> purgeDriveNode({
+    required String accessToken,
+    required int nodeId,
+  }) async {
+    final uri = Uri.parse('$_base/drive/nodes/trash/$nodeId');
+    final res = await http
+        .delete(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Suppression définitive HTTP ${res.statusCode}');
+    }
+  }
+
   Future<Map<String, dynamic>> createFolder({
     required String accessToken,
     required String name,

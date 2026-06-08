@@ -26,12 +26,12 @@
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
 | **H5b** | **Photos — mobile Android** | Navigation Photos/Albums/Archivé/Corbeille/Verrouillé/Paramètres, viewer, corbeille Drive, verrou local biométrique, WorkManager + choix dossiers | ☑ |
 | **H5c** | **Photos — vignettes & dates** | `GET /drive/nodes/:id/thumbnail`, `taken_at` (EXIF/galerie + nom fichier), exclusion PDF timeline, rate-limit gateway assoupli médias, file chargement mobile, défilement horizontal par jour, retour viewer → scroll | ☑ |
-| **H5d** | **Drive — mobile Android** | Drawer + compte connecté ☑ ; FAB **Nouveau** avec création dossier + import multi-fichiers sécurisé JWT ☑ ; suite : upload dossier complet SAF, corbeille, partage, recherche réelle, grille/liste | 🟡 |
+| **H5d** | **Drive — mobile Android** | Drawer (Mon Drive, **Récents**, Corbeille) ☑ ; FAB Nouveau ☑ ; recherche ☑ ; corbeille ☑ ; grille/liste ☑ ; import dossier SAF ☑ ; **déplacer** (picker dossier + `PUT parent_id`) ☑ ; partagés/favoris = attente API partage backend | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
 | **H6c** | **Sécurité mobile transverse** | Les apps mobiles doivent rester alignées avec la sécurité API : JWT/refresh, RLS backend, messages réseau propres, aucun token en clair, broker signature-only ; à auditer à chaque feature mobile | 🟡 |
 | **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
-| **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
+| **H7** | **Admin U9 / U10** | U10 CVE enrichies + scan OSV à zéro ☑ ; reste U9 2FA admin avancée | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
@@ -47,6 +47,25 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 
 Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Incident `make status-watch` — `.env: Admin: commande introuvable` (2026-06-08)
+
+Cause : `status.sh` faisait `source .env` ; `WEBAUTHN_RP_NAME=Cloudity Admin` (espace non quoté) est interprété par bash comme deux commandes.
+
+Correctifs : `status.sh` lit les `PORT_*` via `_env_get` (parse sans exécuter le fichier) ; `.env.example` quote `WEBAUTHN_RP_NAME="Cloudity Admin"`. Si ton `.env` local a la même ligne, quoter la valeur ou régénérer depuis l’exemple.
+
+### Incident `make up` — drive-service unhealthy (2026-06-08)
+
+Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`.
+
+Cause : ajout **HEIC** (`goheif` + CGO `libde265`/`dav1d`) dans `drive-service` sans image Docker à jour — l’image locale datait d’avant `gcc`/`g++` dans `Dockerfile.dev`, donc `go run` échouait (`build constraints exclude all Go files` / `gcc not found`).
+
+Correctifs :
+
+- `backend/drive-service/Dockerfile.dev` : `gcc g++ musl-dev` + `CGO_ENABLED=1`.
+- `docker-compose.yml` : `CGO_ENABLED=1` sur `drive-service`.
+- `backend/drive-service/Dockerfile.prod` : build CGO pour GHCR (remplace `Dockerfile.go-service` statique).
+- Après pull ou changement HEIC : **`docker compose build drive-service`** ou **`make rebuild-drive`** avant `make up`.
 
 ### Session Photos — vignettes, dates, UX mobile (2026-05-21)
 
@@ -104,10 +123,10 @@ Décisions / correctifs :
 | **U7** | **Responsive UI-DS** | Composants `Responsive*` dans `@cloudity/ui` ; Admin `ResponsiveShell` (drawer &lt;lg) ; catalogue `ResponsivePage/Grid` ; Mail pile nav/liste/lecture &lt;lg | ☑ |
 | **U8** | **Admin polish opérationnel** | Domaines mail résiste aux réponses `null` ; Dashboard explique le mode cgroup ; Users affiche 2FA/dernière connexion sans faux reset ; CVE priorise les dépendances ; Passkeys/Settings explicitent le périmètre web/mobile/extension | ☑ |
 | **U9** | **Admin sécurité 2FA avancée** | À concevoir backend + UI : reset TOTP utilisateur avec step-up admin, audit log, codes de récupération et garde anti-lockout | ☐ |
-| **U10** | **CVE enrichies** | Analyse CVE trop pauvre quand OSV renvoie `summary = null` : récupérer/afficher alias, sévérité, impact, affected ranges et remediation/version cible (OSV/GHSA/NVD), avec fallback clair au lieu de `—` | ☐ |
+| **U10** | **CVE enrichies** | OSV enrichi côté admin-service (`/v1/vulns/:id`) : résumé fallback `details`, alias CVE/GHSA, sévérité, affected ranges, versions corrigées ; scan élargi à tous les manifests supportés (`13 go.mod`, `3 package-lock`, `1 requirements`) ; scan final = **760 paquets / 0 vuln OSV** | ☑ |
 
 **Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  
-**Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
+**Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-10 CVE enrichies** livré ; **UI-9** (2FA admin avancée) reste à faire.
 **Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
 **Branche précédente** : `feat/mail-alias-prod` → **fusionnée dans `dev`** (2026-05-21, fast-forward `0a31874a`).  
 **Branche précédente** : `feat/mail-mta-alias-delivery` → **fusionnée dans `dev`** (2026-05-21, fast-forward `04a9c68c` : Maddy `alias-router` + notifications Mail web).  
@@ -146,7 +165,7 @@ Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les ré
 | **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
 | **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
 | **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
-| **Q4** | **Sécurité** | `make test-security` ✅ avec warnings : Go toolchain `1.25.9 → 1.25.10`, `golang.org/x/net`, `gosec` (G115 mail UID, timeouts HTTP, chemins fichiers), `gitleaks` faux positifs/test à baseliner, `npm audit` modéré | 🟡 |
+| **Q4** | **Sécurité** | `make test-security` ✅ (2026-06-08) : `npm audit` OK, `pip-audit` OK, `govulncheck` OK avec Go `1.25.11`, auth 401 OK, OSV admin élargi `760+` paquets / 0 vuln ; restent warnings non bloquants **gosec** (G104/G706/G304/G115/G114/G704 à trier) et **gitleaks historique** (3 constantes exemple/test à baseliner ou purger) | 🟡 |
 | **Q5** | **E2E web** | `make test-e2e` ✅ ; `make test-e2e-playwright` ✅ — 72 passed, 4 skipped après corrections login/passkeys/mail/pass | ☑ |
 | **Q6** | **Mobile** | `make test-mobile-suite` ✅ Photos/Drive/Mail hôte ; integration_test device ignorés car aucun appareil ADB détecté | ☑ |
 | **Q7** | **Perf** | `make perf-snapshot LABEL=before-mail-alias-prod` ✅ ; `make perf-budgets` 🟡 KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie tests, conteneurs OK (`CPU 4.7%`, `MEM 1145 MiB`) | 🟡 |

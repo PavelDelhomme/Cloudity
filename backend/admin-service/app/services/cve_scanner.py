@@ -17,8 +17,9 @@ from typing import Any, Iterable
 import httpx
 
 OSV_QUERY_BATCH_URL = "https://api.osv.dev/v1/querybatch"
+OSV_VULN_URL = "https://api.osv.dev/v1/vulns/{vuln_id}"
 OSV_BATCH_SIZE = 900
-MAX_NPM_PACKAGES = 450
+MAX_NPM_PACKAGES = 5000
 GO_MOD_NAME = re.compile(r"^(\S+)\s+(\S+)\s*$")
 
 
@@ -71,10 +72,15 @@ def parse_go_mod(text: str) -> list[tuple[str, str]]:
     return out
 
 
+def _ignored_manifest(path: Path) -> bool:
+    ignored_parts = {"node_modules", "vendor", ".git", ".venv", "venv", "dist", "build"}
+    return any(part in ignored_parts for part in path.parts)
+
+
 def collect_go_packages(root: Path) -> list[OsvPackage]:
     pkgs: list[OsvPackage] = []
     for path in root.rglob("go.mod"):
-        if "vendor" in path.parts or "node_modules" in path.parts:
+        if _ignored_manifest(path):
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
@@ -88,67 +94,69 @@ def collect_go_packages(root: Path) -> list[OsvPackage]:
 
 def collect_npm_packages(root: Path) -> list[OsvPackage]:
     pkgs: list[OsvPackage] = []
-    lock = root / "frontend" / "apps" / "cloudity-web" / "package-lock.json"
-    if not lock.is_file():
-        for candidate in root.rglob("package-lock.json"):
-            if "node_modules" in candidate.parts:
+    for lock in sorted(root.rglob("package-lock.json")):
+        if _ignored_manifest(lock):
+            continue
+        try:
+            data = json.loads(lock.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        packages = data.get("packages")
+        if not isinstance(packages, dict):
+            continue
+        for rel_path, meta in packages.items():
+            if not isinstance(meta, dict):
                 continue
-            lock = candidate
-            break
-    if not lock.is_file():
-        return pkgs
-    try:
-        data = json.loads(lock.read_text(encoding="utf-8", errors="replace"))
-    except (OSError, json.JSONDecodeError):
-        return pkgs
-    packages = data.get("packages")
-    if not isinstance(packages, dict):
-        return pkgs
-    for rel_path, meta in packages.items():
-        if not isinstance(meta, dict):
-            continue
-        if not isinstance(rel_path, str) or not rel_path.startswith("node_modules/"):
-            continue
-        name = rel_path.removeprefix("node_modules/")
-        if not name or name.startswith("."):
-            continue
-        ver = meta.get("version")
-        if not isinstance(ver, str) or not ver.strip():
-            continue
-        pkgs.append(OsvPackage("npm", name, ver.strip()))
-        if len(pkgs) >= MAX_NPM_PACKAGES:
-            break
+            if not isinstance(rel_path, str) or not rel_path.startswith("node_modules/"):
+                continue
+            name = rel_path.removeprefix("node_modules/")
+            if not name or name.startswith("."):
+                continue
+            ver = meta.get("version")
+            if not isinstance(ver, str) or not ver.strip():
+                continue
+            pkgs.append(OsvPackage("npm", name, ver.strip()))
+            if len(pkgs) >= MAX_NPM_PACKAGES:
+                return pkgs
     return pkgs
 
 
 def collect_pypi_packages(root: Path) -> list[OsvPackage]:
     pkgs: list[OsvPackage] = []
-    req = root / "backend" / "admin-service" / "requirements.txt"
-    if not req.is_file():
-        return pkgs
-    try:
-        lines = req.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return pkgs
-    for line in lines:
-        s = line.split("#", 1)[0].strip()
-        if not s or s.startswith("-"):
+    for req in sorted(root.rglob("requirements*.txt")):
+        if _ignored_manifest(req):
             continue
-        name: str | None = None
-        ver: str | None = None
-        if "===" in s:
-            name, _, ver = s.partition("===")
-        elif "==" in s:
-            name, _, ver = s.partition("==")
-        elif ">=" in s:
-            name, _, ver = s.partition(">=")
-        else:
+        try:
+            lines = req.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
             continue
-        name = name.strip()
-        ver = ver.strip().split(";")[0].strip() if ver else ""
-        if name and ver:
-            pkgs.append(OsvPackage("PyPI", name.lower().replace("_", "-"), ver))
+        for line in lines:
+            s = line.split("#", 1)[0].strip()
+            if not s or s.startswith("-"):
+                continue
+            name: str | None = None
+            ver: str | None = None
+            if "===" in s:
+                name, _, ver = s.partition("===")
+            elif "==" in s:
+                name, _, ver = s.partition("==")
+            elif ">=" in s:
+                name, _, ver = s.partition(">=")
+            else:
+                continue
+            name = name.strip()
+            ver = ver.strip().split(";")[0].strip() if ver else ""
+            if name and ver:
+                pkgs.append(OsvPackage("PyPI", name.lower().replace("_", "-"), ver))
     return pkgs
+
+
+def manifest_inventory(root: Path) -> dict[str, int]:
+    return {
+        "go_mod": sum(1 for p in root.rglob("go.mod") if not _ignored_manifest(p)),
+        "package_lock": sum(1 for p in root.rglob("package-lock.json") if not _ignored_manifest(p)),
+        "requirements": sum(1 for p in root.rglob("requirements*.txt") if not _ignored_manifest(p)),
+    }
 
 
 def dedupe(packages: Iterable[OsvPackage]) -> list[OsvPackage]:
@@ -170,6 +178,146 @@ def _cve_aliases(aliases: Any) -> list[str]:
     return sorted(set(cves))
 
 
+def _aliases(aliases: Any) -> list[str]:
+    if not isinstance(aliases, list):
+        return []
+    return sorted({a.strip() for a in aliases if isinstance(a, str) and a.strip()})[:50]
+
+
+def _summary_from_details(details: Any) -> str | None:
+    if not isinstance(details, str):
+        return None
+    compact = " ".join(details.strip().split())
+    if not compact:
+        return None
+    for sep in (". ", "\n"):
+        if sep in compact:
+            first = compact.split(sep, 1)[0].strip()
+            if first:
+                return f"{first}."
+    return compact[:220]
+
+
+def _severity(vuln: dict[str, Any]) -> str | None:
+    severity = vuln.get("severity")
+    if isinstance(severity, list):
+        scores = []
+        for row in severity:
+            if not isinstance(row, dict):
+                continue
+            score = row.get("score")
+            typ = row.get("type")
+            if isinstance(score, str) and score.strip():
+                scores.append(f"{typ}: {score}" if isinstance(typ, str) and typ else score)
+        if scores:
+            return " · ".join(scores[:3])
+    db_specific = vuln.get("database_specific")
+    if isinstance(db_specific, dict):
+        value = db_specific.get("severity")
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _fixed_versions(vuln: dict[str, Any]) -> list[str]:
+    fixed: set[str] = set()
+    affected = vuln.get("affected")
+    if not isinstance(affected, list):
+        return []
+    for aff in affected:
+        if not isinstance(aff, dict):
+            continue
+        ranges = aff.get("ranges")
+        if not isinstance(ranges, list):
+            continue
+        for rng in ranges:
+            if not isinstance(rng, dict):
+                continue
+            events = rng.get("events")
+            if not isinstance(events, list):
+                continue
+            for event in events:
+                if not isinstance(event, dict):
+                    continue
+                value = event.get("fixed")
+                if isinstance(value, str) and value.strip():
+                    fixed.add(value.strip())
+    return sorted(fixed)[:20]
+
+
+def _affected_ranges(vuln: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    affected = vuln.get("affected")
+    if not isinstance(affected, list):
+        return out
+    for aff in affected:
+        if not isinstance(aff, dict):
+            continue
+        ranges = aff.get("ranges")
+        if not isinstance(ranges, list):
+            continue
+        for rng in ranges:
+            if not isinstance(rng, dict):
+                continue
+            typ = rng.get("type") if isinstance(rng.get("type"), str) else "range"
+            introduced: str | None = None
+            fixed: str | None = None
+            last_affected: str | None = None
+            events = rng.get("events")
+            if isinstance(events, list):
+                for event in events:
+                    if not isinstance(event, dict):
+                        continue
+                    if isinstance(event.get("introduced"), str):
+                        introduced = event["introduced"]
+                    if isinstance(event.get("fixed"), str):
+                        fixed = event["fixed"]
+                    if isinstance(event.get("last_affected"), str):
+                        last_affected = event["last_affected"]
+            if introduced or fixed or last_affected:
+                end = fixed or last_affected or "?"
+                out.append(f"{typ}: {introduced or '?'} → {end}")
+    return out[:20]
+
+
+def _vuln_entry_from_osv(vuln: dict[str, Any]) -> dict[str, Any] | None:
+    vid = vuln.get("id")
+    if not isinstance(vid, str) or not vid:
+        return None
+    summary = vuln.get("summary") if isinstance(vuln.get("summary"), str) else None
+    if not summary:
+        summary = _summary_from_details(vuln.get("details"))
+    modified = vuln.get("modified") if isinstance(vuln.get("modified"), str) else None
+    return {
+        "osv_id": vid,
+        "summary": summary,
+        "details": vuln.get("details") if isinstance(vuln.get("details"), str) else None,
+        "modified": modified,
+        "aliases": _aliases(vuln.get("aliases")),
+        "cve_aliases": _cve_aliases(vuln.get("aliases")),
+        "severity": _severity(vuln),
+        "fixed_versions": _fixed_versions(vuln),
+        "affected_ranges": _affected_ranges(vuln),
+    }
+
+
+def _fetch_vuln_details(client: httpx.Client, vuln_ids: set[str], notes: list[str]) -> dict[str, dict[str, Any]]:
+    details: dict[str, dict[str, Any]] = {}
+    for vuln_id in sorted(vuln_ids):
+        try:
+            r = client.get(OSV_VULN_URL.format(vuln_id=vuln_id))
+            r.raise_for_status()
+            data = r.json()
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            notes.append(f"Détail OSV indisponible pour {vuln_id}: {exc}")
+            continue
+        if isinstance(data, dict):
+            entry = _vuln_entry_from_osv(data)
+            if entry is not None:
+                details[vuln_id] = entry
+    return details
+
+
 def run_osv_batch(packages: list[OsvPackage], timeout: float = 120.0) -> tuple[list[dict[str, Any]], list[str]]:
     """
     Interroge OSV en lots. Retourne (findings_jsonables, notes).
@@ -179,6 +327,7 @@ def run_osv_batch(packages: list[OsvPackage], timeout: float = 120.0) -> tuple[l
         return [], ["Aucun paquet à analyser (go.mod / package-lock / requirements introuvables)."]
 
     findings: list[dict[str, Any]] = []
+    vuln_ids: set[str] = set()
     with httpx.Client(timeout=timeout) as client:
         for i in range(0, len(packages), OSV_BATCH_SIZE):
             chunk = packages[i : i + OSV_BATCH_SIZE]
@@ -209,20 +358,11 @@ def run_osv_batch(packages: list[OsvPackage], timeout: float = 120.0) -> tuple[l
                     for v in vulns_raw:
                         if not isinstance(v, dict):
                             continue
-                        vid = v.get("id")
-                        if not isinstance(vid, str):
+                        entry = _vuln_entry_from_osv(v)
+                        if entry is None:
                             continue
-                        summary = v.get("summary") if isinstance(v.get("summary"), str) else None
-                        modified = v.get("modified") if isinstance(v.get("modified"), str) else None
-                        cves = _cve_aliases(v.get("aliases"))
-                        vulns_out.append(
-                            {
-                                "osv_id": vid,
-                                "summary": summary,
-                                "modified": modified,
-                                "cve_aliases": cves,
-                            }
-                        )
+                        vuln_ids.add(entry["osv_id"])
+                        vulns_out.append(entry)
                 if vulns_out:
                     findings.append(
                         {
@@ -232,6 +372,18 @@ def run_osv_batch(packages: list[OsvPackage], timeout: float = 120.0) -> tuple[l
                             "vulns": vulns_out,
                         }
                     )
+        details = _fetch_vuln_details(client, vuln_ids, notes)
+        if details:
+            for finding in findings:
+                for vuln in finding.get("vulns", []):
+                    if not isinstance(vuln, dict):
+                        continue
+                    enriched = details.get(str(vuln.get("osv_id", "")))
+                    if not enriched:
+                        continue
+                    for key, value in enriched.items():
+                        if value not in (None, [], ""):
+                            vuln[key] = value
     return findings, notes
 
 
@@ -255,7 +407,21 @@ def build_report_payload() -> dict[str, Any]:
     collected.extend(collect_npm_packages(root))
     collected.extend(collect_pypi_packages(root))
     packages = dedupe(collected)
-    notes.append(f"Dépôt scanné : {root} — {len(packages)} paquets uniques (Go + npm + PyPI admin).")
+    manifests = manifest_inventory(root)
+    ecosystem_counts = {
+        eco: sum(1 for p in packages if p.ecosystem == eco)
+        for eco in sorted({p.ecosystem for p in packages})
+    }
+    notes.append(
+        f"Dépôt scanné : {root} — {len(packages)} paquets uniques "
+        f"(Go + npm + PyPI). Manifests : {manifests['go_mod']} go.mod, "
+        f"{manifests['package_lock']} package-lock.json, {manifests['requirements']} requirements*.txt."
+    )
+    notes.append(
+        "Couverture paquets : "
+        + ", ".join(f"{eco}={count}" for eco, count in ecosystem_counts.items())
+        + "."
+    )
 
     findings, batch_notes = run_osv_batch(packages)
     notes.extend(batch_notes)
@@ -270,6 +436,14 @@ def build_report_payload() -> dict[str, Any]:
                 for cve in v.get("cve_aliases", [])
             }
         )[:200],
+        "distinct_aliases": sorted(
+            {
+                alias
+                for f in findings
+                for v in f.get("vulns", [])
+                for alias in v.get("aliases", [])
+            }
+        )[:300],
         "distinct_osv_ids": sorted({v["osv_id"] for f in findings for v in f.get("vulns", [])})[:200],
     }
 
@@ -280,5 +454,7 @@ def build_report_payload() -> dict[str, Any]:
         "vuln_entries_total": vuln_entries,
         "notes": notes,
         "summary": summary,
+        "manifests": manifests,
+        "ecosystem_package_counts": ecosystem_counts,
         "source": "https://osv.dev (API querybatch, alignée CVE)",
     }

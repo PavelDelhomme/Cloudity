@@ -72,8 +72,13 @@ def _findings_models(findings_raw: Any) -> list[CveFinding]:
                 CveVulnEntry(
                     osv_id=str(v.get("osv_id", "")),
                     summary=v.get("summary") if isinstance(v.get("summary"), str) else None,
+                    details=v.get("details") if isinstance(v.get("details"), str) else None,
                     modified=v.get("modified") if isinstance(v.get("modified"), str) else None,
+                    aliases=[str(x) for x in (v.get("aliases") or []) if isinstance(x, str)],
                     cve_aliases=[str(x) for x in (v.get("cve_aliases") or []) if isinstance(x, str)],
+                    severity=v.get("severity") if isinstance(v.get("severity"), str) else None,
+                    fixed_versions=[str(x) for x in (v.get("fixed_versions") or []) if isinstance(x, str)],
+                    affected_ranges=[str(x) for x in (v.get("affected_ranges") or []) if isinstance(x, str)],
                 )
             )
         out.append(
@@ -104,6 +109,10 @@ def _response_from_payload(
         summ = {}
     notes = [str(x) for x in (payload.get("notes") or []) if isinstance(x, str)]
     err = payload.get("error") if isinstance(payload.get("error"), str) else None
+    manifests = payload.get("manifests") if isinstance(payload.get("manifests"), dict) else {}
+    ecosystem_package_counts = (
+        payload.get("ecosystem_package_counts") if isinstance(payload.get("ecosystem_package_counts"), dict) else {}
+    )
     return CveReportResponse(
         scanned_at=scanned_at,
         source=str(payload.get("source", "osv.dev")),
@@ -113,6 +122,8 @@ def _response_from_payload(
         findings=findings,
         notes=notes,
         summary=summ,
+        manifests=manifests,
+        ecosystem_package_counts=ecosystem_package_counts,
         error=err,
         from_cache=from_cache,
         snapshot_id=snapshot_id,

@@ -158,8 +158,13 @@ class BudgetStatusResponse(BaseModel):
 class CveVulnEntry(BaseModel):
     osv_id: str
     summary: str | None = None
+    details: str | None = None
     modified: str | None = None
+    aliases: list[str] = Field(default_factory=list)
     cve_aliases: list[str] = Field(default_factory=list)
+    severity: str | None = None
+    fixed_versions: list[str] = Field(default_factory=list)
+    affected_ranges: list[str] = Field(default_factory=list)
 
 
 class CveFinding(BaseModel):
@@ -180,6 +185,8 @@ class CveReportResponse(BaseModel):
     findings: list[CveFinding] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
     summary: Dict = Field(default_factory=dict)
+    manifests: Dict = Field(default_factory=dict)
+    ecosystem_package_counts: Dict = Field(default_factory=dict)
     error: str | None = None
     from_cache: bool = False
     snapshot_id: int | None = None

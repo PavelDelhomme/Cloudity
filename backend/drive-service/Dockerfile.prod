@@ -1,0 +1,28 @@
+# Cloudity drive-service — image production multi-stage (CGO : goheif HEIC/AVIF).
+# Build : docker build -f backend/drive-service/Dockerfile.prod -t cloudity/drive-service:<tag> backend/drive-service
+
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /src
+ENV CGO_ENABLED=1 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
+
+RUN apk add --no-cache git ca-certificates gcc g++ musl-dev
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/drive-service .
+
+FROM alpine:3.22
+
+RUN apk add --no-cache ca-certificates wget
+
+WORKDIR /app
+COPY --from=builder /out/drive-service /app/drive-service
+
+ENV PORT=8055
+EXPOSE 8055
+USER nobody:nobody
+ENTRYPOINT ["/app/drive-service"]
