@@ -45,6 +45,14 @@ Si tu vois **`NoSuchFileException` … `.kotlin/sessions/*.salive`** : le SDK Fl
 
 - Ouvre le dossier **`mobile/photos`** dans VS Code / Android Studio et lance avec breakpoints (`flutter run` ou via **`make run-mobile`**).
 
+## Sauvegarde galerie (Android)
+
+Depuis la timeline : icône **nuage** → activer la sauvegarde, options **Wi‑Fi uniquement** / **en charge**, ou **Sauvegarder maintenant**.
+
+- Jobs **WorkManager** (≥ 15 min) · lots de 12 photos max par passage.
+- Cible : dossier Drive racine **`Photos`** (créé si absent).
+- Dépendances : `photo_manager`, `workmanager` — voir **`docs/produit/PHOTOS.md`** § 5.
+
 ## Suite Cloudity (mobile)
 
 Les clés de stockage **`cloudity_suite_*`** (`lib/storage_keys.dart`) sont prévues pour **partager** gateway et jetons avec les futures apps **Drive**, **Mail**, etc. La **détection** des autres apps installées reste à implémenter (voir **`docs/produit/MOBILES.md`**).

@@ -1,0 +1,17 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission
+        android:name="fr.cloudity.permission.READ_AUTH_BROKER"
+        android:protectionLevel="signature" />
+    <permission
+        android:name="fr.cloudity.permission.WRITE_AUTH_BROKER"
+        android:protectionLevel="signature" />
+
+    <application>
+        <provider
+            android:name=".CloudityAuthProvider"
+            android:authorities="${applicationId}.cloudity.auth"
+            android:exported="true"
+            android:readPermission="fr.cloudity.permission.READ_AUTH_BROKER"
+            android:writePermission="fr.cloudity.permission.WRITE_AUTH_BROKER" />
+    </application>
+</manifest>

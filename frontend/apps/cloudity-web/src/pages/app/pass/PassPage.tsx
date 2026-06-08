@@ -18,7 +18,8 @@ import React, { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Card, CardHeader, Button, Input, Badge, parseJwtPayload } from '@cloudity/shared'
+import { parseJwtPayload } from '@cloudity/shared'
+import { Badge, Button, Card, CardHeader, Input } from '@cloudity/ui'
 import {
   decryptItemFromVault,
   encryptItemForVault,

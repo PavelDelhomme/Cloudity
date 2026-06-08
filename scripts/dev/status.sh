@@ -167,20 +167,39 @@ echo "  ${SEP}"
 echo ""
 
 # --- URLs « produit » (alignées STATUS.md §0 — ports = Makefile / docker-compose) ---
-if [[ -f .env ]]; then
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
-fi
-: "${PORT_GATEWAY:=6080}"
-: "${PORT_DASHBOARD:=6001}"
-: "${PORT_AUTH:=6081}"
-: "${PORT_ADMIN:=6082}"
-: "${PORT_POSTGRES:=6042}"
-: "${PORT_REDIS:=6079}"
-: "${PORT_ADMINER:=6083}"
-: "${PORT_REDIS_COMMANDER:=6084}"
+# Ne pas `source .env` : certaines valeurs contiennent des espaces (ex. WEBAUTHN_RP_NAME=Cloudity Admin).
+_env_get() {
+  local key="$1"
+  local default="${2:-}"
+  if [[ ! -f .env ]]; then
+    printf '%s' "$default"
+    return
+  fi
+  local line val
+  line=$(grep -E "^[[:space:]]*(export[[:space:]]+)?${key}=" .env 2>/dev/null | tail -1 || true)
+  if [[ -z "$line" ]]; then
+    printf '%s' "$default"
+    return
+  fi
+  val="${line#*=}"
+  val="${val#"${val%%[![:space:]]*}"}"
+  val="${val%"${val##*[![:space:]]}"}"
+  if [[ "$val" == \"*\" && "$val" == *\" ]]; then
+    val="${val:1:${#val}-2}"
+  elif [[ "$val" == \'*\' && "$val" == *\' ]]; then
+    val="${val:1:${#val}-2}"
+  fi
+  printf '%s' "$val"
+}
+
+PORT_GATEWAY="$(_env_get PORT_GATEWAY 6080)"
+PORT_DASHBOARD="$(_env_get PORT_DASHBOARD 6001)"
+PORT_AUTH="$(_env_get PORT_AUTH 6081)"
+PORT_ADMIN="$(_env_get PORT_ADMIN 6082)"
+PORT_POSTGRES="$(_env_get PORT_POSTGRES 6042)"
+PORT_REDIS="$(_env_get PORT_REDIS 6079)"
+PORT_ADMINER="$(_env_get PORT_ADMINER 6083)"
+PORT_REDIS_COMMANDER="$(_env_get PORT_REDIS_COMMANDER 6084)"
 
 HOST="${CLOUDITY_STATUS_HOST:-localhost}"
 PROTO="${CLOUDITY_STATUS_PROTO:-http}"

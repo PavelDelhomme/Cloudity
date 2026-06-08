@@ -44,13 +44,14 @@ fi
 # Toujours enregistrer l’audit complet (même si --audit-level=high passe)
 $COMPOSE $COMPOSE_FILES run --rm cloudity-web sh -c "$NPM_IN_CONTAINER" >"$ROOT/reports/security-npm-audit-full.txt" 2>&1 || true
 
-# --- safety (admin-service) dans le conteneur ---
+# --- pip-audit (admin-service) dans le conteneur ---
 echo ""
-echo "  [safety] admin-service (Docker)..."
-if $COMPOSE $COMPOSE_FILES run --rm admin-service sh -c "pip install -q safety 2>/dev/null; safety check -r requirements.txt 2>/dev/null"; then
-  echo "  ✅ safety OK"
+echo "  [pip-audit] admin-service (Docker)..."
+PIP_AUDIT_LOG="$ROOT/reports/security-pip-audit.txt"
+if $COMPOSE $COMPOSE_FILES run --rm admin-service sh -c "pip install -q pip-audit 2>/dev/null; pip-audit -r requirements.txt" >"$PIP_AUDIT_LOG" 2>&1; then
+  echo "  ✅ pip-audit OK"
 else
-  echo "  ⚠️  safety : vulnérabilités ou erreur"
+  echo "  ⚠️  pip-audit : vulnérabilités ou erreur — détail : $PIP_AUDIT_LOG"
   warnings=1
 fi
 
@@ -60,7 +61,7 @@ echo "  [govulncheck] backends Go (Docker)..."
 {
   echo "Cloudity — pistes de remédiation (automatique, à valider manuellement)"
   echo ""
-  echo "- Go stdlib : exécuter govulncheck avec un toolchain Go patché (ex. Go 1.25.9) pour éviter les faux positifs liés à une image locale obsolète."
+  echo "- Go stdlib : exécuter govulncheck avec un toolchain Go patché (ex. Go 1.25.11) pour éviter les faux positifs liés à une image locale obsolète."
   echo "- Modules directs : mettre à jour jwt/v5, go-redis, etc. dans les go.mod concernés (go get -u=patch ou version fix indiquée par pkg.go.dev/vuln)."
   echo "- Frontend : maintenir npm audit en vert (lot xlsx déjà migré) et surveiller les transitive deps au fil des updates."
   echo "- Tooling front : évaluer les migrations majeures séparément du runtime production."
@@ -86,12 +87,18 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
     *) continue ;;
   esac
   logf="$ROOT/reports/govulncheck-${name}.txt"
+  go_apk="apk add --no-cache git >/dev/null 2>&1"
+  go_env=""
+  if [ "$name" = "drive-service" ]; then
+    go_apk="apk add --no-cache git gcc g++ musl-dev >/dev/null 2>&1"
+    go_env="CGO_ENABLED=1"
+  fi
   if docker run --rm \
     -v "$ROOT/$dir:/src" \
     -v "$ROOT/backend/internalsec:/internalsec:ro" \
     -w /src \
-    golang:1.25.9-alpine \
-    sh -c "apk add --no-cache git >/dev/null 2>&1 && go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1 && /go/bin/govulncheck ./..." >"$logf" 2>&1; then
+    golang:1.25.11-alpine \
+    sh -c "$go_apk && go install golang.org/x/vuln/cmd/govulncheck@latest >/dev/null 2>&1 && $go_env /go/bin/govulncheck ./..." >"$logf" 2>&1; then
     echo "  ✅ govulncheck $name OK"
   else
     echo "  ⚠️  govulncheck $name : signalétique — détail : $logf"
@@ -113,12 +120,18 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   fi
   name=$(basename "$dir")
   logf="$ROOT/reports/gosec-${name}.txt"
+  gosec_apk="apk add --no-cache git >/dev/null 2>&1"
+  gosec_env=""
+  if [ "$name" = "drive-service" ]; then
+    gosec_apk="apk add --no-cache git gcc g++ musl-dev >/dev/null 2>&1"
+    gosec_env="CGO_ENABLED=1"
+  fi
   if docker run --rm \
     -v "$ROOT/$dir:/src" \
     -v "$ROOT/backend/internalsec:/internalsec:ro" \
     -w /src \
-    golang:1.25.9-alpine \
-    sh -c "apk add --no-cache git >/dev/null 2>&1 && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && /go/bin/gosec -quiet -fmt=text ./..." >"$logf" 2>&1; then
+    golang:1.25.11-alpine \
+    sh -c "$gosec_apk && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && $gosec_env /go/bin/gosec -quiet -fmt=text ./..." >"$logf" 2>&1; then
     echo "  ✅ gosec $name OK"
   else
     if [ "$GOSEC_BLOCKING" = "1" ]; then

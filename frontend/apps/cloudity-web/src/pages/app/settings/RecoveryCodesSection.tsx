@@ -13,7 +13,7 @@ import React, { useCallback, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { ShieldCheck, RefreshCw, Copy, Printer, AlertTriangle } from 'lucide-react'
-import { Card, CardHeader, Button } from '@cloudity/shared'
+import { Button, Card, CardHeader } from '@cloudity/ui'
 import { useAuth } from '../../../authContext'
 import { countRecoveryCodes, regenerateRecoveryCodes } from '../../../api'
 

@@ -12,7 +12,7 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Key, Trash2, Plus } from 'lucide-react'
-import { Card, CardHeader, Button, Input, Badge } from '@cloudity/shared'
+import { Badge, Button, Card, CardHeader, Input } from '@cloudity/ui'
 import { useAuth } from '../../../authContext'
 import {
   deletePasskey,

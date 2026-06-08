@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../authContext'
 import { fetchCveReport, refreshCveReport, type CveReportResponse } from '../../api'
 import { Badge, Card, PageLayout } from '@cloudity/ui'
-import { AlertTriangle, ExternalLink, RefreshCw, Shield } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ExternalLink, RefreshCw, Shield } from 'lucide-react'
 
 function formatScanDate(iso?: string | null): string {
   if (!iso) return '—'
@@ -14,16 +14,39 @@ function formatScanDate(iso?: string | null): string {
   }
 }
 
-function vulnIds(v: { cve_aliases?: string[] | null; osv_id: string }): string[] {
-  return v.cve_aliases?.length ? v.cve_aliases : [v.osv_id]
+function vulnIds(v: { aliases?: string[] | null; cve_aliases?: string[] | null; osv_id: string }): string[] {
+  if (v.aliases?.length) return [...new Set([v.osv_id, ...v.aliases])]
+  if (v.cve_aliases?.length) return [...new Set([v.osv_id, ...v.cve_aliases])]
+  return [v.osv_id]
+}
+
+function vulnUrl(id: string): string {
+  if (id.startsWith('CVE-')) return `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(id)}`
+  if (id.startsWith('GHSA-')) return `https://github.com/advisories/${encodeURIComponent(id)}`
+  return `https://osv.dev/vulnerability/${encodeURIComponent(id)}`
+}
+
+function shortenDetails(details?: string | null): string | null {
+  if (!details) return null
+  const compact = details.replace(/\s+/g, ' ').trim()
+  if (!compact) return null
+  return compact.length > 260 ? `${compact.slice(0, 257)}…` : compact
 }
 
 function CveTable({ report }: { report: CveReportResponse }) {
   if (report.findings.length === 0) {
     return (
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Aucune vulnérabilité connue dans OSV pour les versions déclarées analysées (ou analyse impossible — voir le message ci-dessus).
-      </p>
+      <div className="rounded-lg border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/20 p-4">
+        <div className="flex gap-3">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden />
+          <div>
+            <p className="font-semibold text-emerald-950 dark:text-emerald-100">Scan OSV terminé : aucune alerte connue.</p>
+            <p className="mt-1 text-sm text-emerald-900/90 dark:text-emerald-100/90">
+              Les versions déclarées dans les manifests analysés ne correspondent à aucune vulnérabilité OSV connue au moment du scan.
+            </p>
+          </div>
+        </div>
+      </div>
     )
   }
   return (
@@ -35,7 +58,7 @@ function CveTable({ report }: { report: CveReportResponse }) {
             <th className="px-3 py-2">Paquet</th>
             <th className="px-3 py-2">Version</th>
             <th className="px-3 py-2">CVE / OSV</th>
-            <th className="px-3 py-2">Résumé</th>
+            <th className="px-3 py-2">Impact / correction</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-600">
@@ -51,9 +74,7 @@ function CveTable({ report }: { report: CveReportResponse }) {
                       <a
                         key={id}
                         href={
-                          id.startsWith('CVE-')
-                            ? `https://nvd.nist.gov/vuln/detail/${encodeURIComponent(id)}`
-                            : `https://osv.dev/vulnerability/${encodeURIComponent(id)}`
+                          vulnUrl(id)
                         }
                         target="_blank"
                         rel="noopener noreferrer"
@@ -65,8 +86,29 @@ function CveTable({ report }: { report: CveReportResponse }) {
                     ))}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-slate-600 dark:text-slate-300 max-w-md">
-                  {v.summary || '—'}
+                <td className="px-3 py-2 text-slate-600 dark:text-slate-300 max-w-xl">
+                  <div className="space-y-1.5">
+                    <p className="font-medium text-slate-800 dark:text-slate-100">
+                      {v.summary || shortenDetails(v.details) || 'Résumé OSV indisponible'}
+                    </p>
+                    {v.severity ? (
+                      <p className="text-xs">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Sévérité :</span> {v.severity}
+                      </p>
+                    ) : null}
+                    {v.fixed_versions?.length ? (
+                      <p className="text-xs">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Corrigé en :</span>{' '}
+                        <span className="font-mono">{v.fixed_versions.join(', ')}</span>
+                      </p>
+                    ) : null}
+                    {v.affected_ranges?.length ? (
+                      <p className="text-xs">
+                        <span className="font-semibold text-slate-700 dark:text-slate-200">Plage affectée :</span>{' '}
+                        <span className="font-mono">{v.affected_ranges.slice(0, 2).join(' ; ')}</span>
+                      </p>
+                    ) : null}
+                  </div>
                   {v.modified ? (
                     <span className="block text-[10px] text-slate-400 mt-0.5">Modifié OSV : {v.modified}</span>
                   ) : null}
@@ -122,6 +164,16 @@ export default function SecurityCvePage() {
             .filter((f) => f.ecosystem === ecosystem)
             .reduce((sum, f) => sum + f.vulns.length, 0),
         }))
+    : []
+  const manifestRows = report?.manifests
+    ? [
+        { label: 'go.mod', value: report.manifests.go_mod ?? 0 },
+        { label: 'package-lock.json', value: report.manifests.package_lock ?? 0 },
+        { label: 'requirements*.txt', value: report.manifests.requirements ?? 0 },
+      ]
+    : []
+  const packageCoverage = report?.ecosystem_package_counts
+    ? Object.entries(report.ecosystem_package_counts).sort(([a], [b]) => a.localeCompare(b))
     : []
 
   return (
@@ -229,6 +281,28 @@ export default function SecurityCvePage() {
                 </Card>
               ))}
             </div>
+          ) : null}
+
+          {report.findings.length === 0 && (manifestRows.length > 0 || packageCoverage.length > 0) ? (
+            <Card className="border-emerald-200 dark:border-emerald-800">
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Couverture du scan</p>
+              {manifestRows.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {manifestRows.map((row) => (
+                    <div key={row.label} className="rounded-lg bg-slate-50 dark:bg-slate-800/70 p-3">
+                      <p className="text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">{row.label}</p>
+                      <p className="text-xl font-bold text-slate-900 dark:text-slate-50 mt-1">{row.value}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {packageCoverage.length > 0 ? (
+                <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
+                  Paquets analysés :{' '}
+                  {packageCoverage.map(([ecosystem, count]) => `${ecosystem}=${count}`).join(', ')}.
+                </p>
+              ) : null}
+            </Card>
           ) : null}
 
           <Card>

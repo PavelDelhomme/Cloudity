@@ -15,6 +15,25 @@
 
 ---
 
+### 2026-05-21 — UI-3 Pass/Settings + validation mobile appareil
+
+- Branche : `feat/photos-gallery-mobile-sync-security`.
+- UI-3 : imports `@cloudity/ui` sur Pass (7 fichiers) + Settings (`ResponsivePage` sur `AppSettingsPage`).
+- Mobile : `workmanager` 0.9.x (fix build Android) · `adb reverse` auto pour téléphones USB dans `mobile-test-common.inc.sh`.
+- Checks : `PassPage.test.tsx` ✅ · `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ · `make test-mobile-2fa` ✅.
+
+---
+
+### 2026-05-21 — Git sync branches + Photos WorkManager (galerie Android)
+
+- Branche : `feat/photos-gallery-mobile-sync-security` (active).
+- Git : push `feat/mobile-desktop-validation` · fast-forward **`dev`** · merge **`dev`** dans toutes les branches `feat/*` locales (sauf `main`) · HEAD commun `1ae4e708`.
+- Mobile Photos : sauvegarde galerie Android (`workmanager`, `photo_manager`, `drive_api`, feuille réglages timeline).
+- Checks : `flutter test` Photos ✅ (prefs + widget).
+- Suite : UI-3, U9/U10, Safari extension.
+
+---
+
 ### 2026-05-21 — Hors mail prod : Firefox Pass, icônes, Photos albums
 
 - Branche : `feat/mobile-desktop-validation`.

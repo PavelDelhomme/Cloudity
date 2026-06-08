@@ -24,6 +24,7 @@ type DriveNodeRef struct {
 	IsFolder  bool    `json:"is_folder"`
 	Size      int64   `json:"size"`
 	MimeType  *string `json:"mime_type,omitempty"`
+	TakenAt   string  `json:"taken_at,omitempty"`
 	CreatedAt string  `json:"created_at"`
 	UpdatedAt string  `json:"updated_at"`
 }
@@ -132,16 +133,19 @@ func (h *Handler) listTimeline(c *gin.Context) {
 	ctx := c.Request.Context()
 	fetch := limit + 1
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
+		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
 		  AND is_folder = false
+		  AND LOWER(name) !~ '\.pdf$'
+		  AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'application/pdf%'
 		  AND (
-			LOWER(COALESCE(mime_type, '')) LIKE 'image/%'
+			(LOWER(COALESCE(mime_type, '')) LIKE 'image/%' AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'image/pdf%')
 			OR LOWER(name) ~ '\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif|tiff|tif)$'
 		  )
-		ORDER BY COALESCE(updated_at, created_at) DESC NULLS LAST, id DESC
+		ORDER BY COALESCE(taken_at, created_at) DESC NULLS LAST, id DESC
 		LIMIT $1 OFFSET $2
 	`, fetch, offset)
 	if err != nil {
@@ -154,8 +158,8 @@ func (h *Handler) listTimeline(c *gin.Context) {
 		var n DriveNodeRef
 		var pid sql.NullInt64
 		var mime sql.NullString
-		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat); err != nil {
+		var takenAt, uat string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -166,6 +170,7 @@ func (h *Handler) listTimeline(c *gin.Context) {
 		if mime.Valid {
 			n.MimeType = &mime.String
 		}
+		n.TakenAt = takenAt
 		n.UpdatedAt = uat
 		list = append(list, n)
 	}

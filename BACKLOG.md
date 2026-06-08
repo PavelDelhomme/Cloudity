@@ -184,7 +184,7 @@
 | 3 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
 | 4 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 5 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** ✅ ; **A4** `@cloudity/ui` **en cours** ; **A2/A3** API) |
-| 5b | **UI-DS-01** — Design system | **UI-1** ✅ package + admin + `/4dm1n/dev/ui` + responsive + polish admin (`Users`, `Domaines`, CVE, Passkeys, Settings) — suite UI-3 Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** · **`feat/cloudity-ui-design-system`** |
+| 5b | **UI-DS-01** — Design system | **UI-1…UI-3** ✅ package + admin + Pass/Settings utilisateur sur `@cloudity/ui` — suite UI-4+ — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** |
 | 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
 | 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
 | 8 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
@@ -288,7 +288,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 | Bloc | Web | Mobile | Notes |
 |------|-----|--------|-------|
-| **Photos** (galerie + sync) | Timeline, albums partiels, upload | `mobile/photos` : timeline paginée (`offset`) ; **à renforcer** : **WorkManager**, reprise après coupure, option Wi‑Fi uniquement — **PHOTOS.md** § 4–5, **MOBILES.md** |
+| **Photos** (galerie + sync) | Timeline, albums web + mobile, upload web | `mobile/photos` : **WorkManager** initial (sauvegarde galerie → Drive `Photos`, Wi‑Fi / charge, lots 12) — reprise curseur / SQLite · iOS sync ☐ — **PHOTOS.md** § 4–5 |
 | **Mail** (dont alias) | Très avancé ; alias boîte **MVP** ; alias domaine (**`/4dm1n`** → Domaines) | `mobile/mail` : envoi, PJ, dossiers ; **reste** : brouillon serveur, push — **MOBILES.md** § 5 |
 | **Drive** | Récents, corbeille, recherche `?q=` | `mobile/drive` : navigation dossiers ; vérifier **upload** / téléchargement vs besoin Proton |
 | **Pass** | MVP coffre web + **`mobile/pass` Flutter LECTURE SEULE** (J7 sprint Pass : crypto Dart interop bit-à-bit web, écrans login/unlock/vaults/items/détail, copie auto-clear 30 s, auto-lock 5 min, lock à chaque pause/background) | **Édition mobile = L2** ; **extension navigateur** : chantier **non démarré** (cible **MV3**, dossier type `extensions/cloudity-pass/`) — **ROADMAP APP-04** |

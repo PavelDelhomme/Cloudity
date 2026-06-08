@@ -5,11 +5,11 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/mobile-desktop-validation`** (depuis `dev`).
+**Branche active** : **`feat/photos-gallery-mobile-sync-security`** — alignée sur **`dev`** (`1ae4e708`, 2026-05-21).
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
-| **Hors mail prod** (priorité) | MP-04 ☑ · Pass popup L3 ☑ · MP-08 Firefox · icônes extension · Photos albums · UI-3 | **EN COURS** |
+| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** ☑ · vignettes/dates Photos ☑ · UI-3 ☑ · U9/U10 | **EN COURS** |
 | **Mail local** (régression) | `make test-mail-mta-local` · alias-router · notifications Mail web | OK, pas bloquant |
 | **Mail prod** (pause) | MX/SPF OVH · stack Portainer · `RELAY_SMTP_*` VPS · C7 livraison réelle | **NE PAS TOUCHER** |
 
@@ -24,10 +24,86 @@
 | **H3** | **MP-08 Firefox** | `extensions/cloudity-pass-firefox/` + `make build-pass-extension-firefox` | ☑ |
 | **H4** | **Photos — créer un album** | Web : « Nouvel album » → `createDriveFolder` ; dossier `Photos` exclu de la liste albums | ☑ |
 | **H5** | **MP-04 Linux desktop** | `make test-mobile-desktop-linux` Drive + Photos | ☑ |
-| **H6** | **UI-3 Pass/Settings** | Migration `@cloudity/ui` pages utilisateur Pass + Settings | ☐ |
-| **H7** | **Admin U9 / U10** | 2FA admin avancée · CVE enrichies (BACKLOG) | ☐ |
+| **H5b** | **Photos — mobile Android** | Navigation Photos/Albums/Archivé/Corbeille/Verrouillé/Paramètres, viewer, corbeille Drive, verrou local biométrique, WorkManager + choix dossiers | ☑ |
+| **H5c** | **Photos — vignettes & dates** | `GET /drive/nodes/:id/thumbnail`, `taken_at` (EXIF/galerie + nom fichier), exclusion PDF timeline, rate-limit gateway assoupli médias, file chargement mobile, défilement horizontal par jour, retour viewer → scroll | ☑ |
+| **H5d** | **Drive — mobile Android** | Drawer (Mon Drive, **Récents**, Corbeille) ☑ ; FAB Nouveau ☑ ; recherche ☑ ; corbeille ☑ ; grille/liste ☑ ; import dossier SAF ☑ ; **déplacer** (picker dossier + `PUT parent_id`) ☑ ; partagés/favoris = attente API partage backend | ☑ |
+| **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
+| **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
+| **H6c** | **Sécurité mobile transverse** | Les apps mobiles doivent rester alignées avec la sécurité API : JWT/refresh, RLS backend, messages réseau propres, aucun token en clair, broker signature-only ; à auditer à chaque feature mobile | 🟡 |
+| **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
+| **H7** | **Admin U9 / U10** | U10 CVE enrichies + scan OSV à zéro ☑ ; reste U9 2FA admin avancée | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
+
+Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
+
+| App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
+|-----|---------------------------|-----------------------------------|
+| **Photos** | ✅ (widget + prefs galerie) | ✅ E2E connexion + timeline ; vignettes `/thumbnail` + file chargement (anti-429) |
+| **Drive** | ✅ | ✅ E2E connexion + écran Drive ; FAB Nouveau (dossier + import fichiers) |
+| **Mail** | ✅ | ✅ E2E connexion + boîte |
+| **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
+
+Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Incident `make status-watch` — `.env: Admin: commande introuvable` (2026-06-08)
+
+Cause : `status.sh` faisait `source .env` ; `WEBAUTHN_RP_NAME=Cloudity Admin` (espace non quoté) est interprété par bash comme deux commandes.
+
+Correctifs : `status.sh` lit les `PORT_*` via `_env_get` (parse sans exécuter le fichier) ; `.env.example` quote `WEBAUTHN_RP_NAME="Cloudity Admin"`. Si ton `.env` local a la même ligne, quoter la valeur ou régénérer depuis l’exemple.
+
+### Incident `make up` — drive-service unhealthy (2026-06-08)
+
+Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`.
+
+Cause : ajout **HEIC** (`goheif` + CGO `libde265`/`dav1d`) dans `drive-service` sans image Docker à jour — l’image locale datait d’avant `gcc`/`g++` dans `Dockerfile.dev`, donc `go run` échouait (`build constraints exclude all Go files` / `gcc not found`).
+
+Correctifs :
+
+- `backend/drive-service/Dockerfile.dev` : `gcc g++ musl-dev` + `CGO_ENABLED=1`.
+- `docker-compose.yml` : `CGO_ENABLED=1` sur `drive-service`.
+- `backend/drive-service/Dockerfile.prod` : build CGO pour GHCR (remplace `Dockerfile.go-service` statique).
+- Après pull ou changement HEIC : **`docker compose build drive-service`** ou **`make rebuild-drive`** avant `make up`.
+
+### Session Photos — vignettes, dates, UX mobile (2026-05-21)
+
+**Problème** : miniatures en échec (429 gateway sur `/content` en masse), PDF mal typés affichés comme photos, dates de prise = date d’import, viewer sans retour à la position dans la grille.
+
+**Livré** :
+
+- **Backend** : migration `42-drive-photos-taken-at.sql` ; upload `taken_at` (RFC3339) ; timeline triée sur `taken_at` ; `GET /drive/nodes/:id/thumbnail` (JPEG redimensionné) ; PDF exclus de la timeline ; repli date depuis nom `IMG_*` / `PXL_*` / `Screenshot_*`.
+- **Gateway** : pas de rate-limit global sur GET thumbnail/content Drive.
+- **Web** : vignettes via `downloadDriveThumbnail` (concurrence 6) ; filtre client anti-PDF.
+- **Mobile** : `photo_load_queue.dart` (4 req parallèles + retry 429) ; grille horizontale par jour ; sélection jour toggle ; viewer date en titre, glisser bas = retour grille à la bonne photo ; plein écran sur toute la timeline.
+
+**Suite Photos (prochaine itération)** :
+
+- Décodeur **HEIC/HEIF** côté serveur pour vignettes si JPEG natif échoue.
+- **Broker Android** ☑ pilote (`mobile/cloudity_auth_broker`) — iOS Keychain Access Group + AccountManager natif à faire.
+- Archive / Verrouillé **serveur** (pas seulement UI + biométrie locale).
+- Indicateur **état sync par photo** (uploadé / en attente / erreur).
+
+### Incident Photos mobile — app installée mais bloquée au chargement (2026-05-21)
+
+Constat : l’APK installée sur `R5CT7263YJL` restait sur l’écran de démarrage. Cause probable : ancienne session/gateway conservée en stockage sécurisé, appels HTTP sans timeout → bootstrap bloqué. Correctifs :
+
+- `pm clear fr.cloudity.cloudity_photos` appliqué sur le téléphone puis relance.
+- Timeouts ajoutés dans `mobile/photos/lib/auth_api.dart`, `drive_api.dart`, `session_store.dart`.
+- SDK Flutter système `/usr/lib/flutter` est `root:root` et casse `flutter build apk` (`.kotlin/sessions/*.salive`). SDK utilisateur préparé dans `~/.local/share/cloudity-flutter` (copie sans cache root illisible, puis cache lisible recopié). `mobile-flutter-env.sh` le préfère désormais quand le SDK système est readonly.
+- APK corrigée rebuildée avec ce SDK utilisateur, installée puis lancée ; écran observé : **Connexion — Cloudity Photos**.
+
+### Blocage auth mobile — avant suite fonctionnelle (2026-05-21)
+
+Problème UX : Photos/Drive demandaient gateway + e-mail + mot de passe + `tenant_id`, et une app installée ne pouvait pas récupérer un compte déjà utilisé par une autre app Cloudity.
+
+Décisions / correctifs :
+
+- **Court terme dev** : champs e-mail/mot de passe préremplis en debug (`admin@cloudity.local` / `Admin123!`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
+- **Court terme code** : aligner Photos + Drive sur Mail (gateway candidates, health-check auth, tenant optionnel, timeouts).
+- **Vrai partage inter-app** : `flutter_secure_storage` est isolé par package Android ; les noms `cloudity_suite_*` ne partagent pas réellement les jetons. À implémenter ensuite : **Cloudity Auth Broker / Android AccountManager** + iOS Keychain Access Group, avec écran « Continuer avec ce compte / Ajouter un compte / Créer un compte ».
+- Référence : `docs/produit/MOBILES.md` § **4.1 Auth suite mobile**.
 
 ---
 
@@ -47,14 +123,14 @@
 | **U7** | **Responsive UI-DS** | Composants `Responsive*` dans `@cloudity/ui` ; Admin `ResponsiveShell` (drawer &lt;lg) ; catalogue `ResponsivePage/Grid` ; Mail pile nav/liste/lecture &lt;lg | ☑ |
 | **U8** | **Admin polish opérationnel** | Domaines mail résiste aux réponses `null` ; Dashboard explique le mode cgroup ; Users affiche 2FA/dernière connexion sans faux reset ; CVE priorise les dépendances ; Passkeys/Settings explicitent le périmètre web/mobile/extension | ☑ |
 | **U9** | **Admin sécurité 2FA avancée** | À concevoir backend + UI : reset TOTP utilisateur avec step-up admin, audit log, codes de récupération et garde anti-lockout | ☐ |
-| **U10** | **CVE enrichies** | Analyse CVE trop pauvre quand OSV renvoie `summary = null` : récupérer/afficher alias, sévérité, impact, affected ranges et remediation/version cible (OSV/GHSA/NVD), avec fallback clair au lieu de `—` | ☐ |
+| **U10** | **CVE enrichies** | OSV enrichi côté admin-service (`/v1/vulns/:id`) : résumé fallback `details`, alias CVE/GHSA, sévérité, affected ranges, versions corrigées ; scan élargi à tous les manifests supportés (`13 go.mod`, `3 package-lock`, `1 requirements`) ; scan final = **760 paquets / 0 vuln OSV** | ☑ |
 
 **Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  
-**Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-9** / **UI-10** reportées (2FA admin, CVE enrichies).  
+**Case BACKLOG** : **UI-DS-01** — phases **UI-0…UI-8** livrées sur cette branche ; **UI-10 CVE enrichies** livré ; **UI-9** (2FA admin avancée) reste à faire.
 **Branche précédente** : `feat/mail-alias-checklist` → **fusionnée dans `dev`** (2026-05-21, fast-forward `00a0474c`).  
 **Branche précédente** : `feat/mail-alias-prod` → **fusionnée dans `dev`** (2026-05-21, fast-forward `0a31874a`).  
 **Branche précédente** : `feat/mail-mta-alias-delivery` → **fusionnée dans `dev`** (2026-05-21, fast-forward `04a9c68c` : Maddy `alias-router` + notifications Mail web).  
-**Branche active** : `feat/mobile-desktop-validation` (depuis `dev`) — hors Mail : mobile/desktop, Photos, Drive, Pass, frontend.
+**Branche active** : **`feat/photos-gallery-mobile-sync-security`** — **`dev`** et toutes les branches `feat/*` locales synchronisées (`1ae4e708`, 2026-05-21).
 
 ---
 
@@ -89,7 +165,7 @@ Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les ré
 | **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
 | **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
 | **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
-| **Q4** | **Sécurité** | `make test-security` ✅ avec warnings : Go toolchain `1.25.9 → 1.25.10`, `golang.org/x/net`, `gosec` (G115 mail UID, timeouts HTTP, chemins fichiers), `gitleaks` faux positifs/test à baseliner, `npm audit` modéré | 🟡 |
+| **Q4** | **Sécurité** | `make test-security` ✅ (2026-06-08) : `npm audit` OK, `pip-audit` OK, `govulncheck` OK avec Go `1.25.11`, auth 401 OK, OSV admin élargi `760+` paquets / 0 vuln ; restent warnings non bloquants **gosec** (G104/G706/G304/G115/G114/G704 à trier) et **gitleaks historique** (3 constantes exemple/test à baseliner ou purger) | 🟡 |
 | **Q5** | **E2E web** | `make test-e2e` ✅ ; `make test-e2e-playwright` ✅ — 72 passed, 4 skipped après corrections login/passkeys/mail/pass | ☑ |
 | **Q6** | **Mobile** | `make test-mobile-suite` ✅ Photos/Drive/Mail hôte ; integration_test device ignorés car aucun appareil ADB détecté | ☑ |
 | **Q7** | **Perf** | `make perf-snapshot LABEL=before-mail-alias-prod` ✅ ; `make perf-budgets` 🟡 KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie tests, conteneurs OK (`CPU 4.7%`, `MEM 1145 MiB`) | 🟡 |
@@ -147,7 +223,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ | ✅ + Linux desktop build validé | — | **Créer album** (web) · sync galerie mobile |
+| **Photos** | ✅ vignettes + dates + HEIC | ✅ timeline + sync + viewer + Auth Broker | — | archive/verrouillé serveur · état sync par photo · iOS broker |
 | **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill + popup L3 (v0.2.1) | Icônes · **MP-08** Firefox · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 

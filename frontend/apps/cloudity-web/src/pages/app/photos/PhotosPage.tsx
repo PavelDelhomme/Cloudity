@@ -24,6 +24,7 @@ import {
   createDriveFolder,
   deleteDriveNode,
   downloadDriveFile,
+  downloadDriveThumbnail,
   fetchDriveNodes,
   fetchDrivePhotosTimeline,
   fetchDriveTrash,
@@ -32,6 +33,26 @@ import {
   type DriveNode,
 } from '../../../api'
 const PAGE_SIZE = 48
+const PHOTO_DOWNLOAD_CONCURRENCY = 6
+
+let activePhotoDownloads = 0
+const pendingPhotoDownloads: Array<() => void> = []
+
+function schedulePhotoDownload<T>(job: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const run = () => {
+      activePhotoDownloads += 1
+      job()
+        .then(resolve, reject)
+        .finally(() => {
+          activePhotoDownloads = Math.max(0, activePhotoDownloads - 1)
+          pendingPhotoDownloads.shift()?.()
+        })
+    }
+    if (activePhotoDownloads < PHOTO_DOWNLOAD_CONCURRENCY) run()
+    else pendingPhotoDownloads.push(run)
+  })
+}
 
 const VALID_PHOTOS_TABS: readonly PhotosTab[] = ['timeline', 'albums', 'archive', 'trash', 'locked']
 
@@ -94,7 +115,7 @@ function groupTimelineByDay(
 ): { heading: string; subheading?: string; dayKey: string; items: DriveNode[] }[] {
   const out: { heading: string; subheading?: string; dayKey: string; items: DriveNode[] }[] = []
   for (const node of items) {
-    const iso = node.updated_at || node.created_at
+    const iso = node.taken_at || node.created_at || node.updated_at
     const dayKey = localDayKey(iso)
     const { primary, sub } = daySectionLabels(iso)
     const last = out[out.length - 1]
@@ -111,9 +132,26 @@ function isImageFile(f: File): boolean {
 
 function isPhotoNode(n: DriveNode): boolean {
   if (n.is_folder) return false
+  const lower = n.name.toLowerCase()
+  if (lower.endsWith('.pdf')) return false
   const m = (n.mime_type || '').toLowerCase()
+  if (m.includes('pdf')) return false
   if (m.startsWith('image/')) return true
   return /\.(heic|heif|jpe?g|png|gif|webp|avif|bmp|tiff?)$/i.test(n.name)
+}
+
+function typedImageBlob(blob: Blob, fileName: string): Blob {
+  if (blob.type && blob.type !== 'application/octet-stream') return blob
+  const lower = fileName.toLowerCase()
+  if (lower.endsWith('.png')) return new Blob([blob], { type: 'image/png' })
+  if (lower.endsWith('.webp')) return new Blob([blob], { type: 'image/webp' })
+  if (lower.endsWith('.gif')) return new Blob([blob], { type: 'image/gif' })
+  if (lower.endsWith('.heic')) return new Blob([blob], { type: 'image/heic' })
+  if (lower.endsWith('.heif')) return new Blob([blob], { type: 'image/heif' })
+  if (lower.endsWith('.avif')) return new Blob([blob], { type: 'image/avif' })
+  if (lower.endsWith('.bmp')) return new Blob([blob], { type: 'image/bmp' })
+  if (lower.endsWith('.tif') || lower.endsWith('.tiff')) return new Blob([blob], { type: 'image/tiff' })
+  return new Blob([blob], { type: 'image/jpeg' })
 }
 
 function PhotoThumb({
@@ -138,17 +176,10 @@ function PhotoThumb({
   useEffect(() => {
     cancelled.current = false
     let u: string | null = null
-    downloadDriveFile(token, node.id, { inline: true })
+    schedulePhotoDownload(() => downloadDriveThumbnail(token, node.id, 360))
       .then((blob) => {
         if (cancelled.current) return
-        let typed = blob
-        if (!blob.type || blob.type === 'application/octet-stream') {
-          const lower = node.name.toLowerCase()
-          if (lower.endsWith('.png')) typed = new Blob([blob], { type: 'image/png' })
-          else if (lower.endsWith('.webp')) typed = new Blob([blob], { type: 'image/webp' })
-          else if (lower.endsWith('.gif')) typed = new Blob([blob], { type: 'image/gif' })
-          else typed = new Blob([blob], { type: 'image/jpeg' })
-        }
+        const typed = typedImageBlob(blob, node.name)
         u = URL.createObjectURL(typed)
         setUrl(u)
       })
@@ -188,7 +219,14 @@ function PhotoThumb({
           Échec du chargement
         </span>
       ) : url ? (
-        <img src={url} alt={node.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
+        <img
+          src={url}
+          alt={node.name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+          onError={() => setErr(true)}
+        />
       ) : (
         <span className="absolute inset-0 flex items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-slate-400" aria-hidden />
@@ -223,17 +261,10 @@ function Lightbox({
     let u: string | null = null
     setLoading(true)
     setUrl(null)
-    downloadDriveFile(token, node.id, { inline: true })
+    schedulePhotoDownload(() => downloadDriveFile(token, node.id, { inline: true }))
       .then((blob) => {
         if (cancelled) return
-        let typed = blob
-        if (!blob.type || blob.type === 'application/octet-stream') {
-          const lower = node.name.toLowerCase()
-          if (lower.endsWith('.png')) typed = new Blob([blob], { type: 'image/png' })
-          else if (lower.endsWith('.webp')) typed = new Blob([blob], { type: 'image/webp' })
-          else if (lower.endsWith('.gif')) typed = new Blob([blob], { type: 'image/gif' })
-          else typed = new Blob([blob], { type: 'image/jpeg' })
-        }
+        const typed = typedImageBlob(blob, node.name)
         u = URL.createObjectURL(typed)
         setUrl(u)
       })

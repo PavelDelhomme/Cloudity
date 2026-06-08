@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Card, CardHeader, Button, Input } from '@cloudity/shared'
+import { Button, Card, CardHeader, Input } from '@cloudity/ui'
 import toast from 'react-hot-toast'
 import { Lock, Loader2, Sparkles } from 'lucide-react'
 import { useVault } from './vaultContext'

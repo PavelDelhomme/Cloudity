@@ -63,7 +63,7 @@ jobs:
             port: "8054"
           - service: drive-service
             context: backend/drive-service
-            dockerfile: backend/Dockerfile.go-service
+            dockerfile: backend/drive-service/Dockerfile.prod
             port: "8055"
           - service: contacts-service
             context: backend/contacts-service

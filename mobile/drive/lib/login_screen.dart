@@ -1,4 +1,7 @@
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/auth_2fa.dart';
+import 'package:cloudity_shared/network_errors.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
@@ -15,13 +18,15 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _gatewayCtrl = TextEditingController(text: 'http://10.0.2.2:6080');
+  final _gatewayCtrl = TextEditingController(text: 'http://127.0.0.1:6080');
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _tenantCtrl = TextEditingController(text: '1');
   final _codeCtrl = TextEditingController();
   String? _error;
   bool _busy = false;
+  bool _advancedGateway = false;
+  List<CloudityAuthAccount> _brokerAccounts = [];
 
   bool _twoFactorRequired = false;
   String? _pendingEmail;
@@ -35,6 +40,48 @@ class _LoginScreenState extends State<LoginScreen> {
     SessionStore.gatewayOrDefault().then((url) {
       if (mounted) _gatewayCtrl.text = url;
     });
+    SessionStore.listBrokerAccounts().then((accounts) {
+      if (mounted) setState(() => _brokerAccounts = accounts);
+    });
+    if (kDebugMode) {
+      _fillLocalDemoAccount();
+    }
+  }
+
+  Future<void> _continueWithBroker(CloudityAuthAccount account) async {
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
+    try {
+      final api = AuthApi(account.gatewayUrl);
+      if (!await api.authHealth()) {
+        throw AuthException('Gateway Cloudity introuvable pour ce compte.');
+      }
+      final pair = await api
+          .ensureValidTokens(
+            accessToken: account.accessToken,
+            refreshToken: account.refreshToken,
+          )
+          .timeout(const Duration(seconds: 10));
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: api.baseUrl,
+        accessToken: pair.access,
+        refreshToken: pair.refresh,
+        email: account.email,
+        tenantId: account.tenantId,
+      );
+      if (!mounted) return;
+      widget.onLoggedIn(
+        UserSession(api: api, accessToken: pair.access, refreshToken: pair.refresh),
+      );
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = friendlyNetworkMessage(e, action: 'reprendre la session'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -53,38 +100,55 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
     });
     try {
-      final gateway = _gatewayCtrl.text.trim();
-      final api = AuthApi(gateway);
-      final tokens = await api.login(
-        email: _emailCtrl.text.trim(),
-        password: _passwordCtrl.text,
-        tenantId: _tenantCtrl.text.trim(),
-      );
+      final email = _emailCtrl.text.trim();
+      final password = _passwordCtrl.text;
+      final tenant = _tenantCtrl.text.trim().isEmpty ? '1' : _tenantCtrl.text.trim();
+      AuthApi? api;
+      Map<String, dynamic>? tokens;
+      Object? lastReachError;
+      for (final gateway in await SessionStore.gatewayCandidates()) {
+        final candidate = AuthApi(gateway);
+        try {
+          if (!await candidate.authHealth()) continue;
+        } catch (e) {
+          lastReachError = e;
+          continue;
+        }
+        api = candidate;
+        try {
+          tokens = await candidate.login(email: email, password: password, tenantId: tenant);
+        } on LoginRequires2FAException catch (e) {
+          if (!mounted) return;
+          setState(() {
+            _twoFactorRequired = true;
+            _pendingEmail = e.email;
+            _pendingTenant = e.tenantId;
+            _pendingApi = candidate;
+            _pendingGateway = gateway;
+            _passwordCtrl.clear();
+          });
+          return;
+        }
+        break;
+      }
+      if (api == null || tokens == null) {
+        if (lastReachError != null) throw lastReachError;
+        throw AuthException('Gateway Cloudity introuvable. Vérifie make up + USB debug.');
+      }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
-      await SessionStore.saveSession(
-        gatewayUrl: gateway,
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: api.baseUrl,
         accessToken: access,
         refreshToken: refresh,
+        email: email,
+        tenantId: int.tryParse(tenant) ?? 1,
       );
       widget.onLoggedIn(UserSession(api: api, accessToken: access, refreshToken: refresh));
-    } on LoginRequires2FAException catch (e) {
-      // Le serveur exige un code TOTP / recovery. On bascule l'écran sur
-      // l'étape 2 sans jeter le mot de passe (déjà non-conservé : le serveur
-      // ne le redemande pas).
-      if (!mounted) return;
-      setState(() {
-        _twoFactorRequired = true;
-        _pendingEmail = e.email;
-        _pendingTenant = e.tenantId;
-        _pendingApi = AuthApi(_gatewayCtrl.text.trim());
-        _pendingGateway = _gatewayCtrl.text.trim();
-        _passwordCtrl.clear();
-      });
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyNetworkMessage(e, action: 'se connecter'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -109,10 +173,12 @@ class _LoginScreenState extends State<LoginScreen> {
         tenantId: tenant,
         code: _codeCtrl.text,
       );
-      await SessionStore.saveSession(
+      await SessionStore.saveSessionWithEmail(
         gatewayUrl: gateway,
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
+        email: email,
+        tenantId: int.tryParse(tenant) ?? 1,
       );
       if (!mounted) return;
       widget.onLoggedIn(UserSession(
@@ -123,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on Auth2FAException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = e.toString());
+      setState(() => _error = friendlyNetworkMessage(e, action: 'valider le code 2FA'));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -138,6 +204,25 @@ class _LoginScreenState extends State<LoginScreen> {
       _pendingGateway = null;
       _codeCtrl.clear();
       _error = null;
+    });
+  }
+
+  void _fillLocalDemoAccount() {
+    setState(() {
+      _emailCtrl.text = const String.fromEnvironment(
+        'CLOUDITY_DEV_EMAIL',
+        defaultValue: 'admin@cloudity.local',
+      );
+      _passwordCtrl.text = const String.fromEnvironment(
+        'CLOUDITY_DEV_PASSWORD',
+        defaultValue: 'Admin123!',
+      );
+      _tenantCtrl.text = const String.fromEnvironment('CLOUDITY_DEV_TENANT', defaultValue: '1');
+      _gatewayCtrl.text = const String.fromEnvironment(
+        'CLOUDITY_DEV_GATEWAY',
+        defaultValue: 'http://127.0.0.1:6080',
+      );
+      _advancedGateway = true;
     });
   }
 
@@ -158,21 +243,36 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          'Même compte que le web. Session partagée avec Cloudity Photos (clés cloudity_suite_*).',
+          'Même compte que le web. Le tenant est résolu automatiquement (tenant 1 en dev local).',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
         ),
         const SizedBox(height: 20),
-        TextField(
-          key: const ValueKey('cloudity_drive_login_gateway'),
-          controller: _gatewayCtrl,
-          decoration: const InputDecoration(
-            labelText: 'URL gateway',
-            border: OutlineInputBorder(),
-            hintText: 'http://10.0.2.2:6080 ou http://IP_LAN:6080',
+        if (_brokerAccounts.isNotEmpty) ...[
+          Text(
+            'Compte déjà connecté sur une autre app Cloudity',
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-          keyboardType: TextInputType.url,
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          for (final acc in _brokerAccounts)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FilledButton.tonal(
+                onPressed: _busy ? null : () => _continueWithBroker(acc),
+                child: Text('Continuer avec ${acc.email}'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+        ],
+        if (kDebugMode) ...[
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _fillLocalDemoAccount,
+            icon: const Icon(Icons.bolt_outlined),
+            label: const Text('Utiliser le compte démo local'),
+          ),
+          const SizedBox(height: 12),
+        ],
         TextField(
           key: const ValueKey('cloudity_drive_login_email'),
           controller: _emailCtrl,
@@ -194,15 +294,23 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: true,
         ),
         const SizedBox(height: 12),
-        TextField(
-          key: const ValueKey('cloudity_drive_login_tenant'),
-          controller: _tenantCtrl,
-          decoration: const InputDecoration(
-            labelText: 'ID tenant',
-            border: OutlineInputBorder(),
-          ),
-          keyboardType: TextInputType.number,
+        TextButton(
+          onPressed: () => setState(() => _advancedGateway = !_advancedGateway),
+          child: Text(_advancedGateway ? 'Masquer les réglages avancés' : 'Réglages avancés'),
         ),
+        if (_advancedGateway) ...[
+          const SizedBox(height: 8),
+          TextField(
+            key: const ValueKey('cloudity_drive_login_gateway'),
+            controller: _gatewayCtrl,
+            decoration: const InputDecoration(
+              labelText: 'URL gateway',
+              border: OutlineInputBorder(),
+              hintText: 'http://127.0.0.1:6080 (USB) ou http://10.0.2.2:6080',
+            ),
+            keyboardType: TextInputType.url,
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 12),
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Button, Card, CardHeader } from '@cloudity/shared'
+import { Button, Card, CardHeader } from '@cloudity/ui'
 import { Upload, AlertTriangle, X, CheckCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {

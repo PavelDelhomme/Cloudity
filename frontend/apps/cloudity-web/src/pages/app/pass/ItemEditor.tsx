@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Button, Input, Label } from '@cloudity/shared'
+import { Button, Input, Label } from '@cloudity/ui'
 import { Eye, EyeOff, Copy, Wand2, Trash2, Save, ArrowLeft, Globe, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generatePassword, type ItemPlaintextV1 } from '@cloudity/pass-crypto'

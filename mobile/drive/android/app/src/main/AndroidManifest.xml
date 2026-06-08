@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="fr.cloudity.permission.READ_AUTH_BROKER" />
+    <uses-permission android:name="fr.cloudity.permission.WRITE_AUTH_BROKER" />
     <application
-        android:label="cloudity_drive"
+        android:label="Cloudity Drive"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
