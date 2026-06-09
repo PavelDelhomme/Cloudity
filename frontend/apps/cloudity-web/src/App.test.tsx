@@ -6,6 +6,7 @@ import { routerFuture } from './test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { UserAppRoutes } from './App'
 import { AdminAppRoutes } from './AdminApp'
+import { AuthProvider } from './authContext'
 
 /** JWT factice avec rôle admin (même forme que les tests gateway / AdminAccessGate). */
 function adminAccessJwt(): string {
@@ -24,7 +25,7 @@ describe('App', () => {
     return (
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={initialEntries} future={routerFuture}>
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </MemoryRouter>
       </QueryClientProvider>
     )

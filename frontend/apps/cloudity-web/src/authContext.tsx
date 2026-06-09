@@ -1,19 +1,15 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+/* @refresh reset */
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { refreshAuth } from './api'
 
 import { AUTH_STORAGE_KEY as STORAGE_KEY, ApiError } from '@cloudity/shared'
-import { isAccessTokenUsable } from '@cloudity/shared'
+import { AuthContext, type AuthContextValue, type AuthState } from './authContextStore'
+import { refreshSessionExclusive } from './authSessionRefresh'
 
-export type AuthState = {
-  accessToken: string | null
-  refreshToken: string | null
-  tenantId: number | null
-  email: string | null
-}
+export type { AuthContextValue, AuthState } from './authContextStore'
 
 const defaultState: AuthState = {
   accessToken: null,
@@ -49,15 +45,21 @@ function saveToStorage(state: AuthState): void {
   }
 }
 
-type AuthContextValue = AuthState & {
-  isAuthenticated: boolean
-  login: (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => void
-  logout: () => void
-  /** Si le JWT d’accès expire bientôt, tente un refresh (dédupliqué) avant syncs batch / IMAP. */
-  refreshAccessTokenIfNeeded: () => Promise<string | null>
+function applyAuthState(
+  next: AuthState,
+  setState: React.Dispatch<React.SetStateAction<AuthState>>,
+  accessTokenRef: React.MutableRefObject<string | null>,
+  refreshTokenRef: React.MutableRefObject<string | null>
+): void {
+  accessTokenRef.current = next.accessToken
+  refreshTokenRef.current = next.refreshToken
+  try {
+    saveToStorage(next)
+  } catch {
+    /* storage saturé */
+  }
+  setState(next)
 }
-
-const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(loadFromStorage)
@@ -66,84 +68,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   refreshTokenRef.current = state.refreshToken
   const accessTokenRef = useRef<string | null>(null)
   accessTokenRef.current = state.accessToken
-  const refreshInFlightRef = useRef<Promise<string | null> | null>(null)
 
-  const refreshAccessTokenIfNeeded = useCallback(async (): Promise<string | null> => {
-    const rt = refreshTokenRef.current
-    const current = accessTokenRef.current
-    if (!current) return null
-    if (isAccessTokenUsable(current, 90_000)) return current
-    if (!rt) return null
-    if (refreshInFlightRef.current) return refreshInFlightRef.current
-    const task = (async (): Promise<string | null> => {
-      try {
-        const res = await refreshAuth(rt)
-        setState((prev) => ({
-          ...prev,
-          accessToken: res.access_token,
-          refreshToken: res.refresh_token,
-        }))
-        return res.access_token
-      } catch {
-        return null
-      } finally {
-        refreshInFlightRef.current = null
-      }
-    })()
-    refreshInFlightRef.current = task
-    return task
+  const refreshAccessTokenIfNeeded = useCallback(async (options?: { force?: boolean }): Promise<string | null> => {
+    const next = await refreshSessionExclusive(options)
+    if (next) {
+      // flushSync : les queryFn invalidées par Global401Handler doivent voir le nouveau JWT
+      // dans le même tick (sinon boucle 401).
+      flushSync(() => {
+        applyAuthState(next, setState, accessTokenRef, refreshTokenRef)
+      })
+      return next.accessToken
+    }
+    return null
   }, [])
 
   useEffect(() => {
     saveToStorage(state)
   }, [state])
 
-  // Rafraîchissement proactif : toutes les 10 min (JWT d’accès souvent 60 min côté serveur ; refresh token 30 j + rotation).
-  // L’activité utilisateur et le retour sur l’onglet renouvellent aussi le JWT (voir effets suivants).
+  // Sync cross-onglets / cross-bundles (index.html ↔ admin.html) après rotation du refresh token.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY || !event.newValue) return
+      try {
+        const data = JSON.parse(event.newValue) as AuthState
+        if (data.accessToken && data.tenantId != null) {
+          applyAuthState(data, setState, accessTokenRef, refreshTokenRef)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // Rafraîchissement proactif : toutes les 10 min (JWT d’accès souvent 60 min ; refresh token 30 j + rotation).
   useEffect(() => {
     if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
-    const intervalMs = 10 * 60 * 1000 // 10 minutes
-    const id = setInterval(async () => {
-      const rt = refreshTokenRef.current
-      const at = accessTokenRef.current
-      if (!rt || !at) return
-      if (isAccessTokenUsable(at, 90_000)) return
-      try {
-        const res = await refreshAuth(rt)
-        setState((prev) => ({
-          ...prev,
-          accessToken: res.access_token,
-          refreshToken: res.refresh_token,
-        }))
-      } catch {
-        // En cas d'échec (ex. refresh révoqué), on ne déconnecte pas tout de suite ; le prochain 401 fera logout
-      }
+    const intervalMs = 10 * 60 * 1000
+    const id = setInterval(() => {
+      void refreshAccessTokenIfNeeded()
     }, intervalMs)
     return () => clearInterval(id)
-  }, [state.refreshToken, state.accessToken, state.tenantId])
+  }, [state.refreshToken, state.accessToken, state.tenantId, refreshAccessTokenIfNeeded])
 
   const lastFocusRefreshAtRef = useRef(0)
 
-  // Onglet visible ou fenêtre au premier plan : renouveler le JWT (Chrome ralentit setInterval en arrière-plan)
   useEffect(() => {
     if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
     const doRefresh = () => {
-      const rt = refreshTokenRef.current
-      const at = accessTokenRef.current
-      if (!rt || !at) return
-      if (isAccessTokenUsable(at, 90_000)) return
       const now = Date.now()
-      if (now - lastFocusRefreshAtRef.current < 5000) return // anti double appel visibility + focus + activité
+      if (now - lastFocusRefreshAtRef.current < 5000) return
       lastFocusRefreshAtRef.current = now
-      void refreshAuth(rt)
-        .then((res) => {
-          setState((prev) => ({
-            ...prev,
-            accessToken: res.access_token,
-            refreshToken: res.refresh_token,
-          }))
-        })
-        .catch(() => {})
+      void refreshAccessTokenIfNeeded()
     }
     const onVisible = () => {
       if (document.visibilityState !== 'visible') return
@@ -156,13 +134,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onFocus)
     }
-  }, [state.refreshToken, state.accessToken, state.tenantId])
+  }, [state.refreshToken, state.accessToken, state.tenantId, refreshAccessTokenIfNeeded])
 
-  // Activité (clic, touche) : renouveler le JWT tant que l’utilisateur est actif sur l’onglet visible (évite de « perdre » la session en longue session de travail).
   const lastActivityRefreshAtRef = useRef(0)
+
   useEffect(() => {
     if (!state.refreshToken || !state.accessToken || state.tenantId == null) return
-    const minGapMs = 4 * 60 * 1000 // au plus un refresh déclenché par l’activité toutes les 4 min
+    const minGapMs = 4 * 60 * 1000
     const onActivity = () => {
       if (document.visibilityState !== 'visible') return
       const now = Date.now()
@@ -170,19 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (now - lastFocusRefreshAtRef.current < 5000) return
       lastActivityRefreshAtRef.current = now
       lastFocusRefreshAtRef.current = now
-      const rt = refreshTokenRef.current
-      const at = accessTokenRef.current
-      if (!rt || !at) return
-      if (isAccessTokenUsable(at, 90_000)) return
-      void refreshAuth(rt)
-        .then((res) => {
-          setState((prev) => ({
-            ...prev,
-            accessToken: res.access_token,
-            refreshToken: res.refresh_token,
-          }))
-        })
-        .catch(() => {})
+      void refreshAccessTokenIfNeeded()
     }
     document.addEventListener('pointerdown', onActivity, { passive: true })
     document.addEventListener('keydown', onActivity)
@@ -190,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener('pointerdown', onActivity)
       document.removeEventListener('keydown', onActivity)
     }
-  }, [state.refreshToken, state.accessToken, state.tenantId])
+  }, [state.refreshToken, state.accessToken, state.tenantId, refreshAccessTokenIfNeeded])
 
   const login = useCallback(
     (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => {
@@ -200,26 +166,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tenantId,
         email,
       }
-      // Persiste tout de suite : si une lecture (apiFetch) ou un refetch parallèle
-      // re-lit le token avant que React n'ait propagé le state, on doit servir le neuf.
-      // Le useEffect [state] enregistrera de nouveau, c'est idempotent.
-      try {
-        saveToStorage(next)
-      } catch {
-        /* storage saturé : on continue, le useEffect retentera */
-      }
-      // Synchronise les refs lues par les helpers async (refreshAccessTokenIfNeeded,
-      // intervals, etc.) — celles-ci ne dépendent pas du re-render React.
-      accessTokenRef.current = next.accessToken
-      refreshTokenRef.current = next.refreshToken
-      setState(next)
-      // Redirect is handled by the page (e.g. /app ou /4dm1n)
+      applyAuthState(next, setState, accessTokenRef, refreshTokenRef)
     },
     []
   )
 
   const logout = useCallback(() => {
     setState(defaultState)
+    accessTokenRef.current = null
+    refreshTokenRef.current = null
+    try {
+      localStorage.removeItem(STORAGE_KEY)
+    } catch {
+      // ignore
+    }
     const returnTo =
       typeof window !== 'undefined'
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
@@ -249,7 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 /** Déconnecte et redirige vers /login quand une requête API renvoie 401 (token invalide ou expiré).
  * Tente d'abord un refresh avec le refresh token pour garder la session. */
 export function Global401Handler() {
-  const { logout, isAuthenticated, refreshToken, login, tenantId, email } = useAuth()
+  const { logout, isAuthenticated, refreshAccessTokenIfNeeded } = useAuth()
   const queryClient = useQueryClient()
   const triedRef = useRef(false)
 
@@ -267,34 +227,24 @@ export function Global401Handler() {
       if (!isUnauthorized) return
 
       const tryRefresh = async () => {
-        if (!refreshToken) {
-          toast.error('Session expirée ou token invalide. Reconnectez-vous.')
-          logout()
-          return
-        }
-        // Si un refresh est déjà en cours (autre requête 401), ne rien faire : le premier refresh invalidera le cache.
         if (triedRef.current) return
         triedRef.current = true
         try {
-          const res = await refreshAuth(refreshToken)
-          // flushSync force React à propager le nouveau accessToken AVANT
-          // d'invalider les queries — sinon les queryFn refetchées tournent
-          // en closure sur l'ancien token et repartent en 401 (boucle).
-          flushSync(() => {
-            login(res.access_token, res.refresh_token, tenantId!, email ?? '')
-          })
+          const token = await refreshAccessTokenIfNeeded({ force: true })
+          if (!token) {
+            toast.error('Session expirée. Reconnectez-vous.')
+            logout()
+            return
+          }
           queryClient.invalidateQueries()
-        } catch {
-          toast.error('Session expirée. Reconnectez-vous.')
-          logout()
         } finally {
           triedRef.current = false
         }
       }
-      tryRefresh()
+      void tryRefresh()
     })
     return () => unsub()
-  }, [queryClient, logout, isAuthenticated, refreshToken, login, tenantId, email])
+  }, [queryClient, logout, isAuthenticated, refreshAccessTokenIfNeeded])
 
   return null
 }

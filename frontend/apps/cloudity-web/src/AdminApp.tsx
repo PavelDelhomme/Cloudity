@@ -25,49 +25,46 @@ const queryClient = new QueryClient({
   },
 })
 
-/** Routes admin : à monter sous un Router (Browser ou Memory). */
+/** Routes admin : à monter sous Router + AuthProvider (voir `AdminApp`). */
 export function AdminAppRoutes() {
   return (
-    <AuthProvider>
-      <Global401Handler />
-      <Routes>
-        <Route
-          path="/4dm1n"
-          element={
-            <AdminAccessGate>
-              <AdminLayout />
-            </AdminAccessGate>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="tenants" element={<TenantsPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="vaults" element={<VaultsPage />} />
-          <Route path="domaines" element={<DomainesPage />} />
-          <Route path="securite-cve" element={<SecurityCvePage />} />
-          <Route path="passkeys" element={<PasskeysPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="dev/ui" element={<UiCatalogPage />} />
-        </Route>
-        <Route
-          path="*"
-          element={
-            <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-              <div className="max-w-md text-center space-y-3">
-                <h1 className="text-xl font-semibold">Page introuvable</h1>
-                <p className="text-sm text-slate-300">
-                  Le back-office est servi uniquement sous <span className="font-mono">{ADMIN_UI_BASE_PATH}</span>.
-                  Aucune redirection depuis <span className="font-mono">/admin</span> n’est exposée (anti-énumération).
-                </p>
-                <a className="text-emerald-400 underline text-sm" href={ADMIN_UI_BASE_PATH}>
-                  Ouvrir le back-office
-                </a>
-              </div>
+    <Routes>
+      <Route
+        path="/4dm1n"
+        element={
+          <AdminAccessGate>
+            <AdminLayout />
+          </AdminAccessGate>
+        }
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="tenants" element={<TenantsPage />} />
+        <Route path="users" element={<UsersPage />} />
+        <Route path="vaults" element={<VaultsPage />} />
+        <Route path="domaines" element={<DomainesPage />} />
+        <Route path="securite-cve" element={<SecurityCvePage />} />
+        <Route path="passkeys" element={<PasskeysPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="dev/ui" element={<UiCatalogPage />} />
+      </Route>
+      <Route
+        path="*"
+        element={
+          <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
+            <div className="max-w-md text-center space-y-3">
+              <h1 className="text-xl font-semibold">Page introuvable</h1>
+              <p className="text-sm text-slate-300">
+                Le back-office est servi uniquement sous <span className="font-mono">{ADMIN_UI_BASE_PATH}</span>.
+                Aucune redirection depuis <span className="font-mono">/admin</span> n’est exposée (anti-énumération).
+              </p>
+              <a className="text-emerald-400 underline text-sm" href={ADMIN_UI_BASE_PATH}>
+                Ouvrir le back-office
+              </a>
             </div>
-          }
-        />
-      </Routes>
-    </AuthProvider>
+          </div>
+        }
+      />
+    </Routes>
   )
 }
 
@@ -75,7 +72,10 @@ export default function AdminApp() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AdminAppRoutes />
+        <AuthProvider>
+          <Global401Handler />
+          <AdminAppRoutes />
+        </AuthProvider>
       </BrowserRouter>
       <Toaster
         position="top-right"

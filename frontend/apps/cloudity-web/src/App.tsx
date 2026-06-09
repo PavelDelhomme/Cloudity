@@ -67,9 +67,7 @@ function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; 
 /** Shell utilisateur + pages publiques. Le back-office est un second bundle (`admin.html` / AdminApp). */
 export function UserAppRoutes() {
   return (
-    <AuthProvider>
-      <Global401Handler />
-      <Routes>
+    <Routes>
         <Route path="/" element={<Landing />} />
         <Route
           path="/login"
@@ -119,7 +117,6 @@ export function UserAppRoutes() {
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </AuthProvider>
   )
 }
 
@@ -127,7 +124,10 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <UserAppRoutes />
+        <AuthProvider>
+          <Global401Handler />
+          <UserAppRoutes />
+        </AuthProvider>
       </BrowserRouter>
       <Toaster
         position="top-right"
