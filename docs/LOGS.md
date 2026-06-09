@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-06-09 — App Hub / Drive récents / Photos UX
+
+- Branche : `feat/app-hub-photos-ux-hardening`.
+- Drive : correction `GET /drive/nodes/recent` (scan SQL `taken_at/created_at/updated_at`) ; validation réelle `200`, 24 éléments.
+- Web : dossier racine `Photos` dans Drive → `/app/photos`; aperçus Photos du Hub → app Photos; dark mode Photos renforcé; `Tout sélectionner` désactivé quand tout est déjà sélectionné.
+- Suivi : `TODOS.md` ajoute H8 (archive/verrouillé serveur + actions groupées) et H9 (paramètres par application web).
+- Checks : `go test ./...` drive-service ✅ ; Vitest Hub/Photos/Drive ✅ ; lints ciblés ✅.
+
+---
+
 ### 2026-06-09 — gosec vert + U9 2FA admin + audit mobile H6c
 
 - **gosec** : `.gosec.json` + corrections gateway/mail/drive ; `GOSEC_BLOCKING=1` vert sur tous services → merge `dev` (`e7b83759`).

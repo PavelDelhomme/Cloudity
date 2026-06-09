@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-09 — **`dev`** @ `ad8cd270` : gosec vert (`GOSEC_BLOCKING=1`), U9 reset 2FA admin, audit mobile H6c (checklist + logout broker). Chantier actif **`feat/security-mobile-audit`**. **Mail prod en pause**.
+**Dernière mise à jour** : 2026-06-09 — **`dev`** @ `046b130d` : gosec vert (`GOSEC_BLOCKING=1`), U9 reset 2FA admin, audit mobile H6c (checklist + logout broker). Chantier actif **`feat/app-hub-photos-ux-hardening`** : App Hub / Drive récents / Photos UX. **Mail prod en pause**.
 
 ## À faire maintenant
 
@@ -8,7 +8,7 @@
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **Git** : `git status` ; branche = **`feat/security-mobile-audit`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+1. **Git** : `git status` ; branche = **`feat/app-hub-photos-ux-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).

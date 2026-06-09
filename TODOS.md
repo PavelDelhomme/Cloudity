@@ -5,14 +5,15 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/security-mobile-audit`** — depuis **`dev`** à jour (2026-06-09).
+**Branche active** : **`feat/app-hub-photos-ux-hardening`** — depuis **`dev`** à jour (2026-06-09).
 
 | Chantier | Branche | État |
 |----------|---------|------|
 | Auth web + gitleaks | `feat/security-audit-hardening` | ☑ mergé `dev` |
 | **gosec** tous services | `feat/security-gosec-hardening` | ☑ mergé `dev` |
 | **U9** 2FA admin | `feat/admin-u9-2fa-advanced` | ☑ mergé `dev` |
-| Audit mobile **H6c** | `feat/security-mobile-audit` | en cours |
+| Audit mobile **H6c** | `feat/security-mobile-audit` | ☑ mergé `dev` |
+| App Hub / Drive récents / Photos UX | `feat/app-hub-photos-ux-hardening` | en cours |
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
@@ -22,7 +23,7 @@
 
 ---
 
-## MAINTENANT — hors mail prod (`feat/mobile-desktop-validation`)
+## MAINTENANT — hors mail prod (`feat/app-hub-photos-ux-hardening`)
 
 | # | Action | Comment | Coché |
 |---|--------|---------|-------|
