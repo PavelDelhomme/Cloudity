@@ -15,23 +15,38 @@ import {
   ChevronLeft,
   RotateCcw,
   Plus,
+  Settings,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
 import { PhotosBottomNav } from '../../../components/PhotosBottomNav'
 import type { PhotosTab } from './photosTypes'
 import {
+  archiveDrivePhotos,
   createDriveFolder,
   deleteDriveNode,
   downloadDriveFile,
   downloadDriveThumbnail,
   fetchDriveNodes,
+  fetchDrivePhotosArchive,
+  fetchDrivePhotosLocked,
   fetchDrivePhotosTimeline,
   fetchDriveTrash,
+  lockDrivePhotos,
   restoreDriveNode,
+  unarchiveDrivePhotos,
+  unlockDrivePhotos,
   uploadDriveFileWithProgress,
   type DriveNode,
 } from '../../../api'
+import {
+  DEFAULT_PHOTOS_APP_SETTINGS,
+  loadPhotosAppSettings,
+  photosGridClassName,
+  savePhotosAppSettings,
+  type PhotosAppSettings,
+  type PhotosGridSize,
+} from './photosAppSettings'
 const PAGE_SIZE = 48
 const PHOTO_DOWNLOAD_CONCURRENCY = 6
 
@@ -368,6 +383,9 @@ export default function PhotosPage() {
   /** Sélection multiple (chronologie) — alignement PHOTOS.md §3. */
   const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
+  const [showPhotosSettings, setShowPhotosSettings] = useState(false)
+  const [photosSettings, setPhotosSettings] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
+  const [settingsDraft, setSettingsDraft] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
 
   const setTab = useCallback(
     (next: PhotosTab) => {
@@ -419,6 +437,20 @@ export default function PhotosPage() {
     queryKey: ['drive', 'photos', 'trash-images'],
     queryFn: () => fetchDriveTrash(accessToken!),
     enabled: Boolean(accessToken) && tab === 'trash',
+    staleTime: 30_000,
+  })
+
+  const archiveQuery = useQuery({
+    queryKey: ['drive', 'photos', 'archive'],
+    queryFn: () => fetchDrivePhotosArchive(accessToken!),
+    enabled: Boolean(accessToken) && tab === 'archive',
+    staleTime: 30_000,
+  })
+
+  const lockedQuery = useQuery({
+    queryKey: ['drive', 'photos', 'locked'],
+    queryFn: () => fetchDrivePhotosLocked(accessToken!),
+    enabled: Boolean(accessToken) && tab === 'locked',
     staleTime: 30_000,
   })
 
@@ -486,6 +518,15 @@ export default function PhotosPage() {
     },
   })
 
+  const invalidatePhotoLibraryQueries = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'timeline'] })
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'archive'] })
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'locked'] })
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'albums'] })
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'album-folder'] })
+    void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'trash-images'] })
+  }, [queryClient])
+
   const deletePhotosMutation = useMutation({
     mutationFn: async (ids: number[]) => {
       if (!accessToken) throw new Error('Non connecté')
@@ -499,12 +540,67 @@ export default function PhotosPage() {
       )
       setLightboxIndex(null)
       exitPhotoSelectionMode()
-      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'timeline'] })
-      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'albums'] })
-      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'album-folder'] })
-      void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'trash-images'] })
+      invalidatePhotoLibraryQueries()
     },
     onError: (e: Error) => toast.error(e.message || 'Échec de la suppression'),
+  })
+
+  const archivePhotosMutation = useMutation({
+    mutationFn: (ids: number[]) => {
+      if (!accessToken) throw new Error('Non connecté')
+      return archiveDrivePhotos(accessToken, ids)
+    },
+    onSuccess: (res, ids) => {
+      const n = res.updated || ids.length
+      toast.success(n > 1 ? `${n} photos archivées` : 'Photo archivée')
+      setLightboxIndex(null)
+      exitPhotoSelectionMode()
+      invalidatePhotoLibraryQueries()
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec de l’archivage'),
+  })
+
+  const unarchivePhotosMutation = useMutation({
+    mutationFn: (ids: number[]) => {
+      if (!accessToken) throw new Error('Non connecté')
+      return unarchiveDrivePhotos(accessToken, ids)
+    },
+    onSuccess: (res, ids) => {
+      const n = res.updated || ids.length
+      toast.success(n > 1 ? `${n} photos restaurées` : 'Photo restaurée')
+      setLightboxIndex(null)
+      invalidatePhotoLibraryQueries()
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec de la restauration'),
+  })
+
+  const lockPhotosMutation = useMutation({
+    mutationFn: (ids: number[]) => {
+      if (!accessToken) throw new Error('Non connecté')
+      return lockDrivePhotos(accessToken, ids)
+    },
+    onSuccess: (res, ids) => {
+      const n = res.updated || ids.length
+      toast.success(n > 1 ? `${n} photos verrouillées` : 'Photo verrouillée')
+      setLightboxIndex(null)
+      exitPhotoSelectionMode()
+      invalidatePhotoLibraryQueries()
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec du verrouillage'),
+  })
+
+  const unlockPhotosMutation = useMutation({
+    mutationFn: (ids: number[]) => {
+      if (!accessToken) throw new Error('Non connecté')
+      return unlockDrivePhotos(accessToken, ids)
+    },
+    onSuccess: (res, ids) => {
+      const n = res.updated || ids.length
+      toast.success(n > 1 ? `${n} photos déverrouillées` : 'Photo déverrouillée')
+      setLightboxIndex(null)
+      invalidatePhotoLibraryQueries()
+    },
+    onError: (e: Error) => toast.error(e.message || 'Échec du déverrouillage'),
   })
 
   const restoreTrashPhotoMutation = useMutation({
@@ -616,11 +712,50 @@ export default function PhotosPage() {
     return raw.filter(isPhotoNode)
   }, [trashQuery.data])
 
+  const archivePhotoItems = useMemo(() => {
+    const raw = archiveQuery.data ?? []
+    return raw.filter(isPhotoNode)
+  }, [archiveQuery.data])
+
+  const lockedPhotoItems = useMemo(() => {
+    const raw = lockedQuery.data ?? []
+    return raw.filter(isPhotoNode)
+  }, [lockedQuery.data])
+
+  const timelineGridClass = photosGridClassName(photosSettings.gridSize)
+
+  const confirmBulkPhotoAction = useCallback(
+    (message: string) => !photosSettings.confirmArchiveLock || window.confirm(message),
+    [photosSettings.confirmArchiveLock]
+  )
+
+  const runArchiveSelected = useCallback(() => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    if (!confirmBulkPhotoAction(`Archiver ${ids.length} photo${ids.length > 1 ? 's' : ''} ?`)) return
+    archivePhotosMutation.mutate(ids)
+  }, [archivePhotosMutation, confirmBulkPhotoAction, selectedIds])
+
+  const runLockSelected = useCallback(() => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    if (
+      !confirmBulkPhotoAction(
+        `Verrouiller ${ids.length} photo${ids.length > 1 ? 's' : ''} ? Elles quitteront la bibliothèque principale.`
+      )
+    ) {
+      return
+    }
+    lockPhotosMutation.mutate(ids)
+  }, [confirmBulkPhotoAction, lockPhotosMutation, selectedIds])
+
   const lightboxItems = useMemo(() => {
     if (tab === 'albums' && openAlbumId != null) return albumImageItems
     if (tab === 'trash') return trashPhotoItems
+    if (tab === 'archive') return archivePhotoItems
+    if (tab === 'locked') return lockedPhotoItems
     return flatItems
-  }, [tab, openAlbumId, albumImageItems, trashPhotoItems, flatItems])
+  }, [tab, openAlbumId, albumImageItems, trashPhotoItems, archivePhotoItems, lockedPhotoItems, flatItems])
 
   const openAt = useCallback(
     (node: DriveNode) => {
@@ -700,6 +835,20 @@ export default function PhotosPage() {
             </div>
           ) : null}
         </div>
+        {accessToken ? (
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsDraft(photosSettings)
+              setShowPhotosSettings(true)
+            }}
+            className="inline-flex shrink-0 items-center justify-center rounded-full p-2.5 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200/80 dark:hover:bg-neutral-700"
+            title="Paramètres Photos"
+            aria-label="Paramètres Photos"
+          >
+            <Settings className="h-5 w-5" aria-hidden />
+          </button>
+        ) : null}
         {tab === 'timeline' && accessToken ? (
           <div className="flex items-center gap-1 shrink-0">
             <input
@@ -814,6 +963,34 @@ export default function PhotosPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={runArchiveSelected}
+                    disabled={selectedIds.size === 0 || archivePhotosMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+                    aria-label="Archiver la sélection"
+                  >
+                    {archivePhotosMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                    ) : (
+                      <Archive className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                    Archiver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={runLockSelected}
+                    disabled={selectedIds.size === 0 || lockPhotosMutation.isPending}
+                    className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40"
+                    aria-label="Verrouiller la sélection"
+                  >
+                    {lockPhotosMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden />
+                    ) : (
+                      <Lock className="h-4 w-4 shrink-0" aria-hidden />
+                    )}
+                    Verrouiller
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => {
                       const ids = [...selectedIds]
                       if (ids.length) deletePhotosMutation.mutate(ids)
@@ -832,38 +1009,54 @@ export default function PhotosPage() {
                 </div>
               ) : null}
               <div className="flex flex-col gap-8 sm:gap-10">
-                {sections.map((section) => (
-                  <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
-                    <div className="sticky top-0 z-10 mb-3 py-2">
-                      <div className="inline-flex max-w-full flex-col rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
-                        <h2
-                          id={`photos-day-${section.dayKey}`}
-                          className="truncate text-[1.2rem] font-normal leading-tight tracking-tight text-gray-950 dark:text-slate-50 sm:text-xl"
-                        >
-                          {section.heading}
-                        </h2>
-                        {section.subheading ? (
-                          <p className="mt-0.5 truncate text-xs font-normal leading-snug text-gray-600 dark:text-slate-400 sm:text-sm">
-                            {section.subheading}
-                          </p>
-                        ) : null}
+                {photosSettings.showDateSections
+                  ? sections.map((section) => (
+                      <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
+                        <div className="sticky top-0 z-10 mb-3 py-2">
+                          <div className="inline-flex max-w-full flex-col rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
+                            <h2
+                              id={`photos-day-${section.dayKey}`}
+                              className="truncate text-[1.2rem] font-normal leading-tight tracking-tight text-gray-950 dark:text-slate-50 sm:text-xl"
+                            >
+                              {section.heading}
+                            </h2>
+                            {section.subheading ? (
+                              <p className="mt-0.5 truncate text-xs font-normal leading-snug text-gray-600 dark:text-slate-400 sm:text-sm">
+                                {section.subheading}
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className={`grid ${timelineGridClass} gap-0.5 sm:gap-1`}>
+                          {section.items.map((node) => (
+                            <PhotoThumb
+                              key={node.id}
+                              node={node}
+                              token={accessToken}
+                              selectMode={selectionMode}
+                              selected={selectedIds.has(node.id)}
+                              onToggleSelect={() => togglePhotoSelected(node.id)}
+                              onOpen={openAt}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    ))
+                  : (
+                      <div className={`grid ${timelineGridClass} gap-0.5 sm:gap-1`}>
+                        {flatItems.map((node) => (
+                          <PhotoThumb
+                            key={node.id}
+                            node={node}
+                            token={accessToken}
+                            selectMode={selectionMode}
+                            selected={selectedIds.has(node.id)}
+                            onToggleSelect={() => togglePhotoSelected(node.id)}
+                            onOpen={openAt}
+                          />
+                        ))}
                       </div>
-                    </div>
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-0.5 sm:gap-1">
-                      {section.items.map((node) => (
-                        <PhotoThumb
-                          key={node.id}
-                          node={node}
-                          token={accessToken}
-                          selectMode={selectionMode}
-                          selected={selectedIds.has(node.id)}
-                          onToggleSelect={() => togglePhotoSelected(node.id)}
-                          onOpen={openAt}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                ))}
+                    )}
               </div>
               {photosQuery.hasNextPage && (
                 <div className="flex justify-center pt-4">
@@ -1009,13 +1202,52 @@ export default function PhotosPage() {
         </div>
       )}
 
-      {tab === 'archive' && (
-        <div className="max-w-lg space-y-4 rounded-xl border border-gray-200 bg-gray-50/90 p-6 text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-          <Archive className="h-9 w-9 text-slate-400 dark:text-slate-500" aria-hidden />
-          <p>
-            Les photos que vous archivez apparaîtront ici. Cette vue sera enrichie dans une prochaine version.
+      {tab === 'archive' && accessToken && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-slate-400">
+            Photos retirées de la chronologie principale. Restaurez-les pour les revoir dans la bibliothèque.
           </p>
+          {archiveQuery.isPending ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : archiveQuery.isError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{(archiveQuery.error as Error).message}</p>
+          ) : archivePhotoItems.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-8 text-center text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+              <Archive className="mx-auto mb-3 h-10 w-10 text-slate-400" aria-hidden />
+              <p>Aucune photo archivée.</p>
+            </div>
+          ) : (
+            <div className={`grid ${timelineGridClass} gap-2 sm:gap-3`}>
+              {archivePhotoItems.map((node) => (
+                <div key={node.id} className="flex flex-col items-stretch gap-1.5">
+                  <PhotoThumb
+                    node={node}
+                    token={accessToken}
+                    selectMode={false}
+                    selected={false}
+                    onToggleSelect={() => {}}
+                    onOpen={openAt}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => unarchivePhotosMutation.mutate([node.id])}
+                    disabled={unarchivePhotosMutation.isPending}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Restaurer
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {tab === 'archive' && !accessToken && (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Connectez-vous pour voir les photos archivées.</p>
       )}
 
       {tab === 'trash' && accessToken && (
@@ -1080,11 +1312,53 @@ export default function PhotosPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">Connectez-vous pour voir la corbeille photos.</p>
       )}
 
-      {tab === 'locked' && (
-        <div className="max-w-lg space-y-4 rounded-xl border border-gray-200 bg-gray-50/90 p-6 text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-          <Lock className="h-9 w-9 text-slate-400 dark:text-slate-500" aria-hidden />
-          <p>Album verrouillé et chiffrement dédié : fonctionnalité à venir.</p>
+      {tab === 'locked' && accessToken && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-slate-400">
+            Photos masquées de la chronologie et de l’archive. Le chiffrement dédié et le coffre biométrique
+            arriveront dans une prochaine version.
+          </p>
+          {lockedQuery.isPending ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+            </div>
+          ) : lockedQuery.isError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{(lockedQuery.error as Error).message}</p>
+          ) : lockedPhotoItems.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-8 text-center text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+              <Lock className="mx-auto mb-3 h-10 w-10 text-slate-400" aria-hidden />
+              <p>Aucune photo verrouillée.</p>
+            </div>
+          ) : (
+            <div className={`grid ${timelineGridClass} gap-2 sm:gap-3`}>
+              {lockedPhotoItems.map((node) => (
+                <div key={node.id} className="flex flex-col items-stretch gap-1.5">
+                  <PhotoThumb
+                    node={node}
+                    token={accessToken}
+                    selectMode={false}
+                    selected={false}
+                    onToggleSelect={() => {}}
+                    onOpen={openAt}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => unlockPhotosMutation.mutate([node.id])}
+                    disabled={unlockPhotosMutation.isPending}
+                    className="inline-flex items-center justify-center gap-1 rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                  >
+                    <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Déverrouiller
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      )}
+
+      {tab === 'locked' && !accessToken && (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Connectez-vous pour voir les photos verrouillées.</p>
       )}
 
       {lightboxNode && accessToken && lightboxIndex !== null && (
@@ -1099,6 +1373,98 @@ export default function PhotosPage() {
             setLightboxIndex((i) => (i !== null && i < lightboxItems.length - 1 ? i + 1 : i))
           }
         />
+      )}
+
+      {showPhotosSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="photos-settings-title"
+          onClick={() => setShowPhotosSettings(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="photos-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Paramètres Photos
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowPhotosSettings(false)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                aria-label="Fermer les paramètres Photos"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Taille de la grille</span>
+                <select
+                  value={settingsDraft.gridSize}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, gridSize: e.target.value as PhotosGridSize }))
+                  }
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                >
+                  <option value="compact">Compacte</option>
+                  <option value="normal">Normale</option>
+                  <option value="large">Large</option>
+                </select>
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Afficher les dates</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showDateSections}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, showDateSections: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">
+                  Confirmer archive et verrouillage
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.confirmArchiveLock}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, confirmArchiveLock: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSettingsDraft(DEFAULT_PHOTOS_APP_SETTINGS)
+                }}
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPhotosSettings(settingsDraft)
+                  savePhotosAppSettings(settingsDraft)
+                  setShowPhotosSettings(false)
+                  toast.success('Paramètres Photos enregistrés')
+                }}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {lightboxIndex === null ? <PhotosBottomNav currentTab={tab} onSelectTab={setTab} /> : null}

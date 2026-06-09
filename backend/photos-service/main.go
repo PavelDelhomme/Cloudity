@@ -138,6 +138,8 @@ func (h *Handler) listTimeline(c *gin.Context) {
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
+		  AND photo_archived_at IS NULL
+		  AND photo_locked_at IS NULL
 		  AND is_folder = false
 		  AND LOWER(name) !~ '\.pdf$'
 		  AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'application/pdf%'

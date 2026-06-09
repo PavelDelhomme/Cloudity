@@ -1610,6 +1610,10 @@ export type DriveNode = {
   child_files?: number
   /** Date de suppression (corbeille). */
   deleted_at?: string | null
+  /** Archivage Photos (hors timeline). */
+  photo_archived_at?: string | null
+  /** Verrouillage Photos (hors timeline et archive). */
+  photo_locked_at?: string | null
   /** Nom du dossier parent (recherche GET /drive/nodes/search). */
   parent_folder_name?: string
 }
@@ -1672,6 +1676,53 @@ export async function fetchDrivePhotosTimeline(
     { json: false },
     'Photos timeline'
   )
+}
+
+export async function fetchDrivePhotosArchive(token: string): Promise<DriveNode[]> {
+  return apiJson<DriveNode[]>(token, '/drive/photos/archive', { json: false }, 'Photos archive')
+}
+
+export async function fetchDrivePhotosLocked(token: string): Promise<DriveNode[]> {
+  return apiJson<DriveNode[]>(token, '/drive/photos/locked', { json: false }, 'Photos locked')
+}
+
+async function mutateDrivePhotosIds(
+  token: string,
+  path: string,
+  ids: number[],
+  label: string
+): Promise<{ updated: number }> {
+  const res = await apiFetch(token, path, {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  })
+  if (!res.ok) {
+    let msg = `${label}: ${res.status}`
+    try {
+      const j = (await res.json()) as { error?: string }
+      if (j?.error) msg = j.error
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg)
+  }
+  return res.json() as Promise<{ updated: number }>
+}
+
+export function archiveDrivePhotos(token: string, ids: number[]): Promise<{ updated: number }> {
+  return mutateDrivePhotosIds(token, '/drive/photos/archive', ids, 'Archivage photos')
+}
+
+export function unarchiveDrivePhotos(token: string, ids: number[]): Promise<{ updated: number }> {
+  return mutateDrivePhotosIds(token, '/drive/photos/unarchive', ids, 'Restauration archive photos')
+}
+
+export function lockDrivePhotos(token: string, ids: number[]): Promise<{ updated: number }> {
+  return mutateDrivePhotosIds(token, '/drive/photos/lock', ids, 'Verrouillage photos')
+}
+
+export function unlockDrivePhotos(token: string, ids: number[]): Promise<{ updated: number }> {
+  return mutateDrivePhotosIds(token, '/drive/photos/unlock', ids, 'Déverrouillage photos')
 }
 
 export async function createDriveFolder(

@@ -146,6 +146,12 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.GET("/nodes", h.listNodes)
 		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
+		drive.GET("/photos/archive", h.listPhotosArchive)
+		drive.GET("/photos/locked", h.listPhotosLocked)
+		drive.POST("/photos/archive", h.archivePhotos)
+		drive.POST("/photos/unarchive", h.unarchivePhotos)
+		drive.POST("/photos/lock", h.lockPhotos)
+		drive.POST("/photos/unlock", h.unlockPhotos)
 		drive.GET("/nodes/recent", h.listRecentNodes)
 		drive.GET("/nodes/trash", h.listTrash)
 		drive.POST("/nodes", h.createNode)
@@ -255,7 +261,9 @@ type Node struct {
 	ChildCount   int     `json:"child_count,omitempty"`
 	ChildFolders int     `json:"child_folders,omitempty"`
 	ChildFiles   int     `json:"child_files,omitempty"`
-	DeletedAt    string  `json:"deleted_at,omitempty"` // pour la corbeille
+	DeletedAt        string `json:"deleted_at,omitempty"` // pour la corbeille
+	PhotoArchivedAt  string `json:"photo_archived_at,omitempty"`
+	PhotoLockedAt    string `json:"photo_locked_at,omitempty"`
 	// Renseigné par GET /drive/nodes/search (dossier parent pour navigation).
 	ParentFolderName string `json:"parent_folder_name,omitempty"`
 }
@@ -460,6 +468,50 @@ type photosTimelinePage struct {
 	HasMore bool   `json:"has_more"`
 }
 
+// photoImageFilterSQL — fichiers image (hors PDF), dossiers exclus.
+const photoImageFilterSQL = `
+  AND is_folder = false
+  AND LOWER(name) !~ '\.pdf$'
+  AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'application/pdf%'
+  AND (
+    (LOWER(COALESCE(mime_type, '')) LIKE 'image/%' AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'image/pdf%')
+    OR LOWER(name) ~ '\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif|tiff|tif)$'
+  )`
+
+const photoNodeSelectSQL = `
+  id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
+  COALESCE(taken_at::text, ''),
+  COALESCE(taken_at, created_at)::text,
+  COALESCE(updated_at::text, ''),
+  COALESCE(photo_archived_at::text, ''),
+  COALESCE(photo_locked_at::text, '')`
+
+func scanPhotoNodeRow(rows *sql.Rows) (Node, error) {
+	var n Node
+	var pid sql.NullInt64
+	var mime sql.NullString
+	var takenAt, uat, archivedAt, lockedAt string
+	if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat, &archivedAt, &lockedAt); err != nil {
+		return n, err
+	}
+	if pid.Valid {
+		p := int(pid.Int64)
+		n.ParentID = &p
+	}
+	if mime.Valid {
+		n.MimeType = &mime.String
+	}
+	n.TakenAt = takenAt
+	n.UpdatedAt = uat
+	n.PhotoArchivedAt = archivedAt
+	n.PhotoLockedAt = lockedAt
+	return n, nil
+}
+
+type photoIDsBody struct {
+	IDs []int `json:"ids"`
+}
+
 func (h *Handler) listPhotosTimeline(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "48")
 	offsetStr := c.DefaultQuery("offset", "0")
@@ -482,18 +534,13 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 	// Demander une ligne de plus pour savoir s'il reste des pages (évite COUNT(*)).
 	fetch := limit + 1
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
-		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
+		SELECT `+photoNodeSelectSQL+`
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
-		  AND is_folder = false
-		  AND LOWER(name) !~ '\.pdf$'
-		  AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'application/pdf%'
-		  AND (
-			(LOWER(COALESCE(mime_type, '')) LIKE 'image/%' AND LOWER(COALESCE(mime_type, '')) NOT LIKE 'image/pdf%')
-			OR LOWER(name) ~ '\.(jpg|jpeg|png|gif|webp|bmp|heic|heif|avif|tiff|tif)$'
-		  )
+		  AND photo_archived_at IS NULL
+		  AND photo_locked_at IS NULL
+		`+photoImageFilterSQL+`
 		ORDER BY COALESCE(taken_at, created_at) DESC NULLS LAST, id DESC
 		LIMIT $1 OFFSET $2
 	`, fetch, offset)
@@ -504,23 +551,11 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 	defer rows.Close()
 	list := make([]Node, 0)
 	for rows.Next() {
-		var n Node
-		var pid sql.NullInt64
-		var mime sql.NullString
-		var takenAt, uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat); err != nil {
+		n, err := scanPhotoNodeRow(rows)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if pid.Valid {
-			p := int(pid.Int64)
-			n.ParentID = &p
-		}
-		if mime.Valid {
-			n.MimeType = &mime.String
-		}
-		n.TakenAt = takenAt
-		n.UpdatedAt = uat
 		list = append(list, n)
 	}
 	hasMore := len(list) > limit
@@ -528,6 +563,181 @@ func (h *Handler) listPhotosTimeline(c *gin.Context) {
 		list = list[:limit]
 	}
 	c.JSON(http.StatusOK, photosTimelinePage{Items: list, Limit: limit, Offset: offset, HasMore: hasMore})
+}
+
+func (h *Handler) listPhotosArchive(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, []Node{})
+		return
+	}
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
+		SELECT `+photoNodeSelectSQL+`
+		FROM drive_nodes
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_archived_at IS NOT NULL
+		  AND photo_locked_at IS NULL
+		`+photoImageFilterSQL+`
+		ORDER BY photo_archived_at DESC NULLS LAST, id DESC
+	`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	list := make([]Node, 0)
+	for rows.Next() {
+		n, err := scanPhotoNodeRow(rows)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		list = append(list, n)
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) listPhotosLocked(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusOK, []Node{})
+		return
+	}
+	ctx := c.Request.Context()
+	rows, err := h.dbex(ctx).Query(`
+		SELECT `+photoNodeSelectSQL+`
+		FROM drive_nodes
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_locked_at IS NOT NULL
+		`+photoImageFilterSQL+`
+		ORDER BY photo_locked_at DESC NULLS LAST, id DESC
+	`)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+	list := make([]Node, 0)
+	for rows.Next() {
+		n, err := scanPhotoNodeRow(rows)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		list = append(list, n)
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *Handler) archivePhotos(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body photoIDsBody
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids required"})
+		return
+	}
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
+		UPDATE drive_nodes
+		SET photo_archived_at = NOW(), updated_at = NOW()
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_locked_at IS NULL
+		  AND photo_archived_at IS NULL
+		  AND id = ANY($1::int[])
+		`+photoImageFilterSQL, pq.Array(body.IDs))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"updated": n})
+}
+
+func (h *Handler) unarchivePhotos(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body photoIDsBody
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids required"})
+		return
+	}
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
+		UPDATE drive_nodes
+		SET photo_archived_at = NULL, updated_at = NOW()
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_locked_at IS NULL
+		  AND photo_archived_at IS NOT NULL
+		  AND id = ANY($1::int[])
+		`+photoImageFilterSQL, pq.Array(body.IDs))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"updated": n})
+}
+
+func (h *Handler) lockPhotos(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body photoIDsBody
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids required"})
+		return
+	}
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
+		UPDATE drive_nodes
+		SET photo_locked_at = NOW(), photo_archived_at = NULL, updated_at = NOW()
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_locked_at IS NULL
+		  AND id = ANY($1::int[])
+		`+photoImageFilterSQL, pq.Array(body.IDs))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"updated": n})
+}
+
+func (h *Handler) unlockPhotos(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
+		return
+	}
+	var body photoIDsBody
+	if err := c.ShouldBindJSON(&body); err != nil || len(body.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids required"})
+		return
+	}
+	ctx := c.Request.Context()
+	res, err := h.dbex(ctx).Exec(`
+		UPDATE drive_nodes
+		SET photo_locked_at = NULL, updated_at = NOW()
+		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		  AND deleted_at IS NULL
+		  AND photo_locked_at IS NOT NULL
+		  AND id = ANY($1::int[])
+		`+photoImageFilterSQL, pq.Array(body.IDs))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	c.JSON(http.StatusOK, gin.H{"updated": n})
 }
 
 func (h *Handler) createNode(c *gin.Context) {

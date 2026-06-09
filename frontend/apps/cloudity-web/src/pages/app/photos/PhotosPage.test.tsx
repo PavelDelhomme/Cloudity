@@ -10,13 +10,20 @@ import * as api from '../../../api'
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
   fetchDrivePhotosTimeline: vi.fn(),
+  fetchDrivePhotosArchive: vi.fn(),
+  fetchDrivePhotosLocked: vi.fn(),
   fetchDriveNodes: vi.fn(),
   fetchDriveTrash: vi.fn(),
   downloadDriveFile: vi.fn(),
+  downloadDriveThumbnail: vi.fn(),
   uploadDriveFileWithProgress: vi.fn(),
   createDriveFolder: vi.fn(),
   deleteDriveNode: vi.fn(),
   restoreDriveNode: vi.fn(),
+  archiveDrivePhotos: vi.fn(),
+  unarchiveDrivePhotos: vi.fn(),
+  lockDrivePhotos: vi.fn(),
+  unlockDrivePhotos: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -46,7 +53,13 @@ describe('PhotosPage', () => {
     })
     vi.mocked(api.fetchDriveNodes).mockResolvedValue([])
     vi.mocked(api.fetchDriveTrash).mockResolvedValue([])
+    vi.mocked(api.fetchDrivePhotosArchive).mockResolvedValue([])
+    vi.mocked(api.fetchDrivePhotosLocked).mockResolvedValue([])
     vi.mocked(api.restoreDriveNode).mockResolvedValue(undefined)
+    vi.mocked(api.archiveDrivePhotos).mockResolvedValue({ updated: 1 })
+    vi.mocked(api.unarchiveDrivePhotos).mockResolvedValue({ updated: 1 })
+    vi.mocked(api.lockDrivePhotos).mockResolvedValue({ updated: 1 })
+    vi.mocked(api.unlockDrivePhotos).mockResolvedValue({ updated: 1 })
     vi.mocked(api.downloadDriveFile).mockResolvedValue(
       new Blob([new Uint8Array([0xff, 0xd8, 0xff])], { type: 'image/jpeg' })
     )
@@ -164,6 +177,102 @@ describe('PhotosPage', () => {
     expect(await screen.findByRole('button', { name: /Ouvrir test\.jpg/ })).toBeTruthy()
   })
 
+  it('affiche le bouton Paramètres Photos', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    render(wrap(<PhotosPage />))
+    expect(await screen.findByRole('button', { name: 'Paramètres Photos' })).toBeTruthy()
+  })
+
+  it('mode sélection : archiver appelle archiveDrivePhotos pour les photos choisies', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'a.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    await screen.findByRole('button', { name: /Ouvrir a\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sélectionner a\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Archiver la sélection' }))
+    await waitFor(() => {
+      expect(api.archiveDrivePhotos).toHaveBeenCalledWith('token', [10])
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('mode sélection : verrouiller appelle lockDrivePhotos pour les photos choisies', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 12,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'lock.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    await screen.findByRole('button', { name: /Ouvrir lock\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sélectionner lock\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Verrouiller la sélection' }))
+    await waitFor(() => {
+      expect(api.lockDrivePhotos).toHaveBeenCalledWith('token', [12])
+    })
+    vi.unstubAllGlobals()
+  })
+
   it('mode sélection : corbeille appelle deleteDriveNode pour les photos choisies', async () => {
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
@@ -212,6 +321,84 @@ describe('PhotosPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mettre à la corbeille' }))
     await waitFor(() => {
       expect(api.deleteDriveNode).toHaveBeenCalledWith('token', 10)
+    })
+  })
+
+  it('onglet Archivé : restaurer appelle unarchiveDrivePhotos', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosArchive).mockResolvedValue([
+      {
+        id: 77,
+        tenant_id: 1,
+        user_id: 1,
+        parent_id: null,
+        name: 'archived.jpg',
+        is_folder: false,
+        size: 5,
+        mime_type: 'image/jpeg',
+        created_at: '2026-01-10T12:00:00.000Z',
+        updated_at: '2026-01-10T12:00:00.000Z',
+        photo_archived_at: '2026-01-11T12:00:00.000Z',
+      },
+    ])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=archive']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    await screen.findByRole('button', { name: /Ouvrir archived\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Restaurer' }))
+    await waitFor(() => {
+      expect(api.unarchiveDrivePhotos).toHaveBeenCalledWith('token', [77])
+    })
+  })
+
+  it('onglet Verrouillé : déverrouiller appelle unlockDrivePhotos', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosLocked).mockResolvedValue([
+      {
+        id: 88,
+        tenant_id: 1,
+        user_id: 1,
+        parent_id: null,
+        name: 'locked.jpg',
+        is_folder: false,
+        size: 5,
+        mime_type: 'image/jpeg',
+        created_at: '2026-01-10T12:00:00.000Z',
+        updated_at: '2026-01-10T12:00:00.000Z',
+        photo_locked_at: '2026-01-11T12:00:00.000Z',
+      },
+    ])
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=locked']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    await screen.findByRole('button', { name: /Ouvrir locked\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller' }))
+    await waitFor(() => {
+      expect(api.unlockDrivePhotos).toHaveBeenCalledWith('token', [88])
     })
   })
 

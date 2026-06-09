@@ -40,8 +40,8 @@
 | **H6c** | **Sécurité mobile transverse** | Checklist **MOBILE-SECURITY-CHECKLIST.md** ☑ ; logout purge broker ☑ ; INTERNET release Drive/Pass ☑ ; reste sanitization erreurs Mail + TLS prod | 🟡 |
 | **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
 | **H7** | **Admin U9 / U10** | U10 CVE ☑ · U9 reset 2FA admin ☑ | ☑ |
-| **H8** | **Photos — actions avancées** | Sélection : tout sélectionner/désélectionner cohérent ☑ ; à faire : mise en **archive** et dossier **verrouillé** côté serveur + actions groupées UI | 🟡 |
-| **H9** | **Paramètres par application web** | Ajouter dans chaque app web un bouton paramètres local à l’app (Drive, Photos, Mail, Notes, Tâches, etc.) distinct des paramètres globaux `/app/settings` | ☐ |
+| **H8** | **Photos — actions avancées** | Archive/verrouillé serveur (`photo_archived_at`, `photo_locked_at`, endpoints `/drive/photos/*`) + sélection groupée (Archiver, Verrouiller, Corbeille) + onglets Archivé/Verrouillé réels | ☑ |
+| **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives). **Photos** ☑ (`photosAppSettings.ts`, localStorage). **Mail** déjà fait — ne pas refactoriser. **À faire** : Drive, Notes, Tâches, Contacts (même pattern) | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 

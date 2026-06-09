@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -97,6 +98,48 @@ func TestPhotosTimelineRequiresAuth(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("GET /drive/photos/timeline without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPhotosArchiveRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/photos/archive", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/photos/archive without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPhotosLockedRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/photos/locked", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/photos/locked without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPhotosArchiveMutationRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/drive/photos/archive", strings.NewReader(`{"ids":[1]}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("POST /drive/photos/archive without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPhotosLockMutationRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/drive/photos/lock", strings.NewReader(`{"ids":[1]}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("POST /drive/photos/lock without X-User-ID: got %d", w.Code)
 	}
 }
 
