@@ -472,6 +472,9 @@ func (h *Handler) backfillMissingMessageDates(ctx context.Context, accountID int
 		if err := rows.Scan(&r.id, &r.folder, &uid); err != nil {
 			continue
 		}
+		if uid <= 0 || uid > maxIMAPUID {
+			continue
+		}
 		r.uid = uint32(uid)
 		pending = append(pending, r)
 	}

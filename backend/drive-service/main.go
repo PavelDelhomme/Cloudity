@@ -1057,6 +1057,10 @@ func (h *Handler) getZipEntries(c *gin.Context) {
 		if idx := strings.LastIndex(name, "/"); idx >= 0 {
 			name = name[idx+1:]
 		}
+		if f.UncompressedSize64 > uint64(^uint64(0)>>1) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "zip entry too large"})
+			return
+		}
 		entries = append(entries, entry{
 			Path:  path,
 			Name:  name,

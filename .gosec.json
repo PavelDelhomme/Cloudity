@@ -11,11 +11,15 @@
     },
     {
       "path": "cmd/.*",
-      "rules": ["G114", "G706"]
+      "rules": ["G114", "G704", "G706"]
     },
     {
       "path": "main\\.go$",
       "rules": ["G304", "G703", "G306", "G706"]
+    },
+    {
+      "path": "internalsec\\.go$",
+      "rules": ["G304"]
     },
     {
       "path": "webauthn_user\\.go$",

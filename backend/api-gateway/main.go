@@ -365,7 +365,15 @@ func main() {
 		port = "8000"
 	}
 	log.Println("API Gateway starting on port ", port, "...")
-	http.ListenAndServe(":"+port, NewHandler())
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           NewHandler(),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	log.Fatal(srv.ListenAndServe())
 }
 
 // isDriveMediaRead : miniatures / contenu Drive (grilles Photos) — pas de plafond global

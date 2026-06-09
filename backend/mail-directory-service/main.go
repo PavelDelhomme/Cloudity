@@ -33,6 +33,7 @@ import (
 )
 
 const defaultPort = "8050"
+const maxIMAPUID = int64(^uint32(0))
 
 // from_addr est VARCHAR(512) : on tronque pour éviter une erreur SQL sur les noms très longs.
 const maxFromAddrLen = 508
@@ -897,6 +898,14 @@ func hashMailboxPassword(raw string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func randomMailboxPassword() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
 func (h *Handler) createMailbox(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
@@ -921,7 +930,12 @@ func (h *Handler) createMailbox(c *gin.Context) {
 	}
 	pw := strings.TrimSpace(body.Password)
 	if pw == "" {
-		pw = "cloudity-temp-password"
+		generated, err := randomMailboxPassword()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate mailbox password"})
+			return
+		}
+		pw = generated
 	}
 	quota := body.QuotaMb
 	if quota < 0 {
@@ -2485,6 +2499,9 @@ func (h *Handler) fetchRawRFC822FromIMAP(c *gin.Context, accountID int, messageU
 		if _, selErr := imapClient.Select(mailbox, false); selErr != nil {
 			lastErr = selErr
 			continue
+		}
+		if messageUID <= 0 || messageUID > maxIMAPUID {
+			return nil, fmt.Errorf("message UID out of range")
 		}
 		seqset := new(imap.SeqSet)
 		seqset.AddNum(uint32(messageUID))

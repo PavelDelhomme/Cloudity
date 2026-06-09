@@ -17,7 +17,8 @@ Fichier racine **`.gosec.json`** : exclusions documentées (faux positifs récur
 | Règle | Traitement |
 |-------|------------|
 | **G114** | Stub `cmd/main.go` — prod via `http.Server` + timeouts |
-| **G304 / G703** | Lecture clés / CA depuis chemins **env** opérateur |
+| **G704** | Stub `cmd/main.go` gateway legacy — URLs internes via env opérateur |
+| **G304 / G703** | Lecture clés / CA depuis chemins **env** opérateur (`AUTH_KEYS_DIR`, `REDIS_TLS_CA`, mTLS interne) |
 | **G306** | `0644` sur clés **publiques** JWT (gateway RO) |
 | **G115** | Casts WebAuthn |
 | **G706** | Logs config opérateur (pas d'injection utilisateur) |
