@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
-import { fetchUsersPage, updateUser } from '../../api'
+import { adminResetUser2FA, fetchUsersPage, updateUser } from '../../api'
 import { Badge, Button, Card, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
@@ -32,6 +32,9 @@ export default function Users() {
   const [showEmails, setShowEmails] = useState(false)
   const [page, setPage] = useState(0)
   const pageSize = 25
+  const [resetUserId, setResetUserId] = useState<number | null>(null)
+  const [resetTotp, setResetTotp] = useState('')
+  const [resetReason, setResetReason] = useState('')
 
   useEffect(() => {
     setPage(0)
@@ -42,6 +45,19 @@ export default function Users() {
     queryFn: () =>
       fetchUsersPage(tenantId!, accessToken!, { skip: page * pageSize, pageSize }),
     enabled: Boolean(accessToken && tenantId != null),
+  })
+
+  const reset2FAMutation = useMutation({
+    mutationFn: (payload: { userId: number; admin_totp_code: string; reason?: string }) =>
+      adminResetUser2FA(payload.userId, { admin_totp_code: payload.admin_totp_code, reason: payload.reason }, accessToken!),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: ['users', tenantId ?? 0] })
+      setResetUserId(null)
+      setResetTotp('')
+      setResetReason('')
+      toast.success(res.message)
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Échec du reset 2FA'),
   })
 
   const updateUserMutation = useMutation({
@@ -93,13 +109,70 @@ export default function Users() {
       title="Utilisateurs"
       description="Utilisateurs du tenant actuel : identité de connexion, statut, 2FA et dernière activité connue."
     >
-      <Card className="p-4 mb-4 border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/20">
-        <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">Gestion 2FA admin</p>
-        <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
-          L’admin affiche l’état 2FA, mais ne force pas encore la réinitialisation TOTP d’un utilisateur. Cette action doit passer
-          par un endpoint dédié avec step-up admin, journal d’audit et génération de codes de récupération, pas par un simple toggle UI.
+      <Card className="p-4 mb-4 border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Réinitialisation 2FA (U9)</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Désactive TOTP et supprime les codes de récupération d’un utilisateur bloqué. Requiert votre code 2FA admin (step-up),
+          journalise l’action dans <span className="font-mono">audit_logs</span> et refuse le dernier admin 2FA du tenant.
         </p>
       </Card>
+
+      {resetUserId != null ? (
+        <Card className="p-4 mb-4 border-amber-300 dark:border-amber-700">
+          <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+            Confirmer la réinitialisation 2FA — utilisateur #{resetUserId}
+          </p>
+          <div className="mt-3 flex flex-col gap-3 max-w-md">
+            <label className="text-sm text-slate-700 dark:text-slate-300">
+              Votre code TOTP admin
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={resetTotp}
+                onChange={(e) => setResetTotp(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="123456"
+              />
+            </label>
+            <label className="text-sm text-slate-700 dark:text-slate-300">
+              Motif (optionnel)
+              <input
+                type="text"
+                value={resetReason}
+                onChange={(e) => setResetReason(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                placeholder="Authenticator perdu, ticket support…"
+              />
+            </label>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                disabled={reset2FAMutation.isPending || resetTotp.trim().length < 6}
+                onClick={() =>
+                  reset2FAMutation.mutate({
+                    userId: resetUserId,
+                    admin_totp_code: resetTotp.trim(),
+                    reason: resetReason.trim() || undefined,
+                  })
+                }
+              >
+                Réinitialiser la 2FA
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setResetUserId(null)
+                  setResetTotp('')
+                  setResetReason('')
+                }}
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <button
@@ -203,7 +276,20 @@ export default function Users() {
                   <Td className="text-slate-500 whitespace-nowrap">
                     {formatLastLogin(u.last_login)}
                   </Td>
-                  <Td className="text-right">
+                  <Td className="text-right space-x-1">
+                    {u.is_2fa_enabled ? (
+                      <Button
+                        variant="ghost"
+                        className="!px-2 !py-1 text-xs text-amber-800 dark:text-amber-200"
+                        onClick={() => {
+                          setResetUserId(u.id)
+                          setResetTotp('')
+                          setResetReason('')
+                        }}
+                      >
+                        Reset 2FA
+                      </Button>
+                    ) : null}
                     <Button
                       variant="ghost"
                       className="!px-2 !py-1 text-xs"

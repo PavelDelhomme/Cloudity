@@ -1,12 +1,14 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.deps import require_admin_actor
 from app.models import User
-from app.schemas import UserResponse, UserUpdate
+from app.schemas import AdminTwoFAResetRequest, AdminTwoFAResetResponse, UserResponse, UserUpdate
+from app.services.two_fa_admin import reset_user_2fa
 
 router = APIRouter(prefix="/admin", tags=["users"])
 
@@ -39,3 +41,26 @@ async def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(g
         raise HTTPException(status_code=409, detail="Email déjà utilisé pour ce tenant")
     db.refresh(user)
     return user
+
+
+@router.post("/users/{user_id}/2fa/reset", response_model=AdminTwoFAResetResponse)
+async def admin_reset_user_two_fa(
+    user_id: int,
+    payload: AdminTwoFAResetRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: tuple[int, int] = Depends(require_admin_actor),
+):
+    admin_id, tenant_id = actor
+    client_ip = request.client.host if request.client else None
+    result = reset_user_2fa(
+        db,
+        target_user_id=user_id,
+        admin_id=admin_id,
+        tenant_id=tenant_id,
+        admin_totp_code=payload.admin_totp_code,
+        reason=payload.reason,
+        ip_address=client_ip,
+        user_agent=request.headers.get("user-agent"),
+    )
+    return AdminTwoFAResetResponse(**result)

@@ -39,7 +39,7 @@
 | **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
 | **H6c** | **Sécurité mobile transverse** | Les apps mobiles doivent rester alignées avec la sécurité API : JWT/refresh, RLS backend, messages réseau propres, aucun token en clair, broker signature-only ; à auditer à chaque feature mobile | 🟡 |
 | **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
-| **H7** | **Admin U9 / U10** | U10 CVE enrichies + scan OSV à zéro ☑ ; reste U9 2FA admin avancée | 🟡 |
+| **H7** | **Admin U9 / U10** | U10 CVE ☑ · U9 reset 2FA admin ☑ | ☑ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
@@ -147,7 +147,7 @@ Décisions / correctifs :
 | **U6** | **Catalogue** | Storybook minimal **ou** route dev `/4dm1n/dev/ui` (admin only) | ☑ |
 | **U7** | **Responsive UI-DS** | Composants `Responsive*` dans `@cloudity/ui` ; Admin `ResponsiveShell` (drawer &lt;lg) ; catalogue `ResponsivePage/Grid` ; Mail pile nav/liste/lecture &lt;lg | ☑ |
 | **U8** | **Admin polish opérationnel** | Domaines mail résiste aux réponses `null` ; Dashboard explique le mode cgroup ; Users affiche 2FA/dernière connexion sans faux reset ; CVE priorise les dépendances ; Passkeys/Settings explicitent le périmètre web/mobile/extension | ☑ |
-| **U9** | **Admin sécurité 2FA avancée** | À concevoir backend + UI : reset TOTP utilisateur avec step-up admin, audit log, codes de récupération et garde anti-lockout | ☐ |
+| **U9** | **Admin sécurité 2FA avancée** | `POST /admin/users/:id/2fa/reset` — step-up TOTP admin, `audit_logs`, anti-lockout dernier admin 2FA, UI Users | ☑ |
 | **U10** | **CVE enrichies** | OSV enrichi côté admin-service (`/v1/vulns/:id`) : résumé fallback `details`, alias CVE/GHSA, sévérité, affected ranges, versions corrigées ; scan élargi à tous les manifests supportés (`13 go.mod`, `3 package-lock`, `1 requirements`) ; scan final = **760 paquets / 0 vuln OSV** | ☑ |
 
 **Branche Git** : `feat/cloudity-ui-design-system` → **fusionnée dans `dev`** (2026-05-20).  

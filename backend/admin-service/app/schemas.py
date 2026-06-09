@@ -53,6 +53,21 @@ class UserUpdate(BaseModel):
     role: Optional[str] = Field(None, min_length=1, max_length=50)
 
 
+class AdminTwoFAResetRequest(BaseModel):
+    """Step-up admin : code TOTP de l'administrateur qui effectue le reset."""
+
+    admin_totp_code: str = Field(..., min_length=6, max_length=32)
+    reason: Optional[str] = Field(None, max_length=500)
+
+
+class AdminTwoFAResetResponse(BaseModel):
+    ok: bool = True
+    user_id: int
+    email: str
+    is_2fa_enabled: bool
+    message: str
+
+
 class DashboardStats(BaseModel):
     active_tenants: int
     total_users: int

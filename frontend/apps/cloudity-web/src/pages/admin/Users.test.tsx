@@ -8,7 +8,7 @@ import { useAuth } from '../../authContext'
 import * as api from '../../api'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../api', () => ({ fetchUsersPage: vi.fn(), updateUser: vi.fn() }))
+vi.mock('../../api', () => ({ fetchUsersPage: vi.fn(), updateUser: vi.fn(), adminResetUser2FA: vi.fn() }))
 
 const mockUsers = [
   {

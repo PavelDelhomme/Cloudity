@@ -112,6 +112,33 @@ export async function updateUser(
   )
 }
 
+export type AdminTwoFAResetPayload = {
+  admin_totp_code: string
+  reason?: string
+}
+
+export type AdminTwoFAResetResponse = {
+  ok: boolean
+  user_id: number
+  email: string
+  is_2fa_enabled: boolean
+  message: string
+}
+
+/** U9 — réinitialise la 2FA d'un utilisateur (step-up TOTP admin + audit côté serveur). */
+export async function adminResetUser2FA(
+  userId: number,
+  payload: AdminTwoFAResetPayload,
+  token: string
+): Promise<AdminTwoFAResetResponse> {
+  return apiJson<AdminTwoFAResetResponse>(
+    token,
+    `/admin/users/${userId}/2fa/reset`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    'Admin 2FA reset'
+  )
+}
+
 export type DashboardStatsResponse = {
   active_tenants: number
   total_users: number
