@@ -659,7 +659,7 @@ export default function PhotosPage() {
 
   return (
     <div
-      className="relative flex flex-col gap-4 min-h-0 w-full max-w-[1600px] mx-auto rounded-2xl bg-white/80 text-neutral-900 dark:bg-slate-950/40 dark:text-slate-100 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+      className="relative flex flex-col gap-4 min-h-0 w-full max-w-[1600px] mx-auto rounded-2xl bg-white/70 text-neutral-900 dark:bg-transparent dark:text-slate-100 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
       onDragEnter={tab === 'timeline' ? handleDragEnter : undefined}
       onDragLeave={tab === 'timeline' ? handleDragLeave : undefined}
       onDragOver={tab === 'timeline' ? handleDragOver : undefined}
@@ -834,20 +834,20 @@ export default function PhotosPage() {
               <div className="flex flex-col gap-8 sm:gap-10">
                 {sections.map((section) => (
                   <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
-                    <div
-                      className="sticky top-0 z-10 -mx-1 mb-3 border-b border-gray-200/90 bg-gray-50/95 px-1 pb-3 pt-1 backdrop-blur-md dark:border-slate-700/70 dark:bg-slate-900/92 dark:backdrop-blur-md"
-                    >
-                      <h2
-                        id={`photos-day-${section.dayKey}`}
-                        className="text-[1.35rem] font-light leading-snug tracking-tight text-gray-900 dark:text-slate-100 sm:text-2xl sm:font-extralight"
-                      >
-                        {section.heading}
-                      </h2>
-                      {section.subheading ? (
-                        <p className="mt-0.5 text-sm font-normal leading-snug text-gray-600 dark:text-slate-400">
-                          {section.subheading}
-                        </p>
-                      ) : null}
+                    <div className="sticky top-0 z-10 mb-3 py-2">
+                      <div className="inline-flex max-w-full flex-col rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
+                        <h2
+                          id={`photos-day-${section.dayKey}`}
+                          className="truncate text-[1.2rem] font-normal leading-tight tracking-tight text-gray-950 dark:text-slate-50 sm:text-xl"
+                        >
+                          {section.heading}
+                        </h2>
+                        {section.subheading ? (
+                          <p className="mt-0.5 truncate text-xs font-normal leading-snug text-gray-600 dark:text-slate-400 sm:text-sm">
+                            {section.subheading}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-0.5 sm:gap-1">
                       {section.items.map((node) => (
