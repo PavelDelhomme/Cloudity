@@ -64,9 +64,15 @@ class SessionStore {
     }
   }
 
+  /// Efface les jetons locaux + compte broker (logout complet). Conserve l’URL gateway.
   static Future<void> clearTokens() async {
+    final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
     await _secure.delete(key: CloudityStorageKeys.accessToken);
     await _secure.delete(key: CloudityStorageKeys.refreshToken);
+    await _secure.delete(key: CloudityStorageKeys.accountEmail);
+    if (CloudityAuthBroker.isSupported && email != null && email.isNotEmpty) {
+      await CloudityAuthBroker.clearAccount(email);
+    }
   }
 
   static Future<String> gatewayOrDefault() async {

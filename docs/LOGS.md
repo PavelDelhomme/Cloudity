@@ -15,6 +15,14 @@
 
 ---
 
+### 2026-06-09 — gosec vert + U9 2FA admin + audit mobile H6c
+
+- **gosec** : `.gosec.json` + corrections gateway/mail/drive ; `GOSEC_BLOCKING=1` vert sur tous services → merge `dev` (`e7b83759`).
+- **U9** : `POST /admin/users/:id/2fa/reset` step-up TOTP + `audit_logs` + UI Users → merge `dev` (`ad8cd270`).
+- **H6c** : `MOBILE-SECURITY-CHECKLIST.md` ; logout purge broker (Photos/Drive/Mail) ; `INTERNET` release Drive/Pass ; `admin_app` LogInterceptor debug-only.
+
+---
+
 ### 2026-06-09 — Merge security-audit → dev + branches suite
 
 - Git : push `feat/security-audit-hardening` · fast-forward merge **`dev`** @ `7ead7da9` · push `origin/dev`.

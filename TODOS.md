@@ -5,15 +5,14 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/security-gosec-hardening`** — depuis **`dev`** @ `7ead7da9` (2026-06-09).
+**Branche active** : **`feat/security-mobile-audit`** — depuis **`dev`** à jour (2026-06-09).
 
-| Suite planifiée | Branche |
-|-----------------|---------|
-| Tri **gosec** (Q4) | `feat/security-gosec-hardening` |
-| **U9** 2FA admin avancée | `feat/admin-u9-2fa-advanced` |
-| Audit sécurité mobile **H6c** | `feat/security-mobile-audit` |
-
-> `feat/security-audit-hardening` fusionnée dans **`dev`** (auth web + gitleaks).
+| Chantier | Branche | État |
+|----------|---------|------|
+| Auth web + gitleaks | `feat/security-audit-hardening` | ☑ mergé `dev` |
+| **gosec** tous services | `feat/security-gosec-hardening` | ☑ mergé `dev` |
+| **U9** 2FA admin | `feat/admin-u9-2fa-advanced` | ☑ mergé `dev` |
+| Audit mobile **H6c** | `feat/security-mobile-audit` | en cours |
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
@@ -37,7 +36,7 @@
 | **H5d** | **Drive — mobile Android** | Drawer (Mon Drive, **Récents**, Corbeille) ☑ ; FAB Nouveau ☑ ; recherche ☑ ; corbeille ☑ ; grille/liste ☑ ; import dossier SAF ☑ ; **déplacer** (picker dossier + `PUT parent_id`) ☑ ; partagés/favoris = attente API partage backend | ☑ |
 | **H6** | **UI-3 Pass/Settings** | Imports `@cloudity/ui` (Pass + Settings) · `ResponsivePage` sur Paramètres | ☑ |
 | **H6b** | **Auth suite mobile** | Broker Android `cloudity_auth_broker` (Photos/Drive/Mail, signature identique) : « Continuer avec ce compte », reprise session ; iOS Keychain group + AccountManager natif | 🟡 |
-| **H6c** | **Sécurité mobile transverse** | Les apps mobiles doivent rester alignées avec la sécurité API : JWT/refresh, RLS backend, messages réseau propres, aucun token en clair, broker signature-only ; à auditer à chaque feature mobile | 🟡 |
+| **H6c** | **Sécurité mobile transverse** | Checklist **MOBILE-SECURITY-CHECKLIST.md** ☑ ; logout purge broker ☑ ; INTERNET release Drive/Pass ☑ ; reste sanitization erreurs Mail + TLS prod | 🟡 |
 | **H6d** | **Photos — HEIC serveur** | Vignettes HEIC/HEIF via `goheif` ; `taken_at` depuis EXIF (`goexif`) + nom fichier | ☑ |
 | **H7** | **Admin U9 / U10** | U10 CVE ☑ · U9 reset 2FA admin ☑ | ☑ |
 

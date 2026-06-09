@@ -30,6 +30,6 @@ Fichier racine **`.gosec.json`** : exclusions documentées (faux positifs récur
 |----------|---------|
 | Baseline + corrections | `feat/security-gosec-hardening` |
 | 2FA admin U9 | `feat/admin-u9-2fa-advanced` |
-| Audit mobile H6c | `feat/security-mobile-audit` |
+| Audit mobile H6c | `feat/security-mobile-audit` — voir **[MOBILE-SECURITY-CHECKLIST.md](MOBILE-SECURITY-CHECKLIST.md)** |
 
 Voir aussi **[CRYPTO-NORME.md](CRYPTO-NORME.md)** § 8.1 et **BACKLOG.md** (Q20).
