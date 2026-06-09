@@ -450,7 +450,7 @@ export default function AppHub() {
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1">Dernières images</p>
           <HubPreviewLine to="/app/photos">Ouvrir l’app Photos</HubPreviewLine>
           {photoRecent.map((n) => (
-            <HubPreviewLine key={n.id} to="/app/drive">
+            <HubPreviewLine key={n.id} to="/app/photos">
               {n.name} <span className="text-slate-400">· {formatShortDate(n.created_at)}</span>
             </HubPreviewLine>
           ))}

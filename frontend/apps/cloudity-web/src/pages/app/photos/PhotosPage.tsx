@@ -428,6 +428,7 @@ export default function PhotosPage() {
   }, [photosQuery.data?.pages])
 
   const sections = useMemo(() => groupTimelineByDay(flatItems), [flatItems])
+  const allVisibleSelected = flatItems.length > 0 && selectedIds.size >= flatItems.length
 
   const togglePhotoSelected = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -658,7 +659,7 @@ export default function PhotosPage() {
 
   return (
     <div
-      className="relative flex flex-col gap-4 min-h-0 w-full max-w-[1600px] mx-auto pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+      className="relative flex flex-col gap-4 min-h-0 w-full max-w-[1600px] mx-auto rounded-2xl bg-white/80 text-neutral-900 dark:bg-slate-950/40 dark:text-slate-100 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
       onDragEnter={tab === 'timeline' ? handleDragEnter : undefined}
       onDragLeave={tab === 'timeline' ? handleDragLeave : undefined}
       onDragOver={tab === 'timeline' ? handleDragOver : undefined}
@@ -798,7 +799,8 @@ export default function PhotosPage() {
                   <button
                     type="button"
                     onClick={selectAllVisiblePhotos}
-                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                    disabled={allVisibleSelected}
+                    className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-40 disabled:no-underline"
                   >
                     Tout sélectionner
                   </button>

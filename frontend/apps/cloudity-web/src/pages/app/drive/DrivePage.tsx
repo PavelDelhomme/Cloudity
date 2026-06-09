@@ -1992,6 +1992,11 @@ export default function DrivePage() {
 
   const goTo = useCallback(
     (id: number | null, name: string) => {
+      const atDriveRoot = breadcrumb.length === 1 && breadcrumb[0]?.id === null
+      if (id !== null && atDriveRoot && name.trim().toLowerCase() === 'photos') {
+        navigate('/app/photos')
+        return
+      }
       if (viewMode !== 'drive') setViewMode('drive')
       if (id === null) {
         startTransition(() => setBreadcrumb([{ id: null, name: 'Drive' }]))
@@ -2004,7 +2009,7 @@ export default function DrivePage() {
         startTransition(() => setBreadcrumb([...breadcrumb, { id, name }]))
       }
     },
-    [breadcrumb, viewMode, setViewMode]
+    [breadcrumb, viewMode, setViewMode, navigate]
   )
 
   const clearDriveSearchFromUrl = useCallback(() => {
@@ -2020,11 +2025,15 @@ export default function DrivePage() {
 
   const goToFolderFromGlobalSearch = useCallback(
     (id: number, name: string) => {
+      if (name.trim().toLowerCase() === 'photos') {
+        navigate('/app/photos')
+        return
+      }
       clearDriveSearchFromUrl()
       if (viewMode !== 'drive') setViewMode('drive')
       startTransition(() => setBreadcrumb([{ id: null, name: 'Drive' }, { id, name }]))
     },
-    [viewMode, setViewMode, clearDriveSearchFromUrl]
+    [viewMode, setViewMode, clearDriveSearchFromUrl, navigate]
   )
 
   const openPreviewFromGlobalSearch = useCallback(

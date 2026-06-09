@@ -435,7 +435,7 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 		var pid sql.NullInt64
 		var mime sql.NullString
 		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.TakenAt, &n.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
