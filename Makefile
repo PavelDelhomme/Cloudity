@@ -209,10 +209,10 @@ secrets-print: ## Affiche un set de secrets fraîchement générés (sans écrir
 	@./scripts/dev/gen-secrets.sh --print
 
 secrets-scan: ## Scan gitleaks (historique git) — voir docs/securite/SECRETS.md
-	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest detect --redact -v
+	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest detect --redact -v --config /repo/.gitleaks.toml
 
 secrets-scan-staged: ## Scan gitleaks staged (à utiliser avant commit)
-	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest protect --redact --staged -v
+	@docker run --rm -v "$(CURDIR):/repo" -w /repo zricethezav/gitleaks:latest protect --redact --staged -v --config /repo/.gitleaks.toml
 
 ensure-mail-encryption-key: ## Ajoute MAIL_PASSWORD_ENCRYPTION_KEY (64 hex) au .env si absente ou placeholder — requis pour sync IMAP
 	@chmod +x scripts/dev/ensure-mail-encryption-key.sh 2>/dev/null || true

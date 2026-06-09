@@ -5,11 +5,11 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/photos-gallery-mobile-sync-security`** — alignée sur **`dev`** (`1ae4e708`, 2026-05-21).
+**Branche active** : **`feat/security-audit-hardening`** — depuis **`dev`** à jour (2026-06-08).
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
-| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** ☑ · vignettes/dates Photos ☑ · UI-3 ☑ · U9/U10 | **EN COURS** |
+| **Hors mail prod** (priorité) | MP-04 ☑ · Pass L3 ☑ · MP-08 Firefox ☑ · Photos albums web ☑ · **sync galerie mobile** ☑ · vignettes/dates Photos ☑ · UI-3 ☑ · U10 ☑ · **auth web admin** ☑ · Q4 gitleaks ☑ | **EN COURS** |
 | **Mail local** (régression) | `make test-mail-mta-local` · alias-router · notifications Mail web | OK, pas bloquant |
 | **Mail prod** (pause) | MX/SPF OVH · stack Portainer · `RELAY_SMTP_*` VPS · C7 livraison réelle | **NE PAS TOUCHER** |
 
@@ -53,6 +53,23 @@ Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (20
 Cause : `status.sh` faisait `source .env` ; `WEBAUTHN_RP_NAME=Cloudity Admin` (espace non quoté) est interprété par bash comme deux commandes.
 
 Correctifs : `status.sh` lit les `PORT_*` via `_env_get` (parse sans exécuter le fichier) ; `.env.example` quote `WEBAUTHN_RP_NAME="Cloudity Admin"`. Si ton `.env` local a la même ligne, quoter la valeur ou régénérer depuis l’exemple.
+
+### Incident admin web — `useAuth` hors `AuthProvider` + 401 `/auth/refresh` (2026-06-08)
+
+Constat : crash HMR Vite sur pages admin (`Domaines.tsx`) ; boucle 401 sur `POST /auth/refresh`.
+
+Causes :
+
+- **HMR** : `authContext.tsx` recréait le contexte React au hot-reload (double bundle `index.html` + `admin.html`).
+- **401 refresh** : rotation serveur du refresh token + appels **parallèles** (intervalle, focus, activité, `Global401Handler`, onglets admin + app).
+
+Correctifs :
+
+- `authContextStore.ts` — contexte stable hors HMR.
+- `AuthProvider` remonté au niveau racine dans `AdminApp` / `App`.
+- `authSessionRefresh.ts` — refresh unique + verrou **Web Locks** cross-onglets + sync `storage`.
+
+Action utilisateur après déploiement : **reconnexion une fois** si l’ancien refresh token a été invalidé.
 
 ### Incident `make up` — drive-service unhealthy (2026-06-08)
 
@@ -165,7 +182,7 @@ Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les ré
 | **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
 | **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
 | **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
-| **Q4** | **Sécurité** | `make test-security` ✅ (2026-06-08) : `npm audit` OK, `pip-audit` OK, `govulncheck` OK avec Go `1.25.11`, auth 401 OK, OSV admin élargi `760+` paquets / 0 vuln ; restent warnings non bloquants **gosec** (G104/G706/G304/G115/G114/G704 à trier) et **gitleaks historique** (3 constantes exemple/test à baseliner ou purger) | 🟡 |
+| **Q4** | **Sécurité** | `make test-security` ✅ (2026-06-08) : `npm audit` OK, `pip-audit` OK, `govulncheck` OK Go `1.25.11`, auth 401 OK, OSV `760+` / 0 vuln ; **gitleaks** ☑ baseline `.gitleaks.toml` (`.env.example` + `totp.test.ts` RFC) — historique propre ; reste **gosec** warnings (G104/G706/G304/G115/G114/G704 à trier ou `GOSEC_BLOCKING=1`) | 🟡 |
 | **Q5** | **E2E web** | `make test-e2e` ✅ ; `make test-e2e-playwright` ✅ — 72 passed, 4 skipped après corrections login/passkeys/mail/pass | ☑ |
 | **Q6** | **Mobile** | `make test-mobile-suite` ✅ Photos/Drive/Mail hôte ; integration_test device ignorés car aucun appareil ADB détecté | ☑ |
 | **Q7** | **Perf** | `make perf-snapshot LABEL=before-mail-alias-prod` ✅ ; `make perf-budgets` 🟡 KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie tests, conteneurs OK (`CPU 4.7%`, `MEM 1145 MiB`) | 🟡 |
@@ -251,7 +268,7 @@ Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS
 
 ## Avant session
 
-1. **`git status`** — branche = **`feat/mobile-desktop-validation`** (hors mail prod) sauf reprise mail explicite.
+1. **`git status`** — branche = **`feat/security-audit-hardening`** (hors mail prod) sauf reprise mail explicite.
 2. **`docker info`** puis **`make test`** — **[docs/operations/DEV-VERIFICATION.md](./docs/operations/DEV-VERIFICATION.md)** § 0.
 3. Relire **§ ENSUITE** #3–#4 de ce fichier.
 

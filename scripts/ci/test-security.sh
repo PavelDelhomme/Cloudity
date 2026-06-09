@@ -157,7 +157,7 @@ if docker run --rm \
   -v "$ROOT:/repo" \
   -w /repo \
   zricethezav/gitleaks:latest \
-  detect --redact -v \
+  detect --redact -v --config /repo/.gitleaks.toml \
   >"$GITLEAKS_LOG" 2>&1; then
   echo "  ✅ gitleaks : aucune fuite détectée dans l'historique"
 else

@@ -106,7 +106,7 @@ Exemples actuels dans le repo :
 | Audit ponctuel | `gitleaks detect --redact -v` | **`make secrets-scan`** |
 | Manuel | `git ls-files \| xargs rg -i 'BEGIN PRIVATE KEY\|ghp_\|AKIA\|dckr_pat_'` | Vérification rapide |
 
-> **Statut 2026-05-12** : 157 commits scannés sans fuite ; gitleaks intégré à `make test-security` (mode WARNING). Bascule en `GITLEAKS_BLOCKING=1` dès le prochain sprint vert.
+> **Statut 2026-06-08** : baseline **`.gitleaks.toml`** (allowlist `.env.example` + vecteurs RFC `totp.test.ts`) ; historique propre (`make secrets-scan` → 0 fuite). `make test-security` utilise ce config ; basculer `GITLEAKS_BLOCKING=1` quand la CI est alignée.
 
 ---
 

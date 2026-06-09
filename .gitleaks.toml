@@ -1,0 +1,12 @@
+# Baseline gitleaks — faux positifs documentés (cf. docs/securite/SECRETS.md § 6).
+# `.env.example` : placeholders documentés, jamais de secrets prod.
+# `totp.test.ts` : secrets base32 RFC 6238 Appendix B (vecteurs TOTP publics).
+
+title = "Cloudity gitleaks"
+
+[allowlist]
+description = "Exemples documentés et vecteurs de test TOTP RFC"
+paths = [
+  '''(?i)\.env\.example$''',
+  '''totp\.test\.ts$''',
+]

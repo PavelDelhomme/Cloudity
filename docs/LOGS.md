@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-06-08 — Auth web admin (HMR + refresh 401) + baseline gitleaks
+
+- Branche : `feat/security-audit-hardening`.
+- Web : `authContextStore.ts`, `authSessionRefresh.ts` (Web Locks cross-onglets), `AuthProvider` racine `AdminApp`/`App` ; tests Vitest auth ✅.
+- Sécurité : `.gitleaks.toml` + `test-security.sh` / `Makefile` ; historique git 0 fuite.
+- Docs : `TODOS.md`, `STATUS.md`, `SECRETS.md` mis à jour.
+- Checks : `npm test` auth (16) ✅ · `make secrets-scan` ✅ · gateway `/health` 200.
+
+---
+
 ### 2026-05-21 — UI-3 Pass/Settings + validation mobile appareil
 
 - Branche : `feat/photos-gallery-mobile-sync-security`.

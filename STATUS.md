@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-05-21 — **Git** : `feat/mail-mta-alias-delivery` fusionné dans **`dev`** (fast-forward `04a9c68c`) ; chantier actif **`feat/mobile-desktop-validation`**. **Mail alias / Maddy / déploiement est en pause volontaire** : ne reprendre que si l’utilisateur dit explicitement **« on retourne sur la partie mail »**. **MP-04 livré** : Drive/Photos Linux desktop validés par `make test-mobile-desktop-linux` (`flutter test` + `flutter build linux --debug`), avec correctif CMake ciblé pour `flutter_secure_storage_linux` sur Clang/Arch. En attendant, travailler hors Mail/Déploiement sur Photos, mobile, frontend, applications, Pass.
+**Dernière mise à jour** : 2026-06-08 — **Git** : chantier actif **`feat/security-audit-hardening`** (depuis **`dev`** à jour). **Mail alias / Maddy / déploiement en pause** jusqu’à **« on retourne sur la partie mail »**. **Livré session** : stabilisation auth web admin (HMR `AuthProvider`, refresh token cross-onglets via Web Locks) ; baseline **gitleaks** (`.gitleaks.toml`). Suite : tri **gosec**, **U9** 2FA admin avancée, **H6b/H6c** auth mobile.
 
 ## À faire maintenant
 
@@ -8,14 +8,14 @@
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **Git** : `git status` ; branche = **`feat/mobile-desktop-validation`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+1. **Git** : `git status` ; branche = **`feat/security-audit-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **Barrière qualité** : avant mail alias prod, garder verts `make test`, `make test-pass`, `make test-e2e`, `make test-e2e-playwright`, mobile hôte ; trier les warnings sécurité (`govulncheck` Go 1.25.10 / `x/net`, `gosec`, `gitleaks`) et perf (`LOADAVG_1M`) listés dans **TODOS.md**.
+1. **Barrière qualité** : garder verts `make test`, `make test-pass`, E2E, mobile hôte ; **gitleaks** baseline propre (`.gitleaks.toml`) ; trier **gosec** warnings et perf (`LOADAVG_1M`) — **TODOS.md** § Q4/Q7.
 2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
 3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
 4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
