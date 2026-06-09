@@ -29,6 +29,8 @@
 | **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/produit/SYNC-BACKLOG.md` § 3b |
 | **Back-office admin** | `feat/admin-console-*` | ROADMAP **ADM-01**, **STATUS** § 0b |
 | **Transversal** (gateway, CI, monorepo front) | `feat/tr-*` ou `chore/infra-*` | ROADMAP **TR-03**, **TR-05** |
+| **Sécurité** (gosec, gitleaks, auth web) | `feat/security-*` (ex. `feat/security-gosec-hardening`, `feat/security-mobile-audit`) | **docs/securite/GOSEC.md**, **SECRETS.md** |
+| **Admin 2FA avancée (U9)** | `feat/admin-u9-2fa-advanced` | ROADMAP **ADM-01**, **TODOS.md** U9 |
 | **Performances / observabilité** | `feat/perf-*` ou `chore/observability-*` | **PERFORMANCES.md**, ROADMAP **TR-06** |
 
 ---

@@ -1,0 +1,29 @@
+{
+  "global": {
+    "nosec": true,
+    "audit": true,
+    "show-ignored": false
+  },
+  "exclude-rules": [
+    {
+      "path": ".*",
+      "rules": ["G104"]
+    },
+    {
+      "path": "cmd/.*",
+      "rules": ["G114", "G706"]
+    },
+    {
+      "path": "main\\.go$",
+      "rules": ["G304", "G703", "G306", "G706"]
+    },
+    {
+      "path": "webauthn_user\\.go$",
+      "rules": ["G115"]
+    },
+    {
+      "path": "e2e_bootstrap\\.go$",
+      "rules": ["G706"]
+    }
+  ]
+}

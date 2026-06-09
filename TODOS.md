@@ -5,7 +5,15 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/security-audit-hardening`** — depuis **`dev`** à jour (2026-06-08).
+**Branche active** : **`feat/security-gosec-hardening`** — depuis **`dev`** @ `7ead7da9` (2026-06-09).
+
+| Suite planifiée | Branche |
+|-----------------|---------|
+| Tri **gosec** (Q4) | `feat/security-gosec-hardening` |
+| **U9** 2FA admin avancée | `feat/admin-u9-2fa-advanced` |
+| Audit sécurité mobile **H6c** | `feat/security-mobile-audit` |
+
+> `feat/security-audit-hardening` fusionnée dans **`dev`** (auth web + gitleaks).
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
@@ -182,7 +190,7 @@ Avant de reprendre les changements DNS/VPS/MTA prod, stabiliser et noter les ré
 | **Q1** | **Unit/app complets** | `make test` — Go, pytest, Vitest Docker | ☑ |
 | **Q2** | **Pass ciblé** | `make test-pass` — passwords-service, pass-crypto, import Proton, extension MV3 | ☑ |
 | **Q3** | **Lint front** | `make test-dashboard-lint` | ☑ |
-| **Q4** | **Sécurité** | `make test-security` ✅ (2026-06-08) : `npm audit` OK, `pip-audit` OK, `govulncheck` OK Go `1.25.11`, auth 401 OK, OSV `760+` / 0 vuln ; **gitleaks** ☑ baseline `.gitleaks.toml` (`.env.example` + `totp.test.ts` RFC) — historique propre ; reste **gosec** warnings (G104/G706/G304/G115/G114/G704 à trier ou `GOSEC_BLOCKING=1`) | 🟡 |
+| **Q4** | **Sécurité** | `make test-security` ✅ : gitleaks ☑ · gosec baseline `.gosec.json` + **GOSEC.md** (branche `feat/security-gosec-hardening`) ; corrections G104 ciblées et `GOSEC_BLOCKING=1` à activer après vert complet | 🟡 |
 | **Q5** | **E2E web** | `make test-e2e` ✅ ; `make test-e2e-playwright` ✅ — 72 passed, 4 skipped après corrections login/passkeys/mail/pass | ☑ |
 | **Q6** | **Mobile** | `make test-mobile-suite` ✅ Photos/Drive/Mail hôte ; integration_test device ignorés car aucun appareil ADB détecté | ☑ |
 | **Q7** | **Perf** | `make perf-snapshot LABEL=before-mail-alias-prod` ✅ ; `make perf-budgets` 🟡 KO sur `LOADAVG_1M=8.18 > 6.0` après grosse batterie tests, conteneurs OK (`CPU 4.7%`, `MEM 1145 MiB`) | 🟡 |
@@ -268,7 +276,7 @@ Court terme en cours : **SECURITE.md**, **MTLS-INTERNE.md**, **ANTI-SPAM-ET-ABUS
 
 ## Avant session
 
-1. **`git status`** — branche = **`feat/security-audit-hardening`** (hors mail prod) sauf reprise mail explicite.
+1. **`git status`** — branche = **`feat/security-gosec-hardening`** (ou `feat/admin-u9-2fa-advanced` / `feat/security-mobile-audit` selon le chantier).
 2. **`docker info`** puis **`make test`** — **[docs/operations/DEV-VERIFICATION.md](./docs/operations/DEV-VERIFICATION.md)** § 0.
 3. Relire **§ ENSUITE** #3–#4 de ce fichier.
 

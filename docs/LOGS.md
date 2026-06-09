@@ -15,6 +15,14 @@
 
 ---
 
+### 2026-06-09 — Merge security-audit → dev + branches suite
+
+- Git : push `feat/security-audit-hardening` · fast-forward merge **`dev`** @ `7ead7da9` · push `origin/dev`.
+- Branches créées : `feat/security-gosec-hardening` (active), `feat/admin-u9-2fa-advanced`, `feat/security-mobile-audit`.
+- Début gosec : `.gosec.json` baseline + `docs/securite/GOSEC.md` + `test-security.sh` `-conf`.
+
+---
+
 ### 2026-06-08 — Auth web admin (HMR + refresh 401) + baseline gitleaks
 
 - Branche : `feat/security-audit-hardening`.

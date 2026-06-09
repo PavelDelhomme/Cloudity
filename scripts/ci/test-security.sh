@@ -129,9 +129,10 @@ for dir in backend/auth-service backend/api-gateway backend/passwords-service ba
   if docker run --rm \
     -v "$ROOT/$dir:/src" \
     -v "$ROOT/backend/internalsec:/internalsec:ro" \
+    -v "$ROOT/.gosec.json:/gosec.json:ro" \
     -w /src \
     golang:1.25.11-alpine \
-    sh -c "$gosec_apk && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && $gosec_env /go/bin/gosec -quiet -fmt=text ./..." >"$logf" 2>&1; then
+    sh -c "$gosec_apk && go install github.com/securego/gosec/v2/cmd/gosec@latest >/dev/null 2>&1 && $gosec_env /go/bin/gosec -quiet -fmt=text -conf=/gosec.json ./..." >"$logf" 2>&1; then
     echo "  ✅ gosec $name OK"
   else
     if [ "$GOSEC_BLOCKING" = "1" ]; then

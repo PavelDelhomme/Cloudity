@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-08 — **Git** : chantier actif **`feat/security-audit-hardening`** (depuis **`dev`** à jour). **Mail alias / Maddy / déploiement en pause** jusqu’à **« on retourne sur la partie mail »**. **Livré session** : stabilisation auth web admin (HMR `AuthProvider`, refresh token cross-onglets via Web Locks) ; baseline **gitleaks** (`.gitleaks.toml`). Suite : tri **gosec**, **U9** 2FA admin avancée, **H6b/H6c** auth mobile.
+**Dernière mise à jour** : 2026-06-09 — **Git** : **`feat/security-audit-hardening`** fusionnée dans **`dev`** (`7ead7da9`). Chantier actif **`feat/security-gosec-hardening`** ; branches créées : **`feat/admin-u9-2fa-advanced`**, **`feat/security-mobile-audit`**. **Mail prod en pause**. Suite : tri **gosec** (Q4), **U9** 2FA admin, **H6c** mobile.
 
 ## À faire maintenant
 
@@ -8,7 +8,7 @@
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **Git** : `git status` ; branche = **`feat/security-audit-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+1. **Git** : `git status` ; branche = **`feat/security-gosec-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
