@@ -155,6 +155,43 @@ describe('MailPage', () => {
     })
   })
 
+  it('restaure la dernière boîte mail sélectionnée après rechargement', async () => {
+    localStorage.setItem('cloudity_mail_selected_account_id', '2')
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'test@delhomme.ovh', label: 'Test' },
+      { id: 2, user_id: 1, tenant_id: 1, email: 'paul@delhomme.ovh', label: 'Principal' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
+    render(wrap(<MailPage />))
+    await waitFor(() => {
+      expect(api.fetchMailMessages).toHaveBeenCalledWith('token', 2, 'inbox', expect.any(Object))
+    })
+  })
+
+  it('sans sélection sauvegardée, préfère la boîte dont l’email correspond au login', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'paul@delhomme.ovh',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+      refreshAccessTokenIfNeeded: vi.fn().mockResolvedValue('token'),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'test@delhomme.ovh', label: 'Test' },
+      { id: 2, user_id: 1, tenant_id: 1, email: 'paul@delhomme.ovh', label: 'Principal' },
+    ])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 0 })
+    render(wrap(<MailPage />))
+    await waitFor(() => {
+      expect(api.fetchMailMessages).toHaveBeenCalledWith('token', 2, 'inbox', expect.any(Object))
+    })
+  })
+
   it('notifies when sync returns new messages', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },

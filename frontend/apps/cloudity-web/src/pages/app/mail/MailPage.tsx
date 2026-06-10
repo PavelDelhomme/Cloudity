@@ -137,6 +137,7 @@ const STORAGE_SIDEBAR_WIDTH_PX = 'cloudity_mail_sidebar_width_px'
 const STORAGE_LIST_SPLIT_PCT = 'cloudity_mail_list_split_pct'
 const STORAGE_MAIL_SHOW_FULL_HEADERS = 'cloudity_mail_show_full_headers'
 const STORAGE_MAIL_BULK_TAG_SELECTION = 'cloudity_mail_bulk_tag_selection'
+const STORAGE_MAIL_SELECTED_ACCOUNT_ID = 'cloudity_mail_selected_account_id'
 const MAIL_SIDEBAR_MIN_PX = 200
 const MAIL_SIDEBAR_MAX_PX = 560
 const MAIL_LIST_PREVIEW_MIN_PCT = 12
@@ -264,6 +265,26 @@ function getMailShowFullHeaders(): boolean {
 function saveMailShowFullHeaders(on: boolean): void {
   try {
     localStorage.setItem(STORAGE_MAIL_SHOW_FULL_HEADERS, on ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+
+function getSavedMailSelectedAccountId(): number | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID)
+    if (!raw) return null
+    const n = Number.parseInt(raw, 10)
+    return Number.isFinite(n) && n > 0 ? n : null
+  } catch {
+    return null
+  }
+}
+
+function saveMailSelectedAccountId(accountId: number | null): void {
+  try {
+    if (accountId == null) localStorage.removeItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID)
+    else localStorage.setItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID, String(accountId))
   } catch {
     /* ignore */
   }
@@ -1060,7 +1081,7 @@ export default function MailPage() {
   const [conversationThreadKey, setConversationThreadKey] = useState<string | null>(null)
   /** Regroupe la liste par fil (1 ligne par conversation) sans changer les appels API. */
   const [conversationListMode, setConversationListMode] = useState(false)
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(() => getSavedMailSelectedAccountId())
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
   const [scheduleModalForSlotId, setScheduleModalForSlotId] = useState<string | null>(null)
@@ -1246,8 +1267,25 @@ export default function MailPage() {
   )
   const is404 = accountsError && accountsErrorDetail instanceof Error && accountsErrorDetail.message.includes('404')
 
-  const firstAccountId = accounts[0]?.id ?? null
-  const effectiveAccountId = selectedAccountId ?? firstAccountId
+  const effectiveAccountId = useMemo(() => {
+    if (accounts.length === 0) return selectedAccountId
+    if (selectedAccountId != null && accounts.some((a) => a.id === selectedAccountId)) {
+      return selectedAccountId
+    }
+    const loginMatch = accounts.find((a) => isMailboxSameAsLoginEmail(a.email, authLoginEmail))
+    return loginMatch?.id ?? accounts[0]?.id ?? null
+  }, [accounts, selectedAccountId, authLoginEmail])
+
+  useEffect(() => {
+    saveMailSelectedAccountId(selectedAccountId)
+  }, [selectedAccountId])
+
+  useEffect(() => {
+    if (accounts.length === 0 || selectedAccountId == null) return
+    if (!accounts.some((a) => a.id === selectedAccountId)) {
+      setSelectedAccountId(null)
+    }
+  }, [accounts, selectedAccountId])
 
   const activeFolderRef = useRef(activeFolder)
   const effectiveAccountIdRef = useRef(effectiveAccountId)

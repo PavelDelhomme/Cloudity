@@ -155,6 +155,14 @@ function isPhotoNode(n: DriveNode): boolean {
   return /\.(heic|heif|jpe?g|png|gif|webp|avif|bmp|tiff?)$/i.test(n.name)
 }
 
+function isExternalFileDrag(dataTransfer: DataTransfer | null): boolean {
+  const types = [...(dataTransfer?.types ?? [])]
+  if (!types.includes('Files')) return false
+  // Un drag interne navigateur peut exposer un blob/fichier avec du HTML ou une URL.
+  // On réserve l'upload aux vrais fichiers venant de l'OS.
+  return !types.some((t) => t === 'text/html' || t === 'text/uri-list' || t === 'text/plain')
+}
+
 function typedImageBlob(blob: Blob, fileName: string): Blob {
   if (blob.type && blob.type !== 'application/octet-stream') return blob
   const lower = fileName.toLowerCase()
@@ -175,6 +183,7 @@ function PhotoThumb({
   selectMode,
   selected,
   onToggleSelect,
+  onContextMenuPhoto,
   onOpen,
 }: {
   node: DriveNode
@@ -182,6 +191,7 @@ function PhotoThumb({
   selectMode: boolean
   selected: boolean
   onToggleSelect: () => void
+  onContextMenuPhoto?: (event: React.MouseEvent<HTMLButtonElement>) => void
   onOpen: (n: DriveNode) => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -210,9 +220,20 @@ function PhotoThumb({
   return (
     <button
       type="button"
+      data-photo-thumb="true"
+      draggable={false}
       aria-label={selectMode ? (selected ? `Désélectionner ${node.name}` : `Sélectionner ${node.name}`) : `Ouvrir ${node.name}`}
       aria-pressed={selectMode ? selected : undefined}
       onClick={() => (selectMode ? onToggleSelect() : onOpen(node))}
+      onDragStart={(e) => e.preventDefault()}
+      onContextMenu={
+        onContextMenuPhoto
+          ? (e) => {
+              e.preventDefault()
+              onContextMenuPhoto(e)
+            }
+          : undefined
+      }
       className={`relative aspect-square rounded-sm overflow-hidden bg-neutral-200/90 dark:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-neutral-900 transition-opacity ${
         selected ? 'ring-2 ring-blue-500 ring-inset dark:ring-blue-400' : 'hover:opacity-95'
       }`}
@@ -237,6 +258,7 @@ function PhotoThumb({
         <img
           src={url}
           alt={node.name}
+          draggable={false}
           className="w-full h-full object-cover"
           loading="lazy"
           decoding="async"
@@ -386,6 +408,7 @@ export default function PhotosPage() {
   const [showPhotosSettings, setShowPhotosSettings] = useState(false)
   const [photosSettings, setPhotosSettings] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
   const [settingsDraft, setSettingsDraft] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
+  const [photoContextMenu, setPhotoContextMenu] = useState<{ x: number; y: number; node: DriveNode } | null>(null)
 
   const setTab = useCallback(
     (next: PhotosTab) => {
@@ -467,6 +490,32 @@ export default function PhotosPage() {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
+      return next
+    })
+  }, [])
+
+  const openPhotoContextMenu = useCallback((node: DriveNode, event: React.MouseEvent<HTMLButtonElement>) => {
+    setSelectionMode(true)
+    setSelectedIds((prev) => {
+      if (prev.has(node.id)) return prev
+      const next = new Set(prev)
+      next.add(node.id)
+      return next
+    })
+    setPhotoContextMenu({ x: event.clientX, y: event.clientY, node })
+  }, [])
+
+  const closePhotoContextMenu = useCallback(() => setPhotoContextMenu(null), [])
+
+  const toggleSectionSelection = useCallback((items: DriveNode[]) => {
+    if (!items.length) return
+    const ids = items.map((n) => n.id)
+    setSelectionMode(true)
+    setSelectedIds((prev) => {
+      const allSelected = ids.every((id) => prev.has(id))
+      const next = new Set(prev)
+      if (allSelected) ids.forEach((id) => next.delete(id))
+      else ids.forEach((id) => next.add(id))
       return next
     })
   }, [])
@@ -631,7 +680,7 @@ export default function PhotosPage() {
   const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    if (![...(e.dataTransfer?.types ?? [])].includes('Files')) return
+    if (!isExternalFileDrag(e.dataTransfer)) return
     setFileDragActive(true)
   }, [])
 
@@ -644,6 +693,7 @@ export default function PhotosPage() {
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    if (!isExternalFileDrag(e.dataTransfer)) return
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
   }, [])
 
@@ -652,6 +702,7 @@ export default function PhotosPage() {
       e.preventDefault()
       e.stopPropagation()
       setFileDragActive(false)
+      if (!isExternalFileDrag(e.dataTransfer)) return
       const files = e.dataTransfer?.files
       if (!files?.length || tab !== 'timeline') return
       const imgs = Array.from(files).filter(isImageFile)
@@ -736,6 +787,15 @@ export default function PhotosPage() {
     archivePhotosMutation.mutate(ids)
   }, [archivePhotosMutation, confirmBulkPhotoAction, selectedIds])
 
+  const runArchiveOne = useCallback(
+    (node: DriveNode) => {
+      closePhotoContextMenu()
+      if (!confirmBulkPhotoAction(`Archiver « ${node.name} » ?`)) return
+      archivePhotosMutation.mutate([node.id])
+    },
+    [archivePhotosMutation, closePhotoContextMenu, confirmBulkPhotoAction]
+  )
+
   const runLockSelected = useCallback(() => {
     const ids = [...selectedIds]
     if (!ids.length) return
@@ -748,6 +808,23 @@ export default function PhotosPage() {
     }
     lockPhotosMutation.mutate(ids)
   }, [confirmBulkPhotoAction, lockPhotosMutation, selectedIds])
+
+  const runLockOne = useCallback(
+    (node: DriveNode) => {
+      closePhotoContextMenu()
+      if (!confirmBulkPhotoAction(`Verrouiller « ${node.name} » ? Elle quittera la bibliothèque principale.`)) return
+      lockPhotosMutation.mutate([node.id])
+    },
+    [closePhotoContextMenu, confirmBulkPhotoAction, lockPhotosMutation]
+  )
+
+  const runDeleteOne = useCallback(
+    (node: DriveNode) => {
+      closePhotoContextMenu()
+      deletePhotosMutation.mutate([node.id])
+    },
+    [closePhotoContextMenu, deletePhotosMutation]
+  )
 
   const lightboxItems = useMemo(() => {
     if (tab === 'albums' && openAlbumId != null) return albumImageItems
@@ -1013,18 +1090,48 @@ export default function PhotosPage() {
                   ? sections.map((section) => (
                       <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
                         <div className="sticky top-0 z-10 mb-3 py-2">
-                          <div className="inline-flex max-w-full flex-col rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
-                            <h2
-                              id={`photos-day-${section.dayKey}`}
-                              className="truncate text-[1.2rem] font-normal leading-tight tracking-tight text-gray-950 dark:text-slate-50 sm:text-xl"
-                            >
-                              {section.heading}
-                            </h2>
-                            {section.subheading ? (
-                              <p className="mt-0.5 truncate text-xs font-normal leading-snug text-gray-600 dark:text-slate-400 sm:text-sm">
-                                {section.subheading}
-                              </p>
-                            ) : null}
+                          <div className="inline-flex max-w-full items-start gap-3 rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
+                            <div className="min-w-0 flex-1">
+                              <h2
+                                id={`photos-day-${section.dayKey}`}
+                                className="truncate text-[1.2rem] font-normal leading-tight tracking-tight text-gray-950 dark:text-slate-50 sm:text-xl"
+                              >
+                                {section.heading}
+                              </h2>
+                              {section.subheading ? (
+                                <p className="mt-0.5 truncate text-xs font-normal leading-snug text-gray-600 dark:text-slate-400 sm:text-sm">
+                                  {section.subheading}
+                                </p>
+                              ) : null}
+                            </div>
+                            {(() => {
+                              const sectionSelected =
+                                section.items.length > 0 && section.items.every((node) => selectedIds.has(node.id))
+                              const sectionPartiallySelected =
+                                !sectionSelected && section.items.some((node) => selectedIds.has(node.id))
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSectionSelection(section.items)}
+                                  className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                                    sectionSelected
+                                      ? 'border-blue-600 bg-blue-600 text-white dark:border-blue-400 dark:bg-blue-500'
+                                      : sectionPartiallySelected
+                                        ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-500/15 dark:text-blue-300'
+                                        : 'border-neutral-300 bg-white/80 text-neutral-500 hover:border-blue-400 hover:text-blue-600 dark:border-slate-600 dark:bg-slate-900/70 dark:text-slate-300 dark:hover:border-blue-400 dark:hover:text-blue-300'
+                                  }`}
+                                  aria-label={
+                                    sectionSelected
+                                      ? `Désélectionner ${section.heading}`
+                                      : `Sélectionner ${section.heading}`
+                                  }
+                                  aria-pressed={sectionSelected}
+                                  title={sectionSelected ? 'Désélectionner cette date' : 'Sélectionner cette date'}
+                                >
+                                  <Check className="h-4 w-4" aria-hidden strokeWidth={sectionSelected ? 3 : 2} />
+                                </button>
+                              )
+                            })()}
                           </div>
                         </div>
                         <div className={`grid ${timelineGridClass} gap-0.5 sm:gap-1`}>
@@ -1036,6 +1143,7 @@ export default function PhotosPage() {
                               selectMode={selectionMode}
                               selected={selectedIds.has(node.id)}
                               onToggleSelect={() => togglePhotoSelected(node.id)}
+                              onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
                               onOpen={openAt}
                             />
                           ))}
@@ -1052,6 +1160,7 @@ export default function PhotosPage() {
                             selectMode={selectionMode}
                             selected={selectedIds.has(node.id)}
                             onToggleSelect={() => togglePhotoSelected(node.id)}
+                            onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
                             onOpen={openAt}
                           />
                         ))}
@@ -1466,6 +1575,72 @@ export default function PhotosPage() {
           </div>
         </div>
       )}
+
+      {photoContextMenu ? (
+        <>
+          <button
+            type="button"
+            aria-label="Fermer le menu contextuel Photos"
+            className="fixed inset-0 z-[55] cursor-default bg-transparent"
+            onClick={closePhotoContextMenu}
+          />
+          <div
+            role="menu"
+            aria-label={`Actions pour ${photoContextMenu.node.name}`}
+            className="fixed z-[56] min-w-52 overflow-hidden rounded-2xl border border-neutral-200 bg-white py-1.5 text-sm text-neutral-800 shadow-xl shadow-black/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            style={{
+              left: Math.min(photoContextMenu.x, Math.max(16, window.innerWidth - 240)),
+              top: Math.min(photoContextMenu.y, Math.max(16, window.innerHeight - 230)),
+            }}
+          >
+            <div className="border-b border-neutral-100 px-3 py-2 text-xs text-neutral-500 dark:border-slate-800 dark:text-slate-400">
+              <p className="truncate font-medium text-neutral-700 dark:text-slate-200" title={photoContextMenu.node.name}>
+                {photoContextMenu.node.name}
+              </p>
+              <p>Actions rapides</p>
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                togglePhotoSelected(photoContextMenu.node.id)
+                closePhotoContextMenu()
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-slate-800"
+            >
+              <Check className="h-4 w-4" aria-hidden />
+              {selectedIds.has(photoContextMenu.node.id) ? 'Désélectionner' : 'Sélectionner'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runArchiveOne(photoContextMenu.node)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-slate-800"
+            >
+              <Archive className="h-4 w-4" aria-hidden />
+              Archiver
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runLockOne(photoContextMenu.node)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-slate-800"
+            >
+              <Lock className="h-4 w-4" aria-hidden />
+              Verrouiller
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => runDeleteOne(photoContextMenu.node)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Mettre à la corbeille
+            </button>
+          </div>
+        </>
+      ) : null}
 
       {lightboxIndex === null ? <PhotosBottomNav currentTab={tab} onSelectTab={setTab} /> : null}
     </div>

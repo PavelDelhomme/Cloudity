@@ -177,6 +177,207 @@ describe('PhotosPage', () => {
     expect(await screen.findByRole('button', { name: /Ouvrir test\.jpg/ })).toBeTruthy()
   })
 
+  it('n’affiche pas l’overlay de téléversement pour un drag interne de vignette', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 43,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'internal-drag.jpg',
+          is_folder: false,
+          size: 12,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-01',
+          updated_at: '2026-01-02',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    const photo = await screen.findByRole('button', { name: /Ouvrir internal-drag\.jpg/ })
+    fireEvent.dragEnter(photo, {
+      dataTransfer: {
+        types: ['Files', 'text/uri-list', 'text/html'],
+      },
+    })
+    expect(screen.queryByText('Relâchez pour importer')).toBeNull()
+  })
+
+  it('affiche l’overlay de téléversement pour un drag externe de fichiers', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 44,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'external-drag.jpg',
+          is_folder: false,
+          size: 12,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-01',
+          updated_at: '2026-01-02',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    const photo = await screen.findByRole('button', { name: /Ouvrir external-drag\.jpg/ })
+    fireEvent.dragEnter(photo, {
+      dataTransfer: {
+        types: ['Files'],
+      },
+    })
+    expect(screen.getByText('Relâchez pour importer')).toBeTruthy()
+  })
+
+  it('clic droit sur une photo active la sélection et coche la photo', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 31,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'context.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    fireEvent.contextMenu(await screen.findByRole('button', { name: /Ouvrir context\.jpg/ }))
+    expect(screen.getByText('1 sélectionnée')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Désélectionner context\.jpg/ })).toBeTruthy()
+    expect(screen.getByRole('menu', { name: /Actions pour context\.jpg/ })).toBeTruthy()
+  })
+
+  it('menu contextuel : archiver appelle archiveDrivePhotos pour la photo', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true))
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 32,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'context-archive.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    fireEvent.contextMenu(await screen.findByRole('button', { name: /Ouvrir context-archive\.jpg/ }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Archiver' }))
+    await waitFor(() => {
+      expect(api.archiveDrivePhotos).toHaveBeenCalledWith('token', [32])
+    })
+    vi.unstubAllGlobals()
+  })
+
+  it('la coche de date sélectionne toutes les photos de la section', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 41,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'day-a.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+        {
+          id: 42,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'day-b.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T18:00:00.000Z',
+          updated_at: '2026-01-10T18:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner 10 janvier 2026' }))
+    expect(screen.getByText('2 sélectionnées')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Désélectionner day-a\.jpg/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Désélectionner day-b\.jpg/ })).toBeTruthy()
+  })
+
   it('affiche le bouton Paramètres Photos', async () => {
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
