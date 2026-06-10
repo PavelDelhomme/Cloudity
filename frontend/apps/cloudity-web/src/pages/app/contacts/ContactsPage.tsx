@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, Mail, X, Upload, Loader2 } from 'lucide-react'
+import { Users, Plus, Mail, X, Upload, Loader2, Settings } from 'lucide-react'
+import {
+  DEFAULT_CONTACTS_APP_SETTINGS,
+  loadContactsAppSettings,
+  saveContactsAppSettings,
+  type ContactsAppSettings,
+  type ContactsImportDuplicateMode,
+} from './contactsAppSettings'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../../authContext'
 import {
@@ -32,8 +39,24 @@ export default function ContactsPage() {
     format: string
     contacts: ParsedImportContact[]
   } | null>(null)
-  const [importDuplicateMode, setImportDuplicateMode] = useState<'skip' | 'update'>('skip')
+  const [contactsSettings, setContactsSettings] = useState<ContactsAppSettings>(() => loadContactsAppSettings())
+  const [showContactsSettings, setShowContactsSettings] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<ContactsAppSettings>(() => loadContactsAppSettings())
+  const [importDuplicateMode, setImportDuplicateMode] = useState<ContactsImportDuplicateMode>(
+    () => loadContactsAppSettings().defaultImportDuplicateMode
+  )
   const [importBusy, setImportBusy] = useState(false)
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showContactsSettings) {
+        e.preventDefault()
+        setShowContactsSettings(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showContactsSettings])
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -52,14 +75,21 @@ export default function ContactsPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return contacts
-    return contacts.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        (c.phone && c.phone.toLowerCase().includes(q))
-    )
-  }, [contacts, search])
+    const list = !q
+      ? contacts
+      : contacts.filter(
+          (c) =>
+            c.name.toLowerCase().includes(q) ||
+            c.email.toLowerCase().includes(q) ||
+            (c.phone && c.phone.toLowerCase().includes(q))
+        )
+    if (!contactsSettings.sortAlphabetically) return list
+    return [...list].sort((a, b) => {
+      const la = (a.name.trim() || a.email).toLocaleLowerCase('fr')
+      const lb = (b.name.trim() || b.email).toLocaleLowerCase('fr')
+      return la.localeCompare(lb, 'fr')
+    })
+  }, [contacts, search, contactsSettings.sortAlphabetically])
 
   const selected = selectedId != null ? contacts.find((c) => c.id === selectedId) : null
 
@@ -103,6 +133,11 @@ export default function ContactsPage() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur'),
   })
+
+  const requestDelete = (id: number, label: string) => {
+    if (contactsSettings.confirmDelete && !window.confirm(`Supprimer le contact « ${label} » ?`)) return
+    deleteMutation.mutate(id)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -207,6 +242,18 @@ export default function ContactsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsDraft(contactsSettings)
+              setShowContactsSettings(true)
+            }}
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-3 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+            title="Paramètres Contacts"
+            aria-label="Paramètres Contacts"
+          >
+            <Settings className="h-5 w-5" aria-hidden />
+          </button>
           <input
             ref={importInputRef}
             type="file"
@@ -232,6 +279,108 @@ export default function ContactsPage() {
           </button>
         </div>
       </div>
+
+      {showContactsSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="contacts-settings-title"
+          onClick={() => setShowContactsSettings(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="contacts-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Paramètres Contacts
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowContactsSettings(false)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                aria-label="Fermer les paramètres Contacts"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Tri alphabétique</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.sortAlphabetically}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, sortAlphabetically: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Afficher le téléphone dans la liste</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showPhoneInList}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, showPhoneInList: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Confirmer avant suppression</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.confirmDelete}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, confirmDelete: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Doublons à l’import (par défaut)</span>
+                <select
+                  value={settingsDraft.defaultImportDuplicateMode}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      defaultImportDuplicateMode: e.target.value as ContactsImportDuplicateMode,
+                    }))
+                  }
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                >
+                  <option value="skip">Ignorer les e-mails déjà présents</option>
+                  <option value="update">Mettre à jour si l’e-mail existe</option>
+                </select>
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsDraft(DEFAULT_CONTACTS_APP_SETTINGS)}
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setContactsSettings(settingsDraft)
+                  saveContactsAppSettings(settingsDraft)
+                  setImportDuplicateMode(settingsDraft.defaultImportDuplicateMode)
+                  setShowContactsSettings(false)
+                  toast.success('Paramètres Contacts enregistrés')
+                }}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {importPreview && (
         <div className="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/50 dark:bg-brand-950/20 p-4 space-y-3">
@@ -385,8 +534,13 @@ export default function ContactsPage() {
                         {initials(c.name, c.email)}
                       </button>
                       <button type="button" onClick={() => setSelectedId(c.id)} className="min-w-0 flex-1 text-left">
-                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{c.name}</p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{c.email}</p>
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">{c.name.trim() || c.email}</p>
+                        {c.name.trim() ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{c.email}</p>
+                        ) : null}
+                        {contactsSettings.showPhoneInList && c.phone ? (
+                          <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{c.phone}</p>
+                        ) : null}
                       </button>
                       <button
                         type="button"
@@ -435,7 +589,7 @@ export default function ContactsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => deleteMutation.mutate(selected.id)}
+                      onClick={() => requestDelete(selected.id, selected.name.trim() || selected.email)}
                       disabled={deleteMutation.isPending}
                       className="rounded-lg border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-2 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-950/30"
                     >

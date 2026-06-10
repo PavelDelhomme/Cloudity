@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { CalendarClock, ListTodo, Plus, Trash2, FolderPlus, Repeat } from 'lucide-react'
+import { CalendarClock, ListTodo, Plus, Trash2, FolderPlus, Repeat, Settings, X } from 'lucide-react'
+import {
+  DEFAULT_TASKS_APP_SETTINGS,
+  loadTasksAppSettings,
+  saveTasksAppSettings,
+  type TasksAppSettings,
+} from './tasksAppSettings'
 import { useAuth } from '../../../authContext'
 import {
   fetchTaskLists,
@@ -80,6 +86,20 @@ export default function TasksPage() {
   const [newDue, setNewDue] = useState('')
   const [newRepeat, setNewRepeat] = useState('')
   const [newListName, setNewListName] = useState('')
+  const [tasksSettings, setTasksSettings] = useState<TasksAppSettings>(() => loadTasksAppSettings())
+  const [showTasksSettings, setShowTasksSettings] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<TasksAppSettings>(() => loadTasksAppSettings())
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showTasksSettings) {
+        e.preventDefault()
+        setShowTasksSettings(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showTasksSettings])
 
   const { data: listsData } = useQuery({
     queryKey: ['tasks', 'lists'],
@@ -153,9 +173,20 @@ export default function TasksPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const sortOpenTasks = useCallback((a: Task, b: Task) => {
+    const da = a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER
+    const db = b.due_at ? new Date(b.due_at).getTime() : Number.MAX_SAFE_INTEGER
+    if (da !== db) return da - db
+    return a.title.localeCompare(b.title, 'fr')
+  }, [])
+
   const groupedOpen = useMemo(() => {
     const now = new Date()
     const open = tasks.filter((t) => !t.completed)
+    if (!tasksSettings.groupByDueDate) {
+      const items = [...open].sort(sortOpenTasks)
+      return items.length > 0 ? [{ key: 'all' as const, label: 'À faire', items }] : []
+    }
     const buckets: Record<DueBucket, Task[]> = {
       overdue: [],
       today: [],
@@ -168,17 +199,11 @@ export default function TasksPage() {
       buckets[dueBucket(t.due_at, now)].push(t)
     }
     const order: DueBucket[] = ['overdue', 'today', 'tomorrow', 'week', 'later', 'noDate']
-    const sortInBucket = (a: Task, b: Task) => {
-      const da = a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER
-      const db = b.due_at ? new Date(b.due_at).getTime() : Number.MAX_SAFE_INTEGER
-      if (da !== db) return da - db
-      return a.title.localeCompare(b.title, 'fr')
-    }
     for (const k of order) {
-      buckets[k].sort(sortInBucket)
+      buckets[k].sort(sortOpenTasks)
     }
     return order.map((k) => ({ key: k, label: BUCKET_LABEL[k], items: buckets[k] })).filter((g) => g.items.length > 0)
-  }, [tasks])
+  }, [tasks, tasksSettings.groupByDueDate, sortOpenTasks])
 
   const completedTasks = useMemo(() => {
     return tasks
@@ -218,12 +243,100 @@ export default function TasksPage() {
 
   return (
     <div className="flex min-h-0 flex-col gap-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Tâches</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Listes, échéances et répétitions — pensé pour le quotidien et la productivité.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Tâches</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Listes, échéances et répétitions — pensé pour le quotidien et la productivité.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsDraft(tasksSettings)
+            setShowTasksSettings(true)
+          }}
+          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+          title="Paramètres Tâches"
+          aria-label="Paramètres Tâches"
+        >
+          <Settings className="h-4 w-4" aria-hidden />
+        </button>
       </div>
+
+      {showTasksSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="tasks-settings-title"
+          onClick={() => setShowTasksSettings(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="tasks-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Paramètres Tâches
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowTasksSettings(false)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                aria-label="Fermer les paramètres Tâches"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Regrouper par échéance</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.groupByDueDate}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, groupByDueDate: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Afficher les tâches terminées</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showCompletedSection}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, showCompletedSection: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsDraft(DEFAULT_TASKS_APP_SETTINGS)}
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTasksSettings(settingsDraft)
+                  saveTasksAppSettings(settingsDraft)
+                  setShowTasksSettings(false)
+                  toast.success('Paramètres Tâches enregistrés')
+                }}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <button
@@ -355,7 +468,7 @@ export default function TasksPage() {
                 </section>
               ))}
 
-              {completedTasks.length > 0 && (
+              {tasksSettings.showCompletedSection && completedTasks.length > 0 && (
                 <section>
                   <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">Terminées</h2>
                   <ul className="divide-y divide-slate-100 dark:divide-slate-700">

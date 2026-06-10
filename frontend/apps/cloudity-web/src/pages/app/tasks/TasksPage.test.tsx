@@ -46,6 +46,11 @@ describe('TasksPage', () => {
     expect(screen.getByText(/productivité/)).toBeTruthy()
   })
 
+  it('affiche le bouton Paramètres Tâches', () => {
+    render(wrap(<TasksPage />))
+    expect(screen.getByRole('button', { name: 'Paramètres Tâches' })).toBeTruthy()
+  })
+
   it('shows empty state when no tasks', async () => {
     render(wrap(<TasksPage />))
     await screen.findByText(/Aucune tâche/)

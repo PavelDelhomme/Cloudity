@@ -41,6 +41,11 @@ describe('NotesPage', () => {
     expect(screen.getByText(/Bloc-notes et idées/)).toBeTruthy()
   })
 
+  it('affiche le bouton Paramètres Notes', () => {
+    render(wrap(<NotesPage />))
+    expect(screen.getByRole('button', { name: 'Paramètres Notes' })).toBeTruthy()
+  })
+
   it('shows empty state when no notes', async () => {
     render(wrap(<NotesPage />))
     await screen.findByText(/Aucune note/)

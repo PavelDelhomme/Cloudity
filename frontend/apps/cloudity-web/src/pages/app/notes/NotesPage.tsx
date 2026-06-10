@@ -1,16 +1,25 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { FileText, ChevronRight, Plus } from 'lucide-react'
+import { FileText, Plus, Settings, X } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import { fetchNotes, createNote } from '../../../api'
+import {
+  DEFAULT_NOTES_APP_SETTINGS,
+  loadNotesAppSettings,
+  saveNotesAppSettings,
+  type NotesAppSettings,
+  type NotesSortOrder,
+} from './notesAppSettings'
 
 export default function NotesPage() {
   const { accessToken, logout } = useAuth()
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
+  const [notesSettings, setNotesSettings] = useState<NotesAppSettings>(() => loadNotesAppSettings())
+  const [showNotesSettings, setShowNotesSettings] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<NotesAppSettings>(() => loadNotesAppSettings())
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['notes'],
@@ -19,7 +28,26 @@ export default function NotesPage() {
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
   })
-  const notes = data ?? []
+  const notes = useMemo(() => {
+    const list = [...(data ?? [])]
+    list.sort((a, b) => {
+      const da = new Date(a.updated_at).getTime()
+      const db = new Date(b.updated_at).getTime()
+      return notesSettings.sortOrder === 'newest' ? db - da : da - db
+    })
+    return list
+  }, [data, notesSettings.sortOrder])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showNotesSettings) {
+        e.preventDefault()
+        setShowNotesSettings(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showNotesSettings])
 
   const createMutation = useMutation({
     mutationFn: () => createNote(accessToken!, title || 'Sans titre', content),
@@ -51,10 +79,100 @@ export default function NotesPage() {
 
   return (
     <div className="flex flex-col gap-6 min-h-0">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Notes</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Bloc-notes et idées.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Notes</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Bloc-notes et idées.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsDraft(notesSettings)
+            setShowNotesSettings(true)
+          }}
+          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+          title="Paramètres Notes"
+          aria-label="Paramètres Notes"
+        >
+          <Settings className="h-4 w-4" aria-hidden />
+        </button>
       </div>
+
+      {showNotesSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="notes-settings-title"
+          onClick={() => setShowNotesSettings(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="notes-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Paramètres Notes
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowNotesSettings(false)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                aria-label="Fermer les paramètres Notes"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Tri des notes</span>
+                <select
+                  value={settingsDraft.sortOrder}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, sortOrder: e.target.value as NotesSortOrder }))
+                  }
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                >
+                  <option value="newest">Plus récentes en premier</option>
+                  <option value="oldest">Plus anciennes en premier</option>
+                </select>
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Aperçu du contenu</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showContentPreview}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, showContentPreview: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsDraft(DEFAULT_NOTES_APP_SETTINGS)}
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotesSettings(settingsDraft)
+                  saveNotesAppSettings(settingsDraft)
+                  setShowNotesSettings(false)
+                  toast.success('Paramètres Notes enregistrés')
+                }}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2">
@@ -101,7 +219,9 @@ export default function NotesPage() {
               {notes.map((n) => (
                 <li key={n.id} className="py-3">
                   <span className="font-medium text-slate-900 dark:text-slate-100">{n.title}</span>
-                  {n.content && <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{n.content}</p>}
+                  {notesSettings.showContentPreview && n.content ? (
+                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 line-clamp-2">{n.content}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>

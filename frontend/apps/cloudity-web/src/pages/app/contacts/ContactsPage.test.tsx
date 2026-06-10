@@ -52,6 +52,11 @@ describe('ContactsPage', () => {
     expect(screen.getByRole('button', { name: 'Nouveau contact' })).toBeTruthy()
   })
 
+  it('affiche le bouton Paramètres Contacts', () => {
+    render(wrap(<ContactsPage />))
+    expect(screen.getByRole('button', { name: 'Paramètres Contacts' })).toBeTruthy()
+  })
+
   it('shows empty state when no contacts', async () => {
     render(wrap(<ContactsPage />))
     await screen.findByText(/Aucun contact/)
