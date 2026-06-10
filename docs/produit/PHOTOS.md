@@ -49,12 +49,16 @@
 - **Barre de navigation bas** : tons proches **Material / Google Photos** (fond `#1f1f1f` en sombre, onglet actif surligné bleu `#8ab4f8` / fond discret, inactifs gris `#9aa0a6`).
 - Grille de vignettes (colonnes type Google Photos), **lightbox** (flèches, Échap), **regroupement par jour** avec en-têtes **sticky** : titre **large léger** (`Aujourd’hui` / `Hier` / date), **sous-ligne** jour complet pour contexte ; séparateur léger sous la date (alignement affichage type Google Photos web).
 - **Glisser-déposer** : déposer des fichiers image sur la page (onglet **Chronologie**) → upload racine Drive (même flux que le bouton Importer).
-- **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive, lien vers Drive avec fil d’Ariane) | **Archivé** / **Verrouillé** (guidage + roadmap ; pas d’API dédiée encore) | **Corbeille** (lien vers `/app/drive?view=trash`).
+- **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive) | **Archivé** / **Verrouillé** (listes réelles serveur) | **Corbeille** (photos supprimées + restauration).
+- **Archive / verrouillé** : colonnes `photo_archived_at` / `photo_locked_at` sur `drive_nodes` ; endpoints **`/drive/photos/archive`**, **`/unarchive`**, **`/lock`**, **`/unlock`** (POST groupé `{ ids }`) ; timeline **`/photos/timeline`** exclut archivé + verrouillé.
+- **Sélection** : mode Sélectionner, coche par date, clic droit (menu Archiver / Verrouiller / Corbeille), actions groupées en barre.
+- **Paramètres Photos** : bouton en-tête, modal local (`photosAppSettings.ts`, localStorage) — taille grille, dates, confirmation archive/verrouillage.
+- **Glisser-déposer** : import uniquement pour fichiers **externes** (pas de faux « téléversement » si on déplace une vignette déjà affichée).
 - **État synchro** : libellé relatif basé sur le dernier `dataUpdatedAt` de la requête timeline + indicateur « mise à jour… ».
 - **Rafraîchissement** : `refetchInterval` 60 s + focus.
 - **Upload / affichage** : `POST /drive/nodes/upload` (racine `parent_id` absent) ; vignettes téléchargées avec concurrence limitée pour éviter le rate-limit gateway ; HEIC/HEIF/AVIF typés côté Drive/Web.
 
-**Suite** : **sélection multiple** (chronologie : mode Sélectionner → corbeille Drive via `DELETE /drive/nodes/:id`) ✅ ; albums métier (API), corbeille « photos uniquement » côté serveur si besoin.
+**Suite** : albums métier (API dédiée), indicateur **état sync par photo**, chiffrement coffre verrouillé serveur, pattern paramètres étendu aux autres apps web (H9).
 
 ---
 
@@ -103,4 +107,4 @@ Ordre annoncé côté produit une fois Photos stabilisé : **Mail** (tri, alias,
 
 ---
 
-*Dernière mise à jour : 2026-04-11.*
+*Dernière mise à jour : 2026-06-10.*

@@ -273,7 +273,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 | **mail-directory-service/main_test.go** | Health ; `/mail/health` ; `/mail/domains` sans `X-Tenant-ID` → 401 ; `X-Tenant-ID` invalide ; mailboxes/aliases invalid ID ; `/mail/me/accounts` sans `X-Tenant-ID` / `X-User-ID` → 401 ; routes batch Mail (`PATCH /messages/read`, `PATCH /messages/folder`) : auth requise + payload invalide → 400. |
 | **contacts-service/main_test.go** | Health (`/health`, `/contacts/health`) ; **GET /contacts sans `X-User-ID` → 401** ; GET /contacts avec `X-User-ID` et **DB absente** → 200 liste vide. |
 | **photos-service/main_test.go** | Health ; **GET /photos/timeline sans X-User-ID → 401**. |
-| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/search sans X-User-ID → 401** ; **GET /drive/nodes/search avec `q` vide → 400** ; **GET /drive/nodes/search avec DB absente → 200 `[]`** ; **GET /drive/photos/timeline sans X-User-ID → 401** ; **GET /drive/nodes/recent sans X-User-ID → 401** ; GET /drive/nodes/:id/content sans X-User-ID → 401 ; PUT /drive/nodes/:id/content sans X-User-ID → 401. |
+| **drive-service/main_test.go** | Health ; GET /drive/nodes sans `X-User-ID` → 401 ; **GET /drive/nodes/search** (401 / 400 / db nil) ; **GET /drive/photos/timeline|archive|locked** sans auth → 401 ; **POST /drive/photos/archive|lock** sans auth → 401 ; GET /drive/nodes/recent sans auth → 401 ; GET/PUT content sans auth → 401. |
 
 ### 3.2 API — Backend (Python, admin-service)
 

@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-09 — **`dev`** @ `046b130d` : gosec vert (`GOSEC_BLOCKING=1`), U9 reset 2FA admin, audit mobile H6c (checklist + logout broker). Chantier actif **`feat/app-hub-photos-ux-hardening`** : App Hub / Drive récents / Photos UX. **Mail prod en pause**.
+**Dernière mise à jour** : 2026-06-10 — Branche **`feat/app-hub-photos-ux-hardening`** : H8 archive/verrouillé Photos serveur, H9 paramètres Photos, UX sélection/contextuel, persistance boîte Mail ; prêt merge **`dev`**. **Mail prod en pause**.
 
 ## À faire maintenant
 

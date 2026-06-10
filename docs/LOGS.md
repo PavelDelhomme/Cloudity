@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-06-10 — Photos H8/H9 + UX sélection + persistance Mail
+
+- Branche : `feat/app-hub-photos-ux-hardening` (`77700051`).
+- Photos : archive/verrouillé serveur (`43-drive-photos-archive-locked.sql`, `/drive/photos/*`) ; paramètres locaux ; sélection par date, menu contextuel, garde drag interne.
+- Mail : restauration dernière boîte (`cloudity_mail_selected_account_id`) + repli email login.
+- Docs : `PHOTOS.md`, `TODOS.md`, `STATUS.md`, `TESTS.md`.
+- Checks : `go test` drive/photos-service ✅ ; Vitest PhotosPage 16 + MailPage 32 ✅.
+
+---
+
 ### 2026-06-09 — App Hub / Drive récents / Photos UX
 
 - Branche : `feat/app-hub-photos-ux-hardening`.

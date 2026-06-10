@@ -13,7 +13,7 @@
 | **gosec** tous services | `feat/security-gosec-hardening` | ☑ mergé `dev` |
 | **U9** 2FA admin | `feat/admin-u9-2fa-advanced` | ☑ mergé `dev` |
 | Audit mobile **H6c** | `feat/security-mobile-audit` | ☑ mergé `dev` |
-| App Hub / Drive récents / Photos UX | `feat/app-hub-photos-ux-hardening` | en cours |
+| App Hub / Drive récents / Photos UX | `feat/app-hub-photos-ux-hardening` | ☑ prêt merge `dev` |
 
 | Zone | Exemples | État session |
 |------|----------|--------------|
@@ -107,10 +107,19 @@ Correctifs :
 
 **Suite Photos (prochaine itération)** :
 
-- Décodeur **HEIC/HEIF** côté serveur pour vignettes si JPEG natif échoue.
-- **Broker Android** ☑ pilote (`mobile/cloudity_auth_broker`) — iOS Keychain Access Group + AccountManager natif à faire.
-- Archive / Verrouillé **serveur** (pas seulement UI + biométrie locale).
+- **Broker Android** ☑ pilote — iOS Keychain Access Group + AccountManager natif à faire.
 - Indicateur **état sync par photo** (uploadé / en attente / erreur).
+- Chiffrement **coffre verrouillé** serveur (au-delà du masquage timeline/archive).
+
+### Session Photos H8/H9 + UX web (2026-06-10)
+
+**Livré** :
+
+- **H8** : migration `43-drive-photos-archive-locked.sql` ; endpoints `/drive/photos/*` ; onglets Archivé/Verrouillé réels ; sélection groupée.
+- **H9 (Photos)** : `Paramètres Photos` + `photosAppSettings.ts` (grille, dates, confirmations).
+- **UX** : coche par date, menu contextuel, garde anti-import sur drag interne.
+- **Mail** : persistance dernière boîte sélectionnée (`cloudity_mail_selected_account_id`).
+- Checks : `go test` drive/photos-service ✅ ; Vitest PhotosPage (16) + MailPage (32) ✅.
 
 ### Incident Photos mobile — app installée mais bloquée au chargement (2026-05-21)
 
@@ -250,7 +259,7 @@ Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)
 | **UI transverse** | ✅ `@cloudity/ui` sur `dev` | — | — | **UI-3** Pass/Settings utilisateur (BACKLOG) |
 | **Mail** | ✅ | ✅ MVP | — | Corps MIME · alias · **MAIL-ALIAS-02** |
 | **Drive** | ✅ | ✅ MVP + Linux desktop build validé | — | Polish mobile + gros fichiers |
-| **Photos** | ✅ vignettes + dates + HEIC | ✅ timeline + sync + viewer + Auth Broker | — | archive/verrouillé serveur · état sync par photo · iOS broker |
+| **Photos** | ✅ archive/verrouillé serveur + sélection UX + paramètres locaux | ✅ timeline + sync + viewer + Auth Broker | — | état sync par photo · iOS broker · H9 autres apps |
 | **Pass** | ✅ | ✅ lecture | ✅ MV3 autofill + popup L3 (v0.2.1) | Icônes · **MP-08** Firefox · édition mobile |
 | **Alias mail** | ✅ enregistrement + filtre | (via Mail/Pass) | — | **05** MTA · **06** DKIM |
 
