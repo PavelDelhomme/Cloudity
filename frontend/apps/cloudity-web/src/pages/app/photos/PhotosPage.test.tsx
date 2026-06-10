@@ -6,6 +6,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import PhotosPage from './PhotosPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
+import {
+  grantPhotosLockedVaultSession,
+  setupPhotosLockedPin,
+} from './photosLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -603,6 +607,28 @@ describe('PhotosPage', () => {
     })
   })
 
+  it('onglet Verrouillé : n’appelle pas l’API avant déverrouillage du coffre', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    await setupPhotosLockedPin('1:user@test.com', '1234', '1234')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=locked']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    await screen.findByText(/Coffre verrouillé/)
+    expect(api.fetchDrivePhotosLocked).not.toHaveBeenCalled()
+  })
+
   it('onglet Verrouillé : déverrouiller appelle unlockDrivePhotos', async () => {
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
@@ -628,6 +654,8 @@ describe('PhotosPage', () => {
         photo_locked_at: '2026-01-11T12:00:00.000Z',
       },
     ])
+    await setupPhotosLockedPin('1:user@test.com', '1234', '1234')
+    grantPhotosLockedVaultSession('1:user@test.com')
     render(
       <QueryClientProvider client={queryClient}>
         <TestRouter initialEntries={['/app/photos?tab=locked']}>

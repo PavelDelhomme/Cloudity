@@ -42,6 +42,7 @@
 | **H7** | **Admin U9 / U10** | U10 CVE ☑ · U9 reset 2FA admin ☑ | ☑ |
 | **H8** | **Photos — actions avancées** | Archive/verrouillé serveur (`photo_archived_at`, `photo_locked_at`, endpoints `/drive/photos/*`) + sélection groupée (Archiver, Verrouiller, Corbeille) + onglets Archivé/Verrouillé réels | ☑ |
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
+| **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 

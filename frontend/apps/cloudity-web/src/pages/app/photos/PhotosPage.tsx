@@ -47,6 +47,14 @@ import {
   type PhotosAppSettings,
   type PhotosGridSize,
 } from './photosAppSettings'
+import { PhotosLockedGate } from './PhotosLockedGate'
+import {
+  grantPhotosLockedVaultSession,
+  isPhotosLockedVaultUnlocked,
+  photosLockedVaultScope,
+  PHOTOS_LOCKED_SESSION_TTL_MS,
+  revokePhotosLockedVaultSession,
+} from './photosLockedVault'
 const PAGE_SIZE = 48
 const PHOTO_DOWNLOAD_CONCURRENCY = 6
 
@@ -394,7 +402,11 @@ function Lightbox({
 }
 
 export default function PhotosPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, tenantId, email } = useAuth()
+  const lockedVaultScope = photosLockedVaultScope(tenantId, email)
+  const [lockedVaultUnlocked, setLockedVaultUnlocked] = useState(() =>
+    isPhotosLockedVaultUnlocked(photosLockedVaultScope(tenantId, email))
+  )
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
@@ -473,7 +485,7 @@ export default function PhotosPage() {
   const lockedQuery = useQuery({
     queryKey: ['drive', 'photos', 'locked'],
     queryFn: () => fetchDrivePhotosLocked(accessToken!),
-    enabled: Boolean(accessToken) && tab === 'locked',
+    enabled: Boolean(accessToken) && tab === 'locked' && lockedVaultUnlocked,
     staleTime: 30_000,
   })
 
@@ -562,6 +574,42 @@ export default function PhotosPage() {
     closePhotoContextMenu,
     exitPhotoSelectionMode,
   ])
+
+  useEffect(() => {
+    setLockedVaultUnlocked(isPhotosLockedVaultUnlocked(lockedVaultScope))
+  }, [lockedVaultScope])
+
+  useEffect(() => {
+    if (tab === 'locked') return
+    if (lockedVaultScope) revokePhotosLockedVaultSession(lockedVaultScope)
+    setLockedVaultUnlocked(false)
+  }, [tab, lockedVaultScope])
+
+  useEffect(() => {
+    if (tab !== 'locked' || !lockedVaultScope || !lockedVaultUnlocked) return
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        revokePhotosLockedVaultSession(lockedVaultScope)
+        setLockedVaultUnlocked(false)
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [tab, lockedVaultScope, lockedVaultUnlocked])
+
+  const handleLockedVaultUnlocked = useCallback(() => {
+    if (!lockedVaultScope) return
+    grantPhotosLockedVaultSession(lockedVaultScope, PHOTOS_LOCKED_SESSION_TTL_MS)
+    setLockedVaultUnlocked(true)
+  }, [lockedVaultScope])
+
+  const lockLockedVault = useCallback(() => {
+    if (!lockedVaultScope) return
+    revokePhotosLockedVaultSession(lockedVaultScope)
+    setLockedVaultUnlocked(false)
+    setLightboxIndex(null)
+    void queryClient.removeQueries({ queryKey: ['drive', 'photos', 'locked'] })
+  }, [lockedVaultScope, queryClient])
 
   useEffect(() => {
     if (tab !== 'timeline') {
@@ -1453,12 +1501,25 @@ export default function PhotosPage() {
         <p className="text-sm text-slate-500 dark:text-slate-400">Connectez-vous pour voir la corbeille photos.</p>
       )}
 
-      {tab === 'locked' && accessToken && (
+      {tab === 'locked' && accessToken && lockedVaultScope && !lockedVaultUnlocked && (
+        <PhotosLockedGate scope={lockedVaultScope} onUnlocked={handleLockedVaultUnlocked} />
+      )}
+
+      {tab === 'locked' && accessToken && lockedVaultUnlocked && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-slate-400">
-            Photos masquées de la chronologie et de l’archive. Le chiffrement dédié et le coffre biométrique
-            arriveront dans une prochaine version.
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-gray-600 dark:text-slate-400">
+              Photos masquées de la chronologie et de l’archive. Session locale active ({Math.round(PHOTOS_LOCKED_SESSION_TTL_MS / 60_000)} min max).
+            </p>
+            <button
+              type="button"
+              onClick={lockLockedVault}
+              className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              Verrouiller le coffre
+            </button>
+          </div>
           {lockedQuery.isPending ? (
             <div className="flex justify-center py-16">
               <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -1500,6 +1561,12 @@ export default function PhotosPage() {
 
       {tab === 'locked' && !accessToken && (
         <p className="text-sm text-slate-500 dark:text-slate-400">Connectez-vous pour voir les photos verrouillées.</p>
+      )}
+
+      {tab === 'locked' && accessToken && !lockedVaultScope && (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Session incomplète : reconnectez-vous pour accéder au coffre verrouillé.
+        </p>
       )}
 
       {lightboxNode && accessToken && lightboxIndex !== null && (

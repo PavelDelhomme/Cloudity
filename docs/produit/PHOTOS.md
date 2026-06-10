@@ -51,6 +51,7 @@
 - **Glisser-déposer** : déposer des fichiers image sur la page (onglet **Chronologie**) → upload racine Drive (même flux que le bouton Importer).
 - **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive) | **Archivé** / **Verrouillé** (listes réelles serveur) | **Corbeille** (photos supprimées + restauration).
 - **Archive / verrouillé** : colonnes `photo_archived_at` / `photo_locked_at` sur `drive_nodes` ; endpoints **`/drive/photos/archive`**, **`/unarchive`**, **`/lock`**, **`/unlock`** (POST groupé `{ ids }`) ; timeline **`/photos/timeline`** exclut archivé + verrouillé.
+- **Coffre verrouillé (web)** : onglet **Verrouillé** protégé par **code PIN local** (4–8 chiffres, hash SHA-256 + sel) et **biométrie WebAuthn** optionnelle (empreinte / visage / Windows Hello). Aucun appel API ni vignette tant que le coffre n’est pas déverrouillé ; session courte (`sessionStorage`, ~15 min) ; reverrouillage à la sortie d’onglet ou changement d’onglet app. Chiffrement serveur dédié : prochaine étape.
 - **Sélection** : mode Sélectionner, coche par date, clic droit (menu Archiver / Verrouiller / Corbeille), actions groupées en barre.
 - **Paramètres Photos** : bouton en-tête, modal local (`photosAppSettings.ts`, localStorage) — taille grille, dates, confirmation archive/verrouillage.
 - **Glisser-déposer** : import uniquement pour fichiers **externes** (pas de faux « téléversement » si on déplace une vignette déjà affichée).
@@ -58,7 +59,7 @@
 - **Rafraîchissement** : `refetchInterval` 60 s + focus.
 - **Upload / affichage** : `POST /drive/nodes/upload` (racine `parent_id` absent) ; vignettes téléchargées avec concurrence limitée pour éviter le rate-limit gateway ; HEIC/HEIF/AVIF typés côté Drive/Web.
 
-**Suite** : albums métier (API dédiée), indicateur **état sync par photo**, chiffrement coffre verrouillé serveur, pattern paramètres étendu aux autres apps web (H9).
+**Suite** : albums métier (API dédiée), indicateur **état sync par photo**, chiffrement coffre verrouillé serveur (H10 suite), changement de code PIN depuis Paramètres Photos.
 
 ---
 
