@@ -39,6 +39,7 @@ vi.mock('../../../api', () => ({
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+const realLocalStorage = window.localStorage
 
 function wrap(ui: React.ReactElement) {
   return (
@@ -67,7 +68,9 @@ function wrapWithLayout() {
 
 describe('DrivePage', () => {
   beforeEach(() => {
+    Object.defineProperty(window, 'localStorage', { value: realLocalStorage, writable: true })
     queryClient.clear()
+    localStorage.clear()
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,
@@ -116,6 +119,16 @@ describe('DrivePage', () => {
   it('affiche le bouton Paramètres Drive', () => {
     render(wrap(<DrivePage />))
     expect(screen.getByRole('button', { name: 'Paramètres Drive' })).toBeTruthy()
+  })
+
+  it('paramètres : enregistre le mode d’affichage par défaut', () => {
+    render(wrap(<DrivePage />))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paramètres Drive' }))
+    fireEvent.change(screen.getByLabelText('Affichage par défaut'), { target: { value: 'list' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    expect(localStorage.getItem('cloudity.drive.appSettings.v1')).toContain('"displayMode":"list"')
   })
 
   it('renders Téléverser and Nouveau dossier', () => {
@@ -543,8 +556,7 @@ describe('DrivePage', () => {
       await waitFor(() => expect(screen.getByText(/2 élément\(s\) sélectionné\(s\)/)).toBeTruthy())
     })
 
-    it.skip('vue grille: menu trois points (Actions) affiche Télécharger, Renommer, Corbeille', async () => {
-      // Menu rendu en portal (document.body) : en jsdom le menu ne s’affiche pas (menuPosition/ref).
+    it('vue grille: menu trois points (Actions) affiche Télécharger, Renommer, Corbeille', async () => {
       const { fetchDriveNodes } = await import('../../../api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
@@ -562,9 +574,10 @@ describe('DrivePage', () => {
         await new Promise((r) => setTimeout(r, 50))
       }
       await waitFor(() => {
-        expect(screen.getByText('Télécharger')).toBeTruthy()
-        expect(screen.getByText('Renommer')).toBeTruthy()
-        expect(screen.getByText('Corbeille')).toBeTruthy()
+        const menu = screen.getByRole('menu', { name: 'Actions pour Doc.docx' })
+        expect(within(menu).getByRole('menuitem', { name: 'Télécharger' })).toBeTruthy()
+        expect(within(menu).getByRole('menuitem', { name: 'Renommer' })).toBeTruthy()
+        expect(within(menu).getByRole('menuitem', { name: 'Corbeille' })).toBeTruthy()
       }, { timeout: 2000 })
     })
 
@@ -594,8 +607,7 @@ describe('DrivePage', () => {
       expect(within(dialog).getByTestId('drive-office-preview').textContent).toMatch(/Aperçu docx test/)
     })
 
-    it.skip('vue grille: menu Corbeille ouvre la modale de confirmation', async () => {
-      // Menu rendu en portal (document.body) : en jsdom le menu ne s’affiche pas.
+    it('vue grille: menu Corbeille ouvre la modale de confirmation', async () => {
       const { fetchDriveNodes } = await import('../../../api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
@@ -610,17 +622,16 @@ describe('DrivePage', () => {
         await act(async () => { fireEvent.click(menuBtn) })
         await new Promise((r) => setTimeout(r, 50))
       }
-      await waitFor(() => expect(screen.getByText('Renommer')).toBeTruthy(), { timeout: 2000 })
-      const menuContainer = screen.getByText('Renommer').closest('div')
-      const corbeilleInMenu = menuContainer ? within(menuContainer as HTMLElement).getByRole('button', { name: 'Corbeille' }) : screen.getAllByRole('button', { name: 'Corbeille' })[1]
+      await waitFor(() => expect(screen.getByRole('menu', { name: 'Actions pour Doc.docx' })).toBeTruthy(), { timeout: 2000 })
+      const menu = screen.getByRole('menu', { name: 'Actions pour Doc.docx' })
+      const corbeilleInMenu = within(menu).getByRole('menuitem', { name: 'Corbeille' })
       fireEvent.click(corbeilleInMenu)
       await waitFor(() => expect(screen.getByText(/Déplacer dans la corbeille \?/)).toBeTruthy())
       expect(screen.getByTestId('drive-confirm-delete-to-trash')).toBeTruthy()
       expect(screen.getByRole('button', { name: 'Annuler' })).toBeTruthy()
     })
 
-    it.skip('vue grille: Renommer ouvre le formulaire inline sur la carte', async () => {
-      // Menu rendu en portal (document.body) : en jsdom le menu ne s’affiche pas.
+    it('vue grille: Renommer ouvre le formulaire inline sur la carte', async () => {
       const { fetchDriveNodes } = await import('../../../api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
@@ -762,6 +773,7 @@ describe('DrivePage', () => {
     it('en vue corbeille affiche la liste trash avec colonne Supprimé le', async () => {
       const { fetchDriveTrash } = await import('../../../api')
       vi.mocked(fetchDriveTrash).mockResolvedValue([mockTrashNode as never])
+      localStorage.setItem('cloudity.drive.appSettings.v1', JSON.stringify({ displayMode: 'list', showRecentSection: true }))
       render(wrap(<DrivePage />))
       fireEvent.click(screen.getByRole('button', { name: 'Corbeille' }))
       await waitFor(() => expect(screen.getByRole('heading', { name: 'Corbeille' })).toBeTruthy())

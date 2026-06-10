@@ -18,14 +18,15 @@ type PhotosLockedGateProps = {
 }
 
 export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
-  const needsSetup = !hasPhotosLockedPin(scope)
+  const [pinConfigured, setPinConfigured] = useState(() => hasPhotosLockedPin(scope))
   const [pin, setPin] = useState('')
   const [confirmPin, setConfirmPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [enableBiometricAfterSetup, setEnableBiometricAfterSetup] = useState(true)
+  const [biometricRegistered, setBiometricRegistered] = useState(() => hasPhotosLockedWebAuthn(scope))
+  const needsSetup = !pinConfigured
   const biometricAvailable = isPhotosLockedWebAuthnSupported()
-  const biometricRegistered = hasPhotosLockedWebAuthn(scope)
 
   const resetInputs = useCallback(() => {
     setPin('')
@@ -48,16 +49,18 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
         setError(result.error)
         return
       }
+      setPinConfigured(true)
       if (enableBiometricAfterSetup && biometricAvailable) {
         try {
           await registerPhotosLockedWebAuthn(scope)
+          setBiometricRegistered(true)
         } catch (bioErr) {
           setError(
             bioErr instanceof Error
               ? `${bioErr.message} Le code seul reste actif.`
               : 'Biométrie non enregistrée. Le code seul reste actif.'
           )
-          finishUnlock()
+          resetInputs()
           return
         }
       }
@@ -103,6 +106,7 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
     setError(null)
     try {
       await registerPhotosLockedWebAuthn(scope)
+      setBiometricRegistered(true)
     } catch (bioErr) {
       setError(bioErr instanceof Error ? bioErr.message : 'Impossible d’activer la biométrie.')
     } finally {

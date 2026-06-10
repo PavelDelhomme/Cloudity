@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { TestRouter } from '../../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ContactsPage from './ContactsPage'
@@ -28,6 +28,7 @@ function wrap(ui: React.ReactElement) {
 describe('ContactsPage', () => {
   beforeEach(() => {
     queryClient.clear()
+    localStorage.clear()
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,
@@ -72,5 +73,38 @@ describe('ContactsPage', () => {
     await screen.findByText('Jean Dupont')
     expect(screen.getByText('jean@exemple.fr')).toBeTruthy()
     expect(screen.getByText('marie@test.fr')).toBeTruthy()
+  })
+
+  it('paramètres : affiche le téléphone dans la liste', async () => {
+    vi.mocked(api.fetchContacts).mockResolvedValue([
+      { id: 1, name: 'Jean Dupont', email: 'jean@exemple.fr', phone: '+33 6 12 34 56 78' },
+    ])
+    render(wrap(<ContactsPage />))
+
+    await screen.findByText('Jean Dupont')
+    expect(screen.queryByText('+33 6 12 34 56 78')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Paramètres Contacts' }))
+    fireEvent.click(screen.getByLabelText('Afficher le téléphone dans la liste'))
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await screen.findByText('+33 6 12 34 56 78')
+  })
+
+  it('confirme avant suppression et respecte Annuler', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(api.fetchContacts).mockResolvedValue([
+      { id: 1, name: 'Jean Dupont', email: 'jean@exemple.fr', phone: '+33 6 12 34 56 78' },
+    ])
+    render(wrap(<ContactsPage />))
+
+    await screen.findByText('Jean Dupont')
+    fireEvent.click(screen.getByText('Jean Dupont'))
+    fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }))
+
+    expect(confirmSpy).toHaveBeenCalledWith('Supprimer le contact « Jean Dupont » ?')
+    await waitFor(() => {
+      expect(api.deleteContact).not.toHaveBeenCalled()
+    })
+    confirmSpy.mockRestore()
   })
 })
