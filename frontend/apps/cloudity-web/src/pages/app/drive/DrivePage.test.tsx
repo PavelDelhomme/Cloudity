@@ -113,6 +113,11 @@ describe('DrivePage', () => {
     expect(breadcrumb.textContent).toMatch(/Drive/)
   })
 
+  it('affiche le bouton Paramètres Drive', () => {
+    render(wrap(<DrivePage />))
+    expect(screen.getByRole('button', { name: 'Paramètres Drive' })).toBeTruthy()
+  })
+
   it('renders Téléverser and Nouveau dossier', () => {
     render(wrap(<DrivePage />))
     expect(screen.getByRole('button', { name: 'Téléverser' })).toBeTruthy()

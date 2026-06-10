@@ -474,6 +474,45 @@ describe('PhotosPage', () => {
     vi.unstubAllGlobals()
   })
 
+  it('Échap quitte le mode sélection sur la chronologie', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 50,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'esc.jpg',
+          is_folder: false,
+          size: 5,
+          mime_type: 'image/jpeg',
+          created_at: '2026-01-10T12:00:00.000Z',
+          updated_at: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(wrap(<PhotosPage />))
+    await screen.findByRole('button', { name: /Ouvrir esc\.jpg/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sélectionner esc\.jpg/ }))
+    expect(screen.getByText('1 sélectionnée')).toBeTruthy()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByText('1 sélectionnée')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Sélectionner' })).toBeTruthy()
+  })
+
   it('mode sélection : corbeille appelle deleteDriveNode pour les photos choisies', async () => {
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',

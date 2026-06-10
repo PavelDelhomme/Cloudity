@@ -32,7 +32,15 @@ import {
   ArrowLeft,
   Clock,
   Eye,
+  Settings,
 } from 'lucide-react'
+import {
+  DEFAULT_DRIVE_APP_SETTINGS,
+  loadDriveAppSettings,
+  saveDriveAppSettings,
+  type DriveAppSettings,
+  type DriveDisplayMode,
+} from './driveAppSettings'
 import { useAuth } from '../../../authContext'
 import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../../uploadContext'
 import { formatFileSize } from '../../../utils/formatFileSize'
@@ -197,14 +205,6 @@ function DrivePresentationSlidePreview({ slides, toolbar }: { slides: string[]; 
 
 /** Délai avant d’ouvrir un dossier au clic simple, pour qu’un double-clic puisse annuler l’ouverture et basculer en sélection. */
 const DRIVE_FOLDER_OPEN_DEBOUNCE_MS = 280
-
-const DRIVE_DISPLAY_STORAGE_KEY = 'cloudity_drive_display'
-
-function getStoredDisplayMode(): 'grid' | 'list' {
-  if (typeof window === 'undefined') return 'grid'
-  const s = localStorage.getItem(DRIVE_DISPLAY_STORAGE_KEY)
-  return s === 'list' ? 'list' : 'grid'
-}
 
 type BreadcrumbItem = { id: number | null; name: string }
 
@@ -1491,6 +1491,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
   onDropOnBreadcrumbRoot,
   displayMode,
   onDisplayModeChange,
+  onOpenSettings,
 }: {
   viewMode: 'drive' | 'trash' | 'recent'
   onViewModeChange: (v: 'drive' | 'trash' | 'recent') => void
@@ -1509,6 +1510,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
   onDropOnBreadcrumbRoot?: (e: React.DragEvent) => void
   displayMode?: 'grid' | 'list'
   onDisplayModeChange?: (v: 'grid' | 'list') => void
+  onOpenSettings?: () => void
 }) {
   const showRootDropZone = viewMode === 'drive' && breadcrumb.length > 1 && onDragOverBreadcrumbRoot && onDropOnBreadcrumbRoot
   return (
@@ -1647,6 +1649,17 @@ const DriveToolbar = React.memo(function DriveToolbar({
           </button>
           </>
         )}
+        {onOpenSettings ? (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+            title="Paramètres Drive"
+            aria-label="Paramètres Drive"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
         {(viewMode === 'drive' || viewMode === 'recent') && onDisplayModeChange && (
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 p-0.5">
             <button
@@ -1808,12 +1821,16 @@ export default function DrivePage() {
       previewOpenedAtRef.current = Date.now()
     }
   }, [previewNode])
-  const [displayMode, setDisplayModeState] = useState<'grid' | 'list'>(getStoredDisplayMode)
-  const setDisplayMode = useCallback((mode: 'grid' | 'list') => {
-    setDisplayModeState(mode)
-    try {
-      localStorage.setItem(DRIVE_DISPLAY_STORAGE_KEY, mode)
-    } catch (_) { /* ignore */ }
+  const [driveSettings, setDriveSettings] = useState<DriveAppSettings>(() => loadDriveAppSettings())
+  const [showDriveSettings, setShowDriveSettings] = useState(false)
+  const [settingsDraft, setSettingsDraft] = useState<DriveAppSettings>(() => loadDriveAppSettings())
+  const displayMode = driveSettings.displayMode
+  const setDisplayMode = useCallback((mode: DriveDisplayMode) => {
+    setDriveSettings((prev) => {
+      const next = { ...prev, displayMode: mode }
+      saveDriveAppSettings(next)
+      return next
+    })
   }, [])
   const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
 
@@ -1893,13 +1910,11 @@ export default function DrivePage() {
     refetchOnWindowFocus: false,
   })
   const recentNodesFull = recentNodesFullRaw ?? []
-  const [recentSectionVisible, setRecentSectionVisible] = useState(() => {
-    try { return localStorage.getItem('cloudity_drive_recent_visible') !== 'false' } catch { return true }
-  })
+  const recentSectionVisible = driveSettings.showRecentSection
   const toggleRecentSection = useCallback(() => {
-    setRecentSectionVisible((prev) => {
-      const next = !prev
-      try { localStorage.setItem('cloudity_drive_recent_visible', String(next)) } catch { /* ignore */ }
+    setDriveSettings((prev) => {
+      const next = { ...prev, showRecentSection: !prev.showRecentSection }
+      saveDriveAppSettings(next)
       return next
     })
   }, [])
@@ -2203,6 +2218,11 @@ export default function DrivePage() {
         e.preventDefault()
         return
       }
+      if (e.key === 'Escape' && showDriveSettings) {
+        setShowDriveSettings(false)
+        e.preventDefault()
+        return
+      }
       if (e.key === 'Escape') {
         clearSelection()
         return
@@ -2217,7 +2237,7 @@ export default function DrivePage() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds.size, clearSelection, deleteModalTarget, purgeModalTarget, viewMode, editingId, handleCancelEdit])
+  }, [selectedIds.size, clearSelection, deleteModalTarget, purgeModalTarget, viewMode, editingId, handleCancelEdit, showDriveSettings])
 
   const handleRowSelect = useCallback(
     (node: DriveNode, index: number, e: React.MouseEvent) => {
@@ -2610,7 +2630,89 @@ export default function DrivePage() {
         onDropOnBreadcrumbRoot={onDropOnBreadcrumbRoot}
         displayMode={displayMode}
         onDisplayModeChange={setDisplayMode}
+        onOpenSettings={() => {
+          setSettingsDraft(driveSettings)
+          setShowDriveSettings(true)
+        }}
       />
+
+      {showDriveSettings && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="drive-settings-title"
+          onClick={() => setShowDriveSettings(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 id="drive-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                Paramètres Drive
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowDriveSettings(false)}
+                className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                aria-label="Fermer les paramètres Drive"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Affichage par défaut</span>
+                <select
+                  value={settingsDraft.displayMode}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, displayMode: e.target.value as DriveDisplayMode }))
+                  }
+                  className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                >
+                  <option value="grid">Grille</option>
+                  <option value="list">Liste</option>
+                </select>
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">
+                  Afficher la section Fichiers récents
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.showRecentSection}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, showRecentSection: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsDraft(DEFAULT_DRIVE_APP_SETTINGS)}
+                className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
+              >
+                Réinitialiser
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDriveSettings(settingsDraft)
+                  saveDriveAppSettings(settingsDraft)
+                  setShowDriveSettings(false)
+                  toast.success('Paramètres Drive enregistrés')
+                }}
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[min(420px,52vh)] max-h-[calc(100dvh-11rem)]">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex flex-wrap items-center gap-2 shrink-0">

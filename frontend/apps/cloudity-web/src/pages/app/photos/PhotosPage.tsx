@@ -532,6 +532,38 @@ export default function PhotosPage() {
   }, [])
 
   useEffect(() => {
+    if (tab !== 'timeline') return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (lightboxIndex !== null) return
+      if (photoContextMenu) {
+        e.preventDefault()
+        closePhotoContextMenu()
+        return
+      }
+      if (showPhotosSettings) {
+        e.preventDefault()
+        setShowPhotosSettings(false)
+        return
+      }
+      if (selectionMode) {
+        e.preventDefault()
+        exitPhotoSelectionMode()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [
+    tab,
+    lightboxIndex,
+    photoContextMenu,
+    showPhotosSettings,
+    selectionMode,
+    closePhotoContextMenu,
+    exitPhotoSelectionMode,
+  ])
+
+  useEffect(() => {
     if (tab !== 'timeline') {
       setSelectionMode(false)
       setSelectedIds(new Set())
