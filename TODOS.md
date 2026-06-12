@@ -45,6 +45,10 @@
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
 | **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt` ; reste : re-chiffrement automatique des blobs après changement de PIN | 🟡 |
 | **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; renforcer fortement les tests vault/E2EE (erreurs clé, tamper, rotation PIN, migration, Drive coffre) ; continuer Mail/Admin/Settings et parcours sécurité | 🟡 |
+| **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
+| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
+| **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles. | ☐ |
+| **H16** | **Mobile — UI et prévisualisations fichiers** | Thème clair/sombre cohérent sur toutes les apps Flutter ; prévisualisation mobile Photos/Drive : images, PDF, texte/Markdown/CSV et fallback téléchargement/ouverture système ; Office mobile à cadrer ensuite. | ☐ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 

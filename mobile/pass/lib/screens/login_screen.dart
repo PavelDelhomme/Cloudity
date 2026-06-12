@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../pass_api.dart';
@@ -20,6 +21,7 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
   final _tenantCtrl = TextEditingController(text: '1');
   String? _error;
   bool _busy = false;
+  bool _advancedGateway = false;
 
   @override
   void initState() {
@@ -49,7 +51,9 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
       _busy = true;
     });
     try {
-      final gateway = _gatewayCtrl.text.trim();
+      final gateway = PassSessionStore.hasBuildGateway && !(_advancedGateway && kDebugMode)
+          ? await PassSessionStore.gatewayOrDefault()
+          : _gatewayCtrl.text.trim();
       final api = PassApi(gateway);
       final tokens = await api.login(
         email: _emailCtrl.text.trim(),
@@ -95,17 +99,26 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
           const SizedBox(height: 20),
-          TextField(
-            key: const ValueKey('cloudity_pass_login_gateway'),
-            controller: _gatewayCtrl,
-            decoration: const InputDecoration(
-              labelText: 'URL gateway',
-              border: OutlineInputBorder(),
-              hintText: 'http://10.0.2.2:6080 (émulateur) ou http://IP_LAN:6080',
-            ),
-            keyboardType: TextInputType.url,
-          ),
-          const SizedBox(height: 12),
+          if (!PassSessionStore.hasBuildGateway || kDebugMode) ...[
+            if (kDebugMode && PassSessionStore.hasBuildGateway)
+              TextButton(
+                onPressed: () => setState(() => _advancedGateway = !_advancedGateway),
+                child: Text(_advancedGateway ? 'Masquer les réglages avancés' : 'Réglages avancés'),
+              ),
+            if (!PassSessionStore.hasBuildGateway || _advancedGateway) ...[
+              TextField(
+                key: const ValueKey('cloudity_pass_login_gateway'),
+                controller: _gatewayCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'URL gateway',
+                  border: OutlineInputBorder(),
+                  hintText: 'http://10.0.2.2:6080 (émulateur) ou http://IP_LAN:6080',
+                ),
+                keyboardType: TextInputType.url,
+              ),
+              const SizedBox(height: 12),
+            ],
+          ],
           TextField(
             key: const ValueKey('cloudity_pass_login_email'),
             controller: _emailCtrl,

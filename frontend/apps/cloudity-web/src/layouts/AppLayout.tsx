@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Link, useLocation, Outlet } from 'react-router-dom'
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   HardDrive,
@@ -31,10 +31,12 @@ import { NotificationsProvider, useNotifications } from '../notificationsContext
 import { formatRelativeDate } from '../utils/formatDate'
 import { fetchMailAccounts, syncMailAccount, type MailAccountResponse } from '../api'
 import { accountCanBackgroundImapSync, isMailSyncPasswordRequiredError } from '../pages/app/mail/mailSyncHelpers'
-import { showMailDesktopNotification } from '../lib/mailDesktopNotifications'
+import { registerMailNotificationClickHandler } from '../lib/mailDesktopNotifications'
+import { notifyNewMailMessages } from '../lib/mailNotifyNewMessages'
 
 function NotificationBell() {
   const ctx = useNotifications()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -84,7 +86,11 @@ function NotificationBell() {
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => { ctx.markAsRead(n.id); setOpen(false) }}
+                  onClick={() => {
+                    ctx.markAsRead(n.id)
+                    setOpen(false)
+                    if (n.href) navigate(n.href)
+                  }}
                   className={`w-full text-left px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-slate-700/50 ${!n.read ? 'bg-blue-50/50 dark:bg-slate-700/30' : ''}`}
                 >
                   <p className="text-sm font-medium text-gray-900 dark:text-slate-100">{n.title}</p>
@@ -105,24 +111,6 @@ function NotificationBell() {
 /** Un peu plus fréquent que 25 s pour que les notifs « nouveau mail » hors page Mail restent acceptables. */
 const GLOBAL_MAIL_SYNC_INTERVAL_MS = 18_000
 const GLOBAL_MAIL_VISIBILITY_SYNC_MIN_GAP_MS = 14_000
-
-function notifyNewMailForAccountGlobal(
-  notificationsCtx: ReturnType<typeof useNotifications>,
-  account: MailAccountResponse,
-  synced: number
-) {
-  if (!notificationsCtx || synced <= 0) return
-  const name = (account.label?.trim() || account.email || `Boîte #${account.id}`).trim()
-  notificationsCtx.addNotification({
-    type: 'info',
-    title: synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
-    message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
-  })
-  showMailDesktopNotification('Cloudity Mail', {
-    body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
-    tag: `cloudity-mail-global-${account.id}`,
-  })
-}
 
 /** Sync mail globale hors page Mail pour garder les notifications actives dans toute l'app. */
 function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
@@ -161,7 +149,10 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
         if (!accountCanBackgroundImapSync(acc)) continue
         try {
           const r = await syncMailAccount(token, acc.id)
-          notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
+          void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
+            title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
+            desktopTitle: 'Cloudity Mail',
+          })
         } catch (e) {
           if (isMailSyncPasswordRequiredError(e)) continue
           // Autres erreurs IMAP : on continue sur les autres comptes.
@@ -190,7 +181,10 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
           if (!accountCanBackgroundImapSync(acc)) continue
           try {
             const r = await syncMailAccount(token, acc.id)
-            notifyNewMailForAccountGlobal(notificationsRef.current, acc, r.synced)
+            void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
+              title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
+              desktopTitle: 'Cloudity Mail',
+            })
           } catch (e) {
             if (isMailSyncPasswordRequiredError(e)) continue
           }
@@ -271,7 +265,13 @@ function getInitialSidebarVisible(): boolean {
 
 export default function AppLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { email, logout } = useAuth()
+
+  useEffect(() => {
+    registerMailNotificationClickHandler((href) => navigate(href))
+    return () => registerMailNotificationClickHandler(null)
+  }, [navigate])
   const isDrive = location.pathname.startsWith('/app/drive')
   const isMailRoute = location.pathname.startsWith('/app/mail')
   const [driveInputsReady, setDriveInputsReady] = useState(false)

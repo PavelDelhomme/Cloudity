@@ -6,7 +6,14 @@ import 'auth_api.dart';
 import 'storage_keys.dart';
 
 const _sessionRestoreTimeout = Duration(seconds: 10);
-const String _kBuildGateway = String.fromEnvironment('CLOUDITY_E2E_GATEWAY', defaultValue: '');
+const String _kBuildGateway = String.fromEnvironment('CLOUDITY_GATEWAY_URL', defaultValue: '');
+const String _kE2EGateway = String.fromEnvironment('CLOUDITY_E2E_GATEWAY', defaultValue: '');
+
+String get _buildGateway {
+  final configured = _kBuildGateway.trim();
+  if (configured.isNotEmpty) return configured;
+  return _kE2EGateway.trim();
+}
 
 class SessionStore {
   SessionStore._();
@@ -75,17 +82,20 @@ class SessionStore {
     }
   }
 
+  /// Gateway injecté au build (`--dart-define=CLOUDITY_GATEWAY_URL`) — masque le champ URL au login.
+  static bool get hasBuildGateway => _buildGateway.isNotEmpty;
+
   static Future<String> gatewayOrDefault() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(CloudityStorageKeys.gatewayUrl) ??
-        (_kBuildGateway.trim().isNotEmpty ? _kBuildGateway.trim() : CloudityStorageKeys.defaultGateway);
+        (_buildGateway.isNotEmpty ? _buildGateway : CloudityStorageKeys.defaultGateway);
   }
 
   static Future<List<String>> gatewayCandidates() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString(CloudityStorageKeys.gatewayUrl);
     final candidates = <String>[
-      if (_kBuildGateway.trim().isNotEmpty) _kBuildGateway.trim(),
+      if (_buildGateway.isNotEmpty) _buildGateway,
       'http://127.0.0.1:6080',
       if (saved != null && saved.trim().isNotEmpty) saved.trim(),
       CloudityStorageKeys.defaultGateway,

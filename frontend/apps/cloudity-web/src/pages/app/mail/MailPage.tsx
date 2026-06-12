@@ -128,7 +128,8 @@ import {
   resolveAliasEmailInput,
   subscribeAliasSuffixChanges,
 } from '../../../lib/mailAlias'
-import { showMailDesktopNotification } from '../../../lib/mailDesktopNotifications'
+import { parseMailDeepLink } from '../../../lib/mailNotificationDeepLink'
+import { notifyNewMailMessages } from '../../../lib/mailNotifyNewMessages'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
@@ -185,28 +186,6 @@ function mailUnreadListRowSurface(selected: boolean): string {
 }
 
 type DraftLocal = { to: string; subject: string; body: string; fromAddress?: string; updatedAt: string }
-
-function notifyNewMailForAccount(
-  ctx: ReturnType<typeof useNotifications>,
-  account: MailAccountResponse,
-  synced: number
-): void {
-  if (!ctx || synced <= 0) return
-  const name = (account.label && account.label.trim()) || account.email
-  ctx.addNotification({
-    title: 'Nouveau courrier',
-    message: synced === 1 ? `${name} — 1 nouveau message` : `${name} — ${synced} nouveaux messages`,
-    type: 'info',
-  })
-  showMailDesktopNotification(
-    'Cloudity — Courrier',
-    {
-      body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
-      tag: `cloudity-mail-${account.id}`,
-    },
-    { requireHidden: true }
-  )
-}
 
 function warnIfSyncPasswordNotStored(
   r: { password_stored?: boolean; message?: string },
@@ -1821,6 +1800,12 @@ export default function MailPage() {
   const lastBackgroundSyncStartAtRef = useRef<number>(0)
   const notificationsRef = useRef(notifications)
   notificationsRef.current = notifications
+  const pendingMailDeepLinkRef = useRef<{
+    accountId: number
+    messageId?: number
+    folder?: string
+  } | null>(null)
+  const [mailDeepLinkNonce, setMailDeepLinkNonce] = useState(0)
   const refetchMessagesRef = useRef(refetchMessages)
   refetchMessagesRef.current = refetchMessages
 
@@ -1949,7 +1934,9 @@ export default function MailPage() {
           if (!acc) continue
           try {
             const r = await syncMailAccount(token, id, undefined, syncExtraImapOptions(id))
-            notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
+            void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
+              desktopRequireHidden: true,
+            })
           } catch (e) {
             if (isMailSyncPasswordRequiredError(e)) {
               setSyncAccountId(id)
@@ -1991,6 +1978,18 @@ export default function MailPage() {
       prev.ids.length === 0 && Object.keys(prev.accountById).length === 0 ? prev : { ids: [], accountById: {} }
     )
   }, [effectiveAccountId, activeFolder])
+
+  useEffect(() => {
+    const pending = pendingMailDeepLinkRef.current
+    if (!pending || pending.accountId !== effectiveAccountId) return
+    if (pending.folder != null && pending.folder !== activeFolder) return
+    if (pending.messageId != null) {
+      setSelectedMessageId(pending.messageId)
+      setSelectedMessageAccountId(pending.accountId)
+      setMailMobilePane('read')
+    }
+    pendingMailDeepLinkRef.current = null
+  }, [mailDeepLinkNonce, effectiveAccountId, activeFolder])
 
   /** À l'ouverture de la boîte mail (ou au changement de compte), sync IMAP puis rafraîchir la liste. */
   useEffect(() => {
@@ -2294,6 +2293,31 @@ export default function MailPage() {
     openNewCompose({ to })
   }, [searchParams, setSearchParams, openNewCompose])
 
+  useEffect(() => {
+    const target = parseMailDeepLink(searchParams)
+    if (!target) return
+    if (accounts.length === 0) return
+    if (!accounts.some((a) => a.id === target.accountId)) return
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('account')
+        n.delete('message')
+        n.delete('folder')
+        return n
+      },
+      { replace: true }
+    )
+    pendingMailDeepLinkRef.current = {
+      accountId: target.accountId,
+      messageId: target.messageId,
+      folder: target.folder ?? 'inbox',
+    }
+    setSelectedAccountId(target.accountId)
+    setActiveFolder((target.folder ?? 'inbox') as MailFolderId)
+    setMailDeepLinkNonce((n) => n + 1)
+  }, [searchParams, setSearchParams, accounts])
+
   const handleConnectGoogle = useCallback(async () => {
     if (!accessToken) return
     setGoogleConnecting(true)
@@ -2440,7 +2464,11 @@ export default function MailPage() {
             void refetchMessagesRef.current()
           }
           const acc = accountsRef.current.find((a) => a.id === accountId)
-          if (acc) notifyNewMailForAccount(notificationsRef.current, acc, r.synced)
+          if (acc) {
+            void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
+              desktopRequireHidden: true,
+            })
+          }
           const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
           toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
         } catch (e) {

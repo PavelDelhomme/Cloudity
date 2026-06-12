@@ -37,11 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    if (kDebugMode) {
+    if (kDebugMode && !SessionStore.hasBuildGateway) {
       _fillLocalDemoAccount();
     }
     SessionStore.gatewayOrDefault().then((url) {
-      if (mounted && !_advancedGateway) _gatewayCtrl.text = url;
+      if (mounted) _gatewayCtrl.text = url;
     });
     SessionStore.listBrokerAccounts().then((accounts) {
       if (mounted) setState(() => _brokerAccounts = accounts);
@@ -294,23 +294,25 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           obscureText: true,
         ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => setState(() => _advancedGateway = !_advancedGateway),
-          child: Text(_advancedGateway ? 'Masquer les réglages avancés' : 'Réglages avancés'),
-        ),
-        if (_advancedGateway) ...[
-          const SizedBox(height: 8),
-          TextField(
-            key: const ValueKey('cloudity_photos_login_gateway'),
-            controller: _gatewayCtrl,
-            decoration: const InputDecoration(
-              labelText: 'URL gateway',
-              border: OutlineInputBorder(),
-              hintText: 'http://127.0.0.1:6080 (USB) ou http://10.0.2.2:6080',
-            ),
-            keyboardType: TextInputType.url,
+        if (!SessionStore.hasBuildGateway || kDebugMode) ...[
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () => setState(() => _advancedGateway = !_advancedGateway),
+            child: Text(_advancedGateway ? 'Masquer les réglages avancés' : 'Réglages avancés'),
           ),
+          if (_advancedGateway || !SessionStore.hasBuildGateway) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const ValueKey('cloudity_photos_login_gateway'),
+              controller: _gatewayCtrl,
+              decoration: const InputDecoration(
+                labelText: 'URL gateway',
+                border: OutlineInputBorder(),
+                hintText: 'http://127.0.0.1:6080 (USB) ou http://10.0.2.2:6080',
+              ),
+              keyboardType: TextInputType.url,
+            ),
+          ],
         ],
         if (_error != null) ...[
           const SizedBox(height: 12),
