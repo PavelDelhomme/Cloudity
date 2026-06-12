@@ -33,6 +33,9 @@ backend/*/tmp/main
 test.html
 *.tmp.html
 
+# Préférences locales Cursor IDE (ne pas versionner)
+.cursor/
+
 # Env local (secrets, ne pas committer)
 .env
 deploy/mail-mta/.env

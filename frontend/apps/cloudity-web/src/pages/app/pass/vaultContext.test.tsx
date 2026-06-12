@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { AUTO_LOCK_AFTER_MS, VaultProvider, useVault } from './vaultContext'
 
 /**
@@ -57,6 +57,7 @@ describe('VaultProvider / useVault', () => {
   })
 
   it('unlock pose la master key, lock la zeroïse', async () => {
+    vi.useRealTimers()
     render(
       <VaultProvider>
         <Probe />
@@ -64,9 +65,10 @@ describe('VaultProvider / useVault', () => {
     )
     await act(async () => {
       screen.getByText('do-unlock').click()
-      await vi.runAllTimersAsync()
     })
-    expect(screen.getByTestId('status').textContent).toBe('unlocked')
+    await waitFor(() => {
+      expect(screen.getByTestId('status').textContent).toBe('unlocked')
+    })
     expect(screen.getByTestId('mk-first').textContent).toBe(String(MOCK_MK_VALUE))
 
     await act(async () => {
@@ -85,7 +87,8 @@ describe('VaultProvider / useVault', () => {
     )
     await act(async () => {
       screen.getByText('do-unlock').click()
-      await vi.runAllTimersAsync()
+      await Promise.resolve()
+      await Promise.resolve()
     })
     expect(screen.getByTestId('status').textContent).toBe('unlocked')
 

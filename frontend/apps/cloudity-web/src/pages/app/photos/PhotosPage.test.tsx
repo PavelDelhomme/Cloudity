@@ -42,6 +42,7 @@ function wrap(ui: React.ReactElement) {
 
 describe('PhotosPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     try {
       localStorage.clear()
       sessionStorage.clear()
@@ -380,6 +381,69 @@ describe('PhotosPage', () => {
     expect(screen.getByText('2 sélectionnées')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Désélectionner day-a\.jpg/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Désélectionner day-b\.jpg/ })).toBeTruthy()
+  })
+
+  it('paramètres : désactive la confirmation archive/verrouillage', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    render(wrap(<PhotosPage />))
+    fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Photos' }))
+    fireEvent.click(screen.getByLabelText('Confirmer archive et verrouillage'))
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => {
+      const raw = localStorage.getItem('cloudity.photos.appSettings.v1')
+      expect(raw).toContain('"confirmArchiveLock":false')
+    })
+  })
+
+  it('onglet Verrouillé : déverrouille avec le code puis charge les photos', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosLocked).mockResolvedValue([
+      {
+        id: 91,
+        tenant_id: 1,
+        user_id: 1,
+        parent_id: null,
+        name: 'secret.jpg',
+        is_folder: false,
+        size: 5,
+        mime_type: 'image/jpeg',
+        created_at: '2026-01-10T12:00:00.000Z',
+        updated_at: '2026-01-10T12:00:00.000Z',
+        photo_locked_at: '2026-01-11T12:00:00.000Z',
+      },
+    ])
+    await setupPhotosLockedPin('1:user@test.com', '4321', '4321')
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=locked']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    await screen.findByText(/Coffre verrouillé/)
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '4321' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
+    await waitFor(() => {
+      expect(api.fetchDrivePhotosLocked).toHaveBeenCalledWith('token')
+    })
+    await screen.findByRole('button', { name: /Ouvrir secret\.jpg/ })
   })
 
   it('affiche le bouton Paramètres Photos', async () => {

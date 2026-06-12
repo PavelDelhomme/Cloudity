@@ -47,6 +47,19 @@ describe('PhotosLockedGate', () => {
     expect(onUnlocked).not.toHaveBeenCalled()
   })
 
+  it('déverrouille avec le bon code', async () => {
+    await setupPhotosLockedPin(SCOPE, '1234', '1234')
+    const onUnlocked = vi.fn()
+    render(<PhotosLockedGate scope={SCOPE} onUnlocked={onUnlocked} />)
+
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
+
+    await waitFor(() => {
+      expect(onUnlocked).toHaveBeenCalledTimes(1)
+    })
+  })
+
   it('garde le coffre fermé si la biométrie est annulée', async () => {
     await setupPhotosLockedPin(SCOPE, '1234', '1234')
     mockWebAuthn(
