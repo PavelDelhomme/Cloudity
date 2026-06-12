@@ -106,6 +106,8 @@ class _TimelineScreenState extends State<TimelineScreen>
   bool _lockedUnlocked = false;
   String? _lockedError;
   bool _backupEnabled = false;
+  bool _backupPendingWork = false;
+  GallerySyncLastRun? _backupLastRun;
   Set<String> _backupAlbumIds = {};
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
@@ -150,10 +152,14 @@ class _TimelineScreenState extends State<TimelineScreen>
   Future<void> _loadBackupStatus() async {
     final enabled = await GallerySyncPrefs.isBackupEnabled();
     final albumIds = await GallerySyncPrefs.selectedAlbumIds();
+    final pendingWork = await GallerySyncPrefs.hasPendingWork();
+    final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _backupEnabled = enabled;
       _backupAlbumIds = albumIds;
+      _backupPendingWork = pendingWork;
+      _backupLastRun = lastRun;
     });
   }
 
@@ -166,15 +172,32 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   IconData get _backupIcon {
+    if (_backupEnabled && _backupPendingWork) return Icons.cloud_sync_outlined;
     return _backupEnabled
         ? Icons.cloud_done_outlined
         : Icons.cloud_off_outlined;
   }
 
   String get _backupTooltip {
+    if (_backupEnabled && _backupPendingWork) {
+      return 'Sauvegarde Photos : suite planifiée en arrière-plan';
+    }
     return _backupEnabled
         ? 'Synchronisation active : $_backupTargetLabel'
         : 'Synchronisation désactivée';
+  }
+
+  String get _backupStatusSummary {
+    if (!_backupEnabled) return 'Aucune photo ne sera envoyée automatiquement.';
+    if (_backupPendingWork) {
+      return 'Suite planifiée en arrière-plan · $_backupTargetLabel';
+    }
+    final run = _backupLastRun;
+    if (run?.failed == true) return 'Dernier passage : ${run!.error}';
+    if (run != null) {
+      return '${run.uploaded} envoyée(s), ${run.skipped} déjà à jour/ignorée(s) · $_backupTargetLabel';
+    }
+    return _backupTargetLabel;
   }
 
   Future<void> _reload({bool silent = false}) async {
@@ -1094,11 +1117,7 @@ class _TimelineScreenState extends State<TimelineScreen>
                 ? 'Synchronisation active'
                 : 'Synchronisation arrêtée',
           ),
-          subtitle: Text(
-            _backupEnabled
-                ? _backupTargetLabel
-                : 'Aucune photo ne sera envoyée automatiquement.',
-          ),
+          subtitle: Text(_backupStatusSummary),
           trailing: const Icon(Icons.chevron_right),
           onTap: _openBackupSettings,
         ),
@@ -1191,12 +1210,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             ListTile(
               leading: Icon(_backupIcon),
               title: Text(
-                _backupEnabled
+                _backupEnabled && _backupPendingWork
+                    ? 'Sauvegarde en arrière-plan'
+                    : _backupEnabled
                     ? 'Synchronisation active'
                     : 'Synchronisation arrêtée',
               ),
               subtitle: Text(
-                _backupEnabled ? _backupTargetLabel : 'Ouvrir les réglages',
+                _backupEnabled ? _backupStatusSummary : 'Ouvrir les réglages',
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -1257,7 +1278,10 @@ class _TimelineScreenState extends State<TimelineScreen>
             )
           else ...[
             IconButton(
-              icon: Icon(_backupIcon),
+              icon: _BackupAppBarIcon(
+                icon: _backupIcon,
+                animated: _backupEnabled && _backupPendingWork,
+              ),
               tooltip: _backupTooltip,
               onPressed: _openBackupSettings,
             ),
@@ -1412,6 +1436,30 @@ class _CloudityPhotoImageState extends State<_CloudityPhotoImage> {
 class _PhotoLoadRetryable implements Exception {
   const _PhotoLoadRetryable(this.code);
   final String code;
+}
+
+class _BackupAppBarIcon extends StatelessWidget {
+  const _BackupAppBarIcon({required this.icon, required this.animated});
+
+  final IconData icon;
+  final bool animated;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!animated) return Icon(icon);
+    final color = Theme.of(context).colorScheme.primary;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2, color: color),
+        ),
+        Icon(icon, size: 19),
+      ],
+    );
+  }
 }
 
 class _PhotoViewerPage extends StatefulWidget {

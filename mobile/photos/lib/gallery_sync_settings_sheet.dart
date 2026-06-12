@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
@@ -24,14 +25,23 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   bool _wifiOnly = true;
   bool _requireCharging = false;
   bool _running = false;
+  bool _pendingWork = false;
   Set<String> _selectedAlbumIds = {};
   GallerySyncLastRun? _lastRun;
   String? _lastMessage;
+  Timer? _statusTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _statusTimer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -40,6 +50,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     final charging = await GallerySyncPrefs.requireCharging();
     final selectedAlbumIds = await GallerySyncPrefs.selectedAlbumIds();
     final lastRun = await GallerySyncPrefs.lastRun();
+    final pendingWork = await GallerySyncPrefs.hasPendingWork();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
@@ -47,6 +58,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _requireCharging = charging;
       _selectedAlbumIds = selectedAlbumIds;
       _lastRun = lastRun;
+      _pendingWork = pendingWork;
       _loading = false;
     });
   }
@@ -74,16 +86,19 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (value) {
       await enqueueGalleryBackupNow();
       if (mounted) {
-        setState(
-          () => _lastMessage =
-              'Première sauvegarde planifiée (Wi‑Fi / charge selon options).',
-        );
+        setState(() {
+          _pendingWork = true;
+          _lastMessage =
+              'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
+        });
       }
     } else if (mounted) {
-      setState(
-        () => _lastMessage =
-            'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.',
-      );
+      await GallerySyncPrefs.clearScanCursor();
+      setState(() {
+        _pendingWork = false;
+        _lastMessage =
+            'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.';
+      });
     }
   }
 
@@ -95,6 +110,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   Future<void> _runNow() async {
     setState(() {
       _running = true;
+      _pendingWork = true;
       _lastMessage = null;
     });
     final result = await runGalleryBackupJob();
@@ -106,6 +122,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     setState(() {
       _running = false;
       _lastRun = lastRun;
+      _pendingWork = result.hasMore;
       if (result.skipped) {
         _lastMessage = result.reason ?? 'Passage ignoré.';
       } else {
@@ -137,6 +154,28 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
         : '${at.day.toString().padLeft(2, '0')}/${at.month.toString().padLeft(2, '0')} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
     if (run.failed) return 'Dernier passage $when : ${run.error}';
     return 'Dernier passage $when : ${run.uploaded} envoyée(s), ${run.skipped} déjà à jour/ignorée(s).';
+  }
+
+  String get _liveStatusTitle {
+    if (!_enabled) return 'Sauvegarde désactivée';
+    if (_running) return 'Sauvegarde en cours…';
+    if (_pendingWork) return 'Suite planifiée en arrière-plan';
+    if (_lastRun?.failed == true) return 'Dernier passage en erreur';
+    return 'Sauvegarde prête';
+  }
+
+  String get _liveStatusSubtitle {
+    if (!_enabled) {
+      return 'Active-la pour envoyer automatiquement les nouvelles photos.';
+    }
+    if (_running) {
+      return 'Cloudity analyse les dossiers sélectionnés et envoie un lot de photos.';
+    }
+    if (_pendingWork) {
+      return 'Le prochain lot continuera même si ce panneau est fermé.';
+    }
+    if (_lastRun?.failed == true) return _lastRun!.error ?? 'Erreur inconnue';
+    return 'Les prochains passages seront lancés par Android WorkManager.';
   }
 
   Future<void> _selectAlbums() async {
@@ -285,6 +324,14 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 12),
+            _GalleryBackupLiveStatusCard(
+              active: _enabled,
+              animated: _running || _pendingWork,
+              error: _lastRun?.failed == true,
+              title: _liveStatusTitle,
+              subtitle: _liveStatusSubtitle,
+            ),
+            const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Activer la sauvegarde'),
@@ -367,6 +414,102 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _GalleryBackupLiveStatusCard extends StatelessWidget {
+  const _GalleryBackupLiveStatusCard({
+    required this.active,
+    required this.animated,
+    required this.error,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool active;
+  final bool animated;
+  final bool error;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = error
+        ? colorScheme.error
+        : active
+        ? colorScheme.primary
+        : colorScheme.outline;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: active ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PulsingCloudIcon(color: color, animated: animated),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    title,
+                    key: ValueKey(title),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                if (animated) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      backgroundColor: color.withValues(alpha: 0.14),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingCloudIcon extends StatelessWidget {
+  const _PulsingCloudIcon({required this.color, required this.animated});
+
+  final Color color;
+  final bool animated;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!animated) {
+      return Icon(Icons.cloud_done_outlined, color: color, size: 30);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.86, end: 1.08),
+      duration: const Duration(milliseconds: 850),
+      curve: Curves.easeInOut,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      onEnd: () {},
+      child: Icon(Icons.cloud_sync_outlined, color: color, size: 30),
     );
   }
 }
