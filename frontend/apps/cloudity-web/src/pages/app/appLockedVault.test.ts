@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   appLockedVaultScope,
+  changeAppLockedPin,
   clearAppLockedVault,
   grantAppLockedVaultSession,
   isAppLockedVaultUnlocked,
@@ -32,6 +33,16 @@ describe('appLockedVault', () => {
     await expect(setupAppLockedPin('drive', SCOPE, '1234', '1234')).resolves.toEqual({ ok: true })
     await expect(verifyAppLockedPin('drive', SCOPE, '0000')).resolves.toBe(false)
     await expect(verifyAppLockedPin('drive', SCOPE, '1234')).resolves.toBe(true)
+  })
+
+  it('change le code PIN après vérification du code actuel', async () => {
+    await setupAppLockedPin('drive', SCOPE, '1234', '1234')
+    await expect(changeAppLockedPin('drive', SCOPE, '9999', '5678', '5678')).resolves.toEqual({
+      ok: false,
+      error: 'Code actuel incorrect.',
+    })
+    await expect(changeAppLockedPin('drive', SCOPE, '1234', '5678', '5678')).resolves.toEqual({ ok: true })
+    await expect(verifyAppLockedPin('drive', SCOPE, '5678')).resolves.toBe(true)
   })
 
   it('gère la session temporaire du coffre', () => {

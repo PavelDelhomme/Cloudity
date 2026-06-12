@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { FileText, Lock, Plus, Settings, X } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import { fetchNotes, createNote } from '../../../api'
 import { AppLockedGate } from '../AppLockedGate'
+import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
+import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
 import {
   APP_LOCKED_SESSION_TTL_MS,
   appLockedVaultScope,
@@ -73,11 +75,19 @@ export default function NotesPage() {
     setNotesVaultUnlocked(true)
   }
 
-  const lockNotesVault = () => {
+  const lockNotesVault = useCallback(() => {
     revokeAppLockedVaultSession('notes', notesVaultScope)
     setNotesVaultUnlocked(false)
     queryClient.removeQueries({ queryKey: ['notes'] })
-  }
+  }, [notesVaultScope, queryClient])
+
+  useAppLockedVaultAutoLock(
+    'notes',
+    notesVaultScope,
+    notesSettings.lockEnabled,
+    notesVaultUnlocked,
+    lockNotesVault
+  )
 
   const createMutation = useMutation({
     mutationFn: () => createNote(accessToken!, title || 'Sans titre', content),
@@ -201,6 +211,9 @@ export default function NotesPage() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </label>
+              {settingsDraft.lockEnabled ? (
+                <AppLockedPinChangeSection kind="notes" scope={notesVaultScope} appLabel="Notes" />
+              ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button

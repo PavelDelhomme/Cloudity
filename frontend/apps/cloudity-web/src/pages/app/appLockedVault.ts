@@ -212,6 +212,18 @@ export async function registerAppLockedWebAuthn(kind: AppLockedVaultKind, scope:
   })
 }
 
+export async function changeAppLockedPin(
+  kind: AppLockedVaultKind,
+  scope: string,
+  currentPin: string,
+  nextPin: string,
+  confirmPin: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const valid = await verifyAppLockedPin(kind, scope, currentPin)
+  if (!valid) return { ok: false, error: 'Code actuel incorrect.' }
+  return setupAppLockedPin(kind, scope, nextPin, confirmPin)
+}
+
 export async function unlockAppLockedWithWebAuthn(kind: AppLockedVaultKind, scope: string): Promise<boolean> {
   if (!isAppLockedWebAuthnSupported()) return false
   const vault = readVault(kind, scope)

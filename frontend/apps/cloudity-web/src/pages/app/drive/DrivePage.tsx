@@ -36,6 +36,8 @@ import {
   Settings,
 } from 'lucide-react'
 import { AppLockedGate } from '../AppLockedGate'
+import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
+import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
 import {
   APP_LOCKED_SESSION_TTL_MS,
   appLockedVaultScope,
@@ -1896,6 +1898,14 @@ export default function DrivePage() {
     void queryClient.removeQueries({ queryKey: ['drive'] })
   }, [driveVaultScope, queryClient])
 
+  useAppLockedVaultAutoLock(
+    'drive',
+    driveVaultScope,
+    driveSettings.lockEnabled,
+    driveVaultUnlocked,
+    lockDriveVault
+  )
+
   useEffect(() => {
     setDriveParentId(currentParentId)
     return () => setDriveParentId(null)
@@ -2765,6 +2775,9 @@ export default function DrivePage() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </label>
+              {settingsDraft.lockEnabled ? (
+                <AppLockedPinChangeSection kind="drive" scope={driveVaultScope} appLabel="Drive" />
+              ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button

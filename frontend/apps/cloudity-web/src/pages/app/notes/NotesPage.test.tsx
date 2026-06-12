@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NotesPage from './NotesPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
-import { setupAppLockedPin } from '../appLockedVault'
+import { setupAppLockedPin, verifyAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -78,6 +78,25 @@ describe('NotesPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Contenu sensible à masquer')).toBeNull()
+    })
+  })
+
+  it('paramètres : change le code PIN du coffre Notes', async () => {
+    localStorage.setItem(
+      'cloudity.notes.appSettings.v1',
+      JSON.stringify({ sortOrder: 'newest', showContentPreview: true, lockEnabled: true })
+    )
+    await setupAppLockedPin('notes', '1:notes:user@test.com', '1234', '1234')
+    render(wrap(<NotesPage />))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Paramètres Notes' }))
+    fireEvent.change(screen.getByLabelText('Code actuel'), { target: { value: '1234' } })
+    fireEvent.change(screen.getByLabelText('Nouveau code'), { target: { value: '5678' } })
+    fireEvent.change(screen.getByLabelText('Confirmer le nouveau code'), { target: { value: '5678' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Changer le code PIN' }))
+
+    await waitFor(async () => {
+      await expect(verifyAppLockedPin('notes', '1:notes:user@test.com', '5678')).resolves.toBe(true)
     })
   })
 

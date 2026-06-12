@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock } from 'lucide-react'
 import { AppLockedGate } from '../AppLockedGate'
+import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
+import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
 import {
   APP_LOCKED_SESSION_TTL_MS,
   appLockedVaultScope,
@@ -82,14 +84,22 @@ export default function ContactsPage() {
     setContactsVaultUnlocked(true)
   }
 
-  const lockContactsVault = () => {
+  const lockContactsVault = useCallback(() => {
     revokeAppLockedVaultSession('contacts', contactsVaultScope)
     setContactsVaultUnlocked(false)
     setSelectedId(null)
     setShowForm(false)
     setImportPreview(null)
     queryClient.removeQueries({ queryKey: ['contacts'] })
-  }
+  }, [contactsVaultScope, queryClient])
+
+  useAppLockedVaultAutoLock(
+    'contacts',
+    contactsVaultScope,
+    contactsSettings.lockEnabled,
+    contactsVaultUnlocked,
+    lockContactsVault
+  )
 
   useEffect(() => {
     const q = searchParams.get('q')
@@ -409,6 +419,9 @@ export default function ContactsPage() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </label>
+              {settingsDraft.lockEnabled ? (
+                <AppLockedPinChangeSection kind="contacts" scope={contactsVaultScope} appLabel="Contacts" />
+              ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
