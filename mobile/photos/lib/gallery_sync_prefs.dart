@@ -11,6 +11,10 @@ class GallerySyncPrefs {
   static const _lastUploaded = 'cloudity_photos_gallery_last_uploaded_v1';
   static const _lastSkipped = 'cloudity_photos_gallery_last_skipped_v1';
   static const _lastError = 'cloudity_photos_gallery_last_error_v1';
+  static const _scanCursorAlbumId =
+      'cloudity_photos_gallery_scan_cursor_album_id_v1';
+  static const _scanCursorPage = 'cloudity_photos_gallery_scan_cursor_page_v1';
+  static const _hasPendingWork = 'cloudity_photos_gallery_has_pending_work_v1';
   static const _uploadedPrefix = 'cloudity_photos_uploaded_asset:';
 
   static Future<bool> isBackupEnabled() async {
@@ -95,6 +99,43 @@ class GallerySyncPrefs {
     final p = await SharedPreferences.getInstance();
     await p.setBool('$_uploadedPrefix$assetId', true);
   }
+
+  static Future<GallerySyncScanCursor?> scanCursor() async {
+    final p = await SharedPreferences.getInstance();
+    final albumId = p.getString(_scanCursorAlbumId);
+    if (albumId == null || albumId.isEmpty) return null;
+    final page = p.getInt(_scanCursorPage) ?? 0;
+    return GallerySyncScanCursor(albumId: albumId, page: page < 0 ? 0 : page);
+  }
+
+  static Future<void> saveScanCursor({
+    required String albumId,
+    required int page,
+  }) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_scanCursorAlbumId, albumId.trim());
+    await p.setInt(_scanCursorPage, page < 0 ? 0 : page);
+    await p.setBool(_hasPendingWork, true);
+  }
+
+  static Future<void> clearScanCursor() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_scanCursorAlbumId);
+    await p.remove(_scanCursorPage);
+    await p.setBool(_hasPendingWork, false);
+  }
+
+  static Future<bool> hasPendingWork() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_hasPendingWork) ?? false;
+  }
+}
+
+class GallerySyncScanCursor {
+  const GallerySyncScanCursor({required this.albumId, required this.page});
+
+  final String albumId;
+  final int page;
 }
 
 class GallerySyncLastRun {

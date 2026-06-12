@@ -58,16 +58,36 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
 
   var uploaded = 0;
   var skipped = 0;
+  var hasMore = false;
+  final cursor = await GallerySyncPrefs.scanCursor();
+  var startAlbumIndex = 0;
+  var startPage = 0;
+  if (cursor != null) {
+    final idx = selectedPaths.indexWhere((path) => path.id == cursor.albumId);
+    if (idx >= 0) {
+      startAlbumIndex = idx;
+      startPage = cursor.page;
+    }
+  }
 
-  for (final path in selectedPaths) {
-    for (var page = 0; page < _maxPagesPerAlbum; page++) {
+  for (
+    var albumIndex = startAlbumIndex;
+    albumIndex < selectedPaths.length;
+    albumIndex++
+  ) {
+    final path = selectedPaths[albumIndex];
+    final firstPage = albumIndex == startAlbumIndex ? startPage : 0;
+    for (var page = firstPage; page < _maxPagesPerAlbum; page++) {
       final assets = await path.getAssetListPaged(
         page: page,
         size: _scanPageSize,
       );
       if (assets.isEmpty) break;
       for (final asset in assets) {
-        if (uploaded >= _batchSize) break;
+        if (uploaded >= _batchSize) {
+          hasMore = true;
+          break;
+        }
         if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
           skipped++;
           continue;
@@ -94,13 +114,29 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
           skipped++;
         }
       }
-      if (uploaded >= _batchSize || assets.length < _scanPageSize) break;
+      if (uploaded >= _batchSize) {
+        hasMore = true;
+        await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page);
+        break;
+      }
+      if (assets.length < _scanPageSize) break;
+      if (page == _maxPagesPerAlbum - 1) {
+        hasMore = true;
+        await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page + 1);
+      }
     }
     if (uploaded >= _batchSize) break;
   }
 
+  if (!hasMore) {
+    await GallerySyncPrefs.clearScanCursor();
+  }
   await GallerySyncPrefs.saveLastRun(uploaded: uploaded, skipped: skipped);
-  return GalleryBackupResult(uploaded: uploaded, skippedCount: skipped);
+  return GalleryBackupResult(
+    uploaded: uploaded,
+    skippedCount: skipped,
+    hasMore: hasMore,
+  );
 }
 
 Future<GalleryBackupResult> _skipped(String reason) async {
@@ -121,10 +157,12 @@ class GalleryBackupResult {
     this.skippedCount = 0,
     this.skipped = false,
     this.reason,
+    this.hasMore = false,
   });
 
   final int uploaded;
   final int skippedCount;
   final bool skipped;
   final String? reason;
+  final bool hasMore;
 }

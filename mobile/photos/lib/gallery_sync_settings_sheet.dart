@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'gallery_backup.dart';
+import 'gallery_album_catalog.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_sync_scheduler.dart';
@@ -97,6 +98,9 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _lastMessage = null;
     });
     final result = await runGalleryBackupJob();
+    if (result.hasMore) {
+      await enqueueGalleryBackupNow();
+    }
     final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
@@ -105,8 +109,11 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       if (result.skipped) {
         _lastMessage = result.reason ?? 'Passage ignoré.';
       } else {
+        final suffix = result.hasMore
+            ? ' Suite planifiée en arrière-plan.'
+            : '';
         _lastMessage =
-            '${result.uploaded} photo(s) envoyée(s) · ${result.skippedCount} déjà à jour ou ignorée(s).';
+            '${result.uploaded} photo(s) envoyée(s) · ${result.skippedCount} déjà à jour ou ignorée(s).$suffix';
       }
     });
   }
@@ -144,6 +151,13 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       type: RequestType.image,
       hasAll: false,
     );
+    final sortedAlbums = [...albums]
+      ..sort((a, b) {
+        final pa = describeGalleryAlbum(a.name);
+        final pb = describeGalleryAlbum(b.name);
+        if (pa.suggested != pb.suggested) return pa.suggested ? -1 : 1;
+        return pa.label.compareTo(pb.label);
+      });
     if (!mounted) return;
 
     var draft = Set<String>.of(_selectedAlbumIds);
@@ -154,7 +168,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
           title: const Text('Dossiers à sauvegarder'),
           content: SizedBox(
             width: double.maxFinite,
-            child: albums.isEmpty
+            child: sortedAlbums.isEmpty
                 ? const Text('Aucun dossier photo trouvé sur ce téléphone.')
                 : ListView(
                     shrinkWrap: true,
@@ -170,19 +184,32 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
                             setDialogState(() => draft = <String>{}),
                       ),
                       const Divider(),
-                      for (final album in albums)
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(album.name),
-                          value: draft.contains(album.id),
-                          onChanged: (value) => setDialogState(() {
-                            if (value == true) {
-                              draft.add(album.id);
-                            } else {
-                              draft.remove(album.id);
-                            }
-                          }),
+                      for (final album in sortedAlbums) ...[
+                        Builder(
+                          builder: (context) {
+                            final presentation = describeGalleryAlbum(
+                              album.name,
+                            );
+                            return CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(presentation.label),
+                              subtitle: Text(
+                                presentation.suggested
+                                    ? '${album.name} · recommandé'
+                                    : album.name,
+                              ),
+                              value: draft.contains(album.id),
+                              onChanged: (value) => setDialogState(() {
+                                if (value == true) {
+                                  draft.add(album.id);
+                                } else {
+                                  draft.remove(album.id);
+                                }
+                              }),
+                            );
+                          },
                         ),
+                      ],
                     ],
                   ),
           ),

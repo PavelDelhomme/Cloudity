@@ -45,4 +45,20 @@ void main() {
     expect(failed!.failed, true);
     expect(failed.error, 'permission refusée');
   });
+
+  test('prefs sauvegarde galerie : curseur de reprise', () async {
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+
+    await GallerySyncPrefs.saveScanCursor(albumId: 'camera', page: 3);
+    final cursor = await GallerySyncPrefs.scanCursor();
+    expect(cursor, isNotNull);
+    expect(cursor!.albumId, 'camera');
+    expect(cursor.page, 3);
+    expect(await GallerySyncPrefs.hasPendingWork(), true);
+
+    await GallerySyncPrefs.clearScanCursor();
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+  });
 }
