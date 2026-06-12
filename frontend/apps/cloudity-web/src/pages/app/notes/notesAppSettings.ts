@@ -3,6 +3,7 @@ export type NotesSortOrder = 'newest' | 'oldest'
 export type NotesAppSettings = {
   sortOrder: NotesSortOrder
   showContentPreview: boolean
+  lockEnabled: boolean
 }
 
 const STORAGE_KEY = 'cloudity.notes.appSettings.v1'
@@ -10,6 +11,7 @@ const STORAGE_KEY = 'cloudity.notes.appSettings.v1'
 export const DEFAULT_NOTES_APP_SETTINGS: NotesAppSettings = {
   sortOrder: 'newest',
   showContentPreview: true,
+  lockEnabled: false,
 }
 
 export function loadNotesAppSettings(): NotesAppSettings {
@@ -23,6 +25,10 @@ export function loadNotesAppSettings(): NotesAppSettings {
         typeof parsed.showContentPreview === 'boolean'
           ? parsed.showContentPreview
           : DEFAULT_NOTES_APP_SETTINGS.showContentPreview,
+      lockEnabled:
+        typeof parsed.lockEnabled === 'boolean'
+          ? parsed.lockEnabled
+          : DEFAULT_NOTES_APP_SETTINGS.lockEnabled,
     }
   } catch {
     return { ...DEFAULT_NOTES_APP_SETTINGS }

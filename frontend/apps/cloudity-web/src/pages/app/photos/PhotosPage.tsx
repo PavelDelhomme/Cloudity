@@ -49,6 +49,7 @@ import {
 } from './photosAppSettings'
 import { PhotosLockedGate } from './PhotosLockedGate'
 import {
+  changePhotosLockedPin,
   grantPhotosLockedVaultSession,
   isPhotosLockedVaultUnlocked,
   photosLockedVaultScope,
@@ -420,6 +421,11 @@ export default function PhotosPage() {
   const [showPhotosSettings, setShowPhotosSettings] = useState(false)
   const [photosSettings, setPhotosSettings] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
   const [settingsDraft, setSettingsDraft] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
+  const [pinChangeCurrent, setPinChangeCurrent] = useState('')
+  const [pinChangeNext, setPinChangeNext] = useState('')
+  const [pinChangeConfirm, setPinChangeConfirm] = useState('')
+  const [pinChangeBusy, setPinChangeBusy] = useState(false)
+  const [pinChangeError, setPinChangeError] = useState<string | null>(null)
   const [photoContextMenu, setPhotoContextMenu] = useState<{ x: number; y: number; node: DriveNode } | null>(null)
 
   const setTab = useCallback(
@@ -610,6 +616,33 @@ export default function PhotosPage() {
     setLightboxIndex(null)
     void queryClient.removeQueries({ queryKey: ['drive', 'photos', 'locked'] })
   }, [lockedVaultScope, queryClient])
+
+  const handleChangeLockedPin = useCallback(async () => {
+    if (!lockedVaultScope) {
+      setPinChangeError('Session incomplète : reconnectez-vous avant de changer le code.')
+      return
+    }
+    setPinChangeBusy(true)
+    setPinChangeError(null)
+    try {
+      const result = await changePhotosLockedPin(
+        lockedVaultScope,
+        pinChangeCurrent,
+        pinChangeNext,
+        pinChangeConfirm
+      )
+      if (!result.ok) {
+        setPinChangeError(result.error)
+        return
+      }
+      setPinChangeCurrent('')
+      setPinChangeNext('')
+      setPinChangeConfirm('')
+      toast.success('Code du coffre Photos mis à jour')
+    } finally {
+      setPinChangeBusy(false)
+    }
+  }, [lockedVaultScope, pinChangeConfirm, pinChangeCurrent, pinChangeNext])
 
   useEffect(() => {
     if (tab !== 'timeline') {
@@ -1647,6 +1680,62 @@ export default function PhotosPage() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </label>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+                <h3 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                  Changer le code du coffre verrouillé
+                </h3>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                  Le nouveau code reste local à ce navigateur.
+                </p>
+                <div className="mt-3 grid gap-2">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="font-medium text-neutral-800 dark:text-slate-200">Code actuel</span>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinChangeCurrent}
+                      onChange={(e) => setPinChangeCurrent(e.target.value)}
+                      className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                      aria-label="Code actuel"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="font-medium text-neutral-800 dark:text-slate-200">Nouveau code</span>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinChangeNext}
+                      onChange={(e) => setPinChangeNext(e.target.value)}
+                      className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                      aria-label="Nouveau code"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="font-medium text-neutral-800 dark:text-slate-200">Confirmer le nouveau code</span>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      value={pinChangeConfirm}
+                      onChange={(e) => setPinChangeConfirm(e.target.value)}
+                      className="rounded-lg border border-neutral-300 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800"
+                      aria-label="Confirmer le nouveau code"
+                    />
+                  </label>
+                </div>
+                {pinChangeError ? (
+                  <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                    {pinChangeError}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={pinChangeBusy}
+                  onClick={() => void handleChangeLockedPin()}
+                  className="mt-3 rounded-full border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Changer le code PIN
+                </button>
+              </div>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button

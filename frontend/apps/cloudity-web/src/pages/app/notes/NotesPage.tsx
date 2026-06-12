@@ -1,9 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { FileText, Plus, Settings, X } from 'lucide-react'
+import { FileText, Lock, Plus, Settings, X } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import { fetchNotes, createNote } from '../../../api'
+import { AppLockedGate } from '../AppLockedGate'
+import {
+  APP_LOCKED_SESSION_TTL_MS,
+  appLockedVaultScope,
+  grantAppLockedVaultSession,
+  isAppLockedVaultUnlocked,
+  revokeAppLockedVaultSession,
+} from '../appLockedVault'
 import {
   DEFAULT_NOTES_APP_SETTINGS,
   loadNotesAppSettings,
@@ -13,18 +21,24 @@ import {
 } from './notesAppSettings'
 
 export default function NotesPage() {
-  const { accessToken, logout } = useAuth()
+  const { accessToken, logout, tenantId, email } = useAuth()
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [notesSettings, setNotesSettings] = useState<NotesAppSettings>(() => loadNotesAppSettings())
   const [showNotesSettings, setShowNotesSettings] = useState(false)
   const [settingsDraft, setSettingsDraft] = useState<NotesAppSettings>(() => loadNotesAppSettings())
+  const notesVaultScope = appLockedVaultScope('notes', tenantId, email)
+  const [notesVaultUnlocked, setNotesVaultUnlocked] = useState(() =>
+    isAppLockedVaultUnlocked('notes', appLockedVaultScope('notes', tenantId, email))
+  )
+  const notesVaultRequired = notesSettings.lockEnabled
+  const notesVaultReady = !notesVaultRequired || Boolean(notesVaultScope && notesVaultUnlocked)
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['notes'],
     queryFn: () => fetchNotes(accessToken!),
-    enabled: Boolean(accessToken),
+    enabled: Boolean(accessToken) && notesVaultReady,
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
   })
@@ -39,6 +53,10 @@ export default function NotesPage() {
   }, [data, notesSettings.sortOrder])
 
   useEffect(() => {
+    setNotesVaultUnlocked(isAppLockedVaultUnlocked('notes', notesVaultScope))
+  }, [notesVaultScope, notesSettings.lockEnabled])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && showNotesSettings) {
         e.preventDefault()
@@ -48,6 +66,18 @@ export default function NotesPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [showNotesSettings])
+
+  const handleNotesVaultUnlocked = () => {
+    if (!notesVaultScope) return
+    grantAppLockedVaultSession('notes', notesVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    setNotesVaultUnlocked(true)
+  }
+
+  const lockNotesVault = () => {
+    revokeAppLockedVaultSession('notes', notesVaultScope)
+    setNotesVaultUnlocked(false)
+    queryClient.removeQueries({ queryKey: ['notes'] })
+  }
 
   const createMutation = useMutation({
     mutationFn: () => createNote(accessToken!, title || 'Sans titre', content),
@@ -84,18 +114,30 @@ export default function NotesPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Notes</h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Bloc-notes et idées.</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setSettingsDraft(notesSettings)
-            setShowNotesSettings(true)
-          }}
-          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-          title="Paramètres Notes"
-          aria-label="Paramètres Notes"
-        >
-          <Settings className="h-4 w-4" aria-hidden />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          {notesVaultRequired && notesVaultUnlocked ? (
+            <button
+              type="button"
+              onClick={lockNotesVault}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+            >
+              <Lock className="h-4 w-4" aria-hidden />
+              Verrouiller Notes
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsDraft(notesSettings)
+              setShowNotesSettings(true)
+            }}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+            title="Paramètres Notes"
+            aria-label="Paramètres Notes"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       </div>
 
       {showNotesSettings && (
@@ -148,6 +190,17 @@ export default function NotesPage() {
                   className="h-4 w-4 rounded border-neutral-300"
                 />
               </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Protéger Notes par coffre local</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.lockEnabled}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, lockEnabled: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -174,6 +227,23 @@ export default function NotesPage() {
         </div>
       )}
 
+      {notesVaultRequired && accessToken && notesVaultScope && !notesVaultUnlocked ? (
+        <AppLockedGate
+          kind="notes"
+          scope={notesVaultScope}
+          appLabel="Notes"
+          description="Saisissez votre code local avant d’afficher ou créer des notes sur cet appareil."
+          onUnlocked={handleNotesVaultUnlocked}
+        />
+      ) : null}
+
+      {notesVaultRequired && accessToken && !notesVaultScope ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Session incomplète : reconnectez-vous pour accéder au coffre Notes.
+        </p>
+      ) : null}
+
+      {notesVaultReady ? (
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex items-center gap-2">
           <input
@@ -228,6 +298,7 @@ export default function NotesPage() {
           )}
         </div>
       </div>
+      ) : null}
     </div>
   )
 }

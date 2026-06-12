@@ -20,12 +20,14 @@ describe('contactsAppSettings', () => {
       showPhoneInList: true,
       confirmDelete: false,
       defaultImportDuplicateMode: 'update',
+      lockEnabled: true,
     })
     expect(loadContactsAppSettings()).toEqual({
       sortAlphabetically: false,
       showPhoneInList: true,
       confirmDelete: false,
       defaultImportDuplicateMode: 'update',
+      lockEnabled: true,
     })
   })
 })

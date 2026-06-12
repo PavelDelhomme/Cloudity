@@ -9,6 +9,7 @@ import * as api from '../../../api'
 import {
   grantPhotosLockedVaultSession,
   setupPhotosLockedPin,
+  verifyPhotosLockedPin,
 } from './photosLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
@@ -401,6 +402,31 @@ describe('PhotosPage', () => {
     await waitFor(() => {
       const raw = localStorage.getItem('cloudity.photos.appSettings.v1')
       expect(raw).toContain('"confirmArchiveLock":false')
+    })
+  })
+
+  it('paramètres : change le code PIN du coffre verrouillé', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    await setupPhotosLockedPin('1:user@test.com', '1234', '1234')
+    render(wrap(<PhotosPage />))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Photos' }))
+    fireEvent.change(screen.getByLabelText('Code actuel'), { target: { value: '1234' } })
+    fireEvent.change(screen.getByLabelText('Nouveau code'), { target: { value: '5678' } })
+    fireEvent.change(screen.getByLabelText('Confirmer le nouveau code'), { target: { value: '5678' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Changer le code PIN' }))
+
+    await waitFor(async () => {
+      await expect(verifyPhotosLockedPin('1:user@test.com', '1234')).resolves.toBe(false)
+      await expect(verifyPhotosLockedPin('1:user@test.com', '5678')).resolves.toBe(true)
     })
   })
 

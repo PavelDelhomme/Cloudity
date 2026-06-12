@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ContactsPage from './ContactsPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
+import { setupAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -106,5 +107,32 @@ describe('ContactsPage', () => {
       expect(api.deleteContact).not.toHaveBeenCalled()
     })
     confirmSpy.mockRestore()
+  })
+
+  it('coffre local : bloque les contacts avant déverrouillage puis charge après PIN', async () => {
+    localStorage.setItem(
+      'cloudity.contacts.appSettings.v1',
+      JSON.stringify({
+        sortAlphabetically: true,
+        showPhoneInList: false,
+        confirmDelete: true,
+        defaultImportDuplicateMode: 'skip',
+        lockEnabled: true,
+      })
+    )
+    await setupAppLockedPin('contacts', '1:contacts:user@test.com', '1234', '1234')
+    vi.mocked(api.fetchContacts).mockClear()
+
+    render(wrap(<ContactsPage />))
+
+    await screen.findByText('Coffre Contacts verrouillé')
+    expect(api.fetchContacts).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
+
+    await waitFor(() => {
+      expect(api.fetchContacts).toHaveBeenCalledWith('token')
+    })
   })
 })

@@ -32,8 +32,17 @@ import {
   ArrowLeft,
   Clock,
   Eye,
+  Lock,
   Settings,
 } from 'lucide-react'
+import { AppLockedGate } from '../AppLockedGate'
+import {
+  APP_LOCKED_SESSION_TTL_MS,
+  appLockedVaultScope,
+  grantAppLockedVaultSession,
+  isAppLockedVaultUnlocked,
+  revokeAppLockedVaultSession,
+} from '../appLockedVault'
 import {
   DEFAULT_DRIVE_APP_SETTINGS,
   loadDriveAppSettings,
@@ -1762,7 +1771,7 @@ type DriveLocationState = {
 }
 
 export default function DrivePage() {
-  const { accessToken, logout } = useAuth()
+  const { accessToken, logout, tenantId, email } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
@@ -1824,6 +1833,12 @@ export default function DrivePage() {
   const [driveSettings, setDriveSettings] = useState<DriveAppSettings>(() => loadDriveAppSettings())
   const [showDriveSettings, setShowDriveSettings] = useState(false)
   const [settingsDraft, setSettingsDraft] = useState<DriveAppSettings>(() => loadDriveAppSettings())
+  const driveVaultScope = appLockedVaultScope('drive', tenantId, email)
+  const [driveVaultUnlocked, setDriveVaultUnlocked] = useState(() =>
+    isAppLockedVaultUnlocked('drive', appLockedVaultScope('drive', tenantId, email))
+  )
+  const driveVaultRequired = driveSettings.lockEnabled
+  const driveVaultReady = !driveVaultRequired || Boolean(driveVaultScope && driveVaultUnlocked)
   const displayMode = driveSettings.displayMode
   const setDisplayMode = useCallback((mode: DriveDisplayMode) => {
     setDriveSettings((prev) => {
@@ -1864,6 +1879,24 @@ export default function DrivePage() {
   }, [])
 
   useEffect(() => {
+    setDriveVaultUnlocked(isAppLockedVaultUnlocked('drive', driveVaultScope))
+  }, [driveVaultScope, driveSettings.lockEnabled])
+
+  const handleDriveVaultUnlocked = useCallback(() => {
+    if (!driveVaultScope) return
+    grantAppLockedVaultSession('drive', driveVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    setDriveVaultUnlocked(true)
+  }, [driveVaultScope])
+
+  const lockDriveVault = useCallback(() => {
+    revokeAppLockedVaultSession('drive', driveVaultScope)
+    setDriveVaultUnlocked(false)
+    setSelectedIds(new Set())
+    setPreviewNode(null)
+    void queryClient.removeQueries({ queryKey: ['drive'] })
+  }, [driveVaultScope, queryClient])
+
+  useEffect(() => {
     setDriveParentId(currentParentId)
     return () => setDriveParentId(null)
   }, [currentParentId, setDriveParentId])
@@ -1871,7 +1904,7 @@ export default function DrivePage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['drive', 'nodes', currentParentId],
     queryFn: () => fetchDriveNodes(accessToken!, currentParentId),
-    enabled: Boolean(accessToken) && viewMode === 'drive' && !isGlobalSearch,
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'drive' && !isGlobalSearch,
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 2 * 60 * 1000,
   })
@@ -1882,21 +1915,21 @@ export default function DrivePage() {
   } = useQuery({
     queryKey: ['drive', 'search', driveNameQuery],
     queryFn: () => fetchDriveSearch(accessToken!, driveNameQuery),
-    enabled: Boolean(accessToken) && isGlobalSearch,
+    enabled: Boolean(accessToken) && driveVaultReady && isGlobalSearch,
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
   })
   const { data: trashData } = useQuery({
     queryKey: ['drive', 'trash'],
     queryFn: () => fetchDriveTrash(accessToken!),
-    enabled: Boolean(accessToken) && viewMode === 'trash',
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'trash',
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
   })
   const { data: recentNodesRaw } = useQuery({
     queryKey: ['drive', 'recent', 'ribbon'],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 24),
-    enabled: Boolean(accessToken) && viewMode === 'drive' && currentParentId == null && !isGlobalSearch,
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'drive' && currentParentId == null && !isGlobalSearch,
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
@@ -1904,7 +1937,7 @@ export default function DrivePage() {
   const { data: recentNodesFullRaw, isLoading: isRecentFullLoading } = useQuery({
     queryKey: ['drive', 'recent', 'full', 500],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 500),
-    enabled: Boolean(accessToken) && viewMode === 'recent',
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'recent',
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
@@ -2612,6 +2645,37 @@ export default function DrivePage() {
           </div>
         </div>
       )}
+      {driveVaultRequired && accessToken && driveVaultScope && !driveVaultUnlocked ? (
+        <AppLockedGate
+          kind="drive"
+          scope={driveVaultScope}
+          appLabel="Drive"
+          description="Saisissez votre code local avant d’afficher, rechercher, créer ou modifier vos fichiers sur cet appareil."
+          onUnlocked={handleDriveVaultUnlocked}
+        />
+      ) : null}
+
+      {driveVaultRequired && accessToken && !driveVaultScope ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Session incomplète : reconnectez-vous pour accéder au coffre Drive.
+        </p>
+      ) : null}
+
+      {driveVaultReady ? (
+      <>
+      {driveVaultRequired && driveVaultUnlocked ? (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={lockDriveVault}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          >
+            <Lock className="h-4 w-4" aria-hidden />
+            Verrouiller Drive
+          </button>
+        </div>
+      ) : null}
+
       <DriveToolbar
         viewMode={viewMode}
         onViewModeChange={setViewMode}
@@ -2684,6 +2748,19 @@ export default function DrivePage() {
                   checked={settingsDraft.showRecentSection}
                   onChange={(e) =>
                     setSettingsDraft((prev) => ({ ...prev, showRecentSection: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">
+                  Protéger Drive par coffre local
+                </span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.lockEnabled}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, lockEnabled: e.target.checked }))
                   }
                   className="h-4 w-4 rounded border-neutral-300"
                 />
@@ -3323,6 +3400,8 @@ export default function DrivePage() {
           )}
         </div>
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

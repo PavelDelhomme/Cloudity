@@ -15,13 +15,13 @@ describe('driveAppSettings', () => {
   })
 
   it('persiste et recharge les paramètres', () => {
-    saveDriveAppSettings({ displayMode: 'list', showRecentSection: false })
-    expect(loadDriveAppSettings()).toEqual({ displayMode: 'list', showRecentSection: false })
+    saveDriveAppSettings({ displayMode: 'list', showRecentSection: false, lockEnabled: true })
+    expect(loadDriveAppSettings()).toEqual({ displayMode: 'list', showRecentSection: false, lockEnabled: true })
   })
 
   it('migre les clés legacy localStorage', () => {
     localStorage.setItem('cloudity_drive_display', 'list')
     localStorage.setItem('cloudity_drive_recent_visible', 'false')
-    expect(loadDriveAppSettings()).toEqual({ displayMode: 'list', showRecentSection: false })
+    expect(loadDriveAppSettings()).toEqual({ displayMode: 'list', showRecentSection: false, lockEnabled: false })
   })
 })

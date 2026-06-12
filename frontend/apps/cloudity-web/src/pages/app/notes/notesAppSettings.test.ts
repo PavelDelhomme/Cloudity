@@ -15,8 +15,8 @@ describe('notesAppSettings', () => {
   })
 
   it('persiste et recharge les paramètres', () => {
-    saveNotesAppSettings({ sortOrder: 'oldest', showContentPreview: false })
-    expect(loadNotesAppSettings()).toEqual({ sortOrder: 'oldest', showContentPreview: false })
+    saveNotesAppSettings({ sortOrder: 'oldest', showContentPreview: false, lockEnabled: true })
+    expect(loadNotesAppSettings()).toEqual({ sortOrder: 'oldest', showContentPreview: false, lockEnabled: true })
   })
 
   it('ignore les valeurs invalides dans le stockage', () => {

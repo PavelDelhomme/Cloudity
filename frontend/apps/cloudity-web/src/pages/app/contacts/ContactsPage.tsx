@@ -1,7 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, Mail, X, Upload, Loader2, Settings } from 'lucide-react'
+import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock } from 'lucide-react'
+import { AppLockedGate } from '../AppLockedGate'
+import {
+  APP_LOCKED_SESSION_TTL_MS,
+  appLockedVaultScope,
+  grantAppLockedVaultSession,
+  isAppLockedVaultUnlocked,
+  revokeAppLockedVaultSession,
+} from '../appLockedVault'
 import {
   DEFAULT_CONTACTS_APP_SETTINGS,
   loadContactsAppSettings,
@@ -23,7 +31,7 @@ import { detectAndParseContacts, type ParsedImportContact } from '../../../lib/c
 import { recordContactVisit } from '../../../lib/hubVisits'
 
 export default function ContactsPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, tenantId, email } = useAuth()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const [showForm, setShowForm] = useState(false)
@@ -46,6 +54,16 @@ export default function ContactsPage() {
     () => loadContactsAppSettings().defaultImportDuplicateMode
   )
   const [importBusy, setImportBusy] = useState(false)
+  const contactsVaultScope = appLockedVaultScope('contacts', tenantId, email)
+  const [contactsVaultUnlocked, setContactsVaultUnlocked] = useState(() =>
+    isAppLockedVaultUnlocked('contacts', appLockedVaultScope('contacts', tenantId, email))
+  )
+  const contactsVaultRequired = contactsSettings.lockEnabled
+  const contactsVaultReady = !contactsVaultRequired || Boolean(contactsVaultScope && contactsVaultUnlocked)
+
+  useEffect(() => {
+    setContactsVaultUnlocked(isAppLockedVaultUnlocked('contacts', contactsVaultScope))
+  }, [contactsVaultScope, contactsSettings.lockEnabled])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -58,6 +76,21 @@ export default function ContactsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showContactsSettings])
 
+  const handleContactsVaultUnlocked = () => {
+    if (!contactsVaultScope) return
+    grantAppLockedVaultSession('contacts', contactsVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    setContactsVaultUnlocked(true)
+  }
+
+  const lockContactsVault = () => {
+    revokeAppLockedVaultSession('contacts', contactsVaultScope)
+    setContactsVaultUnlocked(false)
+    setSelectedId(null)
+    setShowForm(false)
+    setImportPreview(null)
+    queryClient.removeQueries({ queryKey: ['contacts'] })
+  }
+
   useEffect(() => {
     const q = searchParams.get('q')
     if (q != null && q !== '') setSearch(q)
@@ -66,7 +99,7 @@ export default function ContactsPage() {
   const { data: contacts = [], isLoading, isError, error } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => fetchContacts(accessToken!),
-    enabled: !!accessToken,
+    enabled: !!accessToken && contactsVaultReady,
     staleTime: 20_000,
     /** Liste à jour sans F5 (autre client ou import côté serveur). */
     refetchInterval: 60_000,
@@ -242,6 +275,16 @@ export default function ContactsPage() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 justify-end">
+          {contactsVaultRequired && contactsVaultUnlocked ? (
+            <button
+              type="button"
+              onClick={lockContactsVault}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700/50"
+            >
+              <Lock className="h-5 w-5" aria-hidden />
+              Verrouiller Contacts
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -355,6 +398,17 @@ export default function ContactsPage() {
                   <option value="update">Mettre à jour si l’e-mail existe</option>
                 </select>
               </label>
+              <label className="flex items-center justify-between gap-3">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">Protéger Contacts par coffre local</span>
+                <input
+                  type="checkbox"
+                  checked={settingsDraft.lockEnabled}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({ ...prev, lockEnabled: e.target.checked }))
+                  }
+                  className="h-4 w-4 rounded border-neutral-300"
+                />
+              </label>
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -382,6 +436,24 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {contactsVaultRequired && accessToken && contactsVaultScope && !contactsVaultUnlocked ? (
+        <AppLockedGate
+          kind="contacts"
+          scope={contactsVaultScope}
+          appLabel="Contacts"
+          description="Saisissez votre code local avant d’afficher, importer ou modifier vos contacts sur cet appareil."
+          onUnlocked={handleContactsVaultUnlocked}
+        />
+      ) : null}
+
+      {contactsVaultRequired && accessToken && !contactsVaultScope ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Session incomplète : reconnectez-vous pour accéder au coffre Contacts.
+        </p>
+      ) : null}
+
+      {contactsVaultReady ? (
+      <>
       {importPreview && (
         <div className="rounded-xl border border-brand-200 dark:border-brand-800 bg-brand-50/50 dark:bg-brand-950/20 p-4 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -604,6 +676,8 @@ export default function ContactsPage() {
           </>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

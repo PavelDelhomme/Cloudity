@@ -9,6 +9,8 @@ import AppLayout from '../../../layouts/AppLayout'
 import { useAuth } from '../../../authContext'
 import { UploadProvider } from '../../../UploadProvider'
 import { DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../../uploadContext'
+import * as api from '../../../api'
+import { setupAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../utils/wordToHtml', () => ({
@@ -119,6 +121,27 @@ describe('DrivePage', () => {
   it('affiche le bouton Paramètres Drive', () => {
     render(wrap(<DrivePage />))
     expect(screen.getByRole('button', { name: 'Paramètres Drive' })).toBeTruthy()
+  })
+
+  it('coffre local : bloque les fichiers avant déverrouillage puis charge après PIN', async () => {
+    localStorage.setItem(
+      'cloudity.drive.appSettings.v1',
+      JSON.stringify({ displayMode: 'list', showRecentSection: true, lockEnabled: true })
+    )
+    await setupAppLockedPin('drive', '1:drive:user@test.com', '1234', '1234')
+    vi.mocked(api.fetchDriveNodes).mockClear()
+
+    render(wrap(<DrivePage />))
+
+    await screen.findByText('Coffre Drive verrouillé')
+    expect(api.fetchDriveNodes).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
+
+    await waitFor(() => {
+      expect(api.fetchDriveNodes).toHaveBeenCalledWith('token', null)
+    })
   })
 
   it('paramètres : enregistre le mode d’affichage par défaut', () => {

@@ -3,6 +3,7 @@ export type DriveDisplayMode = 'grid' | 'list'
 export type DriveAppSettings = {
   displayMode: DriveDisplayMode
   showRecentSection: boolean
+  lockEnabled: boolean
 }
 
 const STORAGE_KEY = 'cloudity.drive.appSettings.v1'
@@ -12,6 +13,7 @@ const LEGACY_RECENT_VISIBLE_KEY = 'cloudity_drive_recent_visible'
 export const DEFAULT_DRIVE_APP_SETTINGS: DriveAppSettings = {
   displayMode: 'grid',
   showRecentSection: true,
+  lockEnabled: false,
 }
 
 export function loadDriveAppSettings(): DriveAppSettings {
@@ -25,6 +27,10 @@ export function loadDriveAppSettings(): DriveAppSettings {
           typeof parsed.showRecentSection === 'boolean'
             ? parsed.showRecentSection
             : DEFAULT_DRIVE_APP_SETTINGS.showRecentSection,
+        lockEnabled:
+          typeof parsed.lockEnabled === 'boolean'
+            ? parsed.lockEnabled
+            : DEFAULT_DRIVE_APP_SETTINGS.lockEnabled,
       }
     }
   } catch {
@@ -34,6 +40,7 @@ export function loadDriveAppSettings(): DriveAppSettings {
     return {
       displayMode: localStorage.getItem(LEGACY_DISPLAY_KEY) === 'list' ? 'list' : 'grid',
       showRecentSection: localStorage.getItem(LEGACY_RECENT_VISIBLE_KEY) !== 'false',
+      lockEnabled: DEFAULT_DRIVE_APP_SETTINGS.lockEnabled,
     }
   } catch {
     return { ...DEFAULT_DRIVE_APP_SETTINGS }

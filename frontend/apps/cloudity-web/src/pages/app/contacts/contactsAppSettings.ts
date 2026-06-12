@@ -5,6 +5,7 @@ export type ContactsAppSettings = {
   showPhoneInList: boolean
   confirmDelete: boolean
   defaultImportDuplicateMode: ContactsImportDuplicateMode
+  lockEnabled: boolean
 }
 
 const STORAGE_KEY = 'cloudity.contacts.appSettings.v1'
@@ -14,6 +15,7 @@ export const DEFAULT_CONTACTS_APP_SETTINGS: ContactsAppSettings = {
   showPhoneInList: false,
   confirmDelete: true,
   defaultImportDuplicateMode: 'skip',
+  lockEnabled: false,
 }
 
 export function loadContactsAppSettings(): ContactsAppSettings {
@@ -36,6 +38,10 @@ export function loadContactsAppSettings(): ContactsAppSettings {
           : DEFAULT_CONTACTS_APP_SETTINGS.confirmDelete,
       defaultImportDuplicateMode:
         parsed.defaultImportDuplicateMode === 'update' ? 'update' : 'skip',
+      lockEnabled:
+        typeof parsed.lockEnabled === 'boolean'
+          ? parsed.lockEnabled
+          : DEFAULT_CONTACTS_APP_SETTINGS.lockEnabled,
     }
   } catch {
     return { ...DEFAULT_CONTACTS_APP_SETTINGS }

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NotesPage from './NotesPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
+import { setupAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -77,6 +78,27 @@ describe('NotesPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Contenu sensible à masquer')).toBeNull()
+    })
+  })
+
+  it('coffre local : bloque les notes avant déverrouillage puis charge après PIN', async () => {
+    localStorage.setItem(
+      'cloudity.notes.appSettings.v1',
+      JSON.stringify({ sortOrder: 'newest', showContentPreview: true, lockEnabled: true })
+    )
+    await setupAppLockedPin('notes', '1:notes:user@test.com', '1234', '1234')
+    vi.mocked(api.fetchNotes).mockClear()
+
+    render(wrap(<NotesPage />))
+
+    await screen.findByText('Coffre Notes verrouillé')
+    expect(api.fetchNotes).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '1234' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
+
+    await waitFor(() => {
+      expect(api.fetchNotes).toHaveBeenCalledWith('token')
     })
   })
 })
