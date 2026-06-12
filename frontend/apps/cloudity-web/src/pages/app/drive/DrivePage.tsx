@@ -45,6 +45,7 @@ import {
   isAppLockedVaultUnlocked,
   revokeAppLockedVaultSession,
 } from '../appLockedVault'
+import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
 import {
   DEFAULT_DRIVE_APP_SETTINGS,
   loadDriveAppSettings,
@@ -1899,13 +1900,15 @@ export default function DrivePage() {
     setDriveVaultUnlocked(isAppLockedVaultUnlocked('drive', driveVaultScope))
   }, [driveVaultScope, driveSettings.lockEnabled])
 
-  const handleDriveVaultUnlocked = useCallback(() => {
+  const handleDriveVaultUnlocked = useCallback((vaultKeyB64u?: string) => {
     if (!driveVaultScope) return
-    grantAppLockedVaultSession('drive', driveVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    grantAppLockedVaultSession('drive', driveVaultScope, APP_LOCKED_SESSION_TTL_MS, vaultKeyB64u)
+    if (vaultKeyB64u) importAppVaultKeyB64u('drive', driveVaultScope, vaultKeyB64u)
     setDriveVaultUnlocked(true)
   }, [driveVaultScope])
 
   const lockDriveVault = useCallback(() => {
+    clearAppVaultKey('drive', driveVaultScope)
     revokeAppLockedVaultSession('drive', driveVaultScope)
     setDriveVaultUnlocked(false)
     setSelectedIds(new Set())
@@ -2147,9 +2150,9 @@ export default function DrivePage() {
   const handleCreateFolder = useCallback(() => {
     const folderName = newFolderName.trim() || (newFolderLocked ? 'Coffre verrouillé' : '')
     if (!folderName || !accessToken) return
-    createDriveFolder(accessToken, currentParentId, folderName)
+    createDriveFolder(accessToken, currentParentId, folderName, { isVaultFolder: newFolderLocked })
       .then((folder) => {
-        toast.success(newFolderLocked ? 'Dossier verrouillé local créé' : 'Dossier créé')
+        toast.success(newFolderLocked ? 'Dossier coffre chiffré créé' : 'Dossier créé')
         setNewFolderName('')
         setNewFolderLocked(false)
         setShowNewFolder(false)

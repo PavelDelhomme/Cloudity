@@ -7,18 +7,20 @@ import {
   hasAppLockedPin,
   hasAppLockedWebAuthn,
   isAppLockedWebAuthnSupported,
+  readAppLockedVaultKeyB64u,
   registerAppLockedWebAuthn,
   setupAppLockedPin,
   unlockAppLockedWithWebAuthn,
   verifyAppLockedPin,
 } from './appLockedVault'
+import { deriveAndStoreAppVaultKey, exportAppVaultKeyB64u, importAppVaultKeyB64u } from './appVaultKeySession'
 
 type AppLockedGateProps = {
   kind: AppLockedVaultKind
   scope: string
   appLabel: string
   description: string
-  onUnlocked: () => void
+  onUnlocked: (vaultKeyB64u?: string) => void
 }
 
 export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }: AppLockedGateProps) {
@@ -37,11 +39,22 @@ export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }
     setConfirmPin('')
   }, [])
 
-  const finishUnlock = useCallback(() => {
-    resetInputs()
-    setError(null)
-    onUnlocked()
-  }, [onUnlocked, resetInputs])
+  const finishUnlock = useCallback(
+    (vaultKeyB64u?: string) => {
+      resetInputs()
+      setError(null)
+      onUnlocked(vaultKeyB64u)
+    },
+    [onUnlocked, resetInputs]
+  )
+
+  const finishUnlockWithPin = useCallback(
+    async (pinValue: string) => {
+      await deriveAndStoreAppVaultKey(kind, scope, pinValue)
+      finishUnlock(exportAppVaultKeyB64u(kind, scope) ?? undefined)
+    },
+    [finishUnlock, kind, scope]
+  )
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,7 +81,7 @@ export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }
           return
         }
       }
-      finishUnlock()
+      await finishUnlockWithPin(pin)
     } finally {
       setBusy(false)
     }
@@ -84,7 +97,7 @@ export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }
         setError('Code incorrect.')
         return
       }
-      finishUnlock()
+      await finishUnlockWithPin(pin)
     } finally {
       setBusy(false)
     }
@@ -99,7 +112,13 @@ export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }
         setError('Déverrouillage biométrique annulé ou indisponible.')
         return
       }
-      finishUnlock()
+      const cached = readAppLockedVaultKeyB64u(kind, scope)
+      if (cached) {
+        importAppVaultKeyB64u(kind, scope, cached)
+        finishUnlock(cached)
+        return
+      }
+      setError('Entrez votre code une fois pour déchiffrer les données serveur.')
     } finally {
       setBusy(false)
     }
@@ -126,7 +145,7 @@ export function AppLockedGate({ kind, scope, appLabel, description, onUnlocked }
       <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Coffre {appLabel} verrouillé</h2>
       <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{description}</p>
       <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-        Le code reste local à ce navigateur. Le chiffrement serveur dédié viendra dans une étape suivante.
+        Le code dérive une clé de chiffrement locale ; le serveur ne stocke que des blobs opaques.
       </p>
 
       <form className="mt-6 flex w-full flex-col gap-3 text-left" onSubmit={needsSetup ? handleSetup : handleUnlockWithPin}>

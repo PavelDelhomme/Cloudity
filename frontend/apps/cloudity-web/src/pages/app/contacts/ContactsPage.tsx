@@ -29,6 +29,8 @@ import {
   importContacts,
   type ContactResponse,
 } from '../../../api'
+import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
+import { decryptContactPayload, encryptContactPayload } from '../appVaultClient'
 import { detectAndParseContacts, type ParsedImportContact } from '../../../lib/contactImport'
 import { recordContactVisit } from '../../../lib/hubVisits'
 
@@ -78,13 +80,15 @@ export default function ContactsPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showContactsSettings])
 
-  const handleContactsVaultUnlocked = () => {
+  const handleContactsVaultUnlocked = (vaultKeyB64u?: string) => {
     if (!contactsVaultScope) return
-    grantAppLockedVaultSession('contacts', contactsVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    grantAppLockedVaultSession('contacts', contactsVaultScope, APP_LOCKED_SESSION_TTL_MS, vaultKeyB64u)
+    if (vaultKeyB64u) importAppVaultKeyB64u('contacts', contactsVaultScope, vaultKeyB64u)
     setContactsVaultUnlocked(true)
   }
 
   const lockContactsVault = useCallback(() => {
+    clearAppVaultKey('contacts', contactsVaultScope)
     revokeAppLockedVaultSession('contacts', contactsVaultScope)
     setContactsVaultUnlocked(false)
     setSelectedId(null)
@@ -106,7 +110,7 @@ export default function ContactsPage() {
     if (q != null && q !== '') setSearch(q)
   }, [searchParams])
 
-  const { data: contacts = [], isLoading, isError, error } = useQuery({
+  const { data: contactsRaw = [], isLoading, isError, error } = useQuery({
     queryKey: ['contacts'],
     queryFn: () => fetchContacts(accessToken!),
     enabled: !!accessToken && contactsVaultReady,
@@ -115,6 +119,23 @@ export default function ContactsPage() {
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   })
+
+  const contacts = useMemo(() => {
+    return contactsRaw.map((c) => {
+      if (!c.vault_encrypted || !c.vault_ciphertext || !contactsVaultScope) return c
+      try {
+        const plain = decryptContactPayload('contacts', contactsVaultScope, c.id, c.vault_ciphertext)
+        return { ...c, name: plain.name, email: plain.email, phone: plain.phone }
+      } catch {
+        return {
+          ...c,
+          name: '🔒 Contact chiffré',
+          email: 'locked@vault.local',
+          phone: '',
+        }
+      }
+    })
+  }, [contactsRaw, contactsVaultScope])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -143,9 +164,23 @@ export default function ContactsPage() {
     return t.slice(0, 2).toUpperCase()
   }
 
+  const wrapContactPayload = (payload: { name?: string; email: string; phone?: string }, idHint: string) => {
+    if (!contactsVaultRequired || !contactsVaultScope) return payload
+    const ciphertext = encryptContactPayload('contacts', contactsVaultScope, idHint, {
+      name: payload.name?.trim() || payload.email,
+      email: payload.email,
+      phone: payload.phone,
+    })
+    return {
+      email: payload.email,
+      vault_encrypted: true,
+      vault_ciphertext: ciphertext,
+    }
+  }
+
   const createMutation = useMutation({
     mutationFn: (payload: { name?: string; email: string; phone?: string }) =>
-      createContact(accessToken!, payload),
+      createContact(accessToken!, wrapContactPayload(payload, `new-${Date.now()}`)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       setFormName('')
@@ -158,8 +193,20 @@ export default function ContactsPage() {
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; email?: string; phone?: string } }) =>
-      updateContact(accessToken!, id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: { name?: string; email?: string; phone?: string } }) => {
+      const email = payload.email ?? ''
+      const wrapped = contactsVaultRequired && contactsVaultScope
+        ? wrapContactPayload(
+            {
+              name: payload.name,
+              email,
+              phone: payload.phone,
+            },
+            String(id)
+          )
+        : payload
+      return updateContact(accessToken!, id, wrapped)
+    },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] })
       setEditingId(null)

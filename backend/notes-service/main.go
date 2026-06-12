@@ -93,13 +93,15 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Note struct {
-	ID        int    `json:"id"`
-	TenantID  int    `json:"tenant_id"`
-	UserID    int    `json:"user_id"`
-	Title     string `json:"title"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID              int     `json:"id"`
+	TenantID        int     `json:"tenant_id"`
+	UserID          int     `json:"user_id"`
+	Title           string  `json:"title"`
+	Content         string  `json:"content"`
+	VaultEncrypted  bool    `json:"vault_encrypted,omitempty"`
+	VaultCiphertext *string `json:"vault_ciphertext,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 func (h *Handler) listNotes(c *gin.Context) {
@@ -109,7 +111,7 @@ func (h *Handler) listNotes(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, title, content, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, title, content, vault_encrypted, vault_ciphertext, created_at::text, COALESCE(updated_at::text, '')
 		FROM notes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY updated_at DESC NULLS LAST, created_at DESC
 	`)
 	if err != nil {
@@ -121,7 +123,8 @@ func (h *Handler) listNotes(c *gin.Context) {
 	for rows.Next() {
 		var n Note
 		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &n.Title, &n.Content, &n.CreatedAt, &uat); err != nil {
+		var vaultCipher sql.NullString
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &n.Title, &n.Content, &n.VaultEncrypted, &vaultCipher, &n.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -137,12 +140,20 @@ func (h *Handler) createNote(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
+		Title           string  `json:"title"`
+		Content         string  `json:"content"`
+		VaultEncrypted  bool    `json:"vault_encrypted"`
+		VaultCiphertext *string `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
+	}
+	title := body.Title
+	content := body.Content
+	if body.VaultEncrypted {
+		title = "🔒 Note chiffrée"
+		content = ""
 	}
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	tenantID := 1
@@ -153,8 +164,8 @@ func (h *Handler) createNote(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	var id int
-	err := h.dbex(ctx).QueryRow(`INSERT INTO notes (tenant_id, user_id, title, content) VALUES ($1, $2, $3, $4) RETURNING id`,
-		tenantID, userID, body.Title, body.Content).Scan(&id)
+	err := h.dbex(ctx).QueryRow(`INSERT INTO notes (tenant_id, user_id, title, content, vault_encrypted, vault_ciphertext) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+		tenantID, userID, title, content, body.VaultEncrypted, body.VaultCiphertext).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -173,15 +184,23 @@ func (h *Handler) updateNote(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title   string `json:"title"`
-		Content string `json:"content"`
+		Title           string  `json:"title"`
+		Content         string  `json:"content"`
+		VaultEncrypted  bool    `json:"vault_encrypted"`
+		VaultCiphertext *string `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
+	title := body.Title
+	content := body.Content
+	if body.VaultEncrypted {
+		title = "🔒 Note chiffrée"
+		content = ""
+	}
 	ctx := c.Request.Context()
-	res, err := h.dbex(ctx).Exec(`UPDATE notes SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, body.Title, body.Content, id)
+	res, err := h.dbex(ctx).Exec(`UPDATE notes SET title = $1, content = $2, vault_encrypted = $3, vault_ciphertext = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, title, content, body.VaultEncrypted, body.VaultCiphertext, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

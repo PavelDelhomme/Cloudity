@@ -1614,6 +1614,10 @@ export type DriveNode = {
   photo_archived_at?: string | null
   /** Verrouillage Photos (hors timeline et archive). */
   photo_locked_at?: string | null
+  /** Contenu fichier chiffré côté client (blob opaque serveur). */
+  vault_encrypted?: boolean
+  /** Dossier coffre serveur (fichiers descendants chiffrés). */
+  is_vault_folder?: boolean
   /** Nom du dossier parent (recherche GET /drive/nodes/search). */
   parent_folder_name?: string
 }
@@ -1728,11 +1732,17 @@ export function unlockDrivePhotos(token: string, ids: number[]): Promise<{ updat
 export async function createDriveFolder(
   token: string,
   parentId: number | null,
-  name: string
+  name: string,
+  opts?: { isVaultFolder?: boolean }
 ): Promise<{ id: number; name: string; is_folder: boolean }> {
   const res = await apiFetch(token, '/drive/nodes', {
     method: 'POST',
-    body: JSON.stringify({ parent_id: parentId, name, is_folder: true }),
+    body: JSON.stringify({
+      parent_id: parentId,
+      name,
+      is_folder: true,
+      is_vault_folder: Boolean(opts?.isVaultFolder),
+    }),
   })
   if (res.status === 409) {
     try {
@@ -2169,6 +2179,8 @@ export type Note = {
   user_id: number
   title: string
   content: string
+  vault_encrypted?: boolean
+  vault_ciphertext?: string | null
   created_at: string
   updated_at: string
 }
@@ -2177,11 +2189,19 @@ export async function fetchNotes(token: string): Promise<Note[]> {
   return apiJson<Note[]>(token, '/notes', { json: false }, 'Notes')
 }
 
-export async function createNote(token: string, title: string, content: string): Promise<{ id: number; title: string }> {
+export async function createNote(
+  token: string,
+  payload: {
+    title: string
+    content: string
+    vault_encrypted?: boolean
+    vault_ciphertext?: string
+  }
+): Promise<{ id: number; title: string }> {
   return apiJson<{ id: number; title: string }>(
     token,
     '/notes',
-    { method: 'POST', body: JSON.stringify({ title, content }) },
+    { method: 'POST', body: JSON.stringify(payload) },
     'Create note'
   )
 }
@@ -2250,6 +2270,8 @@ export type ContactResponse = {
   name: string
   email: string
   phone?: string
+  vault_encrypted?: boolean
+  vault_ciphertext?: string | null
   created_at: string
   updated_at: string
 }
@@ -2260,7 +2282,13 @@ export async function fetchContacts(token: string): Promise<ContactResponse[]> {
 
 export async function createContact(
   token: string,
-  payload: { name?: string; email: string; phone?: string }
+  payload: {
+    name?: string
+    email: string
+    phone?: string
+    vault_encrypted?: boolean
+    vault_ciphertext?: string
+  }
 ): Promise<{ id: number; name: string; email: string }> {
   const res = await apiFetch(token, '/contacts', { method: 'POST', body: JSON.stringify(payload) })
   if (!res.ok) {
@@ -2278,7 +2306,13 @@ export async function createContact(
 export async function updateContact(
   token: string,
   id: number,
-  payload: { name?: string; email?: string; phone?: string }
+  payload: {
+    name?: string
+    email?: string
+    phone?: string
+    vault_encrypted?: boolean
+    vault_ciphertext?: string
+  }
 ): Promise<{ id: number }> {
   return apiJson<{ id: number }>(
     token,

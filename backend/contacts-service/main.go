@@ -93,14 +93,16 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Contact struct {
-	ID        int    `json:"id"`
-	TenantID  int    `json:"tenant_id"`
-	UserID    int    `json:"user_id"`
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	Phone     string `json:"phone,omitempty"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID              int     `json:"id"`
+	TenantID        int     `json:"tenant_id"`
+	UserID          int     `json:"user_id"`
+	Name            string  `json:"name"`
+	Email           string  `json:"email"`
+	Phone           string  `json:"phone,omitempty"`
+	VaultEncrypted  bool    `json:"vault_encrypted,omitempty"`
+	VaultCiphertext *string `json:"vault_ciphertext,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 func (h *Handler) listContacts(c *gin.Context) {
@@ -110,7 +112,7 @@ func (h *Handler) listContacts(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, name, email, phone, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, name, email, phone, vault_encrypted, vault_ciphertext, created_at::text, COALESCE(updated_at::text, '')
 		FROM contacts
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		ORDER BY name ASC, email ASC
@@ -124,13 +126,17 @@ func (h *Handler) listContacts(c *gin.Context) {
 	for rows.Next() {
 		var x Contact
 		var phone sql.NullString
+		var vaultCipher sql.NullString
 		var uat string
-		if err := rows.Scan(&x.ID, &x.TenantID, &x.UserID, &x.Name, &x.Email, &phone, &x.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&x.ID, &x.TenantID, &x.UserID, &x.Name, &x.Email, &phone, &x.VaultEncrypted, &vaultCipher, &x.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		if phone.Valid {
 			x.Phone = phone.String
+		}
+		if vaultCipher.Valid {
+			x.VaultCiphertext = &vaultCipher.String
 		}
 		x.UpdatedAt = uat
 		list = append(list, x)
@@ -181,22 +187,35 @@ func (h *Handler) createContact(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name  string `json:"name"`
-		Email string `json:"email"`
-		Phone string `json:"phone"`
+		Name            string  `json:"name"`
+		Email           string  `json:"email"`
+		Phone           string  `json:"phone"`
+		VaultEncrypted  bool    `json:"vault_encrypted"`
+		VaultCiphertext *string `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
 	email := strings.TrimSpace(strings.ToLower(body.Email))
-	if email == "" || !strings.Contains(email, "@") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "email requis et invalide"})
-		return
-	}
 	name := strings.TrimSpace(body.Name)
-	if name == "" {
-		name = email
+	phone := strings.TrimSpace(body.Phone)
+	if body.VaultEncrypted {
+		if body.VaultCiphertext == nil || strings.TrimSpace(*body.VaultCiphertext) == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "vault_ciphertext requis"})
+			return
+		}
+		email = "locked@vault.local"
+		name = "🔒 Contact chiffré"
+		phone = ""
+	} else {
+		if email == "" || !strings.Contains(email, "@") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "email requis et invalide"})
+			return
+		}
+		if name == "" {
+			name = email
+		}
 	}
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	tenantID := 1
@@ -205,14 +224,13 @@ func (h *Handler) createContact(c *gin.Context) {
 			tenantID = tid
 		}
 	}
-	phone := strings.TrimSpace(body.Phone)
 	ctx := c.Request.Context()
 	var id int
 	err := h.dbex(ctx).QueryRow(`
-		INSERT INTO contacts (tenant_id, user_id, name, email, phone)
-		VALUES ($1, $2, $3, $4, NULLIF($5, ''))
+		INSERT INTO contacts (tenant_id, user_id, name, email, phone, vault_encrypted, vault_ciphertext)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6, $7)
 		RETURNING id
-	`, tenantID, userID, name, email, phone).Scan(&id)
+	`, tenantID, userID, name, email, phone, body.VaultEncrypted, body.VaultCiphertext).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -352,9 +370,11 @@ func (h *Handler) updateContact(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Name  *string `json:"name"`
-		Email *string `json:"email"`
-		Phone *string `json:"phone"`
+		Name            *string `json:"name"`
+		Email           *string `json:"email"`
+		Phone           *string `json:"phone"`
+		VaultEncrypted  *bool   `json:"vault_encrypted"`
+		VaultCiphertext *string `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -364,25 +384,45 @@ func (h *Handler) updateContact(c *gin.Context) {
 	updates := []string{}
 	args := []interface{}{}
 	pos := 1
-	if body.Name != nil {
-		updates = append(updates, "name = $"+strconv.Itoa(pos))
-		args = append(args, strings.TrimSpace(*body.Name))
+	if body.VaultEncrypted != nil && *body.VaultEncrypted {
+		updates = append(updates, "vault_encrypted = $"+strconv.Itoa(pos))
+		args = append(args, true)
 		pos++
-	}
-	if body.Email != nil {
-		email := strings.TrimSpace(strings.ToLower(*body.Email))
-		if email == "" || !strings.Contains(email, "@") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "email invalide"})
-			return
+		updates = append(updates, "vault_ciphertext = $"+strconv.Itoa(pos))
+		if body.VaultCiphertext != nil {
+			args = append(args, *body.VaultCiphertext)
+		} else {
+			args = append(args, nil)
 		}
+		pos++
+		updates = append(updates, "name = $"+strconv.Itoa(pos))
+		args = append(args, "🔒 Contact chiffré")
+		pos++
 		updates = append(updates, "email = $"+strconv.Itoa(pos))
-		args = append(args, email)
+		args = append(args, "locked@vault.local")
 		pos++
-	}
-	if body.Phone != nil {
-		updates = append(updates, "phone = NULLIF($"+strconv.Itoa(pos)+", '')")
-		args = append(args, strings.TrimSpace(*body.Phone))
-		pos++
+		updates = append(updates, "phone = NULL")
+	} else {
+		if body.Name != nil {
+			updates = append(updates, "name = $"+strconv.Itoa(pos))
+			args = append(args, strings.TrimSpace(*body.Name))
+			pos++
+		}
+		if body.Email != nil {
+			email := strings.TrimSpace(strings.ToLower(*body.Email))
+			if email == "" || !strings.Contains(email, "@") {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "email invalide"})
+				return
+			}
+			updates = append(updates, "email = $"+strconv.Itoa(pos))
+			args = append(args, email)
+			pos++
+		}
+		if body.Phone != nil {
+			updates = append(updates, "phone = NULLIF($"+strconv.Itoa(pos)+", '')")
+			args = append(args, strings.TrimSpace(*body.Phone))
+			pos++
+		}
 	}
 	if len(updates) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "aucun champ à mettre à jour"})

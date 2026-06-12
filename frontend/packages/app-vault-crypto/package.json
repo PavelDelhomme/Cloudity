@@ -1,0 +1,20 @@
+{
+  "name": "@cloudity/app-vault-crypto",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cloudity — chiffrement E2EE des coffres apps (Drive/Photos/Notes/Contacts) dérivé du PIN local.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@cloudity/pass-crypto": "file:../pass-crypto"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
+  }
+}

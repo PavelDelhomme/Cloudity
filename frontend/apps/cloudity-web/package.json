@@ -20,6 +20,7 @@
     "test:e2e:drive": "playwright test e2e/drive.spec.ts"
   },
   "dependencies": {
+    "@cloudity/app-vault-crypto": "file:../../packages/app-vault-crypto",
     "@cloudity/pass-crypto": "file:../../packages/pass-crypto",
     "@cloudity/shared": "file:../../packages/cloudity-shared",
     "@cloudity/ui": "file:../../packages/cloudity-ui",

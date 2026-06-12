@@ -33,12 +33,15 @@ import {
   fetchDrivePhotosTimeline,
   fetchDriveTrash,
   lockDrivePhotos,
+  putDriveNodeContentBlob,
   restoreDriveNode,
   unarchiveDrivePhotos,
   unlockDrivePhotos,
   uploadDriveFileWithProgress,
   type DriveNode,
 } from '../../../api'
+import { APP_VAULT_MIME, decryptDriveFileBlob, encryptDriveFileBytes } from '../appVaultClient'
+import { clearAppVaultKey, getAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
 import {
   DEFAULT_PHOTOS_APP_SETTINGS,
   loadPhotosAppSettings,
@@ -189,6 +192,7 @@ function typedImageBlob(blob: Blob, fileName: string): Blob {
 function PhotoThumb({
   node,
   token,
+  vaultScope,
   selectMode,
   selected,
   onToggleSelect,
@@ -197,6 +201,7 @@ function PhotoThumb({
 }: {
   node: DriveNode
   token: string
+  vaultScope?: string | null
   selectMode: boolean
   selected: boolean
   onToggleSelect: () => void
@@ -210,7 +215,20 @@ function PhotoThumb({
   useEffect(() => {
     cancelled.current = false
     let u: string | null = null
-    schedulePhotoDownload(() => downloadDriveThumbnail(token, node.id, 360))
+    const load = async (): Promise<Blob> => {
+      if (node.vault_encrypted && vaultScope) {
+        const enc = await downloadDriveFile(token, node.id)
+        const { bytes, mime } = await decryptDriveFileBlob(
+          'photos',
+          vaultScope,
+          node.id,
+          await enc.arrayBuffer()
+        )
+        return new Blob([bytes], { type: mime })
+      }
+      return downloadDriveThumbnail(token, node.id, 360)
+    }
+    schedulePhotoDownload(load)
       .then((blob) => {
         if (cancelled.current) return
         const typed = typedImageBlob(blob, node.name)
@@ -224,7 +242,7 @@ function PhotoThumb({
       cancelled.current = true
       if (u) URL.revokeObjectURL(u)
     }
-  }, [token, node.id, node.name])
+  }, [token, node.id, node.name, node.vault_encrypted, vaultScope])
 
   return (
     <button
@@ -603,14 +621,16 @@ export default function PhotosPage() {
     return () => document.removeEventListener('visibilitychange', onVisibility)
   }, [tab, lockedVaultScope, lockedVaultUnlocked])
 
-  const handleLockedVaultUnlocked = useCallback(() => {
+  const handleLockedVaultUnlocked = useCallback((vaultKeyB64u?: string) => {
     if (!lockedVaultScope) return
-    grantPhotosLockedVaultSession(lockedVaultScope, PHOTOS_LOCKED_SESSION_TTL_MS)
+    grantPhotosLockedVaultSession(lockedVaultScope, PHOTOS_LOCKED_SESSION_TTL_MS, vaultKeyB64u)
+    if (vaultKeyB64u) importAppVaultKeyB64u('photos', lockedVaultScope, vaultKeyB64u)
     setLockedVaultUnlocked(true)
   }, [lockedVaultScope])
 
   const lockLockedVault = useCallback(() => {
     if (!lockedVaultScope) return
+    clearAppVaultKey('photos', lockedVaultScope)
     revokePhotosLockedVaultSession(lockedVaultScope)
     setLockedVaultUnlocked(false)
     setLightboxIndex(null)
@@ -736,9 +756,32 @@ export default function PhotosPage() {
     onError: (e: Error) => toast.error(e.message || 'Échec de la restauration'),
   })
 
+  const encryptPhotosForLock = useCallback(
+    async (ids: number[]) => {
+      if (!accessToken || !lockedVaultScope) throw new Error('Non connecté')
+      if (!getAppVaultKey('photos', lockedVaultScope)) {
+        throw new Error('Déverrouillez le coffre avec votre code pour chiffrer les photos.')
+      }
+      for (const id of ids) {
+        const blob = await downloadDriveFile(accessToken, id)
+        const bytes = new Uint8Array(await blob.arrayBuffer())
+        const node =
+          flatItems.find((n) => n.id === id) ??
+          (archiveQuery.data ?? []).find((n) => n.id === id) ??
+          (lockedQuery.data ?? []).find((n) => n.id === id)
+        const mime = node?.mime_type || blob.type || 'application/octet-stream'
+        const name = node?.name || `photo-${id}`
+        const encrypted = encryptDriveFileBytes('photos', lockedVaultScope, id, bytes, mime, name)
+        await putDriveNodeContentBlob(accessToken, id, encrypted, APP_VAULT_MIME)
+      }
+    },
+    [accessToken, lockedVaultScope, flatItems, archiveQuery.data, lockedQuery.data]
+  )
+
   const lockPhotosMutation = useMutation({
-    mutationFn: (ids: number[]) => {
+    mutationFn: async (ids: number[]) => {
       if (!accessToken) throw new Error('Non connecté')
+      await encryptPhotosForLock(ids)
       return lockDrivePhotos(accessToken, ids)
     },
     onSuccess: (res, ids) => {
@@ -1571,6 +1614,7 @@ export default function PhotosPage() {
                   <PhotoThumb
                     node={node}
                     token={accessToken}
+                    vaultScope={lockedVaultScope}
                     selectMode={false}
                     selected={false}
                     onToggleSelect={() => {}}

@@ -7,11 +7,13 @@ export type AppLockedVaultKind = 'drive' | 'contacts' | 'notes'
 type AppLockedVaultRecord = {
   pinSalt: string
   pinHash: string
+  kdfSalt: string
   webauthnCredentialId?: string
 }
 
 type AppLockedSession = {
   expiresAt: number
+  vaultKeyB64u?: string
 }
 
 const VAULT_PREFIX = 'cloudity.appLockedVault.v1'
@@ -62,6 +64,7 @@ function readVault(kind: AppLockedVaultKind, scope: string): AppLockedVaultRecor
     return {
       pinSalt: parsed.pinSalt,
       pinHash: parsed.pinHash,
+      kdfSalt: typeof parsed.kdfSalt === 'string' ? parsed.kdfSalt : parsed.pinSalt,
       webauthnCredentialId:
         typeof parsed.webauthnCredentialId === 'string' ? parsed.webauthnCredentialId : undefined,
     }
@@ -107,9 +110,14 @@ export async function setupAppLockedPin(
   if (pinError) return { ok: false, error: pinError }
   if (pin !== confirmPin) return { ok: false, error: 'Les codes ne correspondent pas.' }
   const salt = randomSalt()
+  const kdfSalt = randomSalt()
   const pinHash = await hashPin(pin, salt)
-  writeVault(kind, scope, { pinSalt: salt, pinHash })
+  writeVault(kind, scope, { pinSalt: salt, pinHash, kdfSalt })
   return { ok: true }
+}
+
+export function getAppLockedKdfSalt(kind: AppLockedVaultKind, scope: string): string | null {
+  return readVault(kind, scope)?.kdfSalt ?? null
 }
 
 export async function verifyAppLockedPin(kind: AppLockedVaultKind, scope: string, pin: string): Promise<boolean> {
@@ -144,10 +152,23 @@ export function isAppLockedVaultUnlocked(
 export function grantAppLockedVaultSession(
   kind: AppLockedVaultKind,
   scope: string,
-  ttlMs: number = APP_LOCKED_SESSION_TTL_MS
+  ttlMs: number = APP_LOCKED_SESSION_TTL_MS,
+  vaultKeyB64u?: string | null
 ): void {
   const session: AppLockedSession = { expiresAt: Date.now() + ttlMs }
+  if (vaultKeyB64u) session.vaultKeyB64u = vaultKeyB64u
   sessionStorage.setItem(sessionKey(kind, scope), JSON.stringify(session))
+}
+
+export function readAppLockedVaultKeyB64u(kind: AppLockedVaultKind, scope: string): string | null {
+  try {
+    const raw = sessionStorage.getItem(sessionKey(kind, scope))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as AppLockedSession
+    return typeof parsed.vaultKeyB64u === 'string' ? parsed.vaultKeyB64u : null
+  } catch {
+    return null
+  }
 }
 
 export function revokeAppLockedVaultSession(kind: AppLockedVaultKind, scope: string | null): void {

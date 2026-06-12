@@ -4,6 +4,8 @@ import toast from 'react-hot-toast'
 import { FileText, Lock, Plus, Settings, X } from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import { fetchNotes, createNote } from '../../../api'
+import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
+import { decryptNotePayload, encryptNotePayload } from '../appVaultClient'
 import { AppLockedGate } from '../AppLockedGate'
 import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
 import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
@@ -45,14 +47,22 @@ export default function NotesPage() {
     staleTime: 60 * 1000,
   })
   const notes = useMemo(() => {
-    const list = [...(data ?? [])]
+    const list = [...(data ?? [])].map((note) => {
+      if (!note.vault_encrypted || !note.vault_ciphertext || !notesVaultScope) return note
+      try {
+        const plain = decryptNotePayload('notes', notesVaultScope, note.id, note.vault_ciphertext)
+        return { ...note, title: plain.title, content: plain.content }
+      } catch {
+        return { ...note, title: '🔒 Note chiffrée', content: 'Déverrouillez le coffre pour lire cette note.' }
+      }
+    })
     list.sort((a, b) => {
       const da = new Date(a.updated_at).getTime()
       const db = new Date(b.updated_at).getTime()
       return notesSettings.sortOrder === 'newest' ? db - da : da - db
     })
     return list
-  }, [data, notesSettings.sortOrder])
+  }, [data, notesSettings.sortOrder, notesVaultScope])
 
   useEffect(() => {
     setNotesVaultUnlocked(isAppLockedVaultUnlocked('notes', notesVaultScope))
@@ -69,13 +79,15 @@ export default function NotesPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showNotesSettings])
 
-  const handleNotesVaultUnlocked = () => {
+  const handleNotesVaultUnlocked = (vaultKeyB64u?: string) => {
     if (!notesVaultScope) return
-    grantAppLockedVaultSession('notes', notesVaultScope, APP_LOCKED_SESSION_TTL_MS)
+    grantAppLockedVaultSession('notes', notesVaultScope, APP_LOCKED_SESSION_TTL_MS, vaultKeyB64u)
+    if (vaultKeyB64u) importAppVaultKeyB64u('notes', notesVaultScope, vaultKeyB64u)
     setNotesVaultUnlocked(true)
   }
 
   const lockNotesVault = useCallback(() => {
+    clearAppVaultKey('notes', notesVaultScope)
     revokeAppLockedVaultSession('notes', notesVaultScope)
     setNotesVaultUnlocked(false)
     queryClient.removeQueries({ queryKey: ['notes'] })
@@ -90,7 +102,23 @@ export default function NotesPage() {
   )
 
   const createMutation = useMutation({
-    mutationFn: () => createNote(accessToken!, title || 'Sans titre', content),
+    mutationFn: () => {
+      const noteTitle = title || 'Sans titre'
+      if (notesVaultRequired && notesVaultScope) {
+        const tempId = `new-${Date.now()}`
+        const ciphertext = encryptNotePayload('notes', notesVaultScope, tempId, {
+          title: noteTitle,
+          content,
+        })
+        return createNote(accessToken!, {
+          title: noteTitle,
+          content: '',
+          vault_encrypted: true,
+          vault_ciphertext: ciphertext,
+        })
+      }
+      return createNote(accessToken!, { title: noteTitle, content })
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
       setTitle('')

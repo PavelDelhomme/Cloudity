@@ -6,15 +6,17 @@ import {
   isPhotosLockedWebAuthnSupported,
   PHOTOS_LOCKED_PIN_MAX,
   PHOTOS_LOCKED_PIN_MIN,
+  readPhotosLockedVaultKeyB64u,
   registerPhotosLockedWebAuthn,
   setupPhotosLockedPin,
   unlockPhotosLockedWithWebAuthn,
   verifyPhotosLockedPin,
 } from './photosLockedVault'
+import { deriveAndStoreAppVaultKey, exportAppVaultKeyB64u, importAppVaultKeyB64u } from '../appVaultKeySession'
 
 type PhotosLockedGateProps = {
   scope: string
-  onUnlocked: () => void
+  onUnlocked: (vaultKeyB64u?: string) => void
 }
 
 export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
@@ -33,11 +35,22 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
     setConfirmPin('')
   }, [])
 
-  const finishUnlock = useCallback(() => {
-    resetInputs()
-    setError(null)
-    onUnlocked()
-  }, [onUnlocked, resetInputs])
+  const finishUnlock = useCallback(
+    (vaultKeyB64u?: string) => {
+      resetInputs()
+      setError(null)
+      onUnlocked(vaultKeyB64u)
+    },
+    [onUnlocked, resetInputs]
+  )
+
+  const finishUnlockWithPin = useCallback(
+    async (pinValue: string) => {
+      await deriveAndStoreAppVaultKey('photos', scope, pinValue)
+      finishUnlock(exportAppVaultKeyB64u('photos', scope) ?? undefined)
+    },
+    [finishUnlock, scope]
+  )
 
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -64,7 +77,7 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
           return
         }
       }
-      finishUnlock()
+      await finishUnlockWithPin(pin)
     } finally {
       setBusy(false)
     }
@@ -80,7 +93,7 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
         setError('Code incorrect.')
         return
       }
-      finishUnlock()
+      await finishUnlockWithPin(pin)
     } finally {
       setBusy(false)
     }
@@ -95,7 +108,13 @@ export function PhotosLockedGate({ scope, onUnlocked }: PhotosLockedGateProps) {
         setError('Déverrouillage biométrique annulé ou indisponible.')
         return
       }
-      finishUnlock()
+      const cached = readPhotosLockedVaultKeyB64u(scope)
+      if (cached) {
+        importAppVaultKeyB64u('photos', scope, cached)
+        finishUnlock(cached)
+        return
+      }
+      setError('Entrez votre code une fois pour déchiffrer les photos verrouillées.')
     } finally {
       setBusy(false)
     }

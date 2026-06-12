@@ -13,13 +13,25 @@ import {
 } from './photosLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
+vi.mock('../appVaultKeySession', () => ({
+  getAppVaultKey: vi.fn(() => new Uint8Array(32)),
+  clearAppVaultKey: vi.fn(),
+  importAppVaultKeyB64u: vi.fn(),
+  deriveAndStoreAppVaultKey: vi.fn(),
+  exportAppVaultKeyB64u: vi.fn(),
+}))
+vi.mock('../appVaultClient', () => ({
+  APP_VAULT_MIME: 'application/vnd.cloudity.vault+json;v=1',
+  encryptDriveFileBytes: vi.fn(() => new Blob(['cipher'], { type: 'application/vnd.cloudity.vault+json;v=1' })),
+}))
 vi.mock('../../../api', () => ({
   fetchDrivePhotosTimeline: vi.fn(),
   fetchDrivePhotosArchive: vi.fn(),
   fetchDrivePhotosLocked: vi.fn(),
   fetchDriveNodes: vi.fn(),
   fetchDriveTrash: vi.fn(),
-  downloadDriveFile: vi.fn(),
+  downloadDriveFile: vi.fn().mockResolvedValue(new Blob(['pixels'], { type: 'image/jpeg' })),
+  putDriveNodeContentBlob: vi.fn().mockResolvedValue({ id: 12, size: 10 }),
   downloadDriveThumbnail: vi.fn(),
   uploadDriveFileWithProgress: vi.fn(),
   createDriveFolder: vi.fn(),

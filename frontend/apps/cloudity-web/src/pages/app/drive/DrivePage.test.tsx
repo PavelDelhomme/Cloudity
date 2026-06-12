@@ -165,7 +165,9 @@ describe('DrivePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
 
     await waitFor(() => {
-      expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Coffre verrouillé')
+      expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Coffre verrouillé', {
+        isVaultFolder: true,
+      })
     })
   })
 
@@ -276,7 +278,9 @@ describe('DrivePage', () => {
       await new Promise((r) => setTimeout(r, 50))
     })
     await waitFor(() => {
-      expect(vi.mocked(api.createDriveFolder)).toHaveBeenCalledWith('token', null, 'Mon Dossier')
+      expect(vi.mocked(api.createDriveFolder)).toHaveBeenCalledWith('token', null, 'Mon Dossier', {
+        isVaultFolder: false,
+      })
     })
     await waitFor(() => expect(screen.queryByPlaceholderText('Nom du dossier')).toBeNull(), { timeout: 2000 })
   })
@@ -325,7 +329,9 @@ describe('DrivePage', () => {
       await new Promise((r) => setTimeout(r, 50))
     })
     await waitFor(() => {
-      expect(vi.mocked(api.createDriveFolder)).toHaveBeenCalledWith('token', 50, 'Sous-dossier')
+      expect(vi.mocked(api.createDriveFolder)).toHaveBeenCalledWith('token', 50, 'Sous-dossier', {
+        isVaultFolder: false,
+      })
     })
   })
 

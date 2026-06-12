@@ -5,11 +5,13 @@ export const PHOTOS_LOCKED_SESSION_TTL_MS = 15 * 60 * 1000
 type PhotosLockedVaultRecord = {
   pinSalt: string
   pinHash: string
+  kdfSalt: string
   webauthnCredentialId?: string
 }
 
 type PhotosLockedSession = {
   expiresAt: number
+  vaultKeyB64u?: string
 }
 
 const VAULT_PREFIX = 'cloudity.photos.lockedVault.v1'
@@ -60,6 +62,7 @@ function readVault(scope: string): PhotosLockedVaultRecord | null {
     return {
       pinSalt: parsed.pinSalt,
       pinHash: parsed.pinHash,
+      kdfSalt: typeof parsed.kdfSalt === 'string' ? parsed.kdfSalt : parsed.pinSalt,
       webauthnCredentialId:
         typeof parsed.webauthnCredentialId === 'string' ? parsed.webauthnCredentialId : undefined,
     }
@@ -100,9 +103,14 @@ export async function setupPhotosLockedPin(
   if (pinError) return { ok: false, error: pinError }
   if (pin !== confirmPin) return { ok: false, error: 'Les codes ne correspondent pas.' }
   const salt = randomSalt()
+  const kdfSalt = randomSalt()
   const pinHash = await hashPin(pin, salt)
-  writeVault(scope, { pinSalt: salt, pinHash })
+  writeVault(scope, { pinSalt: salt, pinHash, kdfSalt })
   return { ok: true }
+}
+
+export function getPhotosLockedKdfSalt(scope: string): string | null {
+  return readVault(scope)?.kdfSalt ?? null
 }
 
 export async function verifyPhotosLockedPin(scope: string, pin: string): Promise<boolean> {
@@ -135,10 +143,23 @@ export function isPhotosLockedVaultUnlocked(
 
 export function grantPhotosLockedVaultSession(
   scope: string,
-  ttlMs: number = PHOTOS_LOCKED_SESSION_TTL_MS
+  ttlMs: number = PHOTOS_LOCKED_SESSION_TTL_MS,
+  vaultKeyB64u?: string | null
 ): void {
   const session: PhotosLockedSession = { expiresAt: Date.now() + ttlMs }
+  if (vaultKeyB64u) session.vaultKeyB64u = vaultKeyB64u
   sessionStorage.setItem(sessionKey(scope), JSON.stringify(session))
+}
+
+export function readPhotosLockedVaultKeyB64u(scope: string): string | null {
+  try {
+    const raw = sessionStorage.getItem(sessionKey(scope))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PhotosLockedSession
+    return typeof parsed.vaultKeyB64u === 'string' ? parsed.vaultKeyB64u : null
+  } catch {
+    return null
+  }
 }
 
 export function revokePhotosLockedVaultSession(scope: string | null): void {

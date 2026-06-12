@@ -264,9 +264,13 @@ type Node struct {
 	DeletedAt        string `json:"deleted_at,omitempty"` // pour la corbeille
 	PhotoArchivedAt  string `json:"photo_archived_at,omitempty"`
 	PhotoLockedAt    string `json:"photo_locked_at,omitempty"`
+	VaultEncrypted   bool   `json:"vault_encrypted,omitempty"`
+	IsVaultFolder    bool   `json:"is_vault_folder,omitempty"`
 	// Renseigné par GET /drive/nodes/search (dossier parent pour navigation).
 	ParentFolderName string `json:"parent_folder_name,omitempty"`
 }
+
+const appVaultMime = "application/vnd.cloudity.vault+json;v=1"
 
 func (h *Handler) listNodes(c *gin.Context) {
 	if h.db == nil {
@@ -280,6 +284,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 	if parentIDStr == "" || parentIDStr == "null" {
 		rows, err = h.dbex(ctx).Query(`
 			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
+				n.vault_encrypted, n.is_vault_folder,
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
@@ -293,6 +298,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 		}
 		rows, err = h.dbex(ctx).Query(`
 			SELECT n.id, n.tenant_id, n.user_id, n.parent_id, n.name, n.is_folder, n.size, n.mime_type, n.created_at::text, COALESCE(n.updated_at::text, ''),
+				n.vault_encrypted, n.is_vault_folder,
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
@@ -310,7 +316,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 		var pid sql.NullInt64
 		var mime sql.NullString
 		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.ChildCount, &n.ChildFolders, &n.ChildFiles); err != nil {
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.VaultEncrypted, &n.IsVaultFolder, &n.ChildCount, &n.ChildFolders, &n.ChildFiles); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -484,14 +490,15 @@ const photoNodeSelectSQL = `
   COALESCE(taken_at, created_at)::text,
   COALESCE(updated_at::text, ''),
   COALESCE(photo_archived_at::text, ''),
-  COALESCE(photo_locked_at::text, '')`
+  COALESCE(photo_locked_at::text, ''),
+  vault_encrypted, is_vault_folder`
 
 func scanPhotoNodeRow(rows *sql.Rows) (Node, error) {
 	var n Node
 	var pid sql.NullInt64
 	var mime sql.NullString
 	var takenAt, uat, archivedAt, lockedAt string
-	if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat, &archivedAt, &lockedAt); err != nil {
+	if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &takenAt, &n.CreatedAt, &uat, &archivedAt, &lockedAt, &n.VaultEncrypted, &n.IsVaultFolder); err != nil {
 		return n, err
 	}
 	if pid.Valid {
@@ -746,9 +753,10 @@ func (h *Handler) createNode(c *gin.Context) {
 		return
 	}
 	var body struct {
-		ParentID *int   `json:"parent_id"`
-		Name     string `json:"name"`
-		IsFolder bool   `json:"is_folder"`
+		ParentID      *int   `json:"parent_id"`
+		Name          string `json:"name"`
+		IsFolder      bool   `json:"is_folder"`
+		IsVaultFolder bool   `json:"is_vault_folder"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -771,9 +779,9 @@ func (h *Handler) createNode(c *gin.Context) {
 	var id int
 	if body.ParentID == nil || *body.ParentID == 0 {
 		err := h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size) VALUES ($1, $2, NULL, $3, $4, 0)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, is_vault_folder) VALUES ($1, $2, NULL, $3, $4, 0, $5)
 			RETURNING id
-		`, tid, uid, body.Name, body.IsFolder).Scan(&id)
+		`, tid, uid, body.Name, body.IsFolder, body.IsVaultFolder).Scan(&id)
 		if err != nil {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
@@ -798,9 +806,9 @@ func (h *Handler) createNode(c *gin.Context) {
 		}
 	} else {
 		err := h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size) VALUES ($1, $2, $3, $4, $5, 0)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, is_vault_folder) VALUES ($1, $2, $3, $4, $5, 0, $6)
 			RETURNING id
-		`, tid, uid, *body.ParentID, body.Name, body.IsFolder).Scan(&id)
+		`, tid, uid, *body.ParentID, body.Name, body.IsFolder, body.IsVaultFolder).Scan(&id)
 		if err != nil {
 			var perr *pq.Error
 			if errors.As(err, &perr) && perr.Code == "23505" {
@@ -1071,10 +1079,11 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	var name string
 	var content []byte
 	var mime sql.NullString
+	var vaultEncrypted bool
 	err = h.dbex(ctx).QueryRow(`
-		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
+		SELECT name, COALESCE(content, ''::bytea), mime_type, vault_encrypted FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, id).Scan(&name, &content, &mime)
+	`, id).Scan(&name, &content, &mime, &vaultEncrypted)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
@@ -1082,6 +1091,9 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	if vaultEncrypted {
+		c.Header("X-Cloudity-Vault-Encrypted", "1")
 	}
 	// Fichier sans contenu (ex. nouveau document) : retourner 200 avec corps vide
 	if len(content) == 0 {
@@ -1142,16 +1154,22 @@ func (h *Handler) getNodeThumbnail(c *gin.Context) {
 	var name string
 	var content []byte
 	var mime sql.NullString
+	var vaultEncrypted bool
 	err = h.dbex(ctx).QueryRow(`
-		SELECT name, COALESCE(content, ''::bytea), mime_type FROM drive_nodes
+		SELECT name, COALESCE(content, ''::bytea), mime_type, vault_encrypted FROM drive_nodes
 		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, id).Scan(&name, &content, &mime)
+	`, id).Scan(&name, &content, &mime, &vaultEncrypted)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if vaultEncrypted {
+		c.Header("X-Cloudity-Vault-Encrypted", "1")
+		c.JSON(http.StatusNotFound, gin.H{"error": "vault_encrypted", "code": "VAULT_ENCRYPTED"})
 		return
 	}
 	ct := "application/octet-stream"
@@ -1477,12 +1495,14 @@ func (h *Handler) putNodeContent(c *gin.Context) {
 	if len(mimeType) > 255 {
 		mimeType = "application/octet-stream"
 	}
+	vaultEncrypted := strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), strings.ToLower(appVaultMime)) ||
+		strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Cloudity-Vault-Encrypted")), "1")
 	size := int64(len(body))
 	ctx := c.Request.Context()
 	res, err := h.dbex(ctx).Exec(`
-		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, body, size, mimeType, id)
+		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, vault_encrypted = $4, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+	`, body, size, mimeType, vaultEncrypted, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
