@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import NotesPage from './NotesPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
-import { setupAppLockedPin, verifyAppLockedPin } from '../appLockedVault'
+import { grantAppLockedVaultSession, setupAppLockedPin, verifyAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -119,5 +119,19 @@ describe('NotesPage', () => {
     await waitFor(() => {
       expect(api.fetchNotes).toHaveBeenCalledWith('token')
     })
+  })
+
+  it('coffre local : affiche l’état ouvert dans l’interface Notes', async () => {
+    localStorage.setItem(
+      'cloudity.notes.appSettings.v1',
+      JSON.stringify({ sortOrder: 'newest', showContentPreview: true, lockEnabled: true })
+    )
+    await setupAppLockedPin('notes', '1:notes:user@test.com', '1234', '1234')
+    grantAppLockedVaultSession('notes', '1:notes:user@test.com')
+
+    render(wrap(<NotesPage />))
+
+    expect(await screen.findByText('Coffre Notes local ouvert')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Verrouiller Notes' }).length).toBeGreaterThan(0)
   })
 })

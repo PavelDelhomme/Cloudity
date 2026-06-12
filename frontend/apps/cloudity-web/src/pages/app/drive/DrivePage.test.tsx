@@ -10,7 +10,7 @@ import { useAuth } from '../../../authContext'
 import { UploadProvider } from '../../../UploadProvider'
 import { DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../../uploadContext'
 import * as api from '../../../api'
-import { setupAppLockedPin } from '../appLockedVault'
+import { grantAppLockedVaultSession, setupAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../utils/wordToHtml', () => ({
@@ -141,6 +141,31 @@ describe('DrivePage', () => {
 
     await waitFor(() => {
       expect(api.fetchDriveNodes).toHaveBeenCalledWith('token', null)
+    })
+  })
+
+  it('coffre local : crée un dossier verrouillé depuis l’interface Drive ouverte', async () => {
+    localStorage.setItem(
+      'cloudity.drive.appSettings.v1',
+      JSON.stringify({ displayMode: 'list', showRecentSection: true, lockEnabled: true })
+    )
+    await setupAppLockedPin('drive', '1:drive:user@test.com', '1234', '1234')
+    grantAppLockedVaultSession('drive', '1:drive:user@test.com')
+    vi.mocked(api.createDriveFolder).mockResolvedValueOnce({
+      id: 42,
+      name: 'Coffre verrouillé',
+      is_folder: true,
+    })
+
+    render(wrap(<DrivePage />))
+
+    await screen.findByText('Coffre Drive local ouvert')
+    fireEvent.click(screen.getByRole('button', { name: 'Nouveau dossier verrouillé' }))
+    await screen.findByText('Dossier verrouillé local')
+    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+
+    await waitFor(() => {
+      expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Coffre verrouillé')
     })
   })
 

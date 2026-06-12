@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ContactsPage from './ContactsPage'
 import { useAuth } from '../../../authContext'
 import * as api from '../../../api'
-import { setupAppLockedPin } from '../appLockedVault'
+import { grantAppLockedVaultSession, setupAppLockedPin } from '../appLockedVault'
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
@@ -134,5 +134,25 @@ describe('ContactsPage', () => {
     await waitFor(() => {
       expect(api.fetchContacts).toHaveBeenCalledWith('token')
     })
+  })
+
+  it('coffre local : affiche l’état ouvert dans l’interface Contacts', async () => {
+    localStorage.setItem(
+      'cloudity.contacts.appSettings.v1',
+      JSON.stringify({
+        sortAlphabetically: true,
+        showPhoneInList: false,
+        confirmDelete: true,
+        defaultImportDuplicateMode: 'skip',
+        lockEnabled: true,
+      })
+    )
+    await setupAppLockedPin('contacts', '1:contacts:user@test.com', '1234', '1234')
+    grantAppLockedVaultSession('contacts', '1:contacts:user@test.com')
+
+    render(wrap(<ContactsPage />))
+
+    expect(await screen.findByText('Coffre Contacts local ouvert')).toBeTruthy()
+    expect(screen.getAllByRole('button', { name: 'Verrouiller Contacts' }).length).toBeGreaterThan(0)
   })
 })

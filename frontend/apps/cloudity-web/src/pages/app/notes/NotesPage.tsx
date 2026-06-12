@@ -150,6 +150,27 @@ export default function NotesPage() {
         </div>
       </div>
 
+      {notesVaultRequired && notesVaultUnlocked ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Coffre Notes local ouvert</p>
+              <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">
+                Les notes sont accessibles uniquement pendant cette session locale. Verrouillez pour masquer la liste et couper les requêtes.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={lockNotesVault}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Lock className="h-4 w-4" aria-hidden />
+              Verrouiller Notes
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {showNotesSettings && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"

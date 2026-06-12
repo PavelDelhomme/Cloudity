@@ -1490,6 +1490,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
   breadcrumb,
   onBreadcrumbClick,
   onNewFolder,
+  onNewLockedFolder,
   onNewDocument,
   onNewTableur,
   onNewPresentation,
@@ -1503,12 +1504,14 @@ const DriveToolbar = React.memo(function DriveToolbar({
   displayMode,
   onDisplayModeChange,
   onOpenSettings,
+  localVaultActive,
 }: {
   viewMode: 'drive' | 'trash' | 'recent'
   onViewModeChange: (v: 'drive' | 'trash' | 'recent') => void
   breadcrumb: BreadcrumbItem[]
   onBreadcrumbClick: (id: number | null, name: string) => void
   onNewFolder: () => void
+  onNewLockedFolder?: () => void
   onNewDocument?: () => void
   onNewTableur?: () => void
   onNewPresentation?: () => void
@@ -1522,6 +1525,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
   displayMode?: 'grid' | 'list'
   onDisplayModeChange?: (v: 'grid' | 'list') => void
   onOpenSettings?: () => void
+  localVaultActive?: boolean
 }) {
   const showRootDropZone = viewMode === 'drive' && breadcrumb.length > 1 && onDragOverBreadcrumbRoot && onDropOnBreadcrumbRoot
   return (
@@ -1758,6 +1762,16 @@ const DriveToolbar = React.memo(function DriveToolbar({
           <FolderPlus className="h-4 w-4" />
           Nouveau dossier
         </button>
+        {localVaultActive && onNewLockedFolder ? (
+          <button
+            type="button"
+            onClick={onNewLockedFolder}
+            className="inline-flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/40 dark:text-blue-200 dark:hover:bg-blue-900/50"
+          >
+            <Lock className="h-4 w-4" />
+            Nouveau dossier verrouillé
+          </button>
+        ) : null}
           </>
         )}
       </div>
@@ -1780,6 +1794,7 @@ export default function DrivePage() {
   const { addUpload, addFolderUpload, setDriveParentId, registerDownload } = useUpload()
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Drive' }])
   const [newFolderName, setNewFolderName] = useState('')
+  const [newFolderLocked, setNewFolderLocked] = useState(false)
   const [showNewFolder, setShowNewFolder] = useState(false)
   const [creatingDocument, setCreatingDocument] = useState(false)
   const [showNewFileMenu, setShowNewFileMenu] = useState(false)
@@ -2130,16 +2145,21 @@ export default function DrivePage() {
   }, [hasMore, listReady, loadMore])
 
   const handleCreateFolder = useCallback(() => {
-    if (!newFolderName.trim() || !accessToken) return
-    createDriveFolder(accessToken, currentParentId, newFolderName.trim())
-      .then(() => {
-        toast.success('Dossier créé')
+    const folderName = newFolderName.trim() || (newFolderLocked ? 'Coffre verrouillé' : '')
+    if (!folderName || !accessToken) return
+    createDriveFolder(accessToken, currentParentId, folderName)
+      .then((folder) => {
+        toast.success(newFolderLocked ? 'Dossier verrouillé local créé' : 'Dossier créé')
         setNewFolderName('')
+        setNewFolderLocked(false)
         setShowNewFolder(false)
-        queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+        void queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
+        if (newFolderLocked) {
+          startTransition(() => setBreadcrumb((prev) => [...prev, { id: folder.id, name: folder.name ?? folderName }]))
+        }
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur'))
-  }, [newFolderName, accessToken, currentParentId, queryClient])
+  }, [newFolderLocked, newFolderName, accessToken, currentParentId, queryClient])
 
   const handleRename = useCallback(
     (id: number) => {
@@ -2343,7 +2363,17 @@ export default function DrivePage() {
   }, [accessToken, purgeModalTarget, queryClient])
   /** Ouvrir le formulaire « Nouveau dossier » au prochain tick pour ne pas bloquer le clic (Chromium). */
   const openNewFolderForm = useCallback(() => {
-    setTimeout(() => setShowNewFolder(true), 0)
+    setTimeout(() => {
+      setNewFolderLocked(false)
+      setShowNewFolder(true)
+    }, 0)
+  }, [])
+  const openNewLockedFolderForm = useCallback(() => {
+    setTimeout(() => {
+      setNewFolderLocked(true)
+      setNewFolderName((name) => name || 'Coffre verrouillé')
+      setShowNewFolder(true)
+    }, 0)
   }, [])
   const handleNewDocument = useCallback(async () => {
     if (!accessToken) return
@@ -2413,6 +2443,7 @@ export default function DrivePage() {
     setTimeout(() => {
       setShowNewFolder(false)
       setNewFolderName('')
+      setNewFolderLocked(false)
     }, 0)
   }, [])
   const handleDragStartRow = useCallback((node: DriveNode) => setDraggedNode(node), [])
@@ -2692,6 +2723,7 @@ export default function DrivePage() {
         breadcrumb={breadcrumb}
         onBreadcrumbClick={goTo}
         onNewFolder={openNewFolderForm}
+        onNewLockedFolder={openNewLockedFolderForm}
         onNewDocument={handleNewDocument}
         onNewTableur={handleNewTableur}
         onNewPresentation={handleNewPresentation}
@@ -2708,7 +2740,29 @@ export default function DrivePage() {
           setSettingsDraft(driveSettings)
           setShowDriveSettings(true)
         }}
+        localVaultActive={driveVaultRequired && driveVaultUnlocked}
       />
+
+      {driveVaultRequired && driveVaultUnlocked ? (
+        <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Coffre Drive local ouvert</p>
+              <p className="mt-1 text-blue-800/80 dark:text-blue-200/80">
+                Créez un dossier verrouillé, ajoutez-y vos fichiers, puis reverrouillez Drive pour masquer l’accès sur cet appareil.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={openNewLockedFolderForm}
+              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Lock className="h-4 w-4" aria-hidden />
+              Créer un dossier verrouillé
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {showDriveSettings && (
         <div
@@ -2859,12 +2913,18 @@ export default function DrivePage() {
           )}
           {showNewFolder && (
             <div className="flex items-center gap-2 mb-4 p-3 bg-slate-50 dark:bg-slate-700/70 rounded-lg border border-slate-200 dark:border-slate-600">
+              {newFolderLocked ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800 dark:bg-blue-950 dark:text-blue-200">
+                  <Lock className="h-3.5 w-3.5" aria-hidden />
+                  Dossier verrouillé local
+                </span>
+              ) : null}
               <input
                 type="text"
                 value={newFolderName}
                 onChange={(e) => setNewFolderName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
-                placeholder="Nom du dossier"
+                placeholder={newFolderLocked ? 'Nom du dossier verrouillé' : 'Nom du dossier'}
                 className="flex-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:border-brand-500 dark:focus:border-brand-400 focus:ring-1 focus:ring-brand-500 dark:focus:ring-brand-400 focus:outline-none"
                 autoFocus
               />
