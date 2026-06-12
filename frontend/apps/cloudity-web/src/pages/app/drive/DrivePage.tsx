@@ -218,7 +218,7 @@ function DrivePresentationSlidePreview({ slides, toolbar }: { slides: string[]; 
 /** Délai avant d’ouvrir un dossier au clic simple, pour qu’un double-clic puisse annuler l’ouverture et basculer en sélection. */
 const DRIVE_FOLDER_OPEN_DEBOUNCE_MS = 280
 
-type BreadcrumbItem = { id: number | null; name: string }
+type BreadcrumbItem = { id: number | null; name: string; isVaultFolder?: boolean }
 
 /** Nom affiché pour un fichier (masque l’extension .html). */
 function displayFileName(name: string): string {
@@ -1792,7 +1792,7 @@ export default function DrivePage() {
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
-  const { addUpload, addFolderUpload, setDriveParentId, registerDownload } = useUpload()
+  const { addUpload, addFolderUpload, setDriveParentId, setDriveVaultUploadState, registerDownload } = useUpload()
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([{ id: null, name: 'Drive' }])
   const [newFolderName, setNewFolderName] = useState('')
   const [newFolderLocked, setNewFolderLocked] = useState(false)
@@ -1928,6 +1928,23 @@ export default function DrivePage() {
     setDriveParentId(currentParentId)
     return () => setDriveParentId(null)
   }, [currentParentId, setDriveParentId])
+
+  const inVaultTree = breadcrumb.some((b) => b.isVaultFolder)
+
+  useEffect(() => {
+    if (driveVaultRequired && driveVaultUnlocked && driveVaultScope && inVaultTree) {
+      setDriveVaultUploadState({ scope: driveVaultScope, encryptUploads: true })
+    } else {
+      setDriveVaultUploadState(null)
+    }
+    return () => setDriveVaultUploadState(null)
+  }, [
+    driveVaultRequired,
+    driveVaultUnlocked,
+    driveVaultScope,
+    inVaultTree,
+    setDriveVaultUploadState,
+  ])
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['drive', 'nodes', currentParentId],
@@ -2067,7 +2084,7 @@ export default function DrivePage() {
   }, [viewMode, isRecentFullLoading, driveListLoading, nodes.length])
 
   const goTo = useCallback(
-    (id: number | null, name: string) => {
+    (id: number | null, name: string, isVaultFolder = false) => {
       const atDriveRoot = breadcrumb.length === 1 && breadcrumb[0]?.id === null
       if (id !== null && atDriveRoot && name.trim().toLowerCase() === 'photos') {
         navigate('/app/photos')
@@ -2082,7 +2099,10 @@ export default function DrivePage() {
       if (idx >= 0) {
         startTransition(() => setBreadcrumb(breadcrumb.slice(0, idx + 1)))
       } else {
-        startTransition(() => setBreadcrumb([...breadcrumb, { id, name }]))
+        const insideVault = breadcrumb.some((b) => b.isVaultFolder)
+        startTransition(() =>
+          setBreadcrumb([...breadcrumb, { id, name, isVaultFolder: isVaultFolder || insideVault }])
+        )
       }
     },
     [breadcrumb, viewMode, setViewMode, navigate]
@@ -2158,7 +2178,12 @@ export default function DrivePage() {
         setShowNewFolder(false)
         void queryClient.invalidateQueries({ queryKey: ['drive', 'nodes', currentParentId] })
         if (newFolderLocked) {
-          startTransition(() => setBreadcrumb((prev) => [...prev, { id: folder.id, name: folder.name ?? folderName }]))
+          startTransition(() =>
+            setBreadcrumb((prev) => [
+              ...prev,
+              { id: folder.id, name: folder.name ?? folderName, isVaultFolder: true },
+            ])
+          )
         }
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Erreur'))
@@ -3154,7 +3179,7 @@ export default function DrivePage() {
                           <button
                             key={node.id}
                             type="button"
-                            onClick={() => (node.is_folder ? goTo(node.id, node.name) : setPreviewNode(node))}
+                            onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
                             className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
                           >
                             {node.is_folder ? (
@@ -3308,7 +3333,7 @@ export default function DrivePage() {
                           <button
                             key={node.id}
                             type="button"
-                            onClick={() => (node.is_folder ? goTo(node.id, node.name) : setPreviewNode(node))}
+                            onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
                             className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
                           >
                             {node.is_folder ? (

@@ -15,6 +15,11 @@ export type UploadItem = {
   file?: File
 }
 
+export type DriveVaultUploadState = {
+  scope: string
+  encryptUploads: boolean
+}
+
 export type UploadContextValue = {
   items: UploadItem[]
   addUpload: (files: FileList | File[], parentId: number | null) => void
@@ -29,6 +34,7 @@ export type UploadContextValue = {
   registerDownload: (label: string, task: () => Promise<{ blob: Blob; filename: string }>) => void
   driveParentId: number | null
   setDriveParentId: (id: number | null) => void
+  setDriveVaultUploadState: (state: DriveVaultUploadState | null) => void
 }
 
 /** Contexte stable (ref) pour les seuls callbacks d'upload, afin de ne pas faire re-render les inputs sous Chromium. */
@@ -53,6 +59,7 @@ export const defaultUploadContextValue: UploadContextValue = {
   registerDownload: () => {},
   driveParentId: null,
   setDriveParentId: noop,
+  setDriveVaultUploadState: noop,
 }
 
 export const UploadContext = createContext<UploadContextValue | null>(null)

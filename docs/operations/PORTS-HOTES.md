@@ -18,7 +18,7 @@
 | `PORT_GATEWAY` | 6080 | api-gateway | 8000 |
 | `PORT_ADMIN` | 6082 | admin-service | 8082 |
 | `PORT_MAIL_DIRECTORY` | 6050 | mail-directory-service | 8050 |
-| `PORT_PASSWORDS` | 6051 | passwords-service | 8051 |
+| `PORT_PASS_MGR` | 6051 | passwords-service | 8051 |
 | `PORT_CALENDAR` | 6052 | calendar-service | 8052 |
 | `PORT_NOTES` | 6053 | notes-service | 8053 |
 | `PORT_TASKS` | 6054 | tasks-service | 8054 |

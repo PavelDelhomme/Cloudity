@@ -41,6 +41,7 @@ import {
   type DriveNode,
 } from '../../../api'
 import { APP_VAULT_MIME, decryptDriveFileBlob, encryptDriveFileBytes } from '../appVaultClient'
+import { restoreUnlockedPhotoContent } from '../photosVaultUnlock'
 import { clearAppVaultKey, getAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
 import {
   DEFAULT_PHOTOS_APP_SETTINGS,
@@ -795,8 +796,20 @@ export default function PhotosPage() {
   })
 
   const unlockPhotosMutation = useMutation({
-    mutationFn: (ids: number[]) => {
+    mutationFn: async (ids: number[]) => {
       if (!accessToken) throw new Error('Non connecté')
+      if (lockedVaultScope) {
+        const encryptedIds = ids.filter((id) => {
+          const node =
+            lockedPhotoItems.find((n) => n.id === id) ??
+            flatItems.find((n) => n.id === id) ??
+            (archiveQuery.data ?? []).find((n) => n.id === id)
+          return node?.vault_encrypted
+        })
+        for (const id of encryptedIds) {
+          await restoreUnlockedPhotoContent(accessToken, lockedVaultScope, id)
+        }
+      }
       return unlockDrivePhotos(accessToken, ids)
     },
     onSuccess: (res, ids) => {
