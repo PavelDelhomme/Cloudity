@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -158,9 +159,9 @@ class AuthApi {
     if (parentId != null) {
       params['parent_id'] = '$parentId';
     }
-    final uri = Uri.parse('$_base/drive/nodes/search').replace(
-      queryParameters: params,
-    );
+    final uri = Uri.parse(
+      '$_base/drive/nodes/search',
+    ).replace(queryParameters: params);
     final res = await http
         .get(uri, headers: authHeaders(accessToken, json: false))
         .timeout(_httpTimeout);
@@ -371,6 +372,41 @@ class AuthApi {
     }
     return decoded;
   }
+
+  Future<DriveFileDownload> downloadDriveNode({
+    required String accessToken,
+    required int nodeId,
+    bool inline = true,
+  }) async {
+    final q = inline ? '?inline=1' : '';
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId/content$q');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_uploadTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Téléchargement HTTP ${res.statusCode}');
+    }
+    return DriveFileDownload(
+      bytes: res.bodyBytes,
+      mimeType: res.headers['content-type']?.split(';').first.trim(),
+      disposition: res.headers['content-disposition'],
+    );
+  }
+}
+
+class DriveFileDownload {
+  const DriveFileDownload({
+    required this.bytes,
+    this.mimeType,
+    this.disposition,
+  });
+
+  final Uint8List bytes;
+  final String? mimeType;
+  final String? disposition;
 }
 
 String _mimeFromFileName(String name) {

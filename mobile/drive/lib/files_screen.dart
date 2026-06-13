@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import 'auth_api.dart';
+import 'drive_file_preview.dart';
 import 'drive_folder_picker.dart';
 import 'user_session.dart';
 
@@ -218,9 +219,9 @@ class _FilesScreenState extends State<FilesScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _searchLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Recherche impossible : $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Recherche impossible : $e')));
     }
   }
 
@@ -528,7 +529,9 @@ class _FilesScreenState extends State<FilesScreen> {
     int? parent = baseParentId;
     for (final part in parts) {
       if (part.trim().isEmpty) continue;
-      currentKey = currentKey.isEmpty ? part : '$currentKey${Platform.pathSeparator}$part';
+      currentKey = currentKey.isEmpty
+          ? part
+          : '$currentKey${Platform.pathSeparator}$part';
       if (cache.containsKey(currentKey)) {
         parent = cache[currentKey];
         continue;
@@ -785,8 +788,9 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Widget _buildTopPanel() {
-    final folderCount =
-        _visibleItems.where((e) => e['is_folder'] == true).length;
+    final folderCount = _visibleItems
+        .where((e) => e['is_folder'] == true)
+        .length;
     final fileCount = _visibleItems.length - folderCount;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -981,7 +985,20 @@ class _FilesScreenState extends State<FilesScreen> {
     }
     if (isFolder && id != null) {
       _openFolder(id, name);
+      return;
     }
+    if (!isFolder && id != null) {
+      _openFilePreview(node);
+    }
+  }
+
+  Future<void> _openFilePreview(Map<String, dynamic> node) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) =>
+            DriveFilePreviewPage(session: widget.session, node: node),
+      ),
+    );
   }
 
   void _showNodeActions(Map<String, dynamic> node) {
@@ -1027,7 +1044,9 @@ class _FilesScreenState extends State<FilesScreen> {
                   ),
                   title: Text(
                     'Supprimer définitivement',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -1035,6 +1054,15 @@ class _FilesScreenState extends State<FilesScreen> {
                   },
                 ),
               ] else if (id != null) ...[
+                if (node['is_folder'] != true)
+                  ListTile(
+                    leading: const Icon(Icons.visibility_outlined),
+                    title: const Text('Ouvrir / prévisualiser'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openFilePreview(node);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.drive_file_move_outline),
                   title: const Text('Déplacer'),
@@ -1074,9 +1102,9 @@ class _FilesScreenState extends State<FilesScreen> {
         parentId: pick.parentId,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« $name » déplacé.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('« $name » déplacé.')));
     });
   }
 
@@ -1118,9 +1146,9 @@ class _FilesScreenState extends State<FilesScreen> {
         nodeId: id,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('« $name » restauré.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('« $name » restauré.')));
     });
   }
 
