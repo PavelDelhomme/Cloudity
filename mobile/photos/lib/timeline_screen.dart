@@ -107,8 +107,10 @@ class _TimelineScreenState extends State<TimelineScreen>
   String? _lockedError;
   bool _backupEnabled = false;
   bool _backupPendingWork = false;
+  bool _backupRunInProgress = false;
   GallerySyncLastRun? _backupLastRun;
   Set<String> _backupAlbumIds = {};
+  Timer? _backupPollTimer;
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
   final Map<int, GlobalKey> _photoKeys = {};
@@ -129,6 +131,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _backupPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -153,15 +156,36 @@ class _TimelineScreenState extends State<TimelineScreen>
     final enabled = await GallerySyncPrefs.isBackupEnabled();
     final albumIds = await GallerySyncPrefs.selectedAlbumIds();
     final pendingWork = await GallerySyncPrefs.hasPendingWork();
+    final runInProgress = await GallerySyncPrefs.isRunInProgress();
     final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _backupEnabled = enabled;
       _backupAlbumIds = albumIds;
       _backupPendingWork = pendingWork;
+      _backupRunInProgress = runInProgress;
       _backupLastRun = lastRun;
     });
+    _syncBackupPollTimer();
   }
+
+  void _syncBackupPollTimer() {
+    final needsFastPoll =
+        _backupEnabled && (_backupPendingWork || _backupRunInProgress);
+    if (needsFastPoll) {
+      if (_backupPollTimer != null) return;
+      _backupPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (!mounted) return;
+        _loadBackupStatus();
+      });
+      return;
+    }
+    _backupPollTimer?.cancel();
+    _backupPollTimer = null;
+  }
+
+  bool get _backupActive =>
+      _backupEnabled && (_backupPendingWork || _backupRunInProgress);
 
   String get _backupTargetLabel {
     if (_backupAlbumIds.isEmpty) {
@@ -172,13 +196,17 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   IconData get _backupIcon {
-    if (_backupEnabled && _backupPendingWork) return Icons.cloud_sync_outlined;
+    if (_backupRunInProgress) return Icons.cloud_upload_outlined;
+    if (_backupActive) return Icons.cloud_sync_outlined;
     return _backupEnabled
         ? Icons.cloud_done_outlined
         : Icons.cloud_off_outlined;
   }
 
   String get _backupTooltip {
+    if (_backupRunInProgress) {
+      return 'Sauvegarde Photos : envoi en cours en arrière-plan';
+    }
     if (_backupEnabled && _backupPendingWork) {
       return 'Sauvegarde Photos : suite planifiée en arrière-plan';
     }
@@ -189,6 +217,9 @@ class _TimelineScreenState extends State<TimelineScreen>
 
   String get _backupStatusSummary {
     if (!_backupEnabled) return 'Aucune photo ne sera envoyée automatiquement.';
+    if (_backupRunInProgress) {
+      return 'Envoi en cours en arrière-plan · $_backupTargetLabel';
+    }
     if (_backupPendingWork) {
       return 'Suite planifiée en arrière-plan · $_backupTargetLabel';
     }
@@ -1210,7 +1241,7 @@ class _TimelineScreenState extends State<TimelineScreen>
             ListTile(
               leading: Icon(_backupIcon),
               title: Text(
-                _backupEnabled && _backupPendingWork
+                _backupActive
                     ? 'Sauvegarde en arrière-plan'
                     : _backupEnabled
                     ? 'Synchronisation active'
@@ -1280,7 +1311,7 @@ class _TimelineScreenState extends State<TimelineScreen>
             IconButton(
               icon: _BackupAppBarIcon(
                 icon: _backupIcon,
-                animated: _backupEnabled && _backupPendingWork,
+                animated: _backupActive,
               ),
               tooltip: _backupTooltip,
               onPressed: _openBackupSettings,

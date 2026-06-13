@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:workmanager/workmanager.dart';
 
+import 'gallery_backup_logic.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_sync_worker.dart';
 
@@ -40,7 +41,7 @@ Future<void> enqueueGalleryBackupNow() async {
   final requireCharging = await GallerySyncPrefs.requireCharging();
 
   await Workmanager().registerOneOffTask(
-    'cloudity_gallery_backup_now',
+    galleryBackupNowTaskId,
     galleryBackupTaskName,
     constraints: Constraints(
       networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
@@ -49,4 +50,13 @@ Future<void> enqueueGalleryBackupNow() async {
     ),
     existingWorkPolicy: ExistingWorkPolicy.replace,
   );
+}
+
+/// Après connexion : ré-enregistre le job périodique et relance si la sauvegarde est active.
+Future<void> resumeGalleryBackupAfterLogin() async {
+  if (!Platform.isAndroid) return;
+  await applyGallerySyncSchedule();
+  if (await GallerySyncPrefs.isBackupEnabled()) {
+    await enqueueGalleryBackupNow();
+  }
 }

@@ -15,6 +15,7 @@ class GallerySyncPrefs {
       'cloudity_photos_gallery_scan_cursor_album_id_v1';
   static const _scanCursorPage = 'cloudity_photos_gallery_scan_cursor_page_v1';
   static const _hasPendingWork = 'cloudity_photos_gallery_has_pending_work_v1';
+  static const _runInProgress = 'cloudity_photos_gallery_run_in_progress_v1';
   static const _uploadedPrefix = 'cloudity_photos_uploaded_asset:';
 
   static Future<bool> isBackupEnabled() async {
@@ -128,6 +129,17 @@ class GallerySyncPrefs {
   static Future<bool> hasPendingWork() async {
     final p = await SharedPreferences.getInstance();
     return p.getBool(_hasPendingWork) ?? false;
+  }
+
+  /// Vrai pendant l’exécution d’un job (foreground ou WorkManager).
+  static Future<bool> isRunInProgress() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_runInProgress) ?? false;
+  }
+
+  static Future<void> setRunInProgress(bool value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_runInProgress, value);
   }
 }
 

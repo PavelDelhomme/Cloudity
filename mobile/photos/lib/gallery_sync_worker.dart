@@ -1,6 +1,7 @@
 import 'package:workmanager/workmanager.dart';
 
 import 'gallery_backup.dart';
+import 'gallery_backup_logic.dart';
 import 'gallery_sync_prefs.dart';
 
 /// Nom de tâche WorkManager (unique).
@@ -13,7 +14,10 @@ void gallerySyncCallbackDispatcher() {
     if (task == galleryBackupTaskName ||
         task == Workmanager.iOSBackgroundTask) {
       final result = await runGalleryBackupJob();
-      if (result.hasMore && await GallerySyncPrefs.isBackupEnabled()) {
+      if (shouldEnqueueGalleryBackupContinuation(
+        result: result,
+        backupEnabled: await GallerySyncPrefs.isBackupEnabled(),
+      )) {
         await _enqueueContinuation();
       }
     }
@@ -25,7 +29,7 @@ Future<void> _enqueueContinuation() async {
   final wifiOnly = await GallerySyncPrefs.wifiOnly();
   final requireCharging = await GallerySyncPrefs.requireCharging();
   await Workmanager().registerOneOffTask(
-    'cloudity_gallery_backup_continue',
+    galleryBackupContinueTaskId,
     galleryBackupTaskName,
     initialDelay: const Duration(minutes: 1),
     constraints: Constraints(

@@ -61,4 +61,12 @@ void main() {
     expect(await GallerySyncPrefs.scanCursor(), isNull);
     expect(await GallerySyncPrefs.hasPendingWork(), false);
   });
+
+  test('prefs sauvegarde galerie : passage en cours', () async {
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+    await GallerySyncPrefs.setRunInProgress(true);
+    expect(await GallerySyncPrefs.isRunInProgress(), true);
+    await GallerySyncPrefs.setRunInProgress(false);
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+  });
 }

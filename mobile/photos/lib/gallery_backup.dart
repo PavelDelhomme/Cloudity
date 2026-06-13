@@ -3,17 +3,24 @@ import 'dart:io';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'drive_api.dart';
+import 'gallery_backup_logic.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'session_store.dart';
 
-/// Nombre max de nouvelles photos par passage WorkManager (évite wake lock prolongé).
-const _batchSize = 12;
-const _scanPageSize = 80;
-const _maxPagesPerAlbum = 25;
+export 'gallery_backup_logic.dart' show GalleryBackupResult;
 
 /// Sauvegarde incrémentale galerie → dossier Drive « Photos ».
 Future<GalleryBackupResult> runGalleryBackupJob() async {
+  await GallerySyncPrefs.setRunInProgress(true);
+  try {
+    return await _runGalleryBackupJob();
+  } finally {
+    await GallerySyncPrefs.setRunInProgress(false);
+  }
+}
+
+Future<GalleryBackupResult> _runGalleryBackupJob() async {
   if (!Platform.isAndroid) {
     return _skipped('ios_non_supporté');
   }
@@ -60,31 +67,24 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
   var skipped = 0;
   var hasMore = false;
   final cursor = await GallerySyncPrefs.scanCursor();
-  var startAlbumIndex = 0;
-  var startPage = 0;
-  if (cursor != null) {
-    final idx = selectedPaths.indexWhere((path) => path.id == cursor.albumId);
-    if (idx >= 0) {
-      startAlbumIndex = idx;
-      startPage = cursor.page;
-    }
-  }
+  final albumIds = selectedPaths.map((path) => path.id).toList();
+  final scanStart = resolveGalleryScanStart(cursor, albumIds);
 
   for (
-    var albumIndex = startAlbumIndex;
+    var albumIndex = scanStart.albumIndex;
     albumIndex < selectedPaths.length;
     albumIndex++
   ) {
     final path = selectedPaths[albumIndex];
-    final firstPage = albumIndex == startAlbumIndex ? startPage : 0;
-    for (var page = firstPage; page < _maxPagesPerAlbum; page++) {
+    final firstPage = albumIndex == scanStart.albumIndex ? scanStart.page : 0;
+    for (var page = firstPage; page < galleryMaxPagesPerAlbum; page++) {
       final assets = await path.getAssetListPaged(
         page: page,
-        size: _scanPageSize,
+        size: galleryScanPageSize,
       );
       if (assets.isEmpty) break;
       for (final asset in assets) {
-        if (uploaded >= _batchSize) {
+        if (reachedGalleryBackupBatchLimit(uploaded)) {
           hasMore = true;
           break;
         }
@@ -114,18 +114,18 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
           skipped++;
         }
       }
-      if (uploaded >= _batchSize) {
+      if (reachedGalleryBackupBatchLimit(uploaded)) {
         hasMore = true;
         await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page);
         break;
       }
-      if (assets.length < _scanPageSize) break;
-      if (page == _maxPagesPerAlbum - 1) {
+      if (assets.length < galleryScanPageSize) break;
+      if (page == galleryMaxPagesPerAlbum - 1) {
         hasMore = true;
         await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page + 1);
       }
     }
-    if (uploaded >= _batchSize) break;
+    if (reachedGalleryBackupBatchLimit(uploaded)) break;
   }
 
   if (!hasMore) {
@@ -149,20 +149,4 @@ AssetPathEntity _allPhotosPath(List<AssetPathEntity> paths) {
     if (path.isAll) return path;
   }
   return paths.first;
-}
-
-class GalleryBackupResult {
-  GalleryBackupResult({
-    this.uploaded = 0,
-    this.skippedCount = 0,
-    this.skipped = false,
-    this.reason,
-    this.hasMore = false,
-  });
-
-  final int uploaded;
-  final int skippedCount;
-  final bool skipped;
-  final String? reason;
-  final bool hasMore;
 }

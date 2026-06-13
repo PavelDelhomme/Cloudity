@@ -26,6 +26,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   bool _requireCharging = false;
   bool _running = false;
   bool _pendingWork = false;
+  bool _runInProgress = false;
   Set<String> _selectedAlbumIds = {};
   GallerySyncLastRun? _lastRun;
   String? _lastMessage;
@@ -51,6 +52,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     final selectedAlbumIds = await GallerySyncPrefs.selectedAlbumIds();
     final lastRun = await GallerySyncPrefs.lastRun();
     final pendingWork = await GallerySyncPrefs.hasPendingWork();
+    final runInProgress = await GallerySyncPrefs.isRunInProgress();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
@@ -59,6 +61,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _selectedAlbumIds = selectedAlbumIds;
       _lastRun = lastRun;
       _pendingWork = pendingWork;
+      _runInProgress = runInProgress;
       _loading = false;
     });
   }
@@ -158,7 +161,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
 
   String get _liveStatusTitle {
     if (!_enabled) return 'Sauvegarde désactivée';
-    if (_running) return 'Sauvegarde en cours…';
+    if (_running || _runInProgress) return 'Sauvegarde en cours…';
     if (_pendingWork) return 'Suite planifiée en arrière-plan';
     if (_lastRun?.failed == true) return 'Dernier passage en erreur';
     return 'Sauvegarde prête';
@@ -168,7 +171,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (!_enabled) {
       return 'Active-la pour envoyer automatiquement les nouvelles photos.';
     }
-    if (_running) {
+    if (_running || _runInProgress) {
       return 'Cloudity analyse les dossiers sélectionnés et envoie un lot de photos.';
     }
     if (_pendingWork) {

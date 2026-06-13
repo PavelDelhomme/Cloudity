@@ -69,6 +69,9 @@ class _AppBootstrapState extends State<_AppBootstrap> {
 
   void _onLoggedIn(UserSession session) {
     setState(() => _session = session);
+    if (Platform.isAndroid) {
+      resumeGalleryBackupAfterLogin();
+    }
   }
 
   Future<void> _onLogout() async {
