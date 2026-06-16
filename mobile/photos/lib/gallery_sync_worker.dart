@@ -13,7 +13,7 @@ void gallerySyncCallbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     if (task == galleryBackupTaskName ||
         task == Workmanager.iOSBackgroundTask) {
-      final result = await runGalleryBackupJob();
+      final result = await runGalleryBackupJobWithNotification();
       if (shouldEnqueueGalleryBackupContinuation(
         result: result,
         backupEnabled: await GallerySyncPrefs.isBackupEnabled(),

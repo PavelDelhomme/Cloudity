@@ -40,11 +40,20 @@ if [ -f frontend/package.json ] || [ -f frontend/apps/cloudity-web/package.json 
   echo "✅ npm deps OK"
 fi
 
-# Flutter (optionnel)
-if command -v flutter &>/dev/null && [ -d mobile/admin_app ]; then
-  echo "  Flutter: mobile/admin_app"
-  (cd mobile/admin_app && flutter pub get) || true
-  echo "✅ Flutter deps OK"
+# Flutter (optionnel) — SDK officiel local si Arch/snapshot cassé
+if [[ -d mobile/photos || -d mobile/drive ]]; then
+  chmod +x scripts/mobile/ensure-flutter-sdk.sh scripts/mobile/mobile-flutter-env.sh 2>/dev/null || true
+  if ./scripts/mobile/ensure-flutter-sdk.sh; then
+    for app in mobile/photos mobile/drive mobile/mail mobile/pass; do
+      if [[ -f "$app/pubspec.yaml" ]]; then
+        echo "  Flutter pub get: $app"
+        (cd "$app" && flutter pub get) || true
+      fi
+    done
+    echo "✅ Flutter deps OK"
+  else
+    echo "⚠️  Flutter SDK non prêt (make ensure-flutter-sdk)"
+  fi
 fi
 
 echo ""

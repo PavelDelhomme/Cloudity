@@ -6,6 +6,7 @@ import 'drive_api.dart';
 import 'gallery_backup_logic.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
+import 'gallery_backup_notifications.dart';
 import 'session_store.dart';
 
 export 'gallery_backup_logic.dart' show GalleryBackupResult;
@@ -17,6 +18,27 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
     return await _runGalleryBackupJob();
   } finally {
     await GallerySyncPrefs.setRunInProgress(false);
+  }
+}
+
+/// Comme [runGalleryBackupJob] avec notification Android persistante.
+Future<GalleryBackupResult> runGalleryBackupJobWithNotification() async {
+  await notifyGalleryBackupStarted();
+  try {
+    final result = await runGalleryBackupJob();
+    await notifyGalleryBackupFinished(
+      uploaded: result.uploaded,
+      skipped: result.skippedCount,
+      hasMore: result.hasMore,
+    );
+    return result;
+  } catch (e) {
+    await showGalleryBackupNotification(
+      title: 'Sauvegarde Photos en erreur',
+      body: e.toString(),
+      ongoing: false,
+    );
+    rethrow;
   }
 }
 

@@ -23,11 +23,14 @@ NORM=$(echo "$APP_RAW" | tr '[:upper:]' '[:lower:]')
 
 # shellcheck source=mobile-flutter-env.sh
 source "${ROOT}/scripts/mobile/mobile-flutter-env.sh"
-cloudity_prepare_flutter_env "$ROOT" || true
-
-if ! command -v flutter >/dev/null 2>&1; then
-  echo "❌ Flutter n’est pas installé ou pas dans le PATH."
-  echo "   https://docs.flutter.dev/get-started/install"
+if ! cloudity_prepare_flutter_env "$ROOT"; then
+  echo "❌ Flutter n’est pas installé ou le SDK est illisible."
+  echo "   Lancez : make ensure-flutter-sdk"
+  exit 1
+fi
+if ! cloudity_flutter_sdk_healthcheck; then
+  echo "❌ SDK Flutter invalide après préparation."
+  echo "   Lancez : make ensure-flutter-sdk"
   exit 1
 fi
 

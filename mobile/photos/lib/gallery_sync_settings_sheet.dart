@@ -122,7 +122,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _pendingWork = true;
       _lastMessage = null;
     });
-    final result = await runGalleryBackupJob();
+    final result = await runGalleryBackupJobWithNotification();
     if (result.hasMore) {
       await enqueueGalleryBackupNow();
     }
