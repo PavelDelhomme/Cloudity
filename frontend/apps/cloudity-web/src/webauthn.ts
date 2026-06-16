@@ -172,18 +172,19 @@ export async function registerPasskey(token: string, nickname?: string): Promise
 export async function loginWithPasskeyDiscoverable(
   tenantId: string,
   signal?: AbortSignal,
+  conditional = true,
 ): Promise<{ access_token: string; refresh_token: string; role: string; user_id: string; email: string } | null> {
   if (!isWebAuthnSupported()) return null
   // Vérifie que le browser supporte la Conditional UI (Chrome ≥108, Safari
   // ≥16, Firefox ≥119). Sinon on n'expose pas le bouton.
-  if (typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
+  if (conditional && typeof PublicKeyCredential.isConditionalMediationAvailable === 'function') {
     try {
       const ok = await PublicKeyCredential.isConditionalMediationAvailable()
       if (!ok) return null
     } catch {
       return null
     }
-  } else {
+  } else if (conditional) {
     return null
   }
 
@@ -199,11 +200,12 @@ export async function loginWithPasskeyDiscoverable(
 
   let assertion: PublicKeyCredential | null = null
   try {
-    assertion = (await navigator.credentials.get({
+    const request: CredentialRequestOptions = {
       publicKey: opts,
-      mediation: 'conditional',
       signal,
-    })) as PublicKeyCredential | null
+    }
+    if (conditional) request.mediation = 'conditional'
+    assertion = (await navigator.credentials.get(request)) as PublicKeyCredential | null
   } catch (e) {
     // AbortError ou NotAllowedError = utilisateur a annulé / pas de match.
     return null
@@ -219,7 +221,10 @@ export async function loginWithPasskeyDiscoverable(
       assertion: assertionToJSON(assertion),
     }),
   })
-  if (!finishRes.ok) return null
+  if (!finishRes.ok) {
+    const detail = await finishRes.text()
+    throw new Error(`login/finish-discoverable: ${finishRes.status}${detail ? ` — ${detail}` : ''}`)
+  }
   return finishRes.json()
 }
 
@@ -255,7 +260,8 @@ export async function loginWithPasskey(
     }),
   })
   if (!finishRes.ok) {
-    throw new Error(`login/finish: ${finishRes.status}`)
+    const detail = await finishRes.text()
+    throw new Error(`login/finish: ${finishRes.status}${detail ? ` — ${detail}` : ''}`)
   }
   return finishRes.json()
 }
