@@ -103,6 +103,25 @@ GalleryAlbumPresentation describeGalleryAlbum(String rawName) {
   );
 }
 
+/// Référence minimale d’un album `photo_manager`.
+class GalleryAlbumRef {
+  const GalleryAlbumRef({required this.id, required this.name});
+
+  final String id;
+  final String name;
+}
+
+/// Retourne les IDs des albums recommandés (Camera, Screenshots, messagerie…).
+Set<String> suggestedAlbumIds(Iterable<GalleryAlbumRef> albums) {
+  final out = <String>{};
+  for (final album in albums) {
+    if (describeGalleryAlbum(album.name).suggested) {
+      out.add(album.id);
+    }
+  }
+  return out;
+}
+
 bool _containsAny(String value, List<String> needles) {
   return needles.any(value.contains);
 }

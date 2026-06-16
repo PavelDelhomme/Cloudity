@@ -25,4 +25,14 @@ void main() {
     expect(presentation.label, 'Vacances');
     expect(presentation.suggested, false);
   });
+
+  test('sélectionne les albums suggérés par ID', () {
+    final ids = suggestedAlbumIds(const [
+      GalleryAlbumRef(id: 'cam', name: 'Camera'),
+      GalleryAlbumRef(id: 'shots', name: 'Screenshots'),
+      GalleryAlbumRef(id: 'wa', name: 'WhatsApp Images'),
+      GalleryAlbumRef(id: 'misc', name: 'Vacances'),
+    ]);
+    expect(ids, {'cam', 'shots', 'wa'});
+  });
 }

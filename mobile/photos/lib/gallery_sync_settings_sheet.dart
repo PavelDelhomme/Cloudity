@@ -9,6 +9,7 @@ import 'gallery_album_catalog.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_sync_scheduler.dart';
+import 'gallery_sync_setup.dart';
 
 /// Feuille de réglages sauvegarde galerie (Android).
 class GallerySyncSettingsSheet extends StatefulWidget {
@@ -87,12 +88,17 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     await GallerySyncPrefs.setBackupEnabled(value);
     await applyGallerySyncSchedule();
     if (value) {
+      final autoAlbums = await applyDefaultAlbumSelectionIfNeeded();
+      if (mounted && autoAlbums != null && autoAlbums.isNotEmpty) {
+        setState(() => _selectedAlbumIds = autoAlbums);
+      }
       await enqueueGalleryBackupNow();
       if (mounted) {
         setState(() {
           _pendingWork = true;
-          _lastMessage =
-              'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
+          _lastMessage = autoAlbums != null && autoAlbums.isNotEmpty
+              ? '${autoAlbums.length} dossier(s) détecté(s) (Camera, Captures, messagerie…). Sauvegarde planifiée.'
+              : 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
         });
       }
     } else if (mounted) {
@@ -271,6 +277,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (selected == null || !mounted) return;
 
     await GallerySyncPrefs.setSelectedAlbumIds(selected);
+    await GallerySyncPrefs.setDefaultAlbumsConfigured(true);
     setState(() {
       _selectedAlbumIds = selected;
       _lastMessage = selected.isEmpty

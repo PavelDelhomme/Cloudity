@@ -16,6 +16,8 @@ class GallerySyncPrefs {
   static const _scanCursorPage = 'cloudity_photos_gallery_scan_cursor_page_v1';
   static const _hasPendingWork = 'cloudity_photos_gallery_has_pending_work_v1';
   static const _runInProgress = 'cloudity_photos_gallery_run_in_progress_v1';
+  static const _defaultAlbumsConfigured =
+      'cloudity_photos_gallery_default_albums_configured_v1';
   static const _uploadedPrefix = 'cloudity_photos_uploaded_asset:';
 
   static Future<bool> isBackupEnabled() async {
@@ -140,6 +142,17 @@ class GallerySyncPrefs {
   static Future<void> setRunInProgress(bool value) async {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_runInProgress, value);
+  }
+
+  /// Vrai après la première configuration auto/manuelle des albums.
+  static Future<bool> hasDefaultAlbumsConfigured() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_defaultAlbumsConfigured) ?? false;
+  }
+
+  static Future<void> setDefaultAlbumsConfigured(bool value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_defaultAlbumsConfigured, value);
   }
 }
 

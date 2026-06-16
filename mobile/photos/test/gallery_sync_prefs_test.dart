@@ -69,4 +69,10 @@ void main() {
     await GallerySyncPrefs.setRunInProgress(false);
     expect(await GallerySyncPrefs.isRunInProgress(), false);
   });
+
+  test('prefs sauvegarde galerie : albums par défaut configurés', () async {
+    expect(await GallerySyncPrefs.hasDefaultAlbumsConfigured(), false);
+    await GallerySyncPrefs.setDefaultAlbumsConfigured(true);
+    expect(await GallerySyncPrefs.hasDefaultAlbumsConfigured(), true);
+  });
 }
