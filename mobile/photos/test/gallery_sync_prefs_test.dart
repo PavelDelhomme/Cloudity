@@ -75,4 +75,20 @@ void main() {
     await GallerySyncPrefs.setDefaultAlbumsConfigured(true);
     expect(await GallerySyncPrefs.hasDefaultAlbumsConfigured(), true);
   });
+
+  test('prefs sauvegarde galerie : reconcile au démarrage', () async {
+    await GallerySyncPrefs.setBackupEnabled(true);
+    await GallerySyncPrefs.setRunInProgress(true);
+    await GallerySyncPrefs.saveScanCursor(albumId: 'camera', page: 2);
+
+    await GallerySyncPrefs.reconcileOnStartup();
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+    expect(await GallerySyncPrefs.hasPendingWork(), true);
+    expect(await GallerySyncPrefs.isBackupEnabled(), true);
+
+    await GallerySyncPrefs.setBackupEnabled(false);
+    await GallerySyncPrefs.reconcileOnStartup();
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+  });
 }

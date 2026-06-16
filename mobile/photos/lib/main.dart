@@ -6,6 +6,7 @@ import 'package:workmanager/workmanager.dart';
 import 'gallery_sync_scheduler.dart';
 import 'gallery_sync_worker.dart';
 import 'gallery_backup_notifications.dart';
+import 'gallery_sync_prefs.dart';
 import 'login_screen.dart';
 import 'session_store.dart';
 import 'timeline_screen.dart';
@@ -14,6 +15,7 @@ import 'user_session.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
+    await GallerySyncPrefs.reconcileOnStartup();
     await ensureGalleryBackupNotifications();
     await Workmanager().initialize(gallerySyncCallbackDispatcher);
     await applyGallerySyncSchedule();

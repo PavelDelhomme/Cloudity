@@ -195,3 +195,27 @@ func TestDriveSearchNilDBReturnsEmpty(t *testing.T) {
 		t.Errorf("GET /drive/nodes/search with db=nil: got %d, want 200", w.Code)
 	}
 }
+
+func TestStorageSummaryRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/storage/summary", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/storage/summary without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestStorageSummaryNilDBReturnsZeros(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/storage/summary", nil)
+	req.Header.Set("X-User-ID", "1")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /drive/storage/summary with db=nil: got %d, want 200", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"photos"`) {
+		t.Errorf("expected photos key in body, got %s", w.Body.String())
+	}
+}

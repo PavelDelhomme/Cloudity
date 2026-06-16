@@ -154,6 +154,23 @@ class GallerySyncPrefs {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_defaultAlbumsConfigured, value);
   }
+
+  /// Réinitialise les flags transitoires après un kill de l’app ou une session expirée.
+  static Future<void> reconcileOnStartup() async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_runInProgress, false);
+    final enabled = p.getBool(_enabled) ?? false;
+    if (!enabled) {
+      await p.setBool(_hasPendingWork, false);
+      await p.remove(_scanCursorAlbumId);
+      await p.remove(_scanCursorPage);
+    }
+  }
+
+  static Future<void> setPendingWork(bool value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_hasPendingWork, value);
+  }
 }
 
 class GallerySyncScanCursor {

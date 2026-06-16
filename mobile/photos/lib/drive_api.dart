@@ -47,6 +47,17 @@ class DriveApi {
     return data.cast<Map<String, dynamic>>();
   }
 
+  Future<Map<String, dynamic>> fetchStorageSummary(String accessToken) async {
+    final uri = Uri.parse('$_base/drive/storage/summary');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode != 200) {
+      throw DriveApiException('Quota stockage HTTP ${res.statusCode}');
+    }
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   Future<void> deleteNode(String accessToken, int id) async {
     final uri = Uri.parse('$_base/drive/nodes/$id');
     final res = await http

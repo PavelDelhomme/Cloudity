@@ -153,6 +153,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.POST("/photos/lock", h.lockPhotos)
 		drive.POST("/photos/unlock", h.unlockPhotos)
 		drive.GET("/nodes/recent", h.listRecentNodes)
+		drive.GET("/storage/summary", h.getStorageSummary)
 		drive.GET("/nodes/trash", h.listTrash)
 		drive.POST("/nodes", h.createNode)
 		drive.PUT("/nodes/:id", h.updateNode)

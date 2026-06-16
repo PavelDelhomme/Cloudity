@@ -82,31 +82,37 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       }
       if (!mounted) return;
       setState(() => _lastMessage = galleryPermissionMessage(perm));
-    }
-
-    setState(() => _enabled = value);
-    await GallerySyncPrefs.setBackupEnabled(value);
-    await applyGallerySyncSchedule();
-    if (value) {
-      final autoAlbums = await applyDefaultAlbumSelectionIfNeeded();
-      if (mounted && autoAlbums != null && autoAlbums.isNotEmpty) {
-        setState(() => _selectedAlbumIds = autoAlbums);
-      }
-      await enqueueGalleryBackupNow();
-      if (mounted) {
-        setState(() {
-          _pendingWork = true;
-          _lastMessage = autoAlbums != null && autoAlbums.isNotEmpty
-              ? '${autoAlbums.length} dossier(s) détecté(s) (Camera, Captures, messagerie…). Sauvegarde planifiée.'
-              : 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
-        });
-      }
-    } else if (mounted) {
+    } else {
+      await GallerySyncPrefs.setBackupEnabled(false);
       await GallerySyncPrefs.clearScanCursor();
+      await GallerySyncPrefs.setRunInProgress(false);
+      await applyGallerySyncSchedule();
+      if (!mounted) return;
       setState(() {
+        _enabled = false;
         _pendingWork = false;
+        _runInProgress = false;
         _lastMessage =
             'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.';
+      });
+      return;
+    }
+
+    await GallerySyncPrefs.setBackupEnabled(true);
+    await applyGallerySyncSchedule();
+    if (!mounted) return;
+    setState(() => _enabled = true);
+
+    final autoAlbums = await applyDefaultAlbumSelectionIfNeeded();
+    if (mounted && autoAlbums != null && autoAlbums.isNotEmpty) {
+      setState(() => _selectedAlbumIds = autoAlbums);
+    }
+    await enqueueGalleryBackupNow();
+    if (mounted) {
+      setState(() {
+        _lastMessage = autoAlbums != null && autoAlbums.isNotEmpty
+            ? '${autoAlbums.length} dossier(s) détecté(s) (Camera, Captures, messagerie…). Sauvegarde planifiée.'
+            : 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
       });
     }
   }
@@ -168,9 +174,9 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   String get _liveStatusTitle {
     if (!_enabled) return 'Sauvegarde désactivée';
     if (_running || _runInProgress) return 'Sauvegarde en cours…';
-    if (_pendingWork) return 'Suite planifiée en arrière-plan';
+    if (_pendingWork) return 'Suite à reprendre en arrière-plan';
     if (_lastRun?.failed == true) return 'Dernier passage en erreur';
-    return 'Sauvegarde prête';
+    return 'Sauvegarde active';
   }
 
   String get _liveStatusSubtitle {
@@ -181,11 +187,13 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       return 'Cloudity analyse les dossiers sélectionnés et envoie un lot de photos.';
     }
     if (_pendingWork) {
-      return 'Le prochain lot continuera même si ce panneau est fermé.';
+      return 'Un lot reste à traiter — Android relancera la tâche dès que possible.';
     }
     if (_lastRun?.failed == true) return _lastRun!.error ?? 'Erreur inconnue';
-    return 'Les prochains passages seront lancés par Android WorkManager.';
+    return 'Les prochains passages seront lancés automatiquement en arrière-plan.';
   }
+
+  bool get _showProgressAnimation => _running || _runInProgress;
 
   Future<void> _selectAlbums() async {
     final perm = await requestGalleryPermission();
@@ -309,38 +317,41 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: 16 + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Sauvegarde galerie',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
-              'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            _GalleryBackupLiveStatusCard(
-              active: _enabled,
-              animated: _running || _pendingWork,
-              error: _lastRun?.failed == true,
-              title: _liveStatusTitle,
-              subtitle: _liveStatusSubtitle,
-            ),
+    return SafeArea(
+      top: true,
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 8,
+          bottom: 16 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sauvegarde galerie',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
+                'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              _GalleryBackupLiveStatusCard(
+                active: _enabled,
+                animated: _showProgressAnimation,
+                error: _lastRun?.failed == true,
+                title: _liveStatusTitle,
+                subtitle: _liveStatusSubtitle,
+              ),
             const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -421,7 +432,8 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
               const SizedBox(height: 12),
               Text(_lastMessage!, style: Theme.of(context).textTheme.bodySmall),
             ],
-          ],
+            ],
+          ),
         ),
       ),
     );
