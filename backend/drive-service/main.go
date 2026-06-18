@@ -146,6 +146,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.GET("/nodes", h.listNodes)
 		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
+		drive.GET("/photos/system-folder", h.getPhotosSystemFolder)
 		drive.GET("/photos/archive", h.listPhotosArchive)
 		drive.GET("/photos/locked", h.listPhotosLocked)
 		drive.POST("/photos/archive", h.archivePhotos)
@@ -289,7 +290,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
-			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ORDER BY n.is_folder DESC, n.name
+			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ` + photosRootExcludeSQL + ` ORDER BY n.is_folder DESC, n.name
 		`)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
@@ -363,7 +364,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 			LEFT JOIN drive_nodes p ON p.id = n.parent_id AND p.user_id = n.user_id AND p.deleted_at IS NULL
 			WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER
 			AND n.deleted_at IS NULL
-			AND POSITION(LOWER($1) IN LOWER(n.name)) > 0`
+			AND POSITION(LOWER($1) IN LOWER(n.name)) > 0` + photosTreeExcludeSQL
 	parentStr := strings.TrimSpace(c.Query("parent_id"))
 	var rows *sql.Rows
 	var err error
@@ -434,8 +435,9 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
 		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
-		FROM drive_nodes
+		FROM drive_nodes n
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+		` + photosTreeExcludeSQL + `
 		ORDER BY updated_at DESC NULLS LAST, id DESC
 		LIMIT $1
 	`, limit)
@@ -847,6 +849,9 @@ func (h *Handler) updateNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	if h.rejectPhotosRootMutation(c, id) {
+		return
+	}
 	var body struct {
 		Name     string `json:"name"`
 		ParentID *int   `json:"parent_id"`
@@ -952,6 +957,9 @@ func (h *Handler) deleteNode(c *gin.Context) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if h.rejectPhotosRootMutation(c, id) {
 		return
 	}
 	ctx := c.Request.Context()

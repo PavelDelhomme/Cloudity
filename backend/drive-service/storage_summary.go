@@ -96,7 +96,7 @@ SELECT
 		return
 	}
 
-	c.JSON(http.StatusOK, storageSummaryResponse{
+	resp := storageSummaryResponse{
 		Photos: storageServiceUsage{
 			Label:     "Photos",
 			Bytes:     photosBytes,
@@ -107,6 +107,11 @@ SELECT
 			Bytes:     driveBytes,
 			FileCount: driveCount,
 		},
-		Note: "Le détail Mail sera ajouté via l’API mail-directory.",
-	})
+	}
+	if mailUsage, mailErr := h.queryMailStorageUsage(ctx); mailErr == nil {
+		resp.Mail = &mailUsage
+	} else {
+		resp.Note = "Quota Mail indisponible pour ce compte."
+	}
+	c.JSON(http.StatusOK, resp)
 }

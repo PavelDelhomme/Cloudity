@@ -82,6 +82,17 @@ export default function StorageUsageSection() {
                 </span>
               </dd>
             </div>
+            {usage.mail ? (
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-slate-600 dark:text-slate-300">{usage.mail.label}</dt>
+                <dd className="font-medium text-slate-900 dark:text-slate-100 text-right">
+                  {formatStorageBytes(usage.mail.bytes)}
+                  <span className="block text-xs font-normal text-slate-500 dark:text-slate-400">
+                    {usage.mail.file_count} message(s)
+                  </span>
+                </dd>
+              </div>
+            ) : null}
             {usage.note ? (
               <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">{usage.note}</p>
             ) : null}
