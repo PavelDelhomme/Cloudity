@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:cloudity_shared/storage_usage.dart';
 
 import 'auth_api.dart';
 import 'drive_file_preview.dart';
@@ -33,6 +34,9 @@ class _FilesScreenState extends State<FilesScreen> {
   String _searchQuery = '';
   List<Map<String, dynamic>> _searchResults = [];
   bool _searchLoading = false;
+  StorageUsageSummary? _storageUsage;
+  bool _storageLoading = false;
+  String? _storageError;
 
   int? get _parentId => _parentStack.last;
   String get _folderTitle => switch (_section) {
@@ -52,6 +56,32 @@ class _FilesScreenState extends State<FilesScreen> {
   void initState() {
     super.initState();
     _reload();
+    _loadStorageUsage();
+  }
+
+  Future<void> _loadStorageUsage() async {
+    setState(() {
+      _storageLoading = true;
+      _storageError = null;
+    });
+    try {
+      await widget.session.refreshIfNeeded();
+      final usage = await fetchStorageUsage(
+        gatewayBase: widget.session.api.baseUrl,
+        accessToken: widget.session.accessToken,
+      );
+      if (!mounted) return;
+      setState(() {
+        _storageUsage = usage;
+        _storageLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _storageError = e.toString();
+        _storageLoading = false;
+      });
+    }
   }
 
   Future<void> _reload() async {
@@ -762,6 +792,72 @@ class _FilesScreenState extends State<FilesScreen> {
         const NavigationDrawerDestination(
           icon: Icon(Icons.delete_outline),
           label: Text('Corbeille'),
+        ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 28, vertical: 8),
+          child: Divider(),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 4, 28, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.storage_outlined,
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Espace utilisé',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: _storageLoading ? null : _loadStorageUsage,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              if (_storageLoading)
+                Text(
+                  'Calcul en cours…',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else if (_storageError != null)
+                Text(
+                  _storageError!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                )
+              else if (_storageUsage == null)
+                Text(
+                  'Indisponible',
+                  style: Theme.of(context).textTheme.bodySmall,
+                )
+              else ...[
+                Text(
+                  'Photos ${formatStorageBytes(_storageUsage!.photos.bytes)} · '
+                  'Drive ${formatStorageBytes(_storageUsage!.drive.bytes)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (_storageUsage!.mailNote != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _storageUsage!.mailNote!,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ],
+          ),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 28, vertical: 8),

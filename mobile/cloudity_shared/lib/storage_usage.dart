@@ -1,4 +1,8 @@
-import 'drive_api.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+
+import 'http_helpers.dart';
 
 class ServiceStorageUsage {
   const ServiceStorageUsage({
@@ -26,6 +30,13 @@ class StorageUsageSummary {
   final String? mailNote;
 }
 
+class StorageUsageException implements Exception {
+  StorageUsageException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
 String formatStorageBytes(int bytes) {
   if (bytes <= 0) return '0 o';
   const units = ['o', 'Ko', 'Mo', 'Go', 'To'];
@@ -37,24 +48,6 @@ String formatStorageBytes(int bytes) {
   }
   final digits = value >= 100 || unit == 0 ? 0 : value >= 10 ? 1 : 2;
   return '${value.toStringAsFixed(digits)} ${units[unit]}';
-}
-
-/// Estimation client-side ou via API `/drive/storage/summary`.
-Future<StorageUsageSummary> fetchStorageUsage({
-  required DriveApi drive,
-  required String accessToken,
-  int maxFiles = 2000,
-}) async {
-  try {
-    final raw = await drive.fetchStorageSummary(accessToken);
-    return summaryFromApiResponse(raw);
-  } on DriveApiException {
-    return _fetchStorageUsageClient(
-      drive: drive,
-      accessToken: accessToken,
-      maxFiles: maxFiles,
-    );
-  }
 }
 
 StorageUsageSummary summaryFromApiResponse(Map<String, dynamic> raw) {
@@ -77,12 +70,39 @@ StorageUsageSummary summaryFromApiResponse(Map<String, dynamic> raw) {
   );
 }
 
-Future<StorageUsageSummary> _fetchStorageUsageClient({
-  required DriveApi drive,
+/// API `/drive/storage/summary` avec repli client si indisponible.
+Future<StorageUsageSummary> fetchStorageUsage({
+  required String gatewayBase,
   required String accessToken,
   int maxFiles = 2000,
 }) async {
-  final roots = await drive.fetchNodes(accessToken, null);
+  final base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
+  try {
+    final res = await http
+        .get(
+          Uri.parse('$base/drive/storage/summary'),
+          headers: authHeaders(accessToken, json: false),
+        )
+        .timeout(const Duration(seconds: 8));
+    if (res.statusCode != 200) {
+      throw StorageUsageException('Quota stockage HTTP ${res.statusCode}');
+    }
+    return summaryFromApiResponse(jsonDecode(res.body) as Map<String, dynamic>);
+  } on StorageUsageException {
+    return _fetchStorageUsageClient(
+      gatewayBase: base,
+      accessToken: accessToken,
+      maxFiles: maxFiles,
+    );
+  }
+}
+
+Future<StorageUsageSummary> _fetchStorageUsageClient({
+  required String gatewayBase,
+  required String accessToken,
+  required int maxFiles,
+}) async {
+  final roots = await _fetchNodes(gatewayBase, accessToken, null);
   var driveBytes = 0;
   var driveCount = 0;
   var drivePartial = false;
@@ -96,7 +116,7 @@ Future<StorageUsageSummary> _fetchStorageUsageClient({
         continue;
       }
       final sub = await _sumFolder(
-        drive: drive,
+        gatewayBase: gatewayBase,
         accessToken: accessToken,
         folderId: (node['id'] as num).toInt(),
         remaining: maxFiles - driveCount,
@@ -115,7 +135,7 @@ Future<StorageUsageSummary> _fetchStorageUsageClient({
   var photosPartial = false;
   if (photosFolderId != null) {
     final photos = await _sumFolder(
-      drive: drive,
+      gatewayBase: gatewayBase,
       accessToken: accessToken,
       folderId: photosFolderId,
       remaining: maxFiles,
@@ -143,6 +163,28 @@ Future<StorageUsageSummary> _fetchStorageUsageClient({
   );
 }
 
+Future<List<Map<String, dynamic>>> _fetchNodes(
+  String gatewayBase,
+  String accessToken,
+  int? parentId,
+) async {
+  final path = parentId == null
+      ? '/drive/nodes'
+      : '/drive/nodes?parent_id=$parentId';
+  final res = await http
+      .get(
+        Uri.parse('$gatewayBase$path'),
+        headers: authHeaders(accessToken, json: false),
+      )
+      .timeout(const Duration(seconds: 8));
+  if (res.statusCode != 200) {
+    throw StorageUsageException('Liste Drive HTTP ${res.statusCode}');
+  }
+  final data = jsonDecode(res.body);
+  if (data is! List) return [];
+  return data.cast<Map<String, dynamic>>();
+}
+
 class _FolderSum {
   const _FolderSum({
     required this.bytes,
@@ -156,7 +198,7 @@ class _FolderSum {
 }
 
 Future<_FolderSum> _sumFolder({
-  required DriveApi drive,
+  required String gatewayBase,
   required String accessToken,
   required int folderId,
   required int remaining,
@@ -171,7 +213,7 @@ Future<_FolderSum> _sumFolder({
 
   while (queue.isNotEmpty && count < remaining) {
     final current = queue.removeAt(0);
-    final nodes = await drive.fetchNodes(accessToken, current);
+    final nodes = await _fetchNodes(gatewayBase, accessToken, current);
     for (final node in nodes) {
       if (count >= remaining) {
         partial = true;

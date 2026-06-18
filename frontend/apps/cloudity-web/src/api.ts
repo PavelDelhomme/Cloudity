@@ -1630,6 +1630,28 @@ export async function fetchDriveNodes(
   return apiJson<DriveNode[]>(token, path, { json: false }, 'Drive')
 }
 
+export type DriveStorageServiceUsage = {
+  label: string
+  bytes: number
+  file_count: number
+}
+
+export type DriveStorageSummary = {
+  photos: DriveStorageServiceUsage
+  drive: DriveStorageServiceUsage
+  mail?: DriveStorageServiceUsage | null
+  note?: string
+}
+
+export async function fetchDriveStorageSummary(token: string): Promise<DriveStorageSummary> {
+  return apiJson<DriveStorageSummary>(
+    token,
+    '/drive/storage/summary',
+    { json: false },
+    'Quota stockage Drive'
+  )
+}
+
 /** Recherche par nom sur tout le Drive (ou sous-arbre si `parent_id` est défini). */
 export async function fetchDriveSearch(
   token: string,

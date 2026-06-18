@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
-import 'package:cloudity_photos/storage_usage.dart';
+import 'package:cloudity_shared/storage_usage.dart';
 
 void main() {
   test('formatStorageBytes affiche Ko/Mo lisibles', () {

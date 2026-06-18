@@ -7,13 +7,13 @@ import 'package:local_auth/local_auth.dart';
 
 import 'auth_api.dart';
 import 'package:cloudity_shared/http_helpers.dart';
+import 'package:cloudity_shared/storage_usage.dart';
 import 'device_gallery_body.dart';
 import 'drive_api.dart';
 import 'gallery_sync_settings_sheet.dart';
 import 'gallery_sync_prefs.dart';
 import 'photo_load_queue.dart';
 import 'photo_sync_badge.dart';
-import 'storage_usage.dart';
 import 'user_session.dart';
 
 const _pageSize = 48;
@@ -371,9 +371,8 @@ class _TimelineScreenState extends State<TimelineScreen>
     });
     try {
       await widget.session.refreshIfNeeded();
-      final drive = DriveApi(widget.session.api.baseUrl);
       final usage = await fetchStorageUsage(
-        drive: drive,
+        gatewayBase: widget.session.api.baseUrl,
         accessToken: widget.session.accessToken,
       );
       if (!mounted) return;
