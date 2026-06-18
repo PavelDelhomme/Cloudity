@@ -147,6 +147,8 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
 		drive.GET("/photos/system-folder", h.getPhotosSystemFolder)
+		drive.GET("/photos/fingerprints", h.listPhotosFingerprints)
+		drive.POST("/photos/match", h.matchPhotos)
 		drive.GET("/photos/archive", h.listPhotosArchive)
 		drive.GET("/photos/locked", h.listPhotosLocked)
 		drive.POST("/photos/archive", h.archivePhotos)
@@ -1507,11 +1509,12 @@ func (h *Handler) putNodeContent(c *gin.Context) {
 	vaultEncrypted := strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), strings.ToLower(appVaultMime)) ||
 		strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Cloudity-Vault-Encrypted")), "1")
 	size := int64(len(body))
+	contentHash := sha256HexContent(body)
 	ctx := c.Request.Context()
 	res, err := h.dbex(ctx).Exec(`
-		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, vault_encrypted = $4, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, body, size, mimeType, vaultEncrypted, id)
+		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, vault_encrypted = $4, content_hash = $5, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $6 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+	`, body, size, mimeType, vaultEncrypted, contentHashParam(contentHash), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1588,6 +1591,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		}
 	}
 	size := int64(len(content))
+	contentHash := sha256HexContent(content)
 	ctx := c.Request.Context()
 
 	if overwrite {
@@ -1610,9 +1614,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		}
 		if err == nil {
 			_, err = h.dbex(ctx).Exec(`
-				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, taken_at = COALESCE($4, taken_at), updated_at = CURRENT_TIMESTAMP
-				WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
-			`, content, size, mimeType, takenAt, existingID)
+				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, taken_at = COALESCE($4, taken_at), content_hash = $5, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $6 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+			`, content, size, mimeType, takenAt, contentHashParam(contentHash), existingID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -1629,9 +1633,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	var id int
 	if parentIDStr == "" || parentIDStr == "null" {
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
-			VALUES ($1, $2, NULL, $3, false, $4, $5, $6, $7) RETURNING id
-		`, tid, uid, name, size, mimeType, content, takenAt).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at, content_hash)
+			VALUES ($1, $2, NULL, $3, false, $4, $5, $6, $7, $8) RETURNING id
+		`, tid, uid, name, size, mimeType, content, takenAt, contentHashParam(contentHash)).Scan(&id)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
 		if perr != nil || parentID <= 0 {
@@ -1639,9 +1643,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 			return
 		}
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
-			VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8) RETURNING id
-		`, tid, uid, parentID, name, size, mimeType, content, takenAt).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at, content_hash)
+			VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8, $9) RETURNING id
+		`, tid, uid, parentID, name, size, mimeType, content, takenAt, contentHashParam(contentHash)).Scan(&id)
 	}
 	if err != nil {
 		var perr *pq.Error

@@ -47,8 +47,8 @@
 | **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; renforcer fortement les tests vault/E2EE (erreurs clé, tamper, rotation PIN, migration, Drive coffre) ; continuer Mail/Admin/Settings et parcours sécurité | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
 | **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
-| **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres. **Reste** : quota Mail + profil multi-service (web + Drive mobile) ; stockage Photos isolé en espace système non manipulable comme dossier Drive classique ; matching cloud↔local cross-appareil (hash/nom). | 🟡 |
-| **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; reste : thème clair/sombre cohérent sur toutes les apps Flutter, preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
+| **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
+| **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
@@ -64,6 +64,20 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 
 Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Validation différée — stack + Samsung (à rejouer demain)
+
+**Contexte (2026-06-16)** : développement hors ligne (stack arrêtée, Samsung occupé par d’autres apps ADB). Les changements ci-dessous ont été couverts par **tests unitaires / `go test` / `flutter test` / `flutter analyze`** uniquement — **pas** de validation live.
+
+| Zone | Tests hôte faits | À rejouer demain (stack `make up` + migrate) |
+|------|------------------|-----------------------------------------------|
+| Quota Mail + isolation dossier Photos | `go test` drive-service | `curl /drive/storage/summary`, Drive web sans dossier Photos |
+| Matching cloud↔local (hash/nom) | `go test` + `photo_match_test` | Upload depuis 2e appareil, onglet **Cet appareil** badges |
+| Passkey Credential Manager (Photos/Drive) | `flutter analyze` | Login passkey sur Samsung, RP ID / gateway alignés |
+| Thème clair/sombre Flutter | `flutter test` | Bascule thème sur chaque app |
+| Backup galerie + skip cloud match | `flutter test` photos | `make test-mobile-suite` quand Samsung libre |
+
+**Samsung** `R5CT7263YJL` : ne pas lancer d’ADB concurrent ; rejouer `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` une fois libre.
 
 ### Incident `make status-watch` — `.env: Admin: commande introuvable` (2026-06-08)
 

@@ -206,6 +206,27 @@ func TestStorageSummaryRequiresAuth(t *testing.T) {
 	}
 }
 
+func TestPhotosFingerprintsRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/photos/fingerprints", nil)
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("GET /drive/photos/fingerprints without X-User-ID: got %d", w.Code)
+	}
+}
+
+func TestPhotosMatchRequiresAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/drive/photos/match", strings.NewReader(`{"items":[{"name":"a.jpg","size":1}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("POST /drive/photos/match without X-User-ID: got %d", w.Code)
+	}
+}
+
 func TestStorageSummaryNilDBReturnsZeros(t *testing.T) {
 	r := setupRouter(nil)
 	w := httptest.NewRecorder()

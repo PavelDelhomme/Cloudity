@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:workmanager/workmanager.dart';
 
+import 'package:cloudity_shared/app_theme.dart';
+
 import 'gallery_sync_scheduler.dart';
 import 'gallery_sync_worker.dart';
 import 'gallery_backup_notifications.dart';
@@ -12,6 +14,8 @@ import 'session_store.dart';
 import 'timeline_screen.dart';
 import 'user_session.dart';
 
+final _appKey = GlobalKey<CloudityThemedAppState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isAndroid) {
@@ -20,20 +24,23 @@ Future<void> main() async {
     await Workmanager().initialize(gallerySyncCallbackDispatcher);
     await applyGallerySyncSchedule();
   }
-  runApp(const CloudityPhotosApp());
+  runApp(CloudityThemedApp(
+    key: _appKey,
+    title: 'Cloudity Photos',
+    seedColor: Colors.teal,
+    home: const _AppBootstrap(),
+  ));
 }
 
+/// Alias conservé pour les tests widget / intégration.
 class CloudityPhotosApp extends StatelessWidget {
   const CloudityPhotosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return CloudityThemedApp(
       title: 'Cloudity Photos',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      seedColor: Colors.teal,
       home: const _AppBootstrap(),
     );
   }

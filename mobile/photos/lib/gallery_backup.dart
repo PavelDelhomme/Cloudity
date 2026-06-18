@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloudity_shared/photo_match.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'drive_api.dart';
@@ -88,6 +89,15 @@ Future<GalleryBackupResult> _runGalleryBackupJob() async {
   var uploaded = 0;
   var skipped = 0;
   var hasMore = false;
+  PhotoCloudIndex? cloudIndex;
+  try {
+    final fps = await PhotoMatchClient(session.api.baseUrl).fetchFingerprints(
+      session.access,
+    );
+    cloudIndex = PhotoCloudIndex.fromFingerprints(fps);
+  } catch (_) {
+    cloudIndex = null;
+  }
   final cursor = await GallerySyncPrefs.scanCursor();
   final albumIds = selectedPaths.map((path) => path.id).toList();
   final scanStart = resolveGalleryScanStart(cursor, albumIds);
@@ -122,12 +132,24 @@ Future<GalleryBackupResult> _runGalleryBackupJob() async {
         final name = asset.title?.trim().isNotEmpty == true
             ? asset.title!.trim()
             : 'photo_${asset.id}.jpg';
+        final fileName = name.contains('.') ? name : '$name.jpg';
+        if (cloudIndex != null) {
+          final hit = cloudIndex.matchLocal(
+            name: fileName,
+            size: await file.length(),
+          );
+          if (hit != null) {
+            await GallerySyncPrefs.markAssetUploaded(asset.id);
+            skipped++;
+            continue;
+          }
+        }
         try {
           await drive.uploadFile(
             accessToken: session.access,
             parentId: folderId,
             file: file,
-            fileName: name.contains('.') ? name : '$name.jpg',
+            fileName: fileName,
             takenAt: asset.createDateTime,
           );
           await GallerySyncPrefs.markAssetUploaded(asset.id);

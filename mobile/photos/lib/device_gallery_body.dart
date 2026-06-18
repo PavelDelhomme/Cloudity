@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
+import 'package:cloudity_shared/photo_match.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'photo_sync_badge.dart';
@@ -12,9 +13,13 @@ class DeviceGalleryBody extends StatefulWidget {
   const DeviceGalleryBody({
     super.key,
     required this.backupEnabled,
+    this.gatewayBase,
+    this.accessToken,
   });
 
   final bool backupEnabled;
+  final String? gatewayBase;
+  final String? accessToken;
 
   @override
   State<DeviceGalleryBody> createState() => _DeviceGalleryBodyState();
@@ -24,6 +29,7 @@ class _DeviceGalleryBodyState extends State<DeviceGalleryBody> {
   bool _loading = true;
   String? _error;
   final List<_LocalPhoto> _photos = [];
+  PhotoCloudIndex? _cloudIndex;
 
   @override
   void initState() {
@@ -71,22 +77,45 @@ class _DeviceGalleryBodyState extends State<DeviceGalleryBody> {
         orElse: () => paths.first,
       );
       final assets = await all.getAssetListPaged(page: 0, size: 120);
+      PhotoCloudIndex? cloudIndex;
+      final gateway = widget.gatewayBase?.trim();
+      final token = widget.accessToken?.trim();
+      if (gateway != null &&
+          gateway.isNotEmpty &&
+          token != null &&
+          token.isNotEmpty) {
+        try {
+          final fps = await PhotoMatchClient(
+            gateway,
+          ).fetchFingerprints(token);
+          cloudIndex = PhotoCloudIndex.fromFingerprints(fps);
+        } catch (_) {
+          cloudIndex = null;
+        }
+      }
       final items = <_LocalPhoto>[];
       for (final asset in assets) {
-        final backedUp = await GallerySyncPrefs.isAssetUploaded(asset.id);
-        items.add(
-          _LocalPhoto(
-            asset: asset,
-            status: backedUp
-                ? PhotoSyncStatus.backedUp
-                : widget.backupEnabled
-                ? PhotoSyncStatus.pendingUpload
-                : PhotoSyncStatus.localOnly,
-          ),
+        final fileName = asset.title?.trim().isNotEmpty == true
+            ? asset.title!.trim()
+            : 'photo_${asset.id}.jpg';
+        final normalizedName = fileName.contains('.') ? fileName : '$fileName.jpg';
+        final file = await asset.file;
+        final fileSize = file != null ? await file.length() : 0;
+        final localBackedUp = await GallerySyncPrefs.isAssetUploaded(asset.id);
+        final cloudHit = cloudIndex?.matchLocal(
+          name: normalizedName,
+          size: fileSize,
         );
+        final status = cloudHit != null || localBackedUp
+            ? PhotoSyncStatus.backedUp
+            : widget.backupEnabled
+            ? PhotoSyncStatus.pendingUpload
+            : PhotoSyncStatus.localOnly;
+        items.add(_LocalPhoto(asset: asset, status: status));
       }
       if (!mounted) return;
       setState(() {
+        _cloudIndex = cloudIndex;
         _photos
           ..clear()
           ..addAll(items);
@@ -105,11 +134,21 @@ class _DeviceGalleryBodyState extends State<DeviceGalleryBody> {
     if (_photos.isEmpty) return;
     final updated = <_LocalPhoto>[];
     for (final photo in _photos) {
-      final backedUp = await GallerySyncPrefs.isAssetUploaded(photo.asset.id);
+      final fileName = photo.asset.title?.trim().isNotEmpty == true
+          ? photo.asset.title!.trim()
+          : 'photo_${photo.asset.id}.jpg';
+      final normalizedName = fileName.contains('.') ? fileName : '$fileName.jpg';
+      final file = await photo.asset.file;
+      final fileSize = file != null ? await file.length() : 0;
+      final localBackedUp = await GallerySyncPrefs.isAssetUploaded(photo.asset.id);
+      final cloudHit = _cloudIndex?.matchLocal(
+        name: normalizedName,
+        size: fileSize,
+      );
       updated.add(
         _LocalPhoto(
           asset: photo.asset,
-          status: backedUp
+          status: cloudHit != null || localBackedUp
               ? PhotoSyncStatus.backedUp
               : widget.backupEnabled
               ? PhotoSyncStatus.pendingUpload

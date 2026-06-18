@@ -1,3 +1,4 @@
+import 'package:cloudity_shared/passkey_login.dart';
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/auth_2fa.dart';
 import 'package:cloudity_shared/network_errors.dart';
@@ -92,6 +93,34 @@ class _LoginScreenState extends State<LoginScreen> {
     _tenantCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _onPasskeyLogin(PasskeyLoginResult result) async {
+    try {
+      final gateway = _gatewayCtrl.text.trim().isEmpty
+          ? await SessionStore.gatewayOrDefault()
+          : _gatewayCtrl.text.trim();
+      final api = AuthApi(gateway);
+      final tenantRaw = _tenantCtrl.text.trim().isEmpty ? '1' : _tenantCtrl.text.trim();
+      final tenantId = int.tryParse(tenantRaw) ?? 1;
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: api.baseUrl,
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        email: result.email ?? 'passkey@cloudity.local',
+        tenantId: tenantId,
+      );
+      if (!mounted) return;
+      widget.onLoggedIn(
+        UserSession(
+          api: api,
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        ),
+      );
+    } catch (e) {
+      setState(() => _error = friendlyNetworkMessage(e, action: 'connexion passkey'));
+    }
   }
 
   Future<void> _submit() async {
@@ -318,6 +347,16 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 12),
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
+        const SizedBox(height: 12),
+        CloudityPasskeyLoginButton(
+          gatewayBase: _gatewayCtrl.text.trim().isEmpty
+              ? 'http://127.0.0.1:6080'
+              : _gatewayCtrl.text.trim(),
+          tenantId: _tenantCtrl.text.trim().isEmpty ? '1' : _tenantCtrl.text.trim(),
+          busy: _busy,
+          onBusyChanged: (v) => setState(() => _busy = v),
+          onSuccess: _onPasskeyLogin,
+        ),
         const SizedBox(height: 20),
         FilledButton(
           key: const ValueKey('cloudity_photos_login_submit'),

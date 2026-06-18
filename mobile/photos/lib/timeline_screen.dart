@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 
 import 'auth_api.dart';
+import 'package:cloudity_shared/app_theme.dart';
 import 'package:cloudity_shared/http_helpers.dart';
 import 'package:cloudity_shared/storage_usage.dart';
 import 'device_gallery_body.dart';
@@ -117,6 +118,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   StorageUsageSummary? _storageUsage;
   bool _storageLoading = false;
   String? _storageError;
+  ThemeMode _themeMode = ThemeMode.system;
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
   final Map<int, GlobalKey> _photoKeys = {};
@@ -127,6 +129,7 @@ class _TimelineScreenState extends State<TimelineScreen>
     WidgetsBinding.instance.addObserver(this);
     _loadBackupStatus();
     _loadStorageUsage();
+    _loadThemeMode();
     _reload();
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (!mounted || _loading || _tab != _PhotosTab.timeline) return;
@@ -362,6 +365,12 @@ class _TimelineScreenState extends State<TimelineScreen>
     if (tab != _PhotosTab.locked && _lockedUnlocked) {
       setState(() => _lockedUnlocked = false);
     }
+  }
+
+  Future<void> _loadThemeMode() async {
+    final mode = await CloudityThemePrefs.load();
+    if (!mounted) return;
+    setState(() => _themeMode = mode);
   }
 
   Future<void> _loadStorageUsage() async {
@@ -1244,6 +1253,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             ),
         ],
         const Divider(),
+        CloudityThemeModeTile(
+          mode: _themeMode,
+          onChanged: (mode) {
+            context.findAncestorStateOfType<CloudityThemedAppState>()?.setThemeMode(mode);
+            setState(() => _themeMode = mode);
+          },
+        ),
+        const Divider(),
         ListTile(
           leading: const Icon(Icons.link_outlined),
           title: const Text('Gateway Cloudity'),
@@ -1393,7 +1410,11 @@ class _TimelineScreenState extends State<TimelineScreen>
     };
     final body = switch (_tab) {
       _PhotosTab.timeline => _buildTimelineBody(),
-      _PhotosTab.device => DeviceGalleryBody(backupEnabled: _backupEnabled),
+      _PhotosTab.device => DeviceGalleryBody(
+        backupEnabled: _backupEnabled,
+        gatewayBase: widget.session.api.baseUrl,
+        accessToken: widget.session.accessToken,
+      ),
       _PhotosTab.albums => _buildAlbumsBody(),
       _PhotosTab.archive => _buildArchiveBody(),
       _PhotosTab.trash => _buildTrashBody(),
