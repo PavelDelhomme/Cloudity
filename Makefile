@@ -36,7 +36,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (+ clé mail IMAP si besoin + build extension Pass MV3 dans extensions/cloudity-pass/dist)'
 	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
-	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
+	@echo '  make deploy-web | rebuild-web - Rebuild + redémarre cloudity-web (Vite app + back-office admin.html)'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
@@ -426,6 +426,8 @@ build-dashboard: ## Build uniquement le dashboard
 deploy-web: build-dashboard ## Rebuild + redémarre cloudity-web (front SPA)
 	@$(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web
 	@echo "✅ cloudity-web redéployé — http://localhost:$(PORT_DASHBOARD)"
+
+rebuild-web: deploy-web ## Alias courant : rebuild + redémarre cloudity-web (app + admin.html)
 
 deploy-gateway: build-gateway ## Rebuild + redémarre api-gateway
 	@$(COMPOSE) $(COMPOSE_FILES) up -d api-gateway

@@ -20,7 +20,7 @@
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
 | **Ports hôte séquentiels** | 🟡 | `make check-ports` vérifie PORT_* libres ; centraliser via `.env` — doc **docs/operations/PORTS-HOTES.md** |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
-| **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
+| **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
 | **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
 | **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
