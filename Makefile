@@ -514,8 +514,16 @@ tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + m
 	@./scripts/ci/run-tests-with-report.sh
 
 test-mobile-suite: ## Flutter Photos → Drive → Mail : hôte + integration_test ADB (gateway auto). SKIP: CLOUDITY_SKIP_MOBILE_DRIVE / CLOUDITY_SKIP_MOBILE_MAIL
-	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/test-mobile-mail.sh scripts/mobile/mobile-test-common.inc.sh
+	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/test-mobile-mail.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
 	@./scripts/mobile/test-mobile-suite.sh
+
+test-mobile-samsung: ## Suite mobile sur profil Samsung golden (samsung-sm-g990b2, évite l'émulateur si branché)
+	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_DEVICE_PROFILE=samsung-sm-g990b2 CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-suite.sh
+
+mobile-device-snapshot: ## Capture empreinte ADB golden dans mobile/device-profiles/ (Samsung par défaut)
+	@chmod +x scripts/mobile/mobile-device-snapshot.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/mobile-device-snapshot.sh
 
 test-mobile-photos: ## Flutter mobile/photos uniquement (wrapper test-mobile-app.sh photos)
 	@chmod +x scripts/mobile/test-mobile-photos.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh

@@ -2,49 +2,12 @@
 # Fonctions partagées pour scripts/test-mobile-app.sh (Photos, Drive, …).
 # Ne pas exécuter seul : source depuis test-mobile-app.sh après avoir défini ROOT.
 
+ROOT_COMMON="${ROOT_COMMON:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# shellcheck source=mobile-device-resolve.sh
+source "${ROOT_COMMON}/scripts/mobile/mobile-device-resolve.sh"
+
 cloudity_pick_adb_serial() {
-  local app_label="${1:-Cloudity}"
-  local line
-  local -a devs=()
-  while IFS= read -r line; do
-    [[ -n "$line" ]] && devs+=("$line")
-  done < <(adb devices 2>/dev/null | awk '/\tdevice$/ {print $1}')
-
-  if [[ ${#devs[@]} -eq 0 ]]; then
-    return 1
-  fi
-
-  if [[ -n "${CLOUDITY_DEVICE_ID:-}" ]]; then
-    printf '%s' "${CLOUDITY_DEVICE_ID}"
-    return 0
-  fi
-  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
-    printf '%s' "${ANDROID_SERIAL}"
-    return 0
-  fi
-  if [[ ${#devs[@]} -eq 1 ]]; then
-    echo "   → ADB : un appareil (${devs[0]})" >&2
-    printf '%s' "${devs[0]}"
-    return 0
-  fi
-
-  if [[ -t 0 ]] && [[ -t 1 ]]; then
-    echo "Plusieurs appareils ADB (état « device ») :" >&2
-    local PS3="Numéro à utiliser pour integration_test ${app_label} : "
-    local choice
-    select choice in "${devs[@]}"; do
-      if [[ -n "${choice:-}" ]]; then
-        printf '%s' "$choice"
-        return 0
-      fi
-      echo "Choix invalide." >&2
-    done
-  fi
-
-  echo "⚠️  Plusieurs appareils : ${devs[*]}" >&2
-  echo "    Mode non interactif — utilisation du premier. Précisez : export CLOUDITY_DEVICE_ID=<serial>" >&2
-  printf '%s' "${devs[0]}"
-  return 0
+  cloudity_resolve_adb_serial "${1:-Cloudity}"
 }
 
 cloudity_android_emulator() {
@@ -72,7 +35,7 @@ cloudity_lan_ipv4() {
 
 cloudity_auto_e2e_gateway() {
   local serial="$1"
-  local port="${CLOUDITY_GATEWAY_PORT:-6080}"
+  local port="${CLOUDITY_GATEWAY_PORT:-${PORT_GATEWAY:-6002}}"
   if cloudity_android_emulator "$serial"; then
     printf 'http://10.0.2.2:%s' "$port"
     return 0
@@ -96,7 +59,7 @@ cloudity_prepare_e2e_env() {
   if [[ -z "${CLOUDITY_E2E_GATEWAY:-}" && "${CLOUDITY_E2E_NO_AUTO:-}" != "1" ]]; then
     if gw="$(cloudity_auto_e2e_gateway "$serial")"; then
       CLOUDITY_E2E_GATEWAY="$gw"
-      echo "   → E2E : gateway détectée automatiquement : $CLOUDITY_E2E_GATEWAY (serial=$serial, port=${CLOUDITY_GATEWAY_PORT:-6080})" >&2
+      echo "   → E2E : gateway détectée automatiquement : $CLOUDITY_E2E_GATEWAY (serial=$serial, port=${CLOUDITY_GATEWAY_PORT:-${PORT_GATEWAY:-6002}})" >&2
     else
       echo "   ⚠️  E2E : impossible de deviner CLOUDITY_E2E_GATEWAY (réseau ?). Définis-la à la main ou vérifie ip/hostname." >&2
     fi

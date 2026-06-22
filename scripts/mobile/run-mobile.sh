@@ -152,12 +152,15 @@ if [[ -n "${CLOUDITY_DEVICE_ID:-}" ]]; then
 elif [[ -n "${ANDROID_SERIAL:-}" ]]; then
   DEVICE_ARGS=(-d "${ANDROID_SERIAL}")
 elif command -v adb >/dev/null 2>&1; then
-  SERIAL=$(adb devices 2>/dev/null | awk '/\tdevice$/ {print $1; exit}')
+  ROOT_RM="$(cd "$(dirname "$0")/../.." && pwd)"
+  # shellcheck source=mobile-device-resolve.sh
+  source "${ROOT_RM}/scripts/mobile/mobile-device-resolve.sh"
+  SERIAL="$(cloudity_resolve_adb_serial "run-mobile")" || SERIAL=""
   if [[ -n "${SERIAL}" ]]; then
     echo "   → ADB : ${SERIAL}"
     DEVICE_ARGS=(-d "${SERIAL}")
-    # Dev mobile USB : permet d'utiliser http://127.0.0.1:6080 depuis le téléphone.
-    adb -s "${SERIAL}" reverse tcp:6080 tcp:6080 >/dev/null 2>&1 || true
+    GW_PORT="${PORT_GATEWAY:-6002}"
+    adb -s "${SERIAL}" reverse "tcp:${GW_PORT}" "tcp:${GW_PORT}" >/dev/null 2>&1 || true
   fi
 fi
 

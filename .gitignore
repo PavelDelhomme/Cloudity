@@ -102,3 +102,6 @@ backend/auth-service/tmp/
 # Dossier storage local (volumes Docker pour postgres/redis par défaut) — versionner seulement la notice.
 storage/*
 !storage/README.txt
+
+# Profils ADB : artefacts runtime locaux (screenshots, dumps volumineux) — pas l'empreinte golden.
+mobile/device-profiles/**/runtime/

@@ -9,11 +9,20 @@ import 'user_session.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityThemedApp(
-    title: 'Cloudity Mail',
-    seedColor: Colors.teal,
-    home: _AppBootstrap(),
-  ));
+  runApp(const CloudityMailApp());
+}
+
+class CloudityMailApp extends StatelessWidget {
+  const CloudityMailApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const CloudityThemedApp(
+      title: 'Cloudity Mail',
+      seedColor: Colors.teal,
+      home: _AppBootstrap(),
+    );
+  }
 }
 
 class _AppBootstrap extends StatefulWidget {

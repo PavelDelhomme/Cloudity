@@ -115,7 +115,15 @@ else
   echo "ℹ️  E2E device ${APP_LABEL} : connexion + écran principal (make up + seed-admin requis)."
 fi
 
-flutter test "$INT_FILE" -d "$SERIAL" "${DEFS[@]}"
+set +e
+INT_OUT="$(flutter test "$INT_FILE" -d "$SERIAL" "${DEFS[@]}" 2>&1)"
+INT_RC=$?
+set -e
+printf '%s\n' "$INT_OUT"
+if [[ "$INT_RC" -ne 0 ]] || printf '%s' "$INT_OUT" | rg -q "cannot be run in a single invocation"; then
+  echo "❌ integration_test ${APP_LABEL} en échec sur ${SERIAL} (code=${INT_RC})"
+  exit 1
+fi
 echo "✅ test-mobile-app ${APP_LABEL} : integration_test device OK."
 
 if [[ "${CLOUDITY_SKIP_POST_TEST_INSTALL:-}" != "1" ]]; then

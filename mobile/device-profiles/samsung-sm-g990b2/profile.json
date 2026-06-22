@@ -1,0 +1,34 @@
+{
+  "profile_id": "samsung-sm-g990b2",
+  "display_name": "Samsung SM-G990B2 (r9q)",
+  "reference_serial": "R5CT7263YJL",
+  "captured_at": "2026-06-22T21:00:16+02:00",
+  "hardware": {
+    "manufacturer": "samsung",
+    "model": "SM-G990B2",
+    "device": "r9q",
+    "android_release": "16",
+    "sdk": "36",
+    "abi": "arm64-v8a",
+    "screen_px": "1080x2340",
+    "density_dpi": 480
+  },
+  "adb": {
+    "gateway_reverse_port": 6002,
+    "notes": "Tests USB : adb reverse tcp:<port> tcp:<port> puis gateway http://127.0.0.1:<port>"
+  },
+  "cloudity_packages": [
+    "fr.cloudity.cloudity_drive",
+    "fr.cloudity.cloudity_mail"
+  ],
+  "getprop_fingerprint": {
+    "ro.product.manufacturer": "samsung",
+    "ro.product.model": "SM-G990B2",
+    "ro.product.device": "r9q",
+    "ro.build.version.release": "16",
+    "ro.build.version.sdk": "36",
+    "ro.product.cpu.abi": "arm64-v8a",
+    "ro.board.platform": "lahaina",
+    "ro.hardware": "qcom"
+  }
+}
