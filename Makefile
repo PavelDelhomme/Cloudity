@@ -190,8 +190,14 @@ up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, see
 	@UP_FULL_ID=$$(date +%Y%m%d-%H%M%S); \
 	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
 	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
-	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_RUN_LABEL=make-up-full $(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
+	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_RUN_LABEL=make-up-full CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" $(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
+	TEST_EXIT=$$?; \
+	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
+	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh || true; \
+	./scripts/dev/send-progress-recap.sh || true; \
+	if [ $$TEST_EXIT -ne 0 ]; then exit $$TEST_EXIT; fi; \
 	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
+	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
 	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \
 	echo "   Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
 
@@ -849,9 +855,23 @@ restart: ## Redémarre tous les services
 	@make down
 	@make up
 
-logs: ## Historique récent + suivi live coloré (TTY) ; CLOUDITY_LOGS_HIDE_HEALTH=1 masque /health (sans couleur)
+logs: ## Historique récent + suivi live coloré (TTY) ; archive reports/container-logs/ ; CLOUDITY_LOGS_HIDE_HEALTH=1 masque /health
 	@chmod +x scripts/dev/tail-logs.sh 2>/dev/null || true
 	@./scripts/dev/tail-logs.sh
+
+progress-recap: ## Récap STATUS/TODOS/BACKLOG → reports/progress/ (+ email si PROGRESS_EMAIL_TO dans .env)
+	@chmod +x scripts/dev/send-progress-recap.sh 2>/dev/null || true
+	@./scripts/dev/send-progress-recap.sh
+
+test-report: ## Génère REPORT.md depuis le dernier run (CLOUDITY_TEST_RUN_ID ou reports/test-logs/*)
+	@chmod +x scripts/ci/generate-test-run-report.sh 2>/dev/null || true
+	@if [ -n "$(RUN_ID)" ]; then \
+	  CLOUDITY_TEST_RUN_ID="$(RUN_ID)" ./scripts/ci/generate-test-run-report.sh "$(RUN_ID)"; \
+	else \
+	  LATEST=$$(find reports/test-logs -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -r | head -1); \
+	  if [ -z "$$LATEST" ]; then echo "❌ Aucun run dans reports/test-logs/"; exit 1; fi; \
+	  CLOUDITY_TEST_LOGS_DIR="$$LATEST" ./scripts/ci/generate-test-run-report.sh "$$(basename "$$LATEST")"; \
+	fi
 
 logs-auth: ## Logs du service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f auth-service

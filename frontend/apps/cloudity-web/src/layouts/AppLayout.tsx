@@ -29,7 +29,8 @@ import { UploadOverlay } from '../components/UploadOverlay'
 import GlobalSearchPalette from '../components/GlobalSearchPalette'
 import { NotificationsProvider, useNotifications } from '../notificationsContext'
 import { formatRelativeDate } from '../utils/formatDate'
-import { fetchMailAccounts, syncMailAccount, type MailAccountResponse } from '../api'
+import { fetchMailAccounts, type MailAccountResponse } from '../api'
+import { coordinatedSyncMailAccount } from '../lib/mailSyncCoordinator'
 import { accountCanBackgroundImapSync, isMailSyncPasswordRequiredError } from '../pages/app/mail/mailSyncHelpers'
 import { registerMailNotificationClickHandler } from '../lib/mailDesktopNotifications'
 import { notifyNewMailMessages } from '../lib/mailNotifyNewMessages'
@@ -130,7 +131,8 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
       if (inFlightSyncRef.current.has(acc.id)) return
       inFlightSyncRef.current.add(acc.id)
       try {
-        const r = await syncMailAccount(token, acc.id)
+        const r = await coordinatedSyncMailAccount(token, acc.id)
+        if (!r) continue
         void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
           title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
           desktopTitle: 'Cloudity Mail',
@@ -264,8 +266,13 @@ export function buildDocumentTitle(
   email: string | null | undefined
 ): string {
   const crumbs = getAppBreadcrumb(pathname, search)
-  const leaf = crumbs.length > 1 ? crumbs[crumbs.length - 1]!.label : 'Cloudity'
-  const parts = leaf === 'Tableau de bord' ? ['Cloudity'] : [leaf, 'Cloudity']
+  const onDashboard = pathname === '/app' || pathname === '/app/'
+  const section = onDashboard
+    ? 'Tableau de bord'
+    : crumbs.length > 1
+      ? crumbs[crumbs.length - 1]!.label
+      : 'Cloudity'
+  const parts = section === 'Tableau de bord' ? ['Cloudity'] : [section, 'Cloudity']
   const account = email?.trim()
   if (account) parts.push(account)
   return parts.join(' — ')

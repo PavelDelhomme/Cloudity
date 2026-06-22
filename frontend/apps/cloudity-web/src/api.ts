@@ -1137,6 +1137,12 @@ export async function syncMailAccount(
     method: 'POST',
     body: JSON.stringify(body),
   })
+  if (res.status === 409) {
+    return {
+      synced: 0,
+      message: 'Synchronisation déjà en cours pour cette boîte',
+    }
+  }
   if (!res.ok) {
     const t = await res.text()
     try {

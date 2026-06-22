@@ -19,6 +19,13 @@ export LANG=C
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env 2>/dev/null || true
+  set +a
+fi
+
 PORT_GATEWAY="${PORT_GATEWAY:-6080}"
 PORT_DASHBOARD="${PORT_DASHBOARD:-6001}"
 RUN_ID="$(date +%Y%m%dT%H%M%SZ)-$$"
@@ -31,7 +38,26 @@ require_cmd docker
 require_cmd curl
 
 stack_up() {
-  curl -sf --connect-timeout 2 "http://127.0.0.1:${PORT_GATEWAY}/health" >/dev/null 2>&1
+  curl -sf --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT_GATEWAY}/health" >/dev/null 2>&1
+}
+
+wait_for_stack() {
+  local max_wait="${PERF_BENCHMARK_WAIT_STACK:-120}"
+  local elapsed=0
+  if stack_up; then
+    return 0
+  fi
+  echo "⏳ Stack DOWN — attente gateway (max ${max_wait}s)…"
+  while [ "$elapsed" -lt "$max_wait" ]; do
+    sleep 5
+    elapsed=$((elapsed + 5))
+    if stack_up; then
+      echo "✅ Stack UP après ${elapsed}s"
+      return 0
+    fi
+  done
+  echo "⚠ Stack toujours DOWN après ${max_wait}s — scénarios backend/E2E ignorés"
+  return 1
 }
 
 snapshot() {
@@ -92,10 +118,10 @@ run_scenario() {
 health_storm() {
   local i
   for i in $(seq 1 40); do
-    curl -sf "http://127.0.0.1:${PORT_GATEWAY}/health" >/dev/null || true
-    curl -sf "http://127.0.0.1:${PORT_GATEWAY}/auth/health" >/dev/null || true
-    curl -sf "http://127.0.0.1:${PORT_GATEWAY}/mail/health" >/dev/null || true
-    curl -sf "http://127.0.0.1:${PORT_GATEWAY}/drive/health" >/dev/null || true
+    curl -sf --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT_GATEWAY}/health" >/dev/null || true
+    curl -sf --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT_GATEWAY}/auth/health" >/dev/null || true
+    curl -sf --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT_GATEWAY}/mail/health" >/dev/null || true
+    curl -sf --connect-timeout 2 --max-time 5 "http://127.0.0.1:${PORT_GATEWAY}/drive/health" >/dev/null || true
   done
 }
 
@@ -170,6 +196,8 @@ echo "  Run ID : $RUN_ID"
 echo "  Sortie : $OUT_DIR"
 echo "  Stack  : $(stack_up && echo UP || echo DOWN — scénarios backend/E2E seront ignorés)"
 echo "========================================"
+
+wait_for_stack || true
 
 : > "${OUT_DIR}/scenarios.jsonl"
 snapshot "00-baseline-idle" >/dev/null

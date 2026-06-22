@@ -70,6 +70,10 @@ fi
 
 cloudity_test_manifest_event "{\"event\":\"unit_tests_done\",\"exit_code\":${failed},\"at\":\"$(date -Iseconds)\"}"
 
+chmod +x scripts/ci/generate-test-run-report.sh 2>/dev/null || true
+CLOUDITY_TEST_RUN_ID="${CLOUDITY_TEST_RUN_ID:-$(basename "$CLOUDITY_TEST_LOGS_DIR")}" \
+  ./scripts/ci/generate-test-run-report.sh || true
+
 if [ "$failed" -ne 0 ]; then
   echo ""
   echo "❌ Échec tests unitaires — logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}"

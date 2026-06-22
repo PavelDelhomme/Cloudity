@@ -121,6 +121,7 @@ import {
   type VaultResponse,
   type PassItemResponse,
 } from '../../../api'
+import { coordinatedSyncMailAccount } from '../../../lib/mailSyncCoordinator'
 import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
 import ComposeBodyField from './ComposeBodyField'
 import {
@@ -1933,7 +1934,8 @@ export default function MailPage() {
           const acc = accountsRef.current.find((a) => a.id === id)
           if (!acc) continue
           try {
-            const r = await syncMailAccount(token, id, undefined, syncExtraImapOptions(id))
+            const r = await coordinatedSyncMailAccount(token, id, undefined, syncExtraImapOptions(id))
+            if (!r) continue
             void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
               desktopRequireHidden: true,
             })
@@ -2453,7 +2455,11 @@ export default function MailPage() {
           return
         }
         try {
-          const r = await syncMailAccount(token, accountId, undefined, syncExtraImapOptions(accountId))
+          const r = await coordinatedSyncMailAccount(token, accountId, undefined, syncExtraImapOptions(accountId))
+          if (!r) {
+            toast('Synchronisation déjà en cours pour cette boîte', { duration: 3000 })
+            return
+          }
           void queryClient.invalidateQueries({ queryKey: ['mail', 'messages', accountId] })
           void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary', accountId] })
           void queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders', accountId] })
