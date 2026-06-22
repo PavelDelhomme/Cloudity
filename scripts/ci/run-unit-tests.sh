@@ -57,10 +57,22 @@ if cloudity_compose ps -q admin-service 2>/dev/null | grep -q .; then
   fi
 else
   echo "    → compose run (démarre Postgres / Redis / migrate pour pytest)"
-  if ! cloudity_test_compose_run "$admin_phase" admin-service python -m pytest tests/ -v --tb=short; then
+  admin_out="${CLOUDITY_TEST_LOGS_DIR}/${admin_phase}"
+  mkdir -p "$admin_out"
+  admin_log="${admin_out}/admin-service-test-output.log"
+  set +e
+  # Sans --no-deps : pytest admin a besoin du hostname « postgres » sur le réseau compose.
+  # shellcheck disable=SC2086
+  cloudity_compose run --rm $DOCKER_IT admin-service python -m pytest tests/ -v --tb=short 2>&1 | tee "$admin_log"
+  admin_exit=${PIPESTATUS[0]}
+  set -e
+  cloudity_test_log_redact_file "$admin_log"
+  if cloudity_test_should_capture "$admin_exit"; then
+    cloudity_test_capture_service_logs "$admin_phase" postgres redis db-migrate admin-service 2>/dev/null || true
+  fi
+  if [ "$admin_exit" -ne 0 ]; then
     failed=1
   fi
-  cloudity_test_capture_service_logs "$admin_phase" postgres redis db-migrate 2>/dev/null || true
 fi
 
 echo "  [cloudity-web]"
