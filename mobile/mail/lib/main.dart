@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:cloudity_shared/app_theme.dart';
+
 import 'inbox_screen.dart';
 import 'login_screen.dart';
 import 'session_store.dart';
@@ -7,34 +9,11 @@ import 'user_session.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityMailApp());
-}
-
-class CloudityMailApp extends StatelessWidget {
-  const CloudityMailApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Cloudity Mail',
-      themeMode: ThemeMode.dark,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF0F172A),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A73E8),
-          brightness: Brightness.dark,
-          surface: const Color(0xFF111827),
-        ),
-      ),
-      home: const _AppBootstrap(),
-    );
-  }
+  runApp(const CloudityThemedApp(
+    title: 'Cloudity Mail',
+    seedColor: Colors.teal,
+    home: _AppBootstrap(),
+  ));
 }
 
 class _AppBootstrap extends StatefulWidget {

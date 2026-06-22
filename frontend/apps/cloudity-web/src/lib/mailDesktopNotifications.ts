@@ -29,15 +29,30 @@ export async function requestMailDesktopNotifications(): Promise<MailDesktopNoti
   return permission
 }
 
+let mailNotificationClickHandler: ((href: string) => void) | null = null
+
+/** Enregistre le handler de navigation (AppLayout) pour les clics sur notifications bureau. */
+export function registerMailNotificationClickHandler(handler: ((href: string) => void) | null): void {
+  mailNotificationClickHandler = handler
+}
+
 export function showMailDesktopNotification(
   title: string,
-  options?: NotificationOptions,
+  options?: NotificationOptions & { data?: { href?: string } },
   opts?: { requireHidden?: boolean }
 ): boolean {
   if (!isMailDesktopNotificationsEnabled()) return false
   if (opts?.requireHidden && typeof document !== 'undefined' && document.visibilityState !== 'hidden') return false
   try {
-    new globalThis.Notification(title, options)
+    const href = options?.data?.href
+    const notification = new globalThis.Notification(title, options)
+    if (href && mailNotificationClickHandler) {
+      notification.onclick = () => {
+        window.focus()
+        notification.close()
+        mailNotificationClickHandler?.(href)
+      }
+    }
     return true
   } catch {
     return false

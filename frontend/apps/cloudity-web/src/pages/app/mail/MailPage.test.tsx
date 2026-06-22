@@ -197,6 +197,10 @@ describe('MailPage', () => {
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
     ])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 2 })
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [{ id: 88, account_id: 1, subject: 'Nouveau', folder: 'inbox' }],
+      total: 2,
+    } as any)
     render(wrap(<MailPage />))
     await waitFor(() => {
       expect(mockAddNotification).toHaveBeenCalledWith(
@@ -204,6 +208,7 @@ describe('MailPage', () => {
           title: 'Nouveau courrier',
           message: 'user@test.com — 2 nouveaux messages',
           type: 'info',
+          href: '/app/mail?account=1&message=88&folder=inbox',
         })
       )
     })
@@ -214,6 +219,10 @@ describe('MailPage', () => {
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },
     ])
     vi.mocked(api.syncMailAccount).mockResolvedValue({ synced: 1 })
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({
+      messages: [{ id: 42, account_id: 1, subject: 'Hello', folder: 'inbox' }],
+      total: 1,
+    } as any)
     render(wrap(<MailPage />))
     await waitFor(() => {
       expect(mockAddNotification).toHaveBeenCalledWith(
@@ -221,6 +230,7 @@ describe('MailPage', () => {
           title: 'Nouveau courrier',
           message: 'user@test.com — 1 nouveau message',
           type: 'info',
+          href: '/app/mail?account=1&message=42&folder=inbox',
         })
       )
     })

@@ -135,8 +135,8 @@ describe('PhotosPage', () => {
           is_folder: false,
           size: 10,
           mime_type: 'image/jpeg',
-          created_at: '2026-06-15T18:00:00.000Z',
-          updated_at: '2026-06-15T18:00:00.000Z',
+          created_at: '2026-05-15T18:00:00.000Z',
+          updated_at: '2026-05-15T18:00:00.000Z',
         },
         {
           id: 1,
@@ -147,8 +147,8 @@ describe('PhotosPage', () => {
           is_folder: false,
           size: 10,
           mime_type: 'image/jpeg',
-          created_at: '2026-06-01T12:00:00.000Z',
-          updated_at: '2026-06-01T12:00:00.000Z',
+          created_at: '2026-05-01T12:00:00.000Z',
+          updated_at: '2026-05-01T12:00:00.000Z',
         },
       ],
       limit: 48,
@@ -156,8 +156,8 @@ describe('PhotosPage', () => {
       has_more: false,
     })
     render(wrap(<PhotosPage />))
-    expect(await screen.findByRole('heading', { name: '15 juin 2026' })).toBeTruthy()
-    expect(screen.getByRole('heading', { name: '1 juin 2026' })).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: '15 mai 2026' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: '1 mai 2026' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Ouvrir recent\.jpg/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /Ouvrir older\.jpg/ })).toBeTruthy()
   })

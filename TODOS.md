@@ -5,7 +5,32 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/app-hub-photos-ux-hardening`** — depuis **`dev`** à jour (2026-06-09).
+**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** — quota, Photos/Drive vault, matching mobile.
+
+### Session 2026-06-22 — UX dev & Paramètres
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`make logs`** | ☑ | Historique (`--tail`) même stack down + suivi live ; `CLOUDITY_LOGS_HIDE_HEALTH=1` masque les sondes Docker `/health` |
+| **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
+| **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
+| **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
+| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
+| **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
+| **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
+| **Ports hôte séquentiels** | ☑ | Série 6001–6012 · `make ports-sequential` · `make check-ports` · **docs/operations/PORTS-HOTES.md** |
+| **Validation branche vault/drive** | 🟡 | Checklist manuelle ci-dessous (post `make up-full` OK run `20260622-192608`) |
+| **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
+| **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
+| **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
+| **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
+| **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
+| **Passkeys ×5** | ℹ️ | Quota backend = 5 — normal si plein ; supprimer les inutilisées |
+| **Pass auto-lock configurable** | ☐ | Délai global + par app (Pass web ~5 min hardcodé) |
+| **Design system `@cloudity/ui` partout** | ☐ | Web apps + mobile — chantier transverse |
+| **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
+
+**Sondes `/health` dans les logs** : healthchecks Docker (`interval: 30s`, source `127.0.0.1`). Conteneurs `*-run-*` + `exited 0` = `docker compose run` pour `go test` lors de `make test` / `make up-full`.
 
 | Chantier | Branche | État |
 |----------|---------|------|
@@ -43,10 +68,55 @@
 | **H8** | **Photos — actions avancées** | Archive/verrouillé serveur (`photo_archived_at`, `photo_locked_at`, endpoints `/drive/photos/*`) + sélection groupée (Archiver, Verrouiller, Corbeille) + onglets Archivé/Verrouillé réels | ☑ |
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
-| **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur (`@cloudity/app-vault-crypto`, colonnes `vault_encrypted` / `vault_ciphertext`, dossiers `is_vault_folder`, chiffrement Photos au verrouillage, Notes/Contacts en coffre) ; reste : chiffrement upload Drive dans dossier coffre, migration PIN avec re-chiffrement | 🟡 |
+| **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt` ; reste : re-chiffrement automatique des blobs après changement de PIN | 🟡 |
 | **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; renforcer fortement les tests vault/E2EE (erreurs clé, tamper, rotation PIN, migration, Drive coffre) ; continuer Mail/Admin/Settings et parcours sécurité | 🟡 |
+| **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
+| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
+| **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
+| **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+### QA-MATRIX — récap tests à revoir (2026-06-22)
+
+Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport dans `reports/` (ou `docs/operations/TESTS.md` §4).
+
+| Couche | Commande(s) | Rapport / sortie | Revu |
+|--------|-------------|------------------|------|
+| **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☑ run `20260622-192608` |
+| **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☑ |
+| **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
+| **E2E Playwright** | `make test-e2e` / `make tests` | `reports/e2e/` + logs capture | ☐ |
+| **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
+| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
+| **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
+| **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
+| **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☐ |
+| **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☑ run `20260622-192608` |
+| **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
+
+**Automatisation souhaitée** : `make progress-recap` (STATUS/TODOS/BACKLOG + dernier `REPORT.md`) · email si `PROGRESS_EMAIL_TO` dans `.env`.
+
+**Logs conteneurs à interpréter** (souvent visibles dans `make logs` ou `reports/container-logs/`) :
+
+| Signal | Gravité | Action |
+|--------|---------|--------|
+| Redis `Memory overcommit must be enabled` | ⚠️ hôte | `make host-redis-sysctl` puis `APPLY=1 make host-redis-sysctl` |
+| Postgres `connection reset by peer` / `client lost` | ℹ️ | Souvent sync IMAP qui ferme la connexion — pas bloquant si tests OK |
+| Mail `imap: connection closed` + rafale `sync select` | ⚠️ mail | OVH multi-dossiers — candidats absents = bruit ; vérifier si sync incomplète |
+| `*-run-* exited with code 0` | ✅ | Tests `docker compose run` — normal pendant `make test` |
+| `duplicate key users_tenant_id_email` | ℹ️ | `seed-admin` sur DB existante — attendu |
+
+### Validation manuelle — `feat/app-vault-drive-upload-pin-rotation` (après `make down && make up` ports séquentiels)
+
+| Zone | Action | État |
+|------|--------|------|
+| **Drive vault** | Créer coffre local, verrou PIN, déverrouiller | ☐ |
+| **Drive upload** | Téléverser fichier + dossier, barre progression | ☐ |
+| **Quota web** | Badge espace Drive + Photos + Paramètres | ☐ |
+| **Admin titres** | `/4dm1n` → `Administration — Cloudity` ; Tenants → `Tenants — Cloudity` | ☐ |
+| **Ports** | `make status` → gateway `:6002`, web `:6001` | ☐ |
+| **Merge `dev`** | PR + revue après cases ci-dessus | ☐ |
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 
@@ -60,6 +130,20 @@ Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`*
 | **2FA** | — | ✅ `make test-mobile-2fa` Drive + Mail + Photos (TOTP frais) |
 
 Commande suite : `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` ✅ (2026-05-21).
+
+### Validation différée — stack + Samsung (à rejouer demain)
+
+**Contexte (2026-06-16)** : développement hors ligne (stack arrêtée, Samsung occupé par d’autres apps ADB). Les changements ci-dessous ont été couverts par **tests unitaires / `go test` / `flutter test` / `flutter analyze`** uniquement — **pas** de validation live.
+
+| Zone | Tests hôte faits | À rejouer demain (stack `make up` + migrate) |
+|------|------------------|-----------------------------------------------|
+| Quota Mail + isolation dossier Photos | `go test` drive-service | `curl /drive/storage/summary`, Drive web sans dossier Photos |
+| Matching cloud↔local (hash/nom) | `go test` + `photo_match_test` | Upload depuis 2e appareil, onglet **Cet appareil** badges |
+| Passkey Credential Manager (Photos/Drive) | `flutter analyze` | Login passkey sur Samsung, RP ID / gateway alignés |
+| Thème clair/sombre Flutter | `flutter test` | Bascule thème sur chaque app |
+| Backup galerie + skip cloud match | `flutter test` photos | `make test-mobile-suite` quand Samsung libre |
+
+**Samsung** `R5CT7263YJL` : ne pas lancer d’ADB concurrent ; rejouer `CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite` une fois libre.
 
 ### Incident `make status-watch` — `.env: Admin: commande introuvable` (2026-06-08)
 

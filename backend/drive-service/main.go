@@ -146,6 +146,9 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.GET("/nodes", h.listNodes)
 		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
+		drive.GET("/photos/system-folder", h.getPhotosSystemFolder)
+		drive.GET("/photos/fingerprints", h.listPhotosFingerprints)
+		drive.POST("/photos/match", h.matchPhotos)
 		drive.GET("/photos/archive", h.listPhotosArchive)
 		drive.GET("/photos/locked", h.listPhotosLocked)
 		drive.POST("/photos/archive", h.archivePhotos)
@@ -153,6 +156,7 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.POST("/photos/lock", h.lockPhotos)
 		drive.POST("/photos/unlock", h.unlockPhotos)
 		drive.GET("/nodes/recent", h.listRecentNodes)
+		drive.GET("/storage/summary", h.getStorageSummary)
 		drive.GET("/nodes/trash", h.listTrash)
 		drive.POST("/nodes", h.createNode)
 		drive.PUT("/nodes/:id", h.updateNode)
@@ -288,7 +292,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
-			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ORDER BY n.is_folder DESC, n.name
+			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ` + photosRootExcludeSQL + ` ORDER BY n.is_folder DESC, n.name
 		`)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
@@ -362,7 +366,7 @@ func (h *Handler) searchNodes(c *gin.Context) {
 			LEFT JOIN drive_nodes p ON p.id = n.parent_id AND p.user_id = n.user_id AND p.deleted_at IS NULL
 			WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER
 			AND n.deleted_at IS NULL
-			AND POSITION(LOWER($1) IN LOWER(n.name)) > 0`
+			AND POSITION(LOWER($1) IN LOWER(n.name)) > 0` + photosTreeExcludeSQL
 	parentStr := strings.TrimSpace(c.Query("parent_id"))
 	var rows *sql.Rows
 	var err error
@@ -433,8 +437,9 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 	rows, err := h.dbex(ctx).Query(`
 		SELECT id, tenant_id, user_id, parent_id, name, is_folder, size, mime_type,
 		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
-		FROM drive_nodes
+		FROM drive_nodes n
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
+		` + photosTreeExcludeSQL + `
 		ORDER BY updated_at DESC NULLS LAST, id DESC
 		LIMIT $1
 	`, limit)
@@ -846,6 +851,9 @@ func (h *Handler) updateNode(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
 		return
 	}
+	if h.rejectPhotosRootMutation(c, id) {
+		return
+	}
 	var body struct {
 		Name     string `json:"name"`
 		ParentID *int   `json:"parent_id"`
@@ -951,6 +959,9 @@ func (h *Handler) deleteNode(c *gin.Context) {
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if h.rejectPhotosRootMutation(c, id) {
 		return
 	}
 	ctx := c.Request.Context()
@@ -1498,11 +1509,12 @@ func (h *Handler) putNodeContent(c *gin.Context) {
 	vaultEncrypted := strings.HasPrefix(strings.ToLower(strings.TrimSpace(mimeType)), strings.ToLower(appVaultMime)) ||
 		strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Cloudity-Vault-Encrypted")), "1")
 	size := int64(len(body))
+	contentHash := sha256HexContent(body)
 	ctx := c.Request.Context()
 	res, err := h.dbex(ctx).Exec(`
-		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, vault_encrypted = $4, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, body, size, mimeType, vaultEncrypted, id)
+		UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, vault_encrypted = $4, content_hash = $5, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $6 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
+	`, body, size, mimeType, vaultEncrypted, contentHashParam(contentHash), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1579,6 +1591,7 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		}
 	}
 	size := int64(len(content))
+	contentHash := sha256HexContent(content)
 	ctx := c.Request.Context()
 
 	if overwrite {
@@ -1601,9 +1614,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 		}
 		if err == nil {
 			_, err = h.dbex(ctx).Exec(`
-				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, taken_at = COALESCE($4, taken_at), updated_at = CURRENT_TIMESTAMP
-				WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
-			`, content, size, mimeType, takenAt, existingID)
+				UPDATE drive_nodes SET content = $1, size = $2, mime_type = $3, taken_at = COALESCE($4, taken_at), content_hash = $5, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $6 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false
+			`, content, size, mimeType, takenAt, contentHashParam(contentHash), existingID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
@@ -1620,9 +1633,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 	var id int
 	if parentIDStr == "" || parentIDStr == "null" {
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
-			VALUES ($1, $2, NULL, $3, false, $4, $5, $6, $7) RETURNING id
-		`, tid, uid, name, size, mimeType, content, takenAt).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at, content_hash)
+			VALUES ($1, $2, NULL, $3, false, $4, $5, $6, $7, $8) RETURNING id
+		`, tid, uid, name, size, mimeType, content, takenAt, contentHashParam(contentHash)).Scan(&id)
 	} else {
 		parentID, perr := strconv.Atoi(parentIDStr)
 		if perr != nil || parentID <= 0 {
@@ -1630,9 +1643,9 @@ func (h *Handler) uploadFile(c *gin.Context) {
 			return
 		}
 		err = h.dbex(ctx).QueryRow(`
-			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at)
-			VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8) RETURNING id
-		`, tid, uid, parentID, name, size, mimeType, content, takenAt).Scan(&id)
+			INSERT INTO drive_nodes (tenant_id, user_id, parent_id, name, is_folder, size, mime_type, content, taken_at, content_hash)
+			VALUES ($1, $2, $3, $4, false, $5, $6, $7, $8, $9) RETURNING id
+		`, tid, uid, parentID, name, size, mimeType, content, takenAt, contentHashParam(contentHash)).Scan(&id)
 	}
 	if err != nil {
 		var perr *pq.Error

@@ -15,4 +15,5 @@ Si le script refuse de démarrer avec un message sur le **SDK Flutter inscriptib
 ## Prérequis
 
 - Stack **`make up`**, compte **`make seed-admin`**.
-- Téléphone : URL gateway = **IP LAN du PC** (`http://192.168.x.x:6080`).
+- Téléphone en dev local : URL gateway = **IP LAN du PC** (`http://192.168.x.x:6080`) ou USB `adb reverse tcp:6080 tcp:6080` + `http://127.0.0.1:6080`.
+- Préprod/prod ou hors réseau local : URL gateway = **HTTPS public** (`https://api.cloudity.<domaine>`). Ne pas utiliser `https://192.168.x.x:6080` sauf si un TLS réel écoute sur cette IP et que le téléphone fait confiance au certificat.

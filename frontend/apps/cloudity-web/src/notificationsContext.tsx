@@ -7,6 +7,8 @@ export type NotificationItem = {
   read: boolean
   createdAt: string
   type?: 'info' | 'success' | 'warning' | 'error'
+  /** Lien interne (ex. `/app/mail?account=1&message=42`) — clic → navigation. */
+  href?: string
 }
 
 type NotificationsContextValue = {

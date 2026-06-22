@@ -92,8 +92,13 @@ export default function RecoveryCodesSection() {
             <span className="text-slate-700 dark:text-slate-300">
               <strong>{active}</strong> code{active > 1 ? 's' : ''} utilisable{active > 1 ? 's' : ''}
             </span>
-            {active === 0 && (
-              <span className="text-slate-500 text-xs">— tu n'as pas encore de codes (active la 2FA pour les générer).</span>
+            {active === 0 && data?.is_2fa_enabled && (
+              <span className="text-amber-700 dark:text-amber-300 text-xs">
+                — 2FA active mais aucun code restant : régénère-en immédiatement.
+              </span>
+            )}
+            {active === 0 && !data?.is_2fa_enabled && (
+              <span className="text-slate-500 text-xs">— active la 2FA pour les générer.</span>
             )}
           </div>
         )}
@@ -143,6 +148,22 @@ export default function RecoveryCodesSection() {
               </Button>
               <Button onClick={onPrint} variant="ghost" className="flex items-center gap-2">
                 <Printer className="w-4 h-4" /> Imprimer
+              </Button>
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2"
+                onClick={() => {
+                  const blob = new Blob([freshCodes.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `cloudity-recovery-codes-${new Date().toISOString().slice(0, 10)}.txt`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                  toast.success('Fichier téléchargé')
+                }}
+              >
+                Exporter (.txt)
               </Button>
               <Button onClick={() => setFreshCodes(null)} variant="ghost">
                 J'ai sauvegardé — masquer

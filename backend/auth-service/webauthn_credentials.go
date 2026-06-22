@@ -131,8 +131,11 @@ func (s *WebAuthnService) persistCredential(ctx context.Context, userID int64, c
 }
 
 // bumpSignCount valide le `sign_count` retourné par l'authenticator au login
-// et le persiste. La condition `sign_count < $1` rejette tout replay (un
-// authenticator ne renvoie jamais un compteur égal ou inférieur au précédent).
+// et le persiste. La condition `sign_count < $1` rejette tout replay quand le
+// compteur augmente. Les gestionnaires synchronisés (Bitwarden, iCloud
+// Keychain) peuvent renvoyer le même sign_count (souvent 0) sur plusieurs
+// logins tant que le compteur local n'a pas bougé — ValidateLogin a déjà
+// accepté l'assertion dans ce cas.
 func (s *WebAuthnService) bumpSignCount(ctx context.Context, credID []byte, newCount uint32) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE webauthn_credentials
@@ -147,8 +150,21 @@ func (s *WebAuthnService) bumpSignCount(ctx context.Context, credID []byte, newC
 	if err != nil {
 		return err
 	}
-	if rows == 0 {
-		return errors.New("sign_count rejected (replay détecté ?)")
+	if rows > 0 {
+		return nil
 	}
-	return nil
+	var stored int64
+	err = s.db.QueryRowContext(ctx, `
+		SELECT sign_count FROM webauthn_credentials WHERE credential_id = $1
+	`, credID).Scan(&stored)
+	if err != nil {
+		return err
+	}
+	if uint32(stored) == newCount {
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE webauthn_credentials SET last_used_at = now() WHERE credential_id = $1
+		`, credID)
+		return err
+	}
+	return errors.New("sign_count rejected (replay détecté ?)")
 }

@@ -20,6 +20,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
 import { PhotosBottomNav } from '../../../components/PhotosBottomNav'
+import StorageUsageInline from '../../../components/StorageUsageInline'
 import type { PhotosTab } from './photosTypes'
 import {
   archiveDrivePhotos,
@@ -41,6 +42,7 @@ import {
   type DriveNode,
 } from '../../../api'
 import { APP_VAULT_MIME, decryptDriveFileBlob, encryptDriveFileBytes } from '../appVaultClient'
+import { restoreUnlockedPhotoContent } from '../photosVaultUnlock'
 import { clearAppVaultKey, getAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
 import {
   DEFAULT_PHOTOS_APP_SETTINGS,
@@ -795,8 +797,20 @@ export default function PhotosPage() {
   })
 
   const unlockPhotosMutation = useMutation({
-    mutationFn: (ids: number[]) => {
+    mutationFn: async (ids: number[]) => {
       if (!accessToken) throw new Error('Non connecté')
+      if (lockedVaultScope) {
+        const encryptedIds = ids.filter((id) => {
+          const node =
+            lockedPhotoItems.find((n) => n.id === id) ??
+            flatItems.find((n) => n.id === id) ??
+            (archiveQuery.data ?? []).find((n) => n.id === id)
+          return node?.vault_encrypted
+        })
+        for (const id of encryptedIds) {
+          await restoreUnlockedPhotoContent(accessToken, lockedVaultScope, id)
+        }
+      }
       return unlockDrivePhotos(accessToken, ids)
     },
     onSuccess: (res, ids) => {
@@ -1046,7 +1060,7 @@ export default function PhotosPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 min-h-10">
+      <div className="flex items-center justify-between gap-3 min-h-10 flex-wrap">
         <div className="min-w-0 flex-1">
           {tab !== 'timeline' ? (
             <div className="flex min-w-0 items-center gap-2">
@@ -1068,6 +1082,7 @@ export default function PhotosPage() {
             </div>
           ) : null}
         </div>
+        <StorageUsageInline scope="photos" className="hidden sm:inline-flex" />
         {accessToken ? (
           <button
             type="button"

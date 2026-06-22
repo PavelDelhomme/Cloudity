@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from './authContext'
 import { createDriveFolder, uploadDriveFileWithProgress } from './api'
+import { uploadDriveFileToVaultFolder } from './pages/app/driveVaultUpload'
+import type { DriveVaultUploadState } from './uploadContext'
 import {
   UploadContext,
   UploadTriggerContext,
@@ -35,6 +37,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<UploadItem[]>([])
   const [driveParentIdState, setDriveParentIdState] = useState<number | null>(null)
   const parentIdRef = useRef<number | null>(null)
+  const vaultUploadRef = useRef<DriveVaultUploadState | null>(null)
   const queueRef = useRef<QueueEntry[]>([])
   const runningRef = useRef(false)
   const itemsRef = useRef<UploadItem[]>([])
@@ -45,6 +48,33 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     parentIdRef.current = id
     setDriveParentIdState(id)
   }, [])
+
+  const setDriveVaultUploadState = useCallback((state: DriveVaultUploadState | null) => {
+    vaultUploadRef.current = state
+  }, [])
+
+  const uploadFile = useCallback(
+    async (
+      parentId: number | null,
+      file: File,
+      onProgress?: (percent: number) => void,
+      overwrite?: boolean
+    ) => {
+      const vault = vaultUploadRef.current
+      if (vault?.encryptUploads && vault.scope) {
+        return uploadDriveFileToVaultFolder(
+          accessToken!,
+          vault.scope,
+          parentId,
+          file,
+          onProgress,
+          overwrite
+        )
+      }
+      return uploadDriveFileWithProgress(accessToken!, parentId, file, onProgress, overwrite)
+    },
+    [accessToken]
+  )
 
   const updateItem = useCallback((id: string, patch: Partial<UploadItem>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)))
@@ -58,7 +88,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const { itemId, file, parentId } = entry
       updateItem(itemId, { status: 'uploading', progress: 0 })
       try {
-        await uploadDriveFileWithProgress(accessToken, parentId, file, (percent) => {
+        await uploadFile(parentId, file, (percent) => {
           updateItem(itemId, { progress: percent })
         })
         updateItem(itemId, { status: 'done', progress: 100 })
@@ -79,7 +109,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       }
     }
     runningRef.current = false
-  }, [accessToken, updateItem, queryClient])
+  }, [accessToken, updateItem, queryClient, uploadFile])
 
   useEffect(() => {
     processQueue()
@@ -207,7 +237,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (!it || it.kind === 'download' || it.status !== 'conflict' || !it.file) return
       const file = it.file
       updateItem(id, { status: 'uploading', progress: 0 })
-      uploadDriveFileWithProgress(accessToken!, it.parentId, file, (p) => updateItem(id, { progress: p }), true)
+      uploadFile(it.parentId, file, (p) => updateItem(id, { progress: p }), true)
         .then(() => {
           updateItem(id, { status: 'done', progress: 100, file: undefined })
           queryClient.invalidateQueries({ queryKey: ['drive'] })
@@ -219,7 +249,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           toast.error(`« ${file.name} » : ${err.message}`)
         })
     },
-    [accessToken, updateItem, queryClient, processQueue]
+    [accessToken, updateItem, queryClient, processQueue, uploadFile]
   )
 
   const value = {
@@ -233,6 +263,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     registerDownload,
     driveParentId: driveParentIdState,
     setDriveParentId,
+    setDriveVaultUploadState,
   }
 
   triggerValueRef.current.addUploadToCurrentParent = (files: FileList | File[]) => {

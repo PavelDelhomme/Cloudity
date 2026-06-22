@@ -1,19 +1,49 @@
 import 'dart:io';
 
+import 'package:cloudity_shared/photo_match.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'drive_api.dart';
+import 'gallery_backup_logic.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
+import 'gallery_backup_notifications.dart';
 import 'session_store.dart';
 
-/// Nombre max de nouvelles photos par passage WorkManager (évite wake lock prolongé).
-const _batchSize = 12;
-const _scanPageSize = 80;
-const _maxPagesPerAlbum = 25;
+export 'gallery_backup_logic.dart' show GalleryBackupResult;
 
 /// Sauvegarde incrémentale galerie → dossier Drive « Photos ».
 Future<GalleryBackupResult> runGalleryBackupJob() async {
+  await GallerySyncPrefs.setRunInProgress(true);
+  try {
+    return await _runGalleryBackupJob();
+  } finally {
+    await GallerySyncPrefs.setRunInProgress(false);
+  }
+}
+
+/// Comme [runGalleryBackupJob] avec notification Android persistante.
+Future<GalleryBackupResult> runGalleryBackupJobWithNotification() async {
+  await notifyGalleryBackupStarted();
+  try {
+    final result = await runGalleryBackupJob();
+    await notifyGalleryBackupFinished(
+      uploaded: result.uploaded,
+      skipped: result.skippedCount,
+      hasMore: result.hasMore,
+    );
+    return result;
+  } catch (e) {
+    await showGalleryBackupNotification(
+      title: 'Sauvegarde Photos en erreur',
+      body: e.toString(),
+      ongoing: false,
+    );
+    rethrow;
+  }
+}
+
+Future<GalleryBackupResult> _runGalleryBackupJob() async {
   if (!Platform.isAndroid) {
     return _skipped('ios_non_supporté');
   }
@@ -58,16 +88,38 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
 
   var uploaded = 0;
   var skipped = 0;
+  var hasMore = false;
+  PhotoCloudIndex? cloudIndex;
+  try {
+    final fps = await PhotoMatchClient(session.api.baseUrl).fetchFingerprints(
+      session.access,
+    );
+    cloudIndex = PhotoCloudIndex.fromFingerprints(fps);
+  } catch (_) {
+    cloudIndex = null;
+  }
+  final cursor = await GallerySyncPrefs.scanCursor();
+  final albumIds = selectedPaths.map((path) => path.id).toList();
+  final scanStart = resolveGalleryScanStart(cursor, albumIds);
 
-  for (final path in selectedPaths) {
-    for (var page = 0; page < _maxPagesPerAlbum; page++) {
+  for (
+    var albumIndex = scanStart.albumIndex;
+    albumIndex < selectedPaths.length;
+    albumIndex++
+  ) {
+    final path = selectedPaths[albumIndex];
+    final firstPage = albumIndex == scanStart.albumIndex ? scanStart.page : 0;
+    for (var page = firstPage; page < galleryMaxPagesPerAlbum; page++) {
       final assets = await path.getAssetListPaged(
         page: page,
-        size: _scanPageSize,
+        size: galleryScanPageSize,
       );
       if (assets.isEmpty) break;
       for (final asset in assets) {
-        if (uploaded >= _batchSize) break;
+        if (reachedGalleryBackupBatchLimit(uploaded)) {
+          hasMore = true;
+          break;
+        }
         if (await GallerySyncPrefs.isAssetUploaded(asset.id)) {
           skipped++;
           continue;
@@ -80,12 +132,24 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
         final name = asset.title?.trim().isNotEmpty == true
             ? asset.title!.trim()
             : 'photo_${asset.id}.jpg';
+        final fileName = name.contains('.') ? name : '$name.jpg';
+        if (cloudIndex != null) {
+          final hit = cloudIndex.matchLocal(
+            name: fileName,
+            size: await file.length(),
+          );
+          if (hit != null) {
+            await GallerySyncPrefs.markAssetUploaded(asset.id);
+            skipped++;
+            continue;
+          }
+        }
         try {
           await drive.uploadFile(
             accessToken: session.access,
             parentId: folderId,
             file: file,
-            fileName: name.contains('.') ? name : '$name.jpg',
+            fileName: fileName,
             takenAt: asset.createDateTime,
           );
           await GallerySyncPrefs.markAssetUploaded(asset.id);
@@ -94,13 +158,29 @@ Future<GalleryBackupResult> runGalleryBackupJob() async {
           skipped++;
         }
       }
-      if (uploaded >= _batchSize || assets.length < _scanPageSize) break;
+      if (reachedGalleryBackupBatchLimit(uploaded)) {
+        hasMore = true;
+        await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page);
+        break;
+      }
+      if (assets.length < galleryScanPageSize) break;
+      if (page == galleryMaxPagesPerAlbum - 1) {
+        hasMore = true;
+        await GallerySyncPrefs.saveScanCursor(albumId: path.id, page: page + 1);
+      }
     }
-    if (uploaded >= _batchSize) break;
+    if (reachedGalleryBackupBatchLimit(uploaded)) break;
   }
 
+  if (!hasMore) {
+    await GallerySyncPrefs.clearScanCursor();
+  }
   await GallerySyncPrefs.saveLastRun(uploaded: uploaded, skipped: skipped);
-  return GalleryBackupResult(uploaded: uploaded, skippedCount: skipped);
+  return GalleryBackupResult(
+    uploaded: uploaded,
+    skippedCount: skipped,
+    hasMore: hasMore,
+  );
 }
 
 Future<GalleryBackupResult> _skipped(String reason) async {
@@ -113,18 +193,4 @@ AssetPathEntity _allPhotosPath(List<AssetPathEntity> paths) {
     if (path.isAll) return path;
   }
   return paths.first;
-}
-
-class GalleryBackupResult {
-  GalleryBackupResult({
-    this.uploaded = 0,
-    this.skippedCount = 0,
-    this.skipped = false,
-    this.reason,
-  });
-
-  final int uploaded;
-  final int skippedCount;
-  final bool skipped;
-  final String? reason;
 }

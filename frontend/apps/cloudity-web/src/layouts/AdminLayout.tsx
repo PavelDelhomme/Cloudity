@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Link, useLocation, Outlet } from 'react-router-dom'
 import {
   Building2,
@@ -27,11 +27,37 @@ const adminNav = [
   { key: 'passkeys', name: 'Passkeys', href: adminUiPath('passkeys'), icon: <Key className="w-4 h-4 shrink-0" /> },
   { key: 'settings', name: 'Paramètres', href: adminUiPath('settings'), icon: <Settings className="w-4 h-4 shrink-0" /> },
   { key: 'ui', name: 'Catalogue UI', href: adminUiPath('dev/ui'), icon: <Palette className="w-4 h-4 shrink-0" /> },
-]
+] as const
+
+/** Titre d'onglet back-office : « Tenants — Cloudity — admin@… » (exporté pour les tests). */
+export function buildAdminDocumentTitle(
+  pathname: string,
+  email: string | null | undefined
+): string {
+  const base = ADMIN_UI_BASE_PATH.replace(/\/+$/, '')
+  const path = pathname.replace(/\/+$/, '') || base
+  const onDashboard = path === base
+  let section = 'Administration'
+  if (!onDashboard) {
+    const item = [...adminNav]
+      .filter((n) => !n.end)
+      .sort((a, b) => b.href.length - a.href.length)
+      .find((n) => path.startsWith(n.href.replace(/\/+$/, '')))
+    if (item) section = item.name
+  }
+  const parts = [section, 'Cloudity']
+  const account = email?.trim()
+  if (account) parts.push(account)
+  return parts.join(' — ')
+}
 
 export default function AdminLayout() {
   const location = useLocation()
-  const { logout } = useAuth()
+  const { logout, email } = useAuth()
+
+  useEffect(() => {
+    document.title = buildAdminDocumentTitle(location.pathname, email)
+  }, [location.pathname, email])
 
   const navLinkClass = (active: boolean) =>
     `flex items-center gap-2 px-3 py-2 rounded text-sm font-medium transition-colors ${

@@ -48,7 +48,7 @@ describe('App', () => {
       </TestWrapper>
     )
     expect(screen.getByRole('link', { name: 'Cloudity' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Continuer' })).toBeTruthy()
   })
 
   it('after logout redirects to login and clears session', async () => {
@@ -69,7 +69,7 @@ describe('App', () => {
     const logoutBtn = screen.getByRole('button', { name: /déconnexion/i })
     fireEvent.click(logoutBtn)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Se connecter' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Continuer' })).toBeTruthy()
     })
     expect(localStorage.getItem('cloudity_admin_auth')).toBeNull()
   })

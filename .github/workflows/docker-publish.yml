@@ -37,8 +37,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # auth-service dépend du module local internalsec via replace : contexte = backend/.
           - service: auth-service
-            context: backend/auth-service
+            context: backend
             dockerfile: backend/auth-service/Dockerfile.prod
             port: "8081"
           - service: passwords-service

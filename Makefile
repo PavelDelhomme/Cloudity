@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -17,11 +17,19 @@ DOCKER_IT := $(shell test -t 1 && printf '%s' '-it' || true)
 COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
-# Ports 60XX (voir STATUS.md)
-PORT_GATEWAY ?= 6080
+# Ports 60XX séquentiels (PORT-ORG-01 — voir docs/operations/PORTS-HOTES.md)
 PORT_DASHBOARD ?= 6001
-PORT_AUTH ?= 6081
-PORT_ADMIN ?= 6082
+PORT_GATEWAY ?= 6002
+PORT_AUTH ?= 6003
+PORT_ADMIN ?= 6004
+PORT_MAIL_DIRECTORY ?= 6005
+PORT_PASS_MGR ?= 6006
+PORT_CALENDAR ?= 6007
+PORT_NOTES ?= 6008
+PORT_TASKS ?= 6009
+PORT_DRIVE ?= 6010
+PORT_CONTACTS ?= 6011
+PORT_PHOTOS ?= 6012
 PORT_POSTGRES ?= 6042
 PORT_REDIS ?= 6079
 PORT_ADMINER ?= 6083
@@ -36,6 +44,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
 	@echo '  make up        - Démarre toute la stack (+ clé mail IMAP si besoin + build extension Pass MV3 dans extensions/cloudity-pass/dist)'
 	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
+	@echo '  make deploy-web | rebuild-web - Rebuild + redémarre cloudity-web (Vite app + back-office admin.html)'
 	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
 	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
 	@echo '  make down      - Arrête toute la stack'
@@ -129,8 +138,12 @@ mobile-adb-authorize: ## Redémarre ADB puis affiche les devices (autorisation U
 	@adb devices -l
 
 mobile-doctor: ## Vérifie Flutter/ADB et fallback SDK local
-	@chmod +x scripts/mobile/mobile-doctor.sh scripts/mobile/mobile-flutter-env.sh scripts/mobile/check-flutter-sdk-writable.sh
+	@chmod +x scripts/mobile/mobile-doctor.sh scripts/mobile/mobile-flutter-env.sh scripts/mobile/check-flutter-sdk-writable.sh scripts/mobile/ensure-flutter-sdk.sh
 	@./scripts/mobile/mobile-doctor.sh
+
+ensure-flutter-sdk: ## Installe/répare le SDK Flutter officiel (fix snapshot Arch)
+	@chmod +x scripts/mobile/ensure-flutter-sdk.sh scripts/mobile/mobile-flutter-env.sh
+	@./scripts/mobile/ensure-flutter-sdk.sh
 
 mobile-logcat-clear: ## Vide logcat du device ADB (ADB_SERIAL optionnel)
 	@adb $(if $(ADB_SERIAL),-s $(ADB_SERIAL),) logcat -c
@@ -181,8 +194,28 @@ up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-exten
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-full: down up wait-for-services seed seed-admin test ## Tout-en-un : down, up, seed, compte démo, puis lance les tests pour vérifier
-	@echo "✅ Stack, compte démo et tests OK. Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
+up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, seed, compte démo, puis tests unitaires (rapport dans reports/)
+	@mkdir -p reports
+	@UP_FULL_ID=$$(date +%Y%m%d-%H%M%S); \
+	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
+	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
+	set -o pipefail; \
+	export CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID"; \
+	export CLOUDITY_TEST_RUN_LABEL=make-up-full; \
+	export CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID"; \
+	$(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
+	TEST_EXIT=$$?; \
+	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
+	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh "$$UP_FULL_ID" || true; \
+	./scripts/dev/send-progress-recap.sh || true; \
+	if [ $$TEST_EXIT -ne 0 ]; then \
+	  echo "❌ Tests post-up-full en échec — voir $$UP_FULL_LOG et reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
+	  exit $$TEST_EXIT; \
+	fi; \
+	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
+	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
+	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \
+	echo "   Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
@@ -403,6 +436,8 @@ deploy-web: build-dashboard ## Rebuild + redémarre cloudity-web (front SPA)
 	@$(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web
 	@echo "✅ cloudity-web redéployé — http://localhost:$(PORT_DASHBOARD)"
 
+rebuild-web: deploy-web ## Alias courant : rebuild + redémarre cloudity-web (app + admin.html)
+
 deploy-gateway: build-gateway ## Rebuild + redémarre api-gateway
 	@$(COMPOSE) $(COMPOSE_FILES) up -d api-gateway
 	@echo "✅ api-gateway redéployé"
@@ -439,62 +474,25 @@ deploy-photos: ## Rebuild + redémarre photos-service
 # Toutes les cibles test (test, tests, test-dashboard, etc.) se lancent depuis la racine du dépôt
 # et vous laissent dans la racine à la fin, avec code de sortie 0 (succès) ou 1 (échec).
 test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vitest). Prérequis: Docker. Pas d’E2E.
-	@echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible (démarrer le démon Docker)."; exit 1; fi
-	@echo "  [auth-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps auth-service go test -v -count=1 ./... || exit 1
-	@echo "  [api-gateway]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps api-gateway go test -v -count=1 ./... || exit 1
-	@echo "  [passwords-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps passwords-service go test -v -count=1 ./... || exit 1
-	@echo "  [mail-directory-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps mail-directory-service go test -v -count=1 ./... || exit 1
-	@echo "  [calendar-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps calendar-service go test -v -count=1 ./... || exit 1
-	@echo "  [contacts-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps contacts-service go test -v -count=1 ./... || exit 1
-	@echo "  [notes-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps notes-service go test -v -count=1 ./... || exit 1
-	@echo "  [tasks-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps tasks-service go test -v -count=1 ./... || exit 1
-	@echo "  [photos-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps photos-service go test -v -count=1 ./... || exit 1
-	@echo "  [drive-service]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps drive-service go test -v -count=1 ./... || exit 1
-	@echo "  [admin-service]"
-	@if $(COMPOSE) $(COMPOSE_FILES) ps -q admin-service 2>/dev/null | grep -q .; then \
-		echo "    → exec dans admin-service (stack déjà up, évite un 2e Postgres sur le port hôte)"; \
-		$(COMPOSE) $(COMPOSE_FILES) exec -T admin-service python -m pytest tests/ -v --tb=short || exit 1; \
-	else \
-		echo "    → compose run (démarre Postgres / Redis / migrate pour pytest)"; \
-		$(COMPOSE) $(COMPOSE_FILES) run --rm admin-service python -m pytest tests/ -v --tb=short || exit 1; \
-	fi
-	@echo "  [cloudity-web]"
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test" || exit 1
-	@echo "✅ Tous les tests sont passés."
+	@chmod +x scripts/ci/run-unit-tests.sh scripts/ci/test-log-capture.inc.sh
+	@./scripts/ci/run-unit-tests.sh
 
 # Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
 test-dashboard: ## Vitest @cloudity/web dans le conteneur (compose run --no-deps, monorepo /ws)
-	@echo "🧪 Tests dashboard (Vitest via Docker)..."
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test" || exit 1
-	@echo "✅ Tests dashboard OK."
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard ./scripts/ci/run-compose-test.sh phase-dashboard/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test"
 
 test-dashboard-lint: ## ESLint @cloudity/web dans le conteneur (npm install racine + lint app)
-	@echo "🧪 ESLint dashboard (Docker)..."
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run lint" || exit 1
-	@echo "✅ ESLint dashboard OK."
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-lint ./scripts/ci/run-compose-test.sh phase-dashboard-lint/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && npm run lint"
 
 test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/mail/MailPage.test.tsx make test-dashboard-one
 	@if [ -z "$(FILE)" ]; then \
 		echo "Usage: make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx"; \
 		exit 1; \
 	fi
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@echo "🧪 Vitest (Docker) — $(FILE)..."
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps cloudity-web sh -c "cd /ws && npm install && cd apps/cloudity-web && npx vitest run $(FILE)" || exit 1
-	@echo "✅ Vitest $(FILE) OK."
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-one ./scripts/ci/run-compose-test.sh phase-dashboard-one/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && npx vitest run $(FILE)"
 
 # Smoke Go : un service à la fois (même flags que la première étape de make test)
 test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service (clé = nom du service dans docker-compose.yml)
@@ -503,16 +501,12 @@ test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service 
 		echo "Exemples: api-gateway, mail-directory-service, drive-service, photos-service, …"; \
 		exit 1; \
 	fi
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@echo "🧪 $(SERVICE) (Docker go test -v -count=1 ./...)..."
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps $(SERVICE) go test -v -count=1 ./... || exit 1
-	@echo "✅ $(SERVICE) OK."
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-go-one ./scripts/ci/run-compose-test.sh "unit/$(SERVICE)" "$(SERVICE)" -- go test -v -count=1 ./...
 
 test-auth: ## Raccourci : go test auth-service seul dans Docker (équivalent à compose run --no-deps auth-service)
-	@if ! docker info >/dev/null 2>&1; then echo "❌ Docker doit être disponible."; exit 1; fi
-	@echo "🧪 auth-service (Docker go test -v -count=1 ./...)..."
-	@$(COMPOSE) $(COMPOSE_FILES) run --rm $(DOCKER_IT) --no-deps auth-service go test -v -count=1 ./... || exit 1
-	@echo "✅ auth-service OK."
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-auth ./scripts/ci/run-compose-test.sh unit/auth-service auth-service -- go test -v -count=1 ./...
 
 # make tests = tout (unit/app + E2E + sécurité) avec rapport dans reports/
 tests: ## Lance tous les tests (unit/app + E2E + E2E Playwright + sécurité + mobile Photos+Drive+Mail), sortie en direct + rapport dans reports/
@@ -552,9 +546,8 @@ test-e2e: ## Tests E2E (stack doit être démarrée: make up; attendre 20-30 s q
 	@./scripts/ci/test-e2e.sh
 
 test-e2e-playwright: ## Tests E2E navigateur (Playwright). Prérequis: make up, make seed-admin, attendre 20-30 s
-	@echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office, Mail, Pass, Calendrier)..."
-	@cd frontend/apps/cloudity-web && BASE_URL=http://localhost:$(PORT_DASHBOARD) FORCE_COLOR=0 NO_COLOR=1 npx playwright test
-	@echo "✅ E2E Playwright OK"
+	@chmod +x scripts/ci/run-playwright-tests.sh scripts/ci/test-log-capture.inc.sh
+	@./scripts/ci/run-playwright-tests.sh
 
 test-e2e-playwright-calendar: ## E2E Playwright — calendrier uniquement (e2e/calendar.spec.ts). Prérequis: make up, make seed-admin
 	@echo "🎭 Tests E2E Playwright — Calendrier..."
@@ -880,8 +873,32 @@ restart: ## Redémarre tous les services
 	@make down
 	@make up
 
-logs: ## Logs de tous les services en temps réel (Ctrl+C pour quitter)
-	@$(COMPOSE) $(COMPOSE_FILES) --profile dev logs -f
+logs: ## Historique récent + suivi live coloré (TTY) ; archive reports/container-logs/ ; CLOUDITY_LOGS_HIDE_HEALTH=1 masque /health
+	@chmod +x scripts/dev/tail-logs.sh 2>/dev/null || true
+	@./scripts/dev/tail-logs.sh
+
+progress-recap: ## Récap STATUS/TODOS/BACKLOG → reports/progress/ (+ email si PROGRESS_EMAIL_TO dans .env)
+	@chmod +x scripts/dev/send-progress-recap.sh 2>/dev/null || true
+	@./scripts/dev/send-progress-recap.sh
+
+test-report: ## Génère REPORT.md (RUN_ID= ou dernier run par date)
+	@chmod +x scripts/ci/generate-test-run-report.sh scripts/ci/rebuild-test-manifest.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	CLOUDITY_TEST_LOGS_DIR="$$RUN_DIR" ./scripts/ci/generate-test-run-report.sh "$$(basename "$$RUN_DIR")"
+
+test-manifest-rebuild: ## Reconstruit manifest.jsonl depuis les artefacts capturés (RUN_ID=)
+	@chmod +x scripts/ci/rebuild-test-manifest.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	./scripts/ci/rebuild-test-manifest.sh "$$RUN_DIR"
+
+test-report-show: ## Affiche REPORT.md (RUN_ID= ou dernier run — ne régénère pas)
+	@chmod +x scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	REPORT="$$RUN_DIR/REPORT.md"; \
+	if [ ! -f "$$REPORT" ]; then \
+	  echo "❌ $$REPORT absent — lancer : make test-report RUN_ID=$$(basename "$$RUN_DIR")"; exit 1; \
+	fi; \
+	cat "$$REPORT"
 
 logs-auth: ## Logs du service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f auth-service
@@ -1072,6 +1089,19 @@ rebuild-force: ## Rebuild complet sans cache
 	@$(MAKE) build-pass-extension
 	@echo "✅ Rebuild terminé!"
 
+check-ports: ## Vérifie que les PORT_* (.env) sont libres sur l'hôte (avant make up)
+	@chmod +x scripts/dev/check-ports-free.sh 2>/dev/null || true
+	@./scripts/dev/check-ports-free.sh
+
+ports-sequential: ## Applique la série ports 6001–6012 dans .env (+ URLs gateway)
+	@chmod +x scripts/dev/apply-ports-sequential.sh scripts/dev/ports-sequential.sh 2>/dev/null || true
+	@./scripts/dev/apply-ports-sequential.sh
+	@echo "   Puis : make down && make up && make check-ports"
+
+ports-sequential-dry: ## Aperçu des PORT_* séquentiels sans modifier .env
+	@chmod +x scripts/dev/apply-ports-sequential.sh scripts/dev/ports-sequential.sh 2>/dev/null || true
+	@./scripts/dev/apply-ports-sequential.sh --dry-run
+
 status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gateway… ; CLOUDITY_STATUS_HOST pour LAN)
 	@chmod +x scripts/dev/status.sh 2>/dev/null || true
 	@./scripts/dev/status.sh
@@ -1126,6 +1156,14 @@ perf-budgets: ## Vérifie respect des budgets (exit 0 OK / 1 KO) — utilisable 
 perf-budgets-json: ## Idem perf-budgets, sortie JSON (admin-service / dashboards)
 	@chmod +x scripts/dev/perf-budgets.sh 2>/dev/null || true
 	@./scripts/dev/perf-budgets.sh --json
+
+perf-benchmark: ## ~20 scénarios ressources (backend, web, mobile, charge) → reports/perf/benchmark-*/REPORT.md
+	@chmod +x scripts/dev/perf-benchmark-suite.sh scripts/dev/perf-report-generate.sh scripts/dev/perf-snapshot.sh 2>/dev/null || true
+	@./scripts/dev/perf-benchmark-suite.sh
+
+perf-benchmark-quick: ## Sous-ensemble rapide de perf-benchmark (PERF_BENCHMARK_QUICK=1)
+	@chmod +x scripts/dev/perf-benchmark-suite.sh scripts/dev/perf-report-generate.sh scripts/dev/perf-snapshot.sh 2>/dev/null || true
+	@PERF_BENCHMARK_QUICK=1 ./scripts/dev/perf-benchmark-suite.sh
 
 wait-for-backends: ## Attend auth + gateway + admin-service (sans front)
 	@echo "⏳ Attente des backends (auth, gateway, admin-service)..."

@@ -256,5 +256,13 @@ export async function changePhotosLockedPin(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const valid = await verifyPhotosLockedPin(scope, currentPin)
   if (!valid) return { ok: false, error: 'Code actuel incorrect.' }
-  return setupPhotosLockedPin(scope, nextPin, confirmPin)
+  const vault = readVault(scope)
+  if (!vault) return { ok: false, error: 'Coffre local introuvable.' }
+  const pinError = validatePhotosLockedPinFormat(nextPin)
+  if (pinError) return { ok: false, error: pinError }
+  if (nextPin !== confirmPin) return { ok: false, error: 'Les codes ne correspondent pas.' }
+  const pinSalt = randomSalt()
+  const pinHash = await hashPin(nextPin, pinSalt)
+  writeVault(scope, { ...vault, pinSalt, pinHash })
+  return { ok: true }
 }

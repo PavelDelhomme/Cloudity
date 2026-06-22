@@ -1137,6 +1137,12 @@ export async function syncMailAccount(
     method: 'POST',
     body: JSON.stringify(body),
   })
+  if (res.status === 409) {
+    return {
+      synced: 0,
+      message: 'Synchronisation déjà en cours pour cette boîte',
+    }
+  }
   if (!res.ok) {
     const t = await res.text()
     try {
@@ -1468,7 +1474,7 @@ export async function regenerateRecoveryCodes(token: string): Promise<{ codes: s
 }
 
 /** Compte des codes de récupération encore utilisables. UI : warning si <=2. */
-export async function countRecoveryCodes(token: string): Promise<{ active: number }> {
+export async function countRecoveryCodes(token: string): Promise<{ active: number; is_2fa_enabled: boolean }> {
   return apiJson(token, '/auth/2fa/recovery-codes/count', undefined, 'Codes de récupération (count)')
 }
 
@@ -1628,6 +1634,28 @@ export async function fetchDriveNodes(
 ): Promise<DriveNode[]> {
   const path = parentId == null ? '/drive/nodes' : `/drive/nodes?parent_id=${parentId}`
   return apiJson<DriveNode[]>(token, path, { json: false }, 'Drive')
+}
+
+export type DriveStorageServiceUsage = {
+  label: string
+  bytes: number
+  file_count: number
+}
+
+export type DriveStorageSummary = {
+  photos: DriveStorageServiceUsage
+  drive: DriveStorageServiceUsage
+  mail?: DriveStorageServiceUsage | null
+  note?: string
+}
+
+export async function fetchDriveStorageSummary(token: string): Promise<DriveStorageSummary> {
+  return apiJson<DriveStorageSummary>(
+    token,
+    '/drive/storage/summary',
+    { json: false },
+    'Quota stockage Drive'
+  )
 }
 
 /** Recherche par nom sur tout le Drive (ou sous-arbre si `parent_id` est défini). */
