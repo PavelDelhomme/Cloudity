@@ -24,15 +24,21 @@ cloudity__device_manufacturer() {
 
 cloudity__matches_profile() {
   local serial="$1"
-  local ref_model ref_mfg model mfg
+  local ref_model ref_mfg ref_serial device_kind model mfg
   [[ -f "$PROFILE_JSON" ]] || return 1
   ref_model="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON'))['hardware']['model'])" 2>/dev/null || true)"
   ref_mfg="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON'))['hardware']['manufacturer'])" 2>/dev/null || true)"
   ref_serial="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON')).get('reference_serial',''))" 2>/dev/null || true)"
+  device_kind="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON')).get('device_kind','physical'))" 2>/dev/null || true)"
   model="$(cloudity__device_model "$serial")"
   mfg="$(cloudity__device_manufacturer "$serial")"
   if [[ -n "$ref_serial" && "$serial" == "$ref_serial" ]]; then
     return 0
+  fi
+  if [[ "$device_kind" == "emulator" ]]; then
+    [[ "$serial" == emulator-* ]] || return 1
+  elif [[ "$device_kind" == "physical" ]]; then
+    [[ "$serial" != emulator-* ]] || return 1
   fi
   [[ -n "$ref_model" && "$model" == "$ref_model" && -n "$ref_mfg" && "$mfg" == "$ref_mfg" ]]
 }

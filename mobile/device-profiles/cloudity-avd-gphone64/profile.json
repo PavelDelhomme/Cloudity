@@ -1,0 +1,32 @@
+{
+  "profile_id": "cloudity-avd-gphone64",
+  "device_kind": "emulator",
+  "display_name": "Google sdk_gphone64_x86_64 (emu64xa)",
+  "reference_serial": "emulator-5554",
+  "captured_at": "2026-06-22T21:35:09+02:00",
+  "hardware": {
+    "manufacturer": "google",
+    "model": "sdk_gphone64_x86_64",
+    "device": "emu64xa",
+    "android_release": "14",
+    "sdk": "34",
+    "abi": "x86_64",
+    "screen_px": "1080x2340",
+    "density_dpi": 420
+  },
+  "adb": {
+    "gateway_reverse_port": 6002,
+    "notes": "Tests USB : adb reverse tcp:<port> tcp:<port> puis gateway http://127.0.0.1:<port>"
+  },
+  "cloudity_packages": [],
+  "getprop_fingerprint": {
+    "ro.product.manufacturer": "Google",
+    "ro.product.model": "sdk_gphone64_x86_64",
+    "ro.product.device": "emu64xa",
+    "ro.build.version.release": "14",
+    "ro.build.version.sdk": "34",
+    "ro.product.cpu.abi": "x86_64",
+    "ro.board.platform": "",
+    "ro.hardware": "ranchu"
+  }
+}

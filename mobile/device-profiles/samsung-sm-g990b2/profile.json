@@ -1,5 +1,6 @@
 {
   "profile_id": "samsung-sm-g990b2",
+  "device_kind": "physical",
   "display_name": "Samsung SM-G990B2 (r9q)",
   "reference_serial": "R5CT7263YJL",
   "captured_at": "2026-06-22T21:00:16+02:00",

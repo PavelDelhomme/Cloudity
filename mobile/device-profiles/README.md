@@ -30,7 +30,21 @@ make test-mobile-samsung
 CLOUDITY_DEVICE_ID=R5CT7263YJL make test-mobile-suite
 ```
 
-Quand **Samsung + émulateur** sont tous les deux visibles sous `adb devices`, le résolveur préfère l’appareil qui correspond au profil `samsung-sm-g990b2` (évite `emulator-5554` par erreur).
+Quand **Samsung + émulateur** sont tous les deux visibles sous `adb devices`, le résolveur préfère l’appareil qui correspond au profil actif (`device_kind` : `physical` vs `emulator`).
+
+## Profil AVD : `cloudity-avd-gphone64`
+
+| Champ | Valeur |
+|-------|--------|
+| Modèle | Google **sdk_gphone64_x86_64** |
+| Écran | 1080×2340 @ 420 dpi (aligné Samsung pour les tests UI) |
+| Android | 14 (émulateur x86_64) |
+| Gateway E2E | `http://10.0.2.2:6002` (automatique, sans `adb reverse`) |
+
+```bash
+make mobile-device-snapshot-avd   # rafraîchir depuis emulator-5554
+make test-mobile-avd            # suite Photos → Drive → Mail sur l’AVD
+```
 
 ## Gateway
 
