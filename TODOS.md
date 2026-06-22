@@ -18,7 +18,7 @@
 | **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
-| **Ports hôte séquentiels** | ☐ | Centraliser via `.env` (`PORT_*`) — série logique 6001+ ; doc **docs/operations/PORTS-HOTES.md** ; valider ports libres avant `make up` |
+| **Ports hôte séquentiels** | 🟡 | `make check-ports` vérifie PORT_* libres ; centraliser via `.env` — doc **docs/operations/PORTS-HOTES.md** |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |

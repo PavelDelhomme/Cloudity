@@ -63,6 +63,49 @@ except Exception:
 " 2>/dev/null || echo ""
 }
 
+parse_duration_from_output() {
+  local f="$1"
+  [ -f "$f" ] || { echo ""; return; }
+  python3 -c "
+import re, sys
+try:
+  text=open(sys.argv[1], errors='replace').read()
+except OSError:
+  sys.exit(0)
+text=re.sub(r'\x1b\[[0-9;]*m', '', text)
+secs = []
+for pat in (r'Duration\s+([0-9.]+)s', r'Duration.*?([0-9.]+)s', r'passed, .* in ([0-9.]+)s', r'ok\s+\S+\s+([0-9.]+)s'):
+  secs.extend(float(x) for x in re.findall(pat, text))
+if not secs:
+  sys.exit(0)
+sec = max(secs)
+if sec >= 1:
+  print(int(sec + 0.5))
+elif sec > 0:
+  print('<1')
+" "$f" 2>/dev/null || echo ""
+}
+
+format_duration_cell() {
+  local manifest_duration="$1"
+  local output_file="$2"
+  local d="$manifest_duration"
+  if [ -z "$d" ] || [ "$d" = "0" ]; then
+    if [ -n "$output_file" ] && resolved="$(resolve_run_file "$output_file")"; then
+      d="$(parse_duration_from_output "$resolved")"
+    elif [ -n "$output_file" ] && [ -f "$output_file" ]; then
+      d="$(parse_duration_from_output "$output_file")"
+    fi
+  fi
+  if [ "$d" = "<1" ]; then
+    echo "<1s"
+  elif [ -n "$d" ] && [ "$d" != "0" ]; then
+    echo "${d}s"
+  else
+    echo "—"
+  fi
+}
+
 {
   echo "# Rapport tests Cloudity"
   echo ""
@@ -90,9 +133,9 @@ except Exception:
   elif [ "$unit_exit" != "?" ]; then
     echo "## Verdict global : ❌ tests unitaires en échec (exit ${unit_exit})"
   fi
-  if grep -q '"recovered":true' "$MANIFEST" 2>/dev/null; then
+  if grep -q '"recovered":true' "$MANIFEST" 2>/dev/null && ! grep -q '"run_id"' "$MANIFEST" 2>/dev/null; then
     echo ""
-    echo "> ⚠️ **Manifest reconstruit** depuis les fichiers \`*-test-output.log\` / \`command-output.log\` (événements \`compose_run\` manquants ou tronqués)."
+    echo "> ⚠️ **Manifest reconstruit** depuis les fichiers capturés (événements \`compose_run\` originaux absents)."
   fi
   echo ""
 
@@ -112,6 +155,7 @@ except Exception:
       ended="$(echo "$line" | jq -r '.ended_at // ""')"
       test_out="$(echo "$line" | jq -r '.test_output // ""')"
       duration="$(duration_seconds "$started" "$ended")"
+      duration_cell="$(format_duration_cell "$duration" "$test_out")"
       status="✅"
       [ "$exit_code" != "0" ] && status="❌"
       test_link="_absent_"
@@ -124,7 +168,7 @@ except Exception:
         rel="${resolved#${LOGS_DIR}/}"
         container_log="[\`${service}.log\`](${rel})"
       fi
-      echo "| ${phase} | ${service} | ${status} ${exit_code} | ${duration}s | ${test_link} | ${container_log:-—} |"
+      echo "| ${phase} | ${service} | ${status} ${exit_code} | ${duration_cell} | ${test_link} | ${container_log:-—} |"
     elif [ "$event" = "phase_end" ]; then
       phase="$(echo "$line" | jq -r '.phase // "?"')"
       service="$(basename "$phase")"
@@ -133,6 +177,7 @@ except Exception:
       ended="$(echo "$line" | jq -r '.ended_at // ""')"
       cmd_log="$(echo "$line" | jq -r '.command_log // ""')"
       duration="$(duration_seconds "$started" "$ended")"
+      duration_cell="$(format_duration_cell "$duration" "$cmd_log")"
       status="✅"
       [ "$exit_code" != "0" ] && status="❌"
       test_link="_absent_"
@@ -151,7 +196,7 @@ except Exception:
           fi
         fi
       done
-      echo "| ${phase} | ${service} (pytest) | ${status} ${exit_code} | ${duration}s | ${test_link} | ${container_log:-—} |"
+      echo "| ${phase} | ${service} (pytest) | ${status} ${exit_code} | ${duration_cell} | ${test_link} | ${container_log:-—} |"
     fi
   done < "$MANIFEST"
 

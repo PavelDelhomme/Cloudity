@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports test-report test-report-show test-manifest-rebuild
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -191,10 +191,13 @@ up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, see
 	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
 	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
 	set -o pipefail; \
-	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_RUN_LABEL=make-up-full CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" $(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
+	export CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID"; \
+	export CLOUDITY_TEST_RUN_LABEL=make-up-full; \
+	export CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID"; \
+	$(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
 	TEST_EXIT=$$?; \
 	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
-	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh || true; \
+	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh "$$UP_FULL_ID" || true; \
 	./scripts/dev/send-progress-recap.sh || true; \
 	if [ $$TEST_EXIT -ne 0 ]; then \
 	  echo "❌ Tests post-up-full en échec — voir $$UP_FULL_LOG et reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
@@ -1074,6 +1077,10 @@ rebuild-force: ## Rebuild complet sans cache
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@$(MAKE) build-pass-extension
 	@echo "✅ Rebuild terminé!"
+
+check-ports: ## Vérifie que les PORT_* (.env) sont libres sur l'hôte (avant make up)
+	@chmod +x scripts/dev/check-ports-free.sh 2>/dev/null || true
+	@./scripts/dev/check-ports-free.sh
 
 status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gateway… ; CLOUDITY_STATUS_HOST pour LAN)
 	@chmod +x scripts/dev/status.sh 2>/dev/null || true
