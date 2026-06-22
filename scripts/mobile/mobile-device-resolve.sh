@@ -22,13 +22,18 @@ cloudity__device_manufacturer() {
   adb -s "$1" shell getprop ro.product.manufacturer 2>/dev/null | tr -d '\r\n' | tr '[:upper:]' '[:lower:]' || true
 }
 
+cloudity__device_avd_name() {
+  adb -s "$1" shell getprop ro.boot.qemu.avd_name 2>/dev/null | tr -d '\r\n' || true
+}
+
 cloudity__matches_profile() {
   local serial="$1"
-  local ref_model ref_mfg ref_serial device_kind model mfg
+  local ref_model ref_mfg ref_serial ref_avd device_kind model mfg avd_name
   [[ -f "$PROFILE_JSON" ]] || return 1
   ref_model="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON'))['hardware']['model'])" 2>/dev/null || true)"
   ref_mfg="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON'))['hardware']['manufacturer'])" 2>/dev/null || true)"
   ref_serial="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON')).get('reference_serial',''))" 2>/dev/null || true)"
+  ref_avd="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON')).get('avd_name',''))" 2>/dev/null || true)"
   device_kind="$(python3 -c "import json; print(json.load(open('$PROFILE_JSON')).get('device_kind','physical'))" 2>/dev/null || true)"
   model="$(cloudity__device_model "$serial")"
   mfg="$(cloudity__device_manufacturer "$serial")"
@@ -39,6 +44,11 @@ cloudity__matches_profile() {
     [[ "$serial" == emulator-* ]] || return 1
   elif [[ "$device_kind" == "physical" ]]; then
     [[ "$serial" != emulator-* ]] || return 1
+  fi
+  if [[ -n "$ref_avd" ]]; then
+    avd_name="$(cloudity__device_avd_name "$serial")"
+    [[ "$avd_name" == "$ref_avd" ]]
+    return $?
   fi
   [[ -n "$ref_model" && "$model" == "$ref_model" && -n "$ref_mfg" && "$mfg" == "$ref_mfg" ]]
 }

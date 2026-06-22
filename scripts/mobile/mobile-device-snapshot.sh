@@ -46,6 +46,7 @@ SDK="$(adb -s "$SERIAL" shell getprop ro.build.version.sdk | tr -d '\r\n')"
 ABI="$(adb -s "$SERIAL" shell getprop ro.product.cpu.abi | tr -d '\r\n')"
 WM_SIZE="$(adb -s "$SERIAL" shell wm size 2>/dev/null | awk '/Physical size/ {print $3}' | tr -d '\r\n')"
 WM_DENSITY="$(adb -s "$SERIAL" shell wm density 2>/dev/null | awk '/Physical density/ {print $3}' | tr -d '\r\n')"
+AVD_NAME="$(adb -s "$SERIAL" shell getprop ro.boot.qemu.avd_name 2>/dev/null | tr -d '\r\n' || true)"
 GATEWAY_PORT="${CLOUDITY_GATEWAY_PORT:-${PORT_GATEWAY:-6002}}"
 
 PACKAGES="$(adb -s "$SERIAL" shell pm list packages 2>/dev/null | rg 'fr\.cloudity\.' 2>/dev/null || true | sed 's/package://' | tr -d '\r' | sort | python3 -c 'import json,sys; print(json.dumps([l.strip() for l in sys.stdin if l.strip()]))')"
@@ -72,6 +73,7 @@ for line in getprop_path.read_text(encoding="utf-8", errors="replace").splitline
 profile = {
     "profile_id": "${PROFILE_SLUG}",
     "device_kind": "emulator" if "${SERIAL}".startswith("emulator-") else "physical",
+    "avd_name": "${AVD_NAME}" or None,
     "display_name": f"{props.get('ro.product.manufacturer', '${MFG}').title()} {props.get('ro.product.model', '${MODEL}')} ({props.get('ro.product.device', '${DEVICE}')})",
     "reference_serial": "${SERIAL}",
     "captured_at": "${CAPTURED_AT}",
