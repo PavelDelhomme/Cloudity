@@ -11,6 +11,12 @@ set -e
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
+export CLOUDITY_REPO_ROOT="$ROOT"
+
+# shellcheck source=scripts/ci/test-log-capture.inc.sh
+source "$ROOT/scripts/ci/test-log-capture.inc.sh"
+[ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "security"
+
 mkdir -p reports
 rm -f reports/.security-avertissements
 REMEDIATION_FILE="$ROOT/reports/security-remediation-hints.txt"
@@ -227,8 +233,15 @@ if [ "$warnings" = "1" ]; then
 fi
 
 echo ""
+if cloudity_test_should_capture "$failed"; then
+  cloudity_test_capture_stack_logs "phase4-security" || true
+  cloudity_test_capture_service_logs "phase4-security" cloudity-web admin-service auth-service api-gateway || true
+fi
+cloudity_test_manifest_event "{\"event\":\"security_done\",\"exit_code\":${failed},\"warnings\":${warnings},\"at\":\"$(date -Iseconds)\"}"
+
 if [ $failed -eq 1 ]; then
   echo "❌ Au moins un check sécurité a échoué."
+  echo "   Logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}/phase4-security/"
   exit 1
 fi
 if [ "$warnings" = "1" ]; then

@@ -8,12 +8,15 @@ import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } f
 import { Key, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 
+type LoginStep = 'email' | 'password'
+
 export default function LoginPage() {
   const { login: setAuth } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [step, setStep] = useState<LoginStep>('email')
   const [loading, setLoading] = useState(false)
   // Étape 2FA : si `requires_2fa` revient du backend, on bascule sur un
   // formulaire dédié qui accepte un code TOTP 6 chiffres OU un code de
@@ -32,15 +35,35 @@ export default function LoginPage() {
     return raw.startsWith('/app') || isAdminUiReturnPath(raw) ? normalizePostLoginPath(raw) : '/app'
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const normalizedEmail = email.trim()
+
+  const finishLogin = (
+    accessToken: string,
+    refreshToken: string | undefined,
+    authEmail: string,
+  ) => {
+    setAuth(accessToken, refreshToken, 1, authEmail)
+    navigateAfterAuth(navigate, computeReturnDestination())
+  }
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email.trim() || !password) {
+    if (!normalizedEmail) {
+      toast.error('Saisis ton email')
+      return
+    }
+    setStep('password')
+  }
+
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!normalizedEmail || !password) {
       toast.error('Email et mot de passe requis')
       return
     }
     setLoading(true)
     try {
-      const res = await apiLogin({ email: email.trim(), password })
+      const res = await apiLogin({ email: normalizedEmail, password })
       if (res.requires_2fa) {
         // Étape 2 : on bascule sur le formulaire 2FA. Le backend a déjà validé
         // le mot de passe ; il attend maintenant un TOTP ou un code de récup.
@@ -49,9 +72,8 @@ export default function LoginPage() {
         toast.success('Mot de passe validé. Saisis ton code 2FA ou un code de récupération.')
         return
       }
-      setAuth(res.access_token, res.refresh_token ?? undefined, 1, email.trim())
+      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail)
       toast.success('Connexion réussie')
-      navigateAfterAuth(navigate, computeReturnDestination())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur de connexion')
     } finally {
@@ -67,14 +89,13 @@ export default function LoginPage() {
     }
     setLoading(true)
     try {
-      const res = await verify2FA({ email: email.trim(), code: twoFACode.trim() })
-      setAuth(res.access_token, res.refresh_token ?? undefined, 1, email.trim())
+      const res = await verify2FA({ email: normalizedEmail, code: twoFACode.trim() })
+      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail)
       if (res.used_recovery_code) {
         toast.success('Connexion via code de récupération — pense à régénérer.', { duration: 6000 })
       } else {
         toast.success('Connexion 2FA réussie')
       }
-      navigateAfterAuth(navigate, computeReturnDestination())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Code invalide')
     } finally {
@@ -98,9 +119,8 @@ export default function LoginPage() {
       try {
         const res = await loginWithPasskeyDiscoverable('1', ac.signal)
         if (cancelled || !res) return
-        setAuth(res.access_token, res.refresh_token, 1, res.email)
+        finishLogin(res.access_token, res.refresh_token, res.email)
         toast.success('Connexion passkey réussie')
-        navigateAfterAuth(navigate, computeReturnDestination())
       } catch {
         // Silencieux : on continue à proposer le login mot de passe.
       }
@@ -112,20 +132,26 @@ export default function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Connexion passkey explicite (clic sur le bouton). Demande l'email pour
-  // appeler `/login/begin` non-discoverable — utile si la Conditional UI
-  // n'est pas dispo ou que l'utilisateur veut forcer.
+  // Connexion passkey explicite : tente d'abord une passkey discoverable sans
+  // email, puis garde le fallback non-discoverable si un email est déjà connu.
   const handlePasskeyLogin = async () => {
-    if (!email.trim()) {
-      toast.error('Saisir l’email pour utiliser une passkey')
-      return
-    }
+    conditionalAbortRef.current?.abort()
+    conditionalAbortRef.current = null
     setLoading(true)
     try {
-      const res = await loginWithPasskey(email.trim(), '1')
-      setAuth(res.access_token, res.refresh_token, 1, email.trim())
+      const discoverable = await loginWithPasskeyDiscoverable('1', undefined, false)
+      if (discoverable) {
+        finishLogin(discoverable.access_token, discoverable.refresh_token, discoverable.email)
+        toast.success('Connexion passkey réussie')
+        return
+      }
+      if (!normalizedEmail) {
+        toast.error('Aucune passkey disponible. Saisis ton email pour continuer.')
+        return
+      }
+      const res = await loginWithPasskey(normalizedEmail, '1')
+      finishLogin(res.access_token, res.refresh_token, normalizedEmail)
       toast.success('Connexion passkey réussie')
-      navigateAfterAuth(navigate, computeReturnDestination())
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur passkey')
     } finally {
@@ -197,8 +223,8 @@ export default function LoginPage() {
                 ← Recommencer
               </button>
             </form>
-          ) : (
-          <form onSubmit={handleSubmit} className="space-y-5">
+          ) : step === 'email' ? (
+          <form onSubmit={handleEmailSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                 Email
@@ -217,6 +243,31 @@ export default function LoginPage() {
                 className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
               />
             </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 disabled:opacity-50 disabled:pointer-events-none"
+            >
+              Continuer
+            </button>
+          </form>
+          ) : (
+          <form onSubmit={handlePasswordSubmit} className="space-y-5">
+            <div className="rounded-lg border border-gray-200 dark:border-slate-600 bg-gray-50 dark:bg-slate-700/50 px-3.5 py-2.5">
+              <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-slate-400">Compte</p>
+              <p className="mt-0.5 text-sm font-medium text-gray-900 dark:text-slate-100">{normalizedEmail}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('email')
+                  setPassword('')
+                }}
+                disabled={loading}
+                className="mt-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 disabled:opacity-50"
+              >
+                Changer d’email
+              </button>
+            </div>
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                 Mot de passe
@@ -226,9 +277,10 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password webauthn"
+                autoComplete="current-password"
                 required
                 placeholder="••••••••"
+                autoFocus
                 className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
               />
             </div>
@@ -250,7 +302,7 @@ export default function LoginPage() {
               className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-200 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-3 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-slate-600 disabled:opacity-50"
             >
               <Key className="w-4 h-4" />
-              Se connecter avec une passkey
+              Utiliser une passkey
             </button>
           )}
 

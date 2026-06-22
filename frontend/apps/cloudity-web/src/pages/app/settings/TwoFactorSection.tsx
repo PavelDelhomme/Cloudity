@@ -30,7 +30,7 @@ export default function TwoFactorSection() {
   })
 
   const activeRecovery = recoveryCount?.active ?? 0
-  const isEnabled = activeRecovery > 0 || phase === 'enabled'
+  const isEnabled = recoveryCount?.is_2fa_enabled === true || phase === 'enabled'
 
   const enableMutation = useMutation({
     mutationFn: () => enable2FA(accessToken!),
@@ -203,9 +203,41 @@ export default function TwoFactorSection() {
                 </li>
               ))}
             </ul>
-            <Button className="mt-3" variant="ghost" onClick={() => setFreshRecoveryCodes(null)}>
-              J&apos;ai sauvegardé — masquer
-            </Button>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <Button
+                variant="ghost"
+                className="flex items-center gap-2 text-sm"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(freshRecoveryCodes.join('\n'))
+                    toast.success('Codes copiés')
+                  } catch {
+                    toast.error('Copie impossible')
+                  }
+                }}
+              >
+                <Copy className="w-4 h-4" /> Tout copier
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-sm"
+                onClick={() => {
+                  const blob = new Blob([freshRecoveryCodes.join('\n') + '\n'], { type: 'text/plain;charset=utf-8' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `cloudity-recovery-codes-${new Date().toISOString().slice(0, 10)}.txt`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                  toast.success('Fichier téléchargé')
+                }}
+              >
+                Exporter (.txt)
+              </Button>
+              <Button className="mt-0" variant="ghost" onClick={() => setFreshRecoveryCodes(null)}>
+                J&apos;ai sauvegardé — masquer
+              </Button>
+            </div>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import {
   appLockedVaultScope,
   changeAppLockedPin,
   clearAppLockedVault,
+  getAppLockedKdfSalt,
   grantAppLockedVaultSession,
   isAppLockedVaultUnlocked,
   revokeAppLockedVaultSession,
@@ -41,8 +42,10 @@ describe('appLockedVault', () => {
       ok: false,
       error: 'Code actuel incorrect.',
     })
+    const kdfBefore = getAppLockedKdfSalt('drive', SCOPE)
     await expect(changeAppLockedPin('drive', SCOPE, '1234', '5678', '5678')).resolves.toEqual({ ok: true })
     await expect(verifyAppLockedPin('drive', SCOPE, '5678')).resolves.toBe(true)
+    expect(getAppLockedKdfSalt('drive', SCOPE)).toBe(kdfBefore)
   })
 
   it('gère la session temporaire du coffre', () => {

@@ -4,6 +4,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'pass_api.dart';
 import 'storage_keys.dart';
 
+const String _kBuildGateway = String.fromEnvironment('CLOUDITY_GATEWAY_URL', defaultValue: '');
+const String _kE2EGateway = String.fromEnvironment('CLOUDITY_E2E_GATEWAY', defaultValue: '');
+
+String get _buildGateway {
+  final configured = _kBuildGateway.trim();
+  if (configured.isNotEmpty) return configured;
+  return _kE2EGateway.trim();
+}
+
 /// Stockage local de la session d'authentification (gateway URL + tokens JWT).
 ///
 /// **Important Pass** : la session ne donne accès qu'à la **liste chiffrée**
@@ -53,10 +62,12 @@ class PassSessionStore {
     await prefs.remove(CloudityPassStorageKeys.userEmail);
   }
 
+  static bool get hasBuildGateway => _buildGateway.isNotEmpty;
+
   static Future<String> gatewayOrDefault() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(CloudityPassStorageKeys.gatewayUrl) ??
-        CloudityPassStorageKeys.defaultGateway;
+        (_buildGateway.isNotEmpty ? _buildGateway : CloudityPassStorageKeys.defaultGateway);
   }
 
   static Future<String?> readUserId() async {
@@ -77,7 +88,7 @@ class PassSessionStore {
       loadValidatedSession() async {
     final prefs = await SharedPreferences.getInstance();
     final gateway = prefs.getString(CloudityPassStorageKeys.gatewayUrl) ??
-        CloudityPassStorageKeys.defaultGateway;
+        (_buildGateway.isNotEmpty ? _buildGateway : CloudityPassStorageKeys.defaultGateway);
     final refresh = await _secure.read(key: CloudityPassStorageKeys.refreshToken);
     if (refresh == null || refresh.isEmpty) return null;
     var access = await _secure.read(key: CloudityPassStorageKeys.accessToken) ?? '';

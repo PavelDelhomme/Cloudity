@@ -6,16 +6,20 @@ import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 
 import 'auth_api.dart';
+import 'package:cloudity_shared/app_theme.dart';
 import 'package:cloudity_shared/http_helpers.dart';
+import 'package:cloudity_shared/storage_usage.dart';
+import 'device_gallery_body.dart';
 import 'drive_api.dart';
 import 'gallery_sync_settings_sheet.dart';
 import 'gallery_sync_prefs.dart';
 import 'photo_load_queue.dart';
+import 'photo_sync_badge.dart';
 import 'user_session.dart';
 
 const _pageSize = 48;
 
-enum _PhotosTab { timeline, albums, archive, trash, locked, settings }
+enum _PhotosTab { timeline, device, albums, archive, trash, locked, settings }
 
 const _monthsFr = [
   'janvier',
@@ -106,7 +110,15 @@ class _TimelineScreenState extends State<TimelineScreen>
   bool _lockedUnlocked = false;
   String? _lockedError;
   bool _backupEnabled = false;
+  bool _backupPendingWork = false;
+  bool _backupRunInProgress = false;
+  GallerySyncLastRun? _backupLastRun;
   Set<String> _backupAlbumIds = {};
+  Timer? _backupPollTimer;
+  StorageUsageSummary? _storageUsage;
+  bool _storageLoading = false;
+  String? _storageError;
+  ThemeMode _themeMode = ThemeMode.system;
   bool _selectionMode = false;
   final Set<int> _selectedIds = {};
   final Map<int, GlobalKey> _photoKeys = {};
@@ -116,6 +128,8 @@ class _TimelineScreenState extends State<TimelineScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadBackupStatus();
+    _loadStorageUsage();
+    _loadThemeMode();
     _reload();
     _refreshTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       if (!mounted || _loading || _tab != _PhotosTab.timeline) return;
@@ -127,6 +141,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _backupPollTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -150,12 +165,38 @@ class _TimelineScreenState extends State<TimelineScreen>
   Future<void> _loadBackupStatus() async {
     final enabled = await GallerySyncPrefs.isBackupEnabled();
     final albumIds = await GallerySyncPrefs.selectedAlbumIds();
+    final pendingWork = await GallerySyncPrefs.hasPendingWork();
+    final runInProgress = await GallerySyncPrefs.isRunInProgress();
+    final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _backupEnabled = enabled;
       _backupAlbumIds = albumIds;
+      _backupPendingWork = pendingWork;
+      _backupRunInProgress = runInProgress;
+      _backupLastRun = lastRun;
     });
+    _syncBackupPollTimer();
   }
+
+  void _syncBackupPollTimer() {
+    final needsFastPoll = _backupRunInProgress;
+    if (needsFastPoll) {
+      if (_backupPollTimer != null) return;
+      _backupPollTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (!mounted) return;
+        _loadBackupStatus();
+      });
+      return;
+    }
+    _backupPollTimer?.cancel();
+    _backupPollTimer = null;
+  }
+
+  bool get _backupUploading => _backupRunInProgress;
+
+  bool get _backupScheduled =>
+      _backupEnabled && _backupPendingWork && !_backupRunInProgress;
 
   String get _backupTargetLabel {
     if (_backupAlbumIds.isEmpty) {
@@ -166,15 +207,39 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   IconData get _backupIcon {
+    if (_backupUploading) return Icons.cloud_upload_outlined;
+    if (_backupScheduled) return Icons.cloud_sync_outlined;
     return _backupEnabled
         ? Icons.cloud_done_outlined
         : Icons.cloud_off_outlined;
   }
 
   String get _backupTooltip {
+    if (_backupUploading) {
+      return 'Sauvegarde Photos : envoi en cours en arrière-plan';
+    }
+    if (_backupScheduled) {
+      return 'Sauvegarde Photos : suite planifiée en arrière-plan';
+    }
     return _backupEnabled
         ? 'Synchronisation active : $_backupTargetLabel'
         : 'Synchronisation désactivée';
+  }
+
+  String get _backupStatusSummary {
+    if (!_backupEnabled) return 'Aucune photo ne sera envoyée automatiquement.';
+    if (_backupUploading) {
+      return 'Envoi en cours en arrière-plan · $_backupTargetLabel';
+    }
+    if (_backupScheduled) {
+      return 'Suite planifiée en arrière-plan · $_backupTargetLabel';
+    }
+    final run = _backupLastRun;
+    if (run?.failed == true) return 'Dernier passage : ${run!.error}';
+    if (run != null) {
+      return '${run.uploaded} envoyée(s), ${run.skipped} déjà à jour/ignorée(s) · $_backupTargetLabel';
+    }
+    return _backupTargetLabel;
   }
 
   Future<void> _reload({bool silent = false}) async {
@@ -302,16 +367,56 @@ class _TimelineScreenState extends State<TimelineScreen>
     }
   }
 
+  Future<void> _loadThemeMode() async {
+    final mode = await CloudityThemePrefs.load();
+    if (!mounted) return;
+    setState(() => _themeMode = mode);
+  }
+
+  Future<void> _loadStorageUsage() async {
+    setState(() {
+      _storageLoading = true;
+      _storageError = null;
+    });
+    try {
+      await widget.session.refreshIfNeeded();
+      final usage = await fetchStorageUsage(
+        gatewayBase: widget.session.api.baseUrl,
+        accessToken: widget.session.accessToken,
+      );
+      if (!mounted) return;
+      setState(() {
+        _storageUsage = usage;
+        _storageLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _storageError = e.toString();
+        _storageLoading = false;
+      });
+    }
+  }
+
   Future<void> _openBackupSettings() async {
+    final viewHeight = MediaQuery.sizeOf(context).height;
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (ctx) => const GallerySyncSettingsSheet(),
+      useSafeArea: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: viewHeight * 0.9),
+          child: const GallerySyncSettingsSheet(),
+        ),
+      ),
     );
     if (!mounted) return;
     await _loadBackupStatus();
-    await _reload();
+    await _loadStorageUsage();
+    await _reload(silent: true);
   }
 
   Future<void> _loadAlbums() async {
@@ -719,6 +824,13 @@ class _TimelineScreenState extends State<TimelineScreen>
                   shadows: const [Shadow(blurRadius: 4, color: Colors.black54)],
                 ),
               ),
+            if (!fromTrash)
+              const Positioned(
+                left: 4,
+                right: 4,
+                bottom: 4,
+                child: PhotoSyncBadge(status: PhotoSyncStatus.inCloud),
+              ),
             if (selected)
               DecoratedBox(
                 decoration: BoxDecoration(
@@ -1084,6 +1196,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   Widget _buildSettingsBody() {
+    final usage = _storageUsage;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
@@ -1091,16 +1204,61 @@ class _TimelineScreenState extends State<TimelineScreen>
           leading: Icon(_backupIcon),
           title: Text(
             _backupEnabled
-                ? 'Synchronisation active'
+                ? (_backupUploading
+                      ? 'Sauvegarde en cours'
+                      : 'Synchronisation active')
                 : 'Synchronisation arrêtée',
           ),
-          subtitle: Text(
-            _backupEnabled
-                ? _backupTargetLabel
-                : 'Aucune photo ne sera envoyée automatiquement.',
-          ),
+          subtitle: Text(_backupStatusSummary),
           trailing: const Icon(Icons.chevron_right),
           onTap: _openBackupSettings,
+        ),
+        const Divider(),
+        ListTile(
+          leading: const Icon(Icons.storage_outlined),
+          title: const Text('Espace utilisé'),
+          subtitle: _storageLoading
+              ? const Text('Calcul en cours…')
+              : _storageError != null
+              ? Text(_storageError!)
+              : usage == null
+              ? const Text('Indisponible')
+              : Text(
+                  'Photos ${formatStorageBytes(usage.photos.bytes)} · '
+                  'Drive ${formatStorageBytes(usage.drive.bytes)}',
+                ),
+          trailing: IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _storageLoading ? null : _loadStorageUsage,
+          ),
+        ),
+        if (usage != null) ...[
+          _storageTile(
+            icon: Icons.photo_library_outlined,
+            title: usage.photos.label,
+            usage: usage.photos,
+          ),
+          _storageTile(
+            icon: Icons.folder_outlined,
+            title: usage.drive.label,
+            usage: usage.drive,
+          ),
+          if (usage.mailNote != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Text(
+                usage.mailNote!,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+        ],
+        const Divider(),
+        CloudityThemeModeTile(
+          mode: _themeMode,
+          onChanged: (mode) {
+            context.findAncestorStateOfType<CloudityThemedAppState>()?.setThemeMode(mode);
+            setState(() => _themeMode = mode);
+          },
         ),
         const Divider(),
         ListTile(
@@ -1130,6 +1288,21 @@ class _TimelineScreenState extends State<TimelineScreen>
           onTap: _confirmLogout,
         ),
       ],
+    );
+  }
+
+  Widget _storageTile({
+    required IconData icon,
+    required String title,
+    required ServiceStorageUsage usage,
+  }) {
+    final suffix = usage.partial ? ' (estimation partielle)' : '';
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(
+        '${formatStorageBytes(usage.bytes)} · ${usage.fileCount} fichier(s)$suffix',
+      ),
     );
   }
 
@@ -1164,8 +1337,13 @@ class _TimelineScreenState extends State<TimelineScreen>
             const Divider(),
             destination(
               icon: Icons.photo_library_outlined,
-              label: 'Photos',
+              label: 'Cloud',
               tab: _PhotosTab.timeline,
+            ),
+            destination(
+              icon: Icons.smartphone_outlined,
+              label: 'Cet appareil',
+              tab: _PhotosTab.device,
             ),
             destination(
               icon: Icons.photo_album_outlined,
@@ -1191,12 +1369,14 @@ class _TimelineScreenState extends State<TimelineScreen>
             ListTile(
               leading: Icon(_backupIcon),
               title: Text(
-                _backupEnabled
+                _backupUploading
+                    ? 'Sauvegarde en cours'
+                    : _backupEnabled
                     ? 'Synchronisation active'
                     : 'Synchronisation arrêtée',
               ),
               subtitle: Text(
-                _backupEnabled ? _backupTargetLabel : 'Ouvrir les réglages',
+                _backupEnabled ? _backupStatusSummary : 'Ouvrir les réglages',
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -1217,7 +1397,8 @@ class _TimelineScreenState extends State<TimelineScreen>
   @override
   Widget build(BuildContext context) {
     final title = switch (_tab) {
-      _PhotosTab.timeline => 'Photos',
+      _PhotosTab.timeline => 'Cloud',
+      _PhotosTab.device => 'Cet appareil',
       _PhotosTab.albums =>
         _selectedAlbum == null
             ? 'Albums'
@@ -1229,6 +1410,11 @@ class _TimelineScreenState extends State<TimelineScreen>
     };
     final body = switch (_tab) {
       _PhotosTab.timeline => _buildTimelineBody(),
+      _PhotosTab.device => DeviceGalleryBody(
+        backupEnabled: _backupEnabled,
+        gatewayBase: widget.session.api.baseUrl,
+        accessToken: widget.session.accessToken,
+      ),
       _PhotosTab.albums => _buildAlbumsBody(),
       _PhotosTab.archive => _buildArchiveBody(),
       _PhotosTab.trash => _buildTrashBody(),
@@ -1257,7 +1443,10 @@ class _TimelineScreenState extends State<TimelineScreen>
             )
           else ...[
             IconButton(
-              icon: Icon(_backupIcon),
+              icon: _BackupAppBarIcon(
+                icon: _backupIcon,
+                animated: _backupUploading,
+              ),
               tooltip: _backupTooltip,
               onPressed: _openBackupSettings,
             ),
@@ -1412,6 +1601,30 @@ class _CloudityPhotoImageState extends State<_CloudityPhotoImage> {
 class _PhotoLoadRetryable implements Exception {
   const _PhotoLoadRetryable(this.code);
   final String code;
+}
+
+class _BackupAppBarIcon extends StatelessWidget {
+  const _BackupAppBarIcon({required this.icon, required this.animated});
+
+  final IconData icon;
+  final bool animated;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!animated) return Icon(icon);
+    final color = Theme.of(context).colorScheme.primary;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        SizedBox(
+          width: 28,
+          height: 28,
+          child: CircularProgressIndicator(strokeWidth: 2, color: color),
+        ),
+        Icon(icon, size: 19),
+      ],
+    );
+  }
 }
 
 class _PhotoViewerPage extends StatefulWidget {

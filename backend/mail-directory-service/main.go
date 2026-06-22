@@ -18,6 +18,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -436,7 +437,8 @@ func withPinnedConn(ctx context.Context, p *pinnedConn) context.Context {
 }
 
 type Handler struct {
-	db *sql.DB
+	db               *sql.DB
+	syncAccountLocks sync.Map // clé "userID:accountID" → *sync.Mutex (une sync IMAP à la fois)
 }
 
 // dbex retourne la conn épinglée présente dans le ctx (posée par le middleware
@@ -2918,6 +2920,19 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	// Cf. accountFolderSummary : on bind X-User-ID directement (le pool *sql.DB ne garantit
 	// pas que la conn courante voie le set_config posé par le middleware).
 	userIDInt, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
+	if userIDInt <= 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing user"})
+		return
+	}
+	lockKey := fmt.Sprintf("%d:%d", userIDInt, accountID)
+	muIface, _ := h.syncAccountLocks.LoadOrStore(lockKey, &sync.Mutex{})
+	accountMu := muIface.(*sync.Mutex)
+	if !accountMu.TryLock() {
+		c.JSON(http.StatusConflict, gin.H{"error": "synchronisation déjà en cours pour cette boîte mail"})
+		return
+	}
+	defer accountMu.Unlock()
+
 	var email string
 	var enc, oauthRefreshEnc sql.NullString
 	var dbImapHost sql.NullString

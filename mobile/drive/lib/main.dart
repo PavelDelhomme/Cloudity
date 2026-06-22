@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:cloudity_shared/app_theme.dart';
+
 import 'files_screen.dart';
 import 'login_screen.dart';
 import 'session_store.dart';
@@ -15,13 +17,10 @@ class CloudityDriveApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const CloudityThemedApp(
       title: 'Cloudity Drive',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: const _AppBootstrap(),
+      seedColor: Colors.indigo,
+      home: _AppBootstrap(),
     );
   }
 }

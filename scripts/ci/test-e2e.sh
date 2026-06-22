@@ -4,14 +4,23 @@
 
 set -e
 
-PORT_GATEWAY="${PORT_GATEWAY:-6080}"
-PORT_AUTH="${PORT_AUTH:-6081}"
-PORT_ADMIN="${PORT_ADMIN:-6082}"
-PORT_PASS="${PORT_PASS:-6051}"
-PORT_MAIL="${PORT_MAIL:-6050}"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+export CLOUDITY_REPO_ROOT="$ROOT"
+
+# shellcheck source=scripts/ci/test-log-capture.inc.sh
+source "$ROOT/scripts/ci/test-log-capture.inc.sh"
+[ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "e2e"
+
+PORT_GATEWAY="${PORT_GATEWAY:-6002}"
+PORT_AUTH="${PORT_AUTH:-6003}"
+PORT_ADMIN="${PORT_ADMIN:-6004}"
+PORT_PASS="${PORT_PASS:-6006}"
+PORT_MAIL="${PORT_MAIL:-6005}"
 PORT_DASHBOARD="${PORT_DASHBOARD:-6001}"
 
 echo "🧪 Tests E2E (ports 60XX)..."
+cloudity_test_logs_summary_line
 failed=0
 
 check() {
@@ -64,7 +73,6 @@ check_json_headers() {
   fi
 }
 
-# Réessaie jusqu'à 3 fois (pour laisser le temps au gateway / backends au démarrage)
 check_json_retry() {
   local name="$1"
   local url="$2"
@@ -86,7 +94,6 @@ check_json_retry() {
   failed=1
 }
 
-# Vérifie le code HTTP (fonctionnel)
 check_http() {
   local name="$1"
   local method="$2"
@@ -117,28 +124,28 @@ check_http_any() {
   fi
 }
 
-# Services directs
-check "API Gateway /health" "http://localhost:${PORT_GATEWAY}/health"
-check "Auth Service /health" "http://localhost:${PORT_AUTH}/health"
-check "Admin Service /health" "http://localhost:${PORT_ADMIN}/health"
-check "Password Manager /health" "http://localhost:${PORT_PASS}/health"
-check "Mail Directory /health" "http://localhost:${PORT_MAIL}/health"
-check "Dashboard" "http://localhost:${PORT_DASHBOARD}/"
+mkdir -p "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e"
+{
+  echo "=== E2E curl checks ==="
+  echo "started_at: $(date -Iseconds)"
+} > "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
 
-# Via API Gateway (proxy) — avec retry pour /auth et /pass (démarrage possiblement décalé)
+check "API Gateway /health" "http://localhost:${PORT_GATEWAY}/health" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+check "Auth Service /health" "http://localhost:${PORT_AUTH}/health" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+check "Admin Service /health" "http://localhost:${PORT_ADMIN}/health" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+check "Password Manager /health" "http://localhost:${PORT_PASS}/health" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+check "Mail Directory /health" "http://localhost:${PORT_MAIL}/health" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+check "Dashboard" "http://localhost:${PORT_DASHBOARD}/" | tee -a "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+
 check_json "Gateway → health JSON" "http://localhost:${PORT_GATEWAY}/health" "status"
 check_json_retry "Gateway → /auth/health" "http://localhost:${PORT_GATEWAY}/auth/health" "status"
 check_json_retry "Gateway → /pass/health" "http://localhost:${PORT_GATEWAY}/pass/health" "status"
 check_json_retry "Gateway → /mail/health" "http://localhost:${PORT_GATEWAY}/mail/health" "status"
-
-# Drive (fichiers / dossiers)
 check_json_retry "Gateway → /drive/health" "http://localhost:${PORT_GATEWAY}/drive/health" "status"
 
-# Checks fonctionnels API (auth, validation)
 check_http_any "Gateway → POST /auth/login (invalid) → 401 ou 400" "POST" "http://localhost:${PORT_GATEWAY}/auth/login"
 check_http "Gateway → GET /auth/validate (no token) → 401" "GET" "http://localhost:${PORT_GATEWAY}/auth/validate" "401"
 
-# Optionnel : login avec compte démo (si seed-admin a été lancé)
 E2E_DASHBOARD_ORIGIN="${E2E_DASHBOARD_ORIGIN:-http://localhost:${PORT_DASHBOARD}}"
 E2E_ADMIN_ACCESS_TOKEN=""
 demo_login() {
@@ -165,13 +172,23 @@ if [ -n "$E2E_ADMIN_ACCESS_TOKEN" ]; then
 else
   echo "  ⏭️  Gateway → /admin/stats → skip (pas de JWT admin — lancer make seed-admin)"
 fi
+
+cloudity_test_log_redact_file "${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/command-output.log"
+
+if cloudity_test_should_capture "$failed"; then
+  cloudity_test_capture_stack_logs "phase2-e2e"
+fi
+
+cloudity_test_manifest_event "{\"event\":\"e2e_done\",\"exit_code\":${failed},\"at\":\"$(date -Iseconds)\"}"
+
 if [ $failed -eq 1 ]; then
   echo ""
   echo "💡 Assurez-vous que la stack est up : make up"
   echo "   Puis attendez 20-30 s que tous les services soient healthy (docker compose ps)."
-  echo "   Le gateway attend auth-service, admin-service, passwords-service et mail-directory-service avant de démarrer."
+  echo "   Logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}/phase2-e2e/"
   exit 1
 fi
 echo ""
 echo "✅ E2E OK"
+cloudity_test_logs_summary_line
 exit 0

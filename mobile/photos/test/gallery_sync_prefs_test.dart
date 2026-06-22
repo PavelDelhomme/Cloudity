@@ -45,4 +45,50 @@ void main() {
     expect(failed!.failed, true);
     expect(failed.error, 'permission refusée');
   });
+
+  test('prefs sauvegarde galerie : curseur de reprise', () async {
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+
+    await GallerySyncPrefs.saveScanCursor(albumId: 'camera', page: 3);
+    final cursor = await GallerySyncPrefs.scanCursor();
+    expect(cursor, isNotNull);
+    expect(cursor!.albumId, 'camera');
+    expect(cursor.page, 3);
+    expect(await GallerySyncPrefs.hasPendingWork(), true);
+
+    await GallerySyncPrefs.clearScanCursor();
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+  });
+
+  test('prefs sauvegarde galerie : passage en cours', () async {
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+    await GallerySyncPrefs.setRunInProgress(true);
+    expect(await GallerySyncPrefs.isRunInProgress(), true);
+    await GallerySyncPrefs.setRunInProgress(false);
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+  });
+
+  test('prefs sauvegarde galerie : albums par défaut configurés', () async {
+    expect(await GallerySyncPrefs.hasDefaultAlbumsConfigured(), false);
+    await GallerySyncPrefs.setDefaultAlbumsConfigured(true);
+    expect(await GallerySyncPrefs.hasDefaultAlbumsConfigured(), true);
+  });
+
+  test('prefs sauvegarde galerie : reconcile au démarrage', () async {
+    await GallerySyncPrefs.setBackupEnabled(true);
+    await GallerySyncPrefs.setRunInProgress(true);
+    await GallerySyncPrefs.saveScanCursor(albumId: 'camera', page: 2);
+
+    await GallerySyncPrefs.reconcileOnStartup();
+    expect(await GallerySyncPrefs.isRunInProgress(), false);
+    expect(await GallerySyncPrefs.hasPendingWork(), true);
+    expect(await GallerySyncPrefs.isBackupEnabled(), true);
+
+    await GallerySyncPrefs.setBackupEnabled(false);
+    await GallerySyncPrefs.reconcileOnStartup();
+    expect(await GallerySyncPrefs.hasPendingWork(), false);
+    expect(await GallerySyncPrefs.scanCursor(), isNull);
+  });
 }

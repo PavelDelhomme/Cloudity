@@ -192,10 +192,10 @@ _env_get() {
   printf '%s' "$val"
 }
 
-PORT_GATEWAY="$(_env_get PORT_GATEWAY 6080)"
+PORT_GATEWAY="$(_env_get PORT_GATEWAY 6002)"
 PORT_DASHBOARD="$(_env_get PORT_DASHBOARD 6001)"
-PORT_AUTH="$(_env_get PORT_AUTH 6081)"
-PORT_ADMIN="$(_env_get PORT_ADMIN 6082)"
+PORT_AUTH="$(_env_get PORT_AUTH 6003)"
+PORT_ADMIN="$(_env_get PORT_ADMIN 6004)"
 PORT_POSTGRES="$(_env_get PORT_POSTGRES 6042)"
 PORT_REDIS="$(_env_get PORT_REDIS 6079)"
 PORT_ADMINER="$(_env_get PORT_ADMINER 6083)"

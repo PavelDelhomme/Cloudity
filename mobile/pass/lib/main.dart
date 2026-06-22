@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:cloudity_shared/app_theme.dart';
+
 import 'screens/login_screen.dart';
 import 'screens/unlock_screen.dart';
 import 'screens/vaults_screen.dart';
@@ -9,17 +11,17 @@ import 'vault_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityPassApp());
+  runApp(const _PassRoot());
 }
 
-class CloudityPassApp extends StatefulWidget {
-  const CloudityPassApp({super.key});
+class _PassRoot extends StatefulWidget {
+  const _PassRoot();
 
   @override
-  State<CloudityPassApp> createState() => _CloudityPassAppState();
+  State<_PassRoot> createState() => _PassRootState();
 }
 
-class _CloudityPassAppState extends State<CloudityPassApp> {
+class _PassRootState extends State<_PassRoot> {
   final VaultController _vault = VaultController();
 
   @override
@@ -30,12 +32,9 @@ class _CloudityPassAppState extends State<CloudityPassApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return CloudityThemedApp(
       title: 'Cloudity Pass',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      seedColor: Colors.deepPurple,
       home: _AppBootstrap(vault: _vault),
     );
   }

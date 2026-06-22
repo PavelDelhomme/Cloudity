@@ -9,6 +9,13 @@ cd "$ROOT"
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 export PYTHONUTF8=1
+export CLOUDITY_REPO_ROOT="$ROOT"
+
+# shellcheck source=scripts/ci/test-log-capture.inc.sh
+source "$ROOT/scripts/ci/test-log-capture.inc.sh"
+cloudity_test_logs_init "make-tests"
+export CLOUDITY_TEST_RUN_ID CLOUDITY_TEST_LOGS_DIR
+
 mkdir -p reports
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 LOG="reports/test-${TIMESTAMP}.log"
@@ -51,6 +58,7 @@ echo "  CLOUDITY — make tests"
 echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security + test-mobile-suite (Photos + Drive + Mail)"
 echo "  Rapport détaillé : $LOG"
 echo "  Dossier rapports : $ROOT/reports/"
+cloudity_test_logs_summary_line
 echo "========================================"
 echo ""
 echo "Résumé des phases :"
@@ -62,6 +70,10 @@ echo "  5. test-mobile-suite   — Flutter Photos + Drive + Mail (hôte + integr
 echo ""
 echo "  Astuce (Mail/sync) : un .env incomplet → make doctor avant les phases E2E Mail ; alignement secrets : make secrets-print ou docs/securite/SECRETS.md."
 echo ""
+
+stack_gateway_up() {
+  curl -sf --connect-timeout 2 "http://127.0.0.1:${PORT_GATEWAY:-6080}/health" >/dev/null 2>&1
+}
 
 # ----- Phase 1 -----
 echo ""
@@ -80,29 +92,43 @@ fi
 # ----- Phase 2 -----
 echo ""
 echo ">>> Phase 2/5 : Tests E2E health/proxy (make test-e2e)"
-if run_phase "Phase 2: make test-e2e" "make test-e2e"; then
-  E2E_STATUS="OK"
-  echo ""
-  echo "  Phase 2 (E2E)       : OK"
+if stack_gateway_up; then
+  if run_phase "Phase 2: make test-e2e" "make test-e2e"; then
+    E2E_STATUS="OK"
+    echo ""
+    echo "  Phase 2 (E2E)       : OK"
+  else
+    E2E_STATUS="FAIL"
+    echo ""
+    echo "  Phase 2 (E2E)       : ÉCHEC"
+    show_tail "$LOG" 35
+  fi
 else
-  E2E_STATUS="FAIL"
+  E2E_STATUS="SKIP (stack down)"
   echo ""
-  echo "  Phase 2 (E2E)       : ÉCHEC (stack démarrée ? make up)"
-  show_tail "$LOG" 35
+  echo "  Phase 2 (E2E)       : IGNORÉE — stack non joignable (lance make up ou make up-full d'abord)"
+  echo "Phase 2: SKIP — gateway http://127.0.0.1:${PORT_GATEWAY:-6080}/health injoignable" >> "$LOG"
 fi
 
 # ----- Phase 3 -----
 echo ""
 echo ">>> Phase 3/5 : Tests E2E navigateur Playwright (make test-e2e-playwright)"
-if run_phase "Phase 3: make test-e2e-playwright" "make test-e2e-playwright"; then
-  E2E_PW_STATUS="OK"
-  echo ""
-  echo "  Phase 3 (E2E Playwright) : OK"
+if stack_gateway_up; then
+  if run_phase "Phase 3: make test-e2e-playwright" "make test-e2e-playwright"; then
+    E2E_PW_STATUS="OK"
+    echo ""
+    echo "  Phase 3 (E2E Playwright) : OK"
+  else
+    E2E_PW_STATUS="FAIL"
+    echo ""
+    echo "  Phase 3 (E2E Playwright) : ÉCHEC (make seed-admin ?)"
+    show_tail "$LOG" 35
+  fi
 else
-  E2E_PW_STATUS="FAIL"
+  E2E_PW_STATUS="SKIP (stack down)"
   echo ""
-  echo "  Phase 3 (E2E Playwright) : ÉCHEC (make up + make seed-admin ?)"
-  show_tail "$LOG" 35
+  echo "  Phase 3 (E2E Playwright) : IGNORÉE — stack non joignable"
+  echo "Phase 3: SKIP — stack down" >> "$LOG"
 fi
 
 # ----- Phase 4 -----
@@ -151,6 +177,7 @@ fi
   echo "  Sécurité:       $SEC_STATUS"
   echo "  Mobile (P+D+M): $MOBILE_PHOTOS_STATUS"
   echo "  Rapport:        $LOG"
+  echo "  Logs conteneurs: ${CLOUDITY_TEST_LOGS_DIR}"
   echo "  Répertoire:     $ROOT (racine du dépôt)"
   echo "========================================"
 } | tee -a "$LOG"

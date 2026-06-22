@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAppBreadcrumb } from './AppLayout'
+import { getAppBreadcrumb, buildDocumentTitle } from './AppLayout'
 
 describe('getAppBreadcrumb', () => {
   it('sur l’éditeur renvoie Tableau de bord > Drive (pas Office ni Éditeur)', () => {
@@ -49,5 +49,25 @@ describe('getAppBreadcrumb', () => {
     const segments = getAppBreadcrumb('/app/calendar')
     expect(segments).toHaveLength(2)
     expect(segments[1]).toEqual({ label: 'Calendar', href: '/app/calendar' })
+  })
+})
+
+describe('buildDocumentTitle', () => {
+  it('sur Drive inclut section, marque et email', () => {
+    expect(buildDocumentTitle('/app/drive', undefined, 'admin@cloudity.local')).toBe(
+      'Drive — Cloudity — admin@cloudity.local'
+    )
+  })
+
+  it('sur corbeille inclut Corbeille', () => {
+    expect(buildDocumentTitle('/app/drive', 'view=trash', 'u@test.local')).toBe(
+      'Corbeille — Cloudity — u@test.local'
+    )
+  })
+
+  it('sur tableau de bord reste Cloudity + email', () => {
+    expect(buildDocumentTitle('/app', undefined, 'admin@cloudity.local')).toBe(
+      'Cloudity — admin@cloudity.local'
+    )
   })
 })

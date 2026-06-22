@@ -412,6 +412,14 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 - [ ] **`make test`** systématique sur **Docker** ; **`make test-docker`** après **`make up`** pour valider l’image runtime.
 - [x] Couverture **GlobalSearchPalette** (Vitest) : raccourci clavier, navigation — **`GlobalSearchPalette.test.tsx`** (voir **TESTS.md**).
+- [x] **Rapports tests post-run** : `scripts/ci/generate-test-run-report.sh` → `reports/test-logs/<run-id>/REPORT.md` ; capture logs conteneurs redactés ; `make up-full` avec `pipefail` + exit code réel.
+- [x] **Logs dev persistés** : `make logs` → `reports/container-logs/live-YYYYMMDD.log` (rotation 50 Mo, purge 14 j).
+- [x] **Perf benchmark suite** : `make perf-benchmark` / `-quick` → `reports/perf/benchmark-*/REPORT.md` ; attente stack (`PERF_BENCHMARK_WAIT_STACK`).
+- [ ] **QA-MATRIX-01 — Audit complet manuel** : revue couche par couche (unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf, sécurité, infra) — tableau **TODOS.md** § **QA-MATRIX** ; cocher au fur et à mesure dans **TESTS.md** §4.
+- [x] **QA-LOG-SIGNALS-01 — Signaux logs dans REPORT.md** : `scripts/ci/generate-test-run-report.sh` analyse Redis/Postgres/IMAP/JWT ; `make test-report-show` pour un seul rapport.
+- [x] **PORT-ORG-01 — Ports hôte séquentiels** : série 6001–6012 · `scripts/dev/ports-sequential.sh` · `make ports-sequential` · `make check-ports` · défauts compose/Makefile.
+- [ ] **COMPOSE-CONFIG-01 — Configuration centralisée** : une seule source `.env` + `docker-compose.yml` (base) + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) — pas de ports/secrets en dur dans les services.
+- [ ] **QA-EMAIL-01 — Récap automatique** : `make progress-recap` (+ SMTP `PROGRESS_EMAIL_*` dans `.env`) après sessions longues ou CI nightly.
 
 ---
 

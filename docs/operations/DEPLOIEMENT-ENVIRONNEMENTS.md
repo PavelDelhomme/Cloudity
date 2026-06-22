@@ -58,7 +58,7 @@ flowchart LR
 | **Fichier secrets** | `.env` (gitignored) | Variables **stack Portainer** (jamais Git) |
 | **Mise à jour front** | `make deploy-web` | Redeploy conteneur `cloudity-web` |
 | **Mise à jour mail** | `make deploy-mail` | Redeploy `cloudity-mail-directory-service` |
-| **Mobile** | `VITE_API_URL=http://IP_LAN:6080` | `https://api.cloudity.<domaine-principal>` (à créer en DNS+NPM) |
+| **Mobile** | `CLOUDITY_MOBILE_GATEWAY_URL=http://IP_LAN:6080` | `CLOUDITY_MOBILE_GATEWAY_URL=https://api.cloudity.<domaine-principal>` (DNS+NPM/Let’s Encrypt) |
 
 **Préprod** = même VPS et même mode Portainer que la prod, avec un autre tag d’image (`TAG=preprod`) ou un sous-domaine de test (ex. `staging.cloudity.<domaine-principal>`) — pas un troisième outil.
 
@@ -107,7 +107,7 @@ Ton cas DNS / réseaux déjà en place : **[PORTAINER-VPS.md](PORTAINER-VPS.md)*
 | **API sur VPS, dev local** | `https://api.cloudity.<domaine-principal>` | émulateur + machine locale |
 | **Tout sur VPS** | idem | `https://cloudity.<domaine-principal>` |
 
-CORS : en prod, `CORS_ORIGINS` doit lister l’origine exacte du front. En dev LAN : `CORS_ALLOW_LAN=true`.
+CORS : en prod, `CORS_ORIGINS` doit lister l’origine exacte du front. En dev LAN : `CORS_ALLOW_LAN=true`. Les apps mobiles natives n’utilisent pas CORS, mais doivent pointer vers une gateway API joignable : HTTP local en dev, HTTPS public en préprod/prod.
 
 ---
 

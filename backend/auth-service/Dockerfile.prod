@@ -1,5 +1,10 @@
 # Cloudity auth-service — image production multi-stage.
-# Build : docker build -f backend/auth-service/Dockerfile.prod -t cloudity/auth-service:<tag> backend/auth-service
+#
+# IMPORTANT : ce service importe `../internalsec` via un replace dans go.mod.
+# Le contexte de build doit être `backend/` (parent), pas `backend/auth-service/`.
+#
+# Build :
+#   docker build -f backend/auth-service/Dockerfile.prod -t cloudity/auth-service:<tag> backend
 # Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md.
 
 # === Stage 1 : build statique ===========================================
@@ -10,14 +15,12 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
 
 RUN apk add --no-cache git ca-certificates
 
-COPY go.mod go.sum ./
+COPY internalsec ./internalsec
+COPY auth-service ./auth-service
+
+WORKDIR /src/auth-service
 RUN go mod download
 
-COPY . .
-
-# Build statique. -trimpath = supprime les chemins source absolus.
-# -ldflags="-s -w" = strip symboles + DWARF (image ~30 % plus petite).
-# -buildvcs=false = pas de stamping VCS (le contexte de build n'est pas un repo).
 RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/auth-service .
 
 # === Stage 2 : runtime distroless ======================================

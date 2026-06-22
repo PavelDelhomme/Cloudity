@@ -47,6 +47,17 @@ class DriveApi {
     return data.cast<Map<String, dynamic>>();
   }
 
+  Future<Map<String, dynamic>> fetchStorageSummary(String accessToken) async {
+    final uri = Uri.parse('$_base/drive/storage/summary');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode != 200) {
+      throw DriveApiException('Quota stockage HTTP ${res.statusCode}');
+    }
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
   Future<void> deleteNode(String accessToken, int id) async {
     final uri = Uri.parse('$_base/drive/nodes/$id');
     final res = await http
@@ -91,14 +102,20 @@ class DriveApi {
   }
 
   Future<int> ensurePhotosFolderId(String accessToken) async {
-    final roots = await fetchNodes(accessToken, null);
-    final existing = roots.where(
-      (n) =>
-          n['is_folder'] == true &&
-          (n['name'] as String? ?? '').trim().toLowerCase() == 'photos',
-    );
-    if (existing.isNotEmpty) {
-      return (existing.first['id'] as num).toInt();
+    final res = await http
+        .get(
+          Uri.parse('$_base/drive/photos/system-folder'),
+          headers: authHeaders(accessToken, json: false),
+        )
+        .timeout(_httpTimeout);
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      return (data['id'] as num).toInt();
+    }
+    if (res.statusCode != 404) {
+      throw DriveApiException(
+        'Dossier Photos système HTTP ${res.statusCode}',
+      );
     }
     final created = await createFolder(accessToken, null, 'Photos');
     return (created['id'] as num).toInt();

@@ -242,7 +242,15 @@ export async function changeAppLockedPin(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const valid = await verifyAppLockedPin(kind, scope, currentPin)
   if (!valid) return { ok: false, error: 'Code actuel incorrect.' }
-  return setupAppLockedPin(kind, scope, nextPin, confirmPin)
+  const vault = readVault(kind, scope)
+  if (!vault) return { ok: false, error: 'Coffre local introuvable.' }
+  const pinError = validateAppLockedPinFormat(nextPin)
+  if (pinError) return { ok: false, error: pinError }
+  if (nextPin !== confirmPin) return { ok: false, error: 'Les codes ne correspondent pas.' }
+  const pinSalt = randomSalt()
+  const pinHash = await hashPin(nextPin, pinSalt)
+  writeVault(kind, scope, { ...vault, pinSalt, pinHash })
+  return { ok: true }
 }
 
 export async function unlockAppLockedWithWebAuthn(kind: AppLockedVaultKind, scope: string): Promise<boolean> {

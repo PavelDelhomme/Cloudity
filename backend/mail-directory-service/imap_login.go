@@ -81,23 +81,27 @@ func (h *Handler) persistAccountPasswordAfterSync(ctx context.Context, accountID
 		log.Printf("[mail] sync account=%d: impossible de chiffrer le mot de passe: %v", accountID, encErr)
 		return false
 	}
-	// Conn dédiée : après une longue sync IMAP la conn épinglée du middleware peut être fermée.
-	conn, err := h.db.Conn(ctx)
+	// Transaction courte : évite les « connection reset by peer » Postgres lors d'un Close() brutal sur conn pool.
+	tx, err := h.db.BeginTx(ctx, nil)
 	if err != nil {
-		log.Printf("[mail] sync account=%d: persist conn: %v", accountID, err)
+		log.Printf("[mail] sync account=%d: persist tx: %v", accountID, err)
 		return false
 	}
-	defer conn.Close()
-	if _, err := conn.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx, "SELECT set_config('app.current_user_id', $1, true)", strconv.Itoa(userID)); err != nil {
 		log.Printf("[mail] sync account=%d: persist set_config: %v", accountID, err)
 		return false
 	}
-	res, err := conn.ExecContext(ctx, `
+	res, err := tx.ExecContext(ctx, `
 		UPDATE user_email_accounts SET password_encrypted = $1, updated_at = NOW()
 		WHERE id = $2 AND user_id = $3
 	`, encStr, accountID, userID)
 	if err != nil {
 		log.Printf("[mail] sync account=%d: persist password_encrypted: %v", accountID, err)
+		return false
+	}
+	if err := tx.Commit(); err != nil {
+		log.Printf("[mail] sync account=%d: persist commit: %v", accountID, err)
 		return false
 	}
 	n, _ := res.RowsAffected()

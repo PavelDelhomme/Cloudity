@@ -1,12 +1,15 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'gallery_backup.dart';
+import 'gallery_album_catalog.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_sync_scheduler.dart';
+import 'gallery_sync_setup.dart';
 
 /// Feuille de réglages sauvegarde galerie (Android).
 class GallerySyncSettingsSheet extends StatefulWidget {
@@ -23,14 +26,24 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   bool _wifiOnly = true;
   bool _requireCharging = false;
   bool _running = false;
+  bool _pendingWork = false;
+  bool _runInProgress = false;
   Set<String> _selectedAlbumIds = {};
   GallerySyncLastRun? _lastRun;
   String? _lastMessage;
+  Timer? _statusTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _statusTimer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _statusTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -39,6 +52,8 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     final charging = await GallerySyncPrefs.requireCharging();
     final selectedAlbumIds = await GallerySyncPrefs.selectedAlbumIds();
     final lastRun = await GallerySyncPrefs.lastRun();
+    final pendingWork = await GallerySyncPrefs.hasPendingWork();
+    final runInProgress = await GallerySyncPrefs.isRunInProgress();
     if (!mounted) return;
     setState(() {
       _enabled = enabled;
@@ -46,6 +61,8 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       _requireCharging = charging;
       _selectedAlbumIds = selectedAlbumIds;
       _lastRun = lastRun;
+      _pendingWork = pendingWork;
+      _runInProgress = runInProgress;
       _loading = false;
     });
   }
@@ -65,24 +82,38 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       }
       if (!mounted) return;
       setState(() => _lastMessage = galleryPermissionMessage(perm));
+    } else {
+      await GallerySyncPrefs.setBackupEnabled(false);
+      await GallerySyncPrefs.clearScanCursor();
+      await GallerySyncPrefs.setRunInProgress(false);
+      await applyGallerySyncSchedule();
+      if (!mounted) return;
+      setState(() {
+        _enabled = false;
+        _pendingWork = false;
+        _runInProgress = false;
+        _lastMessage =
+            'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.';
+      });
+      return;
     }
 
-    setState(() => _enabled = value);
-    await GallerySyncPrefs.setBackupEnabled(value);
+    await GallerySyncPrefs.setBackupEnabled(true);
     await applyGallerySyncSchedule();
-    if (value) {
-      await enqueueGalleryBackupNow();
-      if (mounted) {
-        setState(
-          () => _lastMessage =
-              'Première sauvegarde planifiée (Wi‑Fi / charge selon options).',
-        );
-      }
-    } else if (mounted) {
-      setState(
-        () => _lastMessage =
-            'Synchronisation arrêtée. Les photos restent sur le téléphone et rien n’est supprimé.',
-      );
+    if (!mounted) return;
+    setState(() => _enabled = true);
+
+    final autoAlbums = await applyDefaultAlbumSelectionIfNeeded();
+    if (mounted && autoAlbums != null && autoAlbums.isNotEmpty) {
+      setState(() => _selectedAlbumIds = autoAlbums);
+    }
+    await enqueueGalleryBackupNow();
+    if (mounted) {
+      setState(() {
+        _lastMessage = autoAlbums != null && autoAlbums.isNotEmpty
+            ? '${autoAlbums.length} dossier(s) détecté(s) (Camera, Captures, messagerie…). Sauvegarde planifiée.'
+            : 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
+      });
     }
   }
 
@@ -94,19 +125,27 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
   Future<void> _runNow() async {
     setState(() {
       _running = true;
+      _pendingWork = true;
       _lastMessage = null;
     });
-    final result = await runGalleryBackupJob();
+    final result = await runGalleryBackupJobWithNotification();
+    if (result.hasMore) {
+      await enqueueGalleryBackupNow();
+    }
     final lastRun = await GallerySyncPrefs.lastRun();
     if (!mounted) return;
     setState(() {
       _running = false;
       _lastRun = lastRun;
+      _pendingWork = result.hasMore;
       if (result.skipped) {
         _lastMessage = result.reason ?? 'Passage ignoré.';
       } else {
+        final suffix = result.hasMore
+            ? ' Suite planifiée en arrière-plan.'
+            : '';
         _lastMessage =
-            '${result.uploaded} photo(s) envoyée(s) · ${result.skippedCount} déjà à jour ou ignorée(s).';
+            '${result.uploaded} photo(s) envoyée(s) · ${result.skippedCount} déjà à jour ou ignorée(s).$suffix';
       }
     });
   }
@@ -132,6 +171,30 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     return 'Dernier passage $when : ${run.uploaded} envoyée(s), ${run.skipped} déjà à jour/ignorée(s).';
   }
 
+  String get _liveStatusTitle {
+    if (!_enabled) return 'Sauvegarde désactivée';
+    if (_running || _runInProgress) return 'Sauvegarde en cours…';
+    if (_pendingWork) return 'Suite à reprendre en arrière-plan';
+    if (_lastRun?.failed == true) return 'Dernier passage en erreur';
+    return 'Sauvegarde active';
+  }
+
+  String get _liveStatusSubtitle {
+    if (!_enabled) {
+      return 'Active-la pour envoyer automatiquement les nouvelles photos.';
+    }
+    if (_running || _runInProgress) {
+      return 'Cloudity analyse les dossiers sélectionnés et envoie un lot de photos.';
+    }
+    if (_pendingWork) {
+      return 'Un lot reste à traiter — Android relancera la tâche dès que possible.';
+    }
+    if (_lastRun?.failed == true) return _lastRun!.error ?? 'Erreur inconnue';
+    return 'Les prochains passages seront lancés automatiquement en arrière-plan.';
+  }
+
+  bool get _showProgressAnimation => _running || _runInProgress;
+
   Future<void> _selectAlbums() async {
     final perm = await requestGalleryPermission();
     if (!hasGalleryAccess(perm)) {
@@ -144,6 +207,13 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       type: RequestType.image,
       hasAll: false,
     );
+    final sortedAlbums = [...albums]
+      ..sort((a, b) {
+        final pa = describeGalleryAlbum(a.name);
+        final pb = describeGalleryAlbum(b.name);
+        if (pa.suggested != pb.suggested) return pa.suggested ? -1 : 1;
+        return pa.label.compareTo(pb.label);
+      });
     if (!mounted) return;
 
     var draft = Set<String>.of(_selectedAlbumIds);
@@ -154,7 +224,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
           title: const Text('Dossiers à sauvegarder'),
           content: SizedBox(
             width: double.maxFinite,
-            child: albums.isEmpty
+            child: sortedAlbums.isEmpty
                 ? const Text('Aucun dossier photo trouvé sur ce téléphone.')
                 : ListView(
                     shrinkWrap: true,
@@ -170,19 +240,32 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
                             setDialogState(() => draft = <String>{}),
                       ),
                       const Divider(),
-                      for (final album in albums)
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(album.name),
-                          value: draft.contains(album.id),
-                          onChanged: (value) => setDialogState(() {
-                            if (value == true) {
-                              draft.add(album.id);
-                            } else {
-                              draft.remove(album.id);
-                            }
-                          }),
+                      for (final album in sortedAlbums) ...[
+                        Builder(
+                          builder: (context) {
+                            final presentation = describeGalleryAlbum(
+                              album.name,
+                            );
+                            return CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(presentation.label),
+                              subtitle: Text(
+                                presentation.suggested
+                                    ? '${album.name} · recommandé'
+                                    : album.name,
+                              ),
+                              value: draft.contains(album.id),
+                              onChanged: (value) => setDialogState(() {
+                                if (value == true) {
+                                  draft.add(album.id);
+                                } else {
+                                  draft.remove(album.id);
+                                }
+                              }),
+                            );
+                          },
                         ),
+                      ],
                     ],
                   ),
           ),
@@ -202,6 +285,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (selected == null || !mounted) return;
 
     await GallerySyncPrefs.setSelectedAlbumIds(selected);
+    await GallerySyncPrefs.setDefaultAlbumsConfigured(true);
     setState(() {
       _selectedAlbumIds = selected;
       _lastMessage = selected.isEmpty
@@ -233,30 +317,41 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       );
     }
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 16,
-        bottom: 16 + MediaQuery.paddingOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Sauvegarde galerie',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
-              'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
+    return SafeArea(
+      top: true,
+      bottom: true,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 8,
+          bottom: 16 + MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sauvegarde galerie',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
+                'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              _GalleryBackupLiveStatusCard(
+                active: _enabled,
+                animated: _showProgressAnimation,
+                error: _lastRun?.failed == true,
+                title: _liveStatusTitle,
+                subtitle: _liveStatusSubtitle,
+              ),
             const SizedBox(height: 12),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -337,9 +432,106 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
               const SizedBox(height: 12),
               Text(_lastMessage!, style: Theme.of(context).textTheme.bodySmall),
             ],
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _GalleryBackupLiveStatusCard extends StatelessWidget {
+  const _GalleryBackupLiveStatusCard({
+    required this.active,
+    required this.animated,
+    required this.error,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final bool active;
+  final bool animated;
+  final bool error;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = error
+        ? colorScheme.error
+        : active
+        ? colorScheme.primary
+        : colorScheme.outline;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: active ? 0.10 : 0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PulsingCloudIcon(color: color, animated: animated),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Text(
+                    title,
+                    key: ValueKey(title),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                if (animated) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      backgroundColor: color.withValues(alpha: 0.14),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingCloudIcon extends StatelessWidget {
+  const _PulsingCloudIcon({required this.color, required this.animated});
+
+  final Color color;
+  final bool animated;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!animated) {
+      return Icon(Icons.cloud_done_outlined, color: color, size: 30);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.86, end: 1.08),
+      duration: const Duration(milliseconds: 850),
+      curve: Curves.easeInOut,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      onEnd: () {},
+      child: Icon(Icons.cloud_sync_outlined, color: color, size: 30),
     );
   }
 }
