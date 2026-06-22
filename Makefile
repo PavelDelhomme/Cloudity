@@ -190,12 +190,16 @@ up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, see
 	@UP_FULL_ID=$$(date +%Y%m%d-%H%M%S); \
 	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
 	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
+	set -o pipefail; \
 	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_RUN_LABEL=make-up-full CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" $(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
 	TEST_EXIT=$$?; \
 	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
 	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh || true; \
 	./scripts/dev/send-progress-recap.sh || true; \
-	if [ $$TEST_EXIT -ne 0 ]; then exit $$TEST_EXIT; fi; \
+	if [ $$TEST_EXIT -ne 0 ]; then \
+	  echo "❌ Tests post-up-full en échec — voir $$UP_FULL_LOG et reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
+	  exit $$TEST_EXIT; \
+	fi; \
 	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
 	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
 	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \

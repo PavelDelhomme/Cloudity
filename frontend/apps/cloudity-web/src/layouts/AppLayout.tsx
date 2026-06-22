@@ -132,7 +132,7 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
       inFlightSyncRef.current.add(acc.id)
       try {
         const r = await coordinatedSyncMailAccount(token, acc.id)
-        if (!r) continue
+        if (!r) return
         void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
           title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
           desktopTitle: 'Cloudity Mail',

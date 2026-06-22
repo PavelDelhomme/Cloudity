@@ -15,7 +15,8 @@
 | **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
 | **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
 | **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
-| **`make up-full` / tests** | ☑ | Rapport unitaire dans `reports/up-full-test-*.log` ; `make tests` skip E2E si gateway down |
+| **`make up-full` / tests** | 🟡 | Rapport `reports/test-logs/<id>/REPORT.md` ; **bug corrigé** : `continue` invalide dans `AppLayout.tsx` + `pipefail` sur `tee` (exit code réel) |
+| **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
 | **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
 | **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
@@ -71,6 +72,26 @@
 | **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+### QA-MATRIX — récap tests à revoir (2026-06-22)
+
+Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport dans `reports/` (ou `docs/operations/TESTS.md` §4).
+
+| Couche | Commande(s) | Rapport / sortie | Revu |
+|--------|-------------|------------------|------|
+| **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☐ |
+| **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☐ |
+| **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☐ |
+| **E2E Playwright** | `make test-e2e` / `make tests` | `reports/e2e/` + logs capture | ☐ |
+| **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
+| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
+| **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
+| **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
+| **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☐ |
+| **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☐ |
+| **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
+
+**Automatisation souhaitée** : `make progress-recap` (STATUS/TODOS/BACKLOG + dernier `REPORT.md`) · email si `PROGRESS_EMAIL_TO` dans `.env`.
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 

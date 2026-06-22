@@ -1,10 +1,10 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-22 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : quota stockage web/mobile, isolation dossier Photos Drive, matching cloud↔local, UX dev (`make logs` historique + live, rapports `make up-full` / `make tests`).
+**Dernière mise à jour** : 2026-06-22 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : rapports tests (`reports/test-logs/*/REPORT.md`), logs persistés (`make logs`), correctif syntaxe `AppLayout` + exit code `make up-full`.
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** — validation Samsung différée ; correctifs UX web (titres d’onglet, 2FA, notifications Mail, quota Drive/Photos).
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** — matrice QA complète (§ **QA-MATRIX**) ; relancer `make up-full` après correctif frontend.
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
