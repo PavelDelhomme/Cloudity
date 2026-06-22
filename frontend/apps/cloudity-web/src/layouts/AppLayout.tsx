@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import {
@@ -120,8 +120,35 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
   const accountsRef = useRef<MailAccountResponse[]>([])
   const notificationsRef = useRef(notifications)
   const lastSyncAtRef = useRef<number>(0)
+  const inFlightSyncRef = useRef<Set<number>>(new Set())
 
   notificationsRef.current = notifications
+
+  const syncAccountIfIdle = useCallback(
+    async (token: string, acc: MailAccountResponse) => {
+      if (!accountCanBackgroundImapSync(acc)) return
+      if (inFlightSyncRef.current.has(acc.id)) return
+      inFlightSyncRef.current.add(acc.id)
+      try {
+        const r = await syncMailAccount(token, acc.id)
+        void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
+          title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
+          desktopTitle: 'Cloudity Mail',
+        })
+      } catch (e) {
+        if (isMailSyncPasswordRequiredError(e)) return
+      } finally {
+        inFlightSyncRef.current.delete(acc.id)
+      }
+    },
+    []
+  )
+
+  const invalidateMailQueries = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+    await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+    await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+  }, [queryClient])
 
   useEffect(() => {
     if (!accessToken || disabled) return
@@ -146,26 +173,14 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
       const token = await refreshAccessTokenIfNeeded()
       if (!token) return
       for (const acc of accountsRef.current) {
-        if (!accountCanBackgroundImapSync(acc)) continue
-        try {
-          const r = await syncMailAccount(token, acc.id)
-          void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
-            title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
-            desktopTitle: 'Cloudity Mail',
-          })
-        } catch (e) {
-          if (isMailSyncPasswordRequiredError(e)) continue
-          // Autres erreurs IMAP : on continue sur les autres comptes.
-        }
+        await syncAccountIfIdle(token, acc)
       }
       lastSyncAtRef.current = Date.now()
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-      await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+      await invalidateMailQueries()
     }
     const id = window.setInterval(tick, GLOBAL_MAIL_SYNC_INTERVAL_MS)
     return () => window.clearInterval(id)
-  }, [accessToken, disabled, queryClient, refreshAccessTokenIfNeeded])
+  }, [accessToken, disabled, refreshAccessTokenIfNeeded, syncAccountIfIdle, invalidateMailQueries])
 
   useEffect(() => {
     if (!accessToken || disabled) return
@@ -178,26 +193,15 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
         const token = await refreshAccessTokenIfNeeded()
         if (!token) return
         for (const acc of list) {
-          if (!accountCanBackgroundImapSync(acc)) continue
-          try {
-            const r = await syncMailAccount(token, acc.id)
-            void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
-              title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
-              desktopTitle: 'Cloudity Mail',
-            })
-          } catch (e) {
-            if (isMailSyncPasswordRequiredError(e)) continue
-          }
+          await syncAccountIfIdle(token, acc)
         }
         lastSyncAtRef.current = Date.now()
-        await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
-        await queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
-        await queryClient.invalidateQueries({ queryKey: ['mail', 'imap-folders'] })
+        await invalidateMailQueries()
       })()
     }
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [accessToken, disabled, queryClient, refreshAccessTokenIfNeeded])
+  }, [accessToken, disabled, refreshAccessTokenIfNeeded, syncAccountIfIdle, invalidateMailQueries])
 
   return null
 }

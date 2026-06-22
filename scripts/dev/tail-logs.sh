@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Affiche l'historique récent des logs Compose puis suit les nouveaux (même si la stack
 # n'est pas encore démarrée — utile pendant make up-full dans un autre terminal).
+#
+# Couleurs : conservées sur terminal (TTY) via `docker compose logs --color always`.
+# CLOUDITY_LOGS_HIDE_HEALTH=1 désactive les couleurs (filtrage grep).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -20,20 +23,44 @@ compose_cmd() {
   $COMPOSE $COMPOSE_FILES --profile dev "$@"
 }
 
-filter_logs() {
+# Couleurs Docker Compose (noms de services, timestamps) — uniquement si TTY et pas de filtre.
+color_args() {
   if [ "$HIDE_HEALTH" = "1" ]; then
-    grep -Ev 'GET[[:space:]]+"/health"|/health HTTP|-> 200.*health' || true
+    echo --no-color
+  elif [ -t 1 ]; then
+    echo --color always
   else
-    cat
+    echo --no-color
+  fi
+}
+
+stream_compose_logs() {
+  local -a cargs
+  cargs=($(color_args))
+  if [ "$HIDE_HEALTH" = "1" ]; then
+    # grep retire les codes ANSI — on prévient l'utilisateur.
+    compose_cmd logs "${cargs[@]}" "$@" 2>/dev/null \
+      | stdbuf -oL -eL grep --line-buffered -Ev \
+        'GET[[:space:]]+"/health"|GET[[:space:]]+/health |/health HTTP|-> 200[[:space:]]+0s[[:space:]]*$|\[gateway\] GET /health' \
+      || true
+  else
+    # Pas de pipe : couleurs Compose préservées.
+    compose_cmd logs "${cargs[@]}" "$@" 2>&1
   fi
 }
 
 echo "📋 Dernières ${TAIL} lignes (conteneurs existants, y compris arrêtés)…"
-echo "   Astuce : CLOUDITY_LOGS_HIDE_HEALTH=1 make logs pour masquer les sondes /health"
+if [ -t 1 ] && [ "$HIDE_HEALTH" != "1" ]; then
+  echo "   Couleurs actives (terminal). Astuce : CLOUDITY_LOGS_HIDE_HEALTH=1 masque /health (sans couleur)."
+elif [ "$HIDE_HEALTH" = "1" ]; then
+  echo "   Filtre /health actif — couleurs désactivées. Retirez CLOUDITY_LOGS_HIDE_HEALTH pour les couleurs."
+else
+  echo "   Sortie non-TTY — couleurs désactivées."
+fi
 echo ""
 
 if compose_cmd ps -a -q 2>/dev/null | grep -q .; then
-  compose_cmd logs --tail="$TAIL" 2>/dev/null | filter_logs || true
+  stream_compose_logs --tail="$TAIL" || true
 else
   echo "   (aucun conteneur Cloudity pour l'instant — en attente du démarrage…)"
 fi
@@ -44,7 +71,7 @@ echo ""
 
 while true; do
   if compose_cmd ps -q 2>/dev/null | grep -q .; then
-    compose_cmd logs -f --tail=0 2>/dev/null | filter_logs
+    stream_compose_logs -f --tail=0
     exit 0
   fi
   sleep 2

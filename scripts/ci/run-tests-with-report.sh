@@ -9,6 +9,13 @@ cd "$ROOT"
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 export PYTHONUTF8=1
+export CLOUDITY_REPO_ROOT="$ROOT"
+
+# shellcheck source=scripts/ci/test-log-capture.inc.sh
+source "$ROOT/scripts/ci/test-log-capture.inc.sh"
+cloudity_test_logs_init "make-tests"
+export CLOUDITY_TEST_RUN_ID CLOUDITY_TEST_LOGS_DIR
+
 mkdir -p reports
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 LOG="reports/test-${TIMESTAMP}.log"
@@ -51,6 +58,7 @@ echo "  CLOUDITY — make tests"
 echo "  Lance : make test + test-e2e + test-e2e-playwright + test-security + test-mobile-suite (Photos + Drive + Mail)"
 echo "  Rapport détaillé : $LOG"
 echo "  Dossier rapports : $ROOT/reports/"
+cloudity_test_logs_summary_line
 echo "========================================"
 echo ""
 echo "Résumé des phases :"
@@ -169,6 +177,7 @@ fi
   echo "  Sécurité:       $SEC_STATUS"
   echo "  Mobile (P+D+M): $MOBILE_PHOTOS_STATUS"
   echo "  Rapport:        $LOG"
+  echo "  Logs conteneurs: ${CLOUDITY_TEST_LOGS_DIR}"
   echo "  Répertoire:     $ROOT (racine du dépôt)"
   echo "========================================"
 } | tee -a "$LOG"

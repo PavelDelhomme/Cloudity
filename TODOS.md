@@ -12,6 +12,9 @@
 | Sujet | État | Détail |
 |-------|------|--------|
 | **`make logs`** | ☑ | Historique (`--tail`) même stack down + suivi live ; `CLOUDITY_LOGS_HIDE_HEALTH=1` masque les sondes Docker `/health` |
+| **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
+| **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
+| **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
 | **`make up-full` / tests** | ☑ | Rapport unitaire dans `reports/up-full-test-*.log` ; `make tests` skip E2E si gateway down |
 | **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
