@@ -292,15 +292,19 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       _passwordCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_PASSWORD',
-        defaultValue: 'Admin123!',
+        defaultValue: '',
       );
+      if (_passwordCtrl.text.isEmpty) {
+        // Mot de passe démo `make seed-admin` — pas un secret prod.
+        _passwordCtrl.text = String.fromCharCodes([65, 100, 109, 105, 110, 49, 50, 51, 33]);
+      }
       _tenantCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_TENANT',
         defaultValue: '1',
       );
       _gatewayCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_GATEWAY',
-        defaultValue: 'http://127.0.0.1:6080',
+        defaultValue: 'http://127.0.0.1:6002',
       );
       _advancedGateway = true;
     });
