@@ -17,6 +17,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "${CLOUDITY_TEST_RUN_LABEL:-make-test}"
+export CLOUDITY_TEST_LOGS_DIR CLOUDITY_TEST_RUN_ID
 echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
 cloudity_test_logs_summary_line
 

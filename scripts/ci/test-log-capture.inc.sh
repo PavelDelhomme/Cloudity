@@ -107,6 +107,8 @@ cloudity_test_log_redact_file() {
 cloudity_test_manifest_event() {
   local json="$1"
   [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || return 0
+  [ -d "$CLOUDITY_TEST_LOGS_DIR" ] || mkdir -p "$CLOUDITY_TEST_LOGS_DIR"
+  # Append atomique — ne jamais tronquer le manifest (>> uniquement).
   echo "$json" >> "$CLOUDITY_TEST_LOGS_DIR/manifest.jsonl"
 }
 

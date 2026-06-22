@@ -21,6 +21,9 @@ if [ -z "$LOGS_DIR" ] || [ ! -d "$LOGS_DIR" ]; then
   exit 1
 fi
 
+chmod +x "$(dirname "$0")/rebuild-test-manifest.sh" 2>/dev/null || true
+"$(dirname "$0")/rebuild-test-manifest.sh" "$LOGS_DIR" >/dev/null || true
+
 REPORT="${LOGS_DIR}/REPORT.md"
 MANIFEST="${LOGS_DIR}/manifest.jsonl"
 UP_FULL_LOG=""
@@ -87,6 +90,10 @@ except Exception:
   elif [ "$unit_exit" != "?" ]; then
     echo "## Verdict global : ❌ tests unitaires en échec (exit ${unit_exit})"
   fi
+  if grep -q '"recovered":true' "$MANIFEST" 2>/dev/null; then
+    echo ""
+    echo "> ⚠️ **Manifest reconstruit** depuis les fichiers \`*-test-output.log\` / \`command-output.log\` (événements \`compose_run\` manquants ou tronqués)."
+  fi
   echo ""
 
   echo "## Synthèse par phase"
@@ -118,6 +125,33 @@ except Exception:
         container_log="[\`${service}.log\`](${rel})"
       fi
       echo "| ${phase} | ${service} | ${status} ${exit_code} | ${duration}s | ${test_link} | ${container_log:-—} |"
+    elif [ "$event" = "phase_end" ]; then
+      phase="$(echo "$line" | jq -r '.phase // "?"')"
+      service="$(basename "$phase")"
+      exit_code="$(echo "$line" | jq -r '.exit_code // "?"')"
+      started="$(echo "$line" | jq -r '.started_at // ""')"
+      ended="$(echo "$line" | jq -r '.ended_at // ""')"
+      cmd_log="$(echo "$line" | jq -r '.command_log // ""')"
+      duration="$(duration_seconds "$started" "$ended")"
+      status="✅"
+      [ "$exit_code" != "0" ] && status="❌"
+      test_link="_absent_"
+      if resolved="$(resolve_run_file "$cmd_log")"; then
+        rel="${resolved#${LOGS_DIR}/}"
+        test_link="[\`command-output.log\`](${rel})"
+      fi
+      container_log=""
+      for dep in admin-service postgres redis; do
+        if resolved="$(resolve_run_file "${phase}/${dep}.log")"; then
+          rel="${resolved#${LOGS_DIR}/}"
+          if [ -n "$container_log" ]; then
+            container_log="${container_log}, [\`${dep}.log\`](${rel})"
+          else
+            container_log="[\`${dep}.log\`](${rel})"
+          fi
+        fi
+      done
+      echo "| ${phase} | ${service} (pytest) | ${status} ${exit_code} | ${duration}s | ${test_link} | ${container_log:-—} |"
     fi
   done < "$MANIFEST"
 
@@ -136,6 +170,23 @@ except Exception:
         test_out="$(echo "$line" | jq -r '.test_output // ""')"
         echo "### ${service}"
         if resolved="$(resolve_run_file "$test_out")"; then
+          echo '```'
+          tail -80 "$resolved" | sed 's/\x1b\[[0-9;]*m//g'
+          echo '```'
+        else
+          echo "_Pas de sortie test capturée._"
+        fi
+        echo ""
+      fi
+    elif [ "$event" = "phase_end" ]; then
+      exit_code="$(echo "$line" | jq -r '.exit_code // 0')"
+      if [ "$exit_code" != "0" ]; then
+        failed_any=1
+        phase="$(echo "$line" | jq -r '.phase // "?"')"
+        service="$(basename "$phase")"
+        cmd_log="$(echo "$line" | jq -r '.command_log // ""')"
+        echo "### ${service}"
+        if resolved="$(resolve_run_file "$cmd_log")"; then
           echo '```'
           tail -80 "$resolved" | sed 's/\x1b\[[0-9;]*m//g'
           echo '```'
@@ -197,7 +248,7 @@ except Exception:
   emit_signal_row "IMAP sync select (dossier absent)" "ℹ️ bruit" "Candidats multi-fournisseurs" 'sync select "'
   emit_signal_row "Conteneurs test exited 0" "✅ OK" "docker compose run (go test / vitest)" "exited with code 0"
   emit_signal_row "JWT invalid (tests mock)" "ℹ️ tests" "Tokens invalides dans Vitest" "JWT invalid"
-  emit_signal_row "Postgres ERROR SQL" "❌ investiguer" "Duplicate key seed, etc." "ERROR:.*duplicate key"
+  emit_signal_row "Postgres ERROR SQL" "⚠️ souvent seed" "Duplicate key si \`make seed-admin\` sur DB existante" "ERROR:.*duplicate key"
 
   echo ""
   sample_imap="$(first_match 'imap: connection closed')"

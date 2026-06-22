@@ -868,9 +868,14 @@ progress-recap: ## Récap STATUS/TODOS/BACKLOG → reports/progress/ (+ email si
 	@./scripts/dev/send-progress-recap.sh
 
 test-report: ## Génère REPORT.md (RUN_ID= ou dernier run par date)
-	@chmod +x scripts/ci/generate-test-run-report.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@chmod +x scripts/ci/generate-test-run-report.sh scripts/ci/rebuild-test-manifest.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
 	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
 	CLOUDITY_TEST_LOGS_DIR="$$RUN_DIR" ./scripts/ci/generate-test-run-report.sh "$$(basename "$$RUN_DIR")"
+
+test-manifest-rebuild: ## Reconstruit manifest.jsonl depuis les artefacts capturés (RUN_ID=)
+	@chmod +x scripts/ci/rebuild-test-manifest.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	./scripts/ci/rebuild-test-manifest.sh "$$RUN_DIR"
 
 test-report-show: ## Affiche REPORT.md (RUN_ID= ou dernier run — ne régénère pas)
 	@chmod +x scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
