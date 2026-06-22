@@ -5,7 +5,24 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/app-hub-photos-ux-hardening`** — depuis **`dev`** à jour (2026-06-09).
+**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** — quota, Photos/Drive vault, matching mobile.
+
+### Session 2026-06-22 — UX dev & Paramètres
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`make logs`** | ☑ | Historique (`--tail`) même stack down + suivi live ; `CLOUDITY_LOGS_HIDE_HEALTH=1` masque les sondes Docker `/health` |
+| **`make up-full` / tests** | ☑ | Rapport unitaire dans `reports/up-full-test-*.log` ; `make tests` skip E2E si gateway down |
+| **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
+| **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
+| **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
+| **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
+| **Passkeys ×5** | ℹ️ | Quota backend = 5 — normal si plein ; supprimer les inutilisées |
+| **Pass auto-lock configurable** | ☐ | Délai global + par app (Pass web ~5 min hardcodé) |
+| **Design system `@cloudity/ui` partout** | ☐ | Web apps + mobile — chantier transverse |
+| **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
+
+**Sondes `/health` dans les logs** : healthchecks Docker (`interval: 30s`, source `127.0.0.1`). Conteneurs `*-run-*` + `exited 0` = `docker compose run` pour `go test` lors de `make test` / `make up-full`.
 
 | Chantier | Branche | État |
 |----------|---------|------|

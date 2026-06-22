@@ -1468,7 +1468,7 @@ export async function regenerateRecoveryCodes(token: string): Promise<{ codes: s
 }
 
 /** Compte des codes de récupération encore utilisables. UI : warning si <=2. */
-export async function countRecoveryCodes(token: string): Promise<{ active: number }> {
+export async function countRecoveryCodes(token: string): Promise<{ active: number; is_2fa_enabled: boolean }> {
   return apiJson(token, '/auth/2fa/recovery-codes/count', undefined, 'Codes de récupération (count)')
 }
 

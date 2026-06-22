@@ -82,6 +82,7 @@ import { getExtension, isOfficeIframePreviewName, isWordDocument } from '../offi
 import { parseCsvToGrid } from '../../../utils/csvGrid'
 import { markdownToHtml } from '../../../utils/htmlMarkdown'
 import { DrivePdfJsPreview } from '../../../components/DrivePdfJsPreview'
+import StorageUsageInline from '../../../components/StorageUsageInline'
 
 /** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
 const OFFICE_PREVIEW_MAX_ROWS = 5000
@@ -1607,6 +1608,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
         )}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
+        <StorageUsageInline scope="drive" />
         {viewMode === 'drive' ? (
           <>
           <button

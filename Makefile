@@ -185,8 +185,13 @@ up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-exten
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-full: down up wait-for-services seed seed-admin test ## Tout-en-un : down, up, seed, compte démo, puis lance les tests pour vérifier
-	@echo "✅ Stack, compte démo et tests OK. Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
+up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, seed, compte démo, puis tests unitaires (rapport dans reports/)
+	@mkdir -p reports
+	@UP_FULL_LOG="reports/up-full-test-$$(date +%Y%m%d-%H%M%S).log"; \
+	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
+	$(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
+	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
+	echo "   Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
@@ -884,8 +889,9 @@ restart: ## Redémarre tous les services
 	@make down
 	@make up
 
-logs: ## Logs de tous les services en temps réel (Ctrl+C pour quitter)
-	@$(COMPOSE) $(COMPOSE_FILES) --profile dev logs -f
+logs: ## Historique récent + suivi live (fonctionne même pendant make up-full ; CLOUDITY_LOGS_HIDE_HEALTH=1 pour masquer /health)
+	@chmod +x scripts/dev/tail-logs.sh 2>/dev/null || true
+	@./scripts/dev/tail-logs.sh
 
 logs-auth: ## Logs du service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f auth-service

@@ -253,6 +253,20 @@ export function getAppBreadcrumb(pathname: string, search?: string): { label: st
   return segments
 }
 
+/** Titre d'onglet : « Drive — Cloudity — admin@… » (exporté pour les tests). */
+export function buildDocumentTitle(
+  pathname: string,
+  search: string | undefined,
+  email: string | null | undefined
+): string {
+  const crumbs = getAppBreadcrumb(pathname, search)
+  const leaf = crumbs.length > 1 ? crumbs[crumbs.length - 1]!.label : 'Cloudity'
+  const parts = leaf === 'Tableau de bord' ? ['Cloudity'] : [leaf, 'Cloudity']
+  const account = email?.trim()
+  if (account) parts.push(account)
+  return parts.join(' — ')
+}
+
 const SIDEBAR_STORAGE_KEY = 'cloudity_sidebar_visible'
 
 function getInitialSidebarVisible(): boolean {
@@ -272,6 +286,11 @@ export default function AppLayout() {
     registerMailNotificationClickHandler((href) => navigate(href))
     return () => registerMailNotificationClickHandler(null)
   }, [navigate])
+
+  useEffect(() => {
+    document.title = buildDocumentTitle(location.pathname, location.search, email)
+  }, [location.pathname, location.search, email])
+
   const isDrive = location.pathname.startsWith('/app/drive')
   const isMailRoute = location.pathname.startsWith('/app/mail')
   const [driveInputsReady, setDriveInputsReady] = useState(false)

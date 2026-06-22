@@ -20,6 +20,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
 import { PhotosBottomNav } from '../../../components/PhotosBottomNav'
+import StorageUsageInline from '../../../components/StorageUsageInline'
 import type { PhotosTab } from './photosTypes'
 import {
   archiveDrivePhotos,
@@ -1059,7 +1060,7 @@ export default function PhotosPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 min-h-10">
+      <div className="flex items-center justify-between gap-3 min-h-10 flex-wrap">
         <div className="min-w-0 flex-1">
           {tab !== 'timeline' ? (
             <div className="flex min-w-0 items-center gap-2">
@@ -1081,6 +1082,7 @@ export default function PhotosPage() {
             </div>
           ) : null}
         </div>
+        <StorageUsageInline scope="photos" className="hidden sm:inline-flex" />
         {accessToken ? (
           <button
             type="button"

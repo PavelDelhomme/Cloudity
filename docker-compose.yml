@@ -101,7 +101,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8081/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 8
       start_period: 120s
@@ -148,7 +148,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8000/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 8
       start_period: 180s
@@ -188,7 +188,7 @@ services:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8082/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 8
       start_period: 120s
@@ -219,7 +219,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8051/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -266,7 +266,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8050/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -297,7 +297,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8052/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -328,7 +328,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8053/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -359,7 +359,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8054/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -391,7 +391,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8055/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -422,7 +422,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8057/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -453,7 +453,7 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8056/health"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
       retries: 10
       start_period: 180s
@@ -499,7 +499,7 @@ services:
           "-c",
           "if [ -f /ws/.certs/localhost.pem ]; then curl -k -sf https://127.0.0.1:3000/; else curl -sf http://127.0.0.1:3000/; fi",
         ]
-      interval: 15s
+      interval: 30s
       timeout: 5s
       retries: 25
       start_period: 180s

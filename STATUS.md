@@ -1,10 +1,10 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-10 — Branche **`feat/app-hub-photos-ux-hardening`** : H8 archive/verrouillé Photos serveur, H9 paramètres Photos, UX sélection/contextuel, persistance boîte Mail ; prêt merge **`dev`**. **Mail prod en pause**.
+**Dernière mise à jour** : 2026-06-22 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : quota stockage web/mobile, isolation dossier Photos Drive, matching cloud↔local, UX dev (`make logs` historique + live, rapports `make up-full` / `make tests`).
 
 ## À faire maintenant
 
-**Checklist du jour (cases ☐)** : **[TODOS.md](./TODOS.md)** — **barrière qualité avant reprise mail alias/déploiement** : `make test`, `make test-pass`, lint, E2E API/Playwright et mobile hôte verts ; sécurité/perf en 🟡 à trier avant prod. **§ ENSUITE** #3–#4 = MTA alias local/admin prêts, mais VPS/DNS/prod volontairement remis à demain ; suite immédiate sans déploiement = **§ ENSUITE #5 J8 Pass / MP-06 extension** + **#5b validation 2FA locale compte démo**. UI-DS livré sur **`dev`**.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** — validation Samsung différée ; correctifs UX web (titres d’onglet, 2FA, notifications Mail, quota Drive/Photos).
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 

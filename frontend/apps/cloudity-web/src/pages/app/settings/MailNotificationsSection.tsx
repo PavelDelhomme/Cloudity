@@ -84,9 +84,15 @@ export default function MailNotificationsSection() {
         ) : null}
 
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={enable} disabled={status === 'unsupported'}>
-            Activer sur cet ordinateur
-          </Button>
+          {status !== 'granted' || !enabled ? (
+            <Button type="button" onClick={enable} disabled={status === 'unsupported'}>
+              Activer sur cet ordinateur
+            </Button>
+          ) : (
+            <span className="inline-flex items-center rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-2 text-sm font-medium text-emerald-800 dark:text-emerald-200">
+              Notifications activées sur cet ordinateur
+            </span>
+          )}
           <Button type="button" variant="secondary" onClick={test} disabled={!enabled}>
             Tester
           </Button>

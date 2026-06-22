@@ -271,5 +271,12 @@ func (a *AuthService) CountRecoveryCodes(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"active": n})
+	var is2FA bool
+	if err := store.db.QueryRowContext(c.Request.Context(),
+		`SELECT COALESCE(is_2fa_enabled, false) FROM users WHERE id::text = $1`, claims.UserID,
+	).Scan(&is2FA); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"active": n, "is_2fa_enabled": is2FA})
 }
