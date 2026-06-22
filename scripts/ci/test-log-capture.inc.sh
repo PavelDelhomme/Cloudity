@@ -77,6 +77,7 @@ cloudity_test_logs_init() {
       echo "{\"event\":\"run_start\",\"run_id\":\"$CLOUDITY_TEST_RUN_ID\",\"label\":\"$label\",\"started_at\":\"$(date -Iseconds)\"}"
     } >> "$CLOUDITY_TEST_LOGS_DIR/manifest.jsonl"
   fi
+  printf '%s\n' "$CLOUDITY_TEST_RUN_ID" > "$(cloudity_test_logs_root)/.last-run-id"
 }
 
 cloudity_test_log_redact_file() {
@@ -196,7 +197,7 @@ cloudity_test_run_with_logs() {
     cloudity_test_capture_service_logs "$phase" "${services[@]}"
   fi
 
-  cloudity_test_manifest_event "{\"event\":\"phase_end\",\"phase\":\"${phase}\",\"exit_code\":${exit_code},\"started_at\":\"${start_at}\",\"ended_at\":\"$(date -Iseconds)\",\"command_log\":\"command-output.log\"}"
+  cloudity_test_manifest_event "{\"event\":\"phase_end\",\"phase\":\"${phase}\",\"exit_code\":${exit_code},\"started_at\":\"${start_at}\",\"ended_at\":\"$(date -Iseconds)\",\"command_log\":\"${phase}/command-output.log\"}"
 
   return "$exit_code"
 }
@@ -231,7 +232,7 @@ cloudity_test_compose_run() {
     cloudity_test_capture_service_logs "$phase" "$service"
   fi
 
-  cloudity_test_manifest_event "{\"event\":\"compose_run\",\"phase\":\"${phase}\",\"service\":\"${service}\",\"exit_code\":${exit_code},\"started_at\":\"${start_at}\",\"ended_at\":\"$(date -Iseconds)\",\"test_output\":\"${service}-test-output.log\"}"
+  cloudity_test_manifest_event "{\"event\":\"compose_run\",\"phase\":\"${phase}\",\"service\":\"${service}\",\"exit_code\":${exit_code},\"started_at\":\"${start_at}\",\"ended_at\":\"$(date -Iseconds)\",\"test_output\":\"${phase}/${service}-test-output.log\"}"
 
   return "$exit_code"
 }

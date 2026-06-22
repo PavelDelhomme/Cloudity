@@ -38,6 +38,23 @@ PORT_GATEWAY=6003
 
 Puis `make restart` (ou `make down && make up`). **Aligner** aussi `VITE_API_URL` / URLs OAuth si elles pointent encore vers l’ancien port du gateway.
 
+### Série séquentielle (option future — PORT-ORG-01)
+
+Pour une machine dev dédiée, on peut numéroter **dans l’ordre** (exemple) :
+
+| Port hôte | Service |
+|-----------|---------|
+| 6001 | cloudity-web |
+| 6002 | api-gateway |
+| 6003 | auth-service |
+| 6004 | admin-service |
+| 6005–6012 | microservices (mail, passwords, calendar, notes, tasks, drive, contacts, photos) |
+| 6042 | postgres |
+| 6079 | redis |
+| 6083–6084 | adminer, redis-commander (profil dev) |
+
+Tout se configure **uniquement** dans `.env` — les `docker-compose*.yml` lisent `${PORT_*:-défaut}`. Voir aussi `docker-compose.dev.yml`, `docker-compose.https.yml`, `docker-compose.preprod.yml`, `docker-compose.prod.yml`, `docker-compose.security.yml`, `docker-compose.services.yml`.
+
 ---
 
 ## 2. Makefile vs `.env`
@@ -61,4 +78,4 @@ Aujourd’hui le **navigateur** appelle souvent directement `api-gateway` (`PORT
 
 ---
 
-*Dernière mise à jour : 2026-05-15.*
+*Dernière mise à jour : 2026-06-22.*

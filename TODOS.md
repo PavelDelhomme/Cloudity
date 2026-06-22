@@ -15,8 +15,11 @@
 | **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
 | **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
 | **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
-| **`make up-full` / tests** | 🟡 | Rapport `reports/test-logs/<id>/REPORT.md` ; **bug corrigé** : `continue` invalide dans `AppLayout.tsx` + `pipefail` sur `tee` (exit code réel) |
+| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
+| **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` — section signaux (Redis overcommit, Postgres reset, IMAP closed, …) dans `REPORT.md` |
+| **Ports hôte séquentiels** | ☐ | Centraliser via `.env` (`PORT_*`) — série logique 6001+ ; doc **docs/operations/PORTS-HOTES.md** ; valider ports libres avant `make up` |
+| **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | `Drive — Cloudity — email@…` via `buildDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
 | **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
@@ -92,6 +95,16 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
 
 **Automatisation souhaitée** : `make progress-recap` (STATUS/TODOS/BACKLOG + dernier `REPORT.md`) · email si `PROGRESS_EMAIL_TO` dans `.env`.
+
+**Logs conteneurs à interpréter** (souvent visibles dans `make logs` ou `reports/container-logs/`) :
+
+| Signal | Gravité | Action |
+|--------|---------|--------|
+| Redis `Memory overcommit must be enabled` | ⚠️ hôte | `make host-redis-sysctl` puis `APPLY=1 make host-redis-sysctl` |
+| Postgres `connection reset by peer` / `client lost` | ℹ️ | Souvent sync IMAP qui ferme la connexion — pas bloquant si tests OK |
+| Mail `imap: connection closed` + rafale `sync select` | ⚠️ mail | OVH multi-dossiers — candidats absents = bruit ; vérifier si sync incomplète |
+| `*-run-* exited with code 0` | ✅ | Tests `docker compose run` — normal pendant `make test` |
+| `duplicate key users_tenant_id_email` | ℹ️ | `seed-admin` sur DB existante — attendu |
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 

@@ -416,6 +416,9 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [x] **Logs dev persistés** : `make logs` → `reports/container-logs/live-YYYYMMDD.log` (rotation 50 Mo, purge 14 j).
 - [x] **Perf benchmark suite** : `make perf-benchmark` / `-quick` → `reports/perf/benchmark-*/REPORT.md` ; attente stack (`PERF_BENCHMARK_WAIT_STACK`).
 - [ ] **QA-MATRIX-01 — Audit complet manuel** : revue couche par couche (unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf, sécurité, infra) — tableau **TODOS.md** § **QA-MATRIX** ; cocher au fur et à mesure dans **TESTS.md** §4.
+- [x] **QA-LOG-SIGNALS-01 — Signaux logs dans REPORT.md** : `scripts/ci/generate-test-run-report.sh` analyse Redis/Postgres/IMAP/JWT ; `make test-report-show` pour un seul rapport.
+- [ ] **PORT-ORG-01 — Ports hôte séquentiels** : série cohérente via `.env` (`PORT_DASHBOARD=6001`, `PORT_GATEWAY=6002`, … ou garder 60XX actuels documentés) ; script vérif ports libres ; aligner Makefile + `VITE_API_URL` + CORS.
+- [ ] **COMPOSE-CONFIG-01 — Configuration centralisée** : une seule source `.env` + `docker-compose.yml` (base) + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) — pas de ports/secrets en dur dans les services.
 - [ ] **QA-EMAIL-01 — Récap automatique** : `make progress-recap` (+ SMTP `PROGRESS_EMAIL_*` dans `.env`) après sessions longues ou CI nightly.
 
 ---

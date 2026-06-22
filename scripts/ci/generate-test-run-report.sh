@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Génère REPORT.md à partir de manifest.jsonl + logs capturés (reports/test-logs/<run-id>/).
 # Usage : CLOUDITY_TEST_LOGS_DIR=reports/test-logs/xxx ./scripts/ci/generate-test-run-report.sh
-#         ou avec run-id : ./scripts/ci/generate-test-run-report.sh 20260622-152030
+#         make test-report          — regénère le dernier run
+#         make test-report-show     — affiche le dernier REPORT.md (un seul fichier)
 
 set -euo pipefail
 
@@ -28,6 +29,37 @@ if [ -n "$RUN_ID" ] && [ -f "reports/up-full-test-${RUN_ID}.log" ]; then
   UP_FULL_LOG="reports/up-full-test-${RUN_ID}.log"
 fi
 
+# Résout un chemin relatif au run (compat anciens manifests sans préfixe phase/).
+resolve_run_file() {
+  local rel="$1"
+  [ -z "$rel" ] && return 1
+  if [ -f "${LOGS_DIR}/${rel}" ]; then
+    printf '%s\n' "${LOGS_DIR}/${rel}"
+    return 0
+  fi
+  local found
+  found="$(find "$LOGS_DIR" -type f -name "$(basename "$rel")" 2>/dev/null | head -1)"
+  if [ -n "$found" ] && [ -f "$found" ]; then
+    printf '%s\n' "$found"
+    return 0
+  fi
+  return 1
+}
+
+duration_seconds() {
+  local started="$1"
+  local ended="$2"
+  python3 -c "
+from datetime import datetime
+try:
+  a=datetime.fromisoformat('${started}'.replace('Z','+00:00'))
+  b=datetime.fromisoformat('${ended}'.replace('Z','+00:00'))
+  print(int((b-a).total_seconds()))
+except Exception:
+  print('')
+" 2>/dev/null || echo ""
+}
+
 {
   echo "# Rapport tests Cloudity"
   echo ""
@@ -38,18 +70,29 @@ fi
     echo "- **Journal make up-full** : \`${UP_FULL_LOG}\`"
   fi
   echo ""
+  echo "> Pour **un seul** rapport : \`make test-report-show\` (évite \`cat reports/test-logs/*/REPORT.md\`)."
+  echo ""
 
   if [ ! -f "$MANIFEST" ]; then
     echo "_manifest.jsonl absent — capture partielle._"
     echo ""
-    ls -1 "$LOGS_DIR" 2>/dev/null | head -30 | sed 's/^/- /'
+    find "$LOGS_DIR" -type f -name '*.log' 2>/dev/null | head -30 | sed 's|^| - |'
     exit 0
   fi
 
+  unit_exit="$(grep '"event":"unit_tests_done"' "$MANIFEST" 2>/dev/null | tail -1 | jq -r '.exit_code // "?"' || true)"
+  unit_exit="${unit_exit:-?}"
+  if [ "$unit_exit" = "0" ]; then
+    echo "## Verdict global : ✅ tests unitaires OK"
+  elif [ "$unit_exit" != "?" ]; then
+    echo "## Verdict global : ❌ tests unitaires en échec (exit ${unit_exit})"
+  fi
+  echo ""
+
   echo "## Synthèse par phase"
   echo ""
-  echo "| Phase | Service | Exit | Durée | Logs |"
-  echo "|-------|---------|------|-------|------|"
+  echo "| Phase | Service | Exit | Durée | Sortie test | Logs conteneur |"
+  echo "|-------|---------|------|-------|-------------|----------------|"
 
   while IFS= read -r line; do
     [ -z "$line" ] && continue
@@ -61,30 +104,25 @@ fi
       started="$(echo "$line" | jq -r '.started_at // ""')"
       ended="$(echo "$line" | jq -r '.ended_at // ""')"
       test_out="$(echo "$line" | jq -r '.test_output // ""')"
-      duration=""
-      if [ -n "$started" ] && [ -n "$ended" ]; then
-        duration="$(python3 -c "
-from datetime import datetime
-try:
-  a=datetime.fromisoformat('${started}'.replace('Z','+00:00'))
-  b=datetime.fromisoformat('${ended}'.replace('Z','+00:00'))
-  print(int((b-a).total_seconds()))
-except Exception:
-  print('')
-" 2>/dev/null || echo "")"
-      fi
+      duration="$(duration_seconds "$started" "$ended")"
       status="✅"
       [ "$exit_code" != "0" ] && status="❌"
-      log_link=""
-      if [ -n "$test_out" ] && [ -f "${LOGS_DIR}/${test_out}" ]; then
-        log_link="[\`${test_out}\`](${test_out})"
+      test_link="_absent_"
+      if resolved="$(resolve_run_file "$test_out")"; then
+        rel="${resolved#${LOGS_DIR}/}"
+        test_link="[\`$(basename "$test_out")\`](${rel})"
       fi
-      echo "| ${phase} | ${service} | ${status} ${exit_code} | ${duration}s | ${log_link} |"
+      container_log=""
+      if resolved="$(resolve_run_file "${phase}/${service}.log")"; then
+        rel="${resolved#${LOGS_DIR}/}"
+        container_log="[\`${service}.log\`](${rel})"
+      fi
+      echo "| ${phase} | ${service} | ${status} ${exit_code} | ${duration}s | ${test_link} | ${container_log:-—} |"
     fi
   done < "$MANIFEST"
 
   echo ""
-  echo "## Échecs détectés (extrait)"
+  echo "## Échecs détectés (extrait sortie test)"
   echo ""
   failed_any=0
   while IFS= read -r line; do
@@ -97,9 +135,9 @@ except Exception:
         service="$(echo "$line" | jq -r '.service // "?"')"
         test_out="$(echo "$line" | jq -r '.test_output // ""')"
         echo "### ${service}"
-        if [ -n "$test_out" ] && [ -f "${LOGS_DIR}/${test_out}" ]; then
+        if resolved="$(resolve_run_file "$test_out")"; then
           echo '```'
-          tail -80 "${LOGS_DIR}/${test_out}" | sed 's/\x1b\[[0-9;]*m//g'
+          tail -80 "$resolved" | sed 's/\x1b\[[0-9;]*m//g'
           echo '```'
         else
           echo "_Pas de sortie test capturée._"
@@ -114,20 +152,98 @@ except Exception:
     echo ""
   fi
 
-  echo "## Logs conteneurs (fichiers)"
+  echo "## Signaux et avertissements (logs conteneurs)"
   echo ""
-  find "$LOGS_DIR" -maxdepth 1 -name '*-container.log' -type f 2>/dev/null | sort | while read -r f; do
-    base="$(basename "$f")"
+  echo "Analyse des fichiers \`*.log\` capturés pendant le run."
+  echo ""
+  echo "| Signal | Gravité | Occurrences | Action / note |"
+  echo "|--------|---------|-------------|---------------|"
+
+  count_matches() {
+    local pattern="$1"
+    local total=0
+    while IFS= read -r f; do
+      [ -f "$f" ] || continue
+      local n
+      n="$(grep -cE "$pattern" "$f" 2>/dev/null || true)"
+      total=$((total + n))
+    done < <(find "$LOGS_DIR" -type f -name '*.log' 2>/dev/null)
+    echo "$total"
+  }
+
+  first_match() {
+    local pattern="$1"
+    local files
+    files="$(find "$LOGS_DIR" -type f -name '*.log' 2>/dev/null)"
+    [ -z "$files" ] && return 0
+    # shellcheck disable=SC2086
+    grep -hE "$pattern" $files 2>/dev/null \
+      | head -1 | sed 's/\x1b\[[0-9;]*m//g' | cut -c1-220 || true
+  }
+
+  emit_signal_row() {
+    local label="$1" severity="$2" hint="$3" pattern="$4"
+    local n
+    n="$(count_matches "$pattern")"
+    if [ "$n" -gt 0 ]; then
+      echo "| ${label} | ${severity} | ${n} | ${hint} |"
+    fi
+  }
+
+  emit_signal_row "Redis overcommit (vm.overcommit_memory)" "⚠️ info hôte" "make host-redis-sysctl · APPLY=1" "Memory overcommit must be enabled"
+  emit_signal_row "Postgres connection reset" "ℹ️ souvent bénin" "Client IMAP/tests ferme tôt" "connection reset by peer"
+  emit_signal_row "Postgres client lost" "ℹ️ souvent bénin" "Sync mail / pool pgx" "connection to client lost"
+  emit_signal_row "IMAP connection closed" "⚠️ mail" "Sync OVH — reconnexion auto" "imap: connection closed"
+  emit_signal_row "IMAP sync select (dossier absent)" "ℹ️ bruit" "Candidats multi-fournisseurs" 'sync select "'
+  emit_signal_row "Conteneurs test exited 0" "✅ OK" "docker compose run (go test / vitest)" "exited with code 0"
+  emit_signal_row "JWT invalid (tests mock)" "ℹ️ tests" "Tokens invalides dans Vitest" "JWT invalid"
+  emit_signal_row "Postgres ERROR SQL" "❌ investiguer" "Duplicate key seed, etc." "ERROR:.*duplicate key"
+
+  echo ""
+  sample_imap="$(first_match 'imap: connection closed')"
+  if [ -n "$sample_imap" ]; then
+    echo "**Exemple IMAP** : \`${sample_imap}\`"
+    echo ""
+  fi
+  sample_redis="$(first_match 'Memory overcommit must be enabled')"
+  if [ -n "$sample_redis" ]; then
+    echo "**Exemple Redis** : \`${sample_redis}\`"
+    echo ""
+  fi
+
+  echo "## Fichiers logs (arborescence)"
+  echo ""
+  find "$LOGS_DIR" -type f \( -name '*.log' -o -name 'REPORT.md' \) 2>/dev/null | sort | while read -r f; do
+    rel="${f#${LOGS_DIR}/}"
     lines="$(wc -l < "$f" | tr -d ' ')"
-    echo "- \`${base}\` (${lines} lignes)"
+    echo "- \`${rel}\` (${lines} lignes)"
   done
 
   echo ""
-  echo "## Événements manifest (brut)"
+  echo "## Archive logs live (make logs)"
+  echo ""
+  archive_dir="reports/container-logs"
+  if [ -d "$archive_dir" ]; then
+    latest_archive="$(find "$archive_dir" -name 'live-*.log' -type f 2>/dev/null | sort -r | head -1)"
+    if [ -n "$latest_archive" ]; then
+      echo "- Dernière archive : \`${latest_archive}\` ($(wc -l < "$latest_archive" | tr -d ' ') lignes)"
+      echo "- Analyse manuelle : \`grep -E 'WARNING|FATAL|connection closed|reset by peer' ${latest_archive} | tail -30\`"
+    else
+      echo "_Aucune archive \`live-*.log\` pour l'instant — lancer \`make logs\`._"
+    fi
+  else
+    echo "_Répertoire ${archive_dir} absent._"
+  fi
+
+  echo ""
+  echo "## Événements manifest (brut, 50 dernières lignes)"
   echo ""
   echo '```jsonl'
   tail -50 "$MANIFEST" 2>/dev/null || true
   echo '```'
 } > "$REPORT"
+
+run_id_file="$(basename "$LOGS_DIR")"
+printf '%s\n' "$run_id_file" > "$(dirname "$LOGS_DIR")/.last-run-id"
 
 echo "📄 Rapport tests : $REPORT"

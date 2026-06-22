@@ -867,15 +867,19 @@ progress-recap: ## Récap STATUS/TODOS/BACKLOG → reports/progress/ (+ email si
 	@chmod +x scripts/dev/send-progress-recap.sh 2>/dev/null || true
 	@./scripts/dev/send-progress-recap.sh
 
-test-report: ## Génère REPORT.md depuis le dernier run (CLOUDITY_TEST_RUN_ID ou reports/test-logs/*)
-	@chmod +x scripts/ci/generate-test-run-report.sh 2>/dev/null || true
-	@if [ -n "$(RUN_ID)" ]; then \
-	  CLOUDITY_TEST_RUN_ID="$(RUN_ID)" ./scripts/ci/generate-test-run-report.sh "$(RUN_ID)"; \
-	else \
-	  LATEST=$$(find reports/test-logs -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort -r | head -1); \
-	  if [ -z "$$LATEST" ]; then echo "❌ Aucun run dans reports/test-logs/"; exit 1; fi; \
-	  CLOUDITY_TEST_LOGS_DIR="$$LATEST" ./scripts/ci/generate-test-run-report.sh "$$(basename "$$LATEST")"; \
-	fi
+test-report: ## Génère REPORT.md (RUN_ID= ou dernier run par date)
+	@chmod +x scripts/ci/generate-test-run-report.sh scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	CLOUDITY_TEST_LOGS_DIR="$$RUN_DIR" ./scripts/ci/generate-test-run-report.sh "$$(basename "$$RUN_DIR")"
+
+test-report-show: ## Affiche REPORT.md (RUN_ID= ou dernier run — ne régénère pas)
+	@chmod +x scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true
+	@RUN_DIR=$$(RUN_ID="$(RUN_ID)" ./scripts/ci/test-logs-resolve-run.sh); \
+	REPORT="$$RUN_DIR/REPORT.md"; \
+	if [ ! -f "$$REPORT" ]; then \
+	  echo "❌ $$REPORT absent — lancer : make test-report RUN_ID=$$(basename "$$RUN_DIR")"; exit 1; \
+	fi; \
+	cat "$$REPORT"
 
 logs-auth: ## Logs du service d'authentification
 	@$(COMPOSE) $(COMPOSE_FILES) logs -f auth-service

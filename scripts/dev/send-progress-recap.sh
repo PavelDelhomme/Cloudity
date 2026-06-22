@@ -41,7 +41,12 @@ last_commit="$(git log -1 --oneline 2>/dev/null || echo '?')"
 
 latest_test_report=""
 if [ -d reports/test-logs ]; then
-  latest_test_report="$(find reports/test-logs -name REPORT.md -type f 2>/dev/null | sort -r | head -1)"
+  if [ -x scripts/ci/test-logs-resolve-run.sh ]; then
+    run_dir="$(./scripts/ci/test-logs-resolve-run.sh 2>/dev/null || true)"
+    if [ -n "$run_dir" ] && [ -f "${run_dir}/REPORT.md" ]; then
+      latest_test_report="${run_dir}/REPORT.md"
+    fi
+  fi
 fi
 
 {
