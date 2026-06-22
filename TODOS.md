@@ -18,7 +18,8 @@
 | **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
-| **Ports hôte séquentiels** | 🟡 | `make check-ports` vérifie PORT_* libres ; centraliser via `.env` — doc **docs/operations/PORTS-HOTES.md** |
+| **Ports hôte séquentiels** | ☑ | Série 6001–6012 · `make ports-sequential` · `make check-ports` · **docs/operations/PORTS-HOTES.md** |
+| **Validation branche vault/drive** | 🟡 | Checklist manuelle ci-dessous (post `make up-full` OK run `20260622-192608`) |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
@@ -82,16 +83,16 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 
 | Couche | Commande(s) | Rapport / sortie | Revu |
 |--------|-------------|------------------|------|
-| **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☐ |
-| **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☐ |
-| **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☐ |
+| **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☑ run `20260622-192608` |
+| **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☑ |
+| **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
 | **E2E Playwright** | `make test-e2e` / `make tests` | `reports/e2e/` + logs capture | ☐ |
 | **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
 | **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
 | **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
 | **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☐ |
-| **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☐ |
+| **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☑ run `20260622-192608` |
 | **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
 
 **Automatisation souhaitée** : `make progress-recap` (STATUS/TODOS/BACKLOG + dernier `REPORT.md`) · email si `PROGRESS_EMAIL_TO` dans `.env`.
@@ -105,6 +106,17 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | Mail `imap: connection closed` + rafale `sync select` | ⚠️ mail | OVH multi-dossiers — candidats absents = bruit ; vérifier si sync incomplète |
 | `*-run-* exited with code 0` | ✅ | Tests `docker compose run` — normal pendant `make test` |
 | `duplicate key users_tenant_id_email` | ℹ️ | `seed-admin` sur DB existante — attendu |
+
+### Validation manuelle — `feat/app-vault-drive-upload-pin-rotation` (après `make down && make up` ports séquentiels)
+
+| Zone | Action | État |
+|------|--------|------|
+| **Drive vault** | Créer coffre local, verrou PIN, déverrouiller | ☐ |
+| **Drive upload** | Téléverser fichier + dossier, barre progression | ☐ |
+| **Quota web** | Badge espace Drive + Photos + Paramètres | ☐ |
+| **Admin titres** | `/4dm1n` → `Administration — Cloudity` ; Tenants → `Tenants — Cloudity` | ☐ |
+| **Ports** | `make status` → gateway `:6002`, web `:6001` | ☐ |
+| **Merge `dev`** | PR + revue après cases ci-dessus | ☐ |
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 

@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports test-report test-report-show test-manifest-rebuild rebuild-web deploy-web
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -17,11 +17,19 @@ DOCKER_IT := $(shell test -t 1 && printf '%s' '-it' || true)
 COMPOSE_PROD = $(COMPOSE) $(COMPOSE_FILES) -f docker-compose.prod.yml
 COMPOSE_SERVICES = $(COMPOSE) -f docker-compose.services.yml
 
-# Ports 60XX (voir STATUS.md)
-PORT_GATEWAY ?= 6080
+# Ports 60XX séquentiels (PORT-ORG-01 — voir docs/operations/PORTS-HOTES.md)
 PORT_DASHBOARD ?= 6001
-PORT_AUTH ?= 6081
-PORT_ADMIN ?= 6082
+PORT_GATEWAY ?= 6002
+PORT_AUTH ?= 6003
+PORT_ADMIN ?= 6004
+PORT_MAIL_DIRECTORY ?= 6005
+PORT_PASS_MGR ?= 6006
+PORT_CALENDAR ?= 6007
+PORT_NOTES ?= 6008
+PORT_TASKS ?= 6009
+PORT_DRIVE ?= 6010
+PORT_CONTACTS ?= 6011
+PORT_PHOTOS ?= 6012
 PORT_POSTGRES ?= 6042
 PORT_REDIS ?= 6079
 PORT_ADMINER ?= 6083
@@ -1084,6 +1092,15 @@ rebuild-force: ## Rebuild complet sans cache
 check-ports: ## Vérifie que les PORT_* (.env) sont libres sur l'hôte (avant make up)
 	@chmod +x scripts/dev/check-ports-free.sh 2>/dev/null || true
 	@./scripts/dev/check-ports-free.sh
+
+ports-sequential: ## Applique la série ports 6001–6012 dans .env (+ URLs gateway)
+	@chmod +x scripts/dev/apply-ports-sequential.sh scripts/dev/ports-sequential.sh 2>/dev/null || true
+	@./scripts/dev/apply-ports-sequential.sh
+	@echo "   Puis : make down && make up && make check-ports"
+
+ports-sequential-dry: ## Aperçu des PORT_* séquentiels sans modifier .env
+	@chmod +x scripts/dev/apply-ports-sequential.sh scripts/dev/ports-sequential.sh 2>/dev/null || true
+	@./scripts/dev/apply-ports-sequential.sh --dry-run
 
 status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gateway… ; CLOUDITY_STATUS_HOST pour LAN)
 	@chmod +x scripts/dev/status.sh 2>/dev/null || true

@@ -7,31 +7,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=scripts/dev/ports-sequential.sh
+source "$ROOT/scripts/dev/ports-sequential.sh"
+
 if [ -f .env ]; then
   set -a
   # shellcheck disable=SC1091
   source .env 2>/dev/null || true
   set +a
 fi
-
-declare -A DEFAULTS=(
-  [PORT_DASHBOARD]=6001
-  [PORT_GATEWAY]=6080
-  [PORT_AUTH]=6081
-  [PORT_ADMIN]=6082
-  [PORT_POSTGRES]=6042
-  [PORT_REDIS]=6079
-  [PORT_MAIL_DIRECTORY]=6050
-  [PORT_PASS_MGR]=6051
-  [PORT_CALENDAR]=6052
-  [PORT_NOTES]=6053
-  [PORT_TASKS]=6054
-  [PORT_DRIVE]=6055
-  [PORT_CONTACTS]=6056
-  [PORT_PHOTOS]=6057
-  [PORT_ADMINER]=6083
-  [PORT_REDIS_COMMANDER]=6084
-)
 
 ORDER=(
   PORT_DASHBOARD PORT_GATEWAY PORT_AUTH PORT_ADMIN
@@ -54,14 +38,13 @@ port_in_use() {
 }
 
 busy=0
-echo "Ports Cloudity (hôte) — source : .env + défauts Makefile"
+echo "Ports Cloudity (hôte) — série séquentielle 6001–6012 + infra"
 echo ""
 printf "%-24s %6s  %s\n" "Variable" "Port" "État"
 printf "%-24s %6s  %s\n" "--------" "----" "----"
 
 for var in "${ORDER[@]}"; do
-  default="${DEFAULTS[$var]}"
-  port="${!var:-$default}"
+  port="${!var}"
   if port_in_use "$port"; then
     printf "%-24s %6s  ❌ occupé\n" "$var" "$port"
     busy=$((busy + 1))
@@ -72,7 +55,7 @@ done
 
 echo ""
 if [ "$busy" -gt 0 ]; then
-  echo "❌ ${busy} port(s) occupé(s) — ajuster dans .env (voir docs/operations/PORTS-HOTES.md) ou arrêter le processus conflictuel."
+  echo "❌ ${busy} port(s) occupé(s) — ajuster dans .env (make ports-sequential) ou make down."
   exit 1
 fi
 echo "✅ Tous les ports Cloudity sont libres."

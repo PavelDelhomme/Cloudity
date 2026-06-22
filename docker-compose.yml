@@ -74,7 +74,7 @@ services:
     container_name: cloudity-auth-service
     restart: unless-stopped
     ports:
-      - "${PORT_AUTH:-6081}:8081"
+      - "${PORT_AUTH:-6003}:8081"
     environment:
       - PORT=8081
       - GOTOOLCHAIN=auto
@@ -116,7 +116,7 @@ services:
     container_name: cloudity-api-gateway
     restart: unless-stopped
     ports:
-      - "${PORT_GATEWAY:-6080}:8000"
+      - "${PORT_GATEWAY:-6002}:8000"
     environment:
       - PORT=8000
       - AUTH_SERVICE_URL=http://auth-service:8081
@@ -163,7 +163,7 @@ services:
     container_name: cloudity-admin-service
     restart: unless-stopped
     ports:
-      - "${PORT_ADMIN:-6082}:8082"
+      - "${PORT_ADMIN:-6004}:8082"
     environment:
       - PORT=8082
       - DATABASE_URL=postgresql://${POSTGRES_USER:-cloudity_admin}:${POSTGRES_PASSWORD:-cloudity_secure_password_2025}@postgres:5432/${POSTGRES_DB:-cloudity}
@@ -203,7 +203,7 @@ services:
     container_name: cloudity-passwords-service
     restart: unless-stopped
     ports:
-      - "6051:8051"
+      - "${PORT_PASS_MGR:-6006}:8051"
     environment:
       - PORT=8051
       - GOTOOLCHAIN=auto
@@ -234,7 +234,7 @@ services:
     container_name: cloudity-mail-directory-service
     restart: unless-stopped
     ports:
-      - "${PORT_MAIL_DIRECTORY:-6050}:8050"
+      - "${PORT_MAIL_DIRECTORY:-6005}:8050"
     environment:
       - PORT=8050
       - GOTOOLCHAIN=auto
@@ -249,7 +249,7 @@ services:
       # OAuth Google (Gmail sans mot de passe d'application) : optionnel. Voir README section Mail / OAuth.
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
       - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
-      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:6080/mail/me/oauth/google/callback}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-http://localhost:6002/mail/me/oauth/google/callback}
       - MAIL_OAUTH_FRONTEND_URL=${MAIL_OAUTH_FRONTEND_URL:-http://localhost:6001}
       # Alias jetables (*@alias.<domaine>) — MAIL-ALIAS-03
       - MAIL_PRIMARY_DOMAIN=${MAIL_PRIMARY_DOMAIN:-}
@@ -281,7 +281,7 @@ services:
     container_name: cloudity-calendar-service
     restart: unless-stopped
     ports:
-      - "${PORT_CALENDAR:-6052}:8052"
+      - "${PORT_CALENDAR:-6007}:8052"
     environment:
       - PORT=8052
       - GOTOOLCHAIN=auto
@@ -312,7 +312,7 @@ services:
     container_name: cloudity-notes-service
     restart: unless-stopped
     ports:
-      - "${PORT_NOTES:-6053}:8053"
+      - "${PORT_NOTES:-6008}:8053"
     environment:
       - PORT=8053
       - GOTOOLCHAIN=auto
@@ -343,7 +343,7 @@ services:
     container_name: cloudity-tasks-service
     restart: unless-stopped
     ports:
-      - "${PORT_TASKS:-6054}:8054"
+      - "${PORT_TASKS:-6009}:8054"
     environment:
       - PORT=8054
       - GOTOOLCHAIN=auto
@@ -374,7 +374,7 @@ services:
     container_name: cloudity-drive-service
     restart: unless-stopped
     ports:
-      - "${PORT_DRIVE:-6055}:8055"
+      - "${PORT_DRIVE:-6010}:8055"
     environment:
       - PORT=8055
       - GOTOOLCHAIN=auto
@@ -406,7 +406,7 @@ services:
     container_name: cloudity-photos-service
     restart: unless-stopped
     ports:
-      - "6057:8057"
+      - "${PORT_PHOTOS:-6012}:8057"
     environment:
       - PORT=8057
       - GOTOOLCHAIN=auto
@@ -437,7 +437,7 @@ services:
     container_name: cloudity-contacts-service
     restart: unless-stopped
     ports:
-      - "${PORT_CONTACTS:-6056}:8056"
+      - "${PORT_CONTACTS:-6011}:8056"
     environment:
       - PORT=8056
       - GOTOOLCHAIN=auto
@@ -472,7 +472,7 @@ services:
       - NODE_ENV=development
       # Appel direct au gateway depuis le navigateur (évite 401 sur /drive, /pass, etc.).
       # HTTPS front : make dev-certs-docker puis https://localhost:6001 (certs dans .certs/)
-      - VITE_API_URL=${VITE_API_URL:-http://localhost:6080}
+      - VITE_API_URL=${VITE_API_URL:-http://localhost:6002}
       - VITE_HTTPS_KEY=/ws/.certs/localhost-key.pem
       - VITE_HTTPS_CERT=/ws/.certs/localhost.pem
       - CHOKIDAR_USEPOLLING=true
