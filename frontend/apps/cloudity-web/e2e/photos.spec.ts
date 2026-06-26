@@ -82,8 +82,7 @@ test.describe('Photos archive et corbeille (E2E)', () => {
 
     await page.goto('/app/photos')
     await expect(page.getByRole('button', { name: /Ouvrir e2e-archive\.jpg/ })).toBeVisible({ timeout: 10_000 })
-    await page.getByRole('button', { name: 'Sélectionner', exact: true }).click()
-    await page.getByRole('button', { name: 'Sélectionner e2e-archive.jpg' }).click()
+    await page.getByRole('button', { name: 'Cocher e2e-archive.jpg' }).click()
     await page.getByRole('button', { name: 'Archiver la sélection' }).click()
     await expect.poll(() => archivedIds).toContain(901)
 
@@ -158,8 +157,7 @@ test.describe('Photos archive et corbeille (E2E)', () => {
 
     await page.goto('/app/photos')
     await expect(page.getByRole('button', { name: /Ouvrir e2e-trash\.jpg/ })).toBeVisible({ timeout: 10_000 })
-    await page.getByRole('button', { name: 'Sélectionner', exact: true }).click()
-    await page.getByRole('button', { name: 'Sélectionner e2e-trash.jpg' }).click()
+    await page.getByRole('button', { name: 'Cocher e2e-trash.jpg' }).click()
     await page.getByRole('button', { name: 'Mettre à la corbeille' }).click()
     await expect.poll(() => deletedIds).toContain(902)
 
