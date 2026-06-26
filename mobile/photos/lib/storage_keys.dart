@@ -1,17 +1,11 @@
-/// Clés de stockage **communes à toute la suite Cloudity** (Photos, Drive, Mail, …).
-/// Toutes les apps Flutter doivent réutiliser ces identifiants pour qu’une session
-/// puisse être partagée sur un même appareil (même coffre sécurisé / préférences).
-///
-/// Voir [docs/produit/MOBILES.md](../../docs/produit/MOBILES.md) § « Auth suite ».
-abstract final class CloudityStorageKeys {
-  /// URL du gateway (ex. `http://10.0.2.2:6080`) — [SharedPreferences], non secret.
-  static const gatewayUrl = 'cloudity_suite_gateway_url_v1';
+import 'package:cloudity_shared/suite_defaults.dart';
 
-  /// Jetons — [FlutterSecureStorage].
+/// Clés de stockage **communes à toute la suite Cloudity** (Photos, Drive, Mail, …).
+abstract final class CloudityStorageKeys {
+  static const gatewayUrl = 'cloudity_suite_gateway_url_v1';
   static const accessToken = 'cloudity_suite_access_token_v1';
   static const refreshToken = 'cloudity_suite_refresh_token_v1';
   static const accountEmail = 'cloudity_suite_account_email_v1';
 
-  /// Émulateur Android → machine hôte.
-  static const defaultGateway = 'http://127.0.0.1:6080';
+  static const defaultGateway = ClouditySuiteDefaults.defaultGatewayUsb;
 }

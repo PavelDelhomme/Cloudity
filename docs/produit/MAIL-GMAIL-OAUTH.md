@@ -15,7 +15,7 @@ Pour que les utilisateurs puissent **connecter leur Gmail en un clic** (« Conti
 | **B — Dev local** | Quand tu veux tester Gmail OAuth chez toi | `.env` + `docker compose` | Bouton « Continuer avec Google » actif sur `localhost:6001` |
 | **C — Préprod / prod VPS** | **Plus tard** (Portainer + NPM) | Stack Portainer + DNS | Même client Google, autres URLs HTTPS |
 
-Tu peux **terminer la phase A aujourd’hui** et reprendre Cloudity (Mail OVH, Drive, etc.) : rien ne casse tant que le `.env` n’est pas rempli.
+Tu peux **terminer la phase A aujourd’hui** et reprendre Cloudity (Mail OVH, Drive, etc.) : rien ne casse tant que le `.env` n’est pas rempli. Une fois les variables remplies, le bouton « Se connecter avec Google » dans la page Mail fonctionnera pour tous les utilisateurs de votre instance.
 
 ---
 

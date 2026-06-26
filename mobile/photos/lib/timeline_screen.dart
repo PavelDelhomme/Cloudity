@@ -764,6 +764,7 @@ class _TimelineScreenState extends State<TimelineScreen>
     if (initialIndex < 0) return;
     final returnedIndex = await Navigator.of(context).push<int>(
       MaterialPageRoute(
+        fullscreenDialog: true,
         builder: (_) => _PhotoViewerPage(
           items: items,
           initialIndex: initialIndex,
@@ -1752,10 +1753,14 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
   @override
   Widget build(BuildContext context) {
     final title = _dateHeading(_current);
+    final size = MediaQuery.sizeOf(context);
     return Scaffold(
       backgroundColor: Colors.black,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_downward),
@@ -1763,6 +1768,15 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
           onPressed: _closeViewer,
         ),
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xCC000000), Color(0x00000000)],
+            ),
+          ),
+        ),
         actions: [
           if (widget.onRestore != null)
             IconButton(
@@ -1821,7 +1835,9 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
                 child: InteractiveViewer(
                   minScale: 1,
                   maxScale: 4,
-                  child: Center(
+                  child: SizedBox(
+                    width: size.width,
+                    height: size.height,
                     child: _CloudityPhotoImage(
                       url: _imageUrl(item),
                       headers: authHeaders(widget.accessToken, json: false),
@@ -1836,12 +1852,22 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Text(
-            _dateLabel(_current),
-            style: const TextStyle(color: Colors.white70),
-            textAlign: TextAlign.center,
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [Color(0xCC000000), Color(0x00000000)],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: Text(
+              _dateLabel(_current),
+              style: const TextStyle(color: Colors.white70),
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       ),

@@ -1,7 +1,8 @@
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'pass_api.dart';
+import 'package:cloudity_shared/suite_defaults.dart';
 import 'storage_keys.dart';
 
 const String _kBuildGateway = String.fromEnvironment('CLOUDITY_GATEWAY_URL', defaultValue: '');
@@ -44,6 +45,16 @@ class PassSessionStore {
     }
     if (userEmail != null && userEmail.isNotEmpty) {
       await prefs.setString(CloudityPassStorageKeys.userEmail, userEmail);
+      if (CloudityAuthBroker.isSupported) {
+        await CloudityAuthBroker.saveSession(
+          CloudityAuthAccount(
+            email: userEmail.trim(),
+            gatewayUrl: base,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+          ),
+        );
+      }
     }
   }
 

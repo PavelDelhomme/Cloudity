@@ -214,7 +214,7 @@ function PhotoThumb({
   rangePreview?: boolean
   showSelectControl?: boolean
   onSelectClick: (event: React.MouseEvent<HTMLButtonElement>) => void
-  onPhotoClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onPhotoClick: () => void
   onRangePreview?: (event: React.MouseEvent<HTMLDivElement>) => void
   onContextMenuPhoto?: (event: React.MouseEvent<HTMLButtonElement>) => void
 }) {
@@ -277,7 +277,7 @@ function PhotoThumb({
             e.stopPropagation()
             onSelectClick(e)
           }}
-          className={`absolute top-1 left-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-opacity ${
+          className={`absolute top-1 right-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-opacity ${
             selected
               ? 'border-blue-600 bg-blue-600 text-white opacity-100'
               : 'border-white/90 bg-black/35 text-white/90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
@@ -290,14 +290,7 @@ function PhotoThumb({
         type="button"
         data-photo-thumb="true"
         draggable={false}
-        aria-label={
-          selectionActive
-            ? selected
-              ? `Désélectionner ${node.name}`
-              : `Sélectionner ${node.name}`
-            : `Ouvrir ${node.name}`
-        }
-        aria-pressed={selectionActive ? selected : undefined}
+        aria-label={`Ouvrir ${node.name}`}
         onClick={onPhotoClick}
         onDragStart={(e) => e.preventDefault()}
         onContextMenu={
@@ -404,6 +397,7 @@ function Lightbox({
     const el = viewportRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       setZoom((z) => Math.min(4, Math.max(1, z + (e.deltaY > 0 ? -0.12 : 0.12))))
     }
@@ -413,26 +407,29 @@ function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex flex-col bg-black/88 p-3 md:p-6"
+      className="fixed inset-0 z-[100] flex flex-col bg-black"
       role="dialog"
       aria-modal="true"
       aria-label="Aperçu photo"
-      onClick={onClose}
     >
-      <div className="flex items-center justify-between gap-2 text-white shrink-0 mb-2">
-        <p className="text-sm truncate flex-1 min-w-0" title={node.name}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between gap-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent px-3 pb-8 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <p className="pointer-events-auto min-w-0 flex-1 truncate text-sm text-white/95" title={node.name}>
           {node.name}
         </p>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-2 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+          className="pointer-events-auto shrink-0 rounded-full p-2.5 text-white hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
           aria-label="Fermer"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
-      <div ref={viewportRef} className="flex-1 flex items-center justify-center min-h-0 relative overflow-hidden">
+      <div
+        ref={viewportRef}
+        className="absolute inset-0 flex items-center justify-center"
+        onClick={onClose}
+      >
         {loading && (
           <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()} aria-hidden>
             <Loader2 className="h-10 w-10 animate-spin text-white/70" />
@@ -444,7 +441,7 @@ function Lightbox({
             alt={node.name}
             onClick={(e) => e.stopPropagation()}
             style={{ transform: `scale(${zoom})` }}
-            className="max-w-full max-h-[calc(100vh-6rem)] object-contain rounded-md shadow-2xl cursor-default transition-transform duration-75"
+            className="h-full w-full max-h-[100dvh] max-w-[100vw] cursor-default object-contain transition-transform duration-75"
           />
         )}
         {hasPrev && (
@@ -455,7 +452,7 @@ function Lightbox({
               e.stopPropagation()
               onPrev()
             }}
-            className="absolute left-1 md:left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 hover:bg-white/20 p-3 text-white"
+            className="absolute left-2 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/35 p-3 text-white hover:bg-black/55 md:left-4"
           >
             ‹
           </button>
@@ -468,7 +465,7 @@ function Lightbox({
               e.stopPropagation()
               onNext()
             }}
-            className="absolute right-1 md:right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 hover:bg-white/20 p-3 text-white"
+            className="absolute right-2 top-1/2 z-30 -translate-y-1/2 rounded-full bg-black/35 p-3 text-white hover:bg-black/55 md:right-4"
           >
             ›
           </button>
@@ -624,16 +621,9 @@ export default function PhotosPage() {
     [flatItems, selectPhotoRange, togglePhotoSelected]
   )
 
-  const handleTimelinePhotoClick = useCallback(
-    (flatIndex: number, node: DriveNode, event: React.MouseEvent<HTMLButtonElement>) => {
-      if (hasPhotoSelection || event.shiftKey) {
-        handleTimelinePhotoSelect(flatIndex, event)
-        return
-      }
-      setLightboxIndex(flatIndex >= 0 ? flatIndex : 0)
-    },
-    [hasPhotoSelection, handleTimelinePhotoSelect]
-  )
+  const handleTimelinePhotoClick = useCallback((flatIndex: number) => {
+    setLightboxIndex(flatIndex >= 0 ? flatIndex : 0)
+  }, [])
 
   const handleTimelineRangePreview = useCallback(
     (flatIndex: number, event: React.MouseEvent<HTMLDivElement>) => {
@@ -677,7 +667,7 @@ export default function PhotosPage() {
         rangePreview={rangePreviewIds.has(node.id)}
         showSelectControl
         onSelectClick={(event) => handleTimelinePhotoSelect(flatIndex, event)}
-        onPhotoClick={(event) => handleTimelinePhotoClick(flatIndex, node, event)}
+        onPhotoClick={() => handleTimelinePhotoClick(flatIndex)}
         onRangePreview={(event) => handleTimelineRangePreview(flatIndex, event)}
         onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
       />
@@ -763,7 +753,7 @@ export default function PhotosPage() {
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       if (lightboxIndex !== null || hasPhotoSelection) return
-      if (e.ctrlKey || e.metaKey) return
+      if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       setPhotosSettings((prev) => {
         const next = {
@@ -1876,7 +1866,7 @@ export default function PhotosPage() {
                   className="w-full"
                 />
                 <span className="text-xs text-neutral-500 dark:text-slate-400">
-                  Molette sur la chronologie pour ajuster le zoom en direct.
+                  Molette + Ctrl (ou ⌘) sur la chronologie pour zoomer la grille.
                 </span>
               </label>
               <label className="flex flex-col gap-1.5">

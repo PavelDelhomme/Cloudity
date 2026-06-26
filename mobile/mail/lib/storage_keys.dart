@@ -1,9 +1,10 @@
+import 'package:cloudity_shared/suite_defaults.dart';
+
 /// Clés de stockage **communes à toute la suite Cloudity** (Photos, Drive, Mail, …).
-/// Voir [docs/produit/MOBILES.md](../../docs/produit/MOBILES.md).
 abstract final class CloudityStorageKeys {
   static const gatewayUrl = 'cloudity_suite_gateway_url_v1';
   static const accessToken = 'cloudity_suite_access_token_v1';
   static const refreshToken = 'cloudity_suite_refresh_token_v1';
   static const accountEmail = 'cloudity_suite_account_email_v1';
-  static const defaultGateway = 'http://127.0.0.1:6080';
+  static const defaultGateway = ClouditySuiteDefaults.defaultGatewayUsb;
 }

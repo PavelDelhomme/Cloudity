@@ -1,3 +1,4 @@
+import 'package:cloudity_shared/suite_defaults.dart';
 import 'package:cloudity_shared/passkey_login.dart';
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/auth_2fa.dart';
@@ -18,8 +19,8 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
-  final _gatewayCtrl = TextEditingController(text: 'http://127.0.0.1:6080');
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+  final _gatewayCtrl = TextEditingController(text: ClouditySuiteDefaults.defaultGatewayUsb);
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _tenantCtrl = TextEditingController(text: '1');
@@ -38,15 +39,26 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (kDebugMode && !SessionStore.hasBuildGateway) {
       _fillLocalDemoAccount();
     }
     SessionStore.gatewayOrDefault().then((url) {
       if (mounted) _gatewayCtrl.text = url;
     });
-    SessionStore.listBrokerAccounts().then((accounts) {
-      if (mounted) setState(() => _brokerAccounts = accounts);
-    });
+    _refreshBrokerAccounts();
+  }
+
+  Future<void> _refreshBrokerAccounts() async {
+    final accounts = await SessionStore.listBrokerAccounts();
+    if (mounted) setState(() => _brokerAccounts = accounts);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshBrokerAccounts();
+    }
   }
 
   Future<void> _continueWithBroker(CloudityAuthAccount account) async {
@@ -87,6 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gatewayCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -240,7 +253,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _emailCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_EMAIL',
-        defaultValue: 'admin@cloudity.local',
+        defaultValue: ClouditySuiteDefaults.devAdminEmail,
       );
       _passwordCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_PASSWORD',
@@ -249,7 +262,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _tenantCtrl.text = const String.fromEnvironment('CLOUDITY_DEV_TENANT', defaultValue: '1');
       _gatewayCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_GATEWAY',
-        defaultValue: 'http://127.0.0.1:6080',
+        defaultValue: ClouditySuiteDefaults.defaultGatewayUsb,
       );
       _advancedGateway = true;
     });
@@ -337,7 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: const InputDecoration(
                 labelText: 'URL gateway',
                 border: OutlineInputBorder(),
-                hintText: 'http://127.0.0.1:6080 (USB) ou http://10.0.2.2:6080',
+                hintText: 'http://192.168.x.x:6002 (LAN) · USB: adb reverse tcp:6002 tcp:6002',
               ),
               keyboardType: TextInputType.url,
             ),
@@ -350,7 +363,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 12),
         CloudityPasskeyLoginButton(
           gatewayBase: _gatewayCtrl.text.trim().isEmpty
-              ? 'http://127.0.0.1:6080'
+              ? ClouditySuiteDefaults.defaultGatewayUsb
               : _gatewayCtrl.text.trim(),
           tenantId: _tenantCtrl.text.trim().isEmpty ? '1' : _tenantCtrl.text.trim(),
           busy: _busy,

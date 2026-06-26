@@ -10,6 +10,7 @@ object CloudityAuthBrokerHelper {
         "fr.cloudity.cloudity_photos",
         "fr.cloudity.cloudity_drive",
         "fr.cloudity.cloudity_mail",
+        "com.cloudity.cloudity_pass",
     )
 
     fun authorityFor(packageName: String): String = "$packageName.cloudity.auth"

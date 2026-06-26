@@ -95,11 +95,11 @@ class SessionStore {
     final saved = prefs.getString(CloudityStorageKeys.gatewayUrl);
     final candidates = <String>[
       if (_buildGateway.isNotEmpty) _buildGateway,
-      'http://127.0.0.1:6080',
+      'http://127.0.0.1:6002',
       if (saved != null && saved.trim().isNotEmpty) saved.trim(),
       CloudityStorageKeys.defaultGateway,
-      'http://10.0.2.2:6080',
-      'http://10.0.3.2:6080',
+      'http://10.0.2.2:6002',
+      'http://10.0.3.2:6002',
     ];
     final seen = <String>{};
     final uniq = <String>[];

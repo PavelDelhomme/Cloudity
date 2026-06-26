@@ -1,3 +1,5 @@
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
+import 'package:cloudity_shared/suite_defaults.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -14,18 +16,20 @@ class PassLoginScreen extends StatefulWidget {
   State<PassLoginScreen> createState() => _PassLoginScreenState();
 }
 
-class _PassLoginScreenState extends State<PassLoginScreen> {
-  final _gatewayCtrl = TextEditingController(text: 'http://10.0.2.2:6080');
+class _PassLoginScreenState extends State<PassLoginScreen> with WidgetsBindingObserver {
+  final _gatewayCtrl = TextEditingController(text: ClouditySuiteDefaults.defaultGatewayEmulator);
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _tenantCtrl = TextEditingController(text: '1');
   String? _error;
   bool _busy = false;
   bool _advancedGateway = false;
+  List<CloudityAuthAccount> _brokerAccounts = [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     PassSessionStore.gatewayOrDefault().then((url) {
       if (mounted) _gatewayCtrl.text = url;
     });
@@ -34,10 +38,59 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
         _emailCtrl.text = email;
       }
     });
+    _refreshBrokerAccounts();
+  }
+
+  Future<void> _refreshBrokerAccounts() async {
+    final accounts = await CloudityAuthBroker.listAccounts();
+    if (mounted) setState(() => _brokerAccounts = accounts);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshBrokerAccounts();
+    }
+  }
+
+  Future<void> _continueWithBroker(CloudityAuthAccount account) async {
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
+    try {
+      final api = PassApi(account.gatewayUrl);
+      final pair = await api.ensureValidTokens(
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+      );
+      await PassSessionStore.saveSession(
+        gatewayUrl: api.baseUrl,
+        accessToken: pair.access,
+        refreshToken: pair.refresh,
+        userId: '',
+        userEmail: account.email,
+      );
+      if (!mounted) return;
+      widget.onLoggedIn(PassUserSession(
+        api: api,
+        accessToken: pair.access,
+        refreshToken: pair.refresh,
+        userId: '',
+        userEmail: account.email,
+      ));
+    } on PassException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gatewayCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
@@ -99,6 +152,22 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
           ),
           const SizedBox(height: 20),
+          if (_brokerAccounts.isNotEmpty) ...[
+            Text(
+              'Compte déjà connecté sur une autre app Cloudity',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 8),
+            for (final acc in _brokerAccounts)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: FilledButton.tonal(
+                  onPressed: _busy ? null : () => _continueWithBroker(acc),
+                  child: Text('Continuer avec ${acc.email}'),
+                ),
+              ),
+            const Divider(height: 24),
+          ],
           if (!PassSessionStore.hasBuildGateway || kDebugMode) ...[
             if (kDebugMode && PassSessionStore.hasBuildGateway)
               TextButton(
@@ -112,7 +181,7 @@ class _PassLoginScreenState extends State<PassLoginScreen> {
                 decoration: const InputDecoration(
                   labelText: 'URL gateway',
                   border: OutlineInputBorder(),
-                  hintText: 'http://10.0.2.2:6080 (émulateur) ou http://IP_LAN:6080',
+                  hintText: 'http://10.0.2.2:6002 (émulateur) ou http://IP_LAN:6002',
                 ),
                 keyboardType: TextInputType.url,
               ),

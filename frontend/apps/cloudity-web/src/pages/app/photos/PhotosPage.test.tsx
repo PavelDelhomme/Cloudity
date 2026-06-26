@@ -305,7 +305,7 @@ describe('PhotosPage', () => {
     render(wrap(<PhotosPage />))
     fireEvent.contextMenu(await screen.findByRole('button', { name: /Ouvrir context\.jpg/ }))
     expect(screen.getByText('1 sélectionnée')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Désélectionner context\.jpg/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Décocher context\.jpg/ })).toBeTruthy()
     expect(screen.getByRole('menu', { name: /Actions pour context\.jpg/ })).toBeTruthy()
   })
 

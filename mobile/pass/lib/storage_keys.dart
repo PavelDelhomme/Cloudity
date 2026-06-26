@@ -20,5 +20,5 @@ class CloudityPassStorageKeys {
   /// Keychain iOS). N'est lue qu'après authentification biométrique.
   static const secureMkWrapped = 'cloudity_pass_mk_wrapped';
 
-  static const defaultGateway = 'http://10.0.2.2:6080';
+  static const defaultGateway = ClouditySuiteDefaults.defaultGatewayEmulator;
 }

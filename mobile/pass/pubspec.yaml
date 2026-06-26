@@ -16,6 +16,8 @@ dependencies:
     sdk: flutter
   cloudity_shared:
     path: ../cloudity_shared
+  cloudity_auth_broker:
+    path: ../cloudity_auth_broker
 
   cupertino_icons: ^1.0.8
   http: ^1.2.2

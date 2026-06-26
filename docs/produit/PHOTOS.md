@@ -52,7 +52,8 @@
 - **Navigation** (`?tab=`) : **Chronologie** | **Albums** (dossiers racine Drive) | **Archivé** / **Verrouillé** (listes réelles serveur) | **Corbeille** (photos supprimées + restauration).
 - **Archive / verrouillé** : colonnes `photo_archived_at` / `photo_locked_at` sur `drive_nodes` ; endpoints **`/drive/photos/archive`**, **`/unarchive`**, **`/lock`**, **`/unlock`** (POST groupé `{ ids }`) ; timeline **`/photos/timeline`** exclut archivé + verrouillé.
 - **Coffre verrouillé (web)** : onglet **Verrouillé** protégé par **code PIN local** (4–8 chiffres, hash SHA-256 + sel) et **biométrie WebAuthn** optionnelle (empreinte / visage / Windows Hello). Aucun appel API ni vignette tant que le coffre n’est pas déverrouillé ; session courte (`sessionStorage`, ~15 min) ; reverrouillage à la sortie d’onglet ou changement d’onglet app. Chiffrement serveur dédié : prochaine étape.
-- **Sélection** : mode Sélectionner, coche par date, clic droit (menu Archiver / Verrouiller / Corbeille), actions groupées en barre.
+- **Sélection** : coche **en haut à droite** de chaque vignette (Shift+clic pour plage) ; **clic sur la photo** ouvre toujours l’aperçu plein écran ; barre d’actions groupées dès qu’une photo est cochée ; clic droit (menu Archiver / Verrouiller / Corbeille).
+- **Aperçu** : lightbox **plein viewport** (web `100dvh`, fond noir, barre titre en overlay) ; mobile viewer **plein écran** (`fullscreenDialog`, image `BoxFit.contain` sur toute la surface).
 - **Paramètres Photos** : bouton en-tête, modal local (`photosAppSettings.ts`, localStorage) — taille grille, dates, confirmation archive/verrouillage.
 - **Glisser-déposer** : import uniquement pour fichiers **externes** (pas de faux « téléversement » si on déplace une vignette déjà affichée).
 - **État synchro** : libellé relatif basé sur le dernier `dataUpdatedAt` de la requête timeline + indicateur « mise à jour… ».
