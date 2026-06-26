@@ -18,8 +18,8 @@ export type MailAppChromeMenuProps = {
  * si le parent ne ré-abonne pas au contexte « affichage ».
  */
 export function MailAppChromeMenu({
-  conversationMode,
-  onToggleConversations,
+  conversationMode: _conversationMode,
+  onToggleConversations: _onToggleConversations,
   onRefresh,
   onOpenSettings,
   onOpenRules,
@@ -43,19 +43,14 @@ export function MailAppChromeMenu({
 
   return (
     <div ref={rootRef} className="flex items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onToggleConversations}
-        className={`hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
-          conversationMode
-            ? 'border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200'
-            : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600'
-        }`}
-        title="Regrouper en conversations (1 ligne par fil)"
+      <span
+        className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium border-brand-300 dark:border-brand-700 bg-brand-50 dark:bg-brand-900/20 text-brand-800 dark:text-brand-200"
+        title="Mode conversations (toujours actif)"
+        aria-label="Mode conversations actif"
       >
         <MessagesSquare className="h-3.5 w-3.5 shrink-0" aria-hidden />
         Conversations
-      </button>
+      </span>
       <div className="relative flex items-center gap-1">
         <button
           type="button"

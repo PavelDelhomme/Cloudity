@@ -1047,7 +1047,7 @@ function MailRowAvatar({ from, contact }: { from?: string; contact?: ContactResp
 
 export default function MailPage() {
   const navigate = useNavigate()
-  const { accessToken, email: authLoginEmail, refreshAccessTokenIfNeeded } = useAuth()
+  const { accessToken, email: authLoginEmail, refreshAccessTokenIfNeeded, login: setAuthSession, refreshToken, tenantId } = useAuth()
   const notifications = useNotifications()
   const queryClient = useQueryClient()
   const [showConnectEmail, setShowConnectEmail] = useState(false)
@@ -1059,8 +1059,8 @@ export default function MailPage() {
   const [filterTagId, setFilterTagId] = useState<number | null>(null)
   /** Filtre liste : même `thread_key` que le serveur (conversation). */
   const [conversationThreadKey, setConversationThreadKey] = useState<string | null>(null)
-  /** Regroupe la liste par fil (1 ligne par conversation) sans changer les appels API. */
-  const [conversationListMode, setConversationListMode] = useState(false)
+  /** Regroupe la liste par fil (1 ligne par conversation) — toujours actif. */
+  const conversationListMode = true
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(() => getSavedMailSelectedAccountId())
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
@@ -2357,6 +2357,17 @@ export default function MailPage() {
         label: connectLabel.trim() || undefined,
         password,
       })
+      if (
+        created.user_login_email_aligned &&
+        created.user_login_email &&
+        accessToken &&
+        tenantId != null
+      ) {
+        setAuthSession(accessToken, refreshToken ?? undefined, tenantId, created.user_login_email)
+        toast.success(
+          `Compte Cloudity aligné sur ${created.user_login_email}. Utilisez cet email pour vous reconnecter (même mot de passe).`
+        )
+      }
       setShowConnectEmail(false)
       setConnectEmailValue('')
       setConnectPassword('')
@@ -2385,7 +2396,7 @@ export default function MailPage() {
     } finally {
       setConnectingAndSyncing(false)
     }
-  }, [connectEmailValue, connectPassword, connectLabel, accessToken, queryClient, notifications, refreshAccessTokenIfNeeded])
+  }, [connectEmailValue, connectPassword, connectLabel, accessToken, queryClient, notifications, refreshAccessTokenIfNeeded, setAuthSession, refreshToken, tenantId])
 
   const handleDisconnectAccount = useCallback(
     (accountId: number, email: string) => {
@@ -2777,7 +2788,7 @@ export default function MailPage() {
     return (
       <MailAppChromeMenu
         conversationMode={conversationListMode}
-        onToggleConversations={() => setConversationListMode((v) => !v)}
+        onToggleConversations={() => {}}
         onNew={toggleComposeFromChrome}
         onRefresh={handleRefreshFromServer}
         onOpenSettings={() => setShowMailSettings(true)}

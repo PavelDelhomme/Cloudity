@@ -1118,12 +1118,8 @@ describe('MailPage', () => {
     } as any)
 
     render(wrap(<MailPage />))
-    await screen.findAllByText('Sujet thread')
-    await screen.findByText('Sujet isolé')
-    expect(screen.queryByText('2 messages')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Conversations' }))
     expect(await screen.findByText('2 messages')).toBeTruthy()
+    expect(screen.getByText('Sujet isolé')).toBeTruthy()
   })
 
   it('affiche Recharger le message puis le corps HTML après refetch IMAP', async () => {

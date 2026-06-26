@@ -17,9 +17,12 @@
 | **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
 | **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
+| **Postgres FATAL pendant sync Mail** | 🟡 | `could not send data to client` + `connection to client lost` en rafale avec `POST /mail/me/accounts/*/sync` — souvent bénin (fermeture conn pool / sync parallèle) ; voir § **Logs Postgres × Mail** ci-dessous |
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
 | **Ports hôte séquentiels** | ☑ | Série 6001–6012 · `make ports-sequential` · `make check-ports` · **docs/operations/PORTS-HOTES.md** |
 | **Validation branche vault/drive** | 🟡 | Checklist manuelle ci-dessous (post `make up-full` OK run `20260622-192608`) |
+| **Mail — login = email boîte** | ☑ | Relier une boîte `@cloudity.local` → aligne `users.email` sur l’IMAP (ex. `paul@delhomme.ovh`) ; `SEED_ADMIN_EMAIL` pour seed direct |
+| **Mail — mode conversations** | ☑ | Liste toujours groupée par fil (plus de bascule liste plate) |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
@@ -102,10 +105,44 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | Signal | Gravité | Action |
 |--------|---------|--------|
 | Redis `Memory overcommit must be enabled` | ⚠️ hôte | `make host-redis-sysctl` puis `APPLY=1 make host-redis-sysctl` |
-| Postgres `connection reset by peer` / `client lost` | ℹ️ | Souvent sync IMAP qui ferme la connexion — pas bloquant si tests OK |
+| Postgres `connection reset by peer` / `client lost` | ℹ️→🟡 | **Souvent bénin** : le client Go (`mail-directory-service`) ferme la conn SQL quand la requête HTTP sync se termine (`defer conn.Close()` sur conn épinglée) ou quand le pool recycle — Postgres loggue alors `could not send data to client` / `FATAL: connection to client lost`. **Corrélation typique** : rafale `POST …/sync` (comptes 10/11/12…) + `mot de passe IMAP enregistré` + réponses **200**. **À vérifier** : boîtes Mail complètes, pas d’erreur UI ; si FATAL en boucle ou sync incomplète → auditer `GlobalMailSyncWatcher`, durée IMAP, `persistAccountPasswordAfterSync` (`imap_login.go`). |
 | Mail `imap: connection closed` + rafale `sync select` | ⚠️ mail | OVH multi-dossiers — candidats absents = bruit ; vérifier si sync incomplète |
 | `*-run-* exited with code 0` | ✅ | Tests `docker compose run` — normal pendant `make test` |
 | `duplicate key users_tenant_id_email` | ℹ️ | `seed-admin` sur DB existante — attendu |
+
+### Logs Postgres × Mail — à vérifier (2026-06-26)
+
+**Constat utilisateur** (`make logs`) :
+
+```
+cloudity-postgres | could not send data to client: Connection reset by peer
+cloudity-postgres | FATAL: connection to client lost
+```
+
+souvent **au même instant** que :
+
+```
+cloudity-mail-directory-service | [mail] IMAP connexion …@…ovh → ssl0.ovh.net
+cloudity-mail-directory-service | [mail] sync account=N: mot de passe IMAP enregistré (chiffré)
+cloudity-api-gateway            | POST /mail/me/accounts/N/sync -> 200
+```
+
+**Interprétation (probable, pas alarme immédiate)** :
+
+1. Le **watcher Mail** (ou l’UI) lance plusieurs sync IMAP d’affilée (plusieurs boîtes OVH).
+2. Chaque sync tient une **connexion Postgres épinglée** le temps de la requête HTTP (middleware `requireTenantAndUser` → `defer conn.Close()`).
+3. À la fin (ou si le navigateur annule / timeout), le client ferme le socket **avant** que Postgres ait fini d’envoyer — d’où le `FATAL` côté serveur, **sans** forcément casser la sync (les `200` le confirment).
+
+**Déjà en place** : `persistAccountPasswordAfterSync` utilise une **transaction courte** sur le pool (`imap_login.go`) pour limiter ces resets lors du chiffrement MDP.
+
+**Checklist vérification** :
+
+| # | Action | Coché |
+|---|--------|-------|
+| P1 | Confirmer que les messages arrivent bien dans Mail (inbox pas vide après sync) | ☐ |
+| P2 | Compter les FATAL : 1–2 par rafale de sync = bruit ; dizaines/min = investiguer | ☐ |
+| P3 | Si gênant : espacer les sync auto (`GlobalMailSyncWatcher`) ou logger côté mail-service au lieu de paniquer sur postgres | ☐ |
+| P4 | Checkpoint Postgres (`checkpoint complete: wrote N buffers`) = normal, pas lié à l’erreur client | ☐ |
 
 ### Validation manuelle — `feat/app-vault-drive-upload-pin-rotation` (après `make down && make up` ports séquentiels)
 

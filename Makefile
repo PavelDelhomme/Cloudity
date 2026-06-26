@@ -994,17 +994,20 @@ seed: ## Insère des données de test (tenants)
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "INSERT INTO tenants (name, domain, database_url) VALUES ('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), ('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') ON CONFLICT (domain) DO NOTHING;"
 	@echo "✅ Seed OK."
 
-seed-admin: ## Crée le compte admin@cloudity.local / Admin123! ET le promeut en role='admin' (stack up, tenant 1)
-	@echo "👤 Création du compte de démo (admin@cloudity.local)..."
+SEED_ADMIN_EMAIL ?= admin@cloudity.local
+SEED_ADMIN_PASSWORD ?= Admin123!
+
+seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) ET le promeut en role='admin' (stack up, tenant 1)
+	@echo "👤 Création du compte de démo ($(SEED_ADMIN_EMAIL))..."
 	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
 	  -H "Content-Type: application/json" \
-	  -d '{"email":"admin@cloudity.local","password":"Admin123!","tenant_id":"1"}' >/dev/null \
+	  -d '{"email":"$(SEED_ADMIN_EMAIL)","password":"$(SEED_ADMIN_PASSWORD)","tenant_id":"1"}' >/dev/null \
 	  && echo "✅ Compte créé." \
 	  || echo "ℹ️  Le compte existait déjà — promotion du rôle quand même."
-	@echo "🔐 Promotion role='admin' pour admin@cloudity.local (tenant 1)..."
+	@echo "🔐 Promotion role='admin' pour $(SEED_ADMIN_EMAIL) (tenant 1)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity \
-	  -c "UPDATE users SET role='admin' WHERE email='admin@cloudity.local' AND tenant_id=1;" >/dev/null \
-	  && echo "✅ Rôle admin appliqué. Connexion: admin@cloudity.local / Admin123! (UI back-office /4dm1n)" \
+	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1;" >/dev/null \
+	  && echo "✅ Rôle admin appliqué. Connexion: $(SEED_ADMIN_EMAIL) / $(SEED_ADMIN_PASSWORD) (UI back-office /4dm1n)" \
 	  || (echo "❌ Promotion role='admin' échouée — vérifier que la stack est up et que le tenant 1 existe."; exit 1)
 
 seed-e2e-2fa: ## Compte E2E 2FA dédié : e2e-2fa@cloudity.local / E2faTest123! (recrée le user si besoin)

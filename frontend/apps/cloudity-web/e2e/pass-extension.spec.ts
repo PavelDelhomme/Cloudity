@@ -3,20 +3,20 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { DEMO_EMAIL, DEMO_PASSWORD } from './fixtures/auth'
+import { DEMO_EMAIL, DEMO_PASSWORD, advanceLoginToPasswordStep } from './fixtures/auth'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(HERE, '../../../..')
 const EXTENSION_PATH = path.join(REPO_ROOT, 'extensions/cloudity-pass/dist')
 const BASE_URL = (process.env.PLAYWRIGHT_BASE_URL || process.env.BASE_URL || 'http://localhost:6001').replace(/\/$/, '')
-const API_URL = (process.env.PLAYWRIGHT_API_URL || process.env.VITE_API_URL || 'http://localhost:6080').replace(/\/$/, '')
+const API_URL = (process.env.PLAYWRIGHT_API_URL || process.env.VITE_API_URL || 'http://localhost:6002').replace(/\/$/, '')
 const MASTER_PASSWORD = process.env.PLAYWRIGHT_E2E_MASTER ?? DEMO_PASSWORD
 
 type ExtensionResponse = { ok?: boolean; error?: string; unlocked?: boolean }
 
 async function loginWeb(page: Page): Promise<void> {
   await page.goto(`${BASE_URL}/login?next=${encodeURIComponent('/app/pass')}`)
-  await page.getByLabel(/email/i).fill(DEMO_EMAIL)
+  await advanceLoginToPasswordStep(page, DEMO_EMAIL)
   await page.getByLabel(/mot de passe|password/i).fill(DEMO_PASSWORD)
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   await page.waitForURL(/\/app\/pass(\/|$)/, { timeout: 20_000 })

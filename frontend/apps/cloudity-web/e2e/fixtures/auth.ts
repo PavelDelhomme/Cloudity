@@ -8,8 +8,15 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+/** Étape 1 du login web : email puis « Continuer ». */
+export async function advanceLoginToPasswordStep(page: Page, email: string): Promise<void> {
+  await page.getByLabel(/email/i).fill(email)
+  await page.getByRole('button', { name: 'Continuer', exact: true }).click()
+  await page.getByLabel(/mot de passe|password/i).waitFor({ state: 'visible', timeout: 10_000 })
+}
+
 /**
- * Connecte l'utilisateur via le formulaire de login.
+ * Connecte l'utilisateur via le formulaire de login (email → Continuer → mot de passe).
  * Attend la redirection vers /app (hub) ou la page demandée.
  */
 export async function login(
@@ -19,10 +26,8 @@ export async function login(
   const email = options.email ?? DEMO_EMAIL
   const password = options.password ?? DEMO_PASSWORD
   await page.goto('/login' + (options.returnTo ? `?next=${encodeURIComponent(options.returnTo)}` : ''))
-  await page.getByLabel(/email/i).fill(email)
+  await advanceLoginToPasswordStep(page, email)
   await page.getByLabel(/mot de passe|password/i).fill(password)
-  // Le formulaire expose désormais 2 boutons (mot de passe + passkey).
-  // On cible exactement le bouton submit "Se connecter" (sans "avec une passkey").
   const expectedURL = options.returnTo
     ? new RegExp(`${escapeRegExp(options.returnTo)}(\\/|$)`)
     : /\/(app|app\/)/

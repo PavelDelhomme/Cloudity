@@ -1,5 +1,6 @@
 import { Page } from '@playwright/test'
 import { generateTotp } from '../../src/pages/app/pass/totp'
+import { advanceLoginToPasswordStep } from './auth'
 
 /** Compte dédié E2E 2FA — ne pas activer 2FA sur admin@cloudity.local */
 export const E2E_2FA_EMAIL = process.env.PLAYWRIGHT_E2E_2FA_EMAIL || 'e2e-2fa@cloudity.local'
@@ -11,7 +12,7 @@ export async function loginWithPassword(
   password: string
 ): Promise<'ok' | 'requires_2fa'> {
   await page.goto('/login')
-  await page.getByLabel(/email/i).fill(email)
+  await advanceLoginToPasswordStep(page, email)
   await page.getByLabel(/mot de passe|password/i).fill(password)
   await page.getByRole('button', { name: 'Se connecter', exact: true }).click()
   const outcome = await Promise.race([

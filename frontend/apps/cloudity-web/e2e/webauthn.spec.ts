@@ -3,6 +3,7 @@ import {
   addWebAuthnVirtualAuthenticator,
   removeWebAuthnVirtualAuthenticator,
 } from './fixtures/webauthn-virtual'
+import { advanceLoginToPasswordStep } from './fixtures/auth'
 
 /**
  * WebAuthn / passkeys — authentificateur virtuel (CDP Chromium).
@@ -32,7 +33,7 @@ test.describe('WebAuthn (passkeys)', () => {
     const { cdp, authenticatorId } = await addWebAuthnVirtualAuthenticator(page)
     try {
       await page.goto('/login?next=%2F4dm1n')
-      await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
+      await advanceLoginToPasswordStep(page, ADMIN_EMAIL)
       await page.getByLabel(/mot de passe|password/i).fill(ADMIN_PASSWORD)
       await page.getByRole('button', { name: /^se connecter$/i }).click()
       await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 25_000 })

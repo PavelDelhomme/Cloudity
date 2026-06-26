@@ -1333,7 +1333,13 @@ func (h *Handler) createUserAccount(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": id, "email": email, "label": body.Label})
+	aligned, loginEmail := h.maybeAlignUserLoginEmail(ctx, uid, tid, email)
+	resp := gin.H{"id": id, "email": email, "label": body.Label}
+	if aligned {
+		resp["user_login_email_aligned"] = true
+		resp["user_login_email"] = loginEmail
+	}
+	c.JSON(http.StatusCreated, resp)
 }
 
 // oauthGoogleAuthorize renvoie l'URL de redirection vers Google (connexion OAuth sans mot de passe d'application).
@@ -1466,6 +1472,9 @@ func (h *Handler) oauthGoogleCallback(c *gin.Context) {
 		log.Printf("[mail] oauth upsert account: %v", err)
 		c.Redirect(http.StatusFound, redirectFail+"&reason=db")
 		return
+	}
+	if aligned, _ := h.maybeAlignUserLoginEmail(ctx, uid, tid, email); aligned {
+		log.Printf("[mail] oauth: login Cloudity aligné sur %s (user_id=%d)", email, uid)
 	}
 	c.Redirect(http.StatusFound, frontendURL+"/app/mail?oauth=google&status=ok")
 }
@@ -3100,6 +3109,11 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	}
 	if !useOAuth && password != "" && !passwordStored {
 		resp["message"] = "synchronisation terminée — attention : le mot de passe n'a pas pu être enregistré pour les prochaines sync (vérifiez MAIL_PASSWORD_ENCRYPTION_KEY). Resaisissez-le à la prochaine connexion."
+	}
+	tid, _ := strconv.Atoi(c.GetHeader("X-Tenant-ID"))
+	if aligned, loginEmail := h.maybeAlignUserLoginEmail(ctx, userIDInt, tid, email); aligned {
+		resp["user_login_email_aligned"] = true
+		resp["user_login_email"] = loginEmail
 	}
 	c.JSON(http.StatusOK, resp)
 }

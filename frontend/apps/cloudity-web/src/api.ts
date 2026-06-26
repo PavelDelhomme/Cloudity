@@ -635,7 +635,13 @@ export async function createMailAccount(
   token: string,
   email: string,
   options?: { label?: string; password?: string }
-): Promise<{ id: number; email: string; label?: string }> {
+): Promise<{
+  id: number
+  email: string
+  label?: string
+  user_login_email_aligned?: boolean
+  user_login_email?: string
+}> {
   const body: { email: string; label?: string; password?: string } = {
     email: email.trim().toLowerCase(),
     label: options?.label?.trim() || '',
@@ -649,7 +655,13 @@ export async function createMailAccount(
   })
   if (res.status === 409) throw new Error('Cette adresse est déjà reliée')
   if (!res.ok) throw new Error(`Create mail account: ${res.status}`)
-  return res.json() as Promise<{ id: number; email: string; label?: string }>
+  return res.json() as Promise<{
+    id: number
+    email: string
+    label?: string
+    user_login_email_aligned?: boolean
+    user_login_email?: string
+  }>
 }
 
 export async function deleteMailAccount(token: string, accountId: number): Promise<void> {
