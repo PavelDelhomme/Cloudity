@@ -392,8 +392,8 @@ describe('PhotosPage', () => {
     render(wrap(<PhotosPage />))
     fireEvent.click(await screen.findByRole('button', { name: 'Sélectionner 10 janvier 2026' }))
     expect(screen.getByText('2 sélectionnées')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Désélectionner day-a\.jpg/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Désélectionner day-b\.jpg/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Décocher day-a\.jpg/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Décocher day-b\.jpg/ })).toBeTruthy()
   })
 
   it('paramètres : désactive la confirmation archive/verrouillage', async () => {
@@ -530,8 +530,7 @@ describe('PhotosPage', () => {
     })
     render(wrap(<PhotosPage />))
     await screen.findByRole('button', { name: /Ouvrir a\.jpg/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
-    fireEvent.click(screen.getByRole('button', { name: /Sélectionner a\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Cocher a\.jpg/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Archiver la sélection' }))
     await waitFor(() => {
       expect(api.archiveDrivePhotos).toHaveBeenCalledWith('token', [10])
@@ -571,8 +570,7 @@ describe('PhotosPage', () => {
     })
     render(wrap(<PhotosPage />))
     await screen.findByRole('button', { name: /Ouvrir lock\.jpg/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
-    fireEvent.click(screen.getByRole('button', { name: /Sélectionner lock\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Cocher lock\.jpg/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Verrouiller la sélection' }))
     await waitFor(() => {
       expect(api.lockDrivePhotos).toHaveBeenCalledWith('token', [12])
@@ -611,12 +609,11 @@ describe('PhotosPage', () => {
     })
     render(wrap(<PhotosPage />))
     await screen.findByRole('button', { name: /Ouvrir esc\.jpg/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
-    fireEvent.click(screen.getByRole('button', { name: /Sélectionner esc\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Cocher esc\.jpg/ }))
     expect(screen.getByText('1 sélectionnée')).toBeTruthy()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByText('1 sélectionnée')).toBeNull()
-    expect(screen.getByRole('button', { name: 'Sélectionner' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Terminer' })).toBeNull()
   })
 
   it('mode sélection : corbeille appelle deleteDriveNode pour les photos choisies', async () => {
@@ -662,8 +659,7 @@ describe('PhotosPage', () => {
     })
     render(wrap(<PhotosPage />))
     await screen.findByRole('button', { name: /Ouvrir a\.jpg/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Sélectionner' }))
-    fireEvent.click(screen.getByRole('button', { name: /Sélectionner a\.jpg/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Cocher a\.jpg/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Mettre à la corbeille' }))
     await waitFor(() => {
       expect(api.deleteDriveNode).toHaveBeenCalledWith('token', 10)

@@ -48,6 +48,8 @@ import {
   DEFAULT_PHOTOS_APP_SETTINGS,
   loadPhotosAppSettings,
   photosGridClassName,
+  photosTimelineGridStyle,
+  adjustPhotosGridCellMinPx,
   savePhotosAppSettings,
   type PhotosAppSettings,
   type PhotosGridSize,
@@ -195,20 +197,26 @@ function PhotoThumb({
   node,
   token,
   vaultScope,
-  selectMode,
+  selectionActive,
   selected,
-  onToggleSelect,
+  rangePreview,
+  showSelectControl,
+  onSelectClick,
+  onPhotoClick,
+  onRangePreview,
   onContextMenuPhoto,
-  onOpen,
 }: {
   node: DriveNode
   token: string
   vaultScope?: string | null
-  selectMode: boolean
+  selectionActive: boolean
   selected: boolean
-  onToggleSelect: () => void
+  rangePreview?: boolean
+  showSelectControl?: boolean
+  onSelectClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onPhotoClick: (event: React.MouseEvent<HTMLButtonElement>) => void
+  onRangePreview?: (event: React.MouseEvent<HTMLDivElement>) => void
   onContextMenuPhoto?: (event: React.MouseEvent<HTMLButtonElement>) => void
-  onOpen: (n: DriveNode) => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [err, setErr] = useState(false)
@@ -246,59 +254,89 @@ function PhotoThumb({
     }
   }, [token, node.id, node.name, node.vault_encrypted, vaultScope])
 
+  const highlighted = selected || rangePreview
+
   return (
-    <button
-      type="button"
-      data-photo-thumb="true"
-      draggable={false}
-      aria-label={selectMode ? (selected ? `Désélectionner ${node.name}` : `Sélectionner ${node.name}`) : `Ouvrir ${node.name}`}
-      aria-pressed={selectMode ? selected : undefined}
-      onClick={() => (selectMode ? onToggleSelect() : onOpen(node))}
-      onDragStart={(e) => e.preventDefault()}
-      onContextMenu={
-        onContextMenuPhoto
-          ? (e) => {
-              e.preventDefault()
-              onContextMenuPhoto(e)
-            }
-          : undefined
-      }
-      className={`relative aspect-square rounded-sm overflow-hidden bg-neutral-200/90 dark:bg-neutral-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-neutral-900 transition-opacity ${
-        selected ? 'ring-2 ring-blue-500 ring-inset dark:ring-blue-400' : 'hover:opacity-95'
+    <div
+      className={`group relative aspect-square overflow-hidden bg-neutral-200/90 dark:bg-neutral-800 ${
+        highlighted
+          ? selected
+            ? 'ring-2 ring-blue-500 ring-inset dark:ring-blue-400'
+            : 'ring-2 ring-blue-400/70 ring-inset dark:ring-blue-300/60'
+          : ''
       }`}
+      onMouseEnter={onRangePreview}
+      onMouseMove={onRangePreview}
     >
-      {selectMode && (
-        <span
-          className={`absolute top-1 left-1 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm ${
+      {showSelectControl ? (
+        <button
+          type="button"
+          aria-label={selected ? `Décocher ${node.name}` : `Cocher ${node.name}`}
+          aria-pressed={selected}
+          onClick={(e) => {
+            e.stopPropagation()
+            onSelectClick(e)
+          }}
+          className={`absolute top-1 left-1 z-20 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-opacity ${
             selected
-              ? 'border-blue-600 bg-blue-600 text-white'
-              : 'border-white/90 bg-black/25 text-transparent'
-          }`}
-          aria-hidden
+              ? 'border-blue-600 bg-blue-600 text-white opacity-100'
+              : 'border-white/90 bg-black/35 text-white/90 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+          } ${selectionActive && !selected ? 'sm:opacity-100' : ''}`}
         >
-          {selected ? <Check className="h-4 w-4" strokeWidth={3} /> : null}
-        </span>
-      )}
-      {err ? (
-        <span className="absolute inset-0 flex items-center justify-center text-xs text-slate-500 p-1 text-center">
-          Échec du chargement
-        </span>
-      ) : url ? (
-        <img
-          src={url}
-          alt={node.name}
-          draggable={false}
-          className="w-full h-full object-cover"
-          loading="lazy"
-          decoding="async"
-          onError={() => setErr(true)}
-        />
-      ) : (
-        <span className="absolute inset-0 flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" aria-hidden />
-        </span>
-      )}
-    </button>
+          {selected ? <Check className="h-4 w-4" strokeWidth={3} aria-hidden /> : null}
+        </button>
+      ) : null}
+      <button
+        type="button"
+        data-photo-thumb="true"
+        draggable={false}
+        aria-label={
+          selectionActive
+            ? selected
+              ? `Désélectionner ${node.name}`
+              : `Sélectionner ${node.name}`
+            : `Ouvrir ${node.name}`
+        }
+        aria-pressed={selectionActive ? selected : undefined}
+        onClick={onPhotoClick}
+        onDragStart={(e) => e.preventDefault()}
+        onContextMenu={
+          onContextMenuPhoto
+            ? (e) => {
+                e.preventDefault()
+                onContextMenuPhoto(e)
+              }
+            : undefined
+        }
+        className="relative h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-inset transition-opacity hover:opacity-95"
+      >
+        {err ? (
+          <span className="absolute inset-0 flex items-center justify-center text-xs text-slate-500 p-1 text-center">
+            Échec du chargement
+          </span>
+        ) : url ? (
+          <img
+            src={url}
+            alt={node.name}
+            draggable={false}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+            onError={() => setErr(true)}
+          />
+        ) : (
+          <span className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-slate-400" aria-hidden />
+          </span>
+        )}
+        {rangePreview && !selected ? (
+          <span
+            className="pointer-events-none absolute inset-0 bg-blue-500/25 ring-2 ring-inset ring-blue-400/80 dark:ring-blue-300/70"
+            aria-hidden
+          />
+        ) : null}
+      </button>
+    </div>
   )
 }
 
@@ -321,6 +359,12 @@ function Lightbox({
 }) {
   const [url, setUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [zoom, setZoom] = useState(1)
+  const viewportRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setZoom(1)
+  }, [node.id])
 
   useEffect(() => {
     let cancelled = false
@@ -356,6 +400,17 @@ function Lightbox({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, onPrev, onNext, hasPrev, hasNext])
 
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      setZoom((z) => Math.min(4, Math.max(1, z + (e.deltaY > 0 ? -0.12 : 0.12))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black/88 p-3 md:p-6"
@@ -377,7 +432,7 @@ function Lightbox({
           <X className="h-5 w-5" />
         </button>
       </div>
-      <div className="flex-1 flex items-center justify-center min-h-0 relative">
+      <div ref={viewportRef} className="flex-1 flex items-center justify-center min-h-0 relative overflow-hidden">
         {loading && (
           <div className="flex items-center justify-center" onClick={(e) => e.stopPropagation()} aria-hidden>
             <Loader2 className="h-10 w-10 animate-spin text-white/70" />
@@ -388,7 +443,8 @@ function Lightbox({
             src={url}
             alt={node.name}
             onClick={(e) => e.stopPropagation()}
-            className="max-w-full max-h-[calc(100vh-8rem)] object-contain rounded-md shadow-2xl cursor-default"
+            style={{ transform: `scale(${zoom})` }}
+            className="max-w-full max-h-[calc(100vh-6rem)] object-contain rounded-md shadow-2xl cursor-default transition-transform duration-75"
           />
         )}
         {hasPrev && (
@@ -430,14 +486,15 @@ export default function PhotosPage() {
   )
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const timelineScrollRef = useRef<HTMLDivElement>(null)
+  const selectionAnchorIndexRef = useRef<number | null>(null)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const tabRaw = (searchParams.get('tab') ?? 'timeline').toLowerCase()
   const tab: PhotosTab = (VALID_PHOTOS_TABS as readonly string[]).includes(tabRaw) ? (tabRaw as PhotosTab) : 'timeline'
   const [fileDragActive, setFileDragActive] = useState(false)
-  /** Sélection multiple (chronologie) — alignement PHOTOS.md §3. */
-  const [selectionMode, setSelectionMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set())
+  const [rangePreviewIds, setRangePreviewIds] = useState<Set<number>>(() => new Set())
   const [showPhotosSettings, setShowPhotosSettings] = useState(false)
   const [photosSettings, setPhotosSettings] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
   const [settingsDraft, setSettingsDraft] = useState<PhotosAppSettings>(() => loadPhotosAppSettings())
@@ -522,6 +579,11 @@ export default function PhotosPage() {
 
   const sections = useMemo(() => groupTimelineByDay(flatItems), [flatItems])
   const allVisibleSelected = flatItems.length > 0 && selectedIds.size >= flatItems.length
+  const hasPhotoSelection = selectedIds.size > 0
+  const timelineGridStyle = useMemo(
+    () => photosTimelineGridStyle(photosSettings.gridCellMinPx),
+    [photosSettings.gridCellMinPx]
+  )
 
   const togglePhotoSelected = useCallback((id: number) => {
     setSelectedIds((prev) => {
@@ -532,23 +594,109 @@ export default function PhotosPage() {
     })
   }, [])
 
+  const selectPhotoRange = useCallback(
+    (fromIndex: number, toIndex: number, mode: 'replace' | 'add' = 'add') => {
+      const start = Math.min(fromIndex, toIndex)
+      const end = Math.max(fromIndex, toIndex)
+      const ids = flatItems.slice(start, end + 1).map((n) => n.id)
+      setSelectedIds((prev) => {
+        const next = mode === 'replace' ? new Set<number>() : new Set(prev)
+        ids.forEach((id) => next.add(id))
+        return next
+      })
+    },
+    [flatItems]
+  )
+
+  const handleTimelinePhotoSelect = useCallback(
+    (flatIndex: number, event: React.MouseEvent) => {
+      const id = flatItems[flatIndex]?.id
+      if (id == null) return
+      if (event.shiftKey && selectionAnchorIndexRef.current !== null) {
+        selectPhotoRange(selectionAnchorIndexRef.current, flatIndex)
+        setRangePreviewIds(new Set())
+        return
+      }
+      togglePhotoSelected(id)
+      selectionAnchorIndexRef.current = flatIndex
+      setRangePreviewIds(new Set())
+    },
+    [flatItems, selectPhotoRange, togglePhotoSelected]
+  )
+
+  const handleTimelinePhotoClick = useCallback(
+    (flatIndex: number, node: DriveNode, event: React.MouseEvent<HTMLButtonElement>) => {
+      if (hasPhotoSelection || event.shiftKey) {
+        handleTimelinePhotoSelect(flatIndex, event)
+        return
+      }
+      setLightboxIndex(flatIndex >= 0 ? flatIndex : 0)
+    },
+    [hasPhotoSelection, handleTimelinePhotoSelect]
+  )
+
+  const handleTimelineRangePreview = useCallback(
+    (flatIndex: number, event: React.MouseEvent<HTMLDivElement>) => {
+      if (!event.shiftKey || selectionAnchorIndexRef.current === null) {
+        setRangePreviewIds((prev) => (prev.size === 0 ? prev : new Set()))
+        return
+      }
+      const start = Math.min(selectionAnchorIndexRef.current, flatIndex)
+      const end = Math.max(selectionAnchorIndexRef.current, flatIndex)
+      const next = new Set(flatItems.slice(start, end + 1).map((n) => n.id))
+      setRangePreviewIds((prev) => {
+        if (prev.size === next.size && [...prev].every((id) => next.has(id))) return prev
+        return next
+      })
+    },
+    [flatItems]
+  )
+
   const openPhotoContextMenu = useCallback((node: DriveNode, event: React.MouseEvent<HTMLButtonElement>) => {
-    setSelectionMode(true)
     setSelectedIds((prev) => {
       if (prev.has(node.id)) return prev
       const next = new Set(prev)
       next.add(node.id)
       return next
     })
+    const flatIndex = flatItems.findIndex((n) => n.id === node.id)
+    if (flatIndex >= 0) selectionAnchorIndexRef.current = flatIndex
     setPhotoContextMenu({ x: event.clientX, y: event.clientY, node })
-  }, [])
+  }, [flatItems])
 
   const closePhotoContextMenu = useCallback(() => setPhotoContextMenu(null), [])
+
+  const renderTimelinePhotoThumb = useCallback(
+    (node: DriveNode, flatIndex: number) => (
+      <PhotoThumb
+        key={node.id}
+        node={node}
+        token={accessToken!}
+        selectionActive={hasPhotoSelection}
+        selected={selectedIds.has(node.id)}
+        rangePreview={rangePreviewIds.has(node.id)}
+        showSelectControl
+        onSelectClick={(event) => handleTimelinePhotoSelect(flatIndex, event)}
+        onPhotoClick={(event) => handleTimelinePhotoClick(flatIndex, node, event)}
+        onRangePreview={(event) => handleTimelineRangePreview(flatIndex, event)}
+        onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
+      />
+    ),
+    [
+      accessToken,
+      hasPhotoSelection,
+      selectedIds,
+      rangePreviewIds,
+      handleTimelinePhotoSelect,
+      handleTimelinePhotoClick,
+      handleTimelineRangePreview,
+      openPhotoContextMenu,
+    ]
+  )
 
   const toggleSectionSelection = useCallback((items: DriveNode[]) => {
     if (!items.length) return
     const ids = items.map((n) => n.id)
-    setSelectionMode(true)
     setSelectedIds((prev) => {
       const allSelected = ids.every((id) => prev.has(id))
       const next = new Set(prev)
@@ -556,17 +704,25 @@ export default function PhotosPage() {
       else ids.forEach((id) => next.add(id))
       return next
     })
-  }, [])
+    const anchorIdx = flatItems.findIndex((n) => n.id === items[0]?.id)
+    if (anchorIdx >= 0) selectionAnchorIndexRef.current = anchorIdx
+  }, [flatItems])
 
   const selectAllVisiblePhotos = useCallback(() => {
     setSelectedIds(new Set(flatItems.map((n) => n.id)))
+    if (flatItems.length > 0) selectionAnchorIndexRef.current = 0
   }, [flatItems])
 
-  const clearPhotoSelection = useCallback(() => setSelectedIds(new Set()), [])
+  const clearPhotoSelection = useCallback(() => {
+    setSelectedIds(new Set())
+    setRangePreviewIds(new Set())
+    selectionAnchorIndexRef.current = null
+  }, [])
 
   const exitPhotoSelectionMode = useCallback(() => {
-    setSelectionMode(false)
     setSelectedIds(new Set())
+    setRangePreviewIds(new Set())
+    selectionAnchorIndexRef.current = null
   }, [])
 
   useEffect(() => {
@@ -584,7 +740,7 @@ export default function PhotosPage() {
         setShowPhotosSettings(false)
         return
       }
-      if (selectionMode) {
+      if (hasPhotoSelection) {
         e.preventDefault()
         exitPhotoSelectionMode()
       }
@@ -596,10 +752,31 @@ export default function PhotosPage() {
     lightboxIndex,
     photoContextMenu,
     showPhotosSettings,
-    selectionMode,
+    hasPhotoSelection,
     closePhotoContextMenu,
     exitPhotoSelectionMode,
   ])
+
+  useEffect(() => {
+    if (tab !== 'timeline') return
+    const el = timelineScrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (lightboxIndex !== null || hasPhotoSelection) return
+      if (e.ctrlKey || e.metaKey) return
+      e.preventDefault()
+      setPhotosSettings((prev) => {
+        const next = {
+          ...prev,
+          gridCellMinPx: adjustPhotosGridCellMinPx(prev.gridCellMinPx, e.deltaY),
+        }
+        savePhotosAppSettings(next)
+        return next
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [tab, lightboxIndex, hasPhotoSelection])
 
   useEffect(() => {
     setLockedVaultUnlocked(isPhotosLockedVaultUnlocked(lockedVaultScope))
@@ -668,10 +845,9 @@ export default function PhotosPage() {
 
   useEffect(() => {
     if (tab !== 'timeline') {
-      setSelectionMode(false)
-      setSelectedIds(new Set())
+      exitPhotoSelectionMode()
     }
-  }, [tab])
+  }, [tab, exitPhotoSelectionMode])
 
   const uploadMutation = useMutation({
     mutationFn: async (files: FileList | File[]) => {
@@ -1041,7 +1217,11 @@ export default function PhotosPage() {
 
   return (
     <div
-      className="relative flex flex-col gap-4 min-h-0 w-full max-w-[1600px] mx-auto rounded-2xl bg-white/70 text-neutral-900 dark:bg-transparent dark:text-slate-100 pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]"
+      className={`relative flex flex-col min-h-0 w-full pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] ${
+        tab === 'timeline'
+          ? 'gap-1 text-neutral-900 dark:text-slate-100'
+          : 'gap-4 max-w-[1600px] mx-auto rounded-2xl bg-white/70 text-neutral-900 dark:bg-transparent dark:text-slate-100'
+      }`}
       onDragEnter={tab === 'timeline' ? handleDragEnter : undefined}
       onDragLeave={tab === 'timeline' ? handleDragLeave : undefined}
       onDragOver={tab === 'timeline' ? handleDragOver : undefined}
@@ -1060,7 +1240,7 @@ export default function PhotosPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-3 min-h-10 flex-wrap">
+      <div className={`flex items-center justify-between gap-3 min-h-10 flex-wrap ${tab === 'timeline' ? 'px-3 sm:px-4' : ''}`}>
         <div className="min-w-0 flex-1">
           {tab !== 'timeline' ? (
             <div className="flex min-w-0 items-center gap-2">
@@ -1117,16 +1297,7 @@ export default function PhotosPage() {
             >
               <RefreshCw className={`h-5 w-5 ${photosQuery.isFetching ? 'animate-spin' : ''}`} aria-hidden />
             </button>
-            {flatItems.length > 0 && !selectionMode ? (
-              <button
-                type="button"
-                onClick={() => setSelectionMode(true)}
-                className="inline-flex items-center justify-center rounded-full px-3 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200/80 dark:hover:bg-neutral-700"
-              >
-                Sélectionner
-              </button>
-            ) : null}
-            {flatItems.length > 0 && selectionMode ? (
+            {hasPhotoSelection ? (
               <button
                 type="button"
                 onClick={exitPhotoSelectionMode}
@@ -1187,9 +1358,9 @@ export default function PhotosPage() {
           )}
 
           {flatItems.length > 0 && accessToken && (
-            <>
-              {selectionMode ? (
-                <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 pb-2 dark:border-neutral-700">
+            <div ref={timelineScrollRef} className="min-h-0">
+              {hasPhotoSelection ? (
+                <div className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-neutral-200/90 bg-white/90 px-3 py-2 backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-950/90 sm:px-4">
                   <span className="text-sm text-neutral-600 dark:text-neutral-400">
                     {selectedIds.size} sélectionnée{selectedIds.size > 1 ? 's' : ''}
                   </span>
@@ -1256,11 +1427,11 @@ export default function PhotosPage() {
                   </button>
                 </div>
               ) : null}
-              <div className="flex flex-col gap-8 sm:gap-10">
+              <div className="flex flex-col gap-4 sm:gap-6">
                 {photosSettings.showDateSections
                   ? sections.map((section) => (
                       <section key={section.dayKey} aria-labelledby={`photos-day-${section.dayKey}`}>
-                        <div className="sticky top-0 z-10 mb-3 py-2">
+                        <div className={`sticky z-10 mb-1 py-2 px-3 sm:px-4 ${hasPhotoSelection ? 'top-12' : 'top-0'}`}>
                           <div className="inline-flex max-w-full items-start gap-3 rounded-2xl border border-black/5 bg-white/80 px-3.5 py-2 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/75 dark:shadow-[0_12px_30px_rgba(0,0,0,0.28)]">
                             <div className="min-w-0 flex-1">
                               <h2
@@ -1305,41 +1476,22 @@ export default function PhotosPage() {
                             })()}
                           </div>
                         </div>
-                        <div className={`grid ${timelineGridClass} gap-0.5 sm:gap-1`}>
-                          {section.items.map((node) => (
-                            <PhotoThumb
-                              key={node.id}
-                              node={node}
-                              token={accessToken}
-                              selectMode={selectionMode}
-                              selected={selectedIds.has(node.id)}
-                              onToggleSelect={() => togglePhotoSelected(node.id)}
-                              onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
-                              onOpen={openAt}
-                            />
-                          ))}
+                        <div className="grid gap-px sm:gap-0.5" style={timelineGridStyle}>
+                          {section.items.map((node) => {
+                            const flatIndex = flatItems.findIndex((n) => n.id === node.id)
+                            return renderTimelinePhotoThumb(node, flatIndex)
+                          })}
                         </div>
                       </section>
                     ))
                   : (
-                      <div className={`grid ${timelineGridClass} gap-0.5 sm:gap-1`}>
-                        {flatItems.map((node) => (
-                          <PhotoThumb
-                            key={node.id}
-                            node={node}
-                            token={accessToken}
-                            selectMode={selectionMode}
-                            selected={selectedIds.has(node.id)}
-                            onToggleSelect={() => togglePhotoSelected(node.id)}
-                            onContextMenuPhoto={(event) => openPhotoContextMenu(node, event)}
-                            onOpen={openAt}
-                          />
-                        ))}
+                      <div className="grid gap-px sm:gap-0.5 px-0" style={timelineGridStyle}>
+                        {flatItems.map((node, flatIndex) => renderTimelinePhotoThumb(node, flatIndex))}
                       </div>
                     )}
               </div>
               {photosQuery.hasNextPage && (
-                <div className="flex justify-center pt-4">
+                <div className="flex justify-center pt-4 px-3">
                   <button
                     type="button"
                     onClick={() => void photosQuery.fetchNextPage()}
@@ -1356,7 +1508,7 @@ export default function PhotosPage() {
                   </button>
                 </div>
               )}
-            </>
+            </div>
           )}
         </>
       )}
@@ -1384,10 +1536,11 @@ export default function PhotosPage() {
                       key={node.id}
                       node={node}
                       token={accessToken}
-                      selectMode={false}
+                      selectionActive={false}
                       selected={false}
-                      onToggleSelect={() => {}}
-                      onOpen={openAt}
+                      showSelectControl={false}
+                      onSelectClick={() => {}}
+                      onPhotoClick={() => openAt(node)}
                     />
                   ))}
                 </div>
@@ -1505,10 +1658,11 @@ export default function PhotosPage() {
                   <PhotoThumb
                     node={node}
                     token={accessToken}
-                    selectMode={false}
+                    selectionActive={false}
                     selected={false}
-                    onToggleSelect={() => {}}
-                    onOpen={openAt}
+                    showSelectControl={false}
+                    onSelectClick={() => {}}
+                    onPhotoClick={() => openAt(node)}
                   />
                   <button
                     type="button"
@@ -1561,10 +1715,11 @@ export default function PhotosPage() {
                     <PhotoThumb
                       node={node}
                       token={accessToken}
-                      selectMode={false}
+                      selectionActive={false}
                       selected={false}
-                      onToggleSelect={() => {}}
-                      onOpen={openAt}
+                      showSelectControl={false}
+                      onSelectClick={() => {}}
+                      onPhotoClick={() => openAt(node)}
                     />
                     <button
                       type="button"
@@ -1630,10 +1785,11 @@ export default function PhotosPage() {
                     node={node}
                     token={accessToken}
                     vaultScope={lockedVaultScope}
-                    selectMode={false}
+                    selectionActive={false}
                     selected={false}
-                    onToggleSelect={() => {}}
-                    onOpen={openAt}
+                    showSelectControl={false}
+                    onSelectClick={() => {}}
+                    onPhotoClick={() => openAt(node)}
                   />
                   <button
                     type="button"
@@ -1701,6 +1857,28 @@ export default function PhotosPage() {
               </button>
             </div>
             <div className="space-y-4 text-sm">
+              <label className="flex flex-col gap-1.5">
+                <span className="font-medium text-neutral-800 dark:text-slate-200">
+                  Zoom grille ({settingsDraft.gridCellMinPx}px)
+                </span>
+                <input
+                  type="range"
+                  min={72}
+                  max={320}
+                  step={8}
+                  value={settingsDraft.gridCellMinPx}
+                  onChange={(e) =>
+                    setSettingsDraft((prev) => ({
+                      ...prev,
+                      gridCellMinPx: Number.parseInt(e.target.value, 10),
+                    }))
+                  }
+                  className="w-full"
+                />
+                <span className="text-xs text-neutral-500 dark:text-slate-400">
+                  Molette sur la chronologie pour ajuster le zoom en direct.
+                </span>
+              </label>
               <label className="flex flex-col gap-1.5">
                 <span className="font-medium text-neutral-800 dark:text-slate-200">Taille de la grille</span>
                 <select

@@ -1,7 +1,15 @@
 export type PhotosGridSize = 'compact' | 'normal' | 'large'
 
+export const PHOTOS_GRID_CELL_MIN_PX = {
+  min: 72,
+  max: 320,
+  default: 112,
+} as const
+
 export type PhotosAppSettings = {
   gridSize: PhotosGridSize
+  /** Largeur minimale d’une vignette (molette sur la chronologie). */
+  gridCellMinPx: number
   showDateSections: boolean
   confirmArchiveLock: boolean
 }
@@ -10,8 +18,15 @@ const STORAGE_KEY = 'cloudity.photos.appSettings.v1'
 
 export const DEFAULT_PHOTOS_APP_SETTINGS: PhotosAppSettings = {
   gridSize: 'normal',
+  gridCellMinPx: PHOTOS_GRID_CELL_MIN_PX.default,
   showDateSections: true,
   confirmArchiveLock: true,
+}
+
+function clampGridCellMinPx(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return PHOTOS_GRID_CELL_MIN_PX.default
+  return Math.min(PHOTOS_GRID_CELL_MIN_PX.max, Math.max(PHOTOS_GRID_CELL_MIN_PX.min, Math.round(n)))
 }
 
 export function loadPhotosAppSettings(): PhotosAppSettings {
@@ -24,6 +39,7 @@ export function loadPhotosAppSettings(): PhotosAppSettings {
         parsed.gridSize === 'compact' || parsed.gridSize === 'large' || parsed.gridSize === 'normal'
           ? parsed.gridSize
           : DEFAULT_PHOTOS_APP_SETTINGS.gridSize,
+      gridCellMinPx: clampGridCellMinPx(parsed.gridCellMinPx),
       showDateSections:
         typeof parsed.showDateSections === 'boolean'
           ? parsed.showDateSections
@@ -55,4 +71,16 @@ export function photosGridClassName(gridSize: PhotosGridSize): string {
     default:
       return 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7'
   }
+}
+
+/** Grille fluide qui occupe toute la largeur disponible (chronologie). */
+export function photosTimelineGridStyle(cellMinPx: number): { gridTemplateColumns: string } {
+  const px = clampGridCellMinPx(cellMinPx)
+  return { gridTemplateColumns: `repeat(auto-fill, minmax(${px}px, 1fr))` }
+}
+
+export function adjustPhotosGridCellMinPx(current: number, deltaY: number): number {
+  const step = Math.abs(deltaY) > 40 ? 16 : 8
+  const next = current + (deltaY > 0 ? step : -step)
+  return clampGridCellMinPx(next)
 }

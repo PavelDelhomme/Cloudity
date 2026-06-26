@@ -18,11 +18,13 @@ describe('photosAppSettings', () => {
   it('persiste et recharge les paramètres', () => {
     savePhotosAppSettings({
       gridSize: 'compact',
+      gridCellMinPx: 96,
       showDateSections: false,
       confirmArchiveLock: false,
     })
     expect(loadPhotosAppSettings()).toEqual({
       gridSize: 'compact',
+      gridCellMinPx: 96,
       showDateSections: false,
       confirmArchiveLock: false,
     })
