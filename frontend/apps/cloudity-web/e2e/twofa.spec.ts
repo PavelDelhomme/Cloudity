@@ -39,6 +39,7 @@ test.describe('2FA compte Cloudity (E2E)', () => {
       localStorage.clear()
       sessionStorage.clear()
     })
+    await page.reload()
   })
 
   test('activation TOTP + codes de récupération dans les paramètres', async ({ page }) => {

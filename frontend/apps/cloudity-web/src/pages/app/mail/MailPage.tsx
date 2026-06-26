@@ -57,6 +57,8 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../../authContext'
 import { useAppPageChromeSetters } from '../../../appPageChromeContext'
 import { MailAppChromeMenu } from './MailPageChrome'
+import { MailAddAccountModal } from './MailAddAccountModal'
+import { MailGoogleConnectButton } from './MailGoogleConnectButton'
 import {
   accountCanBackgroundImapSync,
   clearMailSyncPasswordPrompt,
@@ -84,6 +86,7 @@ import {
   sendMailMessage,
   scheduleMailMessage,
   getMailGoogleOAuthRedirectUrl,
+  getMailGoogleOAuthStatus,
   fetchContacts,
   createCalendarEvent,
   fetchMailAliases,
@@ -1234,6 +1237,13 @@ export default function MailPage() {
       return !msg.includes('401') && !msg.includes('404')
     },
   })
+  const { data: googleOAuthStatus } = useQuery({
+    queryKey: ['mail', 'google-oauth-status'],
+    queryFn: () => getMailGoogleOAuthStatus(accessToken!),
+    enabled: !!accessToken,
+    staleTime: 300_000,
+  })
+  const googleOAuthEnabled = googleOAuthStatus?.enabled === true
   const accounts = Array.isArray(accountsData) ? accountsData : (accountsData ?? [])
   const accountsRef = useRef(accounts)
   accountsRef.current = accounts
@@ -2329,7 +2339,9 @@ export default function MailPage() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('non configuré') || msg.includes('503')) {
-        toast.error('La connexion Google n’est pas encore activée sur ce serveur. Utilisez le menu Mail (icône à côté du fil d’Ariane) puis « Ajouter une boîte » avec un mot de passe d’application Gmail (voir aide).', { duration: 6000 })
+        toast.error('Connexion Google non activée sur ce serveur — utilisez le formulaire IMAP ou configurez GOOGLE_OAUTH_*.', {
+          duration: 5000,
+        })
         setShowConnectEmail(true)
       } else {
         toast.error(msg || 'Erreur')
@@ -3947,30 +3959,26 @@ export default function MailPage() {
       )}
 
       {!accountsPending && !is404 && accounts.length === 0 && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 flex flex-col gap-3">
-          <p className="text-amber-800 dark:text-amber-200 font-medium">Aucune boîte mail reliée à ce compte.</p>
-          <p className="text-sm text-amber-900/90 dark:text-amber-100/90">
-            Le compte <code className="rounded bg-amber-100/80 dark:bg-amber-950/50 px-1">seed-admin</code> ne crée pas de boîte IMAP : il faut en ajouter une (Google OAuth ou IMAP/SMTP). Si vous avez exécuté{' '}
-            <code className="rounded bg-amber-100/80 dark:bg-amber-950/50 px-1">make mail-clean-dev</code>, tous les comptes mail du user démo (id&nbsp;1) ont été supprimés de la base — reconnectez une boîte pour retrouver le courrier synchronisé.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={handleConnectGoogle}
-              disabled={googleConnecting}
-              className="rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-500 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 flex items-center gap-2 disabled:opacity-50"
-            >
-              {googleConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Se connecter avec Google
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowConnectEmail(true)}
-              className="rounded-lg bg-amber-600 dark:bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 dark:hover:bg-amber-600"
-            >
-              + Ajouter une boîte
-            </button>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 flex flex-col gap-4 max-w-lg">
+          <div>
+            <p className="text-slate-900 dark:text-slate-100 font-semibold text-lg">Reliez votre boîte mail</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Gmail : un clic avec Google, comme sur votre téléphone. OVH et autres : formulaire IMAP.
+            </p>
           </div>
+          <MailGoogleConnectButton
+            size="large"
+            busy={googleConnecting}
+            disabled={!googleOAuthEnabled}
+            onClick={handleConnectGoogle}
+          />
+          <button
+            type="button"
+            onClick={() => setShowConnectEmail(true)}
+            className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline text-center"
+          >
+            Autre compte (OVH, Proton, IMAP…)
+          </button>
         </div>
       )}
 
@@ -6233,66 +6241,21 @@ export default function MailPage() {
         </div>
       ) : null}
 
-      {showConnectEmail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true" onClick={() => setShowConnectEmail(false)}>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Ajouter une boîte mail</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">
-              Saisissez l’adresse et le mot de passe. Le mot de passe est stocké de façon sécurisée pour la synchronisation (IMAP) et l’envoi (SMTP).
-            </p>
-            <p className="text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-800 rounded-lg px-3 py-2 mb-4">
-              <strong>Gmail sans mot de passe d’application :</strong> fermez cette fenêtre et utilisez « Menu Mail » → « Se connecter avec Google » (OAuth). Ce formulaire sert aux boîtes IMAP/SMTP classiques.
-            </p>
-            {/^[^@]*@gmail\.com$/i.test(connectEmailValue.trim()) && (
-              <div className="mb-4 p-3 rounded-lg bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600">
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-200 mb-1">Gmail : comme Thunderbird ou BlueMail</p>
-                <p className="text-xs text-slate-600 dark:text-slate-300 mb-2">
-                  Utilisez un <strong>mot de passe d'application</strong> (pas votre mot de passe Gmail). Un clic dans votre compte Google, aucune config technique :
-                </p>
-                <a
-                  href="https://myaccount.google.com/apppasswords"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-medium text-brand-600 dark:text-brand-400 underline hover:no-underline"
-                >
-                  Créer un mot de passe d'application →
-                </a>
-              </div>
-            )}
-            <div className="space-y-3 mb-4">
-              <input
-                type="email"
-                value={connectEmailValue}
-                onChange={(e) => setConnectEmailValue(e.target.value)}
-                placeholder="vous@gmail.com"
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
-              />
-              <input
-                type="password"
-                value={connectPassword}
-                onChange={(e) => setConnectPassword(e.target.value)}
-                placeholder="Mot de passe (ou mot de passe d’application Gmail)"
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
-              />
-              <input
-                type="text"
-                value={connectLabel}
-                onChange={(e) => setConnectLabel(e.target.value)}
-                placeholder="Libellé (optionnel)"
-                className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => { setShowConnectEmail(false); setConnectEmailValue(''); setConnectPassword(''); setConnectLabel('') }} disabled={connectingAndSyncing} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50">
-                Annuler
-              </button>
-              <button type="button" onClick={handleConnectEmail} disabled={connectingAndSyncing || !connectEmailValue.trim() || !connectPassword.trim()} className="px-4 py-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50 flex items-center gap-2">
-                {connectingAndSyncing ? <><Loader2 className="h-4 w-4 animate-spin" /> Ajout et synchro…</> : 'Ajouter et synchroniser'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MailAddAccountModal
+        open={showConnectEmail}
+        onClose={() => setShowConnectEmail(false)}
+        googleOAuthEnabled={googleOAuthEnabled}
+        googleConnecting={googleConnecting}
+        onConnectGoogle={handleConnectGoogle}
+        connectEmailValue={connectEmailValue}
+        onConnectEmailChange={setConnectEmailValue}
+        connectPassword={connectPassword}
+        onConnectPasswordChange={setConnectPassword}
+        connectLabel={connectLabel}
+        onConnectLabelChange={setConnectLabel}
+        connectingAndSyncing={connectingAndSyncing}
+        onConnectImap={handleConnectEmail}
+      />
 
       {composeSlots.map((slot, index) => (
         <div

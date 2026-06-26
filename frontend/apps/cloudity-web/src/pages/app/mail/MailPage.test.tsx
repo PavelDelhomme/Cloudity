@@ -26,6 +26,7 @@ vi.mock('../../../api', () => ({
   syncMailAccount: vi.fn(),
   sendMailMessage: vi.fn(),
   getMailGoogleOAuthRedirectUrl: vi.fn(),
+  getMailGoogleOAuthStatus: vi.fn().mockResolvedValue({ enabled: true }),
   fetchContacts: vi.fn().mockResolvedValue([]),
   createCalendarEvent: vi.fn().mockResolvedValue({ id: 1 }),
   createMailAccount: vi.fn(),
@@ -140,7 +141,8 @@ describe('MailPage', () => {
   it('shows empty state when no mail accounts', async () => {
     render(wrap(<MailPage />))
     await waitFor(() => {
-      expect(screen.getByText(/Aucune boîte mail reliée/)).toBeTruthy()
+      expect(screen.getByText(/Reliez votre boîte mail/)).toBeTruthy()
+      expect(screen.getByRole('button', { name: /Continuer avec Google/i })).toBeTruthy()
     })
   })
 

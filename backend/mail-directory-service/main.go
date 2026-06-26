@@ -328,6 +328,7 @@ func main() {
 	mail := r.Group("/mail")
 	{
 		mail.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "mail-directory"}) })
+		mail.GET("/me/oauth/google/status", h.oauthGoogleStatus)
 		mail.GET("/me/oauth/google/authorize", h.oauthGoogleAuthorize)
 		// Routes /me/* en premier pour ne pas être capturées par /domains/:id
 		mail.GET("/me/alias-config", h.getMailAliasConfig)
@@ -1340,6 +1341,14 @@ func (h *Handler) createUserAccount(c *gin.Context) {
 		resp["user_login_email"] = loginEmail
 	}
 	c.JSON(http.StatusCreated, resp)
+}
+
+// oauthGoogleStatus indique si la connexion Gmail OAuth est disponible sur cette instance.
+func (h *Handler) oauthGoogleStatus(c *gin.Context) {
+	enabled := strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_ID")) != "" &&
+		strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET")) != "" &&
+		strings.TrimSpace(os.Getenv("GOOGLE_OAUTH_REDIRECT_URI")) != ""
+	c.JSON(http.StatusOK, gin.H{"enabled": enabled})
 }
 
 // oauthGoogleAuthorize renvoie l'URL de redirection vers Google (connexion OAuth sans mot de passe d'application).

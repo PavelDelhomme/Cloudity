@@ -19,6 +19,9 @@ if [ -x "${ROOT}/frontend/node_modules/.bin/playwright" ]; then
 fi
 
 echo "🎭 Tests E2E Playwright (login, Hub, Drive, Office, Mail, Pass, Calendrier)..."
+if curl -sf "http://localhost:${PORT_GATEWAY}/health" >/dev/null 2>&1; then
+  make seed-admin >/dev/null 2>&1 || true
+fi
 cloudity_test_logs_summary_line
 
 phase="phase3-playwright"

@@ -37,7 +37,7 @@ function photoNode(id: number, name: string): DriveNode {
 
 test.describe('Photos archive et corbeille (E2E)', () => {
   test.beforeEach(async ({ page }) => {
-    await login(page, { returnTo: '/app/photos' })
+    await login(page)
     page.on('dialog', (dialog) => void dialog.accept())
   })
 

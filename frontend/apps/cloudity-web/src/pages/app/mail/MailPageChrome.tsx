@@ -131,10 +131,10 @@ export function MailAppChromeMenu({
                 void onConnectGoogle()
                 setOpen(false)
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50"
             >
               {googleBusy ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden /> : null}
-              Se connecter avec Google
+              Ajouter un compte Google
             </button>
             <button
               type="button"
@@ -146,7 +146,7 @@ export function MailAppChromeMenu({
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-700"
             >
               <Plus className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-              Ajouter une boîte mail
+              Autre boîte (IMAP…)
             </button>
           </div>
         ) : null}

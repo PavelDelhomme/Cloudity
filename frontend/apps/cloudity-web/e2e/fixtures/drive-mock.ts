@@ -104,6 +104,7 @@ export async function mockEditorPage(page: Page, nodeId = 1): Promise<void> {
   // binaire et l’éditeur affiche du bruit). Les anciennes doubles routes + ordre Playwright
   // faisaient matcher `**/drive/nodes**` avant la route dédiée au content.
   const contentPath = `/drive/nodes/${nodeId}/content`
+  const nodeMetaRegex = new RegExp(`/drive/nodes/${nodeId}(?:\\?|$)`)
   await page.unroute('**/drive/nodes**').catch(() => {})
   await page.route('**/drive/nodes**', async (route) => {
     const req = route.request()
@@ -112,7 +113,23 @@ export async function mockEditorPage(page: Page, nodeId = 1): Promise<void> {
       await route.fulfill({ status: 200, body: '<p>Contenu E2E</p>', contentType: 'text/html' })
       return
     }
-    if (req.method() === 'GET' && !url.includes('/content')) {
+    if (req.method() === 'PUT' && url.includes(contentPath)) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ id: nodeId, size: 42 }),
+      })
+      return
+    }
+    if (req.method() === 'GET' && nodeMetaRegex.test(url)) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(node),
+      })
+      return
+    }
+    if (req.method() === 'GET' && !url.includes('/content') && !/\/drive\/nodes\/\d+/.test(url)) {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

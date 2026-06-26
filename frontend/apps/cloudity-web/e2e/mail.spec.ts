@@ -132,6 +132,9 @@ test.describe('Mail (E2E)', () => {
     await mockMailRulesStack(page)
     let captured: any = null
     await page.route('**/mail/me/accounts/1/rules', async (route, request) => {
+      if (request.method() === 'GET') {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      }
       if (request.method() !== 'POST') return route.continue()
       captured = request.postDataJSON()
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, id: 99 }) })

@@ -1116,6 +1116,11 @@ export async function deleteMailMessagePermanently(
   )
 }
 
+/** Indique si la connexion Gmail OAuth est configurée sur le serveur. */
+export async function getMailGoogleOAuthStatus(token: string): Promise<{ enabled: boolean }> {
+  return apiJson(token, '/mail/me/oauth/google/status', { json: false }, 'Mail Google OAuth status')
+}
+
 /** Retourne l’URL de redirection OAuth Google pour connecter une boîte Gmail sans mot de passe d’application. */
 export async function getMailGoogleOAuthRedirectUrl(token: string): Promise<{ redirect_url: string }> {
   const res = await apiFetch(token, '/mail/me/oauth/google/authorize', { json: false })

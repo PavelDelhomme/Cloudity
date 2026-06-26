@@ -22,6 +22,7 @@
 | **Ports hôte séquentiels** | ☑ | Série 6001–6012 · `make ports-sequential` · `make check-ports` · **docs/operations/PORTS-HOTES.md** |
 | **Validation branche vault/drive** | 🟡 | Checklist manuelle ci-dessous (post `make up-full` OK run `20260622-192608`) |
 | **Mail — login = email boîte** | ☑ | Relier une boîte `@cloudity.local` → aligne `users.email` sur l’IMAP (ex. `paul@delhomme.ovh`) ; `SEED_ADMIN_EMAIL` pour seed direct |
+| **Mail — Gmail OAuth (UI)** | ☑ | « Continuer avec Google » en premier (modal + état vide) — prérequis admin : `GOOGLE_OAUTH_*` dans `.env` · **docs/produit/MAIL-GMAIL-OAUTH.md** |
 | **Mail — mode conversations** | ☑ | Liste toujours groupée par fil (plus de bascule liste plate) |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
@@ -32,6 +33,7 @@
 | **Pass auto-lock configurable** | ☐ | Délai global + par app (Pass web ~5 min hardcodé) |
 | **Design system `@cloudity/ui` partout** | ☐ | Web apps + mobile — chantier transverse |
 | **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
+| **Backoffice réutilisable (JobbingTrack)** | ⏸️ | **Hors scope Cloudity** — projet parallèle séparé ; intégration `/4dm1n` **plus tard** si besoin |
 
 **Sondes `/health` dans les logs** : healthchecks Docker (`interval: 30s`, source `127.0.0.1`). Conteneurs `*-run-*` + `exited 0` = `docker compose run` pour `go test` lors de `make test` / `make up-full`.
 
@@ -89,7 +91,7 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☑ run `20260622-192608` |
 | **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☑ |
 | **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
-| **E2E Playwright** | `make test-e2e` / `make tests` | `reports/e2e/` + logs capture | ☐ |
+| **E2E Playwright** | `make test-e2e` / `make test-e2e-playwright` | `reports/e2e/` + logs capture | ☑ 78–80/85 (login 2 étapes, `make seed-admin` auto dans script) |
 | **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
 | **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
