@@ -676,6 +676,52 @@ describe('MailPage', () => {
     })
   })
 
+  it('renomme une boîte mail depuis Paramètres Mail', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com', label: 'Perso', imap_auth_ready: true },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.updateMailAccount).mockResolvedValue({ ok: true })
+
+    render(wrap(<MailPage />))
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Mail' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Renommer…' }))
+    const labelInput = await screen.findByLabelText('Libellé')
+    fireEvent.change(labelInput, { target: { value: 'Travail OVH' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => {
+      expect(api.updateMailAccount).toHaveBeenCalledWith('token', 1, { label: 'Travail OVH' })
+    })
+  })
+
+  it('renomme une boîte mail depuis la barre latérale', async () => {
+    vi.mocked(api.fetchMailAccounts).mockResolvedValue([
+      { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com', imap_auth_ready: true },
+      { id: 2, user_id: 1, tenant_id: 1, email: 'pro@test.com', label: 'Pro', imap_auth_ready: true },
+    ])
+    vi.mocked(api.fetchMailAliases).mockResolvedValue([])
+    vi.mocked(api.fetchMailMessages).mockResolvedValue({ messages: [], total: 0 } as any)
+    vi.mocked(api.updateMailAccount).mockResolvedValue({ ok: true })
+
+    render(wrap(<MailPage />))
+
+    const expandButtons = await screen.findAllByRole('button', { expanded: false })
+    const mailboxExpand = expandButtons.find((btn) => btn.textContent?.includes('user@test.com'))
+    expect(mailboxExpand).toBeTruthy()
+    fireEvent.click(mailboxExpand!)
+    fireEvent.click(await screen.findByRole('button', { name: 'Renommer la boîte Pro' }))
+    const labelInput = await screen.findByLabelText('Libellé')
+    fireEvent.change(labelInput, { target: { value: 'Bureau' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
+
+    await waitFor(() => {
+      expect(api.updateMailAccount).toHaveBeenCalledWith('token', 2, { label: 'Bureau' })
+    })
+  })
+
   it('filtre la liste des messages par alias (delivered_to) au clic barre latérale', async () => {
     vi.mocked(api.fetchMailAccounts).mockResolvedValue([
       { id: 1, user_id: 1, tenant_id: 1, email: 'user@test.com' },

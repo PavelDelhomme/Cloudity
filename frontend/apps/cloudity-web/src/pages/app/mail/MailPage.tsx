@@ -1161,6 +1161,7 @@ export default function MailPage() {
   const bulkTagPickerRef = useRef<HTMLDivElement | null>(null)
   const [selectingAllInScope, setSelectingAllInScope] = useState(false)
   const [showEditAccountModal, setShowEditAccountModal] = useState(false)
+  const [editAccountMode, setEditAccountMode] = useState<'rename' | 'full'>('full')
   const [editAccountId, setEditAccountId] = useState<number | null>(null)
   const [editAccLabel, setEditAccLabel] = useState('')
   const [editAccPassword, setEditAccPassword] = useState('')
@@ -3294,6 +3295,7 @@ export default function MailPage() {
   const openEditAccountModal = useCallback(
     (accountId: number) => {
       const acc = accounts.find((a) => a.id === accountId)
+      setEditAccountMode('full')
       setEditAccountId(accountId)
       setEditAccLabel(acc?.label || '')
       setEditAccPassword('')
@@ -3306,27 +3308,83 @@ export default function MailPage() {
     [accounts]
   )
 
+  const openRenameAccountModal = useCallback(
+    (accountId: number) => {
+      const acc = accounts.find((a) => a.id === accountId)
+      setEditAccountMode('rename')
+      setEditAccountId(accountId)
+      setEditAccLabel(acc?.label || '')
+      setShowEditAccountModal(true)
+    },
+    [accounts]
+  )
+
+  const closeEditAccountModal = useCallback(() => {
+    setShowEditAccountModal(false)
+    setEditAccountId(null)
+    setEditAccountMode('full')
+  }, [])
+
+  const editHasServerFieldChanges = useMemo(() => {
+    if (editAccountId == null) return false
+    const acc = accounts.find((a) => a.id === editAccountId)
+    if (!acc) return false
+    return (
+      editAccImapHost.trim() !== (acc.imap_host ?? '').trim() ||
+      editAccImapPort.trim() !== (acc.imap_port != null ? String(acc.imap_port) : '') ||
+      editAccSmtpHost.trim() !== (acc.smtp_host ?? '').trim() ||
+      editAccSmtpPort.trim() !== (acc.smtp_port != null ? String(acc.smtp_port) : '')
+    )
+  }, [editAccountId, editAccImapHost, editAccImapPort, editAccSmtpHost, editAccSmtpPort, accounts])
+
   const handleSaveAccountSettings = useCallback(async () => {
     if (!accessToken || editAccountId == null) return
     setSavingAccount(true)
     try {
       const patch: Parameters<typeof updateMailAccount>[2] = {}
       const acc = accounts.find((a) => a.id === editAccountId)
-      if (editAccLabel.trim() !== (acc?.label || '').trim()) patch.label = editAccLabel.trim()
+      const labelChanged = editAccLabel.trim() !== (acc?.label || '').trim()
+      if (labelChanged) patch.label = editAccLabel.trim()
+
+      if (editAccountMode === 'rename') {
+        if (!labelChanged) {
+          closeEditAccountModal()
+          setSavingAccount(false)
+          return
+        }
+        await updateMailAccount(accessToken, editAccountId, patch)
+        queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+        toast.success('Libellé enregistré.')
+        closeEditAccountModal()
+        return
+      }
+
       if (editAccPassword.trim()) patch.password = editAccPassword.trim()
+      const prevImapHost = (acc?.imap_host ?? '').trim()
+      const prevImapPort = acc?.imap_port != null ? String(acc.imap_port) : ''
       const imapH = editAccImapHost.trim()
       const imapP = editAccImapPort.trim()
-      if (imapH) {
-        patch.imap_host = imapH
-        const ip = parseInt(imapP, 10)
-        patch.imap_port = Number.isFinite(ip) && ip > 0 ? ip : 993
+      if (imapH !== prevImapHost || imapP !== prevImapPort) {
+        if (imapH) {
+          patch.imap_host = imapH
+          const ip = parseInt(imapP, 10)
+          patch.imap_port = Number.isFinite(ip) && ip > 0 ? ip : 993
+        } else if (prevImapHost) {
+          patch.imap_host = ''
+        }
       }
+      const prevSmtpHost = (acc?.smtp_host ?? '').trim()
+      const prevSmtpPort = acc?.smtp_port != null ? String(acc.smtp_port) : ''
       const smtpH = editAccSmtpHost.trim()
       const smtpP = editAccSmtpPort.trim()
-      if (smtpH) {
-        patch.smtp_host = smtpH
-        const sp = parseInt(smtpP, 10)
-        patch.smtp_port = Number.isFinite(sp) && sp > 0 ? sp : 587
+      if (smtpH !== prevSmtpHost || smtpP !== prevSmtpPort) {
+        if (smtpH) {
+          patch.smtp_host = smtpH
+          const sp = parseInt(smtpP, 10)
+          patch.smtp_port = Number.isFinite(sp) && sp > 0 ? sp : 587
+        } else if (prevSmtpHost) {
+          patch.smtp_host = ''
+        }
       }
       if (Object.keys(patch).length === 0) {
         toast.error('Modifiez au moins le libellé, le mot de passe ou les serveurs IMAP/SMTP.')
@@ -3336,8 +3394,7 @@ export default function MailPage() {
       await updateMailAccount(accessToken, editAccountId, patch)
       queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
       toast.success('Paramètres enregistrés. Lancez « Synchroniser » pour tester la connexion.')
-      setShowEditAccountModal(false)
-      setEditAccountId(null)
+      closeEditAccountModal()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -3346,6 +3403,7 @@ export default function MailPage() {
   }, [
     accessToken,
     editAccountId,
+    editAccountMode,
     editAccLabel,
     editAccPassword,
     editAccImapHost,
@@ -3354,8 +3412,10 @@ export default function MailPage() {
     editAccSmtpPort,
     accounts,
     queryClient,
+    closeEditAccountModal,
   ])
   const isEditingAccountSyncing = editAccountId != null && syncingAccountId === editAccountId
+  const editSaveBlockedBySync = editAccountMode === 'full' && isEditingAccountSyncing && editHasServerFieldChanges
 
   const handleResetAccountServersAuto = useCallback(async () => {
     if (!accessToken || editAccountId == null) return
@@ -4100,29 +4160,43 @@ export default function MailPage() {
                         const isUnifiedScope = activeFolder === 'unified' && accounts.length > 1
                         const isAccountSelected = !isUnifiedScope && effectiveAccountId === acc.id
                         return (
-                          <button
-                            key={acc.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedAccountId(acc.id)
-                              setActiveFolder('inbox')
-                              setRecipientAliasFilter(null)
-                              setMailboxesListExpanded(false)
-                            }}
-                            className={`rounded-lg text-sm font-medium truncate transition-colors min-w-0 w-full text-left px-3 py-2 ${
-                              isAccountSelected
-                                ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
-                                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
-                            }`}
-                            title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
-                          >
-                            <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
-                              <span className="truncate w-full">{acc.label || acc.email}</span>
-                              {acc.label ? (
-                                <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
-                              ) : null}
-                            </span>
-                          </button>
+                          <div key={acc.id} className="group flex items-stretch gap-0.5 min-w-0 w-full">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedAccountId(acc.id)
+                                setActiveFolder('inbox')
+                                setRecipientAliasFilter(null)
+                                setMailboxesListExpanded(false)
+                              }}
+                              className={`flex-1 min-w-0 rounded-lg text-sm font-medium truncate transition-colors text-left px-3 py-2 ${
+                                isAccountSelected
+                                  ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-800 dark:text-brand-200'
+                                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600'
+                              }`}
+                              title={acc.label ? `${acc.label} — ${acc.email}` : acc.email}
+                            >
+                              <span className="flex flex-col items-start min-w-0 w-full gap-0.5">
+                                <span className="truncate w-full">{acc.label || acc.email}</span>
+                                {acc.label ? (
+                                  <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
+                                ) : null}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openRenameAccountModal(acc.id)}
+                              className={`shrink-0 rounded-lg px-2 transition-opacity focus:opacity-100 ${
+                                isAccountSelected
+                                  ? 'text-brand-700 dark:text-brand-200 hover:bg-brand-200/60 dark:hover:bg-brand-800/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+                                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100'
+                              }`}
+                              title={`Renommer « ${acc.label?.trim() || acc.email} »`}
+                              aria-label={`Renommer la boîte ${acc.label?.trim() || acc.email}`}
+                            >
+                              <PenLine className="h-3.5 w-3.5" aria-hidden />
+                            </button>
+                          </div>
                         )
                       })}
                       {accounts.length > 1 ? (
@@ -5436,11 +5510,22 @@ export default function MailPage() {
                             type="button"
                             onClick={() => {
                               setShowMailSettings(false)
+                              openRenameAccountModal(acc.id)
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
+                          >
+                            <PenLine className="h-3.5 w-3.5" aria-hidden />
+                            Renommer…
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowMailSettings(false)
                               openEditAccountModal(acc.id)
                             }}
                             className="rounded-lg border border-slate-300 dark:border-slate-500 px-2.5 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700"
                           >
-                            Libellé &amp; serveurs…
+                            Serveurs IMAP/SMTP…
                           </button>
                           <button
                             type="button"
@@ -6694,13 +6779,27 @@ export default function MailPage() {
       {showEditAccountModal && editAccountId != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 overflow-y-auto" role="dialog" aria-modal="true">
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 w-full max-w-md p-6 my-4">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">Modifier la boîte mail</h2>
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+              {editAccountMode === 'rename' ? 'Renommer la boîte mail' : 'Modifier la boîte mail'}
+            </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-              Les paramètres IMAP/SMTP (et le mot de passe) sont enregistrés pour la synchronisation et l’envoi. Pensez à relancer « Synchroniser » après modification.
+              {editAccountMode === 'rename' ? (
+                <>
+                  Ce libellé s’affiche dans la barre latérale. L’adresse e-mail (
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    {accounts.find((a) => a.id === editAccountId)?.email ?? '—'}
+                  </span>
+                  ) reste inchangée.
+                </>
+              ) : (
+                <>
+                  Les paramètres IMAP/SMTP (et le mot de passe) sont enregistrés pour la synchronisation et l’envoi. Pensez à relancer « Synchroniser » après modification.
+                </>
+              )}
             </p>
 
             <div className="space-y-4">
-              {isEditingAccountSyncing ? (
+              {editAccountMode === 'full' && isEditingAccountSyncing ? (
                 <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
                   Synchronisation IMAP en cours pour cette boîte : les champs serveur IMAP/SMTP sont temporairement verrouillés.
                 </p>
@@ -6713,10 +6812,19 @@ export default function MailPage() {
                   value={editAccLabel}
                   onChange={(e) => setEditAccLabel(e.target.value)}
                   placeholder="Ex. : Paul OVH"
+                  autoFocus={editAccountMode === 'rename'}
+                  onKeyDown={(e) => {
+                    if (editAccountMode === 'rename' && e.key === 'Enter') {
+                      e.preventDefault()
+                      void handleSaveAccountSettings()
+                    }
+                  }}
                   className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500"
                 />
               </div>
 
+              {editAccountMode === 'full' ? (
+                <>
               <div>
                 <label htmlFor="mail-edit-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                   Mot de passe <span className="text-xs text-slate-500 dark:text-slate-400">(optionnel)</span>
@@ -6792,9 +6900,12 @@ export default function MailPage() {
                   </div>
                 </div>
               </div>
+                </>
+              ) : null}
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <div className={`mt-5 flex flex-wrap items-center gap-3 ${editAccountMode === 'full' ? 'justify-between' : 'justify-end'}`}>
+              {editAccountMode === 'full' ? (
               <button
                 type="button"
                 onClick={handleResetAccountServersAuto}
@@ -6803,11 +6914,12 @@ export default function MailPage() {
               >
                 Serveurs auto (détection)
               </button>
+              ) : null}
 
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => { setShowEditAccountModal(false); setEditAccountId(null) }}
+                  onClick={closeEditAccountModal}
                   disabled={savingAccount}
                   className="rounded-lg bg-slate-200 dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50"
                 >
@@ -6816,7 +6928,7 @@ export default function MailPage() {
                 <button
                   type="button"
                   onClick={handleSaveAccountSettings}
-                  disabled={savingAccount || isEditingAccountSyncing}
+                  disabled={savingAccount || editSaveBlockedBySync}
                   className="rounded-lg bg-brand-600 dark:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50"
                 >
                   {savingAccount ? 'Enregistrement…' : 'Enregistrer'}
