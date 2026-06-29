@@ -252,13 +252,26 @@ class AuthApi {
     final uri = Uri.parse('$_base/mail/me/accounts/$accountId/sync');
     final res = await http.post(
       uri,
-      headers: authHeaders(accessToken, json: false),
+      headers: authHeaders(accessToken),
+      body: jsonEncode({'password': ''}),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }
+    if (res.statusCode == 409) {
+      return 0;
+    }
     if (res.statusCode != 200) {
-      throw AuthException('Mail sync HTTP ${res.statusCode}');
+      var msg = 'Mail sync HTTP ${res.statusCode}';
+      try {
+        final data = jsonDecode(res.body);
+        if (data is Map && data['error'] != null) {
+          msg = data['error'].toString();
+        }
+      } catch (_) {
+        /* corps non JSON */
+      }
+      throw AuthException(msg);
     }
     if (res.body.isEmpty) return 0;
     final data = jsonDecode(res.body);

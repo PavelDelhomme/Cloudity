@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'auth_api.dart';
 import 'compose_mail_screen.dart';
+import 'mail_account_helpers.dart';
 import 'message_detail_screen.dart';
 import 'user_session.dart';
 
@@ -56,6 +57,7 @@ class _InboxScreenState extends State<InboxScreen> {
   int _lastBackgroundSyncAtMs = 0;
   bool _backgroundSyncing = false;
   int _bottomNavIndex = 0;
+  final Set<int> _syncIssueNotifiedAccountIds = {};
 
   static const int _mailBackgroundSyncIntervalMs = 25000;
   static const int _mailVisibilitySyncMinGapMs = 22000;
@@ -91,11 +93,48 @@ class _InboxScreenState extends State<InboxScreen> {
     },
   );
 
+  Future<void> _refreshAccountsFromServer() async {
+    try {
+      await widget.session.refreshIfNeeded();
+      final acc = await widget.session.api.fetchMailAccounts(
+        widget.session.accessToken,
+      );
+      if (!mounted) return;
+      setState(() => _accounts = acc);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  Map<String, dynamic>? _accountById(int? id) {
+    if (id == null) return null;
+    for (final acc in _accounts) {
+      final rawId = acc['id'];
+      final aid = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+      if (aid == id) return acc;
+    }
+    return null;
+  }
+
+  void _notifySyncIssueOnce(int accountId, Map<String, dynamic> acc, String message) {
+    if (_syncIssueNotifiedAccountIds.contains(accountId)) return;
+    _syncIssueNotifiedAccountIds.add(accountId);
+    if (!mounted) return;
+    final who = mailAccountLabel(acc) ?? 'Boîte mail';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$who — $message'),
+        duration: const Duration(seconds: 8),
+      ),
+    );
+  }
+
   Future<void> _syncAllAccountsInBackground() async {
     if (!mounted || _backgroundSyncing || _accounts.isEmpty) return;
     _backgroundSyncing = true;
     int totalSynced = 0;
     String? firstAccountName;
+    var anySyncFailure = false;
     try {
       await widget.session.refreshIfNeeded();
       for (final acc in _accounts) {
@@ -107,16 +146,27 @@ class _InboxScreenState extends State<InboxScreen> {
             accessToken: widget.session.accessToken,
             accountId: id,
           );
+          _syncIssueNotifiedAccountIds.remove(id);
           if (synced > 0) {
             totalSynced += synced;
-            firstAccountName ??=
-                ((acc['label']?.toString().trim().isNotEmpty ?? false)
-                ? acc['label']?.toString()
-                : acc['email']?.toString());
+            firstAccountName ??= mailAccountLabel(acc);
           }
-        } catch (_) {
-          // Une boîte peut échouer (IMAP/réseau) sans bloquer les autres.
+        } on AuthException catch (e) {
+          anySyncFailure = true;
+          if (e.message != 'non_autorisé') {
+            _notifySyncIssueOnce(id, acc, e.message);
+          }
+        } catch (e) {
+          anySyncFailure = true;
+          _notifySyncIssueOnce(
+            id,
+            acc,
+            e.toString().replaceFirst('AuthException: ', ''),
+          );
         }
+      }
+      if (anySyncFailure) {
+        await _refreshAccountsFromServer();
       }
       _lastBackgroundSyncAtMs = DateTime.now().millisecondsSinceEpoch;
       if (totalSynced > 0 && mounted) {
@@ -474,9 +524,40 @@ class _InboxScreenState extends State<InboxScreen> {
     return _folder;
   }
 
+  Widget _buildSyncIssueBanner(Map<String, dynamic> acc) {
+    final message = mailAccountSyncIssueMessage(acc);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Material(
+        color: Colors.amber.shade100,
+        borderRadius: BorderRadius.circular(12),
+        child: ListTile(
+          leading: Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900),
+          title: Text(
+            'Synchronisation interrompue',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: Colors.amber.shade900,
+            ),
+          ),
+          subtitle: Text(
+            message,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+          ),
+          dense: true,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessagesView() {
+    final currentAccount = _accountById(_accountId);
+    final showSyncBanner =
+        currentAccount != null && mailAccountHasSyncIssue(currentAccount);
     return RefreshIndicator(
       onRefresh: () async {
+        await _syncAllAccountsInBackground();
         await _reloadSummary();
         await _reloadMessages();
       },
@@ -503,6 +584,7 @@ class _InboxScreenState extends State<InboxScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
               children: [
+                if (showSyncBanner) _buildSyncIssueBanner(currentAccount),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: Text('${_folderTitle()} ($_total)', style: Theme.of(context).textTheme.titleSmall),
@@ -615,14 +697,35 @@ class _InboxScreenState extends State<InboxScreen> {
             final aid = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
             if (aid == null) return const SizedBox.shrink();
             final email = a['email']?.toString() ?? '';
-            final label = a['label']?.toString() ?? '';
+            final label = mailAccountLabel(a) ?? email;
+            final hasIssue = mailAccountHasSyncIssue(a);
             final selected = _accountId == aid;
             return Card(
+              color: hasIssue ? Colors.amber.shade50 : null,
               child: ListTile(
                 selected: selected,
-                leading: const Icon(Icons.mail_outline),
-                title: Text(label.isNotEmpty ? label : email),
-                subtitle: label.isNotEmpty ? Text(email) : null,
+                leading: Icon(
+                  hasIssue ? Icons.warning_amber_rounded : Icons.mail_outline,
+                  color: hasIssue ? Colors.amber.shade800 : null,
+                ),
+                title: Text(label),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (a['label']?.toString().trim().isNotEmpty == true && email.isNotEmpty)
+                      Text(email),
+                    if (hasIssue)
+                      Text(
+                        mailAccountSyncIssueMessage(a),
+                        style: TextStyle(
+                          color: Colors.amber.shade900,
+                          fontSize: 12,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
                 trailing: selected ? const Icon(Icons.check_circle, color: Colors.greenAccent) : null,
                 onTap: () => _onAccountChanged(aid),
               ),

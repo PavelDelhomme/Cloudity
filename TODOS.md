@@ -32,7 +32,7 @@
 | **Passkeys ×5** | ℹ️ | Quota backend = 5 — normal si plein ; supprimer les inutilisées |
 | **Pass auto-lock configurable** | ☑ | Paramètres → Sécurité Pass : 1/5/15/30 min, 1 h, jamais (`localStorage`) |
 | **Mail — erreur sync visible** | ☑ | `last_sync_error` en base ; alerte sidebar + notif in-app si MDP/OAuth invalide |
-| **Design system `@cloudity/ui` partout** | 🟡 | Tâches → `ResponsivePage` ; reste : Calendar, Contacts, Hub, Photos… |
+| **Design system `@cloudity/ui` partout** | 🟡 | Tâches + Contacts → `ResponsivePage` ; reste : Calendar, Hub, Photos… |
 | **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
 | **Backoffice réutilisable (JobbingTrack)** | ⏸️ | **Hors scope Cloudity** — projet parallèle séparé ; intégration `/4dm1n` **plus tard** si besoin |
 

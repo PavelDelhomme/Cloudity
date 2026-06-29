@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-29 — Mail sync erreurs visibles (`last_sync_error`), H12 tests vault/mail, `make test-security` OK, Tâches `@cloudity/ui`.
+**Dernière mise à jour** : 2026-06-29 — Mail mobile : bannière `last_sync_error` ; Contacts `@cloudity/ui` ; sync mail erreurs web (commit précédent).
 
 ## À faire maintenant
 

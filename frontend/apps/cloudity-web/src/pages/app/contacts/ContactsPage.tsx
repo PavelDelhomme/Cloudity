@@ -20,6 +20,7 @@ import {
   type ContactsImportDuplicateMode,
 } from './contactsAppSettings'
 import toast from 'react-hot-toast'
+import { ResponsivePage } from '@cloudity/ui'
 import { useAuth } from '../../../authContext'
 import {
   fetchContacts,
@@ -308,29 +309,10 @@ export default function ContactsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 min-h-0">
-      <div className="flex flex-row items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Contacts</h1>
-          <p className="mt-1 text-slate-600 dark:text-slate-400">
-            Style carnet type Google Contacts : recherche, fiche rapide, envoi depuis Mail.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher nom, email, téléphone…"
-              className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
-            />
-            <Link
-              to="/app/mail"
-              className="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-            >
-              Ouvrir Mail
-            </Link>
-          </div>
-        </div>
+    <ResponsivePage
+      title="Contacts"
+      description="Style carnet type Google Contacts : recherche, fiche rapide, envoi depuis Mail."
+      action={
         <div className="flex flex-wrap gap-2 justify-end">
           {contactsVaultRequired && contactsVaultUnlocked ? (
             <button
@@ -378,8 +360,24 @@ export default function ContactsPage() {
             Nouveau contact
           </button>
         </div>
+      }
+    >
+    <div className="flex flex-col gap-6 min-h-0">
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Rechercher nom, email, téléphone…"
+          className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+        />
+        <Link
+          to="/app/mail"
+          className="inline-flex items-center rounded-xl border border-slate-200 dark:border-slate-600 px-3 py-2 text-sm font-medium text-brand-600 dark:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+        >
+          Ouvrir Mail
+        </Link>
       </div>
-
       {contactsVaultRequired && contactsVaultUnlocked ? (
         <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-sm text-blue-900 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-100">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -760,5 +758,6 @@ export default function ContactsPage() {
       </>
       ) : null}
     </div>
+    </ResponsivePage>
   )
 }
