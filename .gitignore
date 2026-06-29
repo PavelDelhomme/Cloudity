@@ -1,6 +1,9 @@
 # Rapports de tests
 reports/
+test-results/
 **/test-results-drive-loop.json
+mobile/**/build/
+**/.flutter-plugins-dependencies
 
 # Exports de profiling (Chrome Performance, React DevTools Profiler) — souvent volumineux ; voir docs/operations/PERFORMANCES.md §8
 profiling-data*.json

@@ -3,6 +3,7 @@ import { Button, Card, CardHeader, Input } from '@cloudity/ui'
 import toast from 'react-hot-toast'
 import { Lock, Loader2, Sparkles } from 'lucide-react'
 import { useVault } from './vaultContext'
+import { formatPassAutoLockLabel, getPassAutoLockAfterMs } from './passAutoLockSettings'
 
 const MIN_MASTER_LEN = 8
 
@@ -29,6 +30,11 @@ export default function UnlockScreen({ userId, mode }: Props) {
   const [pw, setPw] = useState('')
   const [pw2, setPw2] = useState('')
   const submitting = state.status === 'unlocking'
+  const autoLockMs = getPassAutoLockAfterMs()
+  const autoLockHint =
+    autoLockMs <= 0
+      ? 'Auto-verrouillage désactivé pour cette session navigateur.'
+      : `Auto-verrouillage après ${formatPassAutoLockLabel(autoLockMs).toLowerCase()} d'inactivité.`
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -139,7 +145,7 @@ export default function UnlockScreen({ userId, mode }: Props) {
           </Button>
         </form>
         <div className="px-6 pb-6 text-xs text-slate-500 dark:text-slate-400">
-          Auto-verrouillage après 5 minutes d'inactivité.
+          {autoLockHint}
           {isSetup && (
             <>
               {' '}

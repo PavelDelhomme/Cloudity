@@ -30,7 +30,7 @@
 | **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
 | **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
 | **Passkeys ×5** | ℹ️ | Quota backend = 5 — normal si plein ; supprimer les inutilisées |
-| **Pass auto-lock configurable** | ☐ | Délai global + par app (Pass web ~5 min hardcodé) |
+| **Pass auto-lock configurable** | ☑ | Paramètres → Sécurité Pass : 1/5/15/30 min, 1 h, jamais (`localStorage`) |
 | **Design system `@cloudity/ui` partout** | ☐ | Web apps + mobile — chantier transverse |
 | **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
 | **Backoffice réutilisable (JobbingTrack)** | ⏸️ | **Hors scope Cloudity** — projet parallèle séparé ; intégration `/4dm1n` **plus tard** si besoin |

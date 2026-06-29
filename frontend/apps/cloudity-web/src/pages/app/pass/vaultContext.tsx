@@ -6,7 +6,7 @@
  *    Elle vit dans un `useState` React — pas de `localStorage`, pas de
  *    `sessionStorage`, pas de cookie. Un XSS qui s'exécute peut tenter de la
  *    lire en mémoire, mais elle disparaît dès qu'on lock ou qu'on rafraîchit.
- *  - **Auto-lock** : après `AUTO_LOCK_AFTER_MS` d'inactivité (souris/clavier),
+ *  - **Auto-lock** : après le délai configuré (Paramètres → Sécurité Pass),
  *    on efface la MK avec `.fill(0)`. Aucune persistance entre onglets.
  *  - **Salt utilisateur** : dérivé du `user_id` côté client pour le PoC v0.1
  *    (suffisant car un salt n'est pas un secret — il sert juste à empêcher
@@ -30,11 +30,12 @@ import {
   type Argon2idProfile,
   type KdfDescriptor,
 } from '@cloudity/pass-crypto'
+import { getPassAutoLockAfterMs, DEFAULT_PASS_AUTO_LOCK_MS } from './passAutoLockSettings'
 
 // --- Constantes --------------------------------------------------------
 
-/** Inactivité au delà de laquelle on lock automatiquement le coffre (ms). */
-export const AUTO_LOCK_AFTER_MS = 5 * 60 * 1000 // 5 min
+/** Délai par défaut (ms) — voir Paramètres → Sécurité Pass. */
+export { DEFAULT_PASS_AUTO_LOCK_MS as AUTO_LOCK_AFTER_MS }
 
 /** Préfixe stable du salt utilisateur côté client (PoC v0.1). */
 const USER_SALT_PREFIX = 'cloudity-pass:v1:user-salt:'
@@ -143,8 +144,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.status !== 'unlocked') return
     const id = window.setInterval(() => {
+      const threshold = getPassAutoLockAfterMs()
+      if (threshold <= 0) return
       const idle = Date.now() - lastActivityRef.current
-      if (idle >= AUTO_LOCK_AFTER_MS) {
+      if (idle >= threshold) {
         lock()
       }
     }, 30_000)

@@ -42,6 +42,7 @@ function Probe() {
 describe('VaultProvider / useVault', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    localStorage.clear()
   })
   afterEach(() => {
     vi.useRealTimers()

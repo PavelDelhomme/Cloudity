@@ -6,6 +6,7 @@ import TwoFactorSection from './TwoFactorSection'
 import RecoveryCodesSection from './RecoveryCodesSection'
 import MailNotificationsSection from './MailNotificationsSection'
 import StorageUsageSection from './StorageUsageSection'
+import PassAutoLockSection from './PassAutoLockSection'
 
 export default function AppSettingsPage() {
   const { email, tenantId } = useAuth()
@@ -40,6 +41,11 @@ export default function AppSettingsPage() {
       <section>
         <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Notifications</h2>
         <MailNotificationsSection />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sécurité — Pass</h2>
+        <PassAutoLockSection />
       </section>
 
       <section>
