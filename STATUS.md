@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-22 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : rapports tests (`reports/test-logs/*/REPORT.md`), logs persistés (`make logs`), correctif syntaxe `AppLayout` + exit code `make up-full`.
+**Dernière mise à jour** : 2026-06-29 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : Pass auto-lock configurable (Paramètres), re-chiffrement E2EE après rotation PIN coffres (H11), E2E **80/85** Playwright verts.
 
 ## À faire maintenant
 

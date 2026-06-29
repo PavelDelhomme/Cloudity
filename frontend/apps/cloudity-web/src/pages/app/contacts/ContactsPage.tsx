@@ -488,7 +488,7 @@ export default function ContactsPage() {
                 />
               </label>
               {settingsDraft.lockEnabled ? (
-                <AppLockedPinChangeSection kind="contacts" scope={contactsVaultScope} appLabel="Contacts" />
+                <AppLockedPinChangeSection kind="contacts" scope={contactsVaultScope} appLabel="Contacts" accessToken={accessToken} />
               ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">

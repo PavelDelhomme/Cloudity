@@ -2251,6 +2251,24 @@ export async function createNote(
   )
 }
 
+export async function updateNote(
+  token: string,
+  id: number,
+  payload: {
+    title: string
+    content: string
+    vault_encrypted?: boolean
+    vault_ciphertext?: string
+  }
+): Promise<{ id: number }> {
+  return apiJson<{ id: number }>(
+    token,
+    `/notes/${id}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
+    'Update note'
+  )
+}
+
 // Tasks — listes et tâches
 export type TaskList = { id: number; tenant_id: number; user_id: number; name: string; created_at: string; updated_at: string }
 export type TaskRepeatRule = 'daily' | 'weekly' | 'weekdays' | 'monthly'

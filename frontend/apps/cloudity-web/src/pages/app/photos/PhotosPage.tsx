@@ -57,12 +57,15 @@ import {
 import { PhotosLockedGate } from './PhotosLockedGate'
 import {
   changePhotosLockedPin,
+  getPhotosLockedKdfSalt,
   grantPhotosLockedVaultSession,
   isPhotosLockedVaultUnlocked,
   photosLockedVaultScope,
   PHOTOS_LOCKED_SESSION_TTL_MS,
   revokePhotosLockedVaultSession,
+  verifyPhotosLockedPin,
 } from './photosLockedVault'
+import { rotateAppVaultPin } from '../appVaultPinRotation'
 const PAGE_SIZE = 48
 const PHOTO_DOWNLOAD_CONCURRENCY = 6
 
@@ -499,6 +502,7 @@ export default function PhotosPage() {
   const [pinChangeNext, setPinChangeNext] = useState('')
   const [pinChangeConfirm, setPinChangeConfirm] = useState('')
   const [pinChangeBusy, setPinChangeBusy] = useState(false)
+  const [pinChangeProgress, setPinChangeProgress] = useState<string | null>(null)
   const [pinChangeError, setPinChangeError] = useState<string | null>(null)
   const [photoContextMenu, setPhotoContextMenu] = useState<{ x: number; y: number; node: DriveNode } | null>(null)
 
@@ -811,14 +815,30 @@ export default function PhotosPage() {
       setPinChangeError('Session incomplète : reconnectez-vous avant de changer le code.')
       return
     }
+    if (!accessToken) {
+      setPinChangeError('Session expirée : reconnectez-vous avant de changer le code.')
+      return
+    }
     setPinChangeBusy(true)
     setPinChangeError(null)
+    setPinChangeProgress(null)
     try {
-      const result = await changePhotosLockedPin(
+      const result = await rotateAppVaultPin(
+        accessToken,
+        'photos',
         lockedVaultScope,
         pinChangeCurrent,
         pinChangeNext,
-        pinChangeConfirm
+        pinChangeConfirm,
+        {
+          verifyPin: verifyPhotosLockedPin,
+          changePin: changePhotosLockedPin,
+          getKdfSalt: getPhotosLockedKdfSalt,
+          onSessionKeyRotated: (scope, vaultKeyB64u) => {
+            grantPhotosLockedVaultSession(scope, PHOTOS_LOCKED_SESSION_TTL_MS, vaultKeyB64u)
+          },
+        },
+        (p) => setPinChangeProgress(`Re-chiffrement photos… ${p.done}/${p.total}`)
       )
       if (!result.ok) {
         setPinChangeError(result.error)
@@ -827,11 +847,24 @@ export default function PhotosPage() {
       setPinChangeCurrent('')
       setPinChangeNext('')
       setPinChangeConfirm('')
-      toast.success('Code du coffre Photos mis à jour')
+      if (result.reencrypted > 0) {
+        toast.success(`Code Photos mis à jour — ${result.reencrypted} photo(s) re-chiffrée(s)`)
+        void queryClient.invalidateQueries({ queryKey: ['drive', 'photos', 'locked'] })
+      } else {
+        toast.success('Code du coffre Photos mis à jour')
+      }
     } finally {
       setPinChangeBusy(false)
+      setPinChangeProgress(null)
     }
-  }, [lockedVaultScope, pinChangeConfirm, pinChangeCurrent, pinChangeNext])
+  }, [
+    accessToken,
+    lockedVaultScope,
+    pinChangeConfirm,
+    pinChangeCurrent,
+    pinChangeNext,
+    queryClient,
+  ])
 
   useEffect(() => {
     if (tab !== 'timeline') {
@@ -1949,6 +1982,11 @@ export default function PhotosPage() {
                     />
                   </label>
                 </div>
+                {pinChangeProgress ? (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300" aria-live="polite">
+                    {pinChangeProgress}
+                  </p>
+                ) : null}
                 {pinChangeError ? (
                   <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/40 dark:text-red-300">
                     {pinChangeError}
@@ -1960,7 +1998,7 @@ export default function PhotosPage() {
                   onClick={() => void handleChangeLockedPin()}
                   className="mt-3 rounded-full border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  Changer le code PIN
+                  {pinChangeBusy ? 'Mise à jour…' : 'Changer le code PIN'}
                 </button>
               </div>
             </div>

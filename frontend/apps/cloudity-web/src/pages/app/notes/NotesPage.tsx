@@ -261,7 +261,7 @@ export default function NotesPage() {
                 />
               </label>
               {settingsDraft.lockEnabled ? (
-                <AppLockedPinChangeSection kind="notes" scope={notesVaultScope} appLabel="Notes" />
+                <AppLockedPinChangeSection kind="notes" scope={notesVaultScope} appLabel="Notes" accessToken={accessToken} />
               ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">

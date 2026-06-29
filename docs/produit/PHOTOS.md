@@ -60,7 +60,7 @@
 - **Rafraîchissement** : `refetchInterval` 60 s + focus.
 - **Upload / affichage** : `POST /drive/nodes/upload` (racine `parent_id` absent) ; vignettes téléchargées avec concurrence limitée pour éviter le rate-limit gateway ; HEIC/HEIF/AVIF typés côté Drive/Web.
 
-**Suite** : albums métier (API dédiée), indicateur **état sync par photo**, chiffrement coffre verrouillé serveur (H10 suite), changement de code PIN depuis Paramètres Photos.
+**Suite** : albums métier (API dédiée), indicateur **état sync par photo**. **Coffre verrouillé** : changement de code PIN depuis Paramètres Photos **re-chiffre automatiquement** les photos verrouillées sur le serveur (`appVaultPinRotation.ts`).
 
 ---
 

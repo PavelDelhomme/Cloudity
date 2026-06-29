@@ -2860,7 +2860,7 @@ export default function DrivePage() {
                 />
               </label>
               {settingsDraft.lockEnabled ? (
-                <AppLockedPinChangeSection kind="drive" scope={driveVaultScope} appLabel="Drive" />
+                <AppLockedPinChangeSection kind="drive" scope={driveVaultScope} appLabel="Drive" accessToken={accessToken} />
               ) : null}
             </div>
             <div className="mt-5 flex justify-end gap-2">

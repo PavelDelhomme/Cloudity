@@ -73,7 +73,7 @@
 | **H8** | **Photos — actions avancées** | Archive/verrouillé serveur (`photo_archived_at`, `photo_locked_at`, endpoints `/drive/photos/*`) + sélection groupée (Archiver, Verrouiller, Corbeille) + onglets Archivé/Verrouillé réels | ☑ |
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
-| **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt` ; reste : re-chiffrement automatique des blobs après changement de PIN | 🟡 |
+| **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt`, **re-chiffrement automatique des blobs après changement de PIN** (Notes/Contacts/Drive/Photos) | ☑ |
 | **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; renforcer fortement les tests vault/E2EE (erreurs clé, tamper, rotation PIN, migration, Drive coffre) ; continuer Mail/Admin/Settings et parcours sécurité | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
 | **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
@@ -91,7 +91,7 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Unitaires backend Go** | `make test` (auth, gateway, mail, drive, …) | `reports/test-logs/<id>/` + `REPORT.md` | ☑ run `20260622-192608` |
 | **Unitaires admin Python** | `make test` (pytest admin-service) | idem | ☑ |
 | **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
-| **E2E Playwright** | `make test-e2e` / `make test-e2e-playwright` | `reports/e2e/` + logs capture | ☑ 78–80/85 (login 2 étapes, `make seed-admin` auto dans script) |
+| **E2E Playwright** | `make test-e2e` / `make test-e2e-playwright` | `reports/e2e/` + logs capture | ☑ 80/85 (5 skipped, `20260629`) |
 | **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
 | **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
