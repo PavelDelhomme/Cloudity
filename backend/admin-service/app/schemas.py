@@ -53,6 +53,17 @@ class UserUpdate(BaseModel):
     role: Optional[str] = Field(None, min_length=1, max_length=50)
 
 
+class TenantMailAccountSummary(BaseModel):
+    id: int
+    user_id: int
+    email: str
+    label: Optional[str] = None
+    alias_count: int = 0
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class AdminTwoFAResetRequest(BaseModel):
     """Step-up admin : code TOTP de l'administrateur qui effectue le reset."""
 

@@ -2117,10 +2117,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	limitPh := fmt.Sprintf("$%d", p)
 	offsetPh := fmt.Sprintf("$%d", p+1)
 	argsSel := append(args, limit, offset)
-	orderBy := "m.date_at DESC NULLS LAST, m.id DESC"
-	if ftsOrderPrefix != "" {
-		orderBy = ftsOrderPrefix + orderBy
-	}
+	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.id")
 	selectSQL := fmt.Sprintf(`
 			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
@@ -2214,10 +2211,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	limitPh := fmt.Sprintf("$%d", p)
 	offsetPh := fmt.Sprintf("$%d", p+1)
 	argsSel := append(args, limit, offset)
-	orderBy := "m.date_at DESC NULLS LAST, m.account_id DESC, m.id DESC"
-	if ftsOrderPrefix != "" {
-		orderBy = ftsOrderPrefix + orderBy
-	}
+	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.account_id, m.id")
 	selectSQL := fmt.Sprintf(`
 			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
@@ -3151,6 +3145,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		resp["user_login_email_aligned"] = true
 		resp["user_login_email"] = loginEmail
 	}
+	h.dedupeMailMessagesAfterSync(ctx, accountID)
 	h.recordMailSyncSuccess(ctx, accountID, userIDInt)
 	c.JSON(http.StatusOK, resp)
 }

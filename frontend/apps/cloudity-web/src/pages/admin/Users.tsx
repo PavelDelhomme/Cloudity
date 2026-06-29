@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../authContext'
-import { adminResetUser2FA, fetchUsersPage, updateUser } from '../../api'
+import {
+  adminResetUser2FA,
+  fetchTenantMailAccounts,
+  fetchUsersPage,
+  updateUser,
+  type TenantMailAccountSummary,
+  type UserResponse,
+} from '../../api'
 import { Badge, Button, Card, PageLayout, TBody, TableHead, TableWrapper, Td, Th } from '@cloudity/ui'
 import { PaginationControls } from '../../components/PaginationControls'
 
@@ -24,12 +31,40 @@ function formatLastLogin(value: string | null): string {
   }
 }
 
+function isDemoLoginEmail(email: string): boolean {
+  return email.trim().toLowerCase().endsWith('@cloudity.local')
+}
+
+function mailAccountsForUser(
+  userId: number,
+  byUser: Map<number, TenantMailAccountSummary[]>
+): TenantMailAccountSummary[] {
+  return byUser.get(userId) ?? []
+}
+
+function detectLoginEmailIssue(
+  user: UserResponse,
+  allMail: TenantMailAccountSummary[]
+): string | null {
+  const login = user.email.trim().toLowerCase()
+  const owner = allMail.find((m) => m.email.trim().toLowerCase() === login)
+  if (owner && owner.user_id !== user.id) {
+    return `Cet email de connexion est aussi une boîte mail du user #${owner.user_id} — compte probablement créé par erreur (alias/boîte, pas un login).`
+  }
+  const linked = allMail.filter((m) => m.user_id === user.id)
+  if (linked.length > 0 && !linked.some((m) => m.email.trim().toLowerCase() === login)) {
+    return 'Le login ne correspond à aucune boîte liée — normal si login principal ≠ boîtes gérées (ex. paul@… + candidatures@…).'
+  }
+  return null
+}
+
 export default function Users() {
   const { accessToken, tenantId } = useAuth()
   const queryClient = useQueryClient()
   const [editingUserId, setEditingUserId] = useState<number | null>(null)
   const [editingEmail, setEditingEmail] = useState('')
   const [showEmails, setShowEmails] = useState(false)
+  const [hideDemoUsers, setHideDemoUsers] = useState(true)
   const [page, setPage] = useState(0)
   const pageSize = 25
   const [resetUserId, setResetUserId] = useState<number | null>(null)
@@ -46,6 +81,22 @@ export default function Users() {
       fetchUsersPage(tenantId!, accessToken!, { skip: page * pageSize, pageSize }),
     enabled: Boolean(accessToken && tenantId != null),
   })
+
+  const { data: mailAccounts = [] } = useQuery({
+    queryKey: ['admin-mail-accounts', tenantId ?? 0],
+    queryFn: () => fetchTenantMailAccounts(tenantId!, accessToken!),
+    enabled: Boolean(accessToken && tenantId != null),
+  })
+
+  const mailByUser = useMemo(() => {
+    const map = new Map<number, TenantMailAccountSummary[]>()
+    for (const m of mailAccounts) {
+      const list = map.get(m.user_id) ?? []
+      list.push(m)
+      map.set(m.user_id, list)
+    }
+    return map
+  }, [mailAccounts])
 
   const reset2FAMutation = useMutation({
     mutationFn: (payload: { userId: number; admin_totp_code: string; reason?: string }) =>
@@ -99,7 +150,8 @@ export default function Users() {
     )
   }
 
-  const list = data?.items ?? []
+  const rawList = data?.items ?? []
+  const list = hideDemoUsers ? rawList.filter((u) => !isDemoLoginEmail(u.email)) : rawList
   const hasMore = data?.hasMore ?? false
   const canPrev = page > 0
   const canNext = hasMore
@@ -107,8 +159,19 @@ export default function Users() {
   return (
     <PageLayout
       title="Utilisateurs"
-      description="Utilisateurs du tenant actuel : identité de connexion, statut, 2FA et dernière activité connue."
+      description="Comptes de connexion Cloudity (table users) — distincts des boîtes mail liées dans l’app Mail."
     >
+      <Card className="p-4 mb-4 border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
+        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Login vs boîtes mail</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+          Un utilisateur ici possède un mot de passe Cloudity et peut se connecter. Les adresses comme{' '}
+          <span className="font-mono text-xs">candidatures@…</span> dans Mail sont des{' '}
+          <strong>boîtes liées</strong> (IMAP) — elles ne doivent pas apparaître ici sauf si quelqu’un a créé un compte
+          de connexion avec cette adresse par erreur. Les comptes <span className="font-mono text-xs">@cloudity.local</span>{' '}
+          sont des seeds/démo.
+        </p>
+      </Card>
+
       <Card className="p-4 mb-4 border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Réinitialisation 2FA (U9)</p>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
@@ -182,14 +245,22 @@ export default function Users() {
         >
           {showEmails ? 'Masquer les e-mails' : 'Afficher les e-mails'}
         </button>
+        <button
+          type="button"
+          onClick={() => setHideDemoUsers((v) => !v)}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          {hideDemoUsers ? 'Afficher comptes @cloudity.local' : 'Masquer comptes démo'}
+        </button>
         <span className="text-xs text-slate-500 dark:text-slate-400">
-          Dernière connexion = valeur exposée par l’auth-service ; « jamais » signifie qu’aucun login n’a encore été journalisé.
+          {mailAccounts.length} boîte(s) mail liée(s) sur ce tenant · colonne « Boîtes liées » = IMAP, pas login.
         </span>
       </div>
       <Card>
         <TableWrapper>
           <TableHead>
-            <Th>Email</Th>
+            <Th>Email (login)</Th>
+            <Th>Boîtes mail liées</Th>
             <Th>Rôle</Th>
             <Th>2FA</Th>
             <Th>Actif</Th>
@@ -199,110 +270,129 @@ export default function Users() {
           <TBody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
-                  Aucun utilisateur pour ce tenant.
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  Aucun utilisateur pour ce tenant{hideDemoUsers ? ' (filtre démo actif)' : ''}.
                 </td>
               </tr>
             ) : (
-              list.map((u) => (
-                <tr key={u.id}>
-                  <Td className="font-medium text-slate-900">
-                    {editingUserId === u.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="email"
-                          value={editingEmail}
-                          onChange={(e) => setEditingEmail(e.target.value)}
-                          className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-                          placeholder="nouvel-email@exemple.com"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { email: editingEmail.trim().toLowerCase() } })}
-                          disabled={updateUserMutation.isPending || !editingEmail.trim()}
-                          className="rounded-md bg-brand-600 px-2 py-1 text-xs text-white disabled:opacity-50"
-                        >
-                          Enregistrer
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingUserId(null)
-                            setEditingEmail('')
-                          }}
-                          className="rounded-md border border-slate-200 px-2 py-1 text-xs"
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span>{showEmails ? u.email : maskEmail(u.email)}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingUserId(u.id)
-                            setEditingEmail(u.email)
-                          }}
-                          className="rounded-md border border-slate-200 px-2 py-0.5 text-[11px] text-slate-600 hover:bg-slate-50"
-                        >
-                          Changer
-                        </button>
-                      </div>
-                    )}
-                  </Td>
-                  <Td className="text-slate-600">{u.role}</Td>
-                  <Td>
-                    <Badge variant={u.is_2fa_enabled ? 'success' : 'default'}>
-                      {u.is_2fa_enabled ? 'Oui' : 'Non'}
-                    </Badge>
-                    {!u.is_2fa_enabled ? (
-                      <span className="ml-2 text-xs text-amber-700 dark:text-amber-300">à activer côté utilisateur</span>
-                    ) : null}
-                  </Td>
-                  <Td>
-                    <button
-                      type="button"
-                      className="inline-flex"
-                      onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { is_active: !u.is_active } })}
-                      disabled={updateUserMutation.isPending}
-                      title={u.is_active ? 'Suspendre ce compte' : 'Réactiver ce compte'}
-                    >
-                      <Badge variant={u.is_active ? 'success' : 'error'}>
-                        {u.is_active ? 'Oui' : 'Non'}
+              list.map((u) => {
+                const linked = mailAccountsForUser(u.id, mailByUser)
+                const issue = detectLoginEmailIssue(u, mailAccounts)
+                return (
+                  <tr key={u.id}>
+                    <Td className="font-medium text-slate-900 align-top">
+                      {editingUserId === u.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="email"
+                            value={editingEmail}
+                            onChange={(e) => setEditingEmail(e.target.value)}
+                            className="w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                            placeholder="nouvel-email@exemple.com"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { email: editingEmail.trim().toLowerCase() } })}
+                            disabled={updateUserMutation.isPending || !editingEmail.trim()}
+                            className="rounded-md bg-brand-600 px-2 py-1 text-xs text-white disabled:opacity-50"
+                          >
+                            Enregistrer
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingUserId(null)
+                              setEditingEmail('')
+                            }}
+                            className="rounded-md border border-slate-200 px-2 py-1 text-xs"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{showEmails ? u.email : maskEmail(u.email)}</span>
+                            {isDemoLoginEmail(u.email) ? (
+                              <Badge variant="default">démo</Badge>
+                            ) : null}
+                            <span className="text-xs text-slate-400">#{u.id}</span>
+                          </div>
+                          {issue ? (
+                            <p className="text-xs text-amber-800 dark:text-amber-200 max-w-md leading-snug">{issue}</p>
+                          ) : null}
+                        </div>
+                      )}
+                    </Td>
+                    <Td className="align-top text-sm text-slate-600 dark:text-slate-300 max-w-xs">
+                      {linked.length === 0 ? (
+                        <span className="text-slate-400">—</span>
+                      ) : (
+                        <ul className="space-y-1">
+                          {linked.map((m) => (
+                            <li key={m.id} className="leading-snug">
+                              <span className="font-mono text-xs break-all">{showEmails ? m.email : maskEmail(m.email)}</span>
+                              {m.label ? (
+                                <span className="text-slate-500 dark:text-slate-400"> · {m.label}</span>
+                              ) : null}
+                              {m.alias_count > 0 ? (
+                                <span className="text-slate-500 dark:text-slate-400"> · {m.alias_count} alias</span>
+                              ) : null}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </Td>
+                    <Td className="text-slate-600">{u.role}</Td>
+                    <Td>
+                      <Badge variant={u.is_2fa_enabled ? 'success' : 'default'}>
+                        {u.is_2fa_enabled ? 'Oui' : 'Non'}
                       </Badge>
-                    </button>
-                  </Td>
-                  <Td className="text-slate-500 whitespace-nowrap">
-                    {formatLastLogin(u.last_login)}
-                  </Td>
-                  <Td className="text-right space-x-1">
-                    {u.is_2fa_enabled ? (
+                    </Td>
+                    <Td>
+                      <button
+                        type="button"
+                        className="inline-flex"
+                        onClick={() => updateUserMutation.mutate({ userId: u.id, patch: { is_active: !u.is_active } })}
+                        disabled={updateUserMutation.isPending}
+                        title={u.is_active ? 'Suspendre ce compte' : 'Réactiver ce compte'}
+                      >
+                        <Badge variant={u.is_active ? 'success' : 'error'}>
+                          {u.is_active ? 'Oui' : 'Non'}
+                        </Badge>
+                      </button>
+                    </Td>
+                    <Td className="text-slate-500 whitespace-nowrap align-top">
+                      {formatLastLogin(u.last_login)}
+                    </Td>
+                    <Td className="text-right space-x-1 align-top">
+                      {u.is_2fa_enabled ? (
+                        <Button
+                          variant="ghost"
+                          className="!px-2 !py-1 text-xs text-amber-800 dark:text-amber-200"
+                          onClick={() => {
+                            setResetUserId(u.id)
+                            setResetTotp('')
+                            setResetReason('')
+                          }}
+                        >
+                          Reset 2FA
+                        </Button>
+                      ) : null}
                       <Button
                         variant="ghost"
-                        className="!px-2 !py-1 text-xs text-amber-800 dark:text-amber-200"
+                        className="!px-2 !py-1 text-xs"
                         onClick={() => {
-                          setResetUserId(u.id)
-                          setResetTotp('')
-                          setResetReason('')
+                          setEditingUserId(u.id)
+                          setEditingEmail(u.email)
                         }}
                       >
-                        Reset 2FA
+                        Modifier email
                       </Button>
-                    ) : null}
-                    <Button
-                      variant="ghost"
-                      className="!px-2 !py-1 text-xs"
-                      onClick={() => {
-                        setEditingUserId(u.id)
-                        setEditingEmail(u.email)
-                      }}
-                    >
-                      Modifier email
-                    </Button>
-                  </Td>
-                </tr>
-              ))
+                    </Td>
+                  </tr>
+                )
+              })
             )}
           </TBody>
         </TableWrapper>

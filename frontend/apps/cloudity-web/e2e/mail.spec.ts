@@ -128,6 +128,64 @@ test.describe('Mail (E2E)', () => {
     expect(depthLoop).toEqual([])
   })
 
+  test('boîte en erreur sync : bannière visible (last_sync_error)', async ({ page }) => {
+    await page.route('**/mail/me/accounts', async (route, request) => {
+      if (request.method() !== 'GET') return route.continue()
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 1,
+            user_id: 1,
+            tenant_id: 1,
+            email: 'test@example.com',
+            label: 'Test',
+            imap_auth_ready: false,
+            last_sync_error: 'mot de passe IMAP refusé',
+            imap_host: 'imap.example.com',
+            imap_port: 993,
+            smtp_host: 'smtp.example.com',
+            smtp_port: 587,
+          },
+        ]),
+      })
+    })
+    await page.route('**/mail/me/accounts/1/messages?*', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ messages: [], total: 0 }) })
+    )
+    await page.route('**/mail/me/accounts/1/imap-folders', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    )
+    await page.route('**/mail/me/accounts/1/folder-summary', async (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          inbox: { total: 0, unread: 0 },
+          sent: { total: 0, unread: 0 },
+          drafts: { total: 0, unread: 0 },
+          archive: { total: 0, unread: 0 },
+          spam: { total: 0, unread: 0 },
+          trash: { total: 0, unread: 0 },
+          extra: [],
+        }),
+      })
+    )
+    await page.route('**/mail/me/accounts/1/tags', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    )
+    await page.route('**/mail/me/accounts/1/rules', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    )
+    await page.route('**/mail/me/accounts/1/aliases', async (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    )
+    await page.goto('/app/mail')
+    await expect(page.getByRole('heading', { name: 'Mail' })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/mot de passe IMAP|synchronisation|sync/i).first()).toBeVisible({ timeout: 8000 })
+  })
+
   test('règles Mail : création combinée (from + subject + PJ) envoie le bon payload', async ({ page }) => {
     await mockMailRulesStack(page)
     let captured: any = null

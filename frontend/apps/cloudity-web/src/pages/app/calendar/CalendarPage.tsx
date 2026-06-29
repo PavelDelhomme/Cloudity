@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ListTodo, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Card } from '@cloudity/ui'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
 import CalendarTimeGrid from '../../../components/CalendarTimeGrid'
@@ -31,11 +32,16 @@ import {
   dayKey,
 } from '../../../lib/calendarGrid'
 import { TIME_GUTTER_PX } from '../../../lib/calendarTimeGrid'
+import {
+  loadCalendarViewState,
+  saveCalendarViewState,
+  type CalView,
+} from './calendarAppPreferences'
 
 const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
 const MINI_WEEK_HEADERS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
 
-export type CalView = 'day' | '3day' | '5day' | 'week' | '12weeks' | 'month' | 'year' | 'agenda'
+export type { CalView }
 
 function viewNavLabel(calView: CalView, anchor: Date): string {
   switch (calView) {
@@ -114,10 +120,11 @@ const VIEW_MENU_ITEMS: { id: CalView; label: string; hint?: string }[] = [
 ]
 
 export default function CalendarPage() {
-  const { accessToken, logout } = useAuth()
+  const { accessToken, logout, tenantId, email: authLoginEmail } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [anchor, setAnchor] = useState(() => new Date())
+  const [calViewHydrated, setCalViewHydrated] = useState(false)
   const [calView, setCalView] = useState<CalView>('week')
   const [selectedCalendarId, setSelectedCalendarId] = useState<number | null>(null)
   const [pickedDay, setPickedDay] = useState<Date | null>(null)
@@ -143,10 +150,27 @@ export default function CalendarPage() {
   })
 
   useEffect(() => {
-    if (!calLoading && calendars.length === 1 && selectedCalendarId === null) {
+    const saved = loadCalendarViewState(tenantId, authLoginEmail)
+    setCalView(saved.calView)
+    setSelectedCalendarId(saved.selectedCalendarId)
+    setCalViewHydrated(true)
+  }, [tenantId, authLoginEmail])
+
+  useEffect(() => {
+    if (!calViewHydrated) return
+    saveCalendarViewState(tenantId, authLoginEmail, { calView, selectedCalendarId })
+  }, [calViewHydrated, tenantId, authLoginEmail, calView, selectedCalendarId])
+
+  useEffect(() => {
+    if (!calViewHydrated || calLoading) return
+    if (calendars.length === 1 && selectedCalendarId === null) {
       setSelectedCalendarId(calendars[0].id)
+      return
     }
-  }, [calLoading, calendars, selectedCalendarId])
+    if (selectedCalendarId != null && !calendars.some((c) => c.id === selectedCalendarId)) {
+      setSelectedCalendarId(null)
+    }
+  }, [calViewHydrated, calLoading, calendars, selectedCalendarId])
 
   const { data: events = [], isLoading: evLoading, error } = useQuery({
     queryKey: ['calendar', 'events', selectedCalendarId],
@@ -541,6 +565,7 @@ export default function CalendarPage() {
           ))}
         </div>
         <div className="mt-3 space-y-2 border-t border-[#dadce0] pt-3 dark:border-slate-700">
+          <Card className="p-3 border-[#dadce0] dark:border-slate-600 bg-[#fafafa] dark:bg-slate-800/50 shadow-none">
           <p className="text-xs font-medium text-[#5f6368] dark:text-slate-400">Nouvel agenda</p>
           <input
             value={newCalName}
@@ -557,6 +582,7 @@ export default function CalendarPage() {
           >
             {createCalMutation.isPending ? '…' : 'Créer'}
           </button>
+          </Card>
         </div>
       </aside>
 

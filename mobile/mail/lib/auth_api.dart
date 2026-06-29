@@ -248,12 +248,15 @@ class AuthApi {
   Future<int> syncMailAccount({
     required String accessToken,
     required int accountId,
+    String? password,
   }) async {
     final uri = Uri.parse('$_base/mail/me/accounts/$accountId/sync');
+    final body = <String, dynamic>{};
+    if (password != null) body['password'] = password;
     final res = await http.post(
       uri,
       headers: authHeaders(accessToken),
-      body: jsonEncode({'password': ''}),
+      body: jsonEncode(body.isEmpty ? {'password': ''} : body),
     );
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');

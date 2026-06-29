@@ -101,6 +101,19 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☑ run `20260622-192608` |
 | **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
 
+**Par bloc applicatif** (objectif : couverture unit + E2E/BDD documentée) :
+
+| Bloc | Unitaires | E2E / intégration | Revu |
+|------|-----------|-------------------|------|
+| **Mail web** | Vitest `mailViewPreferences`, `mailSyncHelpers`, `MailPage` | Playwright boîte sync erreur | 🟡 prefs ☑ |
+| **Mail mobile** | `mail_view_preferences`, `mail_account_helpers` | device inbox + resaisie MDP | 🟡 prefs ☑ |
+| **Drive / Photos** | Go + Vitest pages | Playwright upload / vault | ☐ |
+| **Pass / vault** | `appVaultPinRotation`, extension | E2E rotation PIN | 🟡 partiel |
+| **Calendar** | `calendarAppPreferences` | Playwright création événement | 🟡 prefs ☑ |
+| **Contacts / Tâches** | Vitest composants | Playwright CRUD | ☐ |
+| **Admin OTA** | — | manuel manifeste + CI | 🟡 page + script `publish-mobile-manifest.sh` ☑ |
+| **Drive auth partagé** | — | lien email, PIN dossier, 2FA fichier | ☐ voir BACKLOG DRIVE-SHARE |
+
 **Automatisation souhaitée** : `make progress-recap` (STATUS/TODOS/BACKLOG + dernier `REPORT.md`) · email si `PROGRESS_EMAIL_TO` dans `.env`.
 
 **Logs conteneurs à interpréter** (souvent visibles dans `make logs` ou `reports/container-logs/`) :
@@ -245,7 +258,9 @@ Correctifs :
 - **H8** : migration `43-drive-photos-archive-locked.sql` ; endpoints `/drive/photos/*` ; onglets Archivé/Verrouillé réels ; sélection groupée.
 - **H9 (Photos)** : `Paramètres Photos` + `photosAppSettings.ts` (grille, dates, confirmations).
 - **UX** : coche par date, menu contextuel, garde anti-import sur drag interne.
-- **Mail** : persistance dernière boîte sélectionnée (`cloudity_mail_selected_account_id`).
+- **Mail** : persistance vue Mail scopée (`cloudity.mail.view.v1:{tenant}:{email}`) — dernière boîte **et** dossier (dont `unified`) ; mobile `MailViewPreferences`.
+- **Calendar** : persistance vue + agenda (`calendarAppPreferences.ts`).
+- **Admin** : encart « Distribution mobile & OTA » sur le tableau de bord (checklist REL-*).
 - Checks : `go test` drive/photos-service ✅ ; Vitest PhotosPage (16) + MailPage (32) ✅.
 
 ### Incident Photos mobile — app installée mais bloquée au chargement (2026-05-21)

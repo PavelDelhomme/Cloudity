@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Key, Trash2, Plus } from 'lucide-react'
@@ -80,9 +81,22 @@ export default function Passkeys() {
   return (
     <PageLayout
       title="Passkeys / WebAuthn"
-      description="Phase W1 — passkeys phishing-resistant pour les comptes /4dm1n. Voir docs/securite/WEBAUTHN-PLAN.md."
+      description="Gestion des passkeys du compte connecté — chaque utilisateur gère les siennes dans Paramètres app."
     >
-      <Card className="max-w-3xl border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/20">
+      <Card className="max-w-3xl border-brand-200 dark:border-brand-800 bg-brand-50/50 dark:bg-brand-950/20">
+        <div className="p-4 text-sm text-slate-800 dark:text-slate-100">
+          <p className="font-semibold">Parcours recommandé</p>
+          <p className="mt-1 leading-relaxed">
+            Tous les utilisateurs (admin ou non) enregistrent leurs passkeys dans{' '}
+            <Link to="/app/settings" className="text-brand-600 dark:text-brand-400 font-medium hover:underline">
+              Paramètres → Sécurité — Passkeys
+            </Link>
+            . Cette page admin est un raccourci pour le compte actuellement connecté au back-office.
+          </p>
+        </div>
+      </Card>
+
+      <Card className="max-w-3xl mt-4 border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/20">
         <div className="p-4 text-sm text-blue-950 dark:text-blue-100">
           <p className="font-semibold">Ce que cette page couvre aujourd’hui</p>
           <p className="mt-1">

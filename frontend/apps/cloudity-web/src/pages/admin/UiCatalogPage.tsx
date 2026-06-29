@@ -26,8 +26,15 @@ export default function UiCatalogPage() {
   return (
     <ResponsivePage
       title="Catalogue UI"
-      description="Primitives @cloudity/ui — usage interne back-office."
+      description="Primitives @cloudity/ui — référence pour web et mobile ; personnalisation globale à brancher."
     >
+      <Card className="p-4 border-dashed border-slate-300 dark:border-slate-600">
+        <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed">
+          Roadmap : feature flags par composant (activer/désactiver variantes, densité, thème par app) persistés côté tenant
+          — pour converger web + mobile sur une seule logique. Aujourd’hui : vitrine des composants ; les apps consomment{' '}
+          <code className="text-xs bg-slate-100 dark:bg-slate-800 px-1 rounded">@cloudity/ui</code> directement.
+        </p>
+      </Card>
       <ResponsiveGrid>
         <ResponsivePanel title="Boutons">
           <ResponsiveToolbar>

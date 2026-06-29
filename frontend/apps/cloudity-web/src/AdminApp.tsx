@@ -9,7 +9,7 @@ import Dashboard from './pages/admin/Dashboard'
 import TenantsPage from './pages/admin/Tenants'
 import UsersPage from './pages/admin/Users'
 import SettingsPage from './pages/admin/Settings'
-import VaultsPage from './pages/admin/Vaults'
+import MobileDistributionPage from './pages/admin/MobileDistributionPage'
 import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
 import PasskeysPage from './pages/admin/Passkeys'
@@ -40,7 +40,7 @@ export function AdminAppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="tenants" element={<TenantsPage />} />
         <Route path="users" element={<UsersPage />} />
-        <Route path="vaults" element={<VaultsPage />} />
+        <Route path="mobile-distribution" element={<MobileDistributionPage />} />
         <Route path="domaines" element={<DomainesPage />} />
         <Route path="securite-cve" element={<SecurityCvePage />} />
         <Route path="passkeys" element={<PasskeysPage />} />

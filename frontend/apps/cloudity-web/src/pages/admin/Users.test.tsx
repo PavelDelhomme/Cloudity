@@ -8,7 +8,12 @@ import { useAuth } from '../../authContext'
 import * as api from '../../api'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../api', () => ({ fetchUsersPage: vi.fn(), updateUser: vi.fn(), adminResetUser2FA: vi.fn() }))
+vi.mock('../../api', () => ({
+  fetchUsersPage: vi.fn(),
+  fetchTenantMailAccounts: vi.fn(),
+  updateUser: vi.fn(),
+  adminResetUser2FA: vi.fn(),
+}))
 
 const mockUsers = [
   {
@@ -32,6 +37,7 @@ function wrap(ui: React.ReactElement) {
 describe('UsersPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(api.fetchTenantMailAccounts).mockResolvedValue([])
     vi.mocked(useAuth as ReturnType<typeof vi.fn>).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,

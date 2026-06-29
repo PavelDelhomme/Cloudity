@@ -114,6 +114,9 @@ class SessionStore {
   static Future<List<CloudityAuthAccount>> listBrokerAccounts() =>
       CloudityAuthBroker.listAccounts();
 
+  static Future<String?> readAccountEmail() =>
+      _secure.read(key: CloudityStorageKeys.accountEmail);
+
   static Future<({AuthApi api, String access, String refresh})?> loadValidatedSession() async {
     final prefs = await SharedPreferences.getInstance();
     var gateway =

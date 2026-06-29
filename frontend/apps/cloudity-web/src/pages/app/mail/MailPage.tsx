@@ -68,6 +68,15 @@ import {
   markMailSyncPasswordPrompted,
   shouldPromptMailSyncPassword,
 } from './mailSyncHelpers'
+import { loadMailViewState, saveMailViewState } from './mailViewPreferences'
+import {
+  loadMailAccountOrder,
+  loadMailListSortOrder,
+  saveMailAccountOrder,
+  saveMailListSortOrder,
+  sortMailAccountsByUserOrder,
+  type MailListSortOrder,
+} from './mailAccountOrderPreferences'
 import { notifyMailSyncFailure } from '../../../lib/mailNotifySyncFailure'
 import { useNotifications } from '../../../notificationsContext'
 import {
@@ -145,7 +154,6 @@ const STORAGE_SIDEBAR_WIDTH_PX = 'cloudity_mail_sidebar_width_px'
 const STORAGE_LIST_SPLIT_PCT = 'cloudity_mail_list_split_pct'
 const STORAGE_MAIL_SHOW_FULL_HEADERS = 'cloudity_mail_show_full_headers'
 const STORAGE_MAIL_BULK_TAG_SELECTION = 'cloudity_mail_bulk_tag_selection'
-const STORAGE_MAIL_SELECTED_ACCOUNT_ID = 'cloudity_mail_selected_account_id'
 const MAIL_SIDEBAR_MIN_PX = 200
 const MAIL_SIDEBAR_MAX_PX = 560
 const MAIL_LIST_PREVIEW_MIN_PCT = 12
@@ -251,26 +259,6 @@ function getMailShowFullHeaders(): boolean {
 function saveMailShowFullHeaders(on: boolean): void {
   try {
     localStorage.setItem(STORAGE_MAIL_SHOW_FULL_HEADERS, on ? '1' : '0')
-  } catch {
-    /* ignore */
-  }
-}
-
-function getSavedMailSelectedAccountId(): number | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID)
-    if (!raw) return null
-    const n = Number.parseInt(raw, 10)
-    return Number.isFinite(n) && n > 0 ? n : null
-  } catch {
-    return null
-  }
-}
-
-function saveMailSelectedAccountId(accountId: number | null): void {
-  try {
-    if (accountId == null) localStorage.removeItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID)
-    else localStorage.setItem(STORAGE_MAIL_SELECTED_ACCOUNT_ID, String(accountId))
   } catch {
     /* ignore */
   }
@@ -599,6 +587,42 @@ function scheduledFolderSidebarBadge(summary: MailFolderSummaryResponse | undefi
   return t > 0 ? String(t) : null
 }
 
+function folderStatSubtitle(
+  id: MailStandardFolderId,
+  summary: MailFolderSummaryResponse | undefined
+): string | null {
+  const s = summary?.[id]
+  if (!s || (s.total === 0 && s.unread === 0)) return 'Vide'
+  const parts: string[] = []
+  if (s.total > 0) parts.push(`${s.total} message${s.total > 1 ? 's' : ''}`)
+  if (s.unread > 0 && (id === 'inbox' || id === 'spam')) {
+    parts.push(`${s.unread} non lu${s.unread > 1 ? 's' : ''}`)
+  }
+  return parts.join(' · ')
+}
+
+function extraFolderStatSubtitle(
+  imapPath: string,
+  summary: MailFolderSummaryResponse | undefined,
+  row: MailImapFolderRow
+): string {
+  const stat = summary?.extra?.find((e) => e.folder === imapPath)
+  const parts: string[] = []
+  if (row.user_created) parts.push('Créé dans Cloudity')
+  else if (row.imap_special_use?.trim()) parts.push(`Rôle IMAP : ${row.imap_special_use.trim()}`)
+  else parts.push('Récupéré depuis le serveur')
+  if (stat) {
+    if (stat.unread > 0) parts.push(`${stat.unread} non lu${stat.unread > 1 ? 's' : ''}`)
+    else if (stat.total > 0) parts.push(`${stat.total} message${stat.total > 1 ? 's' : ''}`)
+    else parts.push('Vide')
+  } else {
+    parts.push('En attente de sync')
+  }
+  const label = row.label?.trim()
+  if (label && label.toLowerCase() !== imapPath.toLowerCase()) parts.push(imapPath)
+  return parts.join(' · ')
+}
+
 type AttachmentFromDrive = { nodeId: number; name: string; size: number }
 
 export type ComposeSlot = {
@@ -615,6 +639,15 @@ export type ComposeSlot = {
   attachments: AttachmentFromDrive[]
   /** Position horizontale depuis la droite (desktop), pour glisser la fenêtre en bas. */
   xOffsetPx: number
+  /** Date/heure d'envoi programmé (datetime-local) — appliquée avant confirmation d'envoi. */
+  scheduledSendAtLocal?: string
+}
+
+function mailMessageDisplayFingerprint(m: { account_id: number; folder?: string; from?: string; subject?: string; date_at?: string; created_at?: string }): string {
+  const from = (m.from ?? '').trim().toLowerCase()
+  const subject = (m.subject ?? '').trim().toLowerCase()
+  const d = (m.date_at ?? m.created_at ?? '').slice(0, 16)
+  return `${m.account_id}|${(m.folder ?? '').toLowerCase()}|${from}|${subject}|${d}`
 }
 
 function escapeHtml(s: string): string {
@@ -1061,13 +1094,14 @@ export default function MailPage() {
   const [connectPassword, setConnectPassword] = useState('')
   const [connectLabel, setConnectLabel] = useState('')
   const [connectingAndSyncing, setConnectingAndSyncing] = useState(false)
+  const [mailViewHydrated, setMailViewHydrated] = useState(false)
   const [activeFolder, setActiveFolder] = useState<MailFolderId>('inbox')
   const [filterTagId, setFilterTagId] = useState<number | null>(null)
   /** Filtre liste : même `thread_key` que le serveur (conversation). */
   const [conversationThreadKey, setConversationThreadKey] = useState<string | null>(null)
   /** Regroupe la liste par fil (1 ligne par conversation) — toujours actif. */
   const conversationListMode = true
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(() => getSavedMailSelectedAccountId())
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
   const [composeSlots, setComposeSlots] = useState<ComposeSlot[]>([])
   const [activeComposeId, setActiveComposeId] = useState<string | null>(null)
   const [scheduleModalForSlotId, setScheduleModalForSlotId] = useState<string | null>(null)
@@ -1090,6 +1124,10 @@ export default function MailPage() {
   const [mailSearchWithAttachmentsOnly, setMailSearchWithAttachmentsOnly] = useState(false)
   /** Avec recherche serveur (`q`) : tri par pertinence (défaut) ou date pure. */
   const [mailSearchSort, setMailSearchSort] = useState<'rank' | 'date'>('rank')
+  const [messageListOrder, setMessageListOrder] = useState<MailListSortOrder>(() =>
+    loadMailListSortOrder(undefined, undefined, 'inbox')
+  )
+  const [accountOrder, setAccountOrder] = useState<number[]>([])
   const [mailSearchPopoverOpen, setMailSearchPopoverOpen] = useState(false)
   const mailSearchPopoverRef = useRef<HTMLDivElement | null>(null)
   const mailSearchInputRef = useRef<HTMLInputElement | null>(null)
@@ -1249,8 +1287,12 @@ export default function MailPage() {
   })
   const googleOAuthEnabled = googleOAuthStatus?.enabled === true
   const accounts = Array.isArray(accountsData) ? accountsData : (accountsData ?? [])
-  const accountsRef = useRef(accounts)
-  accountsRef.current = accounts
+  const sortedAccounts = useMemo(
+    () => sortMailAccountsByUserOrder(accounts, accountOrder),
+    [accounts, accountOrder]
+  )
+  const accountsRef = useRef(sortedAccounts)
+  accountsRef.current = sortedAccounts
   const accountIdsFingerprint = useMemo(
     () =>
       accounts
@@ -1261,25 +1303,70 @@ export default function MailPage() {
   )
   const is404 = accountsError && accountsErrorDetail instanceof Error && accountsErrorDetail.message.includes('404')
 
+  useEffect(() => {
+    if (accounts.length === 0) {
+      setAccountOrder([])
+      return
+    }
+    const saved = loadMailAccountOrder(tenantId, authLoginEmail)
+    const idSet = new Set(accounts.map((a) => a.id))
+    const ordered = saved.filter((id) => idSet.has(id))
+    for (const a of accounts) {
+      if (!ordered.includes(a.id)) ordered.push(a.id)
+    }
+    setAccountOrder(ordered)
+  }, [accountIdsFingerprint, tenantId, authLoginEmail, accounts])
+
+  useEffect(() => {
+    setMessageListOrder(loadMailListSortOrder(tenantId, authLoginEmail, activeFolder))
+  }, [tenantId, authLoginEmail, activeFolder])
+
+  useEffect(() => {
+    saveMailListSortOrder(tenantId, authLoginEmail, activeFolder, messageListOrder)
+  }, [tenantId, authLoginEmail, activeFolder, messageListOrder])
+
+  const moveMailAccount = useCallback(
+    (accountId: number, direction: -1 | 1) => {
+      const ids = sortedAccounts.map((a) => a.id)
+      const idx = ids.indexOf(accountId)
+      if (idx < 0) return
+      const next = idx + direction
+      if (next < 0 || next >= ids.length) return
+      const swapped = [...ids]
+      ;[swapped[idx], swapped[next]] = [swapped[next], swapped[idx]]
+      setAccountOrder(swapped)
+      saveMailAccountOrder(tenantId, authLoginEmail, swapped)
+    },
+    [sortedAccounts, tenantId, authLoginEmail]
+  )
+
   const effectiveAccountId = useMemo(() => {
-    if (accounts.length === 0) return selectedAccountId
-    if (selectedAccountId != null && accounts.some((a) => a.id === selectedAccountId)) {
+    if (sortedAccounts.length === 0) return selectedAccountId
+    if (selectedAccountId != null && sortedAccounts.some((a) => a.id === selectedAccountId)) {
       return selectedAccountId
     }
-    const loginMatch = accounts.find((a) => isMailboxSameAsLoginEmail(a.email, authLoginEmail))
-    return loginMatch?.id ?? accounts[0]?.id ?? null
-  }, [accounts, selectedAccountId, authLoginEmail])
+    const loginMatch = sortedAccounts.find((a) => isMailboxSameAsLoginEmail(a.email, authLoginEmail))
+    return loginMatch?.id ?? sortedAccounts[0]?.id ?? null
+  }, [sortedAccounts, selectedAccountId, authLoginEmail])
 
   useEffect(() => {
-    saveMailSelectedAccountId(selectedAccountId)
-  }, [selectedAccountId])
+    const saved = loadMailViewState(tenantId, authLoginEmail)
+    setSelectedAccountId(saved.accountId)
+    setActiveFolder(saved.folder)
+    setMailViewHydrated(true)
+  }, [tenantId, authLoginEmail])
 
   useEffect(() => {
-    if (accounts.length === 0 || selectedAccountId == null) return
+    if (!mailViewHydrated) return
+    saveMailViewState(tenantId, authLoginEmail, { accountId: selectedAccountId, folder: activeFolder })
+  }, [mailViewHydrated, tenantId, authLoginEmail, selectedAccountId, activeFolder])
+
+  useEffect(() => {
+    if (!mailViewHydrated || accounts.length === 0 || selectedAccountId == null) return
     if (!accounts.some((a) => a.id === selectedAccountId)) {
       setSelectedAccountId(null)
     }
-  }, [accounts, selectedAccountId])
+  }, [mailViewHydrated, accounts, selectedAccountId])
 
   const activeFolderRef = useRef(activeFolder)
   const effectiveAccountIdRef = useRef(effectiveAccountId)
@@ -1703,6 +1790,7 @@ export default function MailPage() {
       conversationThreadKey,
       mailServerSearchQ,
       mailSearchSort,
+      messageListOrder,
     ],
     queryFn: () =>
       isUnifiedFolder
@@ -1712,6 +1800,7 @@ export default function MailPage() {
             ...(recipientAliasFilter ? { delivered_to: recipientAliasFilter } : {}),
             ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
             ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
+            order: messageListOrder,
           })
         : fetchMailMessages(accessToken!, effectiveAccountId!, activeFolder, {
             limit: MESSAGES_PAGE_SIZE,
@@ -1720,6 +1809,7 @@ export default function MailPage() {
             ...(filterTagId != null && filterTagId > 0 ? { tag_id: filterTagId } : {}),
             ...(conversationThreadKey ? { thread_key: conversationThreadKey } : {}),
             ...(mailServerSearchQ ? { q: mailServerSearchQ, sort: mailSearchSort } : {}),
+            order: messageListOrder,
           }),
     enabled: !!accessToken && (isUnifiedFolder ? accounts.length > 0 : effectiveAccountId != null),
     refetchOnWindowFocus: true,
@@ -1729,7 +1819,7 @@ export default function MailPage() {
 
   useEffect(() => {
     setMessagePage(0)
-  }, [mailServerSearchQ, mailSearchSort, activeFolder, effectiveAccountId, conversationThreadKey, recipientAliasFilter, filterTagId, isUnifiedFolder])
+  }, [mailServerSearchQ, mailSearchSort, messageListOrder, activeFolder, effectiveAccountId, conversationThreadKey, recipientAliasFilter, filterTagId, isUnifiedFolder])
 
   const visibleMessages = useMemo(() => {
     const parsed = mailSearchParsed
@@ -1778,18 +1868,29 @@ export default function MailPage() {
     similarSenderFilter,
     mailTags,
   ])
+  const dedupedVisibleMessages = useMemo(() => {
+    const seen = new Set<string>()
+    const out: typeof visibleMessages = []
+    for (const m of visibleMessages) {
+      const fp = mailMessageDisplayFingerprint(m)
+      if (seen.has(fp)) continue
+      seen.add(fp)
+      out.push(m)
+    }
+    return out
+  }, [visibleMessages])
   const threadCountByKey = useMemo(() => {
     const byKey = new Map<string, number>()
-    for (const m of visibleMessages) {
+    for (const m of dedupedVisibleMessages) {
       const key = (m.thread_key || '').trim() || `msg:${m.id}`
       byKey.set(key, (byKey.get(key) ?? 0) + 1)
     }
     return byKey
-  }, [visibleMessages])
+  }, [dedupedVisibleMessages])
   const listMessages = useMemo(() => {
-    if (!conversationListMode || conversationThreadKey) return visibleMessages
-    const bestByKey = new Map<string, (typeof visibleMessages)[number]>()
-    for (const m of visibleMessages) {
+    if (!conversationListMode || conversationThreadKey) return dedupedVisibleMessages
+    const bestByKey = new Map<string, (typeof dedupedVisibleMessages)[number]>()
+    for (const m of dedupedVisibleMessages) {
       const key = (m.thread_key || '').trim() || `msg:${m.id}`
       const prev = bestByKey.get(key)
       if (!prev) {
@@ -1801,7 +1902,7 @@ export default function MailPage() {
       if (curDate >= prevDate) bestByKey.set(key, m)
     }
     return Array.from(bestByKey.values())
-  }, [visibleMessages, conversationListMode, conversationThreadKey])
+  }, [dedupedVisibleMessages, conversationListMode, conversationThreadKey])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
@@ -3771,13 +3872,14 @@ export default function MailPage() {
         toast.error('Aucun compte mail sélectionné')
         return
       }
-      const localDate = new Date(scheduledAtOverride ?? '')
+      const whenLocal = scheduledAtOverride ?? slot.scheduledSendAtLocal ?? ''
+      const localDate = new Date(whenLocal)
       if (Number.isNaN(localDate.getTime())) {
-        toast.error('Date invalide')
+        toast.error('Date invalide — choisissez une date via « Choisir la date »')
         return
       }
-      if (localDate.getTime() <= Date.now() + 30_000) {
-        toast.error("Choisissez une date d'envoi dans le futur")
+      if (localDate.getTime() <= Date.now() + 60_000) {
+        toast.error("Choisissez une date d'envoi au moins 1 minute dans le futur")
         return
       }
       setSending(true)
@@ -3799,6 +3901,7 @@ export default function MailPage() {
         toast.success('Envoi programmé')
         void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
         void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        updateSlot(slot.id, { scheduledSendAtLocal: undefined })
         closeSlot(slot.id)
         setScheduleModalForSlotId(null)
         setScheduledLocalDateTime('')
@@ -3808,19 +3911,43 @@ export default function MailPage() {
         setSending(false)
       }
     },
-    [activeSlot, composeSlots, effectiveAccountId, accessToken, queryClient, closeSlot]
+    [activeSlot, composeSlots, effectiveAccountId, accessToken, queryClient, closeSlot, updateSlot]
   )
 
-  const openScheduleModal = useCallback((slotId: string) => {
-    const defaultLocal = new Date(Date.now() + 60 * 60 * 1000)
-    const yyyy = defaultLocal.getFullYear()
-    const mm = String(defaultLocal.getMonth() + 1).padStart(2, '0')
-    const dd = String(defaultLocal.getDate()).padStart(2, '0')
-    const hh = String(defaultLocal.getHours()).padStart(2, '0')
-    const mi = String(defaultLocal.getMinutes()).padStart(2, '0')
-    setScheduledLocalDateTime(`${yyyy}-${mm}-${dd}T${hh}:${mi}`)
-    setScheduleModalForSlotId(slotId)
-  }, [])
+  const applyScheduleDateToSlot = useCallback(
+    (slotId: string, localDateTime: string) => {
+      if (!localDateTime.trim()) return
+      const localDate = new Date(localDateTime)
+      if (Number.isNaN(localDate.getTime())) {
+        toast.error('Date invalide')
+        return
+      }
+      updateSlot(slotId, { scheduledSendAtLocal: localDateTime })
+      setScheduleModalForSlotId(null)
+      setScheduledLocalDateTime('')
+      toast.success(`Envoi prévu le ${localDate.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`)
+    },
+    [updateSlot]
+  )
+
+  const openScheduleModal = useCallback(
+    (slotId: string) => {
+      const slot = composeSlots.find((s) => s.id === slotId)
+      if (slot?.scheduledSendAtLocal) {
+        setScheduledLocalDateTime(slot.scheduledSendAtLocal)
+      } else {
+        const defaultLocal = new Date(Date.now() + 60 * 60 * 1000)
+        const yyyy = defaultLocal.getFullYear()
+        const mm = String(defaultLocal.getMonth() + 1).padStart(2, '0')
+        const dd = String(defaultLocal.getDate()).padStart(2, '0')
+        const hh = String(defaultLocal.getHours()).padStart(2, '0')
+        const mi = String(defaultLocal.getMinutes()).padStart(2, '0')
+        setScheduledLocalDateTime(`${yyyy}-${mm}-${dd}T${hh}:${mi}`)
+      }
+      setScheduleModalForSlotId(slotId)
+    },
+    [composeSlots]
+  )
 
   const tagMenuAccountMatches = useCallback(
     () => activeFolder !== 'unified' && contextMenuMessage?.account_id === effectiveAccountId,
@@ -4113,13 +4240,12 @@ export default function MailPage() {
               {!sidebarCollapsed && <p className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Boîtes mail</p>}
               {sidebarCollapsed ? (
                 <div className="flex flex-col gap-1.5 items-center">
-                  {accounts.map((acc) => (
+                  {sortedAccounts.map((acc) => (
                     <button
                       key={acc.id}
                       type="button"
                       onClick={() => {
                         setSelectedAccountId(acc.id)
-                        setActiveFolder('inbox')
                         setRecipientAliasFilter(null)
                       }}
                       className={`rounded-lg p-2 w-full flex justify-center ${
@@ -4171,18 +4297,39 @@ export default function MailPage() {
                       </span>
                     </button>
                   ) : null}
-                  {mailboxesListExpanded && accounts.length > 0 ? (
+                  {mailboxesListExpanded && sortedAccounts.length > 0 ? (
                     <div className="flex flex-col gap-1.5">
-                      {accounts.map((acc) => {
-                        const isUnifiedScope = activeFolder === 'unified' && accounts.length > 1
+                      {sortedAccounts.map((acc, accIdx) => {
+                        const isUnifiedScope = activeFolder === 'unified' && sortedAccounts.length > 1
                         const isAccountSelected = !isUnifiedScope && effectiveAccountId === acc.id
                         return (
                           <div key={acc.id} className="group flex items-stretch gap-0.5 min-w-0 w-full">
+                            <div className="flex flex-col shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                              <button
+                                type="button"
+                                disabled={accIdx === 0}
+                                onClick={() => moveMailAccount(acc.id, -1)}
+                                className="rounded-t-lg px-1 py-0.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                                title="Monter la boîte"
+                                aria-label="Monter la boîte"
+                              >
+                                <ArrowUp className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={accIdx === sortedAccounts.length - 1}
+                                onClick={() => moveMailAccount(acc.id, 1)}
+                                className="rounded-b-lg px-1 py-0.5 text-slate-500 hover:bg-slate-100 disabled:opacity-30"
+                                title="Descendre la boîte"
+                                aria-label="Descendre la boîte"
+                              >
+                                <ArrowDown className="h-3 w-3" />
+                              </button>
+                            </div>
                             <button
                               type="button"
                               onClick={() => {
                                 setSelectedAccountId(acc.id)
-                                setActiveFolder('inbox')
                                 setRecipientAliasFilter(null)
                                 setMailboxesListExpanded(false)
                               }}
@@ -4362,6 +4509,11 @@ export default function MailPage() {
                   ) : null}
                 </div>
               )}
+              {!sidebarCollapsed ? (
+                <p className="px-2 mb-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Vues
+                </p>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -4394,8 +4546,14 @@ export default function MailPage() {
                   </span>
                 ) : null}
               </button>
+              {!sidebarCollapsed ? (
+                <p className="px-2 mt-2 mb-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  Dossiers standard
+                </p>
+              ) : null}
               {FOLDERS.map(({ id, label, icon: Icon }) => {
                 const badge = folderSidebarBadge(id, folderSummary, composeSlots.length)
+                const subtitle = folderStatSubtitle(id, folderSummary)
                 return (
                   <button
                     key={id}
@@ -4406,12 +4564,21 @@ export default function MailPage() {
                     }`}
                     title={
                       sidebarCollapsed
-                        ? `${label}${badge ? ` (${badge})` : ''} — réception/spam : non lus ; brouillons/corbeille : total`
-                        : undefined
+                        ? `${label}${badge ? ` (${badge})` : ''}${subtitle ? ` — ${subtitle}` : ''}`
+                        : subtitle ?? undefined
                     }
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    {!sidebarCollapsed && <span className="flex-1 text-left truncate">{label}</span>}
+                    {!sidebarCollapsed && (
+                      <span className="flex-1 text-left truncate min-w-0">
+                        {label}
+                        {subtitle ? (
+                          <span className="block text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal truncate">
+                            {subtitle}
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
                     {!sidebarCollapsed && badge ? (
                       <span className="tabular-nums text-[11px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-200/90 dark:bg-slate-600/80 px-1.5 py-0.5 rounded-md min-w-[1.35rem] text-center shrink-0">
                         {badge}
@@ -4445,11 +4612,15 @@ export default function MailPage() {
               })()}
               {!sidebarCollapsed && customImapSidebarRows.length > 0 ? (
                 <p className="px-2 mt-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-                  Autres dossiers (IMAP)
+                  Dossiers personnalisés
+                  <span className="ml-1 font-normal normal-case tracking-normal text-slate-400 dark:text-slate-500">
+                    ({customImapSidebarRows.length})
+                  </span>
                 </p>
               ) : null}
               {customImapSidebarRows.map((row) => {
                 const badge = extraFolderSidebarBadge(row.imap_path, folderSummary)
+                const subtitle = extraFolderStatSubtitle(row.imap_path, folderSummary, row)
                 const delim = row.delimiter || '.'
                 const depth = Math.max(0, row.imap_path.split(delim).filter((s) => s.length > 0).length - 2)
                 const iconTxt = (row.ui_icon ?? '').trim()
@@ -4469,7 +4640,7 @@ export default function MailPage() {
                         ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
                         : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
                     }`}
-                    title={sidebarCollapsed ? row.imap_path : undefined}
+                    title={sidebarCollapsed ? `${row.label?.trim() || row.imap_path} — ${subtitle}` : subtitle}
                   >
                     {iconTxt ? (
                       <span className="shrink-0 w-4 flex justify-center" aria-hidden>
@@ -4486,10 +4657,13 @@ export default function MailPage() {
                     )}
                     {!sidebarCollapsed && (
                       <span
-                        className="flex-1 text-left truncate text-[13px]"
+                        className="flex-1 text-left truncate text-[13px] min-w-0"
                         style={{ paddingLeft: depth > 0 ? Math.min(16, 6 + depth * 6) : 0 }}
                       >
                         {row.label?.trim() || row.imap_path}
+                        <span className="block text-[10px] font-normal text-slate-500 dark:text-slate-400 normal-case tracking-normal truncate">
+                          {subtitle}
+                        </span>
                       </span>
                     )}
                     {!sidebarCollapsed && badge ? (
@@ -4651,6 +4825,35 @@ export default function MailPage() {
             {!mailCompactUi ? (
             <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
               <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 bg-slate-50/80 dark:bg-slate-900/40">
+                  <span className="text-slate-500 dark:text-slate-400 px-1.5">Tri date</span>
+                  <button
+                    type="button"
+                    onClick={() => setMessageListOrder('desc')}
+                    className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      messageListOrder === 'desc'
+                        ? 'bg-brand-600 text-white dark:bg-brand-500'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                    }`}
+                    title="Plus récent en premier"
+                  >
+                    <ArrowDown className="h-3 w-3" aria-hidden />
+                    Récent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessageListOrder('asc')}
+                    className={`inline-flex items-center gap-0.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                      messageListOrder === 'asc'
+                        ? 'bg-brand-600 text-white dark:bg-brand-500'
+                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700'
+                    }`}
+                    title="Plus ancien en premier"
+                  >
+                    <ArrowUp className="h-3 w-3" aria-hidden />
+                    Ancien
+                  </button>
+                </span>
                 {mailServerSearchQ ? (
                   <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 bg-slate-50/80 dark:bg-slate-900/40">
                     <span className="text-slate-500 dark:text-slate-400 px-1.5">Tri</span>
@@ -6508,15 +6711,46 @@ export default function MailPage() {
                 <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Fichiers lourds : un lien de téléchargement pourra être généré à la place d’une pièce jointe directe.</p>
               </div>
             </div>
-              <div className="flex gap-2 justify-end px-4 py-3 border-t border-slate-200 dark:border-slate-600 shrink-0">
+              <div className="flex flex-wrap gap-2 justify-end px-4 py-3 border-t border-slate-200 dark:border-slate-600 shrink-0">
                 <button type="button" onClick={() => closeSlot(slot.id)} className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
                   Annuler
                 </button>
-                <button type="button" onClick={() => openScheduleModal(slot.id)} disabled={sending} className="px-4 py-2 rounded-lg border border-brand-300 dark:border-brand-500 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-slate-700 disabled:opacity-50">
-                  Programmer
-                </button>
+                {slot.scheduledSendAtLocal ? (
+                  <>
+                    <span className="self-center text-xs text-brand-700 dark:text-brand-300 px-2">
+                      Envoi prévu :{' '}
+                      {new Date(slot.scheduledSendAtLocal).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => updateSlot(slot.id, { scheduledSendAtLocal: undefined })}
+                      className="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-600 dark:text-slate-300 text-sm"
+                    >
+                      Effacer date
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openScheduleModal(slot.id)}
+                      className="px-3 py-2 rounded-lg border border-brand-300 dark:border-brand-500 text-brand-700 dark:text-brand-300 text-sm"
+                    >
+                      Modifier date
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleScheduleMessage(slot.id)}
+                      disabled={sending}
+                      className="px-4 py-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 disabled:opacity-50"
+                    >
+                      {sending ? 'Programmation…' : 'Confirmer programmation'}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" onClick={() => openScheduleModal(slot.id)} disabled={sending} className="px-4 py-2 rounded-lg border border-brand-300 dark:border-brand-500 text-brand-700 dark:text-brand-300 hover:bg-brand-50 dark:hover:bg-slate-700 disabled:opacity-50">
+                    Choisir la date
+                  </button>
+                )}
                 <button type="button" onClick={() => handleSendMessage(slot.id)} disabled={sending} className="px-4 py-2 rounded-lg bg-brand-600 dark:bg-brand-500 text-white hover:bg-brand-700 dark:hover:bg-brand-600 disabled:opacity-50">
-                  {sending ? 'Envoi…' : 'Envoyer'}
+                  {sending ? 'Envoi…' : 'Envoyer maintenant'}
                 </button>
               </div>
             </>
@@ -6542,8 +6776,10 @@ export default function MailPage() {
             className="w-full max-w-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-2">Programmer l'envoi</h2>
-            <p className="text-xs text-slate-700 dark:text-slate-300 mb-3">Choisissez la date et l'heure d'envoi du message.</p>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-2">Date d'envoi programmé</h2>
+            <p className="text-xs text-slate-700 dark:text-slate-300 mb-3">
+              Choisissez la date et l'heure — elle sera affichée dans la fenêtre de rédaction. Confirmez ensuite avec « Confirmer programmation ».
+            </p>
             <input
               type="datetime-local"
               value={scheduledLocalDateTime}
@@ -6560,11 +6796,11 @@ export default function MailPage() {
               </button>
               <button
                 type="button"
-                disabled={!scheduledLocalDateTime || sending}
-                onClick={() => void handleScheduleMessage(scheduleModalForSlotId, scheduledLocalDateTime)}
+                disabled={!scheduledLocalDateTime}
+                onClick={() => scheduleModalForSlotId && applyScheduleDateToSlot(scheduleModalForSlotId, scheduledLocalDateTime)}
                 className="px-3 py-1.5 rounded-lg bg-brand-600 dark:bg-brand-500 text-white disabled:opacity-50"
               >
-                Confirmer
+                Appliquer la date
               </button>
             </div>
           </div>

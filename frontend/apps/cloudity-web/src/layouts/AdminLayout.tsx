@@ -5,13 +5,13 @@ import {
   Settings,
   Users,
   LogOut,
-  Lock,
   Mail,
   LayoutDashboard,
   ArrowLeft,
   Shield,
   Key,
   Palette,
+  Smartphone,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
@@ -21,7 +21,7 @@ const adminNav = [
   { key: 'dashboard', name: 'Tableau de bord', href: adminUiPath(), icon: <LayoutDashboard className="w-4 h-4 shrink-0" />, end: true },
   { key: 'tenants', name: 'Tenants', href: adminUiPath('tenants'), icon: <Building2 className="w-4 h-4 shrink-0" /> },
   { key: 'users', name: 'Utilisateurs', href: adminUiPath('users'), icon: <Users className="w-4 h-4 shrink-0" /> },
-  { key: 'vaults', name: 'Coffres (Pass)', href: adminUiPath('vaults'), icon: <Lock className="w-4 h-4 shrink-0" /> },
+  { key: 'mobile-ota', name: 'Mobile / OTA', href: adminUiPath('mobile-distribution'), icon: <Smartphone className="w-4 h-4 shrink-0" /> },
   { key: 'domaines', name: 'Domaines mail', href: adminUiPath('domaines'), icon: <Mail className="w-4 h-4 shrink-0" /> },
   { key: 'cve', name: 'CVE / dépendances', href: adminUiPath('securite-cve'), icon: <Shield className="w-4 h-4 shrink-0" /> },
   { key: 'passkeys', name: 'Passkeys', href: adminUiPath('passkeys'), icon: <Key className="w-4 h-4 shrink-0" /> },

@@ -4,7 +4,10 @@ import 'dart:async';
 import 'auth_api.dart';
 import 'compose_mail_screen.dart';
 import 'mail_account_helpers.dart';
+import 'mail_imap_password_screen.dart';
+import 'mail_view_preferences.dart';
 import 'message_detail_screen.dart';
+import 'session_store.dart';
 import 'user_session.dart';
 
 class _MailLifecycleObserver extends WidgetsBindingObserver {
@@ -211,6 +214,39 @@ class _InboxScreenState extends State<InboxScreen> {
     return out;
   }
 
+  int? _accountIdFromMap(Map<String, dynamic> acc) {
+    final id = acc['id'];
+    return id is int ? id : int.tryParse(id?.toString() ?? '');
+  }
+
+  Future<void> _persistMailView() async {
+    final email = await SessionStore.readAccountEmail();
+    if (email == null || email.isEmpty) return;
+    await MailViewPreferences.save(
+      email: email,
+      accountId: _accountId,
+      folder: _folder,
+    );
+  }
+
+  Future<void> _applySavedMailView(List<Map<String, dynamic>> acc) async {
+    final email = await SessionStore.readAccountEmail();
+    if (email == null || email.isEmpty) {
+      if (_accountId == null && acc.isNotEmpty) {
+        _accountId = _accountIdFromMap(acc.first);
+      }
+      return;
+    }
+    final saved = await MailViewPreferences.load(email);
+    if (saved.accountId != null &&
+        acc.any((a) => _accountIdFromMap(a) == saved.accountId)) {
+      _accountId = saved.accountId;
+    } else if (_accountId == null && acc.isNotEmpty) {
+      _accountId = _accountIdFromMap(acc.first);
+    }
+    _folder = saved.folder;
+  }
+
   Future<void> _reloadAccounts() async {
     setState(() {
       _loading = true;
@@ -222,12 +258,9 @@ class _InboxScreenState extends State<InboxScreen> {
         widget.session.accessToken,
       );
       if (!mounted) return;
+      await _applySavedMailView(acc);
       setState(() {
         _accounts = acc;
-        if (_accountId == null && acc.isNotEmpty) {
-          final id = acc.first['id'];
-          _accountId = id is int ? id : int.tryParse(id?.toString() ?? '');
-        }
         _loading = false;
       });
       if (_accountId != null) {
@@ -243,12 +276,9 @@ class _InboxScreenState extends State<InboxScreen> {
             widget.session.accessToken,
           );
           if (!mounted) return;
+          await _applySavedMailView(acc);
           setState(() {
             _accounts = acc;
-            if (_accountId == null && acc.isNotEmpty) {
-              final id = acc.first['id'];
-              _accountId = id is int ? id : int.tryParse(id?.toString() ?? '');
-            }
             _loading = false;
           });
           if (_accountId != null) await _reloadSummaryAndMessages();
@@ -383,10 +413,8 @@ class _InboxScreenState extends State<InboxScreen> {
   void _onAccountChanged(int? newId) {
     if (newId == null) return;
     _searchController.clear();
-    setState(() {
-      _accountId = newId;
-      _folder = 'inbox';
-    });
+    setState(() => _accountId = newId);
+    unawaited(_persistMailView());
     _reloadSummaryAndMessages();
   }
 
@@ -394,6 +422,7 @@ class _InboxScreenState extends State<InboxScreen> {
     if (_folder == api) return;
     _searchController.clear();
     setState(() => _folder = api);
+    unawaited(_persistMailView());
     _reloadMessages();
   }
 
@@ -524,6 +553,31 @@ class _InboxScreenState extends State<InboxScreen> {
     return _folder;
   }
 
+  Future<void> _openImapPasswordScreen(Map<String, dynamic> acc) async {
+    final rawId = acc['id'];
+    final id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+    if (id == null) return;
+    final email = acc['email']?.toString() ?? '';
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => MailImapPasswordScreen(
+          api: widget.session.api,
+          accessToken: widget.session.accessToken,
+          accountId: id,
+          accountEmail: email,
+          lastSyncError: acc['last_sync_error']?.toString(),
+        ),
+      ),
+    );
+    if (ok == true && mounted) {
+      await _refreshAccountsFromServer();
+      await _reloadSummaryAndMessages();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Mot de passe enregistré — synchronisation relancée')),
+      );
+    }
+  }
+
   Widget _buildSyncIssueBanner(Map<String, dynamic> acc) {
     final message = mailAccountSyncIssueMessage(acc);
     return Padding(
@@ -544,6 +598,10 @@ class _InboxScreenState extends State<InboxScreen> {
             message,
             maxLines: 4,
             overflow: TextOverflow.ellipsis,
+          ),
+          trailing: TextButton(
+            onPressed: () => _openImapPasswordScreen(acc),
+            child: const Text('MDP IMAP'),
           ),
           dense: true,
         ),

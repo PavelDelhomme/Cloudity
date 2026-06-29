@@ -1,8 +1,9 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertTriangle, Building2, Database, History, Shield, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, Database, History, Shield, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../../authContext'
+import { adminUiPath } from '@cloudity/shared'
 import {
   fetchBudgetStatus,
   fetchDashboardStats,
@@ -11,7 +12,6 @@ import {
   fetchPipelineRuns,
   recordPerformanceSnapshot,
 } from '../../api'
-import { adminUiPath } from '@cloudity/shared'
 import { Card, PageLayout } from '@cloudity/ui'
 
 function formatNumber(n: number): string {
@@ -328,6 +328,42 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
+        </Card>
+
+        <Card className="p-6 border-dashed border-amber-300/60 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-950/20">
+          <div className="flex items-start gap-3">
+            <Smartphone className="w-5 h-5 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                Distribution mobile &amp; mises à jour (OTA)
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
+                Prévoir un canal de mise à jour pour Mail, Drive, Photos et Pass sur les appareils des utilisateurs :
+                manifeste <code className="text-xs bg-white/80 dark:bg-slate-900 px-1 rounded">version.json</code>,
+                APK/AAB signés via CI/CD, page ou notification « nouvelle version disponible », et politique de déploiement
+                (canary, rollback).{' '}
+                <Link to={adminUiPath('mobile-distribution')} className="text-brand-600 dark:text-brand-400 underline underline-offset-2">
+                  Page Mobile / OTA
+                </Link>
+                {' '}· doc{' '}
+                <a
+                  href="https://github.com/pactivisme/Cloudity/blob/main/docs/operations/RELEASE-AND-DISTRIBUTION.md"
+                  className="text-brand-600 dark:text-brand-400 underline underline-offset-2"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  RELEASE-AND-DISTRIBUTION.md
+                </a>
+                .
+              </p>
+              <ul className="mt-3 text-sm text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
+                <li>☐ Endpoint ou bucket public pour <code className="text-xs">version.json</code> par app</li>
+                <li>☐ Job CI : build APK + upload + bump manifeste après tag</li>
+                <li>☐ Écran admin dédié (versions installées, forcer refresh) — à concevoir</li>
+                <li>☐ In-app update prompt (mobile) + lien Play Store / sideload doc</li>
+              </ul>
+            </div>
+          </div>
         </Card>
       </div>
 

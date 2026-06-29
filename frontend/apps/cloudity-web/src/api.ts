@@ -85,6 +85,29 @@ export async function fetchUsersPage(
   return { items: hasMore ? raw.slice(0, pageSize) : raw, hasMore }
 }
 
+export type TenantMailAccountSummary = {
+  id: number
+  user_id: number
+  email: string
+  label: string | null
+  alias_count: number
+  created_at: string
+}
+
+export async function fetchTenantMailAccounts(
+  tenantId: number,
+  token: string
+): Promise<TenantMailAccountSummary[]> {
+  return asArray(
+    await apiJson<TenantMailAccountSummary[] | null>(
+      token,
+      `/admin/tenants/${tenantId}/mail-accounts`,
+      undefined,
+      'Mail accounts'
+    )
+  )
+}
+
 export async function deleteTenant(tenantId: number, token: string): Promise<void> {
   const res = await apiFetch(token, `/admin/tenants/${tenantId}`, { method: 'DELETE', json: false })
   if (!res.ok) {
@@ -763,6 +786,8 @@ export async function fetchMailMessages(
     q?: string
     /** Avec `q` : `rank` (défaut) = ts_rank_cd puis date ; `date` = ordre chronologique uniquement. */
     sort?: 'rank' | 'date'
+    /** Ordre chronologique : `desc` (défaut) ou `asc`. */
+    order?: 'desc' | 'asc'
   }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams({ folder })
@@ -774,6 +799,7 @@ export async function fetchMailMessages(
   if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
   if (options?.q?.trim()) params.set('q', options.q.trim())
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
+  if (options?.order === 'asc') params.set('order', 'asc')
   const data = await apiJson<MailMessageResponse[] | MailMessagesPageResponse>(
     token,
     `/mail/me/accounts/${accountId}/messages?${params}`,
@@ -799,6 +825,7 @@ export async function fetchUnifiedMailMessages(
     thread_key?: string
     q?: string
     sort?: 'rank' | 'date'
+    order?: 'desc' | 'asc'
   }
 ): Promise<MailMessagesPageResponse> {
   const params = new URLSearchParams()
@@ -809,6 +836,7 @@ export async function fetchUnifiedMailMessages(
   if (options?.thread_key?.trim()) params.set('thread_key', options.thread_key.trim())
   if (options?.q?.trim()) params.set('q', options.q.trim())
   if (options?.q?.trim() && options?.sort === 'date') params.set('sort', 'date')
+  if (options?.order === 'asc') params.set('order', 'asc')
   const q = params.toString()
   const data = await apiJson<MailMessagesPageResponse>(
     token,
