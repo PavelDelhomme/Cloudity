@@ -31,9 +31,10 @@ import { NotificationsProvider, useNotifications } from '../notificationsContext
 import { formatRelativeDate } from '../utils/formatDate'
 import { fetchMailAccounts, type MailAccountResponse } from '../api'
 import { coordinatedSyncMailAccount } from '../lib/mailSyncCoordinator'
-import { accountCanBackgroundImapSync, isMailSyncPasswordRequiredError } from '../pages/app/mail/mailSyncHelpers'
+import { accountCanBackgroundImapSync } from '../pages/app/mail/mailSyncHelpers'
 import { registerMailNotificationClickHandler } from '../lib/mailDesktopNotifications'
 import { notifyNewMailMessages } from '../lib/mailNotifyNewMessages'
+import { notifyMailSyncFailure } from '../lib/mailNotifySyncFailure'
 
 function NotificationBell() {
   const ctx = useNotifications()
@@ -138,7 +139,9 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
           desktopTitle: 'Cloudity Mail',
         })
       } catch (e) {
-        if (isMailSyncPasswordRequiredError(e)) return
+        if (notifyMailSyncFailure(notificationsRef.current, acc, e, { desktopRequireHidden: true })) {
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+        }
       } finally {
         inFlightSyncRef.current.delete(acc.id)
       }

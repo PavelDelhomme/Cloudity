@@ -4,8 +4,31 @@ export function isMailSyncPasswordRequiredError(e: unknown): boolean {
   return (
     m.includes('mot de passe requis pour la synchronisation') ||
     m.includes("secret enregistré n'est plus lisible") ||
-    m.includes('MAIL_PASSWORD_ENCRYPTION_KEY changée')
+    m.includes('MAIL_PASSWORD_ENCRYPTION_KEY changée') ||
+    m.includes('mot de passe IMAP requis ou secret illisible')
   )
+}
+
+/** Échec d'authentification IMAP/OAuth (mot de passe changé côté fournisseur, jeton révoqué, etc.). */
+export function isMailSyncAuthFailureError(e: unknown): boolean {
+  if (isMailSyncPasswordRequiredError(e)) return true
+  const m = e instanceof Error ? e.message : String(e)
+  return (
+    m.includes('Identifiants refusés') ||
+    m.includes('OAuth Google expiré') ||
+    m.includes('connexion IMAP OAuth échouée') ||
+    m.includes('Reconnectez la boîte') ||
+    m.includes('Reconnectez avec Google') ||
+    m.includes("mot de passe d'application Gmail") ||
+    m.includes('impossible de lire le jeton')
+  )
+}
+
+export function accountHasSyncIssue(acc: {
+  last_sync_error?: string | null
+  imap_auth_ready?: boolean
+}): boolean {
+  return Boolean(acc.last_sync_error?.trim()) || acc.imap_auth_ready === false
 }
 
 const PROMPT_KEY = 'cloudity_mail_sync_password_prompted'

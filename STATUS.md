@@ -1,6 +1,6 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-29 — Branche **`feat/app-vault-drive-upload-pin-rotation`** : Pass auto-lock configurable (Paramètres), re-chiffrement E2EE après rotation PIN coffres (H11), E2E **80/85** Playwright verts.
+**Dernière mise à jour** : 2026-06-29 — Mail sync erreurs visibles (`last_sync_error`), H12 tests vault/mail, `make test-security` OK, Tâches `@cloudity/ui`.
 
 ## À faire maintenant
 

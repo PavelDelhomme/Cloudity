@@ -1212,8 +1212,10 @@ type UserEmailAccount struct {
 	SmtpHost *string `json:"smtp_host,omitempty"`
 	SmtpPort *int    `json:"smtp_port,omitempty"`
 	// true si OAuth ou password_encrypted présent en base (sync auto possible sans saisie).
-	ImapAuthReady bool   `json:"imap_auth_ready"`
-	CreatedAt     string `json:"created_at"`
+	ImapAuthReady bool    `json:"imap_auth_ready"`
+	LastSyncAt    *string `json:"last_sync_at,omitempty"`
+	LastSyncError *string `json:"last_sync_error,omitempty"`
+	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
 }
 
@@ -1228,6 +1230,8 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 				(oauth_refresh_token_encrypted IS NOT NULL AND TRIM(oauth_refresh_token_encrypted) <> '')
 				OR (password_encrypted IS NOT NULL AND TRIM(password_encrypted) <> '')
 			),
+			last_sync_at::text,
+			last_sync_error,
 			created_at::text, COALESCE(updated_at::text, '')
 		FROM user_email_accounts
 		WHERE user_id = $1
@@ -1246,11 +1250,14 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 		var smtpHost sql.NullString
 		var imapPort sql.NullInt32
 		var smtpPort sql.NullInt32
+		var lastSyncAt sql.NullString
+		var lastSyncErr sql.NullString
 		var uat string
 		if err := rows.Scan(
 			&a.ID, &a.UserID, &a.TenantID, &a.Email, &label,
 			&imapHost, &imapPort, &smtpHost, &smtpPort,
 			&a.ImapAuthReady,
+			&lastSyncAt, &lastSyncErr,
 			&a.CreatedAt, &uat,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1274,6 +1281,14 @@ func (h *Handler) listUserAccounts(c *gin.Context) {
 		if smtpPort.Valid {
 			p := int(smtpPort.Int32)
 			a.SmtpPort = &p
+		}
+		if lastSyncAt.Valid && strings.TrimSpace(lastSyncAt.String) != "" {
+			s := lastSyncAt.String
+			a.LastSyncAt = &s
+		}
+		if lastSyncErr.Valid && strings.TrimSpace(lastSyncErr.String) != "" {
+			s := strings.TrimSpace(lastSyncErr.String)
+			a.LastSyncError = &s
 		}
 		a.UpdatedAt = uat
 		accList = append(accList, a)
@@ -2983,11 +2998,14 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"error": "mot de passe requis pour la synchronisation (saisissez-le à l'ajout de la boîte ou ici) — le secret enregistré n'est plus lisible (clé MAIL_PASSWORD_ENCRYPTION_KEY changée ?). Resaisissez le mot de passe IMAP.",
 				})
+				h.recordMailSyncFailure(ctx, accountID, userIDInt, "mot de passe IMAP requis ou secret illisible", true)
 				return
 			}
 		}
 		if password == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "mot de passe requis pour la synchronisation (saisissez-le à l'ajout de la boîte ou ici)"})
+			msg := "mot de passe requis pour la synchronisation (saisissez-le à l'ajout de la boîte ou ici)"
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, false)
 			return
 		}
 	}
@@ -3018,26 +3036,34 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		}
 		if err != nil {
 			log.Printf("[mail] IMAP dial %s: %v", addr, err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "impossible de se connecter au serveur IMAP: " + err.Error()})
+			msg := "impossible de se connecter au serveur IMAP: " + err.Error()
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, false)
 			return
 		}
 		defer imapClient.Logout()
 		refreshTok, decErr := decryptPassword(oauthRefreshEnc.String)
 		if decErr != nil || refreshTok == "" {
 			log.Printf("[mail] OAuth decrypt refresh: %v", decErr)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "compte OAuth : impossible de lire le jeton. Reconnectez la boîte avec Google."})
+			msg := "compte OAuth : impossible de lire le jeton. Reconnectez la boîte avec Google."
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, false)
 			return
 		}
 		accessToken, tokErr := getGoogleAccessToken(refreshTok)
 		if tokErr != nil {
 			log.Printf("[mail] OAuth token: %v", tokErr)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "OAuth Google expiré ou révoqué. Reconnectez la boîte avec « Se connecter avec Google »."})
+			msg := "OAuth Google expiré ou révoqué. Reconnectez la boîte avec « Se connecter avec Google »."
+			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, false)
 			return
 		}
 		ir := xoauth2InitialResponse(email, accessToken)
 		if err := imapClient.Authenticate(&xoauth2SASL{ir: ir}); err != nil {
 			log.Printf("[mail] IMAP XOAUTH2 %s: %v", email, err)
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "connexion IMAP OAuth échouée. Reconnectez avec Google."})
+			msg := "connexion IMAP OAuth échouée. Reconnectez avec Google."
+			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, false)
 			return
 		}
 	} else {
@@ -3051,6 +3077,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 				msg = "OVH : identifiants refusés. Copiez le mot de passe depuis le Manager (E-mails > la boîte), sans guillemets ni espace en trop ; vérifiez que l'IMAP est activé. Si vous êtes sur Exchange ou un cluster différent, renseignez l'hôte IMAP exact du Manager dans Paramètres Mail > Libellé & serveurs. Cloudity a tenté ssl0.ovh.net puis imap.mail.ovh.net (AUTH PLAIN puis LOGIN)."
 			}
 			c.JSON(http.StatusUnauthorized, gin.H{"error": msg})
+			h.recordMailSyncFailure(ctx, accountID, userIDInt, msg, true)
 			return
 		}
 		defer imapClient.Logout()
@@ -3124,6 +3151,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		resp["user_login_email_aligned"] = true
 		resp["user_login_email"] = loginEmail
 	}
+	h.recordMailSyncSuccess(ctx, accountID, userIDInt)
 	c.JSON(http.StatusOK, resp)
 }
 

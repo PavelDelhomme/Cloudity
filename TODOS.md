@@ -31,7 +31,8 @@
 | **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
 | **Passkeys ×5** | ℹ️ | Quota backend = 5 — normal si plein ; supprimer les inutilisées |
 | **Pass auto-lock configurable** | ☑ | Paramètres → Sécurité Pass : 1/5/15/30 min, 1 h, jamais (`localStorage`) |
-| **Design system `@cloudity/ui` partout** | ☐ | Web apps + mobile — chantier transverse |
+| **Mail — erreur sync visible** | ☑ | `last_sync_error` en base ; alerte sidebar + notif in-app si MDP/OAuth invalide |
+| **Design system `@cloudity/ui` partout** | 🟡 | Tâches → `ResponsivePage` ; reste : Calendar, Contacts, Hub, Photos… |
 | **Validation Samsung** | ☐ | `make test-mobile-suite` quand appareil libre |
 | **Backoffice réutilisable (JobbingTrack)** | ⏸️ | **Hors scope Cloudity** — projet parallèle séparé ; intégration `/4dm1n` **plus tard** si besoin |
 
@@ -74,7 +75,7 @@
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
 | **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt`, **re-chiffrement automatique des blobs après changement de PIN** (Notes/Contacts/Drive/Photos) | ☑ |
-| **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; renforcer fortement les tests vault/E2EE (erreurs clé, tamper, rotation PIN, migration, Drive coffre) ; continuer Mail/Admin/Settings et parcours sécurité | 🟡 |
+| **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; tests vault/E2EE : rotation PIN, tamper clé (`appVaultClient`), sync mail auth ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
 | **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
 | **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
@@ -96,7 +97,7 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
 | **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
-| **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☐ |
+| **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☑ 2026-06-29 (avertissements npm audit) |
 | **Infra / stack** | `make up-full` · healthchecks · migrations | `reports/up-full-test-*.log` | ☑ run `20260622-192608` |
 | **Mail MTA local** | `make test-mail-mta-local` | logs Maddy | ☐ |
 

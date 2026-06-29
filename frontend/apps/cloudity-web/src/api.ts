@@ -623,6 +623,10 @@ export type MailAccountResponse = {
   smtp_port?: number | null
   /** false = pas de secret IMAP/OAuth en base — ne pas lancer de sync auto sans mot de passe saisi. */
   imap_auth_ready?: boolean
+  /** Horodatage ISO de la dernière tentative de sync IMAP. */
+  last_sync_at?: string | null
+  /** Dernier message d'erreur sync (mot de passe refusé, OAuth révoqué, etc.). */
+  last_sync_error?: string | null
   created_at: string
   updated_at: string
 }

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { ResponsivePage } from '@cloudity/ui'
 import { CalendarClock, ListTodo, Plus, Trash2, FolderPlus, Repeat, Settings, X } from 'lucide-react'
 import {
   DEFAULT_TASKS_APP_SETTINGS,
@@ -242,14 +243,10 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Tâches</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Listes, échéances et répétitions — pensé pour le quotidien et la productivité.
-          </p>
-        </div>
+    <ResponsivePage
+      title="Tâches"
+      description="Listes, échéances et répétitions — pensé pour le quotidien et la productivité."
+      action={
         <button
           type="button"
           onClick={() => {
@@ -262,8 +259,9 @@ export default function TasksPage() {
         >
           <Settings className="h-4 w-4" aria-hidden />
         </button>
-      </div>
-
+      }
+    >
+      <div className="flex min-h-0 flex-col gap-5">
       {showTasksSettings && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
@@ -493,6 +491,7 @@ export default function TasksPage() {
         </div>
       </div>
     </div>
+    </ResponsivePage>
   )
 }
 

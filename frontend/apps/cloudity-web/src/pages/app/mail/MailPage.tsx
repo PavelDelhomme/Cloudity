@@ -61,11 +61,14 @@ import { MailAddAccountModal } from './MailAddAccountModal'
 import { MailGoogleConnectButton } from './MailGoogleConnectButton'
 import {
   accountCanBackgroundImapSync,
+  accountHasSyncIssue,
   clearMailSyncPasswordPrompt,
+  isMailSyncAuthFailureError,
   isMailSyncPasswordRequiredError,
   markMailSyncPasswordPrompted,
   shouldPromptMailSyncPassword,
 } from './mailSyncHelpers'
+import { notifyMailSyncFailure } from '../../../lib/mailNotifySyncFailure'
 import { useNotifications } from '../../../notificationsContext'
 import {
   apiUrl,
@@ -1951,15 +1954,20 @@ export default function MailPage() {
               desktopRequireHidden: true,
             })
           } catch (e) {
-            if (isMailSyncPasswordRequiredError(e)) {
-              setSyncAccountId(id)
-              setSyncPassword('')
-              setShowSyncModal(true)
-              toast(
-                'Mot de passe IMAP requis pour une boîte. Saisissez-le dans la fenêtre — il sera enregistré de façon sécurisée après une synchro réussie.',
-                { duration: 6000 }
-              )
-              break
+            if (isMailSyncPasswordRequiredError(e) || isMailSyncAuthFailureError(e)) {
+              if (notifyMailSyncFailure(notificationsRef.current, acc, e)) {
+                void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+              }
+              if (isMailSyncPasswordRequiredError(e)) {
+                setSyncAccountId(id)
+                setSyncPassword('')
+                setShowSyncModal(true)
+                toast(
+                  'Mot de passe IMAP requis pour une boîte. Saisissez-le dans la fenêtre — il sera enregistré de façon sécurisée après une synchro réussie.',
+                  { duration: 6000 }
+                )
+                break
+              }
             }
             /* erreur réseau / IMAP : on continue les autres comptes */
           }
@@ -2501,6 +2509,7 @@ export default function MailPage() {
           }
           const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
           toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
+          void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
         } catch (e) {
           if (isMailSyncPasswordRequiredError(e)) {
             setSyncAccountId(accountId)
@@ -2510,6 +2519,14 @@ export default function MailPage() {
               'Mot de passe IMAP manquant ou invalide en base. Saisissez-le ci-dessous — il sera enregistré après une synchro réussie.',
               { duration: 6000 }
             )
+          } else if (isMailSyncAuthFailureError(e)) {
+            const acc = accountsRef.current.find((a) => a.id === accountId)
+            if (acc && notifyMailSyncFailure(notificationsRef.current, acc, e)) {
+              void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
+            }
+            toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation', {
+              duration: 8000,
+            })
           } else {
             toast.error(e instanceof Error ? e.message : 'Erreur lors de la synchronisation')
           }
@@ -4181,6 +4198,14 @@ export default function MailPage() {
                                 {acc.label ? (
                                   <span className="truncate w-full text-[10px] font-normal text-slate-500 dark:text-slate-400">{acc.email}</span>
                                 ) : null}
+                                {accountHasSyncIssue(acc) ? (
+                                  <span className="flex items-start gap-1 w-full text-[10px] font-normal text-amber-700 dark:text-amber-300" title={acc.last_sync_error ?? undefined}>
+                                    <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" aria-hidden />
+                                    <span className="line-clamp-2">
+                                      {acc.last_sync_error?.trim() || 'Connexion IMAP à reconfigurer'}
+                                    </span>
+                                  </span>
+                                ) : null}
                               </span>
                             </button>
                             <button
@@ -5499,9 +5524,10 @@ export default function MailPage() {
                           {acc.label?.trim() ? (
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{acc.email}</p>
                           ) : null}
-                          {acc.imap_auth_ready === false ? (
+                          {acc.imap_auth_ready === false || acc.last_sync_error ? (
                             <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                              Connexion IMAP à configurer — utilisez « Sync avec mot de passe… ».
+                              {acc.last_sync_error?.trim() ||
+                                'Connexion IMAP à configurer — utilisez « Sync avec mot de passe… ».'}
                             </p>
                           ) : null}
                         </div>
