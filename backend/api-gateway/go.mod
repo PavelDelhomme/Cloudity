@@ -11,4 +11,4 @@ require (
 	golang.org/x/time v0.8.0
 )
 
-replace github.com/pavel/cloudity/internalsec => ../internalsec
+replace github.com/pavel/cloudity/internalsec => ./internalsec

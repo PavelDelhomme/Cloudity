@@ -1,3 +1,4 @@
+import 'package:cloudity_shared/suite_dev_credentials.dart';
 import 'package:cloudity_shared/suite_defaults.dart';
 import 'package:cloudity_shared/passkey_login.dart';
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
@@ -251,14 +252,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   void _fillLocalDemoAccount() {
     setState(() {
-      _emailCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_EMAIL',
-        defaultValue: ClouditySuiteDefaults.devAdminEmail,
-      );
-      _passwordCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_PASSWORD',
-        defaultValue: 'Admin123!',
-      );
+      ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
       _tenantCtrl.text = const String.fromEnvironment('CLOUDITY_DEV_TENANT', defaultValue: '1');
       _gatewayCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_GATEWAY',

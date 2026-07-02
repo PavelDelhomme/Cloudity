@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cloudity_shared/network_errors.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import '../api/auth_api.dart';
 import 'session_store.dart';
@@ -25,14 +25,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   void initState() {
     super.initState();
     if (kDebugMode) {
-      _emailCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_EMAIL',
-        defaultValue: 'admin@cloudity.local',
-      );
-      _passwordCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_PASSWORD',
-        defaultValue: 'Admin123!',
-      );
+      ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
     }
   }
 

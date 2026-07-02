@@ -14,6 +14,8 @@ import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
 import PasskeysPage from './pages/admin/Passkeys'
 import UiCatalogPage from './pages/admin/UiCatalogPage'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
+import { StackHealthGate } from './components/StackHealthGate'
 import { AdminAccessGate } from './AdminAccessGate'
 
 const queryClient = new QueryClient({
@@ -71,12 +73,16 @@ export function AdminAppRoutes() {
 export default function AdminApp() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <Global401Handler />
-          <AdminAppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <StackHealthGate>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthProvider>
+              <Global401Handler />
+              <AdminAppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+        </StackHealthGate>
+      </AppErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{

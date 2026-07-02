@@ -10,6 +10,8 @@ export 'mail_view_preferences.dart';
 export 'network_errors.dart';
 export 'passkey_login.dart';
 export 'photo_match.dart';
+export 'service_status_screen.dart';
+export 'suite_dev_credentials.dart';
 export 'storage_keys.dart';
 export 'storage_usage.dart';
 export 'suite_app_shell.dart';

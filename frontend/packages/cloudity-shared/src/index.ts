@@ -1,4 +1,5 @@
 export { apiUrl, getApiBaseUrl, AUTH_STORAGE_KEY } from './cloudityCore'
+export { formatAuthError } from './formatAuthError'
 export { getAuthHeaders } from './authHeaders'
 export type { AuthHeadersOptions } from './authHeaders'
 export { apiFetch, apiJson, apiJsonOk, ApiError } from './apiFetch'

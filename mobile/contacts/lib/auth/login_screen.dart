@@ -1,6 +1,5 @@
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
-import 'package:cloudity_shared/auth_2fa.dart';
-import 'package:cloudity_shared/network_errors.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -38,14 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) setState(() => _brokerAccounts = accounts);
     });
     if (kDebugMode) {
-      _emailCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_EMAIL',
-        defaultValue: 'admin@cloudity.local',
-      );
-      _passwordCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_PASSWORD',
-        defaultValue: 'Admin123!',
-      );
+      ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
     }
   }
 

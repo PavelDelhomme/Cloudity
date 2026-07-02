@@ -26,6 +26,8 @@ import SettingsRedirect from './pages/app/settings/SettingsRedirect'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
 import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
+import { StackHealthGate } from './components/StackHealthGate'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,12 +125,16 @@ export function UserAppRoutes() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <Global401Handler />
-          <UserAppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <StackHealthGate>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthProvider>
+              <Global401Handler />
+              <UserAppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+        </StackHealthGate>
+      </AppErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{

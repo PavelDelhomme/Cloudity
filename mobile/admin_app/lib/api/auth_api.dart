@@ -92,7 +92,7 @@ class AuthApi {
       try {
         final res = await http.get(
           Uri.parse('$_base/auth/me'),
-          headers: getAuthHeaders(accessToken),
+          headers: authHeaders(accessToken, json: false),
         ).timeout(const Duration(seconds: 5));
         if (res.statusCode == 200) {
           return (access: accessToken, refresh: refreshToken);
@@ -107,7 +107,7 @@ class AuthApi {
   Future<Map<String, dynamic>> fetchMe(String accessToken) async {
     final res = await http.get(
       Uri.parse('$_base/auth/me'),
-      headers: getAuthHeaders(accessToken),
+      headers: authHeaders(accessToken, json: false),
     ).timeout(const Duration(seconds: 8));
     final map = jsonDecode(res.body.isEmpty ? '{}' : res.body) as Map<String, dynamic>;
     if (res.statusCode != 200) {

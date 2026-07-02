@@ -128,6 +128,8 @@ run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (p
 	@chmod +x scripts/mobile/run-mobile.sh 2>/dev/null || true
 	@APP="$(APP)" ./scripts/mobile/run-mobile.sh
 
+run-mibile: run-mobile ## Alias typo fréquent (run-mibile → run-mobile)
+
 mobile-devices: ## Liste les appareils ADB détectés
 	@adb devices -l
 
@@ -187,7 +189,7 @@ up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension 
 	@echo "   Adminer:    http://localhost:$(PORT_ADMINER)  |  Redis Commander: http://localhost:$(PORT_REDIS_COMMANDER)  (profil dev — pas en prod ; voir docs/architecture/SERVICES.md)"
 	@echo "   Sans ces UIs :  make up-lean"
 	@echo ""
-	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
+	@echo "Compte de démo (après make seed-admin): $(SEED_ADMIN_EMAIL) — mot de passe = SEED_ADMIN_PASSWORD dans .env"
 
 up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
 	@echo "🚀 Démarrage Cloudity (sans outils dev Adminer / Redis Commander)..."
@@ -215,7 +217,7 @@ up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, see
 	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
 	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
 	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \
-	echo "   Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
+	echo "   Tester: http://localhost:$(PORT_DASHBOARD) ($(SEED_ADMIN_EMAIL) — voir SEED_ADMIN_PASSWORD dans .env)"
 
 down: ## Arrête toute la stack
 	@echo "🛑 Arrêt de Cloudity..."
@@ -994,10 +996,15 @@ seed: ## Insère des données de test (tenants)
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "INSERT INTO tenants (name, domain, database_url) VALUES ('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), ('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') ON CONFLICT (domain) DO NOTHING;"
 	@echo "✅ Seed OK."
 
-SEED_ADMIN_EMAIL ?= admin@cloudity.local
-SEED_ADMIN_PASSWORD ?= Admin123!
+ENV_GET := ./scripts/dev/env-get.sh
+SEED_ADMIN_EMAIL := $(shell $(ENV_GET) SEED_ADMIN_EMAIL admin@cloudity.local 2>/dev/null)
+SEED_ADMIN_PASSWORD := $(shell $(ENV_GET) SEED_ADMIN_PASSWORD 2>/dev/null)
 
-seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) ET le promeut en role='admin' (stack up, tenant 1)
+seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD depuis .env) ET le promeut en role='admin' (stack up, tenant 1)
+	@if [ -z "$(SEED_ADMIN_PASSWORD)" ]; then \
+	  echo "❌ SEED_ADMIN_PASSWORD manquant — définir dans .env (voir .env.example), puis relancer make seed-admin"; \
+	  exit 1; \
+	fi
 	@echo "👤 Création du compte de démo ($(SEED_ADMIN_EMAIL))..."
 	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
 	  -H "Content-Type: application/json" \
@@ -1007,8 +1014,12 @@ seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) ET
 	@echo "🔐 Promotion role='admin' pour $(SEED_ADMIN_EMAIL) (tenant 1)..."
 	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity \
 	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1;" >/dev/null \
-	  && echo "✅ Rôle admin appliqué. Connexion: $(SEED_ADMIN_EMAIL) / $(SEED_ADMIN_PASSWORD) (UI back-office /4dm1n)" \
+	  && echo "✅ Rôle admin appliqué. Connexion: $(SEED_ADMIN_EMAIL) (mot de passe .env — UI back-office /4dm1n)" \
 	  || (echo "❌ Promotion role='admin' échouée — vérifier que la stack est up et que le tenant 1 existe."; exit 1)
+
+seed-admin-reset: ## Recrée le compte admin avec SEED_ADMIN_* du .env (après changement de mot de passe)
+	@chmod +x scripts/dev/seed-admin-reset.sh scripts/dev/env-get.sh
+	@./scripts/dev/seed-admin-reset.sh
 
 seed-e2e-2fa: ## Compte E2E 2FA dédié : e2e-2fa@cloudity.local / E2faTest123! (recrée le user si besoin)
 	@echo "👤 Compte E2E 2FA (e2e-2fa@cloudity.local) — suppression éventuelle puis inscription..."

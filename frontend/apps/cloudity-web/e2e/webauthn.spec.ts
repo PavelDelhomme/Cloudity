@@ -3,20 +3,17 @@ import {
   addWebAuthnVirtualAuthenticator,
   removeWebAuthnVirtualAuthenticator,
 } from './fixtures/webauthn-virtual'
-import { advanceLoginToPasswordStep } from './fixtures/auth'
+import { advanceLoginToPasswordStep, DEMO_EMAIL, DEMO_PASSWORD } from './fixtures/auth'
 
 /**
  * WebAuthn / passkeys — authentificateur virtuel (CDP Chromium).
  *
  * Prérequis : `make up`, `make migrate` (migration **37**), `make seed-admin`,
  * attendre 20–30 s. Identifiants : `PLAYWRIGHT_E2E_EMAIL` / `PLAYWRIGHT_E2E_PASSWORD`
- * ou compte créé par **seed-admin** (voir Makefile).
+ * ou compte créé par **seed-admin** (SEED_ADMIN_* dans .env).
  *
  * Lancement ciblé : `make test-e2e-playwright-webauthn`
  */
-
-const ADMIN_EMAIL = process.env.PLAYWRIGHT_E2E_EMAIL || 'admin@cloudity.local'
-const ADMIN_PASSWORD = process.env.PLAYWRIGHT_E2E_PASSWORD || 'Admin123!'
 
 test.beforeEach(async ({ request }) => {
   const res = await request.get('/health', { timeout: 8000 }).catch(() => null)
@@ -33,8 +30,8 @@ test.describe('WebAuthn (passkeys)', () => {
     const { cdp, authenticatorId } = await addWebAuthnVirtualAuthenticator(page)
     try {
       await page.goto('/login?next=%2F4dm1n')
-      await advanceLoginToPasswordStep(page, ADMIN_EMAIL)
-      await page.getByLabel(/mot de passe|password/i).fill(ADMIN_PASSWORD)
+      await advanceLoginToPasswordStep(page, DEMO_EMAIL)
+      await page.getByLabel(/mot de passe|password/i).fill(DEMO_PASSWORD)
       await page.getByRole('button', { name: /^se connecter$/i }).click()
       await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 25_000 })
 
@@ -57,7 +54,7 @@ test.describe('WebAuthn (passkeys)', () => {
       await expect(page).toHaveURL(/\/login/, { timeout: 20_000 })
 
       await page.goto('/login?next=%2F4dm1n')
-      await page.getByLabel(/email/i).fill(ADMIN_EMAIL)
+      await page.getByLabel(/email/i).fill(DEMO_EMAIL)
       // Phase W2 : la Conditional UI peut authentifier directement au focus
       // du champ email (autocomplete="username webauthn") via la passkey
       // résidente du virtual authenticator. Si elle réussit, la page navigue

@@ -1,3 +1,4 @@
+import 'package:cloudity_shared/suite_dev_credentials.dart';
 import 'package:cloudity_shared/passkey_login.dart';
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/auth_2fa.dart';
@@ -286,18 +287,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _fillLocalDemoAccount() {
     setState(() {
-      _emailCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_EMAIL',
-        defaultValue: 'admin@cloudity.local',
-      );
-      _passwordCtrl.text = const String.fromEnvironment(
-        'CLOUDITY_DEV_PASSWORD',
-        defaultValue: '',
-      );
-      if (_passwordCtrl.text.isEmpty) {
-        // Mot de passe démo `make seed-admin` — pas un secret prod.
-        _passwordCtrl.text = String.fromCharCodes([65, 100, 109, 105, 110, 49, 50, 51, 33]);
-      }
+      ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
       _tenantCtrl.text = const String.fromEnvironment(
         'CLOUDITY_DEV_TENANT',
         defaultValue: '1',

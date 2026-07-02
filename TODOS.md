@@ -189,7 +189,7 @@ cloudity-api-gateway            | POST /mail/me/accounts/N/sync -> 200
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 
-Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
+Prérequis : `make up` · `make seed-admin` (ou `make seed-admin-reset` après changement de `SEED_ADMIN_PASSWORD` dans `.env`) · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
 
 | App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
 |-----|---------------------------|-----------------------------------|
@@ -294,7 +294,7 @@ Problème UX : Photos/Drive demandaient gateway + e-mail + mot de passe + `tenan
 
 Décisions / correctifs :
 
-- **Court terme dev** : champs e-mail/mot de passe préremplis en debug (`admin@cloudity.local` / `Admin123!`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
+- **Court terme dev** : champs e-mail/mot de passe préremplis en debug via `SEED_ADMIN_*` (`.env` → `run-mobile.sh`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
 - **Court terme code** : aligner Photos + Drive sur Mail (gateway candidates, health-check auth, tenant optionnel, timeouts).
 - **Vrai partage inter-app** : `flutter_secure_storage` est isolé par package Android ; les noms `cloudity_suite_*` ne partagent pas réellement les jetons. À implémenter ensuite : **Cloudity Auth Broker / Android AccountManager** + iOS Keychain Access Group, avec écran « Continuer avec ce compte / Ajouter un compte / Créer un compte ».
 - Référence : `docs/produit/MOBILES.md` § **4.1 Auth suite mobile**.

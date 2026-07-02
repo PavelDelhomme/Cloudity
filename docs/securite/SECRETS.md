@@ -108,6 +108,19 @@ Exemples actuels dans le repo :
 
 > **Statut 2026-06-08** : baseline **`.gitleaks.toml`** (allowlist `.env.example` + vecteurs RFC `totp.test.ts`) ; historique propre (`make secrets-scan` → 0 fuite). `make test-security` utilise ce config ; basculer `GITLEAKS_BLOCKING=1` quand la CI est alignée.
 
+### GitGuardian (alertes email)
+
+L’alerte **« Generic Password »** sur le commit `871f5f4b` venait des **`defaultValue: 'Admin123!'`** copiés dans les `login_screen.dart` mobile lors du gros commit suite mobile.
+
+**Règle** : aucun mot de passe démo en dur dans le code Dart/TS commité. Utiliser :
+
+- **Mobile** : `--dart-define=CLOUDITY_DEV_PASSWORD=…` injecté par `run-mobile.sh` depuis **`SEED_ADMIN_PASSWORD`** (`.env` gitignoré).
+- **E2E** : lit **`SEED_ADMIN_PASSWORD`** depuis `.env` (ou `PLAYWRIGHT_E2E_PASSWORD` en CI).
+- **Seed** : `make seed-admin` / `make seed-admin-reset` lisent **`SEED_ADMIN_*`** dans `.env` (source unique).
+- **Go tests** : allowlist `*_test.go` dans `.gitleaks.toml` et `.gitguardian.yaml`.
+
+Marquer l’incident **résolu** dans l’UI GitGuardian après merge du correctif ; l’historique Git conserve le commit — c’est attendu.
+
 ---
 
 ## 7. Politique de rotation

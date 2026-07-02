@@ -4,13 +4,13 @@ import 'package:http/http.dart' as http;
 import 'package:cloudity_shared/http_helpers.dart';
 
 class AdminApi {
-  AdminApi({required this.gatewayBase, required this.accessToken})
+  AdminApi({required String gatewayBase, required this.accessToken})
       : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
 
   final String _base;
   final String accessToken;
 
-  Map<String, String> get _headers => getAuthHeaders(accessToken);
+  Map<String, String> get _headers => authHeaders(accessToken, json: false);
 
   Future<List<Map<String, dynamic>>> listTenants() async {
     final res = await http

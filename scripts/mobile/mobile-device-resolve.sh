@@ -5,7 +5,11 @@
 #   eval "$(./scripts/mobile/mobile-device-resolve.sh --export)"
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# Réutilise ROOT du script parent (run-mobile, test-mobile-*) si déjà défini.
+# BASH_SOURCE (pas $0) : quand le fichier est sourcé après un cd, $0 reste relatif au cwd.
+if [[ -z "${ROOT:-}" ]]; then
+  ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+fi
 PROFILE_ID="${CLOUDITY_DEVICE_PROFILE:-samsung-sm-g990b2}"
 PROFILE_DIR="${ROOT}/mobile/device-profiles/${PROFILE_ID}"
 PROFILE_JSON="${PROFILE_DIR}/profile.json"
@@ -121,6 +125,6 @@ if [[ "${1:-}" == "--export" ]]; then
   exit 0
 fi
 
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+if [[ "${BASH_SOURCE[0]:-}" == "${0:-}" ]] && [[ -n "${BASH_SOURCE[0]:-}" ]]; then
   cloudity_resolve_adb_serial "${1:-}"
 fi

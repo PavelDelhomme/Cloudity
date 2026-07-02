@@ -9,4 +9,6 @@ description = "Exemples documentés et vecteurs de test TOTP RFC"
 paths = [
   '''(?i)\.env\.example$''',
   '''totp\.test\.ts$''',
+  '''backend/.+_test\.go$''',
+  '''frontend/apps/cloudity-web/e2e/''',
 ]

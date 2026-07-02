@@ -12,6 +12,12 @@ source "$ROOT/scripts/ci/test-log-capture.inc.sh"
 PORT_DASHBOARD="${PORT_DASHBOARD:-6001}"
 PORT_GATEWAY="${PORT_GATEWAY:-6002}"
 
+chmod +x "${ROOT}/scripts/dev/env-get.sh" 2>/dev/null || true
+# shellcheck source=scripts/dev/env-get.sh
+source "${ROOT}/scripts/dev/env-get.sh"
+export PLAYWRIGHT_E2E_EMAIL="${PLAYWRIGHT_E2E_EMAIL:-$(cloudity_env_get SEED_ADMIN_EMAIL admin@cloudity.local)}"
+export PLAYWRIGHT_E2E_PASSWORD="${PLAYWRIGHT_E2E_PASSWORD:-$(cloudity_env_get SEED_ADMIN_PASSWORD)}"
+
 [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "playwright"
 
 if [ -x "${ROOT}/frontend/node_modules/.bin/playwright" ]; then
