@@ -246,6 +246,11 @@ func NewHandler() http.Handler {
 	// ce qui arrive en JSON minifié, on répond 204.
 	r.HandleFunc("/csp-report", handleCSPReport).Methods("POST")
 
+	// Rapports crash / feedback apps mobile Flutter (inspiré JobbingTrack).
+	r.HandleFunc("/mobile/crashes", handlePostMobileCrash).Methods("POST")
+	r.HandleFunc("/mobile/crashes", handleListMobileCrashes).Methods("GET")
+	r.HandleFunc("/mobile/crashes/detail", handleGetMobileCrash).Methods("GET")
+
 	// Transport interne partagé pour le reverse proxy.
 	//
 	// MTLS_MODE=off (par défaut) → http.Transport plain (compat HTTP legacy).
@@ -498,7 +503,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
 			r.URL.Path == "/health" ||
-			r.URL.Path == "/csp-report" {
+			r.URL.Path == "/csp-report" ||
+			(r.Method == http.MethodPost && r.URL.Path == "/mobile/crashes") {
 			next.ServeHTTP(w, r)
 			return
 		}

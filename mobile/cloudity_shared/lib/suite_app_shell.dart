@@ -1,5 +1,20 @@
 import 'package:flutter/material.dart';
 
+import 'cloudity_crash_reporter.dart';
+
+/// Infos session pour la remontée d'erreurs mobile.
+class CloudityCrashSessionBinding {
+  const CloudityCrashSessionBinding({
+    required this.accessToken,
+    this.userEmail,
+    this.gatewayBase,
+  });
+
+  final String accessToken;
+  final String? userEmail;
+  final String? gatewayBase;
+}
+
 /// Bootstrap partagé : restaure la session, affiche login ou l’écran principal.
 class SuiteAppShell<S extends Object> extends StatefulWidget {
   const SuiteAppShell({
@@ -8,12 +23,14 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
     required this.clearSession,
     required this.loginBuilder,
     required this.homeBuilder,
+    this.crashSession,
   });
 
   final Future<S?> Function() restoreSession;
   final Future<void> Function() clearSession;
   final Widget Function(void Function(S session) onLoggedIn) loginBuilder;
   final Widget Function(S session, Future<void> Function() onLogout) homeBuilder;
+  final CloudityCrashSessionBinding Function(S session)? crashSession;
 
   @override
   State<SuiteAppShell<S>> createState() => _SuiteAppShellState<S>();
@@ -29,9 +46,20 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
     _restore();
   }
 
+  void _bindCrashSession(S session) {
+    final binding = widget.crashSession?.call(session);
+    if (binding == null) return;
+    CloudityCrashReporter.setSession(
+      accessToken: binding.accessToken,
+      userEmail: binding.userEmail,
+      gatewayBase: binding.gatewayBase,
+    );
+  }
+
   Future<void> _restore() async {
     final session = await widget.restoreSession();
     if (!mounted) return;
+    if (session != null) _bindCrashSession(session);
     setState(() {
       _ready = true;
       _session = session;
@@ -39,10 +67,12 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
   }
 
   void _onLoggedIn(S session) {
+    _bindCrashSession(session);
     setState(() => _session = session);
   }
 
   Future<void> _onLogout() async {
+    CloudityCrashReporter.clearSession();
     await widget.clearSession();
     if (!mounted) return;
     setState(() => _session = null);

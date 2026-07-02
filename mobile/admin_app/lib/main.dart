@@ -6,28 +6,24 @@ import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/dashboard_screen.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityAdminApp());
-}
-
-class CloudityAdminApp extends StatelessWidget {
-  const CloudityAdminApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return CloudityThemedApp(
-      title: 'Cloudity Admin',
-      seedColor: Colors.blueGrey,
-      home: SuiteAppShell<UserSession>(
-        restoreSession: _restoreSession,
-        clearSession: SessionStore.clearTokens,
-        loginBuilder: (onLoggedIn) => AdminLoginScreen(onLoggedIn: onLoggedIn),
-        homeBuilder: (session, onLogout) =>
-            AdminDashboardScreen(session: session, onLogout: onLogout),
-      ),
+CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
+      accessToken: s.accessToken,
+      gatewayBase: s.api.baseUrl,
     );
-  }
+
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.admin,
+    title: 'Cloudity Admin',
+    home: SuiteAppShell<UserSession>(
+      restoreSession: _restoreSession,
+      clearSession: SessionStore.clearTokens,
+      crashSession: _crashBinding,
+      loginBuilder: (onLoggedIn) => AdminLoginScreen(onLoggedIn: onLoggedIn),
+      homeBuilder: (session, onLogout) =>
+          AdminDashboardScreen(session: session, onLogout: onLogout),
+    ),
+  );
 }
 
 Future<UserSession?> _restoreSession() async {

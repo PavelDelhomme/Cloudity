@@ -1,5 +1,38 @@
 # Mobile Cloudity — structure et conventions
 
+> Remontée d'erreurs / crashes : **`docs/produit/MOBILE-ERROR-REPORTING.md`**
+
+## Interface suite (schéma Google Workspace)
+
+Chaque app garde **sa logique métier** (`features/`) mais partage la même coque :
+
+| Composant | Package | Rôle |
+|-----------|---------|------|
+| `CloudityThemedApp.forSuite` | `cloudity_shared` | Couleur produit depuis `cloudity_tokens.json` |
+| `SuiteAppShell` | idem | Login → home, session |
+| `SuiteDrawerScaffold` | idem | Drawer unifié : compte, nav produit, **grille apps Cloudity**, paramètres |
+| `SuiteAppSwitcher` | idem | Switcher type Google Photos / Drive / Keep |
+| `SuiteSettingsPanel` | idem | Paramètres + thème clair/sombre |
+
+Apps **MVP** (Calendar, Contacts, Notes, Tasks) utilisent déjà `SuiteDrawerScaffold`.  
+Mail / Drive / Photos : même thème + tokens ; migration drawer progressive (H21).
+
+```dart
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.mail,
+    title: 'Cloudity Mail',
+    home: SuiteAppShell<UserSession>(
+      crashSession: (s) => CloudityCrashSessionBinding(
+        accessToken: s.accessToken,
+        gatewayBase: s.api.baseUrl,
+      ),
+      // restoreSession, clearSession, loginBuilder, homeBuilder…
+    ),
+  );
+}
+```
+
 ## Layout standard (`lib/`)
 
 Chaque app Flutter suit la même arborescence :

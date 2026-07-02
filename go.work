@@ -4,13 +4,12 @@ go 1.25.0
 // racine, `go test ./...`) de résoudre les imports inter-modules sans publier
 // internalsec sur un dépôt distant.
 //
-// IMPORTANT : Docker build de chaque service utilise `./backend/<svc>` comme
-// contexte et IGNORE go.work (file is repo-root only). Un service qui doit
-// importer internalsec dans le conteneur devra :
-//   1) ajouter `replace github.com/pavel/cloudity/internalsec => ../internalsec`
-//      (ou un path absolu si l'image le copie ailleurs) dans son `go.mod`,
-//   2) ajuster son Dockerfile pour COPY le code de `internalsec` au bon endroit.
-// Voir docs/securite/MTLS-INTERNE.md § 4 pour le pattern complet.
+// IMPORTANT : Docker build de chaque service utilise `./backend` comme contexte
+// et IGNORE go.work (fichier racine uniquement). Les `go.mod` des services
+// gardent `replace … => ./internalsec` pour l’image (COPY internalsec → /app/internalsec).
+//
+// En local, `replace` dans go.work pointe vers `./backend/internalsec` (module
+// hors `use` pour éviter le conflit api-gateway vs auth-service).
 
 use (
 	./backend/api-gateway
@@ -18,7 +17,6 @@ use (
 	./backend/calendar-service
 	./backend/contacts-service
 	./backend/drive-service
-	./backend/internalsec
 	./backend/mail-directory-service
 	./backend/notes-service
 	./backend/passwords-service
@@ -26,3 +24,5 @@ use (
 	./backend/pkg/dbpin
 	./backend/tasks-service
 )
+
+replace github.com/pavel/cloudity/internalsec => ./backend/internalsec

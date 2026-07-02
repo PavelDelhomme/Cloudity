@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'cloudity_design_tokens.dart';
+import 'suite_app_catalog.dart';
+
 /// Préférences de thème partagées entre les apps Flutter Cloudity.
 class CloudityThemePrefs {
   static const _key = 'cloudity_theme_mode';
@@ -43,13 +46,30 @@ class CloudityThemedApp extends StatefulWidget {
   const CloudityThemedApp({
     super.key,
     required this.title,
-    required this.seedColor,
     required this.home,
-  });
+    this.seedColor,
+    this.suiteApp,
+  }) : assert(seedColor != null || suiteApp != null);
+
+  /// Thème seed explicite (legacy).
+  const CloudityThemedApp.forSuite({
+    super.key,
+    required this.title,
+    required this.home,
+    required ClouditySuiteApp suiteApp,
+  })  : suiteApp = suiteApp,
+        seedColor = null;
 
   final String title;
-  final Color seedColor;
+  final Color? seedColor;
+  final ClouditySuiteApp? suiteApp;
   final Widget home;
+
+  Color get effectiveSeedColor {
+    if (seedColor != null) return seedColor!;
+    if (suiteApp != null) return CloudityDesignTokens.seedColor(suiteApp!);
+    return const Color(0xFF2563EB);
+  }
 
   @override
   State<CloudityThemedApp> createState() => CloudityThemedAppState();
@@ -76,16 +96,40 @@ class CloudityThemedAppState extends State<CloudityThemedApp> {
     setState(() => _mode = mode);
   }
 
+  ThemeMode get themeMode => _mode;
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: widget.title,
-      theme: CloudityAppThemes.light(widget.seedColor),
-      darkTheme: CloudityAppThemes.dark(widget.seedColor),
-      themeMode: _mode,
-      home: widget.home,
+    final seed = widget.effectiveSeedColor;
+    return CloudityThemedAppScope(
+      state: this,
+      child: MaterialApp(
+        title: widget.title,
+        theme: CloudityAppThemes.light(seed),
+        darkTheme: CloudityAppThemes.dark(seed),
+        themeMode: _mode,
+        home: widget.home,
+      ),
     );
   }
+}
+
+/// Accès au cycle thème depuis les écrans Paramètres.
+class CloudityThemedAppScope extends InheritedWidget {
+  const CloudityThemedAppScope({
+    super.key,
+    required this.state,
+    required super.child,
+  });
+
+  final CloudityThemedAppState state;
+
+  static CloudityThemedAppState? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<CloudityThemedAppScope>()?.state;
+  }
+
+  @override
+  bool updateShouldNotify(CloudityThemedAppScope oldWidget) => state != oldWidget.state;
 }
 
 /// Bouton cycle clair / sombre / système pour les écrans Paramètres.

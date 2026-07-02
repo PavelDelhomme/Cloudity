@@ -16,20 +16,26 @@ import 'features/timeline_screen.dart';
 
 final _appKey = GlobalKey<CloudityThemedAppState>();
 
+CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
+      accessToken: s.accessToken,
+      gatewayBase: s.api.baseUrl,
+    );
+
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isAndroid) {
-    await GallerySyncPrefs.reconcileOnStartup();
-    await ensureGalleryBackupNotifications();
-    await Workmanager().initialize(gallerySyncCallbackDispatcher);
-    await applyGallerySyncSchedule();
-  }
-  runApp(CloudityThemedApp(
-    key: _appKey,
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.photos,
     title: 'Cloudity Photos',
-    seedColor: Colors.teal,
+    appKey: _appKey,
+    beforeRun: () async {
+      if (Platform.isAndroid) {
+        await GallerySyncPrefs.reconcileOnStartup();
+        await ensureGalleryBackupNotifications();
+        await Workmanager().initialize(gallerySyncCallbackDispatcher);
+        await applyGallerySyncSchedule();
+      }
+    },
     home: const _PhotosShell(),
-  ));
+  );
 }
 
 /// Alias conservé pour les tests widget / intégration.
@@ -38,10 +44,10 @@ class CloudityPhotosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CloudityThemedApp(
+    return CloudityThemedApp.forSuite(
       title: 'Cloudity Photos',
-      seedColor: Colors.teal,
-      home: _PhotosShell(),
+      suiteApp: ClouditySuiteApp.photos,
+      home: const _PhotosShell(),
     );
   }
 }
@@ -54,6 +60,7 @@ class _PhotosShell extends StatelessWidget {
     return SuiteAppShell<UserSession>(
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
+      crashSession: _crashBinding,
       loginBuilder: (onLoggedIn) => LoginScreen(
         onLoggedIn: (session) {
           onLoggedIn(session);

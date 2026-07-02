@@ -17,6 +17,8 @@
 | **`device-profiles` index** | ☑ | `profiles.index.json` + `_template/` pour scaler les appareils |
 | **Tests orphelins Mail** | ☑ | Suppression `mail_account_helpers_test` dans calendar/contacts/notes/tasks |
 | **Auth centralisée (package)** | 🟡 | Socle encore copié par app ; prochaine étape : package `cloudity_suite_shell` ou tout dans `cloudity_shared` |
+| **UI suite type Google (H21)** | 🟡 | `SuiteDrawerScaffold`, `SuiteAppSwitcher`, tokens JSON branchés ; MVP ☑ · Mail/Drive/Photos drawer à migrer |
+| **Remontée erreurs mobile** | ☑ | `CloudityCrashReporter` + `POST /mobile/crashes` + admin `/4dm1n/mobile-logs` — **`docs/produit/MOBILE-ERROR-REPORTING.md`** |
 | **E2E calendar→tasks** | 🟡 | `integration_test/twofa_flow_test.dart` utilise encore clés `cloudity_mail_*` — réécrire par produit |
 
 ### Session 2026-06-22 — UX dev & Paramètres

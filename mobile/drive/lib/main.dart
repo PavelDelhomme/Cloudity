@@ -6,28 +6,24 @@ import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/files_screen.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityDriveApp());
-}
-
-class CloudityDriveApp extends StatelessWidget {
-  const CloudityDriveApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return CloudityThemedApp(
-      title: 'Cloudity Drive',
-      seedColor: Colors.indigo,
-      home: SuiteAppShell<UserSession>(
-        restoreSession: _restoreSession,
-        clearSession: SessionStore.clearTokens,
-        loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
-        homeBuilder: (session, onLogout) =>
-            FilesScreen(session: session, onLogout: onLogout),
-      ),
+CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
+      accessToken: s.accessToken,
+      gatewayBase: s.api.baseUrl,
     );
-  }
+
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.drive,
+    title: 'Cloudity Drive',
+    home: SuiteAppShell<UserSession>(
+      restoreSession: _restoreSession,
+      clearSession: SessionStore.clearTokens,
+      crashSession: _crashBinding,
+      loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+      homeBuilder: (session, onLogout) =>
+          FilesScreen(session: session, onLogout: onLogout),
+    ),
+  );
 }
 
 Future<UserSession?> _restoreSession() async {

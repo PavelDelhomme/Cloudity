@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:cloudity_shared/cloudity_shared.dart';
+
+import 'cloudity_crash_reporter.dart';
+import 'cloudity_datetime.dart';
+import 'cloudity_error_ui.dart';
+import 'suite_app_catalog.dart';
+import 'suite_drawer_scaffold.dart';
+import 'suite_feedback_screen.dart';
+import 'suite_product_api.dart';
 
 /// Produit suite affiché par l'écran d'accueil mobile.
 enum SuiteProduct { calendar, contacts, notes, tasks }
@@ -25,6 +32,13 @@ extension SuiteProductMeta on SuiteProduct {
         SuiteProduct.notes => Icons.sticky_note_2_outlined,
         SuiteProduct.tasks => Icons.check_circle_outline,
       };
+
+  ClouditySuiteApp get suiteApp => switch (this) {
+        SuiteProduct.calendar => ClouditySuiteApp.calendar,
+        SuiteProduct.contacts => ClouditySuiteApp.contacts,
+        SuiteProduct.notes => ClouditySuiteApp.notes,
+        SuiteProduct.tasks => ClouditySuiteApp.tasks,
+      };
 }
 
 /// Écran principal MVP : liste API + drawer paramètres (aligné Mail/Photos).
@@ -36,6 +50,7 @@ class SuiteProductHomeScreen extends StatefulWidget {
     required this.accessToken,
     required this.refreshAccessToken,
     required this.onLogout,
+    this.userEmail,
   });
 
   final SuiteProduct product;
@@ -43,6 +58,7 @@ class SuiteProductHomeScreen extends StatefulWidget {
   final String accessToken;
   final Future<String?> Function() refreshAccessToken;
   final Future<void> Function() onLogout;
+  final String? userEmail;
 
   @override
   State<SuiteProductHomeScreen> createState() => _SuiteProductHomeScreenState();
@@ -81,6 +97,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         _loading = false;
       });
     } catch (e) {
+      CloudityCrashReporter.trackNetworkError(e);
       if (!mounted) return;
       setState(() {
         _error = e.toString();
@@ -143,137 +160,124 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          children: [
-            SuiteDrawerHeader(gatewayUrl: widget.gatewayBase),
-            const Divider(),
-            ListTile(
-              leading: Icon(widget.product.icon),
-              title: Text(widget.product.title),
-              selected: !_showSettings,
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _showSettings = false);
-              },
-            ),
-            if (widget.product == SuiteProduct.tasks && _taskLists.isNotEmpty) ...[
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Text('Listes'),
-              ),
-              ..._taskLists.map((list) {
-                final id = list['id'];
-                final listId = id is int ? id : int.tryParse(id?.toString() ?? '');
-                final name = list['name']?.toString() ?? 'Liste';
-                final selected = _selectedTaskListId == listId;
-                return ListTile(
-                  title: Text(name),
-                  selected: selected,
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _showSettings = false;
-                      _selectedTaskListId = listId;
-                    });
-                    _reload();
-                  },
-                );
-              }),
-            ],
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.settings_outlined),
-              title: const Text('Paramètres'),
-              selected: _showSettings,
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _showSettings = true);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.logout),
-              title: const Text('Déconnexion'),
-              onTap: () async {
-                Navigator.pop(context);
-                await widget.onLogout();
-              },
-            ),
-          ],
-        ),
+  List<Widget> _productNavItems() {
+    return [
+      ListTile(
+        leading: Icon(widget.product.icon),
+        title: Text(widget.product.title),
+        selected: !_showSettings,
+        onTap: () {
+          Navigator.pop(context);
+          setState(() => _showSettings = false);
+        },
       ),
+      if (widget.product == SuiteProduct.tasks && _taskLists.isNotEmpty) ...[
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+          child: Text('Listes'),
+        ),
+        ..._taskLists.map((list) {
+          final id = list['id'];
+          final listId = id is int ? id : int.tryParse(id?.toString() ?? '');
+          final name = list['name']?.toString() ?? 'Liste';
+          final selected = _selectedTaskListId == listId;
+          return ListTile(
+            title: Text(name),
+            selected: selected,
+            onTap: () {
+              Navigator.pop(context);
+              setState(() {
+                _showSettings = false;
+                _selectedTaskListId = listId;
+              });
+              _reload();
+            },
+          );
+        }),
+      ],
+    ];
+  }
+
+  Widget _buildListBody() {
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: _loading
+          ? ListView(
+              children: const [
+                SizedBox(height: 120),
+                Center(child: CircularProgressIndicator()),
+              ],
+            )
+                  : _error != null
+                      ? CloudityErrorBody(
+                          message: _error!,
+                          onRetry: _reload,
+                          onReport: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SuiteFeedbackScreen(
+                                  screenName: widget.product.title,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+              : _items.isEmpty
+                  ? ListView(
+                      children: [
+                        const SizedBox(height: 80),
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              'Aucun élément. Créez-en depuis le web ${widget.product.webPath}.',
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: _items.length,
+                      itemBuilder: (context, index) {
+                        final item = _items[index];
+                        final sub = _itemSubtitle(item);
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          child: ListTile(
+                            title: Text(_itemTitle(item), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            subtitle: sub != null ? Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_showSettings ? 'Paramètres' : widget.product.title),
-        actions: [
-          if (!_showSettings)
-            IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
-        ],
+    return SuiteDrawerScaffold(
+      currentApp: widget.product.suiteApp,
+      title: _showSettings ? 'Paramètres' : widget.product.title,
+      gatewayUrl: widget.gatewayBase,
+      userEmail: widget.userEmail,
+      showSettings: _showSettings,
+      navItems: _productNavItems(),
+      appBarActions: [
+        if (!_showSettings)
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
+      ],
+      onOpenSettings: () => setState(() => _showSettings = true),
+      onCloseSettings: () => setState(() => _showSettings = false),
+      onLogout: widget.onLogout,
+      settingsBody: SuiteSettingsPanel(
+        gatewayUrl: widget.gatewayBase,
+        appName: widget.product.title,
+        webAppPath: widget.product.webPath,
+        onLogout: () => widget.onLogout(),
       ),
-      drawer: _buildDrawer(),
-      body: _showSettings
-          ? SuiteSettingsPanel(
-              gatewayUrl: widget.gatewayBase,
-              appName: widget.product.title,
-              webAppPath: widget.product.webPath,
-              onLogout: () => widget.onLogout(),
-            )
-          : RefreshIndicator(
-              onRefresh: _reload,
-              child: _loading
-                  ? ListView(
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(child: CircularProgressIndicator()),
-                      ],
-                    )
-                  : _error != null
-                      ? ListView(
-                          padding: const EdgeInsets.all(24),
-                          children: [
-                            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                            const SizedBox(height: 16),
-                            FilledButton(onPressed: _reload, child: const Text('Réessayer')),
-                          ],
-                        )
-                      : _items.isEmpty
-                          ? ListView(
-                              children: [
-                                const SizedBox(height: 80),
-                                Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24),
-                                    child: Text(
-                                      'Aucun élément. Créez-en depuis le web ${widget.product.webPath}.',
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              itemCount: _items.length,
-                              itemBuilder: (context, index) {
-                                final item = _items[index];
-                                final sub = _itemSubtitle(item);
-                                return Card(
-                                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  child: ListTile(
-                                    title: Text(_itemTitle(item), maxLines: 2, overflow: TextOverflow.ellipsis),
-                                    subtitle: sub != null ? Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
-                                  ),
-                                );
-                              },
-                            ),
-            ),
+      body: _buildListBody(),
     );
   }
 }

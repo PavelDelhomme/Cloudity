@@ -2480,3 +2480,28 @@ export async function deleteTask(token: string, id: number): Promise<void> {
   const res = await apiFetch(token, `/tasks/${id}`, { method: 'DELETE', json: false })
   if (!res.ok && res.status !== 204) throw new Error(`Delete task: ${res.status}`)
 }
+
+/** Rapport crash mobile (liste back-office admin). */
+export type MobileCrashListItem = {
+  id: string
+  filename: string
+  modified: string
+  sizeBytes: number
+}
+
+export async function fetchMobileCrashList(
+  token?: string | null
+): Promise<{ items: MobileCrashListItem[] }> {
+  const res = await apiFetch(token ?? null, '/mobile/crashes')
+  if (!res.ok) throw new Error(`Logs mobile: ${res.status}`)
+  return res.json() as Promise<{ items: MobileCrashListItem[] }>
+}
+
+export async function fetchMobileCrashDetail(
+  id: string,
+  token?: string | null
+): Promise<Record<string, unknown>> {
+  const res = await apiFetch(token ?? null, `/mobile/crashes/detail?id=${encodeURIComponent(id)}`)
+  if (!res.ok) throw new Error(`Détail crash: ${res.status}`)
+  return res.json() as Promise<Record<string, unknown>>
+}

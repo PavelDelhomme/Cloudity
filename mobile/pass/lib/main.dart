@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:cloudity_shared/app_theme.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'auth/login_screen.dart';
 import 'features/unlock_screen.dart';
@@ -9,9 +9,12 @@ import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/vault_controller.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _PassRoot());
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.pass,
+    title: 'Cloudity Pass',
+    home: const _PassRoot(),
+  );
 }
 
 class _PassRoot extends StatefulWidget {
@@ -23,6 +26,8 @@ class _PassRoot extends StatefulWidget {
 
 class _PassRootState extends State<_PassRoot> {
   final VaultController _vault = VaultController();
+  bool _ready = false;
+  PassUserSession? _session;
 
   @override
   void dispose() {
@@ -30,33 +35,12 @@ class _PassRootState extends State<_PassRoot> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return CloudityThemedApp(
-      title: 'Cloudity Pass',
-      seedColor: Colors.deepPurple,
-      home: _AppBootstrap(vault: _vault),
+  void _bindCrashSession(PassUserSession session) {
+    CloudityCrashReporter.setSession(
+      accessToken: session.accessToken,
+      userEmail: session.userEmail,
+      gatewayBase: session.api.baseUrl,
     );
-  }
-}
-
-class _AppBootstrap extends StatefulWidget {
-  const _AppBootstrap({required this.vault});
-
-  final VaultController vault;
-
-  @override
-  State<_AppBootstrap> createState() => _AppBootstrapState();
-}
-
-class _AppBootstrapState extends State<_AppBootstrap> {
-  bool _ready = false;
-  PassUserSession? _session;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
   }
 
   Future<void> _restore() async {
@@ -73,16 +57,25 @@ class _AppBootstrapState extends State<_AppBootstrap> {
           userId: loaded.userId ?? '',
           userEmail: email,
         );
+        _bindCrashSession(_session!);
       }
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
   void _onLoggedIn(PassUserSession session) {
+    _bindCrashSession(session);
     setState(() => _session = session);
   }
 
   Future<void> _onLogout() async {
-    widget.vault.lock();
+    _vault.lock();
+    CloudityCrashReporter.clearSession();
     await PassSessionStore.clearAll();
     if (!mounted) return;
     setState(() => _session = null);
@@ -98,18 +91,18 @@ class _AppBootstrapState extends State<_AppBootstrap> {
       return PassLoginScreen(onLoggedIn: _onLoggedIn);
     }
     return AnimatedBuilder(
-      animation: widget.vault,
+      animation: _vault,
       builder: (context, _) {
-        if (!widget.vault.isUnlocked) {
+        if (!_vault.isUnlocked) {
           return PassUnlockScreen(
             session: session,
-            controller: widget.vault,
+            controller: _vault,
             onLogout: _onLogout,
           );
         }
         return PassVaultsScreen(
           session: session,
-          controller: widget.vault,
+          controller: _vault,
           onLogout: _onLogout,
         );
       },

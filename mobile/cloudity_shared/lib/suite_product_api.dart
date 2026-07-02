@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import 'app_theme.dart';
 import 'http_helpers.dart';
+import 'suite_feedback_screen.dart';
 
 /// Client HTTP minimal pour les apps suite (Calendar, Contacts, Notes, Tasks).
 class SuiteProductApi {
@@ -41,7 +43,7 @@ class SuiteProductApi {
     for (var attempt = 0; attempt < 2; attempt++) {
       final uri = Uri.parse('$_base$path');
       final res = await http
-          .get(uri, headers: getAuthHeaders(token))
+          .get(uri, headers: authHeaders(token))
           .timeout(const Duration(seconds: 15));
       if (res.statusCode == 401 && onTokenRefresh != null && attempt == 0) {
         final refreshed = await onTokenRefresh!();
@@ -98,6 +100,7 @@ class SuiteSettingsPanel extends StatelessWidget {
     required this.webAppPath,
     this.extraSections = const [],
     this.onLogout,
+    this.showThemeTile = true,
   });
 
   final String gatewayUrl;
@@ -105,10 +108,12 @@ class SuiteSettingsPanel extends StatelessWidget {
   final String webAppPath;
   final List<Widget> extraSections;
   final VoidCallback? onLogout;
+  final bool showThemeTile;
 
   @override
   Widget build(BuildContext context) {
     final webUrl = '$gatewayUrl$webAppPath';
+    final themeState = CloudityThemedAppScope.maybeOf(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -119,7 +124,26 @@ class SuiteSettingsPanel extends StatelessWidget {
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 20),
+        if (showThemeTile && themeState != null)
+          CloudityThemeModeTile(
+            mode: themeState.themeMode,
+            onChanged: themeState.setThemeMode,
+          ),
         ...extraSections,
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: const Text('Signaler un problème'),
+            subtitle: const Text('Envoie un rapport au back-office admin'),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SuiteFeedbackScreen(screenName: appName),
+                ),
+              );
+            },
+          ),
+        ),
         Card(
           child: ListTile(
             leading: const Icon(Icons.open_in_browser),
@@ -147,23 +171,4 @@ class SuiteSettingsPanel extends StatelessWidget {
   }
 }
 
-/// En-tête drawer standard Cloudity.
-class SuiteDrawerHeader extends StatelessWidget {
-  const SuiteDrawerHeader({
-    super.key,
-    required this.gatewayUrl,
-    this.subtitle,
-  });
-
-  final String gatewayUrl;
-  final String? subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-      title: const Text('Compte Cloudity'),
-      subtitle: Text(subtitle ?? gatewayUrl),
-    );
-  }
-}
+// SuiteDrawerHeader → suite_drawer_scaffold.dart

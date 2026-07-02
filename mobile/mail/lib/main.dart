@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'auth/login_screen.dart';
@@ -6,28 +5,24 @@ import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/inbox_screen.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const CloudityMailApp());
-}
-
-class CloudityMailApp extends StatelessWidget {
-  const CloudityMailApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return CloudityThemedApp(
-      title: 'Cloudity Mail',
-      seedColor: Colors.teal,
-      home: SuiteAppShell<UserSession>(
-        restoreSession: _restoreSession,
-        clearSession: SessionStore.clearTokens,
-        loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
-        homeBuilder: (session, onLogout) =>
-            InboxScreen(session: session, onLogout: onLogout),
-      ),
+CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
+      accessToken: s.accessToken,
+      gatewayBase: s.api.baseUrl,
     );
-  }
+
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.mail,
+    title: 'Cloudity Mail',
+    home: SuiteAppShell<UserSession>(
+      restoreSession: _restoreSession,
+      clearSession: SessionStore.clearTokens,
+      crashSession: _crashBinding,
+      loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+      homeBuilder: (session, onLogout) =>
+          InboxScreen(session: session, onLogout: onLogout),
+    ),
+  );
 }
 
 Future<UserSession?> _restoreSession() async {
