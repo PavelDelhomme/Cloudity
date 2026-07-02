@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudity_mail/mail_validation.dart';
+import 'package:cloudity_mail/features/mail_validation.dart';
 
 void main() {
   group('isValidRecipientEmail', () {

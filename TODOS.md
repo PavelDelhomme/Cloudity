@@ -5,7 +5,19 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** — quota, Photos/Drive vault, matching mobile.
+**Branche active** : **`main`** (GitOps Portainer) · chantier mobile structure **`feat/mobile-structure-standard`** ou directement `main`.
+
+### Session 2026-07-02 — Structure mobile unifiée
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Layout `lib/` standard** | ☑ | Toutes les apps : `auth/` · `api/` · `features/` + `main.dart` · doc **`mobile/README.md`** |
+| **`SuiteAppShell` + gateway** | ☑ | `cloudity_shared` : `suite_app_shell.dart`, `suite_gateway_config.dart`, `storage_keys.dart` centralisé |
+| **`admin_app` refonte** | ☑ | Auth réelle gateway `:6002`, vérif rôle admin, `/admin/tenants`, plus de `localhost:8080` hardcodé |
+| **`device-profiles` index** | ☑ | `profiles.index.json` + `_template/` pour scaler les appareils |
+| **Tests orphelins Mail** | ☑ | Suppression `mail_account_helpers_test` dans calendar/contacts/notes/tasks |
+| **Auth centralisée (package)** | 🟡 | Socle encore copié par app ; prochaine étape : package `cloudity_suite_shell` ou tout dans `cloudity_shared` |
+| **E2E calendar→tasks** | 🟡 | `integration_test/twofa_flow_test.dart` utilise encore clés `cloudity_mail_*` — réécrire par produit |
 
 ### Session 2026-06-22 — UX dev & Paramètres
 
@@ -80,6 +92,10 @@
 | **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
 | **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
 | **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
+| **H17** | **Mobile — structure `lib/` unifiée** | Layout `auth/` · `api/` · `features/` sur Mail/Drive/Photos/Pass/Calendar/Contacts/Notes/Tasks/Admin ; `SuiteAppShell` ; `mobile/README.md` ; scripts `customize-suite-app.sh` / `copy-suite-auth-base.sh` / `reorganize-suite-lib.py` | ☑ |
+| **H18** | **Mobile — `admin_app` production-ready** | Gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + dart-define ; login admin + 2FA à venir ; liste tenants API ; aligné `cloudity_shared` | 🟡 |
+| **H19** | **Mobile — auth sans duplication** | Extraire `SessionStore` / `LoginScreen` dans `cloudity_shared` (au lieu de 8 copies) ; un seul `copy-suite-auth-base.sh` pour `main.dart` seulement | ☐ |
+| **H20** | **Mobile — profils appareils scalables** | Index `profiles.index.json`, template `_template/`, packages Cloudity listés dans profil Samsung ; reste : UI `make mobile-device-list` | ☑ |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
@@ -94,7 +110,7 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
 | **E2E Playwright** | `make test-e2e` / `make test-e2e-playwright` | `reports/e2e/` + logs capture | ☑ 80/85 (5 skipped, `20260629`) |
 | **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
-| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
+| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` · layout `lib/auth|api|features` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
 | **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
 | **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☑ 2026-06-29 (avertissements npm audit) |

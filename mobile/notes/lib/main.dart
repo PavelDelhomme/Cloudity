@@ -1,84 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'login_screen.dart';
-import 'session_store.dart';
-import 'user_session.dart';
+import 'auth/login_screen.dart';
+import 'auth/session_store.dart';
+import 'auth/user_session.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _App());
+  runApp(const CloudityNotesApp());
 }
 
-class _App extends StatelessWidget {
-  const _App();
+class CloudityNotesApp extends StatelessWidget {
+  const CloudityNotesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CloudityThemedApp(
       title: 'Cloudity Notes',
       seedColor: Colors.amber,
-      home: const _Bootstrap(),
+      home: SuiteAppShell<UserSession>(
+        restoreSession: _restoreSession,
+        clearSession: SessionStore.clearTokens,
+        loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+        homeBuilder: (session, onLogout) => SuiteProductHomeScreen(
+          product: SuiteProduct.notes,
+          gatewayBase: session.api.baseUrl,
+          accessToken: session.accessToken,
+          refreshAccessToken: () async {
+            await session.refreshIfNeeded();
+            return session.accessToken;
+          },
+          onLogout: onLogout,
+        ),
+      ),
     );
   }
 }
 
-class _Bootstrap extends StatefulWidget {
-  const _Bootstrap();
-
-  @override
-  State<_Bootstrap> createState() => _BootstrapState();
-}
-
-class _BootstrapState extends State<_Bootstrap> {
-  bool _ready = false;
-  UserSession? _session;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
-  }
-
-  Future<void> _restore() async {
-    final pair = await SessionStore.loadValidatedSession();
-    if (!mounted) return;
-    setState(() {
-      _ready = true;
-      if (pair != null) {
-        _session = UserSession(
-          api: pair.api,
-          accessToken: pair.access,
-          refreshToken: pair.refresh,
-        );
-      }
-    });
-  }
-
-  Future<void> _onLogout() async {
-    await SessionStore.clearTokens();
-    if (!mounted) return;
-    setState(() => _session = null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    final session = _session;
-    if (session == null) {
-      return LoginScreen(onLoggedIn: (s) => setState(() => _session = s));
-    }
-    return SuiteProductHomeScreen(
-      product: SuiteProduct.notes,
-      gatewayBase: session.api.baseUrl,
-      accessToken: session.accessToken,
-      refreshAccessToken: () async {
-        await session.refreshIfNeeded();
-        return session.accessToken;
-      },
-      onLogout: _onLogout,
-    );
-  }
+Future<UserSession?> _restoreSession() async {
+  final pair = await SessionStore.loadValidatedSession();
+  if (pair == null) return null;
+  return UserSession(
+    api: pair.api,
+    accessToken: pair.access,
+    refreshToken: pair.refresh,
+  );
 }

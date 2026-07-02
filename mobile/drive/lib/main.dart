@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'package:cloudity_shared/app_theme.dart';
-
-import 'files_screen.dart';
-import 'login_screen.dart';
-import 'session_store.dart';
-import 'user_session.dart';
+import 'auth/login_screen.dart';
+import 'auth/session_store.dart';
+import 'auth/user_session.dart';
+import 'features/files_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,67 +16,26 @@ class CloudityDriveApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const CloudityThemedApp(
+    return CloudityThemedApp(
       title: 'Cloudity Drive',
       seedColor: Colors.indigo,
-      home: _AppBootstrap(),
+      home: SuiteAppShell<UserSession>(
+        restoreSession: _restoreSession,
+        clearSession: SessionStore.clearTokens,
+        loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+        homeBuilder: (session, onLogout) =>
+            FilesScreen(session: session, onLogout: onLogout),
+      ),
     );
   }
 }
 
-class _AppBootstrap extends StatefulWidget {
-  const _AppBootstrap();
-
-  @override
-  State<_AppBootstrap> createState() => _AppBootstrapState();
-}
-
-class _AppBootstrapState extends State<_AppBootstrap> {
-  bool _ready = false;
-  UserSession? _session;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
-  }
-
-  Future<void> _restore() async {
-    final pair = await SessionStore.loadValidatedSession();
-    if (!mounted) return;
-    setState(() {
-      _ready = true;
-      if (pair != null) {
-        _session = UserSession(
-          api: pair.api,
-          accessToken: pair.access,
-          refreshToken: pair.refresh,
-        );
-      }
-    });
-  }
-
-  void _onLoggedIn(UserSession session) {
-    setState(() => _session = session);
-  }
-
-  Future<void> _onLogout() async {
-    await SessionStore.clearTokens();
-    if (!mounted) return;
-    setState(() => _session = null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    final session = _session;
-    if (session == null) {
-      return LoginScreen(onLoggedIn: _onLoggedIn);
-    }
-    return FilesScreen(session: session, onLogout: _onLogout);
-  }
+Future<UserSession?> _restoreSession() async {
+  final pair = await SessionStore.loadValidatedSession();
+  if (pair == null) return null;
+  return UserSession(
+    api: pair.api,
+    accessToken: pair.access,
+    refreshToken: pair.refresh,
+  );
 }

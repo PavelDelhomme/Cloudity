@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import 'package:cloudity_shared/app_theme.dart';
 
-import 'screens/login_screen.dart';
-import 'screens/unlock_screen.dart';
-import 'screens/vaults_screen.dart';
-import 'session_store.dart';
-import 'user_session.dart';
-import 'vault_controller.dart';
+import 'auth/login_screen.dart';
+import 'features/unlock_screen.dart';
+import 'features/vaults_screen.dart';
+import 'auth/session_store.dart';
+import 'auth/user_session.dart';
+import 'features/vault_controller.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

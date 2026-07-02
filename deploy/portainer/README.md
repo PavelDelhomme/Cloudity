@@ -1,6 +1,6 @@
 # Stacks Portainer Cloudity
 
-Fichiers prêts pour **Portainer → Stacks → Git repository**.
+**Commencer par le guide maître** : [docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](../../docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md) (local → LAN → prod NPM).
 
 | Guide détaillé | [PORTAINER-STACK.md](./PORTAINER-STACK.md) |
 |----------------|---------------------------------------------|

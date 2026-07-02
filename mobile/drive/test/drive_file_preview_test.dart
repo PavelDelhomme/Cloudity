@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudity_drive/drive_file_preview.dart';
+import 'package:cloudity_drive/features/drive_file_preview.dart';
 
 void main() {
   test('drivePreviewKind détecte les formats prévisualisables', () {

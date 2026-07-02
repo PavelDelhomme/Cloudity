@@ -70,6 +70,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 
 | Fichier | Rôle |
 |---------|------|
+| **[operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md)** | **★ Guide maître** : PC local → mobile LAN → prod Portainer/NPM (checklists complètes). |
 | **[GIT.md](GIT.md)** | **Référence Git unique** : branches, flux, commandes (complète [operations/BRANCHES.md](operations/BRANCHES.md)). |
 | **[INSTRUCTIONS-IA.md](../INSTRUCTIONS-IA.md)** | **Checklist avant / après travail** (assistant ou humain) + exception `NPNLD` pour le journal. |
 | **[LOGS.md](../LOGS.md)** | **Journal cumulatif** des tours de travail (actions résumées). |

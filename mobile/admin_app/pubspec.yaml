@@ -1,31 +1,27 @@
 name: admin_app
-description: Cloudity mobile administration app
+description: "Cloudity Admin — app mobile administration (tenants, monitoring)."
 publish_to: 'none'
-version: 1.0.0+1
+version: 0.1.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ^3.11.4
 
 dependencies:
   flutter:
     sdk: flutter
-  
-  cupertino_icons: ^1.0.2
-  flutter_riverpod: ^2.4.5
-  go_router: ^12.1.1
-  dio: ^5.3.2
-  shared_preferences: ^2.2.2
-  flutter_secure_storage: ^9.0.0
-  json_annotation: ^4.8.1
-  freezed_annotation: ^2.4.1
+  cloudity_shared:
+    path: ../cloudity_shared
+  cloudity_auth_broker:
+    path: ../cloudity_auth_broker
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.3
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  build_runner: ^2.4.7
-  json_serializable: ^6.7.1
-  freezed: ^2.4.6
-  flutter_lints: ^3.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true

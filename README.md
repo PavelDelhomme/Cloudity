@@ -23,6 +23,8 @@ Première fois : `./scripts/dev/setup.sh` ou `make init` puis `make up`. (Index 
 
 **Convention documentation** : à la **racine** du dépôt, **`README.md`** (cette page), **`STATUS.md`** (suivi quotidien) et **`BACKLOG.md`** (priorités / backlog condensé). Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
 
+**Déploiement & tests (PC → mobile → prod VPS)** : **[docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md)** — guide maître unique (local, LAN téléphone, Portainer + NPM).
+
 **Branches Git** : intégration sur **`dev`**, fonctionnalités sur **`feat/<sujet>`** (ex. Photos mobile + sync + sécurité), stable sur **`main`** — détail **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 
 **Suivi du projet** : **[STATUS.md](./STATUS.md)** · **Backlog** : **[BACKLOG.md](./BACKLOG.md)** · **Ordre suite & décisions produit** : [docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md) · **Sécurité & confiance (vision)** : [docs/securite/SECURITE.md](docs/securite/SECURITE.md). **Détail** : [docs/produit/ROADMAP.md](docs/produit/ROADMAP.md), [docs/produit/MOBILES.md](docs/produit/MOBILES.md), [docs/operations/TESTS.md](docs/operations/TESTS.md), [docs/operations/PERFORMANCES.md](docs/operations/PERFORMANCES.md) (perf, stack, diagnostic), [docs/produit/PlanImplementation.md](docs/produit/PlanImplementation.md), [docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md) (sync, mobile, session). **Flutter** : `make run-mobile APP=Admin` (autres noms → message tant que le scaffold n’existe pas ; voir [docs/produit/MOBILES.md](docs/produit/MOBILES.md) § 5).

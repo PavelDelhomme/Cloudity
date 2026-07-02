@@ -6,6 +6,7 @@
 
 | Sujet | Fichier |
 |-------|---------|
+| **★ Guide maître (local + mobile + prod)** | **[GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md)** |
 | Hub 3 environnements | **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)** |
 | Un service à la fois | **[DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)** |
 | Secrets | **[ENV-GENERATION.md](ENV-GENERATION.md)** |

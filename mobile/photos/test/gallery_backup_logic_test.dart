@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudity_photos/gallery_backup_logic.dart';
-import 'package:cloudity_photos/gallery_sync_prefs.dart';
+import 'package:cloudity_photos/features/gallery_backup_logic.dart';
+import 'package:cloudity_photos/features/gallery_sync_prefs.dart';
 
 void main() {
   test('reprise scan : sans curseur démarre au premier album', () {

@@ -9,14 +9,14 @@ PKG_NAME="${2:?dart package name}"
 
 TARGET="${ROOT}/mobile/${APP_DIR}"
 MAIL="${ROOT}/mobile/mail/lib"
-mkdir -p "${TARGET}/lib"
+mkdir -p "${TARGET}/lib/auth" "${TARGET}/lib/api"
 
-for f in session_store.dart storage_keys.dart user_session.dart login_screen.dart; do
-  cp "${MAIL}/${f}" "${TARGET}/lib/${f}"
+for f in session_store.dart user_session.dart login_screen.dart; do
+  cp "${MAIL}/auth/${f}" "${TARGET}/lib/auth/${f}"
 done
 
 # auth_api minimal : auth + refresh seulement pour apps légères
-cat > "${TARGET}/lib/auth_api.dart" <<'DART'
+cat > "${TARGET}/lib/api/auth_api.dart" <<'DART'
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -122,7 +122,19 @@ class AuthApi {
     final pair = await refreshTokens(refreshToken);
     return pair;
   }
+
+  Future<Map<String, dynamic>> fetchMe(String accessToken) async {
+    final res = await http.get(
+      Uri.parse('$_base/auth/me'),
+      headers: getAuthHeaders(accessToken),
+    ).timeout(const Duration(seconds: 8));
+    final map = jsonDecode(res.body.isEmpty ? '{}' : res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw AuthException(map['error']?.toString() ?? 'Profil indisponible');
+    }
+    return map;
+  }
 }
 DART
 
-echo "✅ Socle auth copié vers mobile/${APP_DIR}"
+echo "✅ Socle auth copié vers mobile/${APP_DIR} (lib/auth + lib/api)"

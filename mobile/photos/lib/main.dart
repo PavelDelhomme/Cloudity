@@ -3,16 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:workmanager/workmanager.dart';
 
-import 'package:cloudity_shared/app_theme.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'gallery_sync_scheduler.dart';
-import 'gallery_sync_worker.dart';
-import 'gallery_backup_notifications.dart';
-import 'gallery_sync_prefs.dart';
-import 'login_screen.dart';
-import 'session_store.dart';
-import 'timeline_screen.dart';
-import 'user_session.dart';
+import 'auth/login_screen.dart';
+import 'auth/session_store.dart';
+import 'auth/user_session.dart';
+import 'features/gallery_backup_notifications.dart';
+import 'features/gallery_sync_prefs.dart';
+import 'features/gallery_sync_scheduler.dart';
+import 'features/gallery_sync_worker.dart';
+import 'features/timeline_screen.dart';
 
 final _appKey = GlobalKey<CloudityThemedAppState>();
 
@@ -28,7 +28,7 @@ Future<void> main() async {
     key: _appKey,
     title: 'Cloudity Photos',
     seedColor: Colors.teal,
-    home: const _AppBootstrap(),
+    home: const _PhotosShell(),
   ));
 }
 
@@ -38,70 +38,42 @@ class CloudityPhotosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CloudityThemedApp(
+    return const CloudityThemedApp(
       title: 'Cloudity Photos',
       seedColor: Colors.teal,
-      home: const _AppBootstrap(),
+      home: _PhotosShell(),
     );
   }
 }
 
-class _AppBootstrap extends StatefulWidget {
-  const _AppBootstrap();
-
-  @override
-  State<_AppBootstrap> createState() => _AppBootstrapState();
-}
-
-class _AppBootstrapState extends State<_AppBootstrap> {
-  bool _ready = false;
-  UserSession? _session;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
-  }
-
-  Future<void> _restore() async {
-    final pair = await SessionStore.loadValidatedSession();
-    if (!mounted) return;
-    setState(() {
-      _ready = true;
-      if (pair != null) {
-        _session = UserSession(
-          api: pair.api,
-          accessToken: pair.access,
-          refreshToken: pair.refresh,
-        );
-      }
-    });
-  }
-
-  void _onLoggedIn(UserSession session) {
-    setState(() => _session = session);
-    if (Platform.isAndroid) {
-      resumeGalleryBackupAfterLogin();
-    }
-  }
-
-  Future<void> _onLogout() async {
-    await SessionStore.clearTokens();
-    if (!mounted) return;
-    setState(() => _session = null);
-  }
+class _PhotosShell extends StatelessWidget {
+  const _PhotosShell();
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    final session = _session;
-    if (session == null) {
-      return LoginScreen(onLoggedIn: _onLoggedIn);
-    }
-    return TimelineScreen(session: session, onLogout: _onLogout);
+    return SuiteAppShell<UserSession>(
+      restoreSession: _restoreSession,
+      clearSession: SessionStore.clearTokens,
+      loginBuilder: (onLoggedIn) => LoginScreen(
+        onLoggedIn: (session) {
+          onLoggedIn(session);
+          if (Platform.isAndroid) {
+            resumeGalleryBackupAfterLogin();
+          }
+        },
+      ),
+      homeBuilder: (session, onLogout) =>
+          TimelineScreen(session: session, onLogout: onLogout),
+    );
   }
+}
+
+Future<UserSession?> _restoreSession() async {
+  final pair = await SessionStore.loadValidatedSession();
+  if (pair == null) return null;
+  return UserSession(
+    api: pair.api,
+    accessToken: pair.access,
+    refreshToken: pair.refresh,
+  );
 }
