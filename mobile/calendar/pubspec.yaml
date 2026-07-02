@@ -1,16 +1,23 @@
 name: cloudity_calendar
-description: >
-  PLACEHOLDER — réservation de l'emplacement Flutter pour la future app
-  Cloudity Calendar. Voir README.md ; le scaffold réel sera fait avec
-  `flutter create --platforms=android,ios .` quand le chantier démarrera
-  (cf. docs/produit/MULTI-PLATEFORME.md MP-05).
+description: "Cloudity Cloudity Calendar — app mobile suite."
 publish_to: 'none'
-
-version: 0.0.0+placeholder
-
+version: 0.1.0+1
 environment:
   sdk: ^3.11.4
-
-# Pas de dépendances déclarées — ce répertoire n'est PAS un projet Flutter
-# fonctionnel. `flutter pub get` ne doit pas être exécuté ici tant que
-# le scaffold complet n'a pas été fait.
+dependencies:
+  flutter:
+    sdk: flutter
+  cloudity_shared:
+    path: ../cloudity_shared
+  cloudity_auth_broker:
+    path: ../cloudity_auth_broker
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  flutter_secure_storage: ^9.2.4
+  shared_preferences: ^2.3.3
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true

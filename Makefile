@@ -1371,99 +1371,135 @@ setup-infra-only: ## Démarre uniquement Postgres + Redis
 	@$(COMPOSE) $(COMPOSE_FILES) up -d postgres redis
 	@echo "✅ Postgres (6042), Redis (6079) démarrés."
 
-start-service: ## Démarre un service spécifique
-	@echo "🚀 Démarrer un service"
-	@echo "1) auth-service"
-	@echo "2) api-gateway"
-	@echo "3) admin-service" 
-	@echo "4) cloudity-web"
-	@echo "5) postgres"
-	@echo "6) redis"
-	@read -p "Choisir un service (1-6): " choice; \
-	case $$choice in \
-		1) docker compose up -d auth-service ;; \
-		2) docker compose up -d api-gateway ;; \
-		3) docker compose up -d admin-service ;; \
-		4) docker compose up -d cloudity-web ;; \
-		5) docker compose up -d postgres ;; \
-		6) docker compose up -d redis ;; \
-		*) echo "Choix invalide" ;; \
-	esac
+start-service: ## Démarre un service : make start-service SERVICE=mail-directory-service
+	@if [ -n "$(SERVICE)" ]; then \
+		echo "🚀 Démarrage de $(SERVICE)..."; \
+		$(COMPOSE) $(COMPOSE_FILES) up -d $(SERVICE); \
+		echo "✅ $(SERVICE) démarré"; \
+	else \
+		echo "🚀 Démarrer un service (ou: make start-service SERVICE=nom)"; \
+		echo "1) auth-service  2) api-gateway  3) admin-service  4) cloudity-web"; \
+		echo "5) mail-directory-service  6) drive-service  7) photos-service  8) passwords-service"; \
+		echo "9) postgres  10) redis  11) tous (profile dev)"; \
+		read -p "Choisir (1-11): " choice; \
+		case $$choice in \
+			1) $(COMPOSE) $(COMPOSE_FILES) up -d auth-service ;; \
+			2) $(COMPOSE) $(COMPOSE_FILES) up -d api-gateway ;; \
+			3) $(COMPOSE) $(COMPOSE_FILES) up -d admin-service ;; \
+			4) $(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web ;; \
+			5) $(COMPOSE) $(COMPOSE_FILES) up -d mail-directory-service ;; \
+			6) $(COMPOSE) $(COMPOSE_FILES) up -d drive-service ;; \
+			7) $(COMPOSE) $(COMPOSE_FILES) up -d photos-service ;; \
+			8) $(COMPOSE) $(COMPOSE_FILES) up -d passwords-service ;; \
+			9) $(COMPOSE) $(COMPOSE_FILES) up -d postgres ;; \
+			10) $(COMPOSE) $(COMPOSE_FILES) up -d redis ;; \
+			11) $(COMPOSE) $(COMPOSE_FILES) --profile dev up -d ;; \
+			*) echo "Choix invalide" ;; \
+		esac; \
+	fi
 
 soft-restart: ## Redémarrage en douceur (sans reconstruire)
 	@echo "🔄 Redémarrage en douceur..."
-	@docker compose restart
+	@$(COMPOSE) $(COMPOSE_FILES) restart
 	@echo "✅ Services redémarrés!"
 
 # Gestion individuelle des services
-stop-service: ## Arrête un service spécifique
-	@echo "🛑 Arrêter un service"
-	@echo "1) auth-service"
-	@echo "2) api-gateway"
-	@echo "3) admin-service" 
-	@echo "4) cloudity-web"
-	@echo "5) postgres"
-	@echo "6) redis"
-	@echo "7) tous les services"
-	@read -p "Choisir un service (1-7): " choice; \
-	case $$choice in \
-		1) docker compose stop auth-service ;; \
-		2) docker compose stop api-gateway ;; \
-		3) docker compose stop admin-service ;; \
-		4) docker compose stop cloudity-web ;; \
-		5) docker compose stop postgres ;; \
-		6) docker compose stop redis ;; \
-		7) docker compose stop ;; \
-		*) echo "Choix invalide" ;; \
-	esac
+stop-service: ## Arrête un service : make stop-service SERVICE=mail-directory-service
+	@if [ -n "$(SERVICE)" ]; then \
+		echo "🛑 Arrêt de $(SERVICE)..."; \
+		$(COMPOSE) $(COMPOSE_FILES) stop $(SERVICE); \
+		echo "✅ $(SERVICE) arrêté"; \
+	else \
+		echo "🛑 Arrêter un service (ou: make stop-service SERVICE=nom)"; \
+		echo "1) auth-service  2) api-gateway  3) admin-service  4) cloudity-web"; \
+		echo "5) mail-directory-service  6) drive-service  7) photos-service  8) passwords-service"; \
+		echo "9) postgres  10) redis  11) tous"; \
+		read -p "Choisir (1-11): " choice; \
+		case $$choice in \
+			1) $(COMPOSE) $(COMPOSE_FILES) stop auth-service ;; \
+			2) $(COMPOSE) $(COMPOSE_FILES) stop api-gateway ;; \
+			3) $(COMPOSE) $(COMPOSE_FILES) stop admin-service ;; \
+			4) $(COMPOSE) $(COMPOSE_FILES) stop cloudity-web ;; \
+			5) $(COMPOSE) $(COMPOSE_FILES) stop mail-directory-service ;; \
+			6) $(COMPOSE) $(COMPOSE_FILES) stop drive-service ;; \
+			7) $(COMPOSE) $(COMPOSE_FILES) stop photos-service ;; \
+			8) $(COMPOSE) $(COMPOSE_FILES) stop passwords-service ;; \
+			9) $(COMPOSE) $(COMPOSE_FILES) stop postgres ;; \
+			10) $(COMPOSE) $(COMPOSE_FILES) stop redis ;; \
+			11) $(COMPOSE) $(COMPOSE_FILES) stop ;; \
+			*) echo "Choix invalide" ;; \
+		esac; \
+	fi
 
-restart-service: ## Redémarre un service spécifique
-	@echo "🔄 Redémarrer un service"
-	@echo "1) auth-service"
-	@echo "2) api-gateway"
-	@echo "3) admin-service" 
-	@echo "4) cloudity-web"
-	@echo "5) postgres"
-	@echo "6) redis"
-	@echo "7) tous les services"
-	@read -p "Choisir un service (1-7): " choice; \
-	case $$choice in \
-		1) docker compose restart auth-service ;; \
-		2) docker compose restart api-gateway ;; \
-		3) docker compose restart admin-service ;; \
-		4) docker compose restart cloudity-web ;; \
-		5) docker compose restart postgres ;; \
-		6) docker compose restart redis ;; \
-		7) docker compose restart ;; \
-		*) echo "Choix invalide" ;; \
-	esac
+restart-service: ## Redémarre un service : make restart-service SERVICE=mail-directory-service
+	@if [ -n "$(SERVICE)" ]; then \
+		echo "🔄 Redémarrage de $(SERVICE)..."; \
+		$(COMPOSE) $(COMPOSE_FILES) restart $(SERVICE); \
+		echo "✅ $(SERVICE) redémarré"; \
+	else \
+		echo "🔄 Redémarrer un service (ou: make restart-service SERVICE=nom)"; \
+		echo "1) auth-service  2) api-gateway  3) admin-service  4) cloudity-web"; \
+		echo "5) mail-directory-service  6) drive-service  7) photos-service  8) passwords-service"; \
+		echo "9) postgres  10) redis  11) tous"; \
+		echo "💡 Rebuild image : make deploy-service SERVICE=mail-directory-service (ou deploy-mail, deploy-web…)"; \
+		read -p "Choisir (1-11): " choice; \
+		case $$choice in \
+			1) $(COMPOSE) $(COMPOSE_FILES) restart auth-service ;; \
+			2) $(COMPOSE) $(COMPOSE_FILES) restart api-gateway ;; \
+			3) $(COMPOSE) $(COMPOSE_FILES) restart admin-service ;; \
+			4) $(COMPOSE) $(COMPOSE_FILES) restart cloudity-web ;; \
+			5) $(COMPOSE) $(COMPOSE_FILES) restart mail-directory-service ;; \
+			6) $(COMPOSE) $(COMPOSE_FILES) restart drive-service ;; \
+			7) $(COMPOSE) $(COMPOSE_FILES) restart photos-service ;; \
+			8) $(COMPOSE) $(COMPOSE_FILES) restart passwords-service ;; \
+			9) $(COMPOSE) $(COMPOSE_FILES) restart postgres ;; \
+			10) $(COMPOSE) $(COMPOSE_FILES) restart redis ;; \
+			11) $(COMPOSE) $(COMPOSE_FILES) restart ;; \
+			*) echo "Choix invalide" ;; \
+		esac; \
+	fi
 
-logs-service: ## Affiche les logs d'un service spécifique
-	@echo "📋 Logs d'un service"
-	@echo "1) auth-service"
-	@echo "2) api-gateway"
-	@echo "3) admin-service" 
-	@echo "4) cloudity-web"
-	@echo "5) postgres"
-	@echo "6) redis"
-	@echo "7) tous les services"
-	@read -p "Choisir un service (1-7): " choice; \
-	case $$choice in \
-		1) docker compose logs -f auth-service ;; \
-		2) docker compose logs -f api-gateway ;; \
-		3) docker compose logs -f admin-service ;; \
-		4) docker compose logs -f cloudity-web ;; \
-		5) docker compose logs -f postgres ;; \
-		6) docker compose logs -f redis ;; \
-		7) docker compose logs -f ;; \
-		*) echo "Choix invalide" ;; \
-	esac
+deploy-service: ## Rebuild + redémarre un service : make deploy-service SERVICE=mail-directory-service
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Usage: make deploy-service SERVICE=mail-directory-service"; \
+		echo "Raccourcis: deploy-mail, deploy-web, deploy-drive, deploy-photos, deploy-pass"; \
+		exit 1; \
+	fi
+	@echo "🔨 Build + up $(SERVICE)..."
+	@$(COMPOSE) $(COMPOSE_FILES) build $(SERVICE)
+	@$(COMPOSE) $(COMPOSE_FILES) up -d $(SERVICE)
+	@echo "✅ $(SERVICE) redéployé"
+
+logs-service: ## Logs d'un service : make logs-service SERVICE=mail-directory-service
+	@if [ -n "$(SERVICE)" ]; then \
+		$(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 $(SERVICE); \
+	else \
+		echo "📋 Logs (ou: make logs-service SERVICE=nom)"; \
+		echo "1) auth-service  2) api-gateway  3) admin-service  4) cloudity-web"; \
+		echo "5) mail-directory-service  6) drive-service  7) photos-service  8) passwords-service"; \
+		echo "9) postgres  10) redis  11) tous"; \
+		read -p "Choisir (1-11): " choice; \
+		case $$choice in \
+			1) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 auth-service ;; \
+			2) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 api-gateway ;; \
+			3) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 admin-service ;; \
+			4) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 cloudity-web ;; \
+			5) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 mail-directory-service ;; \
+			6) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 drive-service ;; \
+			7) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 photos-service ;; \
+			8) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 passwords-service ;; \
+			9) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 postgres ;; \
+			10) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 redis ;; \
+			11) $(COMPOSE) $(COMPOSE_FILES) logs -f --tail=100 ;; \
+			*) echo "Choix invalide" ;; \
+		esac; \
+	fi
 
 # Gestion des applications mobiles
 init-mobile: ## Initialise toutes les applications mobiles
 	@echo "📱 Initialisation des applications mobiles..."
 	@if command -v flutter >/dev/null 2>&1; then \
-		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes mobile/contacts mobile/photos mobile/pass; do \
+		for app in mobile/admin_app mobile/calendar mobile/contacts mobile/notes mobile/tasks mobile/drive mobile/mail mobile/photos mobile/pass; do \
 			if [ -d "$$app" ]; then \
 				echo "Initialisation de $$app"; \
 				cd $$app && flutter pub get; \
@@ -1477,7 +1513,7 @@ init-mobile: ## Initialise toutes les applications mobiles
 build-mobile: ## Build toutes les applications mobiles
 	@echo "🔨 Build des applications mobiles..."
 	@if command -v flutter >/dev/null 2>&1; then \
-		for app in mobile/admin_app mobile/calendar mobile/chat mobile/drive mobile/mail mobile/notes mobile/contacts mobile/photos mobile/pass; do \
+		for app in mobile/admin_app mobile/calendar mobile/contacts mobile/notes mobile/tasks mobile/drive mobile/mail mobile/photos mobile/pass; do \
 			if [ -d "$$app" ]; then \
 				echo "Build de $$app"; \
 				cd $$app && flutter build apk --debug; \

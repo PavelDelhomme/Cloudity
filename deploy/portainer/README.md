@@ -1,7 +1,18 @@
-# Stacks Portainer Cloudity (à venir)
+# Stacks Portainer Cloudity
 
-**Rôle** : accueillir les fichiers `docker-compose.*.yml` prêts à coller dans Portainer (stacks **dev**, **preprod**, **prod**).
+Fichiers prêts pour **Portainer → Stacks → Git repository**.
 
-**État** : backlog **DEPLOY-DOC-01** — voir **[docs/operations/DEPLOIEMENT-SUIVI.md](../../docs/operations/DEPLOIEMENT-SUIVI.md)**.
+| Guide détaillé | [PORTAINER-STACK.md](./PORTAINER-STACK.md) |
+|----------------|---------------------------------------------|
+| Variables modèle | [stack.env.example](./stack.env.example) |
+| Compose prod (`main`) | [docker-compose.stack.yml](./docker-compose.stack.yml) |
+| Compose dev (`dev`) | [docker-compose.stack-dev.yml](./docker-compose.stack-dev.yml) |
 
-En attendant : suivre **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 3 pour composer les stacks à la main.
+**Résumé formulaire prod** :
+
+- **Repository URL** : `https://github.com/PavelDelhomme/Cloudity.git`
+- **Repository reference** : `refs/heads/main`
+- **Compose path** : `deploy/portainer/docker-compose.stack.yml`
+- **Secrets** : Portainer Environment variables (`make secrets-print` en local)
+
+Suite : [DEPLOIEMENT-SUIVI.md](../../docs/operations/DEPLOIEMENT-SUIVI.md) · [DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md).

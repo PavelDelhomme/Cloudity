@@ -1,0 +1,31 @@
+# Stack Portainer DEV (VPS ou homelab) — branche refs/heads/dev
+# Même stack complète que la prod locale, sans overrides production agressifs
+
+include:
+  - path: ../../docker-compose.yml
+
+services:
+  auth-service:
+    pull_policy: build
+  api-gateway:
+    pull_policy: build
+  admin-service:
+    pull_policy: build
+  cloudity-web:
+    pull_policy: build
+  mail-directory-service:
+    pull_policy: build
+  passwords-service:
+    pull_policy: build
+  drive-service:
+    pull_policy: build
+  photos-service:
+    pull_policy: build
+  calendar-service:
+    pull_policy: build
+  notes-service:
+    pull_policy: build
+  tasks-service:
+    pull_policy: build
+  contacts-service:
+    pull_policy: build

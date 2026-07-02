@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:cloudity_shared/cloudity_shared.dart';
+
 import 'auth_api.dart';
 import 'compose_mail_screen.dart';
 import 'mail_account_helpers.dart';
 import 'mail_imap_password_screen.dart';
-import 'mail_view_preferences.dart';
+import 'mail_settings_screen.dart';
 import 'message_detail_screen.dart';
 import 'session_store.dart';
 import 'user_session.dart';
@@ -19,21 +21,6 @@ class _MailLifecycleObserver extends WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) onResume();
   }
 }
-
-class _FolderDef {
-  const _FolderDef(this.api, this.label);
-  final String api;
-  final String label;
-}
-
-const List<_FolderDef> _kStandardFolders = [
-  _FolderDef('inbox', 'Réception'),
-  _FolderDef('sent', 'Envoyés'),
-  _FolderDef('drafts', 'Brouillons'),
-  _FolderDef('spam', 'Spam'),
-  _FolderDef('trash', 'Corbeille'),
-  _FolderDef('archive', 'Archive'),
-];
 
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key, required this.session, required this.onLogout});
@@ -59,7 +46,7 @@ class _InboxScreenState extends State<InboxScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _lastBackgroundSyncAtMs = 0;
   bool _backgroundSyncing = false;
-  int _bottomNavIndex = 0;
+  bool _showSettings = false;
   final Set<int> _syncIssueNotifiedAccountIds = {};
 
   static const int _mailBackgroundSyncIntervalMs = 25000;
@@ -222,8 +209,10 @@ class _InboxScreenState extends State<InboxScreen> {
   Future<void> _persistMailView() async {
     final email = await SessionStore.readAccountEmail();
     if (email == null || email.isEmpty) return;
+    final tenantId = await SessionStore.readTenantId();
     await MailViewPreferences.save(
       email: email,
+      tenantId: tenantId,
       accountId: _accountId,
       folder: _folder,
     );
@@ -237,7 +226,8 @@ class _InboxScreenState extends State<InboxScreen> {
       }
       return;
     }
-    final saved = await MailViewPreferences.load(email);
+    final tenantId = await SessionStore.readTenantId();
+    final saved = await MailViewPreferences.load(email: email, tenantId: tenantId);
     if (saved.accountId != null &&
         acc.any((a) => _accountIdFromMap(a) == saved.accountId)) {
       _accountId = saved.accountId;
@@ -547,10 +537,19 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   String _folderTitle() {
-    for (final f in _kStandardFolders) {
-      if (f.api == _folder) return f.label;
+    for (final f in mailSidebarStandardOrder) {
+      if (f == _folder) return MailStandardFolders.labelFor(f);
     }
     return _folder;
+  }
+
+  String _messageDisplayDate(Map<String, dynamic> m) {
+    final folder = m['folder']?.toString().trim().toLowerCase() ?? '';
+    final scheduled = m['scheduled_send_at']?.toString();
+    if (folder == MailStandardFolders.scheduled && scheduled != null && scheduled.isNotEmpty) {
+      return formatCloudityDateTimeLocal(scheduled);
+    }
+    return formatCloudityDateTimeLocal(m['date_at']?.toString());
   }
 
   Future<void> _openImapPasswordScreen(Map<String, dynamic> acc) async {
@@ -700,7 +699,16 @@ class _InboxScreenState extends State<InboxScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.w600),
                         ),
-                        subtitle: Text(from, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(from, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(
+                              _messageDisplayDate(m),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -746,88 +754,122 @@ class _InboxScreenState extends State<InboxScreen> {
     );
   }
 
-  Widget _buildAccountsView() {
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: _accounts
-          .map((a) {
-            final rawId = a['id'];
-            final aid = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
-            if (aid == null) return const SizedBox.shrink();
-            final email = a['email']?.toString() ?? '';
-            final label = mailAccountLabel(a) ?? email;
-            final hasIssue = mailAccountHasSyncIssue(a);
-            final selected = _accountId == aid;
-            return Card(
-              color: hasIssue ? Colors.amber.shade50 : null,
-              child: ListTile(
-                selected: selected,
+  Widget _buildDrawer() {
+    final extras = _extraFoldersFromSummary();
+    final currentAccount = _accountById(_accountId);
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            ListTile(
+              leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+              title: const Text('Compte Cloudity'),
+              subtitle: Text(widget.session.api.baseUrl),
+            ),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('Boîtes', style: Theme.of(context).textTheme.labelLarge),
+            ),
+            ..._accounts.map((a) {
+              final rawId = a['id'];
+              final aid = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
+              if (aid == null) return const SizedBox.shrink();
+              final label = mailAccountLabel(a) ?? a['email']?.toString() ?? '';
+              final selected = _accountId == aid;
+              final hasIssue = mailAccountHasSyncIssue(a);
+              return ListTile(
                 leading: Icon(
                   hasIssue ? Icons.warning_amber_rounded : Icons.mail_outline,
                   color: hasIssue ? Colors.amber.shade800 : null,
                 ),
-                title: Text(label),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (a['label']?.toString().trim().isNotEmpty == true && email.isNotEmpty)
-                      Text(email),
-                    if (hasIssue)
-                      Text(
-                        mailAccountSyncIssueMessage(a),
-                        style: TextStyle(
-                          color: Colors.amber.shade900,
-                          fontSize: 12,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
+                title: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                selected: selected,
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _showSettings = false);
+                  _onAccountChanged(aid);
+                },
+              );
+            }),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text('Dossiers', style: Theme.of(context).textTheme.labelLarge),
+            ),
+            ...mailSidebarStandardOrder.map((f) {
+              final selected = !_showSettings && _folder == f;
+              final unread = _unreadForFolder(f);
+              return ListTile(
+                leading: const Icon(Icons.folder_outlined),
+                title: Text(MailStandardFolders.labelFor(f)),
+                selected: selected,
+                trailing: unread > 0
+                    ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11)))
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _showSettings = false);
+                  _onFolderChanged(f);
+                },
+              );
+            }),
+            ...extras.map((ex) {
+              final path = ex['folder']?.toString() ?? '';
+              if (path.isEmpty) return const SizedBox.shrink();
+              final selected = !_showSettings && _folder == path;
+              final u = ex['unread'];
+              final unread = u is int ? u : (u is num ? u.toInt() : 0);
+              return ListTile(
+                leading: const Icon(Icons.folder_special_outlined),
+                title: Text(path),
+                selected: selected,
+                trailing: unread > 0
+                    ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11)))
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _showSettings = false);
+                  _onFolderChanged(path);
+                },
+              );
+            }),
+            if (currentAccount != null && mailAccountHasSyncIssue(currentAccount))
+              ListTile(
+                leading: Icon(Icons.vpn_key_outlined, color: Colors.amber.shade900),
+                title: const Text('MDP IMAP'),
+                subtitle: Text(
+                  mailAccountSyncIssueMessage(currentAccount),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                trailing: selected ? const Icon(Icons.check_circle, color: Colors.greenAccent) : null,
-                onTap: () => _onAccountChanged(aid),
+                onTap: () {
+                  Navigator.pop(context);
+                  _openImapPasswordScreen(currentAccount);
+                },
               ),
-            );
-          })
-          .toList(),
-    );
-  }
-
-  Widget _buildFoldersView() {
-    final extras = _extraFoldersFromSummary();
-    return ListView(
-      padding: const EdgeInsets.all(12),
-      children: [
-        ..._kStandardFolders.map((f) {
-          final selected = _folder == f.api;
-          final unread = _unreadForFolder(f.api);
-          return Card(
-            child: ListTile(
-              selected: selected,
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(f.label),
-              trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : null,
-              onTap: () => _onFolderChanged(f.api),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Paramètres'),
+              selected: _showSettings,
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _showSettings = true);
+              },
             ),
-          );
-        }),
-        ...extras.map((ex) {
-          final path = ex['folder']?.toString() ?? '';
-          if (path.isEmpty) return const SizedBox.shrink();
-          final selected = _folder == path;
-          final u = ex['unread'];
-          final unread = u is int ? u : (u is num ? u.toInt() : 0);
-          return Card(
-            child: ListTile(
-              selected: selected,
-              leading: const Icon(Icons.folder_special_outlined),
-              title: Text(path),
-              trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : null,
-              onTap: () => _onFolderChanged(path),
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Déconnexion'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _confirmLogout();
+              },
             ),
-          );
-        }),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -836,54 +878,14 @@ class _InboxScreenState extends State<InboxScreen> {
     return Scaffold(
       key: const ValueKey('cloudity_mail_inbox'),
       appBar: AppBar(
-        title: const Text('Cloudity Mail'),
+        title: Text(_showSettings ? 'Paramètres' : _folderTitle()),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _reloadAccounts),
+          if (!_showSettings)
+            IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _reloadAccounts),
         ],
       ),
-      drawer: Drawer(
-        child: SafeArea(
-          child: ListView(
-            children: [
-              const ListTile(title: Text('Menu Mail', style: TextStyle(fontWeight: FontWeight.w700))),
-              ListTile(
-                leading: const Icon(Icons.inbox_outlined),
-                title: const Text('Mails'),
-                onTap: () {
-                  setState(() => _bottomNavIndex = 0);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.alternate_email),
-                title: const Text('Boîtes'),
-                onTap: () {
-                  setState(() => _bottomNavIndex = 1);
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.folder_outlined),
-                title: const Text('Dossiers'),
-                onTap: () {
-                  setState(() => _bottomNavIndex = 2);
-                  Navigator.of(context).pop();
-                },
-              ),
-              const Divider(),
-              ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Déconnexion'),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await _confirmLogout();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: _accountId != null
+      drawer: _buildDrawer(),
+      floatingActionButton: !_showSettings && _accountId != null
           ? FloatingActionButton.extended(
               key: const ValueKey('cloudity_mail_compose_open'),
               onPressed: _loading ? null : _openCompose,
@@ -891,16 +893,13 @@ class _InboxScreenState extends State<InboxScreen> {
               label: const Text('Nouveau'),
             )
           : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _bottomNavIndex,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.inbox_outlined), selectedIcon: Icon(Icons.inbox), label: 'Mails'),
-          NavigationDestination(icon: Icon(Icons.alternate_email_outlined), selectedIcon: Icon(Icons.alternate_email), label: 'Boîtes'),
-          NavigationDestination(icon: Icon(Icons.folder_outlined), selectedIcon: Icon(Icons.folder), label: 'Dossiers'),
-        ],
-        onDestinationSelected: (i) => setState(() => _bottomNavIndex = i),
-      ),
-      body: _bottomNavIndex == 1 ? _buildAccountsView() : _bottomNavIndex == 2 ? _buildFoldersView() : _buildMessagesView(),
+      body: _showSettings
+          ? MailSettingsScreen(
+              session: widget.session,
+              accounts: _accounts,
+              onAccountsChanged: _refreshAccountsFromServer,
+            )
+          : _buildMessagesView(),
     );
   }
 }

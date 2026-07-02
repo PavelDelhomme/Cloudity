@@ -124,7 +124,7 @@ Même VPS possible ; **3 jeux de stacks** (noms à adapter) pour ne pas mélange
 
 Ordre détaillé : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** § 3. Exemple domaine : **[PORTAINER-VPS.md](PORTAINER-VPS.md)**.
 
-**Backlog** : fichiers Compose prêts à coller — **`DEPLOY-DOC-01`** dans **[BACKLOG.md](../../BACKLOG.md)** (`deploy/portainer/` à créer).
+**Backlog** : fichiers Compose prêts — **`deploy/portainer/`** ([PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md)).
 
 ---
 

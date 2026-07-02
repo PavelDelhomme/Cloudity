@@ -146,6 +146,11 @@ import {
 } from '../../../lib/mailAlias'
 import { parseMailDeepLink } from '../../../lib/mailNotificationDeepLink'
 import { notifyNewMailMessages } from '../../../lib/mailNotifyNewMessages'
+import {
+  parseCloudityDateTime,
+  datetimeLocalInputToUtcIso,
+  formatCloudityDateTimeLocal,
+} from '../../../lib/datetime'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'
@@ -763,7 +768,8 @@ function formatSenderOneLine(from: string | undefined, contacts: ContactResponse
 
 function formatMessageDate(dateAt: string | undefined): string {
   if (!dateAt) return ''
-  const d = new Date(dateAt)
+  const d = parseCloudityDateTime(dateAt)
+  if (!d) return dateAt
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffMins = Math.floor(diffMs / 60_000)
@@ -1012,8 +1018,16 @@ function sanitizeMailHtmlUnsafeInput(raw: string): string {
   }
 }
 
-/** Date affichée pour un message : uniquement `date_at` IMAP (pas `created_at` = heure de sync). */
-function messageDisplayDate(msg: { date_at?: string; created_at?: string }): string | undefined {
+/** Date affichée pour un message : `date_at` IMAP ; dossier Programmée → `scheduled_send_at`. */
+function messageDisplayDate(msg: {
+  date_at?: string
+  created_at?: string
+  scheduled_send_at?: string
+  folder?: string
+}): string | undefined {
+  if (msg.folder?.trim().toLowerCase() === 'scheduled' && msg.scheduled_send_at?.trim()) {
+    return msg.scheduled_send_at.trim()
+  }
   return msg.date_at?.trim() || undefined
 }
 
@@ -1032,8 +1046,8 @@ function isSameCalendarWeek(a: Date, b: Date): boolean {
 /** Date « Reçu » compacte (style Gmail) : lun. 21:12 · 18/05 21:12 · date complète si ancien. */
 function formatReceivedDetail(dateAt: string | undefined): string {
   if (!dateAt) return '—'
-  const d = new Date(dateAt)
-  if (Number.isNaN(d.getTime())) return dateAt
+  const d = parseCloudityDateTime(dateAt)
+  if (!d) return dateAt
   const now = new Date()
   const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   const sameYear = d.getFullYear() === now.getFullYear()
@@ -3873,8 +3887,13 @@ export default function MailPage() {
         return
       }
       const whenLocal = scheduledAtOverride ?? slot.scheduledSendAtLocal ?? ''
-      const localDate = new Date(whenLocal)
-      if (Number.isNaN(localDate.getTime())) {
+      const utcIso = datetimeLocalInputToUtcIso(whenLocal)
+      if (!utcIso) {
+        toast.error('Date invalide — choisissez une date via « Choisir la date »')
+        return
+      }
+      const localDate = parseCloudityDateTime(utcIso)
+      if (!localDate) {
         toast.error('Date invalide — choisissez une date via « Choisir la date »')
         return
       }
@@ -3896,7 +3915,7 @@ export default function MailPage() {
           subject: slot.subject,
           body,
           from_email: slot.fromAddress.trim() || undefined,
-          scheduled_send_at: localDate.toISOString(),
+          scheduled_send_at: utcIso,
         })
         toast.success('Envoi programmé')
         void queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
@@ -3917,15 +3936,15 @@ export default function MailPage() {
   const applyScheduleDateToSlot = useCallback(
     (slotId: string, localDateTime: string) => {
       if (!localDateTime.trim()) return
-      const localDate = new Date(localDateTime)
-      if (Number.isNaN(localDate.getTime())) {
+      const utcIso = datetimeLocalInputToUtcIso(localDateTime)
+      if (!utcIso) {
         toast.error('Date invalide')
         return
       }
       updateSlot(slotId, { scheduledSendAtLocal: localDateTime })
       setScheduleModalForSlotId(null)
       setScheduledLocalDateTime('')
-      toast.success(`Envoi prévu le ${localDate.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`)
+      toast.success(`Envoi prévu le ${formatCloudityDateTimeLocal(utcIso)}`)
     },
     [updateSlot]
   )

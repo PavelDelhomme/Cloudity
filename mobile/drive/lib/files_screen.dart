@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:cloudity_shared/storage_usage.dart';
+import 'package:cloudity_shared/suite_product_api.dart';
 
 import 'auth_api.dart';
 import 'drive_file_preview.dart';
@@ -37,6 +38,7 @@ class _FilesScreenState extends State<FilesScreen> {
   StorageUsageSummary? _storageUsage;
   bool _storageLoading = false;
   String? _storageError;
+  bool _showSettings = false;
 
   int? get _parentId => _parentStack.last;
   String get _folderTitle => switch (_section) {
@@ -717,20 +719,28 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Widget _buildDrawer() {
-    final selectedIndex = switch (_section) {
-      _DriveSection.home => 0,
-      _DriveSection.recent => 1,
-      _DriveSection.trash => 4,
-    };
+    final selectedIndex = _showSettings
+        ? 5
+        : switch (_section) {
+            _DriveSection.home => 0,
+            _DriveSection.recent => 1,
+            _DriveSection.trash => 4,
+          };
     return NavigationDrawer(
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
         if (index == 0) {
+          setState(() => _showSettings = false);
           _goRoot();
         } else if (index == 1) {
+          setState(() => _showSettings = false);
           _openRecent();
         } else if (index == 4) {
+          setState(() => _showSettings = false);
           _openTrash();
+        } else if (index == 5) {
+          setState(() => _showSettings = true);
+          Navigator.of(context).maybePop();
         } else {
           Navigator.of(context).maybePop();
           ScaffoldMessenger.of(context).showSnackBar(
@@ -792,6 +802,11 @@ class _FilesScreenState extends State<FilesScreen> {
         const NavigationDrawerDestination(
           icon: Icon(Icons.delete_outline),
           label: Text('Corbeille'),
+        ),
+        const NavigationDrawerDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: Text('Paramètres'),
         ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 28, vertical: 8),
@@ -1438,7 +1453,7 @@ class _FilesScreenState extends State<FilesScreen> {
       key: const ValueKey('cloudity_drive_files'),
       drawer: _buildDrawer(),
       appBar: AppBar(
-        title: const Text('Drive'),
+        title: Text(_showSettings ? 'Paramètres' : 'Drive'),
         centerTitle: false,
         leading: _parentStack.length > 1
             ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: _goUp)
@@ -1455,7 +1470,7 @@ class _FilesScreenState extends State<FilesScreen> {
           ),
         ],
       ),
-      floatingActionButton: !_showFab
+      floatingActionButton: !_showFab || _showSettings
           ? null
           : FloatingActionButton.extended(
               onPressed: _actionBusy ? null : _showNewMenu,
@@ -1468,7 +1483,14 @@ class _FilesScreenState extends State<FilesScreen> {
                   : const Icon(Icons.add),
               label: Text(_actionBusy ? _busyLabel : 'Nouveau'),
             ),
-      body: RefreshIndicator(onRefresh: _reload, child: _buildBody()),
+      body: _showSettings
+          ? SuiteSettingsPanel(
+              gatewayUrl: widget.session.api.baseUrl,
+              appName: 'Drive',
+              webAppPath: '/app/drive',
+              onLogout: () => _confirmLogout(),
+            )
+          : RefreshIndicator(onRefresh: _reload, child: _buildBody()),
     );
   }
 

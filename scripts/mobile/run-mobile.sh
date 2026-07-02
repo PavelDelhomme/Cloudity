@@ -100,6 +100,12 @@ case "$NORM" in
   contacts)
     TARGET=$(first_existing "${ROOT}/mobile/contacts" "${ROOT}/mobile/contacts_app" || true)
     ;;
+  notes)
+    TARGET=$(first_existing "${ROOT}/mobile/notes" "${ROOT}/mobile/notes_app" || true)
+    ;;
+  tasks)
+    TARGET=$(first_existing "${ROOT}/mobile/tasks" "${ROOT}/mobile/tasks_app" || true)
+    ;;
   photos)
     TARGET=$(first_existing "${ROOT}/mobile/photos" "${ROOT}/mobile/photos_app" || true)
     ;;
@@ -108,7 +114,7 @@ case "$NORM" in
     ;;
   *)
     echo "❌ APP inconnu : ${APP_RAW}"
-    echo "   Valeurs reconnues : Admin, Drive, Mail, Calendar, Contacts, Photos, Pass"
+    echo "   Valeurs reconnues : Admin, Drive, Mail, Calendar, Contacts, Notes, Tasks, Photos, Pass"
     exit 1
     ;;
 esac

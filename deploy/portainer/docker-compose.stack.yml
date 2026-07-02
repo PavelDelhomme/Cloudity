@@ -1,0 +1,44 @@
+# Stack Portainer PROD — pointer Compose path vers ce fichier, branche refs/heads/main
+# Secrets : Portainer Environment variables (voir stack.env.example), pas dans Git
+
+include:
+  - path: ../../docker-compose.yml
+  - path: ../../docker-compose.prod.yml
+
+services:
+  auth-service:
+    pull_policy: build
+    environment:
+      GO_ENV: production
+  api-gateway:
+    pull_policy: build
+    environment:
+      GO_ENV: production
+  admin-service:
+    pull_policy: build
+    environment:
+      PYTHON_ENV: production
+  cloudity-web:
+    pull_policy: build
+    environment:
+      NODE_ENV: production
+  mail-directory-service:
+    pull_policy: build
+  passwords-service:
+    pull_policy: build
+  drive-service:
+    pull_policy: build
+  photos-service:
+    pull_policy: build
+  calendar-service:
+    pull_policy: build
+  notes-service:
+    pull_policy: build
+  tasks-service:
+    pull_policy: build
+  contacts-service:
+    pull_policy: build
+  postgres:
+    restart: always
+  redis:
+    restart: always

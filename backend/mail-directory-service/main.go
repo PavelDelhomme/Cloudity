@@ -1997,6 +1997,7 @@ type MailMessage struct {
 	ToAddrs         string `json:"to"`
 	Subject         string `json:"subject"`
 	DateAt          string `json:"date_at,omitempty"`
+	ScheduledSendAt string `json:"scheduled_send_at,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	IsRead          bool   `json:"is_read"`
 	SpamScore       int    `json:"spam_score"`
@@ -2119,7 +2120,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	argsSel := append(args, limit, offset)
 	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.id")
 	selectSQL := fmt.Sprintf(`
-			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m%s
@@ -2136,15 +2137,14 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	var msgList []MailMessage
 	for rows.Next() {
 		var m MailMessage
-		var dateAt sql.NullString
+		var dateAt, scheduledAt sql.NullString
+		var createdRaw string
 		var tagCSV string
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if dateAt.Valid {
-			m.DateAt = dateAt.String
-		}
+		applyListedMailTimestamps(&m, dateAt, scheduledAt, createdRaw)
 		m.TagIDs = parseMessageTagCSV(tagCSV)
 		m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 		msgList = append(msgList, m)
@@ -2213,7 +2213,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	argsSel := append(args, limit, offset)
 	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.account_id, m.id")
 	selectSQL := fmt.Sprintf(`
-			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.created_at::text, COALESCE(m.is_read, false),
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m
@@ -2230,15 +2230,14 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	var msgList []MailMessage
 	for rows.Next() {
 		var m MailMessage
-		var dateAt sql.NullString
+		var dateAt, scheduledAt sql.NullString
+		var createdRaw string
 		var tagCSV string
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if dateAt.Valid {
-			m.DateAt = dateAt.String
-		}
+		applyListedMailTimestamps(&m, dateAt, scheduledAt, createdRaw)
 		m.TagIDs = parseMessageTagCSV(tagCSV)
 		m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
 		msgList = append(msgList, m)
@@ -2264,18 +2263,19 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 		return
 	}
 	var m MailMessageDetail
-	var dateAt sql.NullString
+	var dateAt, scheduledAt sql.NullString
+	var createdRaw string
 	var bodyPlain, bodyHTML, rawHeadersDB sql.NullString
 	var isRead bool
 	var messageUID int64
 	err = h.dbex(ctx).QueryRow(`
-		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
+		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, scheduled_send_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
 			raw_headers,
 			COALESCE(thread_key, ''), COALESCE(attachment_count, 0)
 		FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &m.CreatedAt, &isRead, &bodyPlain, &bodyHTML, &rawHeadersDB, &m.ThreadKey, &m.AttachmentCount)
+	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &isRead, &bodyPlain, &bodyHTML, &rawHeadersDB, &m.ThreadKey, &m.AttachmentCount)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 		return
@@ -2284,9 +2284,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if dateAt.Valid {
-		m.DateAt = dateAt.String
-	}
+	applyListedMailTimestamps(&m.MailMessage, dateAt, scheduledAt, createdRaw)
 	m.IsRead = isRead
 	if bodyPlain.Valid {
 		m.BodyPlain = bodyPlain.String
@@ -3337,8 +3335,8 @@ func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "scheduled_send_at doit être en RFC3339"})
 		return
 	}
-	if sendAt.Before(time.Now().Add(30 * time.Second)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "la date programmée doit être dans le futur"})
+	if sendAt.Before(time.Now().Add(60 * time.Second)) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "la date programmée doit être au moins dans 1 minute"})
 		return
 	}
 	to := strings.TrimSpace(strings.ToLower(body.To))
@@ -3357,7 +3355,7 @@ func (h *Handler) scheduleMessageSMTP(c *gin.Context) {
 			account_id, folder, message_uid, from_addr, to_addrs, subject, body_plain, date_at,
 			is_read, scheduled_send_at, scheduled_status
 		)
-		VALUES ($1, 'scheduled', $2, $3, $4, $5, NULLIF($6, ''), $7, true, $7, 'scheduled')
+		VALUES ($1, 'scheduled', $2, $3, $4, $5, NULLIF($6, ''), NOW(), true, $7, 'scheduled')
 		RETURNING id
 	`, body.AccountID, messageUID, strings.TrimSpace(body.FromEmail), to, subject, body.Body, sendAt.UTC()).Scan(&msgID); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "impossible de programmer cet envoi"})

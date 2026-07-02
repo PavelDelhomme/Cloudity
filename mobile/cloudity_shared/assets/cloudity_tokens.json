@@ -1,0 +1,41 @@
+{
+  "brand": {
+    "primary": "#2563eb",
+    "primaryDark": "#1d4ed8"
+  },
+  "apps": {
+    "mail": {
+      "accent": "#0d9488",
+      "accentDark": "#0f766e"
+    },
+    "drive": {
+      "accent": "#4f46e5",
+      "accentDark": "#4338ca"
+    },
+    "photos": {
+      "accent": "#db2777",
+      "accentDark": "#be185d"
+    },
+    "calendar": {
+      "accent": "#ea580c",
+      "accentDark": "#c2410c"
+    },
+    "tasks": {
+      "accent": "#7c3aed",
+      "accentDark": "#6d28d9"
+    }
+  },
+  "radius": {
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24
+  },
+  "spacing": {
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24
+  }
+}

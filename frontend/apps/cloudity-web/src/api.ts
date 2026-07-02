@@ -713,6 +713,7 @@ export type MailMessageResponse = {
   to: string
   subject: string
   date_at?: string
+  scheduled_send_at?: string
   created_at: string
   is_read?: boolean
   /** 0–100 : heuristique anti-spam (backend). */
