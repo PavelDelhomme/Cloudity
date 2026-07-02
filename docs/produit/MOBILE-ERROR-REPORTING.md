@@ -37,6 +37,7 @@ Sur Arch, `/usr/bin/flutter` peut être cassé (snapshot). Cloudity utilise un S
 ```bash
 make ensure-flutter-sdk          # ~/.local/share/cloudity-flutter
 source scripts/mobile/mobile-flutter-env.sh && cloudity_prepare_flutter_env
+./scripts/ci/test-mobile-error-reporting-battery.sh   # batterie complète (Go + Flutter + API + build + E2E admin)
 ```
 
 `make run-mobile` source déjà cet environnement. **Ne pas** lancer `flutter run` sur l’appareil ADB si un autre projet (ex. JobbingTrack) l’utilise — préférer `dart analyze` / tests unitaires, ou `ADB_SERIAL=…` pour un second appareil.

@@ -2,14 +2,15 @@ import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../api/auth_api.dart';
+import '../api/pass_api.dart';
 import 'package:cloudity_shared/storage_keys.dart';
 import 'package:cloudity_shared/suite_gateway_config.dart';
 
 const _sessionRestoreTimeout = Duration(seconds: 10);
 
-class SessionStore {
-  SessionStore._();
+/// Stockage session Pass (JWT + gateway). Ne contient jamais la master key.
+class PassSessionStore {
+  PassSessionStore._();
 
   static const _secure = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -19,43 +20,29 @@ class SessionStore {
     required String gatewayUrl,
     required String accessToken,
     required String refreshToken,
-  }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final base = gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
-    await prefs.setString(CloudityStorageKeys.gatewayUrl, base);
-    await _secure.write(key: CloudityStorageKeys.accessToken, value: accessToken);
-    await _secure.write(key: CloudityStorageKeys.refreshToken, value: refreshToken);
-    final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
-    if (CloudityAuthBroker.isSupported && email != null && email.isNotEmpty) {
-      await CloudityAuthBroker.saveSession(
-        CloudityAuthAccount(
-          email: email,
-          gatewayUrl: base,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-        ),
-      );
-    }
-  }
-
-  static Future<void> saveSessionWithEmail({
-    required String gatewayUrl,
-    required String accessToken,
-    required String refreshToken,
-    required String email,
+    String? userId,
+    String? email,
+    String? userEmail,
     int tenantId = 1,
   }) async {
+    final resolvedEmail = (userEmail ?? email)?.trim();
     final prefs = await SharedPreferences.getInstance();
     final base = gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
     await prefs.setString(CloudityStorageKeys.gatewayUrl, base);
     await _secure.write(key: CloudityStorageKeys.accessToken, value: accessToken);
     await _secure.write(key: CloudityStorageKeys.refreshToken, value: refreshToken);
-    await _secure.write(key: CloudityStorageKeys.accountEmail, value: email.trim());
+    if (userId != null && userId.isNotEmpty) {
+      await _secure.write(key: CloudityStorageKeys.userId, value: userId);
+    }
+    if (resolvedEmail != null && resolvedEmail.isNotEmpty) {
+      await _secure.write(key: CloudityStorageKeys.accountEmail, value: resolvedEmail);
+      await prefs.setString(CloudityStorageKeys.userEmail, resolvedEmail);
+    }
     await prefs.setInt(CloudityStorageKeys.tenantId, tenantId);
-    if (CloudityAuthBroker.isSupported) {
+    if (CloudityAuthBroker.isSupported && resolvedEmail != null && resolvedEmail.isNotEmpty) {
       await CloudityAuthBroker.saveSession(
         CloudityAuthAccount(
-          email: email.trim(),
+          email: resolvedEmail,
           gatewayUrl: base,
           accessToken: accessToken,
           refreshToken: refreshToken,
@@ -65,7 +52,6 @@ class SessionStore {
     }
   }
 
-  /// Efface les jetons locaux + compte broker (logout complet). Conserve l’URL gateway.
   static Future<void> clearTokens() async {
     final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
     await _secure.delete(key: CloudityStorageKeys.accessToken);
@@ -74,6 +60,15 @@ class SessionStore {
     if (CloudityAuthBroker.isSupported && email != null && email.isNotEmpty) {
       await CloudityAuthBroker.clearAccount(email);
     }
+  }
+
+  static Future<void> clearAll() async {
+    await clearTokens();
+    await _secure.delete(key: CloudityStorageKeys.userId);
+    await _secure.delete(key: CloudityStorageKeys.secureMkWrapped);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(CloudityStorageKeys.biometricEnabled);
+    await prefs.remove(CloudityStorageKeys.userEmail);
   }
 
   static bool get hasBuildGateway => SuiteGatewayConfig.hasDartDefine;
@@ -95,15 +90,14 @@ class SessionStore {
   static Future<List<CloudityAuthAccount>> listBrokerAccounts() =>
       CloudityAuthBroker.listAccounts();
 
-  static Future<String?> readAccountEmail() =>
-      _secure.read(key: CloudityStorageKeys.accountEmail);
-
-  static Future<int> readTenantId() async {
+  static Future<String?> readUserEmail() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(CloudityStorageKeys.tenantId) ?? 1;
+    return prefs.getString(CloudityStorageKeys.userEmail) ??
+        _secure.read(key: CloudityStorageKeys.accountEmail);
   }
 
-  static Future<({AuthApi api, String access, String refresh})?> loadValidatedSession() async {
+  static Future<({PassApi api, String access, String refresh, String? userId})?>
+      loadValidatedSession() async {
     final prefs = await SharedPreferences.getInstance();
     var gateway =
         prefs.getString(CloudityStorageKeys.gatewayUrl) ?? CloudityStorageKeys.defaultGateway;
@@ -116,7 +110,7 @@ class SessionStore {
       gateway = acc.gatewayUrl;
       refresh = acc.refreshToken;
       access = acc.accessToken;
-      await saveSessionWithEmail(
+      await saveSession(
         gatewayUrl: gateway,
         accessToken: access,
         refreshToken: refresh,
@@ -125,15 +119,16 @@ class SessionStore {
       );
     }
     if (refresh.isEmpty) return null;
-    final api = AuthApi(gateway);
+    final api = PassApi(gateway);
     try {
       final pair = await api
           .ensureValidTokens(accessToken: access, refreshToken: refresh)
           .timeout(_sessionRestoreTimeout);
       await _secure.write(key: CloudityStorageKeys.accessToken, value: pair.access);
       await _secure.write(key: CloudityStorageKeys.refreshToken, value: pair.refresh);
-      return (api: api, access: pair.access, refresh: pair.refresh);
-    } on AuthException {
+      final userId = await _secure.read(key: CloudityStorageKeys.userId);
+      return (api: api, access: pair.access, refresh: pair.refresh, userId: userId);
+    } on PassException {
       await clearTokens();
       return null;
     } catch (_) {

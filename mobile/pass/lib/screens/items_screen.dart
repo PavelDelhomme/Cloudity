@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../pass_crypto.dart';
-import '../user_session.dart';
-import '../vault_controller.dart';
+import '../features/pass_crypto.dart';
+import '../auth/user_session.dart';
+import '../features/vault_controller.dart';
 import 'item_detail_screen.dart';
 
 class PassItemsScreen extends StatefulWidget {

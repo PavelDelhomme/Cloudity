@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../pass_crypto.dart';
-import '../vault_controller.dart';
+import '../features/pass_crypto.dart';
+import '../features/vault_controller.dart';
 
 /// Durée avant auto-effacement du presse-papiers (alignée sur le web).
 const Duration kClipboardAutoClearAfter = Duration(seconds: 30);

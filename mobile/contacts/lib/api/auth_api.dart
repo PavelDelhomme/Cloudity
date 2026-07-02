@@ -11,17 +11,6 @@ class AuthException implements Exception {
   String toString() => message;
 }
 
-class LoginRequires2FAException implements Exception {
-  LoginRequires2FAException({
-    required this.email,
-    required this.tenantId,
-    this.userId,
-  });
-  final String email;
-  final String tenantId;
-  final int? userId;
-}
-
 class AuthApi {
   AuthApi(String gatewayBase)
       : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
@@ -48,7 +37,35 @@ class AuthApi {
       throw AuthException(map['error']?.toString() ?? 'Connexion impossible');
     }
     if (map['requires_2fa'] == true) {
-      throw LoginRequires2FAException(email: email, tenantId: tenantId);
+      throw LoginRequires2FAException(
+        email: email,
+        tenantId: tenantId,
+        userId: map['user_id'] is int ? map['user_id'] as int : null,
+      );
+    }
+    return {
+      'access_token': map['access_token'] as String,
+      'refresh_token': map['refresh_token']?.toString() ?? '',
+    };
+  }
+
+  Future<Map<String, dynamic>> register({
+    required String email,
+    required String password,
+    String tenantId = '1',
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_base/auth/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'tenant_id': tenantId,
+      }),
+    ).timeout(const Duration(seconds: 8));
+    final map = jsonDecode(res.body.isEmpty ? '{}' : res.body) as Map<String, dynamic>;
+    if (res.statusCode != 201) {
+      throw AuthException(map['error']?.toString() ?? 'Inscription impossible');
     }
     return {
       'access_token': map['access_token'] as String,
@@ -92,7 +109,7 @@ class AuthApi {
       try {
         final res = await http.get(
           Uri.parse('$_base/auth/me'),
-          headers: getAuthHeaders(accessToken),
+          headers: authHeaders(accessToken),
         ).timeout(const Duration(seconds: 5));
         if (res.statusCode == 200) {
           return (access: accessToken, refresh: refreshToken);
@@ -100,7 +117,6 @@ class AuthApi {
       } catch (_) {}
     }
     if (refreshToken.isEmpty) throw AuthException('Session expirée');
-    final pair = await refreshTokens(refreshToken);
-    return pair;
+    return refreshTokens(refreshToken);
   }
 }

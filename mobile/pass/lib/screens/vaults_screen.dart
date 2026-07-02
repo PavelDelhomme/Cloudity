@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../user_session.dart';
-import '../vault_controller.dart';
+import '../auth/user_session.dart';
+import '../features/vault_controller.dart';
 import 'items_screen.dart';
 
 class PassVaultsScreen extends StatefulWidget {

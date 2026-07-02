@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../pass_api.dart';
-import '../pass_crypto.dart';
-import '../session_store.dart';
-import '../user_session.dart';
-import '../vault_controller.dart';
+import '../api/pass_api.dart';
+import '../features/pass_crypto.dart';
+import '../auth/session_store.dart';
+import '../auth/user_session.dart';
+import '../features/vault_controller.dart';
 
 /// Après connexion Cloudity : sonde `GET /pass/vaults` pour distinguer
 /// **première initialisation** (liste vide) et **déverrouillage** d’un coffre
