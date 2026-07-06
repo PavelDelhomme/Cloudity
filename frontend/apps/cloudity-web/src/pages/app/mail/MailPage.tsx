@@ -1451,11 +1451,11 @@ export default function MailPage() {
     staleTime: 15_000,
   })
 
-  /** Badge « Tous les dossiers » : hors corbeille / spam / brouillons (même logique que l’API `folder=all`). */
+  /** Badge « Tous les messages » : réception + archive + dossiers perso (hors envoyés, corbeille, spam, brouillons). */
   const allMessagesBadgeTotal = useMemo(() => {
     if (!folderSummary) return null
     let n = 0
-    const inAllView: MailStandardFolderId[] = ['inbox', 'sent', 'archive']
+    const inAllView: MailStandardFolderId[] = ['inbox', 'archive']
     for (const id of inAllView) {
       n += folderSummary[id]?.total ?? 0
     }
@@ -1915,8 +1915,13 @@ export default function MailPage() {
       const curDate = Date.parse(m.date_at ?? m.created_at ?? '') || 0
       if (curDate >= prevDate) bestByKey.set(key, m)
     }
-    return Array.from(bestByKey.values())
-  }, [dedupedVisibleMessages, conversationListMode, conversationThreadKey])
+    return Array.from(bestByKey.values()).sort((a, b) => {
+      const da = Date.parse(a.date_at ?? a.created_at ?? '') || 0
+      const db = Date.parse(b.date_at ?? b.created_at ?? '') || 0
+      if (messageListOrder === 'asc') return da - db
+      return db - da
+    })
+  }, [dedupedVisibleMessages, conversationListMode, conversationThreadKey, messageListOrder])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))

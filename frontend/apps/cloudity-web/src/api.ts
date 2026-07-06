@@ -815,7 +815,7 @@ export async function fetchMailMessages(
   return { messages, total }
 }
 
-/** Liste agrégée : toutes les boîtes du compte Cloudity (exclut corbeille, spam, brouillons — comme `folder=all` par boîte). */
+/** Liste agrégée : toutes les boîtes du compte Cloudity (exclut corbeille, spam, brouillons, envoyés — comme `folder=all` par boîte). */
 export async function fetchUnifiedMailMessages(
   token: string,
   options?: {

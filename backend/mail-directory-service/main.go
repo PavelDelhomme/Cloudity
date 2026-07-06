@@ -2078,11 +2078,11 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	var args []interface{}
 	p := 2
 	folderSQL := ""
-	// Vue « all » : agrégat « courrier utile » — pas corbeille / spam / brouillons (dossiers dédiés dans la barre latérale).
+	// Vue « all » : courrier reçu utile — pas corbeille / spam / brouillons / envoyés (dossier dédié).
 	allFolderExclude := ""
 	if isAll {
 		args = []interface{}{accountID}
-		allFolderExclude = " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts')"
+		allFolderExclude = " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts', 'sent')"
 	} else {
 		args = []interface{}{accountID, folder}
 		folderSQL = " AND m.folder = $2"
@@ -2177,7 +2177,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	threadKey := strings.TrimSpace(c.Query("thread_key"))
 
 	baseAcct := `m.account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)`
-	allFolderExclude := " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts')"
+	allFolderExclude := " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts', 'sent')"
 	extraWhere := ""
 	args := []interface{}{}
 	p := 1

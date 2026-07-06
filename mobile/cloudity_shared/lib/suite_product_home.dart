@@ -110,7 +110,20 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     switch (widget.product) {
       case SuiteProduct.calendar:
         final events = await _api.fetchCalendarEvents();
-        if (events.isNotEmpty) return events;
+        if (events.isNotEmpty) {
+          events.sort((a, b) {
+            final da = parseCloudityDateTime(
+                  (a['start_at'] ?? a['starts_at'])?.toString(),
+                ) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final db = parseCloudityDateTime(
+                  (b['start_at'] ?? b['starts_at'])?.toString(),
+                ) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return da.compareTo(db);
+          });
+          return events;
+        }
         return await _api.fetchCalendars();
       case SuiteProduct.contacts:
         return _api.fetchContacts();
@@ -222,7 +235,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                             );
                           },
                         )
-              : _items.isEmpty
+                  : _items.isEmpty
                   ? ListView(
                       children: [
                         const SizedBox(height: 80),
@@ -237,7 +250,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         ),
                       ],
                     )
-                  : ListView.builder(
+                  : widget.product == SuiteProduct.calendar
+                      ? _buildCalendarList()
+                      : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: _items.length,
                       itemBuilder: (context, index) {
@@ -252,6 +267,93 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         );
                       },
                     ),
+    );
+  }
+
+  Widget _buildCalendarList() {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final entries = <({String header, List<Map<String, dynamic>> items})>[];
+    String? currentHeader;
+    final bucket = <Map<String, dynamic>>[];
+
+    void flush() {
+      if (currentHeader == null || bucket.isEmpty) return;
+      entries.add((header: currentHeader, items: List.from(bucket)));
+      bucket.clear();
+    }
+
+    for (final item in _items) {
+      final start = (item['start_at'] ?? item['starts_at'])?.toString();
+      final header = formatCloudityDayHeader(start);
+      if (header != currentHeader) {
+        flush();
+        currentHeader = header;
+      }
+      bucket.add(item);
+    }
+    flush();
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: entries.fold<int>(0, (n, e) => n + 1 + e.items.length),
+      itemBuilder: (context, index) {
+        var cursor = 0;
+        for (final group in entries) {
+          if (index == cursor) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                group.header,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }
+          cursor++;
+          for (final item in group.items) {
+            if (index == cursor) {
+              final start = (item['start_at'] ?? item['starts_at'])?.toString();
+              final end = (item['end_at'] ?? item['ends_at'])?.toString();
+              final timeLabel = end != null && end.isNotEmpty
+                  ? '${formatCloudityTimeLocal(start)} – ${formatCloudityTimeLocal(end)}'
+                  : formatCloudityTimeLocal(start);
+              final location = item['location']?.toString();
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: accent.withValues(alpha: 0.15),
+                    child: Icon(Icons.schedule, color: accent, size: 20),
+                  ),
+                  title: Text(
+                    _itemTitle(item),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(timeLabel),
+                      if (location != null && location.trim().isNotEmpty)
+                        Text(
+                          location.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                  isThreeLine: location != null && location.trim().isNotEmpty,
+                ),
+              );
+            }
+            cursor++;
+          }
+        }
+        return const SizedBox.shrink();
+      },
     );
   }
 
