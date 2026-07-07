@@ -404,6 +404,13 @@ function showMailRestoreInboxAction(activeFolder: string, msgFolder: string | un
   return ef === 'spam' || ef === 'trash' || ef === 'archive'
 }
 
+/** Libellé « remettre en réception » vs « pas indésirable » (dossier Spam). */
+function mailRestoreInboxActionLabel(activeFolder: string, msgFolder: string | undefined): string {
+  return effectiveMsgFolderForActions(activeFolder, msgFolder) === 'spam'
+    ? 'Pas indésirable'
+    : 'Remettre en boîte de réception'
+}
+
 /** Dossier cible par défaut dans l’assistant « règle depuis ce message » (standard ou dossier IMAP courant). */
 function ruleAssistantDefaultActionFolder(msgFolder: string | undefined): MailFolderId {
   const raw = (msgFolder ?? '').trim()
@@ -4920,6 +4927,15 @@ export default function MailPage() {
               </div>
             </div>
             ) : null}
+            {activeFolder === 'spam' ? (
+              <div className="px-4 py-2 border-b border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-950/20">
+                <p className="text-xs text-orange-900/90 dark:text-orange-100/90 leading-relaxed">
+                  Dossier <strong>Spam</strong> synchronisé depuis votre fournisseur IMAP. L’icône d’avertissement en réception
+                  repose sur un <strong>score heuristique Cloudity</strong> (0–100) — le filtrage MTA <strong>Rspamd</strong> reste
+                  à venir (<strong>AS-1</strong> · voir BACKLOG). Utilisez <strong>Pas indésirable</strong> pour renvoyer un message en boîte de réception.
+                </p>
+              </div>
+            ) : null}
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
                     <div className="flex flex-wrap items-center gap-2">
@@ -4961,6 +4977,7 @@ export default function MailPage() {
                           <Trash2 className="h-4 w-4 shrink-0" /> Supprimer définitivement
                         </button>
                       ) : null}
+                      {activeFolder !== 'spam' ? (
                       <button
                         type="button"
                         onClick={() => handleBulkMove('spam')}
@@ -4970,6 +4987,7 @@ export default function MailPage() {
                       >
                         <AlertTriangle className="h-4 w-4 shrink-0" /> Spam
                       </button>
+                      ) : null}
                       {(activeFolder === 'all' ||
                         activeFolder === 'unified' ||
                         (activeFolder !== 'archive' && activeFolder !== 'trash')) && (
@@ -4987,10 +5005,10 @@ export default function MailPage() {
                         type="button"
                         onClick={() => handleBulkMove('inbox')}
                         disabled={bulkWorking}
-                        aria-label="Boîte de réception en masse"
+                        aria-label={activeFolder === 'spam' ? 'Pas indésirable en masse' : 'Boîte de réception en masse'}
                         className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
                       >
-                        <Inbox className="h-4 w-4" /> Boîte de réception
+                        <Inbox className="h-4 w-4" /> {activeFolder === 'spam' ? 'Pas indésirable' : 'Boîte de réception'}
                       </button>
 
                       <button
@@ -5277,8 +5295,8 @@ export default function MailPage() {
                                   onClick={() => handleMoveToFolder(msg.id, 'inbox', msg.account_id, msg.thread_key)}
                                   disabled={movingMessageId === msg.id}
                                   className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-900/30 disabled:opacity-50"
-                                  title="Remettre en boîte de réception"
-                                  aria-label="Boîte de réception"
+                                  title={mailRestoreInboxActionLabel(activeFolder, msg.folder)}
+                                  aria-label={mailRestoreInboxActionLabel(activeFolder, msg.folder)}
                                 >
                                   <Inbox className="h-4 w-4" />
                                 </button>
@@ -7056,7 +7074,8 @@ export default function MailPage() {
               disabled={movingMessageId === contextMenuMessage.id}
               className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50"
             >
-              <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
+              <Inbox className="h-4 w-4 shrink-0" />{' '}
+              {mailRestoreInboxActionLabel(activeFolder, contextMenuMessage.folder)}
             </button>
           )}
         </div>

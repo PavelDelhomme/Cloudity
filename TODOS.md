@@ -101,6 +101,20 @@
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
+### Mail — anti-spam / indésirables (M7 · AS-*)
+
+> **Docs** : **[ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** · **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** · **BACKLOG AS-0..AS-5** · **SYNC-BACKLOG § 0e**.
+
+| # | Sujet | État | Suite |
+|---|--------|------|-------|
+| **M7a** | Dossier **Spam** IMAP + sync polling | ☑ | — |
+| **M7b** | Actions **Signaler spam** / **Pas indésirable** (liste, masse, menu contextuel) | ☑ | — |
+| **M7c** | Score **heuristique** backend (`spam_score` 0–100) + icône en réception | ☑ | Seuil 52 — ajuster si besoin |
+| **M7d** | Bannière UX dossier Spam (heuristique vs Rspamd à venir) | ☑ | — |
+| **M7e** | **Rspamd** + Postfix/Dovecot (**AS-1**) | ☐ | Stack MTA prod — priorité avant ML (AS-5) |
+| **M7f** | Règles auto « → spam » (**M6**) | ☐ | API rules + UI |
+| **M7g** | Rate limits gateway granulaires (**AS-2**) | ☐ | Redis `ratelimit:` |
+
 ### QA-MATRIX — récap tests à revoir (2026-06-22)
 
 Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport dans `reports/` (ou `docs/operations/TESTS.md` §4).
