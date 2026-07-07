@@ -67,7 +67,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make test-security - Audits deps (npm/pip/go) + gosec + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down) + bloc URLs (/app, /login, Pass, Mail, gateway, Adminer… ; CLOUDITY_STATUS_HOST=IP_LAN)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
-	@echo '  make status-watch - Statut toutes les 10 s (watch + couleurs Up/Down)'
+	@echo '  make status-watch - Statut live toutes les 10 s (couleurs, Ctrl+C = arrêt sans effacer)'
 	@echo '  make test-all   - TOUT: make test + … + test-mobile-suite Photos/Drive/Mail (stack up + seed-admin pour E2E)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
@@ -1146,18 +1146,9 @@ status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gate
 statys stats stat: ## Alias de make status (ex. faute « statys » ou raccourci « stat »)
 	@$(MAKE) --no-print-directory status
 
-status-watch: ## Rafraîchit make status toutes les 10 s (`watch -c` + couleurs forcées). Prérequis : procps-ng / watch
-	@chmod +x scripts/dev/status.sh 2>/dev/null || true
-	@if command -v watch >/dev/null 2>&1; then \
-		if watch -h 2>&1 | grep -q -- '--color'; then \
-			watch -n 10 -c -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
-		else \
-			watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
-		fi; \
-	else \
-		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou : while sleep 10; do clear; CLOUDITY_STATUS_FORCE_COLOR=1 make status; done"; \
-		exit 1; \
-	fi
+status-watch: ## Rafraîchit make status toutes les 10 s (couleurs ANSI, Ctrl+C conserve le dernier état)
+	@chmod +x scripts/dev/status.sh scripts/dev/status-watch.sh 2>/dev/null || true
+	@./scripts/dev/status-watch.sh
 
 # === Surveillance ressources (CLI uniquement) ============================
 # Rituel : avant CHAQUE feature/refactor → make perf-snapshot LABEL=before-XXX

@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # État des services Cloudity : tableau lisible (ports, URL, Up/Down), ordre logique, rafraîchissement via make status-watch.
 #
-# Couleurs : actives en TTY ; sinon si forcées (watch pipe souvent sans TTY) :
-#   CLOUDITY_STATUS_FORCE_COLOR=1  ou  FORCE_COLOR=1  ou  CLICOLOR_FORCE=1
-# Ex. : watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd repo && ./scripts/dev/status.sh'
-# make status-watch définit déjà CLOUDITY_STATUS_FORCE_COLOR=1 pour le sous-processus.
+# Couleurs : codes ANSI (pas seulement tput). Actives si stdout est un TTY, ou si forcées :
+#   CLOUDITY_STATUS_FORCE_COLOR=1  (make status-watch)  ·  FORCE_COLOR=1  ·  CLICOLOR_FORCE=1
+# Respecte NO_COLOR sauf si CLOUDITY_STATUS_FORCE_COLOR=1 (mode watch).
+#
+# Conteneurs masqués : *-run-* = jobs éphémères `docker compose run` (tests Vitest, go test…).
+# Voir docs/architecture/SERVICES.md § 4 et docs/operations/TESTS.md.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+RED="" GREEN="" YELLOW="" DIM="" BOLD="" CYAN="" RESET=""
+
 _use_color() {
-  command -v tput >/dev/null 2>&1 || return 1
-  [[ -z "${NO_COLOR:-}" ]] || return 1
+  [[ -z "${NO_COLOR:-}" || "${CLOUDITY_STATUS_FORCE_COLOR:-}" == "1" ]] || return 1
   if [[ -t 1 ]]; then return 0; fi
   if [[ "${CLOUDITY_STATUS_FORCE_COLOR:-}" == "1" ]]; then return 0; fi
   if [[ "${FORCE_COLOR:-}" == "1" ]]; then return 0; fi
@@ -19,15 +22,20 @@ _use_color() {
 }
 
 if _use_color; then
-  RED=$(tput setaf 1)
-  GREEN=$(tput setaf 2)
-  YELLOW=$(tput setaf 3)
-  DIM=$(tput dim)
-  BOLD=$(tput bold)
-  RESET=$(tput sgr0)
-else
-  RED="" GREEN="" YELLOW="" DIM="" BOLD="" RESET=""
+  RED=$'\033[31m'
+  GREEN=$'\033[32m'
+  YELLOW=$'\033[33m'
+  CYAN=$'\033[36m'
+  DIM=$'\033[2m'
+  BOLD=$'\033[1m'
+  RESET=$'\033[0m'
 fi
+
+# Conteneur one-shot `docker compose run` (tests CI, Vitest, go test…) — pas un service long-running.
+is_compose_run_ephemeral() {
+  local name="$1"
+  [[ "$name" == *"-run-"* ]]
+}
 
 if docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
@@ -131,10 +139,15 @@ echo "  ${SEP}"
 
 raw=$($COMPOSE -f docker-compose.yml ps -a --format "{{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true)
 
+ephemeral_hidden=0
 tmp=$(mktemp)
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   name=$(echo "$line" | awk -F'\t' '{print $1}')
+  if is_compose_run_ephemeral "$name"; then
+    ephemeral_hidden=$((ephemeral_hidden + 1))
+    continue
+  fi
   status=$(echo "$line" | awk -F'\t' '{print $2}')
   ports=$(echo "$line" | awk -F'\t' '{print $3}')
   port=$(host_port "$ports")
@@ -159,8 +172,10 @@ while IFS=$'\t' read -r sn port url up; do
   fi
   if [ "$up" = "Up" ] || [ "$up" = "OK (job)" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${GREEN}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
-  else
+  elif [ "$up" = "Fail" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${RED}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
+  else
+    printf "  %-${W}s %-${COLW}s %-${URLW}s ${YELLOW}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
   fi
 done <"$tmp"
 rm -f "$tmp"
@@ -172,6 +187,11 @@ fi
 
 if [ "$shown" = "0" ]; then
   echo "  ${YELLOW}Aucun conteneur Cloudity listé. Lancez : make up${RESET}"
+fi
+
+if [ "$ephemeral_hidden" -gt 0 ]; then
+  echo "  ${DIM}${ephemeral_hidden} conteneur(s) éphémère(s) « compose run » masqué(s) (*-run-*) — tests CI, pas la stack.${RESET}"
+  echo "  ${DIM}Arrêter un run bloqué : docker rm -f <nom>  ·  doc : docs/architecture/SERVICES.md § 4${RESET}"
 fi
 
 echo "  ${SEP}"
@@ -247,5 +267,5 @@ else
 fi
 echo "  ${SEP}"
 echo ""
-echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"
+echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  (Ctrl+C conserve le dernier état)  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"
 echo ""

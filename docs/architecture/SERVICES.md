@@ -134,6 +134,37 @@ l'URL et l'état (`Up` / `Down` / `OK (job)` pour `db-migrate`).
 `db-migrate` apparaît comme **`OK (job)`** parce que c'est un *one-shot*
 dont l'arrêt « Exited (0) » signifie « migrations passées avec succès ».
 
+### Conteneurs `*-run-*` (masqués du tableau)
+
+Lors des tests (`make test`, Vitest, `go test`…), Docker Compose lance des
+jobs **`docker compose run --rm`** qui créent des conteneurs nommés :
+
+```text
+cloudity-<service>-run-<id_hex>   # ex. cloudity-web-run-015c5b37c190
+```
+
+Ce ne sont **pas** des services de la stack (`make up`). Ils peuvent rester
+**Up** quelques minutes (healthcheck Vitest) ou passer en **Exited (0)**.
+`make status` les **filtre** pour ne garder que les services long-running.
+
+| Action | Commande |
+|--------|----------|
+| Voir les runs Docker | `docker ps -a \| rg run-` |
+| Arrêter un run bloqué | `docker rm -f cloudity-cloudity-web-run-…` |
+| Nettoyer les arrêtés | `docker container prune` (attention : tous projets) |
+
+Détail tests : [`docs/operations/TESTS.md`](../operations/TESTS.md).
+
+### Couleurs et mode live
+
+| Commande | Couleurs | Arrêt |
+|----------|----------|-------|
+| `make status` | ANSI si terminal interactif (sauf `NO_COLOR` dans l'environnement) | — |
+| `make status-watch` | Toujours forcées (`CLOUDITY_STATUS_FORCE_COLOR=1`) | **Ctrl+C** — dernier tableau **conservé** à l'écran |
+
+Script live : `scripts/dev/status-watch.sh` (remplace `watch(1)`, intervalle
+`CLOUDITY_STATUS_WATCH_INTERVAL`, défaut 10 s).
+
 ---
 
 ## 5. Références croisées
