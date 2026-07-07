@@ -12,6 +12,7 @@ import {
   Key,
   Palette,
   Smartphone,
+  User,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
@@ -70,7 +71,7 @@ export default function AdminLayout() {
   return (
     <ResponsiveShell
       brandTitle="Cloudity"
-      brandSubtitle="Administration"
+      brandSubtitle={email?.trim() ? `Administration · ${email.trim()}` : 'Administration'}
       brandLink={
         <Link to={ADMIN_UI_BASE_PATH} className="text-base font-semibold text-gray-900 dark:text-slate-100">
           Cloudity
@@ -96,6 +97,12 @@ export default function AdminLayout() {
         </Link>
       )}
       footerItems={[
+        {
+          key: 'profile',
+          label: 'Mon profil',
+          icon: <User className="w-4 h-4" />,
+          href: '/app/settings',
+        },
         {
           key: 'back',
           label: 'Retour à l’app',
