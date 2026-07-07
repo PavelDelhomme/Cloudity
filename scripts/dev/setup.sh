@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup initial du projet Cloudity (structure, .env, clés, deps)
-# Ensuite : make up-full pour démarrer la stack et créer le compte démo (prêt à tester)
+# Ensuite : make up-ready (rapide) ou make up-full (+ tests)
 
 set -e
 
@@ -91,8 +91,9 @@ find scripts -type f -name '*.sh' -exec chmod +x {} \; 2>/dev/null || true
 echo ""
 echo "✅ Setup terminé."
 echo ""
-echo "Démarrer tout (stack + compte démo) :  make up-full"
-echo "Ou seulement la stack :               make up"
+echo "Démarrer (stack + compte démo) :     make up-ready   (~5 min, sans tests)"
+echo "Tout-en-un avec tests (long) :       make up-full    (si échec → make up-ready)"
+echo "Stack seule :                        make up"
 echo "Arrêter la stack :                    make down"
 echo "Aide :                                make help"
 echo "Suivi projet :                        voir STATUS.md"

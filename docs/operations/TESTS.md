@@ -2,6 +2,23 @@
 
 **Objectif** : tout tester (API, frontend, E2E). Les tests unitaires/applicatifs passent par **`make test`**, exécutés **dans les images Docker** (même environnement que la stack). Les E2E sont **à part** : **`make test-e2e`** (après `make up`).
 
+### Démarrage local : `make up-ready` vs `make up-full`
+
+| Commande | Contenu | Durée typique | Quand l’utiliser |
+|----------|---------|---------------|------------------|
+| **`make up-ready`** | down + up + seed + compte démo | ~5 min | **Usage quotidien**, première install, **recours si `up-full` échoue** |
+| **`make up-full`** | idem + **`make test`** (Go, pytest, Vitest) | 15 min – 1 h+ | Avant merge / validation complète |
+| **`UP_FULL_SKIP_TESTS=1 make up-full`** | comme up-ready | ~5 min | Alias pratique si vous êtes déjà dans le flux up-full |
+
+**Si `make up-full` échoue** (tests rouges, Ctrl+C, timeout Vitest, conteneurs `*-run-*` bloquants) :
+
+1. **`make up-ready`** — stack + seed sans relancer les tests (souvent la stack est déjà up après un échec en phase tests).
+2. **`make status`** — URLs et état des services.
+3. **`make test`** — relancer uniquement la batterie de tests.
+4. **`make down`** — tout arrêter + nettoyer les `*-run-*` si Docker est bloqué.
+
+Le script **`scripts/dev/up-failure-hint.sh`** affiche ce rappel automatiquement en fin d’échec.
+
 **Convention Docker d’abord (alignement CI / équipe)** :
 
 | Domaine | Où ça tourne | Commande typique |
@@ -249,7 +266,7 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 
 **Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/apps/cloudity-web` ou **`make test-e2e-playwright`** depuis la racine.
 
-**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
+**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-ready`** (ou **`make up-full`**) pour que Pass et Domaines admin fonctionnent avec un token valide.
 
 **« [no test files] »** : Lors de **`go test ./...`**, les sous-packages qui n’ont **aucun** fichier `*_test.go` (ex. `.../cmd`) affichent une ligne du type **`?   github.com/pavel/cloudity/api-gateway/cmd   [no test files]`**. C’est **normal** : Go indique simplement qu’il n’y a pas de tests dans ce package. Ces packages ne sont pas comptés dans le nombre de tests ; seuls les packages contenant des `*_test.go` exécutent des tests. Aucune action requise.
 

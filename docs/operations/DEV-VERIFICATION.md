@@ -79,8 +79,9 @@ Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPME
 
 - Valider le fichier : `docker compose -f docker-compose.yml config`.
 - **`cloudity-web`** monte `./frontend` sur **`/ws`** et un volume **`node_modules_cache`** sur **`/ws/node_modules`**. Au démarrage, la commande Compose exécute **`npm install` à la racine `/ws`** puis **`npm run dev -w @cloudity/web`** — sans cela le volume `node_modules` est vide et **`:6001` ne répond pas**.
-- **`make wait-for-services`** (utilisé par **`make up-full`**) attend les backends **puis** une réponse HTTP sur **`PORT_DASHBOARD`** (6001), jusqu’à ~4 min pour le premier `npm install`.
-- **`make down`** utilise **`--remove-orphans`** pour éviter les vieux conteneurs après renommage de service.
+- **`make wait-for-services`** (utilisé par **`make up-ready`** et **`make up-full`**) attend les backends **puis** une réponse HTTP sur **`PORT_DASHBOARD`** (6001), jusqu’à ~4 min pour le premier `npm install`.
+- **`make down`** nettoie les conteneurs éphémères `*-run-*` (tests `docker compose run`) et utilise **`--timeout 30 --remove-orphans`**.
+- **Échec `make up-full`** : voir **`make up-ready`** + **`scripts/dev/up-failure-hint.sh`** — **[TESTS.md](TESTS.md)** § « up-ready vs up-full ».
 - **`make rebuild-dashboard`** reconstruit l’image **`cloudity-web`**.
 
 Voir aussi **[TESTS.md](TESTS.md)** pour le détail des commandes.

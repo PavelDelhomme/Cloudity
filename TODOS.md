@@ -29,7 +29,7 @@
 | **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
 | **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
 | **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
-| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
+| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; **`make up-ready`** si échec (stack sans tests) ; Ctrl+C + prune `*-run-*` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
 | **Postgres FATAL pendant sync Mail** | 🟡 | `could not send data to client` + `connection to client lost` en rafale avec `POST /mail/me/accounts/*/sync` — souvent bénin (fermeture conn pool / sync parallèle) ; voir § **Logs Postgres × Mail** ci-dessous |
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
@@ -241,7 +241,7 @@ Action utilisateur après déploiement : **reconnexion une fois** si l’ancien 
 
 ### Incident `make up` — drive-service unhealthy (2026-06-08)
 
-Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`.
+Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`. **Recours** : `make up-ready` après diagnostic (voir **docs/architecture/EVOLUTION-PLATEFORME.md**).
 
 Cause : ajout **HEIC** (`goheif` + CGO `libde265`/`dav1d`) dans `drive-service` sans image Docker à jour — l’image locale datait d’avant `gcc`/`g++` dans `Dockerfile.dev`, donc `go run` échouait (`build constraints exclude all Go files` / `gcc not found`).
 

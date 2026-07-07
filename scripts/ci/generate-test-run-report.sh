@@ -132,6 +132,8 @@ format_duration_cell() {
     echo "## Verdict global : ✅ tests unitaires OK"
   elif [ "$unit_exit" != "?" ]; then
     echo "## Verdict global : ❌ tests unitaires en échec (exit ${unit_exit})"
+    echo ""
+    echo "**Suite recommandée** : la stack est souvent déjà utilisable — \`make up-ready\` (sans relancer les tests) · \`make status\` · corriger puis \`make test\` seul. Voir **docs/operations/TESTS.md** § « up-ready vs up-full »."
   fi
   if grep -q '"recovered":true' "$MANIFEST" 2>/dev/null && ! grep -q '"run_id"' "$MANIFEST" 2>/dev/null; then
     echo ""

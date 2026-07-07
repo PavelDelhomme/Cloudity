@@ -4,7 +4,7 @@
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** — matrice QA complète (§ **QA-MATRIX**) ; relancer `make up-full` après correctif frontend.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** — matrice QA complète (§ **QA-MATRIX**) ; après correctif frontend : **`make up-ready`** (rapide) ou **`make test`** si la stack tourne déjà.
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
@@ -85,7 +85,7 @@
 | **Arrêter la stack** | `make down` |
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
-| **Première fois** | **`make setup`** puis **`make up-full`** |
+| **Première fois** | **`make setup`** puis **`make up-ready`** (rapide) ou **`make up-full`** (+ tests) |
 | **Migrations SQL** | **`make migrate`** (racine, Docker) — applique **`infrastructure/postgresql/migrations/`**. Inclus aussi dans **`make rebuild`** / chaîne **`make up`** via le service **`db-migrate`**. Détail **[docs/operations/TESTS.md](docs/operations/TESTS.md)** (Migrations). |
 | **Nettoyer coffres Pass « e2e-* » (restes Playwright)** | **`make clean-pass-e2e-vaults`** — supprime en Postgres les **`pass_vaults`** dont le nom commence par **`e2e-`** pour l’utilisateur seed (**`admin@cloudity.local`** par défaut, surcharge **`PASS_E2E_CLEAN_EMAIL`**). Prérequis : **`make up`**. Ne pas nommer un coffre réel **`e2e-…`**. Voir **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **3.5**. |
 | **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)** § 5 |
@@ -102,7 +102,7 @@
 
 **Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
 
-**Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo `admin@cloudity.local` (tenant 1). Le mot de passe de démo est défini dans `scripts/db/` / `Makefile` (cible `seed-admin`) — **ne jamais le réutiliser hors du dev local** ; voir **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)**. **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
+**Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-ready`** ou **`make up-full`** (après **`make setup`**) pour créer le compte de démo. Le mot de passe de démo est défini dans `scripts/db/` / `Makefile` (cible `seed-admin`) — **ne jamais le réutiliser hors du dev local** ; voir **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)**. **`make up-ready`** = down + up + seed + compte démo (~5 min). **`make up-full`** = idem + **`make test`** (long ; Ctrl+C pendant les tests conserve la stack ; `UP_FULL_SKIP_TESTS=1` pour sauter les tests). **Si `make up-full` échoue** (tests, timeout, Ctrl+C) : **`make up-ready`** pour repartir sans relancer toute la batterie, puis **`make status`**.
 
 > **Accès au back-office `/4dm1n`** : il faut un **JWT avec `role: "admin"`**. **`make seed-admin`** **crée** le compte de démo **et le promeut** (`UPDATE users SET role='admin'`). Côté **auth-service**, les JWT incluent désormais le claim `role` (lu en BDD au login / register / refresh). Si tu étais connecté **avant** ce changement (token sans `role`), **déconnecte-toi puis reconnecte-toi** : sinon l’UI redirige vers `/app` et l’API gateway renvoie **403 admin role required**.
 
@@ -280,7 +280,7 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 - [ ] **Photos** : app mobile + sync + extensions (au-delà du MVP web).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
-**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
+**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-ready`** (ou **`make up-full`**).
 
 *Détail des phases et checklist complète : section 5 ci-dessous ; vision long terme et métriques : **[docs/produit/PlanImplementation.md](docs/produit/PlanImplementation.md)**.*
 

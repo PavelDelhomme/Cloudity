@@ -21,11 +21,23 @@ export CLOUDITY_TEST_LOGS_DIR CLOUDITY_TEST_RUN_ID
 echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
 cloudity_test_logs_summary_line
 
+CLOUDITY_WEB_TEST_TIMEOUT="${CLOUDITY_WEB_TEST_TIMEOUT:-25m}"
+# Pas de -it : Ctrl+C fiable avec tee/pipe, pas de blocage TTY.
 DOCKER_IT=""
-if [ -t 1 ]; then
-  DOCKER_IT="-it"
-fi
 export DOCKER_IT
+
+# Nettoyage des compose run si interruption pendant la suite de tests.
+_cloudity_test_interrupt() {
+  echo ""
+  echo "⚠️  Tests interrompus — arrêt des conteneurs *-run-*…"
+  # shellcheck source=scripts/dev/prune-compose-runs.sh
+  if [ -f "$ROOT/scripts/dev/prune-compose-runs.sh" ]; then
+    chmod +x "$ROOT/scripts/dev/prune-compose-runs.sh" 2>/dev/null || true
+    "$ROOT/scripts/dev/prune-compose-runs.sh" || true
+  fi
+  exit 130
+}
+trap _cloudity_test_interrupt INT TERM
 
 failed=0
 
@@ -76,10 +88,22 @@ else
 fi
 
 echo "  [cloudity-web]"
-if ! cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web \
-  sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test"; then
-  failed=1
+_web_test_cmd='cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npx vitest run --testTimeout=15000'
+if command -v timeout >/dev/null 2>&1; then
+  if ! timeout --foreground "${CLOUDITY_WEB_TEST_TIMEOUT}" \
+    cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$_web_test_cmd"; then
+    failed=1
+  fi
+else
+  if ! cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$_web_test_cmd"; then
+    failed=1
+  fi
 fi
+
+trap - INT TERM
+
+chmod +x scripts/dev/prune-compose-runs.sh 2>/dev/null || true
+"$ROOT/scripts/dev/prune-compose-runs.sh" || true
 
 cloudity_test_manifest_event "{\"event\":\"unit_tests_done\",\"exit_code\":${failed},\"at\":\"$(date -Iseconds)\"}"
 
@@ -90,6 +114,10 @@ CLOUDITY_TEST_RUN_ID="${CLOUDITY_TEST_RUN_ID:-$(basename "$CLOUDITY_TEST_LOGS_DI
 if [ "$failed" -ne 0 ]; then
   echo ""
   echo "❌ Échec tests unitaires — logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}"
+  chmod +x scripts/dev/up-failure-hint.sh 2>/dev/null || true
+  if [ -f "$ROOT/scripts/dev/up-failure-hint.sh" ]; then
+    "$ROOT/scripts/dev/up-failure-hint.sh" tests
+  fi
   exit 1
 fi
 

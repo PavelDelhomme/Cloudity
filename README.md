@@ -3,11 +3,13 @@
 ## Démarrage rapide
 
 ```bash
-make up    # Démarre toute la stack (ports 60XX)
-make up-tls   # Recommandé : même stack + **Caddy** → https://app.cloudity.local et https://api.cloudity.local (TLS 1.3, HSTS, CSP). Voir `docs/securite/AUDIT-SECURITE.md` § 6 bis.
+make up-ready   # Stack + seed (~5 min) — usage quotidien
+make up-full    # Idem + tests (long ; si échec → make up-ready)
+make up         # Stack seule (ports 60XX)
+make up-tls     # Recommandé : même stack + **Caddy** → https://app.cloudity.local et https://api.cloudity.local (TLS 1.3, HSTS, CSP). Voir `docs/securite/AUDIT-SECURITE.md` § 6 bis.
 make up-https-internal   # Edge HTTPS + Postgres TLS + Redis TLS (step-ca ; prérequis `make mtls-up` + certs).
-make down  # Arrête la stack
-make help  # Liste des commandes
+make down       # Arrête + nettoie les conteneurs *-run-*
+make help       # Liste des commandes
 ```
 
 | Accès | URL |
@@ -19,7 +21,7 @@ make help  # Liste des commandes
 
 L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UNSAFE_PORT). En Docker, `VITE_API_URL=http://localhost:6080` est défini automatiquement. Si vous aviez une config avec 6000, mettez à jour votre `.env` vers `VITE_API_URL=http://localhost:6080`.
 
-Première fois : `./scripts/dev/setup.sh` ou `make init` puis `make up`. (Index des scripts : `scripts/README.md`.)  
+Première fois : `./scripts/dev/setup.sh` ou `make init` puis **`make up-ready`** (stack + compte démo) ou **`make up-full`** (+ tests). Si **`up-full` échoue** → **`make up-ready`**. (Index des scripts : `scripts/README.md`.)  
 
 **Convention documentation** : à la **racine** du dépôt, **`README.md`** (cette page), **`STATUS.md`** (suivi quotidien) et **`BACKLOG.md`** (priorités / backlog condensé). Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
 

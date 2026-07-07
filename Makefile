@@ -38,7 +38,7 @@ PORT_REDIS_COMMANDER ?= 6084
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo '  Première fois :  make setup   puis  make up-full   (stack + compte démo prêts à tester)'
+	@echo '  Première fois :  make setup   puis  make up-ready   (stack + seed, ~5 min) ou  make up-full   (+ tests, long)'
 	@echo ''
 	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
@@ -46,7 +46,10 @@ help: ## Affiche ce message d'aide
 	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
 	@echo '  make deploy-web | rebuild-web - Rebuild + redémarre cloudity-web (Vite app + back-office admin.html)'
 	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
-	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
+	@echo '  make up-ready  - down + up + seed + compte démo (sans tests — usage quotidien ; si up-full échoue → commencer ici)'
+	@echo '  make up-full   - up-ready + make test  (long ; Ctrl+C pendant tests = stack conservée)'
+	@echo '                 Si échec / blocage : make up-ready  puis  make status  ·  tests seuls : make test'
+	@echo '                 UP_FULL_SKIP_TESTS=1 make up-full  — stack + seed sans tests'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
@@ -196,43 +199,34 @@ up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-exten
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, seed, compte démo, puis tests unitaires (rapport dans reports/)
-	@mkdir -p reports
-	@UP_FULL_ID=$$(date +%Y%m%d-%H%M%S); \
-	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
-	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
-	set -o pipefail; \
-	export CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID"; \
-	export CLOUDITY_TEST_RUN_LABEL=make-up-full; \
-	export CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID"; \
-	$(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
-	TEST_EXIT=$$?; \
-	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
-	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh "$$UP_FULL_ID" || true; \
-	./scripts/dev/send-progress-recap.sh || true; \
-	if [ $$TEST_EXIT -ne 0 ]; then \
-	  echo "❌ Tests post-up-full en échec — voir $$UP_FULL_LOG et reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
-	  exit $$TEST_EXIT; \
-	fi; \
-	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
-	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
-	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \
-	echo "   Tester: http://localhost:$(PORT_DASHBOARD) ($(SEED_ADMIN_EMAIL) — voir SEED_ADMIN_PASSWORD dans .env)"
+up-ready: down up wait-for-services seed seed-admin ## Stack + seed sans tests (rapide ; recours si up-full échoue)
+	@echo ""
+	@echo "✅ Cloudity prêt (sans tests).  make status  ·  tests : make test  ·  tout-en-un : make up-full"
 
-down: ## Arrête toute la stack
+up-full: ## up-ready + tests (échec tests → stack souvent OK : make up-ready ou make status)
+	@chmod +x scripts/dev/up-full.sh scripts/dev/prune-compose-runs.sh scripts/dev/up-failure-hint.sh 2>/dev/null || true
+	@./scripts/dev/up-full.sh
+
+# Ancienne recette inline remplacée par scripts/dev/up-full.sh (trap Ctrl+C, prune *-run-*).
+
+down: ## Arrête toute la stack (+ nettoie les conteneurs compose run *-run-*)
 	@echo "🛑 Arrêt de Cloudity..."
-	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down --remove-orphans
+	@chmod +x scripts/dev/prune-compose-runs.sh 2>/dev/null || true
+	@./scripts/dev/prune-compose-runs.sh || true
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down --timeout 30 --remove-orphans
+	@./scripts/dev/prune-compose-runs.sh || true
 	@echo "✅ Stack arrêtée."
 
 install: ## Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets (ex. docx, xlsx).
 	@chmod +x scripts/dev/install-deps.sh 2>/dev/null || true
 	@./scripts/dev/install-deps.sh
 
-setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis lancer make up-full.
+setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis make up-ready ou make up-full.
 	@if [ ! -f scripts/dev/setup.sh ]; then echo "❌ scripts/dev/setup.sh introuvable."; exit 1; fi
 	@./scripts/dev/setup.sh
 	@echo ""
-	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
+	@echo "👉 Ensuite :  make up-ready   (stack + compte démo, ~5 min)"
+	@echo "              make up-full    (idem + tests — long ; si échec → make up-ready)"
 
 secrets: ## Génère un .env avec des secrets robustes (CSPRNG : Postgres, Redis, JWT, PERF ingest, MAIL + ALIAS) — voir SECRETS.md
 	@if [ ! -f scripts/dev/gen-secrets.sh ]; then echo "❌ scripts/dev/gen-secrets.sh introuvable."; exit 1; fi
