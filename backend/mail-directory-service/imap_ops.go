@@ -546,11 +546,12 @@ func (h *Handler) deleteImapFolderHTTP(c *gin.Context) {
 func (h *Handler) imapMoveMessage(ctx context.Context, accountID, msgID int, destFolder string) error {
 	var curFolder string
 	var messageUID int64
+	var fromAddr string
 	err := h.dbex(ctx).QueryRow(`
-		SELECT folder, message_uid FROM mail_messages
+		SELECT folder, message_uid, COALESCE(from_addr, '') FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, msgID, accountID).Scan(&curFolder, &messageUID)
+	`, msgID, accountID).Scan(&curFolder, &messageUID, &fromAddr)
 	if err == sql.ErrNoRows {
 		return errMailMessageNotFound
 	}
@@ -591,6 +592,7 @@ func (h *Handler) imapMoveMessage(ctx context.Context, accountID, msgID int, des
 	if n == 0 {
 		return fmt.Errorf("message introuvable en base après IMAP")
 	}
+	h.clouditySpamLearnFromMove(ctx, accountID, fromAddr, curFolder, destFolder)
 	return nil
 }
 

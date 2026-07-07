@@ -4930,9 +4930,8 @@ export default function MailPage() {
             {activeFolder === 'spam' ? (
               <div className="px-4 py-2 border-b border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-950/20">
                 <p className="text-xs text-orange-900/90 dark:text-orange-100/90 leading-relaxed">
-                  Dossier <strong>Spam</strong> synchronisé depuis votre fournisseur IMAP. L’icône d’avertissement en réception
-                  repose sur un <strong>score heuristique Cloudity</strong> (0–100) — le filtrage MTA <strong>Rspamd</strong> reste
-                  à venir (<strong>AS-1</strong> · voir BACKLOG). Utilisez <strong>Pas indésirable</strong> pour renvoyer un message en boîte de réception.
+                  Dossier <strong>Spam</strong> : messages classés par <strong>Cloudity</strong> (score heuristique + règles expéditeur après « Signaler spam » / « Pas indésirable ») et synchronisés depuis le Junk IMAP fournisseur.
+                  Le MTA local (<strong>Rspamd</strong> via <code>make mail-mta-local-up</code>) enrichit les en-têtes pour les alias <code>@alias.*</code>.
                 </p>
               </div>
             ) : null}

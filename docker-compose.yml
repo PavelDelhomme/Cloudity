@@ -254,6 +254,9 @@ services:
       - MAIL_ALIAS_SUBDOMAIN=${MAIL_ALIAS_SUBDOMAIN:-}
       # MTA entrant (Maddy/Postfix) — lookup alias → boîte cible ; jamais exposer sur Internet sans pare-feu.
       - MTA_INTERNAL_TOKEN=${MTA_INTERNAL_TOKEN:-}
+      # Anti-spam Cloudity : triage post-sync réception → spam (heuristique + en-têtes Rspamd).
+      - MAIL_SPAM_AUTO_TRIAGE_ENABLED=${MAIL_SPAM_AUTO_TRIAGE_ENABLED:-1}
+      - MAIL_SPAM_AUTO_TRIAGE_THRESHOLD=${MAIL_SPAM_AUTO_TRIAGE_THRESHOLD:-52}
     volumes:
       - ./backend/mail-directory-service:/app:cached
       - go_mod_cache_mail:/go/pkg/mod

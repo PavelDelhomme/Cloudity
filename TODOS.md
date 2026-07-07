@@ -89,7 +89,7 @@
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
 | **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt`, **re-chiffrement automatique des blobs après changement de PIN** (Notes/Contacts/Drive/Photos) | ☑ |
-| **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; tests vault/E2EE : rotation PIN, tamper clé (`appVaultClient`), sync mail auth ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
+| **H12** | **Qualité tests frontend transverse** | Matrice renforcée : paramètres apps, coffres locaux, Photos ; **Notes/Settings Vitest** ☑ ; **spam_triage_test.go** ☑ ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
 | **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
 | **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
@@ -108,12 +108,13 @@
 | # | Sujet | État | Suite |
 |---|--------|------|-------|
 | **M7a** | Dossier **Spam** IMAP + sync polling | ☑ | — |
-| **M7b** | Actions **Signaler spam** / **Pas indésirable** (liste, masse, menu contextuel) | ☑ | — |
-| **M7c** | Score **heuristique** backend (`spam_score` 0–100) + icône en réception | ☑ | Seuil 52 — ajuster si besoin |
-| **M7d** | Bannière UX dossier Spam (heuristique vs Rspamd à venir) | ☑ | — |
-| **M7e** | **Rspamd** + Postfix/Dovecot (**AS-1**) | ☐ | Stack MTA prod — priorité avant ML (AS-5) |
-| **M7f** | Règles auto « → spam » (**M6**) | ☐ | API rules + UI |
-| **M7g** | Rate limits gateway granulaires (**AS-2**) | ☐ | Redis `ratelimit:` |
+| **M7b** | Actions **Signaler spam** / **Pas indésirable** + **apprentissage expéditeur** (règles auto) | ☑ | — |
+| **M7c** | Score **heuristique + Rspamd headers** (`spam_score` 0–100) + icône en réception | ☑ | Seuil `MAIL_SPAM_AUTO_TRIAGE_THRESHOLD` |
+| **M7d** | Bannière UX dossier Spam | ☑ | — |
+| **M7e** | **Triage Cloudity** post-sync (réception → spam) | ☑ | `MAIL_SPAM_AUTO_TRIAGE_*` |
+| **M7f** | **Rspamd** MTA local (**AS-1** partiel) | 🟡 | `deploy/mail-mta` + Maddy check ; prod SPF/DKIM ☐ |
+| **M7g** | Règles M6 utilisateur (CRUD + apply) | ☑ | critères date/corps ☐ |
+| **M7h** | Rate limits gateway (**AS-2**) | ☐ | Redis `ratelimit:` |
 
 ### QA-MATRIX — récap tests à revoir (2026-06-22)
 

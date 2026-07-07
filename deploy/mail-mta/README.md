@@ -4,7 +4,7 @@ Deux modes :
 
 | Fichier | Usage |
 |---------|--------|
-| `docker-compose.local.yml` | **Dev** — SMTP sur **2526** (hôte), Maddy → `alias-router` → lookup API Cloudity |
+| `docker-compose.local.yml` | **Dev** — SMTP sur **2526** (hôte), **Rspamd** + Maddy → `alias-router` → lookup API Cloudity |
 | `docker-compose.maddy.yml` | **VPS / Portainer** — ports **25**, **587**, **993** |
 | `docker-compose.yml` | Postfix + OpenDKIM (expérimental) |
 
@@ -21,7 +21,8 @@ Réception SMTP sur le **domaine alias** (`*@<domaine-alias>`) :
 1. MTA reçoit `RCPT TO` alias@…
 2. Maddy relaie en SMTP interne vers `alias-router:2527`
 3. `alias-router` appelle `POST /mail/internal/alias-resolve` (token `MTA_INTERNAL_TOKEN`)
-4. `alias-router` relaie vers `deliver_to` (boîte IMAP / SMTP cible) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
+4. **Rspamd** (local) analyse le message avant relais — en-têtes `X-Spam-Score` / `X-Spam-Status` lus par `mail-directory-service`
+5. `alias-router` relaie vers `deliver_to` (boîte IMAP / SMTP cible) avec en-têtes `Delivered-To` / `X-Original-To` pour le filtre Mail Cloudity
 
 Le même chemin est utilisé en local et en Portainer : plus de mode `dummy`.
 

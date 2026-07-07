@@ -93,7 +93,7 @@
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
 - [ ] **MAIL-ALIAS-05** — MTA Cloudity : lookup alias livré (`/mail/internal/alias-resolve`) ; reste prod hardening (Maddy conf, injection IMAP directe, **5a** API OVH optionnelle). Guide : **[MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** · **[MAIL-MTA-LOCAL-TEST.md](docs/operations/MAIL-MTA-LOCAL-TEST.md)**.
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
-- [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
+- [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : **partiel** — triage Cloudity post-sync + apprentissage expéditeur (M6) + Rspamd dans `deploy/mail-mta` local ; reste Postfix/Dovecot prod, SPF/DKIM/DMARC (**MAIL-ALIAS-06**).
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).
 - [ ] **AS-3 — WAF / fail2ban** : ModSecurity CRS mode détection ; **fail2ban sur hôte VPS** (journal nginx), pas dans le conteneur applicatif.
 - [ ] **AS-4 — Observabilité décisions anti-abus** : métriques compteurs / histogrammes — dans le périmètre **TR-06** ; **ne pas** annoncer Grafana/Prometheus tant que non ajoutés au compose.

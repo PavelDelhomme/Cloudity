@@ -2351,7 +2351,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 		}
 	}
 	m.Attachments = h.loadMessageAttachmentInfo(ctx, msgID)
-	m.SpamScore = spamHeuristicScore(m.Subject, m.FromAddr)
+	m.SpamScore = effectiveSpamScore(m.Subject, m.FromAddr, m.RawHeaders)
 	c.JSON(http.StatusOK, m)
 }
 
@@ -3112,6 +3112,7 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 		totalSynced += n
 	}
 	_, _ = h.applyMailRulesForAccount(ctx, accountID)
+	triaged, _ := h.applyClouditySpamTriage(ctx, accountID)
 	passwordStored := false
 	imapHostStored := false
 	if !useOAuth && password != "" {
@@ -3134,6 +3135,9 @@ func (h *Handler) syncAccountIMAP(c *gin.Context) {
 	}
 	if imapHostStored {
 		resp["imap_host_saved"] = true
+	}
+	if triaged > 0 {
+		resp["spam_triaged"] = triaged
 	}
 	if !useOAuth && password != "" && !passwordStored {
 		resp["message"] = "synchronisation terminée — attention : le mot de passe n'a pas pu être enregistré pour les prochaines sync (vérifiez MAIL_PASSWORD_ENCRYPTION_KEY). Resaisissez-le à la prochaine connexion."
