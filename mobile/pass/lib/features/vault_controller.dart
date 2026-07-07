@@ -48,6 +48,18 @@ class VaultController extends ChangeNotifier with WidgetsBindingObserver {
     return mk;
   }
 
+  /// Déverrouille avec une master key déjà dérivée (biométrie / restauration).
+  void unlockWithMasterKey(Uint8List mk, Argon2idParams params) {
+    if (_masterKey != null) zeroize(_masterKey!);
+    _masterKey = Uint8List.fromList(mk);
+    _profile = params;
+    _lastActivity = DateTime.now();
+    _state = VaultLockState.unlocked;
+    _unlockError = null;
+    _scheduleIdleCheck();
+    notifyListeners();
+  }
+
   /// Tente le déverrouillage avec le mot de passe maître.
   ///
   /// `userId` = identifiant utilisateur (string ou int) — utilisé pour

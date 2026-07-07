@@ -148,9 +148,15 @@ while IFS= read -r line; do
 done <<< "$raw" | sort -t$'\t' -k1,1n -k2,2 | cut -f2- >"$tmp"
 
 shown=0
+web_up=0
+gateway_up=0
 while IFS=$'\t' read -r sn port url up; do
   [ -z "${sn:-}" ] && continue
   shown=1
+  if [ "$up" = "Up" ]; then
+    if [ "$sn" = "cloudity-web" ]; then web_up=1; fi
+    if [ "$sn" = "api-gateway" ]; then gateway_up=1; fi
+  fi
   if [ "$up" = "Up" ] || [ "$up" = "OK (job)" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${GREEN}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
   else
@@ -158,6 +164,11 @@ while IFS=$'\t' read -r sn port url up; do
   fi
 done <"$tmp"
 rm -f "$tmp"
+
+stack_accessible=0
+if [ "$web_up" = "1" ] && [ "$gateway_up" = "1" ]; then
+  stack_accessible=1
+fi
 
 if [ "$shown" = "0" ]; then
   echo "  ${YELLOW}Aucun conteneur Cloudity listé. Lancez : make up${RESET}"
@@ -207,23 +218,33 @@ ORIGIN="${PROTO}://${HOST}:${PORT_DASHBOARD}"
 API="${PROTO}://${HOST}:${PORT_GATEWAY}"
 
 echo "  ${BOLD}URLs d'accès (navigateur / API)${RESET}  ${DIM}— même tableau que STATUS.md §0 ; ports : PORTS-HOTES.md${RESET}"
-echo "  ${DIM}Depuis un autre appareil sur le LAN :${RESET} ${BOLD}export CLOUDITY_STATUS_HOST='<IP_de_ta_machine>'${RESET} ${DIM}puis relancer${RESET} ${BOLD}make status${RESET}${DIM} (HTTP dev par défaut ; prod = TLS NPM, voir DEPLOIEMENT-VPS-PORTAINER-NPM.md).${RESET}"
 echo "  ${SEP}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
-printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"
-printf "  ${DIM}%-22s${RESET} %s\n" "Inscription" "${ORIGIN}/register"
-printf "  ${DIM}%-22s${RESET} %s\n" "Pass" "${ORIGIN}/app/pass"
-printf "  ${DIM}%-22s${RESET} %s\n" "Mail" "${ORIGIN}/app/mail"
-printf "  ${DIM}%-22s${RESET} %s\n" "Drive" "${ORIGIN}/app/drive"
-printf "  ${DIM}%-22s${RESET} %s\n" "Back-office" "${ORIGIN}/4dm1n"
-printf "  ${DIM}%-22s${RESET} %s\n" "API (gateway)" "${API}/health"
-printf "  ${DIM}%-22s${RESET} %s\n" "Auth health" "${API}/auth/health"
-printf "  ${DIM}%-22s${RESET} %s\n" "Playwright (API)" "${API}  ${DIM}# ex. PLAYWRIGHT_API_URL${RESET}"
-echo "  ${SEP}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Postgres (psql)" "${HOST}:${PORT_POSTGRES}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Redis" "${HOST}:${PORT_REDIS}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Adminer" "${PROTO}://${HOST}:${PORT_ADMINER}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Redis Commander" "${PROTO}://${HOST}:${PORT_REDIS_COMMANDER}"
+if [ "$stack_accessible" = "1" ]; then
+  echo "  ${DIM}Depuis un autre appareil sur le LAN :${RESET} ${BOLD}export CLOUDITY_STATUS_HOST='<IP_de_ta_machine>'${RESET} ${DIM}puis relancer${RESET} ${BOLD}make status${RESET}${DIM} (HTTP dev par défaut ; prod = TLS NPM, voir DEPLOIEMENT-VPS-PORTAINER-NPM.md).${RESET}"
+  echo "  ${SEP}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Inscription" "${ORIGIN}/register"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Pass" "${ORIGIN}/app/pass"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Mail" "${ORIGIN}/app/mail"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Drive" "${ORIGIN}/app/drive"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Back-office" "${ORIGIN}/4dm1n"
+  printf "  ${DIM}%-22s${RESET} %s\n" "API (gateway)" "${API}/health"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Auth health" "${API}/auth/health"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Playwright (API)" "${API}  ${DIM}# ex. PLAYWRIGHT_API_URL${RESET}"
+  echo "  ${SEP}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Postgres (psql)" "${HOST}:${PORT_POSTGRES}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Redis" "${HOST}:${PORT_REDIS}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Adminer" "${PROTO}://${HOST}:${PORT_ADMINER}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Redis Commander" "${PROTO}://${HOST}:${PORT_REDIS_COMMANDER}"
+else
+  echo "  ${YELLOW}Stack arrêtée — aucune URL n'est joignable pour l'instant.${RESET}"
+  if [ "$shown" = "1" ]; then
+    echo "  ${DIM}Des conteneurs existent mais cloudity-web et/ou api-gateway ne sont pas Up.${RESET}"
+  fi
+  echo "  ${DIM}Démarrez la stack :${RESET} ${BOLD}make up${RESET}"
+  echo "  ${DIM}Référence des ports une fois démarrée :${RESET} PORTS-HOTES.md, STATUS.md §0"
+fi
 echo "  ${SEP}"
 echo ""
 echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"

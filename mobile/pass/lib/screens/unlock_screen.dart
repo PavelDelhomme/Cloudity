@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../api/pass_api.dart';
+import '../features/pass_biometric_store.dart';
 import '../features/pass_crypto.dart';
+import '../features/pass_local_backup.dart';
 import '../auth/session_store.dart';
 import '../auth/user_session.dart';
 import '../features/vault_controller.dart';
@@ -36,6 +38,10 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
   String? _probeError;
   /// `true` = aucun coffre côté serveur → choix du maître (comme le web).
   bool _isFirstVault = false;
+  bool _offlineMode = false;
+  String? _localBackupAt;
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
 
   static const _minMasterLen = 8;
 
@@ -48,7 +54,83 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
   @override
   void initState() {
     super.initState();
+    _initBiometricFlags();
     _runProbe();
+  }
+
+  Future<void> _initBiometricFlags() async {
+    final avail = await PassBiometricStore.deviceSupportsBiometric();
+    final enabled = await PassBiometricStore.isEnabled();
+    if (!mounted) return;
+    setState(() {
+      _biometricAvailable = avail;
+      _biometricEnabled = enabled;
+    });
+    if (enabled) {
+      await _tryBiometricUnlock(silent: true);
+    }
+  }
+
+  Future<void> _tryBiometricUnlock({bool silent = false}) async {
+    if (!_biometricEnabled) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final unlocked = await PassBiometricStore.tryUnlock();
+      if (unlocked == null) {
+        if (!silent && mounted) {
+          setState(() => _error = 'Déverrouillage biométrique annulé ou indisponible.');
+        }
+        return;
+      }
+      widget.controller.unlockWithMasterKey(unlocked.mk, unlocked.profile);
+      if (!mounted) return;
+      if (widget.controller.unlockError == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Coffre déverrouillé (biométrie).')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _offerBiometricAfterPasswordUnlock() async {
+    if (!_biometricAvailable || _biometricEnabled) return;
+    if (!widget.controller.isUnlocked || widget.controller.profile == null) return;
+    final enable = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Déverrouillage biométrique'),
+        content: const Text(
+          'Activer empreinte / reconnaissance faciale pour rouvrir le coffre '
+          'sans retaper le mot de passe maître ?\n\n'
+          'Le mot de passe reste nécessaire sur un nouvel appareil ou si vous désactivez la biométrie.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Plus tard')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Activer')),
+        ],
+      ),
+    );
+    if (enable != true || !mounted) return;
+    final ok = await PassBiometricStore.enable(
+      masterKey: widget.controller.masterKey,
+      profile: widget.controller.profile!,
+    );
+    if (!mounted) return;
+    setState(() => _biometricEnabled = ok);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? 'Biométrie activée pour Cloudity Pass.'
+              : 'Impossible d’activer la biométrie sur cet appareil.',
+        ),
+      ),
+    );
   }
 
   @override
@@ -92,23 +174,32 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
         widget.onLogout();
         return;
       }
-      setState(() {
-        _probeError = e.message;
-        _isFirstVault = false;
-        _probeLoading = false;
-      });
+      await _applyOfflineFallback(e.message);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _probeError = e.toString();
-        _isFirstVault = false;
-        _probeLoading = false;
-      });
+      await _applyOfflineFallback(e.toString());
     }
+  }
+
+  Future<void> _applyOfflineFallback(String err) async {
+    final userId = widget.session.userId;
+    final doc = await PassLocalBackupStore.load(userId);
+    final vaults = PassLocalBackupStore.vaultsFromDocument(doc);
+    setState(() {
+      _probeError = err;
+      _offlineMode = vaults.isNotEmpty;
+      _localBackupAt = PassLocalBackupStore.exportedAtLabel(doc);
+      _isFirstVault = vaults.isEmpty;
+      _probeLoading = false;
+    });
   }
 
   Future<void> _submit() async {
     final master = _passwordCtrl.text;
+    if (_isFirstVault && _offlineMode) {
+      setState(() => _error = 'Initialisation impossible hors ligne — reconnecte-toi au réseau.');
+      return;
+    }
     if (master.length < _minMasterLen) {
       setState(() => _error = 'Mot de passe maître : au moins $_minMasterLen caractères.');
       return;
@@ -133,12 +224,16 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
       if (widget.controller.unlockError != null) {
         setState(() => _error = widget.controller.unlockError);
       } else {
+        await _offerBiometricAfterPasswordUnlock();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               _isFirstVault
                   ? 'Coffre initialisé — mémorise ce mot de passe maître (Cloudity ne peut pas le réinitialiser).'
-                  : 'Coffre déverrouillé.',
+                  : _offlineMode
+                      ? 'Coffre déverrouillé (mode hors ligne — sauvegarde locale).'
+                      : 'Coffre déverrouillé.',
             ),
           ),
         );
@@ -182,14 +277,30 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Impossible de vérifier si tu as déjà des coffres : $_probeError\n'
-                      'Une fois la passerelle joignable, réessaie (tire pour rafraîchir ou rouvre l’écran). '
-                      'Le formulaire ci-dessous suppose un coffre existant.',
+                      _offlineMode
+                          ? 'Passerelle injoignable — mode hors ligne avec sauvegarde locale'
+                              '${_localBackupAt != null ? ' ($_localBackupAt)' : ''}.\n'
+                              'Déverrouille avec ton mot de passe maître pour lire les entrées en cache.'
+                          : 'Impossible de vérifier si tu as déjà des coffres : $_probeError\n'
+                              'Une fois la passerelle joignable, réessaie. '
+                              'Le formulaire ci-dessous suppose un coffre existant.',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.error,
+                            color: _offlineMode
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.error,
                           ),
                     ),
                   ),
+                if (_biometricEnabled && _biometricAvailable) ...[
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _tryBiometricUnlock(),
+                    icon: const Icon(Icons.fingerprint),
+                    label: const Text('Déverrouiller avec biométrie'),
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                ],
                 Text(
                   _isFirstVault
                       ? 'Tu es connecté avec ton compte Cloudity. Choisis un mot de passe maître '

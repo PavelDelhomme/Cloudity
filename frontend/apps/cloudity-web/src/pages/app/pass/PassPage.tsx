@@ -43,6 +43,7 @@ import UnlockScreen from './UnlockScreen'
 import ItemEditor, { type ItemEditorValue } from './ItemEditor'
 import ProtonImportDialog from './ProtonImportDialog'
 import PassMailAliasesPanel from './PassMailAliasesPanel'
+import PassBackupActions from './PassBackupActions'
 import type { ConvertedItem } from './protonImport'
 
 // --- Helpers ----------------------------------------------------------
@@ -155,7 +156,7 @@ function PassPageInner() {
 
   return (
     <div className="flex flex-col gap-6">
-      <UnlockedPass accessToken={accessToken} logout={logout} />
+      <UnlockedPass accessToken={accessToken} userId={userId} logout={logout} />
       {aliasesPanel}
     </div>
   )
@@ -194,10 +195,11 @@ function PassHeader({
 
 interface UnlockedPassProps {
   accessToken: string
+  userId: string
   logout: () => void
 }
 
-function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
+function UnlockedPass({ accessToken, userId, logout }: UnlockedPassProps) {
   const queryClient = useQueryClient()
   const vault = useUnlockedVault()
   const { lock } = useVault()
@@ -390,6 +392,16 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
   return (
     <div className="flex flex-col gap-6 min-h-0">
       <PassHeader onLock={lock} />
+      <PassBackupActions
+        accessToken={accessToken}
+        userId={userId}
+        onImported={() => {
+          queryClient.invalidateQueries({ queryKey: ['vaults'] })
+          queryClient.invalidateQueries({
+            predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'vault-items',
+          })
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
         {/* Colonne 1 : vaults */}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/pass_crypto.dart';
+import '../features/pass_local_backup.dart';
 import '../auth/user_session.dart';
 import '../features/vault_controller.dart';
 import 'item_detail_screen.dart';
@@ -12,12 +13,14 @@ class PassItemsScreen extends StatefulWidget {
     required this.controller,
     required this.vaultId,
     required this.vaultName,
+    this.offlineDoc,
   });
 
   final PassUserSession session;
   final VaultController controller;
   final int vaultId;
   final String vaultName;
+  final Map<String, dynamic>? offlineDoc;
 
   @override
   State<PassItemsScreen> createState() => _PassItemsScreenState();
@@ -56,10 +59,16 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
   }
 
   Future<List<_DecodedItemPreview>> _load() async {
-    final raw = await widget.session.api.fetchItems(
-      accessToken: widget.session.accessToken,
-      vaultId: widget.vaultId,
-    );
+    List<Map<String, dynamic>> raw;
+    try {
+      raw = await widget.session.api.fetchItems(
+        accessToken: widget.session.accessToken,
+        vaultId: widget.vaultId,
+      );
+    } catch (_) {
+      raw = PassLocalBackupStore.itemsForVault(widget.offlineDoc, widget.vaultId);
+      if (raw.isEmpty) rethrow;
+    }
     final out = <_DecodedItemPreview>[];
     for (final r in raw) {
       final id = (r['id'] as int?) ?? 0;

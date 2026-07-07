@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../auth/user_session.dart';
+import '../features/pass_local_backup.dart';
 import '../features/vault_controller.dart';
 import 'items_screen.dart';
 
@@ -10,11 +13,15 @@ class PassVaultsScreen extends StatefulWidget {
     required this.session,
     required this.controller,
     required this.onLogout,
+    this.offlineMode = false,
+    this.localBackupAt,
   });
 
   final PassUserSession session;
   final VaultController controller;
   final VoidCallback onLogout;
+  final bool offlineMode;
+  final String? localBackupAt;
 
   @override
   State<PassVaultsScreen> createState() => _PassVaultsScreenState();
@@ -22,6 +29,7 @@ class PassVaultsScreen extends StatefulWidget {
 
 class _PassVaultsScreenState extends State<PassVaultsScreen> {
   late Future<List<Map<String, dynamic>>> _vaults;
+  Map<String, dynamic>? _localDoc;
 
   @override
   void initState() {
@@ -30,7 +38,27 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _load() async {
-    return widget.session.api.fetchVaults(widget.session.accessToken);
+    try {
+      final rows = await widget.session.api.fetchVaults(widget.session.accessToken);
+      if (widget.session.userId.isNotEmpty) {
+        unawaited(
+          PassLocalBackupStore.saveFromApi(
+            userId: widget.session.userId,
+            vaultRows: rows,
+            fetchItems: (id) => widget.session.api.fetchItems(
+              accessToken: widget.session.accessToken,
+              vaultId: id,
+            ),
+          ),
+        );
+      }
+      return rows;
+    } catch (_) {
+      _localDoc = await PassLocalBackupStore.load(widget.session.userId);
+      final local = PassLocalBackupStore.vaultsFromDocument(_localDoc);
+      if (local.isNotEmpty) return local;
+      rethrow;
+    }
   }
 
   Future<void> _refresh() async {
@@ -77,6 +105,7 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
               );
             }
             final vaults = snap.data ?? const [];
+            final offlineBanner = widget.offlineMode || _localDoc != null;
             if (vaults.isEmpty) {
               return ListView(
                 children: const [
@@ -91,10 +120,24 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
               );
             }
             return ListView.separated(
-              itemCount: vaults.length,
+              itemCount: vaults.length + (offlineBanner ? 1 : 0),
               separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (_, i) {
-                final v = vaults[i];
+                if (offlineBanner && i == 0) {
+                  final at = widget.localBackupAt ??
+                      PassLocalBackupStore.exportedAtLabel(_localDoc);
+                  return ListTile(
+                    leading: Icon(Icons.cloud_off, color: Theme.of(context).colorScheme.primary),
+                    title: const Text('Mode hors ligne'),
+                    subtitle: Text(
+                      at != null
+                          ? 'Sauvegarde locale du $at — lecture seule'
+                          : 'Sauvegarde locale — lecture seule',
+                    ),
+                  );
+                }
+                final idx = offlineBanner ? i - 1 : i;
+                final v = vaults[idx];
                 final id = (v['id'] as int?) ?? 0;
                 final name = (v['name'] as String?) ?? 'Coffre #$id';
                 return ListTile(
@@ -109,6 +152,7 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
                         controller: widget.controller,
                         vaultId: id,
                         vaultName: name,
+                        offlineDoc: _localDoc,
                       ),
                     ));
                   },
