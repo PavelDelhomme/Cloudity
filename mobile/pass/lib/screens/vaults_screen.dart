@@ -2,10 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:cloudity_shared/cloudity_shared.dart';
+
 import '../auth/user_session.dart';
 import '../features/pass_local_backup.dart';
 import '../features/vault_controller.dart';
 import 'items_screen.dart';
+import 'pass_settings_screen.dart';
 
 class PassVaultsScreen extends StatefulWidget {
   const PassVaultsScreen({
@@ -35,6 +38,12 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
   void initState() {
     super.initState();
     _vaults = _load();
+    _applyPassPrefs();
+  }
+
+  Future<void> _applyPassPrefs() async {
+    final prefs = await UserPreferencesStore.loadCached();
+    widget.controller.applyPassSettings(prefs.pass);
   }
 
   Future<List<Map<String, dynamic>>> _load() async {
@@ -71,6 +80,18 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
       appBar: AppBar(
         title: const Text('Coffres'),
         actions: [
+          IconButton(
+            tooltip: 'Paramètres',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => PassSettingsScreen(
+                  session: widget.session,
+                  onLogout: widget.onLogout,
+                ),
+              )).then((_) => _applyPassPrefs());
+            },
+          ),
           IconButton(
             tooltip: 'Verrouiller le coffre',
             icon: const Icon(Icons.lock_outline),

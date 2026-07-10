@@ -3,13 +3,15 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import 'package:cloudity_shared/user_preferences.dart';
+
 import 'pass_crypto.dart';
 
 /// État de verrouillage du coffre.
 enum VaultLockState { locked, unlocking, unlocked }
 
-/// Auto-lock après inactivité (5 min) — aligné sur `vaultContext.tsx` (web).
-const Duration kAutoLockAfter = Duration(minutes: 5);
+/// Auto-lock par défaut (5 min) — surchargeable via préférences Pass.
+const Duration kDefaultAutoLockAfter = Duration(minutes: 5);
 
 /// Contrôleur central du coffre Pass : détient la master key en mémoire,
 /// gère l'unlock (Argon2id), l'auto-lock par inactivité et le passage
@@ -31,6 +33,7 @@ class VaultController extends ChangeNotifier with WidgetsBindingObserver {
   String? _unlockError;
   Timer? _idleTimer;
   DateTime _lastActivity = DateTime.now();
+  Duration _autoLockAfter = kDefaultAutoLockAfter;
 
   VaultLockState get state => _state;
   bool get isUnlocked => _state == VaultLockState.unlocked;
@@ -112,6 +115,18 @@ class VaultController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Applique les préférences Pass (auto-lock depuis le compte utilisateur).
+  void applyPassSettings(PassAppSettings prefs) {
+    if (prefs.autoLockMs <= 0) {
+      _autoLockAfter = Duration.zero;
+    } else {
+      _autoLockAfter = Duration(milliseconds: prefs.autoLockMs);
+    }
+    if (_state == VaultLockState.unlocked) {
+      _scheduleIdleCheck();
+    }
+  }
+
   /// Notifie une activité utilisateur — reset du timer auto-lock.
   void bumpActivity() {
     _lastActivity = DateTime.now();
@@ -119,9 +134,10 @@ class VaultController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _scheduleIdleCheck() {
     _idleTimer?.cancel();
+    if (_autoLockAfter <= Duration.zero) return;
     _idleTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final idle = DateTime.now().difference(_lastActivity);
-      if (idle >= kAutoLockAfter) {
+      if (idle >= _autoLockAfter) {
         lock();
       }
     });

@@ -6,7 +6,7 @@
 //
 // Quota : `webauthnPerUserQuota` passkeys par user (cf. `webauthn.go`).
 
-package main
+package webauthn
 
 import (
 	"encoding/base64"
@@ -15,7 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 // passkeyRegistrationOptions assemble les modificateurs `BeginRegistration`
@@ -31,7 +31,7 @@ import (
 //   - `UserVerification: preferred` : on demande PIN/biométrie si dispo,
 //     sans bloquer un user qui n'aurait pas de TouchID/Windows Hello.
 //   - `AttestationPreference: none` : pas de telemetry constructeur.
-func passkeyRegistrationOptions() webauthn.RegistrationOption {
+func passkeyRegistrationOptions() gwebauthn.RegistrationOption {
 	return func(opts *protocol.PublicKeyCredentialCreationOptions) {
 		opts.AuthenticatorSelection = protocol.AuthenticatorSelection{
 			RequireResidentKey: protocol.ResidentKeyRequired(),
@@ -48,7 +48,7 @@ func passkeyRegistrationOptions() webauthn.RegistrationOption {
 //
 // Phase W2 : ouvert à tout user actif (plus admin-only). Quota
 // `webauthnPerUserQuota` passkeys par user.
-func (s *WebAuthnService) RegisterBegin(c *gin.Context) {
+func (s *Service) RegisterBegin(c *gin.Context) {
 	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -82,7 +82,7 @@ func (s *WebAuthnService) RegisterBegin(c *gin.Context) {
 // RegisterFinish POST /auth/webauthn/register/finish
 //
 //	Authorization: Bearer <jwt user ou admin>  +  body = AuthenticatorAttestationResponse
-func (s *WebAuthnService) RegisterFinish(c *gin.Context) {
+func (s *Service) RegisterFinish(c *gin.Context) {
 	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})

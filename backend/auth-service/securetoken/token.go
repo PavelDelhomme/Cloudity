@@ -1,8 +1,5 @@
-// securetoken_hmac.go — Émission / vérification des capability URLs (HMAC).
-//
-// Voir securetoken_http.go pour les handlers HTTP et docs/securite/URL-CAPABILITIES.md.
-
-package main
+// Package securetoken — capability URLs HMAC (chemins /app/settings/sec/*).
+package securetoken
 
 import (
 	"crypto/hmac"
@@ -16,15 +13,15 @@ import (
 	"time"
 )
 
-const urlTokenWindow = 30 * 24 * time.Hour
+const Window = 30 * 24 * time.Hour
 
-const urlTokenHmacBytes = 16
+const hmacBytes = 16
 
-var urlTokenPurposes = map[string]struct{}{
+var Purposes = map[string]struct{}{
 	"settings_security": {},
 }
 
-var errInvalidURLToken = errors.New("invalid URL capability token")
+var ErrInvalidURLToken = errors.New("invalid URL capability token")
 
 func urlTokenSecret() ([]byte, error) {
 	if raw := strings.TrimSpace(os.Getenv("URL_TOKEN_SECRET")); raw != "" {
@@ -46,12 +43,18 @@ func urlTokenSecret() ([]byte, error) {
 	return nil, errors.New("URL_TOKEN_SECRET / JWT_SECRET manquants")
 }
 
-func urlTokenEpoch(at time.Time) int64 {
-	return at.UnixNano() / int64(urlTokenWindow)
+// TokenEpoch expose l'epoch courant (tests + handlers HTTP).
+func TokenEpoch(at time.Time) int64 {
+	return urlTokenEpoch(at)
 }
 
+func urlTokenEpoch(at time.Time) int64 {
+	return at.UnixNano() / int64(Window)
+}
+
+// IssueUserPathToken émet un token capability pour userID + purpose.
 func IssueUserPathToken(userID int64, purpose string) (string, error) {
-	if _, ok := urlTokenPurposes[purpose]; !ok {
+	if _, ok := Purposes[purpose]; !ok {
 		return "", fmt.Errorf("purpose inconnu : %q", purpose)
 	}
 	secret, err := urlTokenSecret()
@@ -63,8 +66,9 @@ func IssueUserPathToken(userID int64, purpose string) (string, error) {
 	return fmt.Sprintf("%d.%s", epoch, base64.RawURLEncoding.EncodeToString(mac)), nil
 }
 
+// VerifyUserPathToken valide un token capability (fenêtre courante ou précédente).
 func VerifyUserPathToken(token string, userID int64, purpose string, now time.Time) error {
-	if _, ok := urlTokenPurposes[purpose]; !ok {
+	if _, ok := Purposes[purpose]; !ok {
 		return fmt.Errorf("purpose inconnu : %q", purpose)
 	}
 	secret, err := urlTokenSecret()
@@ -73,23 +77,23 @@ func VerifyUserPathToken(token string, userID int64, purpose string, now time.Ti
 	}
 	parts := strings.SplitN(token, ".", 2)
 	if len(parts) != 2 {
-		return errInvalidURLToken
+		return ErrInvalidURLToken
 	}
 	epoch, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		return errInvalidURLToken
+		return ErrInvalidURLToken
 	}
 	got, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil || len(got) != urlTokenHmacBytes {
-		return errInvalidURLToken
+	if err != nil || len(got) != hmacBytes {
+		return ErrInvalidURLToken
 	}
 	cur := urlTokenEpoch(now.UTC())
 	if epoch != cur && epoch != cur-1 {
-		return errInvalidURLToken
+		return ErrInvalidURLToken
 	}
 	want := hmacForToken(secret, userID, purpose, epoch)
 	if !hmac.Equal(want, got) {
-		return errInvalidURLToken
+		return ErrInvalidURLToken
 	}
 	return nil
 }
@@ -98,5 +102,15 @@ func hmacForToken(secret []byte, userID int64, purpose string, epoch int64) []by
 	mac := hmac.New(sha256.New, secret)
 	fmt.Fprintf(mac, "v1:%d:%s:%d", userID, purpose, epoch)
 	full := mac.Sum(nil)
-	return full[:urlTokenHmacBytes]
+	return full[:hmacBytes]
+}
+
+// PathForPurpose mappe un purpose vers le chemin SPA.
+func PathForPurpose(purpose, token string) string {
+	switch purpose {
+	case "settings_security":
+		return "/app/settings/sec/" + token
+	default:
+		return "/app/settings"
+	}
 }

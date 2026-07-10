@@ -1,7 +1,7 @@
 // webauthn_user.go — Implémentation de `webauthn.User` + helpers de
 // chargement (`loadUser`, `loadCredentials`, encodage handle ↔ user_id).
 
-package main
+package webauthn
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"fmt"
 
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 // webauthnUser implémente webauthn.User à partir d'une ligne `users` + de la
@@ -23,7 +23,7 @@ type webauthnUser struct {
 	email       string
 	displayName string
 	role        string
-	creds       []webauthn.Credential
+	creds       []gwebauthn.Credential
 }
 
 func (u *webauthnUser) WebAuthnID() []byte {
@@ -42,7 +42,7 @@ func (u *webauthnUser) WebAuthnID() []byte {
 
 func (u *webauthnUser) WebAuthnName() string        { return u.email }
 func (u *webauthnUser) WebAuthnDisplayName() string { return u.displayName }
-func (u *webauthnUser) WebAuthnCredentials() []webauthn.Credential {
+func (u *webauthnUser) WebAuthnCredentials() []gwebauthn.Credential {
 	return u.creds
 }
 
@@ -63,7 +63,7 @@ func userIDFromWebAuthnID(handle []byte) (int64, error) {
 // loadUser charge l'utilisateur ciblé + ses credentials. **Phase W2** :
 // accepte tout user actif (plus de filtre admin). On garde le rôle pour le
 // JWT émis au login.
-func (s *WebAuthnService) loadUser(ctx context.Context, userID int64) (*webauthnUser, error) {
+func (s *Service) loadUser(ctx context.Context, userID int64) (*webauthnUser, error) {
 	var email, role string
 	var isActive bool
 	err := s.db.QueryRowContext(ctx, `
@@ -88,7 +88,7 @@ func (s *WebAuthnService) loadUser(ctx context.Context, userID int64) (*webauthn
 	}, nil
 }
 
-func (s *WebAuthnService) loadCredentials(ctx context.Context, userID int64) ([]webauthn.Credential, error) {
+func (s *Service) loadCredentials(ctx context.Context, userID int64) ([]gwebauthn.Credential, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT credential_id, public_key, sign_count, aaguid, attestation_fmt, transports, backup_eligible, backup_state
 		  FROM webauthn_credentials
@@ -98,9 +98,9 @@ func (s *WebAuthnService) loadCredentials(ctx context.Context, userID int64) ([]
 		return nil, fmt.Errorf("load credentials: %w", err)
 	}
 	defer rows.Close()
-	out := make([]webauthn.Credential, 0)
+	out := make([]gwebauthn.Credential, 0)
 	for rows.Next() {
-		var cred webauthn.Credential
+		var cred gwebauthn.Credential
 		var aaguid sql.NullString
 		var transportsJSON []byte
 		var attFmt string

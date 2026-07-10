@@ -102,6 +102,12 @@ backend/auth-service/public_ed25519.pem
 # Build / cache auth-service
 backend/auth-service/tmp/
 
+# Artefacts Docker locaux (bind-mounts / dossiers vides créés par root) — ne pas versionner.
+backend/*/internalsec/
+backend/api-gateway/keys/
+backend/api-gateway/storage/
+backend/*/* backend/
+
 # Dossier storage local (volumes Docker pour postgres/redis par défaut) — versionner seulement la notice.
 storage/*
 !storage/README.txt

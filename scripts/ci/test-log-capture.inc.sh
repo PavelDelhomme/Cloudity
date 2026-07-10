@@ -222,9 +222,15 @@ cloudity_test_compose_run() {
 
   echo "  [${service}]"
 
+  local compose_extra=()
+  if [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ]; then
+    compose_extra+=(-e "CLOUDITY_TEST_LOGS_DIR=/test-logs-out")
+    compose_extra+=(-v "${CLOUDITY_TEST_LOGS_DIR}:/test-logs-out")
+  fi
+
   set +e
   # shellcheck disable=SC2086
-  cloudity_compose run --rm $docker_it --no-deps "$service" "$@" 2>&1 | tee "$test_log"
+  cloudity_compose run --rm $docker_it --no-deps "${compose_extra[@]}" "$service" "$@" 2>&1 | tee "$test_log"
   exit_code=${PIPESTATUS[0]}
   set -e
 
@@ -254,4 +260,37 @@ cloudity_test_logs_summary_line() {
   if [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] && [ -d "$CLOUDITY_TEST_LOGS_DIR" ]; then
     echo "  Logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}"
   fi
+}
+
+# Écrit reports/test-logs/<run-id>/summary.md (stdout, JSON Vitest, manifest).
+cloudity_test_write_summary() {
+  local exit_code="${1:-0}"
+  [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || return 0
+  local summary="${CLOUDITY_TEST_LOGS_DIR}/summary.md"
+  {
+    echo "# Cloudity test run"
+    echo ""
+    echo "- run_id: \`${CLOUDITY_TEST_RUN_ID:-unknown}\`"
+    echo "- exit_code: ${exit_code}"
+    echo "- ended_at: $(date -Iseconds)"
+    echo ""
+    echo "## Artefacts"
+    echo ""
+    if [ -f "${CLOUDITY_TEST_LOGS_DIR}/manifest.jsonl" ]; then
+      echo "- manifest: \`manifest.jsonl\`"
+    fi
+    find "$CLOUDITY_TEST_LOGS_DIR" -name 'vitest-results.json' 2>/dev/null | while read -r j; do
+      echo "- vitest JSON: \`${j#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    find "$CLOUDITY_TEST_LOGS_DIR" -name '*-test-output.log' 2>/dev/null | while read -r l; do
+      echo "- test output: \`${l#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    find "$CLOUDITY_TEST_LOGS_DIR" -name 'command-output.log' 2>/dev/null | while read -r c; do
+      echo "- command: \`${c#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    echo ""
+    echo "Voir \`manifest.jsonl\` pour la chronologie complète (phases, captures docker)."
+  } > "$summary"
+  chmod 600 "$summary" 2>/dev/null || true
+  cloudity_test_manifest_event "{\"event\":\"summary\",\"path\":\"summary.md\",\"exit_code\":${exit_code},\"at\":\"$(date -Iseconds)\"}"
 }

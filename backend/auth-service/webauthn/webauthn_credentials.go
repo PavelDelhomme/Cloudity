@@ -7,7 +7,7 @@
 // Helpers internes : `persistCredential` (INSERT après register) et
 // `bumpSignCount` (UPDATE atomique anti-replay au login).
 
-package main
+package webauthn
 
 import (
 	"context"
@@ -19,13 +19,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 // ListCredentials GET /auth/webauthn/credentials
 //
 //	Authorization: Bearer <jwt user ou admin> → liste les passkeys de l'utilisateur courant.
-func (s *WebAuthnService) ListCredentials(c *gin.Context) {
+func (s *Service) ListCredentials(c *gin.Context) {
 	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -87,7 +87,7 @@ func (s *WebAuthnService) ListCredentials(c *gin.Context) {
 //	Authorization: Bearer <jwt user ou admin>
 //	Refuse de supprimer la dernière passkey si l'utilisateur n'a pas d'autre
 //	moyen d'authentification (au moins TOTP) — évite de se locker dehors.
-func (s *WebAuthnService) DeleteCredential(c *gin.Context) {
+func (s *Service) DeleteCredential(c *gin.Context) {
 	userID, _, err := s.requireAuthUser(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
@@ -113,7 +113,7 @@ func (s *WebAuthnService) DeleteCredential(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"deleted": credUUID})
 }
 
-func (s *WebAuthnService) persistCredential(ctx context.Context, userID int64, cred *webauthn.Credential, nickname string) error {
+func (s *Service) persistCredential(ctx context.Context, userID int64, cred *gwebauthn.Credential, nickname string) error {
 	transports := make([]string, 0, len(cred.Transport))
 	for _, t := range cred.Transport {
 		transports = append(transports, string(t))
@@ -136,7 +136,7 @@ func (s *WebAuthnService) persistCredential(ctx context.Context, userID int64, c
 // Keychain) peuvent renvoyer le même sign_count (souvent 0) sur plusieurs
 // logins tant que le compteur local n'a pas bougé — ValidateLogin a déjà
 // accepté l'assertion dans ce cas.
-func (s *WebAuthnService) bumpSignCount(ctx context.Context, credID []byte, newCount uint32) error {
+func (s *Service) bumpSignCount(ctx context.Context, credID []byte, newCount uint32) error {
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE webauthn_credentials
 		   SET sign_count = $1, last_used_at = now()

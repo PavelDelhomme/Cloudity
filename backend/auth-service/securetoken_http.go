@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pavel/cloudity/auth-service/securetoken"
 )
 
 type SecurePathsResponse struct {
@@ -42,14 +43,14 @@ func (a *AuthService) SecurePaths(c *gin.Context) {
 	}
 	now := time.Now().UTC()
 	out := SecurePathsResponse{
-		Paths:     make(map[string]SecurePathEntry, len(urlTokenPurposes)),
+		Paths:     make(map[string]SecurePathEntry, len(securetoken.Purposes)),
 		IssuedAt:  now.Format(time.RFC3339),
-		WindowSec: int64(urlTokenWindow.Seconds()),
+		WindowSec: int64(securetoken.Window.Seconds()),
 	}
-	rotatesAt := time.Unix(0, (urlTokenEpoch(now)+1)*int64(urlTokenWindow)).UTC()
-	expiresAt := time.Unix(0, (urlTokenEpoch(now)+2)*int64(urlTokenWindow)).UTC()
-	for purpose := range urlTokenPurposes {
-		token, err := IssueUserPathToken(uid, purpose)
+	rotatesAt := time.Unix(0, (securetoken.TokenEpoch(now)+1)*int64(securetoken.Window)).UTC()
+	expiresAt := time.Unix(0, (securetoken.TokenEpoch(now)+2)*int64(securetoken.Window)).UTC()
+	for purpose := range securetoken.Purposes {
+		token, err := securetoken.IssueUserPathToken(uid, purpose)
 		if err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"error": "URL_TOKEN_SECRET indisponible — repli sur chemins canoniques",
@@ -57,7 +58,7 @@ func (a *AuthService) SecurePaths(c *gin.Context) {
 			return
 		}
 		out.Paths[purpose] = SecurePathEntry{
-			Path:      pathForPurpose(purpose, token),
+			Path:      securetoken.PathForPurpose(purpose, token),
 			Token:     token,
 			ExpiresAt: expiresAt.Format(time.RFC3339),
 			RotatesAt: rotatesAt.Format(time.RFC3339),
@@ -67,15 +68,6 @@ func (a *AuthService) SecurePaths(c *gin.Context) {
 	c.Header("Pragma", "no-cache")
 	c.Header("Referrer-Policy", "no-referrer")
 	c.JSON(http.StatusOK, out)
-}
-
-func pathForPurpose(purpose, token string) string {
-	switch purpose {
-	case "settings_security":
-		return "/app/settings/sec/" + token
-	default:
-		return "/app/settings"
-	}
 }
 
 type ValidateSecurePathRequest struct {
@@ -104,7 +96,7 @@ func (a *AuthService) ValidateSecurePath(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "token & purpose required"})
 		return
 	}
-	if err := VerifyUserPathToken(body.Token, uid, body.Purpose, time.Now()); err != nil {
+	if err := securetoken.VerifyUserPathToken(body.Token, uid, body.Purpose, time.Now()); err != nil {
 		c.JSON(http.StatusForbidden, gin.H{"error": "expired or invalid"})
 		return
 	}

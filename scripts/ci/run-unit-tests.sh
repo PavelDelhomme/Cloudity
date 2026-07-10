@@ -88,7 +88,7 @@ else
 fi
 
 echo "  [cloudity-web]"
-_web_test_cmd='cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npx vitest run --testTimeout=15000'
+_web_test_cmd='chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh'
 if command -v timeout >/dev/null 2>&1; then
   if ! timeout --foreground "${CLOUDITY_WEB_TEST_TIMEOUT}" \
     cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$_web_test_cmd"; then

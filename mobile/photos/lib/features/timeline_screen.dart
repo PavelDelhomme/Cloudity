@@ -368,7 +368,7 @@ class _TimelineScreenState extends State<TimelineScreen>
   }
 
   Future<void> _loadThemeMode() async {
-    final mode = await CloudityThemePrefs.load();
+    final mode = await CloudityThemePrefs.load(suiteApp: ClouditySuiteApp.photos);
     if (!mounted) return;
     setState(() => _themeMode = mode);
   }

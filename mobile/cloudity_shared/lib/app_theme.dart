@@ -3,29 +3,62 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'cloudity_design_tokens.dart';
 import 'suite_app_catalog.dart';
+import 'user_preferences.dart';
 
 /// Préférences de thème partagées entre les apps Flutter Cloudity.
 class CloudityThemePrefs {
-  static const _key = 'cloudity_theme_mode';
+  static const _legacyKey = 'cloudity_theme_mode';
 
-  static Future<ThemeMode> load() async {
-    final p = await SharedPreferences.getInstance();
-    return switch (p.getString(_key)) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.system,
+  static String _appKey(CloudityAppId? app) =>
+      app == null ? 'cloudity.theme.default' : 'cloudity.theme.app.${app.name}';
+
+  static CloudityAppId? appIdForSuite(ClouditySuiteApp? suite) {
+    if (suite == null) return null;
+    return switch (suite) {
+      ClouditySuiteApp.mail => CloudityAppId.mail,
+      ClouditySuiteApp.drive => CloudityAppId.drive,
+      ClouditySuiteApp.photos => CloudityAppId.photos,
+      ClouditySuiteApp.calendar => CloudityAppId.calendar,
+      ClouditySuiteApp.contacts => CloudityAppId.contacts,
+      ClouditySuiteApp.notes => CloudityAppId.notes,
+      ClouditySuiteApp.tasks => CloudityAppId.tasks,
+      ClouditySuiteApp.pass => CloudityAppId.pass,
+      ClouditySuiteApp.admin => CloudityAppId.hub,
     };
   }
 
-  static Future<void> save(ThemeMode mode) async {
+  static Future<ThemeMode> load({ClouditySuiteApp? suiteApp}) async {
+    final appId = appIdForSuite(suiteApp);
+    final cached = await UserPreferencesStore.loadCached();
+    final mode = cached.resolveTheme(appId ?? CloudityAppId.hub);
+    return _toFlutter(mode);
+  }
+
+  static Future<void> save(ThemeMode mode, {ClouditySuiteApp? suiteApp}) async {
     final p = await SharedPreferences.getInstance();
     final value = switch (mode) {
       ThemeMode.light => 'light',
       ThemeMode.dark => 'dark',
       ThemeMode.system => 'system',
     };
-    await p.setString(_key, value);
+    final appId = appIdForSuite(suiteApp);
+    await p.setString(_appKey(appId), value);
+    await p.setString(_legacyKey, value);
+    final cached = await UserPreferencesStore.loadCached();
+    if (appId == null) {
+      await UserPreferencesStore.saveCached(cached.copyWith(themeDefault: value));
+    } else {
+      final apps = Map<String, String>.from(cached.themeApps);
+      apps[appId.name] = value;
+      await UserPreferencesStore.saveCached(cached.copyWith(themeApps: apps));
+    }
   }
+
+  static ThemeMode _toFlutter(CloudityThemeMode mode) => switch (mode) {
+        CloudityThemeMode.light => ThemeMode.light,
+        CloudityThemeMode.dark => ThemeMode.dark,
+        CloudityThemeMode.system => ThemeMode.system,
+      };
 }
 
 /// Thèmes Material 3 homogènes (seed par app).
@@ -85,16 +118,19 @@ class CloudityThemedAppState extends State<CloudityThemedApp> {
   }
 
   Future<void> _load() async {
-    final mode = await CloudityThemePrefs.load();
+    final mode = await CloudityThemePrefs.load(suiteApp: widget.suiteApp);
     if (!mounted) return;
     setState(() => _mode = mode);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
-    await CloudityThemePrefs.save(mode);
+    await CloudityThemePrefs.save(mode, suiteApp: widget.suiteApp);
     if (!mounted) return;
     setState(() => _mode = mode);
   }
+
+  /// Recharge le thème depuis le cache (après sync API).
+  Future<void> reloadTheme() => _load();
 
   ThemeMode get themeMode => _mode;
 

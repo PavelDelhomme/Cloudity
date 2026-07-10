@@ -12,6 +12,10 @@ interface StatusResp {
   unlocked: boolean;
   lastActivityAt: number;
   autoLockMs: number;
+  passPrefs?: {
+    clipboardEnabled: boolean;
+    clipboardClearMs: number;
+  };
   gatewayUrl?: string;
   authenticated: boolean;
   vaultEmpty: boolean | null;
@@ -203,8 +207,27 @@ function renderCandidates(): void {
 
 async function copyText(value: string, btn: HTMLButtonElement): Promise<void> {
   if (!value) return;
+  const status = (await send({ kind: 'status' })) as StatusResp;
+  const prefs = status.passPrefs;
+  if (prefs && !prefs.clipboardEnabled) {
+    const errBox = $('#candidates-error');
+    errBox.textContent = 'Copie presse-papier désactivée (Paramètres → extension).';
+    errBox.hidden = false;
+    return;
+  }
   try {
     await navigator.clipboard.writeText(value);
+    const ttlMs = prefs?.clipboardClearMs ?? 30_000;
+    if (ttlMs > 0) {
+      window.setTimeout(async () => {
+        try {
+          const current = await navigator.clipboard.readText();
+          if (current === value) await navigator.clipboard.writeText('');
+        } catch {
+          /* permission */
+        }
+      }, ttlMs);
+    }
     const prev = btn.textContent;
     btn.textContent = 'Copié ✓';
     window.setTimeout(() => {

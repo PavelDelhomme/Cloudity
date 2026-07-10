@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -71,8 +71,17 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
     exclude: ['e2e/**', '**/node_modules/**'],
     testTimeout: 15_000,
+    hookTimeout: 30_000,
+    teardownTimeout: 10_000,
+    // Vitest 4 : un worker ; isolate:true par défaut (MailPage lourd, exécution parallèle JobbingTrack).
+    pool: 'threads',
+    maxWorkers: Number(process.env.CLOUDITY_VITEST_MAX_WORKERS || 1),
+    isolate: true,
+    fileParallelism: false,
+    slowTestThreshold: 5000,
   },
   server: {
     host: '0.0.0.0',

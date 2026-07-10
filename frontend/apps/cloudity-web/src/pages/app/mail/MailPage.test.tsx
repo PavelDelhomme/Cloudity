@@ -1,13 +1,110 @@
-import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import React, { type ComponentType } from 'react'
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { TestRouter } from '../../../test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import MailPage from './MailPage'
 import { useAuth } from '../../../authContext'
 import { useNotifications } from '../../../notificationsContext'
-import { AppPageChromeProvider, BreadcrumbAppActionsSlot, ShellSearchAdjacentSlot } from '../../../appPageChromeContext'
+import { AppPageChromeProvider } from '../../../appPageChromeContext'
 import * as api from '../../../api'
+
+/** Pont test : le chrome app (recherche, breadcrumb) est injecté via contexte, pas dans l’arbre MailPage seul. */
+const mailChromeBridge = vi.hoisted(() => ({
+  search: null as React.ReactNode,
+  breadcrumb: null as React.ReactNode,
+  listeners: [] as Array<() => void>,
+  publish() {
+    mailChromeBridge.listeners.forEach((l) => l())
+  },
+}))
+
+vi.mock('../../../appPageChromeContext', () => {
+  const ReactMod = require('react') as typeof React
+  function MailTestChromeProvider({ children }: { children: React.ReactNode }) {
+    const [, rerender] = ReactMod.useReducer((n: number) => n + 1, 0)
+    ReactMod.useEffect(() => {
+      const cb = () => rerender()
+      mailChromeBridge.listeners.push(cb)
+      return () => {
+        mailChromeBridge.listeners = mailChromeBridge.listeners.filter((l) => l !== cb)
+      }
+    }, [])
+    return ReactMod.createElement(
+      ReactMod.Fragment,
+      null,
+      children,
+      ReactMod.createElement('div', { 'data-testid': 'mail-chrome-search' }, mailChromeBridge.search),
+      ReactMod.createElement('div', { 'data-testid': 'mail-chrome-breadcrumb' }, mailChromeBridge.breadcrumb)
+    )
+  }
+  return {
+    AppPageChromeProvider: MailTestChromeProvider,
+    useAppPageChromeSetters: () => ({
+      setBreadcrumbActions: (node: React.ReactNode) => {
+        mailChromeBridge.breadcrumb = node
+        mailChromeBridge.publish()
+      },
+      setShellSearchAdjacent: (node: React.ReactNode) => {
+        mailChromeBridge.search = node
+        mailChromeBridge.publish()
+      },
+    }),
+    BreadcrumbAppActionsSlot: () => null,
+    ShellSearchAdjacentSlot: () => null,
+  }
+})
+
+/** lucide-react : ~50 icônes SVG — rendu jsdom très lent sur MailPage (~7300 lignes). */
+vi.mock('lucide-react', async (importOriginal) => {
+  const ReactMod = await import('react')
+  const actual = await importOriginal<typeof import('lucide-react')>()
+  const Icon = ReactMod.forwardRef((props: Record<string, unknown>, ref: unknown) =>
+    ReactMod.createElement('span', { ...props, ref, 'data-lucide': 'mock' })
+  )
+  Icon.displayName = 'LucideIconMock'
+  const mocked = { ...actual } as Record<string, unknown>
+  for (const key of Object.keys(actual)) {
+    if (key !== 'default') mocked[key] = Icon
+  }
+  return mocked
+})
+
+vi.mock('react-hot-toast', () => {
+  const toastFn = Object.assign(vi.fn(), {
+    success: vi.fn(),
+    error: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+    custom: vi.fn(),
+  })
+  return { default: toastFn }
+})
+
+vi.mock('./ComposeBodyField', () => ({ default: () => null }))
+vi.mock('../../../components/mail/MailAliasDomainConfig', () => ({ default: () => null }))
+vi.mock('../../../lib/mailNotifySyncFailure', () => ({ notifyMailSyncFailure: vi.fn() }))
+vi.mock('../../../lib/mailDesktopNotifications', () => ({ showMailDesktopNotification: vi.fn() }))
+vi.mock('../../../lib/mailNotificationDeepLink', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/mailNotificationDeepLink')>()
+  return {
+    ...actual,
+    resolveMailNotificationTarget: vi.fn().mockImplementation(async (_token: string, accountId: number, synced: number) => {
+      const messageId = synced === 1 ? 42 : 88
+      return { accountId, messageId, folder: 'inbox' as const }
+    }),
+  }
+})
+vi.mock('../../../lib/mailSyncCoordinator', async () => {
+  const apiMod = await import('../../../api')
+  return {
+    coordinatedSyncMailAccount: (
+      token: string,
+      accountId: number,
+      password?: string,
+      extra?: unknown
+    ) => apiMod.syncMailAccount(token, accountId, password, extra as never),
+  }
+})
 
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../notificationsContext', () => ({ useNotifications: vi.fn() }))
@@ -64,16 +161,22 @@ vi.mock('../../../api', () => ({
   createContact: vi.fn().mockResolvedValue({ id: 1, email: 'x@test.com', name: '' }),
 }))
 
+function mailSearchInput() {
+  const chrome = screen.getByTestId('mail-chrome-search')
+  return within(chrome).getByPlaceholderText(/mail:\s*from:/i)
+}
+
+async function findMailSearchInput() {
+  await waitFor(() => expect(mailSearchInput()).toBeTruthy())
+  return mailSearchInput()
+}
+
 function wrap(ui: React.ReactElement) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return (
     <QueryClientProvider client={queryClient}>
       <TestRouter initialEntries={['/app/mail']}>
-        <AppPageChromeProvider>
-          <BreadcrumbAppActionsSlot />
-          <ShellSearchAdjacentSlot />
-          {ui}
-        </AppPageChromeProvider>
+        <AppPageChromeProvider>{ui}</AppPageChromeProvider>
       </TestRouter>
     </QueryClientProvider>
   )
@@ -92,8 +195,16 @@ async function enterMailSelectionModeFromList(messageSubject: string) {
 
 const mockAddNotification = vi.fn()
 
+let MailPage: ComponentType
+
 describe('MailPage', () => {
+  beforeAll(async () => {
+    MailPage = (await import('./MailPage')).default
+  }, 60_000)
+
   beforeEach(() => {
+    mailChromeBridge.search = null
+    mailChromeBridge.breadcrumb = null
     try {
       localStorage.clear()
       sessionStorage.clear()
@@ -127,6 +238,10 @@ describe('MailPage', () => {
     vi.mocked(api.fetchMailMessage).mockReset()
     vi.mocked(api.markMailMessageRead).mockResolvedValue({ ok: true } as any)
     mockAddNotification.mockClear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it('affiche la barre Courrier (nouveau message) lorsque des comptes existent', async () => {
@@ -669,7 +784,9 @@ describe('MailPage', () => {
     render(wrap(<MailPage />))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Paramètres Mail' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Désactiver' }))
+    const dialog = await screen.findByRole('dialog')
+    await within(dialog).findByText('alias@exemple.fr')
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Désactiver' }))
 
     await waitFor(() => {
       expect(api.patchMailAlias).toHaveBeenCalledWith('token', 1, 10, { enabled: false })
@@ -779,7 +896,7 @@ describe('MailPage', () => {
     fireEvent.change(fromSelect, { target: { value: 'alias@exemple.fr' } })
     fireEvent.change(screen.getByLabelText('Destinataire'), { target: { value: 'dest@example.net' } })
     fireEvent.change(screen.getByLabelText('Objet'), { target: { value: 'Alias C6' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Envoyer maintenant' }))
 
     await waitFor(() => {
       expect(api.sendMailMessage).toHaveBeenCalledWith('token', expect.objectContaining({
@@ -896,7 +1013,7 @@ describe('MailPage', () => {
     await screen.findByText('Facture avril 2026')
     await screen.findByText('Réunion équipe')
 
-    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    const input = await findMailSearchInput()
     fireEvent.change(input, { target: { value: 'from:alice subject:facture' } })
 
     await screen.findByText('Facture avril 2026')
@@ -940,7 +1057,7 @@ describe('MailPage', () => {
     await screen.findByText('Actualités Cloudity')
     await screen.findByText('Actualités autres')
 
-    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    const input = await findMailSearchInput()
     fireEvent.change(input, { target: { value: 'from: paveldelhomme subject: cloudity tag: actu' } })
 
     await waitFor(() => {
@@ -978,7 +1095,7 @@ describe('MailPage', () => {
     render(wrap(<MailPage />))
     await screen.findByText('Actualités importantes')
 
-    const input = screen.getByPlaceholderText(/mail:\s*from:/i) as HTMLInputElement
+    const input = await findMailSearchInput() as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Actu' } })
 
     await waitFor(() => {
@@ -1040,7 +1157,7 @@ describe('MailPage', () => {
 
     render(wrap(<MailPage />))
     await screen.findByText('PJ + non lu')
-    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    const input = await findMailSearchInput()
     fireEvent.change(input, { target: { value: 'has:attachment is:unread' } })
 
     await screen.findByText('PJ + non lu')
@@ -1071,7 +1188,7 @@ describe('MailPage', () => {
     render(wrap(<MailPage />))
     await screen.findByText('Message 1')
 
-    const input = screen.getByPlaceholderText(/mail:\s*from:/i)
+    const input = await findMailSearchInput()
     fireEvent.change(input, { target: { value: 'from:' } })
 
     await waitFor(() => {

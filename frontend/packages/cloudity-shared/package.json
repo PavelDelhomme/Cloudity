@@ -2,7 +2,7 @@
   "name": "@cloudity/shared",
   "private": true,
   "version": "0.1.0",
-  "description": "Bibliothèque TS/React partagée des frontends Cloudity (apiFetch, getAuthHeaders, jwtExpiry, jwtRole, PageLayout, cloudityCore, adminUiPath).",
+  "description": "Bibliothèque TS partagée Cloudity : apiUrl, apiFetch, JWT, préférences utilisateur, favicon, helpers auth.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

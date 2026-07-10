@@ -1307,7 +1307,10 @@ export default function MailPage() {
     staleTime: 300_000,
   })
   const googleOAuthEnabled = googleOAuthStatus?.enabled === true
-  const accounts = Array.isArray(accountsData) ? accountsData : (accountsData ?? [])
+  const accounts = useMemo(
+    () => (Array.isArray(accountsData) ? accountsData : []),
+    [accountsData]
+  )
   const sortedAccounts = useMemo(
     () => sortMailAccountsByUserOrder(accounts, accountOrder),
     [accounts, accountOrder]
@@ -2301,6 +2304,9 @@ export default function MailPage() {
     minimizeComposeSlot(target.id)
   }, [activeComposeId, composeSlots, minimizeComposeSlot, openNewCompose, setActiveAndExpand])
 
+  const toggleComposeFromChromeRef = useRef(toggleComposeFromChrome)
+  toggleComposeFromChromeRef.current = toggleComposeFromChrome
+
   // Auto-save brouillon du slot actif toutes les 3 s
   useEffect(() => {
     const draftAcc = activeSlot?.sendAccountId ?? effectiveAccountId
@@ -2970,7 +2976,9 @@ export default function MailPage() {
   ])
 
   const mailAppChromeSearch = useMemo(
-    () => (
+    () => {
+      if (accounts.length === 0) return null
+      return (
       <div ref={mailSearchPopoverRef} className="relative w-full min-w-0 flex items-center gap-2">
         <div className="relative min-w-[14rem] flex-1">
           <input
@@ -3004,7 +3012,7 @@ export default function MailPage() {
         </div>
         <button
           type="button"
-          onClick={toggleComposeFromChrome}
+          onClick={() => toggleComposeFromChromeRef.current()}
           className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 px-2.5 py-2 text-xs font-medium text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50"
           title="Nouveau message"
         >
@@ -3054,8 +3062,15 @@ export default function MailPage() {
           </div>
         ) : null}
       </div>
-    ),
-    [appendSearchToken, clearMailSearch, mailSearchPopoverOpen, mailSearchText, toggleComposeFromChrome]
+      )
+    },
+    [
+      accounts.length,
+      appendSearchToken,
+      clearMailSearch,
+      mailSearchPopoverOpen,
+      mailSearchText,
+    ]
   )
 
   useEffect(() => {

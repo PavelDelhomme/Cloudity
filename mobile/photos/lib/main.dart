@@ -61,6 +61,7 @@ class _PhotosShell extends StatelessWidget {
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
+      sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => LoginScreen(
         onLoggedIn: (session) {
           onLoggedIn(session);

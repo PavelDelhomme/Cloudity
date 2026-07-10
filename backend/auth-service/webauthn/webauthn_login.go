@@ -6,7 +6,7 @@
 //   - POST /auth/webauthn/login/begin-discoverable   (Conditional UI)
 //   - POST /auth/webauthn/login/finish-discoverable
 
-package main
+package webauthn
 
 import (
 	"encoding/json"
@@ -17,12 +17,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 // passkeyLoginOptions force `userVerification: preferred` côté login (en
 // pratique la plupart des password managers la fournissent toujours).
-func passkeyLoginOptions() webauthn.LoginOption {
+func passkeyLoginOptions() gwebauthn.LoginOption {
 	return func(opts *protocol.PublicKeyCredentialRequestOptions) {
 		opts.UserVerification = protocol.VerificationPreferred
 	}
@@ -35,7 +35,7 @@ func passkeyLoginOptions() webauthn.LoginOption {
 //
 // Phase W2 : ouvert à tout user qui a au moins une passkey enregistrée.
 // Le rôle est déterminé à `LoginFinish` à partir de la base.
-func (s *WebAuthnService) LoginBegin(c *gin.Context) {
+func (s *Service) LoginBegin(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
 		TenantID string `json:"tenant_id" binding:"required"`
@@ -44,7 +44,7 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	userIDStr, _, _, _, _, err := s.authSvc.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userIDStr, _, _, _, _, err := s.bridge.GetUserByEmailTenant(req.Email, req.TenantID)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
@@ -81,7 +81,7 @@ func (s *WebAuthnService) LoginBegin(c *gin.Context) {
 // LoginFinish POST /auth/webauthn/login/finish
 //
 //	body = { "user_id": "<id>", "tenant_id": "<tid>", "assertion": <PublicKeyCredential> }
-func (s *WebAuthnService) LoginFinish(c *gin.Context) {
+func (s *Service) LoginFinish(c *gin.Context) {
 	var meta struct {
 		UserID    string          `json:"user_id" binding:"required"`
 		TenantID  string          `json:"tenant_id" binding:"required"`
@@ -94,6 +94,11 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 	uid, err := strconv.ParseInt(meta.UserID, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user_id"})
+		return
+	}
+	tenantID, err := strconv.ParseInt(meta.TenantID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
 		return
 	}
 	user, err := s.loadUser(c.Request.Context(), uid)
@@ -120,7 +125,7 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("sign_count: %v", err)})
 		return
 	}
-	access, refresh, err := s.authSvc.issueTokens(c.Request.Context(), meta.UserID, meta.TenantID, user.email, user.role)
+	access, refresh, err := s.bridge.IssueTokens(c.Request.Context(), uid, tenantID, user.email, user.role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -142,7 +147,7 @@ func (s *WebAuthnService) LoginFinish(c *gin.Context) {
 //
 // La résolution `userHandle → user_id` se fera à `LoginFinishDiscoverable`
 // quand l'authenticator aura signé le challenge et révélé le `userHandle`.
-func (s *WebAuthnService) LoginBeginDiscoverable(c *gin.Context) {
+func (s *Service) LoginBeginDiscoverable(c *gin.Context) {
 	options, sd, err := s.wa.BeginDiscoverableLogin(passkeyLoginOptions())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("BeginDiscoverableLogin: %v", err)})
@@ -166,7 +171,7 @@ func (s *WebAuthnService) LoginBeginDiscoverable(c *gin.Context) {
 //
 // Le `userHandle` est lu depuis l'assertion ; on le résout en `user_id`
 // (inverse de `WebAuthnID()`). Le role provient de la base.
-func (s *WebAuthnService) LoginFinishDiscoverable(c *gin.Context) {
+func (s *Service) LoginFinishDiscoverable(c *gin.Context) {
 	var meta struct {
 		TenantID  string          `json:"tenant_id" binding:"required"`
 		Challenge string          `json:"challenge" binding:"required"`
@@ -174,6 +179,11 @@ func (s *WebAuthnService) LoginFinishDiscoverable(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&meta); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	tenantID, err := strconv.ParseInt(meta.TenantID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
 		return
 	}
 	sd, err := s.loadSession(c.Request.Context(), discoverableSessionKey(meta.Challenge))
@@ -189,7 +199,7 @@ func (s *WebAuthnService) LoginFinishDiscoverable(c *gin.Context) {
 	// La discoverable login expose un handler qui résout l'user via le
 	// `userHandle` retourné par l'authenticator.
 	cred, err := s.wa.ValidateDiscoverableLogin(
-		func(rawID, userHandle []byte) (webauthn.User, error) {
+		func(rawID, userHandle []byte) (gwebauthn.User, error) {
 			uid, err := userIDFromWebAuthnID(userHandle)
 			if err != nil {
 				return nil, err
@@ -219,8 +229,7 @@ func (s *WebAuthnService) LoginFinishDiscoverable(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("sign_count: %v", err)})
 		return
 	}
-	access, refresh, err := s.authSvc.issueTokens(c.Request.Context(),
-		strconv.FormatInt(userID, 10), meta.TenantID, user.email, user.role)
+	access, refresh, err := s.bridge.IssueTokens(c.Request.Context(), userID, tenantID, user.email, user.role)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -128,7 +128,9 @@ services:
       - GOTOOLCHAIN=auto
     volumes:
       - ./backend/api-gateway:/app:cached
-      - ./backend/auth-service:/app/keys:ro
+      # Clés JWT publiques auth-service uniquement (pas tout le dossier — évite artefacts Docker sur l'hôte).
+      - ./backend/auth-service/public.pem:/app/keys/public.pem:ro
+      - ./backend/auth-service/public_ed25519.pem:/app/keys/public_ed25519.pem:ro
       - ./backend/internalsec:/app/internalsec:cached
       - go_mod_cache_gateway:/go/pkg/mod
     depends_on:

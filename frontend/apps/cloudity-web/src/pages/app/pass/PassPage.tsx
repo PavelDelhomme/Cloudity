@@ -44,6 +44,7 @@ import ItemEditor, { type ItemEditorValue } from './ItemEditor'
 import ProtonImportDialog from './ProtonImportDialog'
 import PassMailAliasesPanel from './PassMailAliasesPanel'
 import PassBackupActions from './PassBackupActions'
+import PassFavicon from './PassFavicon'
 import type { ConvertedItem } from './protonImport'
 
 // --- Helpers ----------------------------------------------------------
@@ -611,7 +612,13 @@ function ItemList({
               onClick={() => onPick(it)}
               className="w-full text-left px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between gap-3"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-2">
+                <PassFavicon
+                  url={typeof f.url === 'string' ? f.url : undefined}
+                  title={title}
+                  size={22}
+                />
+                <div className="min-w-0">
                 <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                   {title}
                 </div>
@@ -620,6 +627,7 @@ function ItemList({
                     {subtitle}
                   </div>
                 )}
+                </div>
               </div>
               {it.decryptError ? (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">

@@ -109,7 +109,7 @@ func loadPublicKey() interface{} {
 }
 
 // loadKeysLocked tente de charger RSA et Ed25519 depuis le volume Docker
-// partagé `./backend/auth-service:/app/keys:ro`. Doit être appelé sous
+// partagé `./backend/auth-service/public*.pem:/app/keys/*.pem:ro`. Doit être appelé sous
 // publicKeyMu.Lock().
 func loadKeysLocked() {
 	rsaPaths := []string{

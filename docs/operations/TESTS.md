@@ -99,7 +99,9 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 | **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
-| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/apps/cloudity-web/`. |
+| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Limite RAM/workers via **`frontend/scripts/vitest-cloudity-web.sh`** (`NODE_OPTIONS=--max-old-space-size=3072`, **`CLOUDITY_VITEST_MAX_WORKERS=1`** par défaut). |
+
+**Affichage Vitest « Test Files 0 passed (1) / Tests 0 passed (34) »** : compteur **en cours d’exécution** (0 terminés sur N), pas un échec final. **`MailPage.test.tsx`** charge un composant très lourd (~7k lignes) : le premier test peut prendre **plusieurs minutes** ; si ça dépasse ~10 min sans progression, vérifier la RAM (éviter gros jobs parallèles type JobbingTrack) et relancer via **`make test-dashboard-one`** (Docker).
 | **`make test-dashboard-lint`** | **ESLint** du dashboard dans le conteneur (`npm run lint`). |
 
 ### Frontend web (@cloudity/web) : chemin canonique = Docker

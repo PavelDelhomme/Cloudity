@@ -6,7 +6,7 @@
 //   - Clé scopée par `user_id` (sessions classiques) ou par `challenge`
 //     (discoverable, où on n'a pas l'user_id en main au moment du `begin`).
 
-package main
+package webauthn
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 )
 
 const sessionTTL = 5 * time.Minute
@@ -27,7 +27,7 @@ func discoverableSessionKey(challenge string) string {
 	return "webauthn:disc-session:" + challenge
 }
 
-func (s *WebAuthnService) storeSession(ctx context.Context, key string, sd *webauthn.SessionData) error {
+func (s *Service) storeSession(ctx context.Context, key string, sd *gwebauthn.SessionData) error {
 	b, err := json.Marshal(sd)
 	if err != nil {
 		return err
@@ -35,12 +35,12 @@ func (s *WebAuthnService) storeSession(ctx context.Context, key string, sd *weba
 	return s.rdb.Set(ctx, key, b, sessionTTL).Err()
 }
 
-func (s *WebAuthnService) loadSession(ctx context.Context, key string) (*webauthn.SessionData, error) {
+func (s *Service) loadSession(ctx context.Context, key string) (*gwebauthn.SessionData, error) {
 	raw, err := s.rdb.Get(ctx, key).Bytes()
 	if err != nil {
 		return nil, err
 	}
-	var sd webauthn.SessionData
+	var sd gwebauthn.SessionData
 	if err := json.Unmarshal(raw, &sd); err != nil {
 		return nil, err
 	}

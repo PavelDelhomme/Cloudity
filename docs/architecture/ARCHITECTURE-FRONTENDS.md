@@ -2,7 +2,21 @@
 
 > **Liens** : suivi opérationnel et checklist multi-apps → **[STATUS.md](../../STATUS.md)** (§ 0b) ; périmètre produit → **[ROADMAP.md](../produit/ROADMAP.md)** (TR-05, APP-xx) ; mobile → **[MOBILES.md](../produit/MOBILES.md)** ; index → **[README.md](../README.md)**.
 
-## État actuel (monolithique)
+## Couches partagées (source unique)
+
+| Couche | Package / dossier | Rôle | Consommateurs |
+|--------|-------------------|------|---------------|
+| **API & contrats TS** | `@cloudity/shared` (`frontend/packages/cloudity-shared`) | `apiUrl`, `apiFetch`, JWT, **préférences utilisateur** (`userPreferencesTypes`), favicon (`passDomainFromUrl`, `mailFaviconUrl`) | Web (`@cloudity/web`), extension Pass, futurs apps |
+| **Design system** | `@cloudity/ui` (`frontend/packages/cloudity-ui`) | Composants React/Tailwind (`Button`, layouts responsive) | Web, futur `web-shell` / apps découplées |
+| **Composants transverses web** | `frontend/apps/cloudity-web/src/components/` | UI réutilisable entre apps du monolithe (`SiteFavicon`, …) — migrer vers `@cloudity/ui` quand le cycle de deps le permet | `@cloudity/web` |
+| **Crypto métier** | `@cloudity/pass-crypto`, `@cloudity/app-vault-crypto` | Chiffrement E2E Pass / coffres apps | Web, extension, mobile (port Dart miroir) |
+| **App web** | `@cloudity/web` (`frontend/apps/cloudity-web`) | Pages produit (`pages/app/*`), routes SPA, `api.ts` (clients HTTP par domaine — à découper) | Déploiement `cloudity-web` |
+| **Mobile** | `mobile/cloudity_shared` (Dart) | Miroir Dart des contrats (`user_preferences.dart`, thème, HTTP) | Toutes apps Flutter |
+| **Backend** | `backend/*-service` + `api-gateway` | Microservices + auth central | Tous clients |
+
+**Règle** : tout ce qui est identique sur **web + extension + mobile** (types, URLs, clés cache, favicon) vit dans **`@cloudity/shared`** (TS) ou **`mobile/cloudity_shared`** (Dart). Les composants visuels partagés web vont dans **`@cloudity/ui`**. Une modification de DA ou de contrat se fait **une fois** dans le package, puis les apps réexportent ou consomment directement.
+
+### État actuel (monolithique)
 
 **Workspaces npm** : racine **`frontend/package.json`** (`apps/*`, `packages/*`), lockfile **`frontend/package-lock.json`** ; app principale **`@cloudity/web`** dans **`frontend/apps/cloudity-web`** ; partagé **`@cloudity/shared`** (`packages/cloudity-shared`). En local : **`make frontend-install`** ou **`cd frontend && npm install`**. Le service Compose **`cloudity-web`** build avec le contexte **`./frontend`** et le Dockerfile **`apps/cloudity-web/Dockerfile`** (prod) ou **`Dockerfile.dev`** (dev).
 

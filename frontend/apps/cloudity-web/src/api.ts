@@ -1647,6 +1647,27 @@ export async function register(body: RegisterBody): Promise<RegisterResponse> {
   return res.json() as Promise<RegisterResponse>
 }
 
+export type UserPreferencesApiResponse = {
+  preferences: Record<string, unknown>
+  updated_at?: string
+}
+
+export async function fetchUserPreferences(token: string): Promise<UserPreferencesApiResponse> {
+  return apiJson(token, '/auth/me/preferences', undefined, 'Préférences utilisateur')
+}
+
+export async function updateUserPreferences(
+  token: string,
+  preferences: Record<string, unknown>
+): Promise<UserPreferencesApiResponse> {
+  return apiJson(
+    token,
+    '/auth/me/preferences',
+    { method: 'PUT', body: JSON.stringify({ preferences }) },
+    'Préférences utilisateur'
+  )
+}
+
 // Drive — dossiers et fichiers en cascade
 export type DriveNode = {
   id: number

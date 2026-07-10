@@ -289,6 +289,10 @@ build-pass-extension-firefox: ## Build extension Pass pour Firefox (MP-08, dist 
 	@cd extensions/cloudity-pass-firefox && npm run build
 	@echo "✅ Extension Firefox : extensions/cloudity-pass-firefox/dist (about:debugging → module temporaire)"
 
+build-pass-linux: ## Build desktop Linux release Pass → dist/linux-pass/
+	@chmod +x scripts/mobile/build-pass-linux.sh scripts/mobile/mobile-flutter-env.sh
+	@./scripts/mobile/build-pass-linux.sh
+
 test-pass-extension: ## Tests extension Pass MV3 (domain matcher MP-06)
 	@echo "🧪 Extension Cloudity Pass (MV3)…"
 	@if ! command -v npm >/dev/null 2>&1; then \
@@ -475,8 +479,8 @@ test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vite
 
 # Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
 test-dashboard: ## Vitest @cloudity/web dans le conteneur (compose run --no-deps, monorepo /ws)
-	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
-	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard ./scripts/ci/run-compose-test.sh phase-dashboard/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test"
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh scripts/ci/vitest-cloudity-web.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard ./scripts/ci/run-compose-test.sh phase-dashboard/cloudity-web cloudity-web -- sh -c "chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh"
 
 test-dashboard-lint: ## ESLint @cloudity/web dans le conteneur (npm install racine + lint app)
 	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
@@ -487,8 +491,8 @@ test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/mail/MailPage.test
 		echo "Usage: make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx"; \
 		exit 1; \
 	fi
-	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
-	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-one ./scripts/ci/run-compose-test.sh phase-dashboard-one/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && npx vitest run $(FILE)"
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh scripts/ci/vitest-cloudity-web.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-one ./scripts/ci/run-compose-test.sh phase-dashboard-one/cloudity-web cloudity-web -- sh -c "chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh $(FILE)"
 
 # Smoke Go : un service à la fois (même flags que la première étape de make test)
 test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service (clé = nom du service dans docker-compose.yml)
@@ -1465,6 +1469,28 @@ deploy-service: ## Rebuild + redémarre un service : make deploy-service SERVICE
 	@$(COMPOSE) $(COMPOSE_FILES) build $(SERVICE)
 	@$(COMPOSE) $(COMPOSE_FILES) up -d $(SERVICE)
 	@echo "✅ $(SERVICE) redéployé"
+
+build-prod-service: ## Image Docker prod locale (Dockerfile.prod) : make build-prod-service SERVICE=auth-service
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Usage: make build-prod-service SERVICE=auth-service"; \
+		echo "Services GHCR : auth-service, api-gateway (context=backend/), drive-service, …"; \
+		exit 1; \
+	fi
+	@case "$(SERVICE)" in \
+		auth-service|api-gateway) \
+			echo "🔨 docker build backend/$(SERVICE)/Dockerfile.prod (context backend/)…"; \
+			docker build -f backend/$(SERVICE)/Dockerfile.prod -t cloudity-$(SERVICE):local backend ;; \
+		drive-service) \
+			echo "🔨 docker build drive-service Dockerfile.prod…"; \
+			docker build -f backend/drive-service/Dockerfile.prod -t cloudity-$(SERVICE):local backend/drive-service ;; \
+		cloudity-web) \
+			echo "🔨 docker build frontend cloudity-web…"; \
+			docker build -f frontend/apps/cloudity-web/Dockerfile.prod -t cloudity-web:local frontend ;; \
+		*) \
+			echo "🔨 docker build backend/Dockerfile.go-service ($(SERVICE))…"; \
+			docker build -f backend/Dockerfile.go-service -t cloudity-$(SERVICE):local backend/$(SERVICE) ;; \
+	esac
+	@echo "✅ Image cloudity-$(SERVICE):local"
 
 logs-service: ## Logs d'un service : make logs-service SERVICE=mail-directory-service
 	@if [ -n "$(SERVICE)" ]; then \

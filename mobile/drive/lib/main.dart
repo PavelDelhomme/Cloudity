@@ -19,6 +19,7 @@ Future<void> main() async {
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
+      sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
       homeBuilder: (session, onLogout) =>
           FilesScreen(session: session, onLogout: onLogout),

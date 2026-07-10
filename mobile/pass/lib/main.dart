@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:cloudity_shared/cloudity_shared.dart';
@@ -58,6 +60,7 @@ class _PassRootState extends State<_PassRoot> {
           userEmail: email,
         );
         _bindCrashSession(_session!);
+        unawaited(_syncUserPreferences(_session!));
       }
     });
   }
@@ -71,6 +74,19 @@ class _PassRootState extends State<_PassRoot> {
   void _onLoggedIn(PassUserSession session) {
     _bindCrashSession(session);
     setState(() => _session = session);
+    _syncUserPreferences(session);
+  }
+
+  Future<void> _syncUserPreferences(PassUserSession session) async {
+    try {
+      final api = UserPreferencesApi(
+        gatewayBase: session.api.baseUrl,
+        accessToken: session.accessToken,
+      );
+      await api.syncToCache();
+    } catch (_) {
+      /* hors ligne — cache local */
+    }
   }
 
   Future<void> _onLogout() async {

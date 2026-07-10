@@ -1,15 +1,16 @@
 /**
- * Page d'options de l'extension. Stocke l'URL du gateway Cloudity dans
- * `chrome.storage.local`. Aucun secret ici.
+ * Page d'options — gateway + préférences Pass (sync compte utilisateur).
  */
 
 export {};
 
+import type { PassPreferences } from '../shared/userPreferences';
+
 interface StatusResp {
   unlocked: boolean;
-  lastActivityAt: number;
-  autoLockMs: number;
   gatewayUrl?: string;
+  passPrefs: PassPreferences;
+  authenticated: boolean;
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(sel: string): T => {
@@ -18,29 +19,76 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string): T => {
   return el;
 };
 
+function showStatus(text: string): void {
+  const status = $('#status');
+  status.textContent = text;
+  status.hidden = false;
+}
+
+function readPassForm(): Partial<PassPreferences> {
+  return {
+    clipboardEnabled: ($('#clipboard-enabled') as HTMLInputElement).checked,
+    clipboardClearMs: Number(($('#clipboard-clear-ms') as HTMLSelectElement).value),
+    totpAutoCopy: ($('#totp-auto-copy') as HTMLInputElement).checked,
+    autoLockMs: Number(($('#auto-lock-ms') as HTMLSelectElement).value),
+    digitalAssetLinksEnabled: ($('#dal-enabled') as HTMLInputElement).checked,
+  };
+}
+
+function fillPassForm(prefs: PassPreferences): void {
+  ($('#clipboard-enabled') as HTMLInputElement).checked = prefs.clipboardEnabled;
+  ($('#clipboard-clear-ms') as HTMLSelectElement).value = String(prefs.clipboardClearMs);
+  ($('#totp-auto-copy') as HTMLInputElement).checked = prefs.totpAutoCopy;
+  ($('#auto-lock-ms') as HTMLSelectElement).value = String(prefs.autoLockMs);
+  ($('#dal-enabled') as HTMLInputElement).checked = prefs.digitalAssetLinksEnabled;
+  ($('#totp-auto-copy') as HTMLInputElement).disabled = !prefs.clipboardEnabled;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const input = $<HTMLInputElement>('#gateway-url');
-  const status = $('#status');
   chrome.runtime.sendMessage({ kind: 'status' }, (resp: StatusResp) => {
     if (resp?.gatewayUrl) input.value = resp.gatewayUrl;
+    if (resp?.passPrefs) fillPassForm(resp.passPrefs);
   });
+
+  $('#clipboard-enabled').addEventListener('change', () => {
+    const enabled = ($('#clipboard-enabled') as HTMLInputElement).checked;
+    ($('#totp-auto-copy') as HTMLInputElement).disabled = !enabled;
+  });
+
   $('#save-gateway').addEventListener('click', () => {
     const value = input.value.trim();
     if (!/^https?:\/\//.test(value)) {
-      status.textContent = 'URL invalide (préfixe http(s):// requis).';
-      status.hidden = false;
+      showStatus('URL invalide (préfixe http(s):// requis).');
       return;
     }
     chrome.runtime.sendMessage(
       { kind: 'save-gateway', gatewayUrl: value },
       (resp: { ok?: boolean; error?: string }) => {
-        if (resp?.ok) {
-          status.textContent = 'URL enregistrée ✓';
-          status.hidden = false;
-        } else {
-          status.textContent = resp?.error ?? 'Erreur inconnue.';
-          status.hidden = false;
-        }
+        showStatus(resp?.ok ? 'URL enregistrée ✓' : (resp?.error ?? 'Erreur inconnue.'));
+      },
+    );
+  });
+
+  $('#sync-prefs').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ kind: 'sync-prefs' }, (resp: { ok?: boolean; error?: string }) => {
+      if (resp?.ok) {
+        chrome.runtime.sendMessage({ kind: 'status' }, (st: StatusResp) => {
+          if (st?.passPrefs) fillPassForm(st.passPrefs);
+          showStatus('Préférences synchronisées depuis le compte ✓');
+        });
+      } else {
+        showStatus(resp?.error ?? 'Sync impossible (connecte-toi via le popup).');
+      }
+    });
+  });
+
+  $('#save-pass-prefs').addEventListener('click', () => {
+    const patch = readPassForm();
+    chrome.runtime.sendMessage(
+      { kind: 'save-pass-prefs', patch },
+      (resp: { ok?: boolean; error?: string }) => {
+        showStatus(resp?.ok ? 'Préférences Pass enregistrées ✓' : (resp?.error ?? 'Erreur.'));
       },
     );
   });

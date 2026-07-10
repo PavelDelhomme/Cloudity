@@ -1,13 +1,23 @@
 import React from 'react'
 import { accessTokenHasAdminRole } from '@cloudity/shared'
 import { useAuth } from './authContext'
+import { ServiceStatusPage } from './components/ServiceStatusPage'
 
 /**
  * Accès back-office : vérifie JWT + claim rôle admin (aligné gateway).
  * Navigation pleine page vers /login ou /app si le bundle admin est chargé sans session utilisable.
  */
 export function AdminAccessGate({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, accessToken } = useAuth()
+  const { isAuthenticated, accessToken, sessionReady } = useAuth()
+
+  if (!sessionReady) {
+    return (
+      <ServiceStatusPage
+        title="Connexion…"
+        message="Vérification de votre session en cours."
+      />
+    )
+  }
 
   if (!isAuthenticated || !accessToken) {
     if (typeof window !== 'undefined') {

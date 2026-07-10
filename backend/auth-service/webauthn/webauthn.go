@@ -26,7 +26,7 @@
 //   - `webauthn_login.go`         : LoginBegin / Finish (regular + discoverable).
 //   - `webauthn_credentials.go`   : ListCredentials / DeleteCredential / persist / bumpSignCount.
 //   - `webauthn_auth.go`          : `requireAuthUser` (parse JWT Bearer).
-package main
+package webauthn
 
 import (
 	"database/sql"
@@ -35,30 +35,28 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-webauthn/webauthn/webauthn"
+	gwebauthn "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/redis/go-redis/v9"
 )
 
-// --- Configuration -----------------------------------------------------
-
-// WebAuthnConfig regroupe les paramètres du Relying Party.
+// Config regroupe les paramètres du Relying Party.
 //
 // RP ID = domaine (sans schéma, sans port) — les passkeys sont liées au RP ID.
 // Origins = liste autorisée de schémas+host+port qui peuvent invoquer la
 // cérémonie côté navigateur. En dev : http://localhost:6001, https://app.cloudity.local.
-type WebAuthnConfig struct {
+type Config struct {
 	RPDisplayName string
 	RPID          string
 	Origins       []string
 }
 
-// loadWebAuthnConfig lit la conf depuis l'environnement, avec des défauts dev.
+// LoadWebAuthnConfig lit la conf depuis l'environnement, avec des défauts dev.
 //
 //	WEBAUTHN_RP_ID         (def. "localhost")
 //	WEBAUTHN_RP_NAME       (def. "Cloudity Admin")
 //	WEBAUTHN_ORIGINS       (def. "http://localhost:6001,http://localhost:5173")
-func loadWebAuthnConfig() WebAuthnConfig {
-	cfg := WebAuthnConfig{
+func LoadWebAuthnConfig() Config {
+	cfg := Config{
 		RPDisplayName: getEnv("WEBAUTHN_RP_NAME", "Cloudity Admin"),
 		RPID:          getEnv("WEBAUTHN_RP_ID", "localhost"),
 	}
@@ -82,30 +80,29 @@ func getEnv(key, def string) string {
 	return def
 }
 
-// --- WebAuthnService ---------------------------------------------------
-
-type WebAuthnService struct {
-	wa      *webauthn.WebAuthn
-	db      *sql.DB
-	rdb     *redis.Client
-	authSvc *AuthService // pour réémission JWT après login passkey
+// Service WebAuthn HTTP.
+type Service struct {
+	wa     *gwebauthn.WebAuthn
+	db     *sql.DB
+	rdb    *redis.Client
+	bridge AuthBridge
 }
 
 // NewWebAuthnService construit un service prêt à câbler dans Gin.
 // Retourne `nil` (avec un warn loggué) si la conf est invalide ; le router
 // principal saute alors l'enregistrement des routes.
-func NewWebAuthnService(cfg WebAuthnConfig, db *sql.DB, rdb *redis.Client, authSvc *AuthService) *WebAuthnService {
-	wcfg := &webauthn.Config{
+func NewWebAuthnService(cfg Config, db *sql.DB, rdb *redis.Client, bridge AuthBridge) *Service {
+	wcfg := &gwebauthn.Config{
 		RPDisplayName: cfg.RPDisplayName,
 		RPID:          cfg.RPID,
 		RPOrigins:     cfg.Origins,
 	}
-	wa, err := webauthn.New(wcfg)
+	wa, err := gwebauthn.New(wcfg)
 	if err != nil {
 		log.Printf("[auth-service] WebAuthn désactivé : %v", err)
 		return nil
 	}
-	return &WebAuthnService{wa: wa, db: db, rdb: rdb, authSvc: authSvc}
+	return &Service{wa: wa, db: db, rdb: rdb, bridge: bridge}
 }
 
 // webauthnPerUserQuota borne le nombre de passkeys enregistrées par user.
@@ -120,7 +117,7 @@ const webauthnPerUserQuota = 5
 // OU user). `login/begin` reste ouvert (pas de Bearer — c'est l'étape 1).
 // `login/begin-discoverable` est ouvert également (Conditional UI au focus
 // du champ email).
-func (s *WebAuthnService) RegisterRoutes(r *gin.Engine) {
+func (s *Service) RegisterRoutes(r *gin.Engine) {
 	if s == nil {
 		return
 	}

@@ -1,13 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import '../features/pass_crypto.dart';
+import '../features/pass_totp.dart';
 import '../features/vault_controller.dart';
-
-/// Durée avant auto-effacement du presse-papiers (alignée sur le web).
-const Duration kClipboardAutoClearAfter = Duration(seconds: 30);
 
 class PassItemDetailScreen extends StatefulWidget {
   const PassItemDetailScreen({
@@ -15,11 +12,15 @@ class PassItemDetailScreen extends StatefulWidget {
     required this.title,
     required this.envelopeB64u,
     required this.controller,
+    required this.gatewayBase,
+    this.url,
   });
 
   final String title;
+  final String? url;
   final String envelopeB64u;
   final VaultController controller;
+  final String gatewayBase;
 
   @override
   State<PassItemDetailScreen> createState() => _PassItemDetailScreenState();
@@ -29,18 +30,19 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
   PassItemPlaintext? _plain;
   String? _error;
   bool _passwordRevealed = false;
-  Timer? _clipboardClearTimer;
+  PassAppSettings _passPrefs = const PassAppSettings();
 
   @override
   void initState() {
     super.initState();
+    _loadPrefs();
     _decrypt();
   }
 
-  @override
-  void dispose() {
-    _clipboardClearTimer?.cancel();
-    super.dispose();
+  Future<void> _loadPrefs() async {
+    final cached = await UserPreferencesStore.loadCached();
+    if (!mounted) return;
+    setState(() => _passPrefs = cached.pass);
   }
 
   Future<void> _decrypt() async {
@@ -63,24 +65,21 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
 
   Future<void> _copyToClipboard(String value, String label) async {
     widget.controller.bumpActivity();
-    await Clipboard.setData(ClipboardData(text: value));
+    if (!_passPrefs.clipboardEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Copie presse-papier désactivée (Paramètres → Pass)')),
+      );
+      return;
+    }
+    await PassClipboard.copy(value, prefs: _passPrefs);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('$label copié — auto-effacement dans 30 s'),
-      duration: const Duration(seconds: 2),
-    ));
-    _clipboardClearTimer?.cancel();
-    _clipboardClearTimer = Timer(kClipboardAutoClearAfter, () async {
-      // Best-effort : on n'écrase que si la valeur copiée est encore là.
-      try {
-        final current = await Clipboard.getData(Clipboard.kTextPlain);
-        if (current?.text == value) {
-          await Clipboard.setData(const ClipboardData(text: ''));
-        }
-      } catch (_) {
-        // Pas grave en cas d'erreur — l'utilisateur a copié autre chose entre-temps.
-      }
-    });
+    final clearHint = _passPrefs.clipboardClearMs > 0
+        ? ' — auto-effacement dans ${_passPrefs.clipboardClearMs ~/ 1000} s'
+        : '';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$label copié$clearHint'), duration: const Duration(seconds: 2)),
+    );
   }
 
   Widget _buildField({
@@ -112,11 +111,12 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
               icon: Icon(_passwordRevealed ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _passwordRevealed = !_passwordRevealed),
             ),
-          IconButton(
-            tooltip: 'Copier',
-            icon: const Icon(Icons.copy),
-            onPressed: () => _copyToClipboard(value, label),
-          ),
+          if (_passPrefs.clipboardEnabled)
+            IconButton(
+              tooltip: 'Copier',
+              icon: const Icon(Icons.copy),
+              onPressed: () => _copyToClipboard(value, label),
+            ),
         ],
       ),
     );
@@ -126,7 +126,18 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Row(
+          children: [
+            PassFavicon(
+              gatewayBase: widget.gatewayBase,
+              url: widget.url ?? _plain?.url,
+              title: widget.title,
+              size: 28,
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(widget.title)),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Verrouiller',
@@ -139,8 +150,7 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
         child: _error != null
             ? Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text(_error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
               )
             : _plain == null
                 ? const Center(child: CircularProgressIndicator())
@@ -156,11 +166,15 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
                         obscure: !_passwordRevealed,
                         isPassword: true,
                       ),
-                      _buildField(label: 'TOTP (URI)', value: _plain!.totpUri),
+                      if (_plain!.totpUri != null && _plain!.totpUri!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text('Code 2FA', style: Theme.of(context).textTheme.labelSmall),
+                        const SizedBox(height: 4),
+                        PassTotpDisplay(otpauthUri: _plain!.totpUri!, prefs: _passPrefs),
+                      ],
                       if (_plain!.notes != null && _plain!.notes!.isNotEmpty) ...[
                         const Divider(height: 24),
-                        Text('Notes',
-                            style: Theme.of(context).textTheme.labelSmall),
+                        Text('Notes', style: Theme.of(context).textTheme.labelSmall),
                         const SizedBox(height: 4),
                         SelectableText(_plain!.notes!),
                       ],
@@ -169,15 +183,13 @@ class _PassItemDetailScreenState extends State<PassItemDetailScreen> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: _plain!.tags
-                              .map((t) => Chip(label: Text(t)))
-                              .toList(growable: false),
+                          children: _plain!.tags.map((t) => Chip(label: Text(t))).toList(growable: false),
                         ),
                       ],
                       const SizedBox(height: 24),
                       Text(
                         'Type : ${_plain!.type}  •  schema v${_plain!.schema}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.black54),
+                        style: Theme.of(context).textTheme.labelSmall,
                       ),
                     ],
                   ),
