@@ -114,3 +114,13 @@ storage/*
 
 # Profils ADB : artefacts runtime locaux (screenshots, dumps volumineux) — pas l'empreinte golden.
 mobile/device-profiles/**/runtime/
+
+# Flutter / mobile — artefacts générés (ne jamais versionner, y compris admin_app)
+mobile/**/.dart_tool/
+mobile/**/.flutter-plugins
+mobile/**/android/local.properties
+mobile/**/android/**/GeneratedPluginRegistrant.java
+mobile/**/ios/Flutter/ephemeral/
+mobile/**/ios/Flutter/Generated.xcconfig
+mobile/**/ios/Flutter/flutter_export_environment.sh
+mobile/**/ios/Runner/GeneratedPluginRegistrant.*
