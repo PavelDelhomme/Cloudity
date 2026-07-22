@@ -17,6 +17,7 @@
 | 5 | Optionnel — Pass mobile | `cd mobile/pass && flutter test` |
 | 6 | Compose modifié | `docker compose -f docker-compose.yml config` |
 | 7 | Lire les priorités | **[STATUS.md](../../STATUS.md)** (*À faire maintenant*) + **[TODOS.md](../../TODOS.md)** + **[BACKLOG.md](../../BACKLOG.md)** |
+| 8 | Env public / Portainer (si URLs / déploiement) | **`make sync-public-urls`** · **`make env-prod DOMAIN=…`** · **`make portainer-env`** — **[ENV-GENERATION.md](ENV-GENERATION.md)** |
 
 > **Note Vitest / Web Crypto** : les tests TOTP (`totp.ts`) utilisent `crypto.subtle` ; les buffers passés à `sign()` doivent être des **`Uint8Array`** / vues valides pour Node — en cas de régression, voir l’historique `totp.ts` (`hotp`).
 

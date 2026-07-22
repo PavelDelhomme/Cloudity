@@ -76,13 +76,14 @@ flowchart TB
 | # | Action | Commande / doc | Fait |
 |---|--------|----------------|------|
 | A1 | Cloner / pull branche chantier | `git pull` | ☐ |
-| A2 | Secrets locaux | `make secrets` ou `ensure-*-encryption-key` | ☐ |
+| A2 | Secrets locaux + hôte public | `make secrets` / `ensure-*-encryption-key` · **`CLOUDITY_PUBLIC_HOST`** + **`make sync-public-urls`** | ☑ outillage |
+| A2b | Fichier env Portainer (PC) | **`make env-prod DOMAIN=…`** · **`make portainer-env`** — **[ENV-GENERATION.md](ENV-GENERATION.md)** | ☑ outillage |
 | A3 | Stack complète | `make up` | ☐ |
 | A4 | Migrations | `make migrate` | ☐ |
 | A5 | Compte démo (dev) | `make seed-admin` | ☐ |
 | A6 | Tests barrière | `make test` | ☐ |
 | A7 | Déployer **un** service | `make deploy-web`, `deploy-mail`, … | ☐ |
-| A8 | Mobile sur LAN | `VITE_API_URL` + IP PC — **[RELEASE-AND-DISTRIBUTION.md](RELEASE-AND-DISTRIBUTION.md)** § 4 | ☐ |
+| A8 | Mobile / web sur LAN | `CLOUDITY_PUBLIC_HOST=<IP>` + **`make sync-public-urls`** + `make deploy-web` — **[GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md)** § 3 | ☐ |
 | A9 | MTA alias local | `MAIL_ALIAS_DOMAIN`, `MTA_INTERNAL_TOKEN`, `make deploy-mail`, **[MAIL-MTA-LOCAL-TEST.md](MAIL-MTA-LOCAL-TEST.md)** | ☐ |
 
 ---

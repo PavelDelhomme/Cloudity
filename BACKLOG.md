@@ -131,9 +131,10 @@
 
 - [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
-- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + `CORS_ORIGINS` / `VITE_API_URL` par environnement.
+- [x] **DEPLOY-ENV-01** — Hôte public unique + fichiers env Portainer : **`CLOUDITY_PUBLIC_*`**, **`make sync-public-urls`**, **`make env-prod` / `env-preprod`**, **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/](deploy/portainer/)** (2026-07-22).
+- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + appliquer `.env.prod` généré (`CORS_ORIGINS` / `VITE_API_URL` déjà dérivés par sync).
 - [ ] **DEPLOY-PORTAINER-02** — Script ou doc « Update stack » : pull GHCR tag + redeploy (semi-auto après `docker-publish`).
-- [ ] **DEPLOY-PR-01** — PR `feat/photos-gallery-mobile-sync-security` → `dev`, puis `dev` → `main` quand tests verts.
+- [ ] **DEPLOY-PR-01** — PR branche chantier → `dev`, puis `dev` → `main` quand tests verts.
 
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).

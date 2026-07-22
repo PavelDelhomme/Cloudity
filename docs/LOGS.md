@@ -15,6 +15,16 @@
 
 ---
 
+### 2026-07-22 — Env public Portainer + fix admin Dashboard
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Env : `CLOUDITY_PUBLIC_*` · `scripts/dev/sync-public-urls.sh` · `env-prepare.sh` · `portainer-env-print.sh` · cibles Make `sync-public-urls` / `env-prod` / `env-preprod` / `portainer-env`.
+- Admin : imports Dashboard alignés sur `api.ts` (`fetchBudgetStatus`, …) — Vitest Dashboard 4/4.
+- Docs : `.env.example`, `ENV-GENERATION.md`, guide déploiement, `deploy/portainer/*`, `TODOS` / `STATUS` / `BACKLOG` (`DEPLOY-ENV-01` ☑).
+- Checks : `make env-prod DOMAIN=cloudity.example FORCE=1` · `npm test` Dashboard ✅.
+
+---
+
 ### 2026-06-10 — Photos H8/H9 + UX sélection + persistance Mail
 
 - Branche : `feat/app-hub-photos-ux-hardening` (`77700051`).

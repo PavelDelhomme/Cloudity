@@ -14,16 +14,22 @@ Références : **[SECRETS.md](../securite/SECRETS.md)** · **[.env.example](../.
 | 1 | `cp .env.example .env` | Copie le modèle (si tu préfères tout remplir à la main). |
 | 2 | **`make secrets`** | Crée `.env` avec secrets CSPRNG (**échoue** si `.env` existe déjà). |
 | 2 bis | `./scripts/dev/gen-secrets.sh --force` | **Écrase** `.env` — uniquement si tu acceptes de perdre l’ancien fichier. |
-| 3 | **`make ensure-mail-encryption-key`** | Ajoute ou remplace `MAIL_PASSWORD_ENCRYPTION_KEY` (64 car. hex) sans toucher au reste. |
-| 4 | **`make ensure-alias-encryption-key`** | Ajoute ou remplace `ALIAS_ENCRYPTION_KEY` (base64 32 octets). |
-| 5 | **`make secrets-print`** | Affiche un jeu de secrets **sans écrire** (pour Portainer / copier-coller). |
-| 6 | **`make doctor`** | Vérifie clés mail + alias, recrée `mail-directory-service`, build extension Pass. |
+| 3 | **`make sync-public-urls`** | Aligne `VITE_API_URL`, mobile, CORS, WebAuthn depuis `CLOUDITY_PUBLIC_*`. |
+| 4 | **`make env-prod DOMAIN=…`** | Génère **`.env.prod`** (fusion `.env` + `.env.example` + overlays prod) pour Portainer. |
+| 5 | **`make portainer-env`** | Affiche les `KEY=VALUE` de `.env.prod` à coller dans Portainer. |
+| 6 | **`make ensure-mail-encryption-key`** | Ajoute ou remplace `MAIL_PASSWORD_ENCRYPTION_KEY` (64 car. hex) sans toucher au reste. |
+| 7 | **`make ensure-alias-encryption-key`** | Ajoute ou remplace `ALIAS_ENCRYPTION_KEY` (base64 32 octets). |
+| 8 | **`make secrets-print`** | Affiche un jeu de secrets **sans écrire** (pour Portainer / copier-coller). |
+| 9 | **`make doctor`** | Vérifie clés mail + alias, recrée `mail-directory-service`, build extension Pass. |
 
 **Première install** typique :
 
 ```bash
 make secrets
-# Compléter à la main : VITE_API_URL, GOOGLE_OAUTH_* si Gmail, WEBAUTHN_* en prod
+# Hôte public (localhost / IP LAN / domaine) puis sync des URLs dérivées
+# CLOUDITY_PUBLIC_HOST=…  CLOUDITY_PUBLIC_PROTO=http|https
+make sync-public-urls
+# Compléter à la main : GOOGLE_OAUTH_CLIENT_* si Gmail
 make up
 make migrate
 make seed-admin   # compte démo local uniquement
@@ -46,15 +52,58 @@ make seed-admin   # compte démo local uniquement
 
 ---
 
-## 3. Variables à renseigner à la main (non générées)
+## 3. Hôte public (une seule variable) + URLs dérivées
+
+Pour passer de **localhost** → **IP LAN** → **domaine prod** sans retaper la même IP partout :
+
+| Variable | Rôle |
+|----------|------|
+| `CLOUDITY_PUBLIC_HOST` | IP ou domaine (ex. `192.168.1.134`, `cloudity.example`) |
+| `CLOUDITY_PUBLIC_PROTO` | `http` (dev) ou `https` (préprod/prod) |
+| `CLOUDITY_PUBLIC_API_HOST` | Optionnel — host API distinct (`api.cloudity.example`) |
+| `CLOUDITY_PUBLIC_WEB_HOST` | Optionnel — host web distinct |
+| `CORS_ORIGINS_EXTRA` | Origines **stables** toujours fusionnées (localhost, `cloudity.localhost`, …) |
+| `WEBAUTHN_ORIGINS_EXTRA` | Idem pour WebAuthn |
+
+```bash
+# Ex. LAN
+# dans .env : CLOUDITY_PUBLIC_HOST=192.168.1.134  CLOUDITY_PUBLIC_PROTO=http
+make sync-public-urls
+# → écrit VITE_API_URL, CLOUDITY_MOBILE_GATEWAY_URL, CORS_ORIGINS, WEBAUTHN_*, OAuth redirect
+
+# Aperçu sans écrire
+./scripts/dev/sync-public-urls.sh --dry-run
+```
+
+Puis recreate / rebuild les services qui lisent ces vars au démarrage (`make deploy-web`, recreate `api-gateway` / `auth-service` si CORS ou WebAuthn changent).
+
+### Préprod / prod (Portainer)
+
+```bash
+# Depuis ton .env local (secrets) + .env.example (schéma)
+make env-prod DOMAIN=cloudity.ton-domaine.tld
+# → écrit .env.prod + sync URLs (HTTPS, api.<domaine>, CORS_ALLOW_LAN=false)
+
+make portainer-env                    # coller dans Portainer Advanced env
+# Préprod :
+make env-preprod DOMAIN=preprod.cloudity.example
+make portainer-env FILE=.env.preprod
+```
+
+Détail stack Git : **[../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md)**.
+
+---
+
+## 4. Variables à renseigner à la main (non générées par `make secrets`)
 
 | Variable | Quand | Exemple dev | Exemple prod |
 |----------|-------|-------------|--------------|
-| `VITE_API_URL` | Front hors proxy relatif | vide ou `http://localhost:6080` | `https://api.ton-domaine.tld` |
-| `CORS_ORIGINS` | Origines navigateur autorisées | localhost:6001 | `https://app.ton-domaine.tld` |
+| `CLOUDITY_PUBLIC_HOST` / `PROTO` | **Toujours** — source de vérité | `localhost` / `http` | `cloudity.tld` / `https` |
+| `VITE_API_URL` | Dérivée (`sync-public-urls`) | `http://localhost:6002` | `https://api.ton-domaine.tld` |
+| `CORS_ORIGINS` | Dérivée (+ `CORS_ORIGINS_EXTRA`) | localhost:6001 | `https://cloudity.tld` |
 | `CORS_ALLOW_LAN` | Dev smartphone sur LAN | `true` | **`false`** |
-| `WEBAUTHN_RP_ID` | Passkeys | `localhost` | `app.ton-domaine.tld` |
-| `WEBAUTHN_ORIGINS` | Passkeys | URLs http(s) du dashboard | URL HTTPS prod |
+| `WEBAUTHN_RP_ID` | Dérivée | `localhost` | `cloudity.tld` |
+| `WEBAUTHN_ORIGINS` | Dérivée | URLs http(s) du dashboard | URL HTTPS prod |
 | `GOOGLE_OAUTH_*` | Gmail OAuth | Console Google Cloud | Idem prod |
 | `MTLS_MODE` | mTLS interne microservices | `off` | `permissive` puis `strict` — voir **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)** |
 | `MAIL_ALIAS_SUBDOMAIN` | Cible alias Pass | commenté | ex. `alias.domain.ovh` |
@@ -66,7 +115,7 @@ make seed-admin   # compte démo local uniquement
 
 ---
 
-## 4. État opérationnel du chiffrement
+## 5. État opérationnel du chiffrement
 
 | Secret / mécanisme | Opérationnel aujourd’hui ? | Note |
 |--------------------|---------------------------|------|
@@ -78,7 +127,7 @@ make seed-admin   # compte démo local uniquement
 
 ---
 
-## 5. Prod (Portainer / VPS)
+## 6. Prod (Portainer / VPS)
 
 1. Générer sur une machine de confiance : `make secrets-print` ou `OUTPUT=.env.prod ./scripts/dev/gen-secrets.sh`.  
 2. Copier **chaque** variable dans **Portainer → Stack → Environment variables** (jamais dans Git). C’est aussi l’endroit pour noter **`VPS_PUBLIC_IP`** (IP publique du serveur) si tu t’en sers comme référence — voir **[DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)** § 0.  
@@ -89,7 +138,7 @@ make seed-admin   # compte démo local uniquement
 
 ---
 
-## 6. Alignement `.env` ↔ `.env.example` (audit)
+## 7. Alignement `.env` ↔ `.env.example` (audit)
 
 Ton `.env` local doit **contenir les mêmes clés** que `.env.example`. Différences normales :
 
@@ -117,7 +166,7 @@ make ensure-alias-encryption-key
 
 ---
 
-## 7. Dépannage rapide
+## 8. Dépannage rapide
 
 | Symptôme | Cause probable | Action |
 |----------|----------------|--------|

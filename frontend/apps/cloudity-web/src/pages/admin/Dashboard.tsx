@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, AlertTriangle, Building2, Database, History, Shield, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import {
+  fetchBudgetStatus,
   fetchDashboardStats,
-  fetchPerformanceBudgetStatus,
   fetchPerformanceHistory,
   fetchPerformanceOverview,
-  fetchPerformancePipelineRuns,
-  triggerPerformanceSnapshot,
+  fetchPipelineRuns,
+  recordPerformanceSnapshot,
 } from '../../api'
 import { adminUiPath, ApiError } from '@cloudity/shared'
 import { Card, PageLayout } from '@cloudity/ui'
@@ -41,19 +41,19 @@ export default function Dashboard() {
   })
   const { data: pipelineRuns } = useQuery({
     queryKey: ['dashboard-pipeline-runs'],
-    queryFn: () => fetchPerformancePipelineRuns(accessToken!, 20),
+    queryFn: () => fetchPipelineRuns(accessToken!, 20),
     enabled: Boolean(accessToken),
     refetchInterval: 30_000,
   })
   const { data: budgetStatus } = useQuery({
     queryKey: ['dashboard-budget-status'],
-    queryFn: () => fetchPerformanceBudgetStatus(accessToken!),
+    queryFn: () => fetchBudgetStatus(accessToken!),
     enabled: Boolean(accessToken),
     refetchInterval: 30_000,
   })
 
   const recordSnapshot = useMutation({
-    mutationFn: () => triggerPerformanceSnapshot(accessToken!),
+    mutationFn: () => recordPerformanceSnapshot(accessToken!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['dashboard-performance-history'] })
       void queryClient.invalidateQueries({ queryKey: ['dashboard-budget-status'] })

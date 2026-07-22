@@ -1,26 +1,25 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-29 — Mail mobile : bannière `last_sync_error` ; Contacts `@cloudity/ui` ; sync mail erreurs web (commit précédent).
+**Dernière mise à jour** : 2026-07-22 — Env public (`CLOUDITY_PUBLIC_*` + `make sync-public-urls` / `env-prod` / `portainer-env`) ; fix imports admin Dashboard ; seed admin unique + CORS Origin (matin).
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** — matrice QA complète (§ **QA-MATRIX**) ; après correctif frontend : **`make up-ready`** (rapide) ou **`make test`** si la stack tourne déjà.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** § session **2026-07-22 (soir)** — ensuite matrice QA (§ **QA-MATRIX**) ; `/4dm1n` OK après hard refresh.
 
 ### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
 
-1. **Git** : `git status` ; branche = **`feat/app-hub-photos-ux-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
-2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
+1. **Git** : `git status` ; branche = **`feat/app-vault-drive-upload-pin-rotation`** (hors Mail/Déploiement prod mail) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
+2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § session du jour ; puis **[BACKLOG.md](./BACKLOG.md)** (DEPLOY-ENV-01 livré · suite DEPLOY-DNS / H14 / H19).
 3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
 4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **Barrière qualité** : garder verts `make test`, `make test-pass`, E2E, mobile hôte ; **gitleaks** baseline propre (`.gitleaks.toml`) ; trier **gosec** warnings et perf (`LOADAVG_1M`) — **TODOS.md** § Q4/Q7.
-2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
-3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
-4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **Suite hors mail prod** : MP-04 ☑ · Pass popup L3 ☑ · icônes extension ☑ · **MP-08 Firefox** (build initial) ☑ · Photos « Nouvel album » web ☑ ; prochain = UI-3, sync galerie mobile, Safari extension.
-6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
+1. **Barrière qualité** : garder verts `make test`, `make test-pass`, E2E, mobile hôte ; **gitleaks** baseline propre ; trier **gosec** / perf — **TODOS.md** § Q4/Q7.
+2. **Dev / LAN / Portainer env** : **`CLOUDITY_PUBLIC_HOST`** + **`make sync-public-urls`** · générer **`.env.prod`** via **`make env-prod DOMAIN=…`** · coller avec **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/README.md](deploy/portainer/README.md)**.
+3. **PAUSE Mail prod** : MTA alias livré sur **`dev`** ; ne pas reprendre OVH/VPS/C7 sans signal explicite.
+4. **Suite hors mail** : H14 (HTTPS téléphone) · H19 auth mobile sans duplication · ADM-UPDATE (plus tard) · UI Calendar/Hub.
+5. **Déploiement runtime** : DNS + NPM + stacks Portainer quand tu **décides de publier** — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** (Phase A outillage env ☑).
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
 
@@ -90,6 +89,7 @@
 | **Nettoyer coffres Pass « e2e-* » (restes Playwright)** | **`make clean-pass-e2e-vaults`** — supprime en Postgres les **`pass_vaults`** dont le nom commence par **`e2e-`** pour l’utilisateur seed (**`SEED_ADMIN_EMAIL`**, ou surcharge **`PASS_E2E_CLEAN_EMAIL`**). Prérequis : **`make up`**. Ne pas nommer un coffre réel **`e2e-…`**. Voir **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **3.5**. |
 | **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)** § 5 |
 | **Réparation dev rapide (mail + extension)** | **`make doctor`** ou **`make stack-heal`** — clé **`MAIL_PASSWORD_ENCRYPTION_KEY`**, recréation **`mail-directory-service`**, build extension Pass ; **`ensure-alias-encryption-key`** inclus. Sortie **✅** = OK ; sync IMAP KO après rotation de clé → ré-enregistrer le MDP boîte — **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 2.c, **[TODOS.md](./TODOS.md)** |
+| **Env public / Portainer** | **`make sync-public-urls`** · **`make env-prod DOMAIN=…`** · **`make env-preprod`** · **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/README.md](deploy/portainer/README.md)** |
 | **Surveillance ressources (CLI)** | **`make perf-watch`** (boucle), **`make perf-snapshot LABEL=…`**, **`make perf-diff`**, **`make perf-budgets`** — détail **[docs/operations/PERFORMANCES-MONITORING.md](docs/operations/PERFORMANCES-MONITORING.md)** ; **rituel** : snapshot **avant** ET **après** chaque feature non triviale, puis `make perf-diff` (exit 1 = régression). |
 | **Anti-spam / anti-abus (doc)** | Vision **multi-couches** (edge → gateway → auth → MTA **Rspamd** ; option ML plus tard) + **mail vs chiffrement Pass** (pas de confusion) : **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)**, **[docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** ; sync Mail : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 0e. |
 | **Avant chaque reprise** | **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — `docker info` → **`make test`** → (optionnel) E2E Playwright, `flutter test` Pass, `compose config`. **État stack + URLs** : **`make status`** (`CLOUDITY_STATUS_HOST` pour le LAN). |
@@ -100,7 +100,7 @@
 
 **Session web** : JWT d’accès **60 min** par défaut (`ACCESS_TOKEN_DURATION_MINUTES` sur **auth-service** dans `docker-compose`) ; refresh **30 j** avec rotation ; le front **rafraîchit** le token toutes les **10 min** et **au retour sur l’onglet** pour éviter les déconnexions quand le navigateur ralentit les timers en arrière-plan.
 
-**Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
+**Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Dans **`.env`** : `CLOUDITY_PUBLIC_HOST=<TON_IP>` puis **`make sync-public-urls`** (met à jour `VITE_API_URL`, mobile, CORS…) puis **`make deploy-web`**. Sur le téléphone (même Wi‑Fi) : `http://<TON_IP>:6001`.
 
 **Connexion locale** : pas de compte magique hardcodé. Définis **`SEED_ADMIN_EMAIL`** / **`SEED_ADMIN_PASSWORD`** dans **`.env`** (email réel recommandé), puis **`make seed-admin`** (ou **`make up-ready`** / **`up-full`** après **`make setup`**). Ce compte est **à la fois** utilisateur des apps (`/app`) **et** super-admin (`/4dm1n`). Mot de passe local uniquement — **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)**. **`make up-ready`** = down + up + seed + compte démo (~5 min). **`make up-full`** = idem + **`make test`**. En cas d’échec **`up-full`** : **`make up-ready`** puis **`make status`**.
 

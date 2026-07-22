@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -83,6 +83,10 @@ help: ## Affiche ce message d'aide
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
 	@echo '  make ensure-mta-internal-token - Ajoute/décommente MTA_INTERNAL_TOKEN (lookup MTA alias)'
 	@echo '  make sync-mail-mta-env - Aligne deploy/mail-mta/.env avec le .env racine'
+	@echo '  make sync-public-urls - Depuis CLOUDITY_PUBLIC_HOST/PROTO → VITE_API_URL, mobile, CORS, WebAuthn, OAuth'
+	@echo '  make env-prod DOMAIN=… - Génère .env.prod (.env + .env.example + overlays prod) puis sync URLs'
+	@echo '  make env-preprod DOMAIN=… - Idem → .env.preprod'
+	@echo '  make portainer-env - Affiche .env.prod prêt à coller dans Portainer (Advanced env)'
 	@echo '  make test-mail-mta-local - Smoke API alias-resolve + SMTP local (prérequis: make deploy-mail)'
 	@echo '  make mail-mta-local-up|down|logs - Stack Maddy locale (deploy/mail-mta, port SMTP_PORT)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
@@ -258,6 +262,38 @@ ensure-mta-internal-token: ## Ajoute/décommente MTA_INTERNAL_TOKEN (openssl ran
 sync-mail-mta-env: ensure-mta-internal-token ## Copie MTA_INTERNAL_TOKEN + domaine alias vers deploy/mail-mta/.env
 	@chmod +x scripts/dev/sync-mail-mta-env.sh 2>/dev/null || true
 	@./scripts/dev/sync-mail-mta-env.sh
+
+sync-public-urls: ## Aligne VITE_API_URL / mobile / CORS / WebAuthn / OAuth depuis CLOUDITY_PUBLIC_* (ENV_FILE=.env par défaut)
+	@chmod +x scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@ENV_FILE="$(ENV_FILE)" ./scripts/dev/sync-public-urls.sh
+
+# DOMAIN=cloudity.example  (ou HOST= / API_HOST=)
+# FORCE=1 pour écraser .env.prod existant
+env-prod: ## Génère .env.prod (fusion .env + .env.example + overlays prod) + sync-public-urls — Portainer
+	@chmod +x scripts/dev/env-prepare.sh scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@args="prod"; \
+	  if [ -n "$(DOMAIN)" ]; then args="$$args --domain $(DOMAIN)"; fi; \
+	  if [ -n "$(HOST)" ]; then args="$$args --host $(HOST)"; fi; \
+	  if [ -n "$(API_HOST)" ]; then args="$$args --api-host $(API_HOST)"; fi; \
+	  if [ -n "$(WEB_HOST)" ]; then args="$$args --web-host $(WEB_HOST)"; fi; \
+	  if [ "$(FORCE)" = "1" ]; then args="$$args --force"; fi; \
+	  if [ "$(NO_SYNC)" = "1" ]; then args="$$args --no-sync"; fi; \
+	  ./scripts/dev/env-prepare.sh $$args
+
+env-preprod: ## Génère .env.preprod (fusion .env + .env.example + overlays préprod) + sync-public-urls
+	@chmod +x scripts/dev/env-prepare.sh scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@args="preprod"; \
+	  if [ -n "$(DOMAIN)" ]; then args="$$args --domain $(DOMAIN)"; fi; \
+	  if [ -n "$(HOST)" ]; then args="$$args --host $(HOST)"; fi; \
+	  if [ -n "$(API_HOST)" ]; then args="$$args --api-host $(API_HOST)"; fi; \
+	  if [ -n "$(WEB_HOST)" ]; then args="$$args --web-host $(WEB_HOST)"; fi; \
+	  if [ "$(FORCE)" = "1" ]; then args="$$args --force"; fi; \
+	  if [ "$(NO_SYNC)" = "1" ]; then args="$$args --no-sync"; fi; \
+	  ./scripts/dev/env-prepare.sh $$args
+
+portainer-env: ## Affiche KEY=VALUE de .env.prod (ou FILE=…) à coller dans Portainer Advanced env
+	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
+	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.prod)"
 
 test-mail-mta-local: sync-mail-mta-env ## Smoke MTA : /health, alias-resolve, port SMTP (ALIAS_TEST_EMAIL optionnel)
 	@chmod +x scripts/dev/test-mail-mta-local.sh 2>/dev/null || true

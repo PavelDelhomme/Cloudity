@@ -232,15 +232,21 @@ PORT_REDIS="$(_env_get PORT_REDIS 6079)"
 PORT_ADMINER="$(_env_get PORT_ADMINER 6083)"
 PORT_REDIS_COMMANDER="$(_env_get PORT_REDIS_COMMANDER 6084)"
 
-HOST="${CLOUDITY_STATUS_HOST:-localhost}"
-PROTO="${CLOUDITY_STATUS_PROTO:-http}"
+HOST="${CLOUDITY_STATUS_HOST:-}"
+if [ -z "$HOST" ]; then
+  HOST="$(_env_get CLOUDITY_PUBLIC_HOST localhost)"
+fi
+PROTO="${CLOUDITY_STATUS_PROTO:-}"
+if [ -z "$PROTO" ]; then
+  PROTO="$(_env_get CLOUDITY_PUBLIC_PROTO http)"
+fi
 ORIGIN="${PROTO}://${HOST}:${PORT_DASHBOARD}"
 API="${PROTO}://${HOST}:${PORT_GATEWAY}"
 
 echo "  ${BOLD}URLs d'accès (navigateur / API)${RESET}  ${DIM}— même tableau que STATUS.md §0 ; ports : PORTS-HOTES.md${RESET}"
 echo "  ${SEP}"
 if [ "$stack_accessible" = "1" ]; then
-  echo "  ${DIM}Depuis un autre appareil sur le LAN :${RESET} ${BOLD}export CLOUDITY_STATUS_HOST='<IP_de_ta_machine>'${RESET} ${DIM}puis relancer${RESET} ${BOLD}make status${RESET}${DIM} (HTTP dev par défaut ; prod = TLS NPM, voir DEPLOIEMENT-VPS-PORTAINER-NPM.md).${RESET}"
+  echo "  ${DIM}Hôte public (.env) :${RESET} ${BOLD}CLOUDITY_PUBLIC_HOST${RESET}${DIM} +${RESET} ${BOLD}make sync-public-urls${RESET}${DIM} · override affichage :${RESET} ${BOLD}CLOUDITY_STATUS_HOST${RESET}"
   echo "  ${SEP}"
   printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
   printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"

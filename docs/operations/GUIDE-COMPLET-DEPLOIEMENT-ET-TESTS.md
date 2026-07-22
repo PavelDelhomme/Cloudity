@@ -124,19 +124,21 @@ ip -4 addr | rg 'inet 192\.168|inet 10\.'
 
 Note : `<IP_PC>` = cette adresse (ex. `192.168.1.134`).
 
-### 3.2 Adapter le `.env` sur le PC
+### 3.2 Adapter le `.env` sur le PC (une seule IP)
 
 ```bash
-# API — le front et le mobile doivent pointer vers l’IP du PC, pas localhost
-VITE_API_URL=http://<IP_PC>:6002
-CLOUDITY_MOBILE_GATEWAY_URL=http://<IP_PC>:6002
-
-# Autoriser le navigateur du téléphone (origine http://<IP_PC>:6001)
+# Source de vérité — puis sync partout (VITE_API_URL, mobile, CORS, WebAuthn, OAuth)
+CLOUDITY_PUBLIC_HOST=<IP_PC>
+CLOUDITY_PUBLIC_PROTO=http
 CORS_ALLOW_LAN=true
-CORS_ORIGINS=http://localhost:6001,http://<IP_PC>:6001
 ```
 
-Puis **rebuild le front** (Vite injecte `VITE_API_URL` au build) :
+```bash
+make sync-public-urls
+# équivalent dry-run : ./scripts/dev/sync-public-urls.sh --dry-run
+```
+
+Puis **rebuild le front** (Vite injecte `VITE_API_URL` au build) et recreate gateway si CORS change :
 
 ```bash
 make deploy-web
@@ -177,7 +179,7 @@ Puis `make run-mobile APP=…` (le script lit `.env` / `--dart-define`).
 
 ### 3.6 Checklist Mode LAN
 
-- [ ] `.env` : `VITE_API_URL` et `CLOUDITY_MOBILE_GATEWAY_URL` = `http://<IP_PC>:6002`
+- [ ] `.env` : `CLOUDITY_PUBLIC_HOST=<IP_PC>` puis `make sync-public-urls`
 - [ ] `CORS_ALLOW_LAN=true`
 - [ ] `make deploy-web`
 - [ ] Pare-feu : 6001 + 6002 ouverts
@@ -242,14 +244,18 @@ make secrets-print
 Colle dans Portainer, puis **adapte obligatoirement** :
 
 ```bash
+# Depuis le PC (recommandé) — fusion .env + .env.example + overlays HTTPS
+make env-prod DOMAIN=cloudity.<TON_DOMAINE>
+make portainer-env   # coller dans Portainer Advanced env
+
+# Ou à la main :
 GO_ENV=production
 NODE_ENV=production
 CORS_ALLOW_LAN=false
-VITE_API_URL=https://api.cloudity.<TON_DOMAINE>
-CORS_ORIGINS=https://cloudity.<TON_DOMAINE>,https://admin.cloudity.<TON_DOMAINE>
-CLOUDITY_MOBILE_GATEWAY_URL=https://api.cloudity.<TON_DOMAINE>
-WEBAUTHN_RP_ID=cloudity.<TON_DOMAINE>
-WEBAUTHN_ORIGINS=https://cloudity.<TON_DOMAINE>,https://admin.cloudity.<TON_DOMAINE>
+CLOUDITY_PUBLIC_HOST=cloudity.<TON_DOMAINE>
+CLOUDITY_PUBLIC_PROTO=https
+CLOUDITY_PUBLIC_API_HOST=api.cloudity.<TON_DOMAINE>
+# puis : ENV_FILE=.env.prod make sync-public-urls
 ```
 
 Modèle complet : [../../deploy/portainer/stack.env.example](../../deploy/portainer/stack.env.example)
@@ -324,14 +330,17 @@ Pour un **APK** installé sur plusieurs téléphones :
 
 | Variable | Mode A Local | Mode B LAN | Mode C Prod |
 |----------|--------------|------------|-------------|
-| `VITE_API_URL` | `http://localhost:6002` | `http://<IP_PC>:6002` | `https://api.cloudity.<dom>` |
-| `CLOUDITY_MOBILE_GATEWAY_URL` | `http://127.0.0.1:6002` | `http://<IP_PC>:6002` | `https://api.cloudity.<dom>` |
+| **`CLOUDITY_PUBLIC_HOST`** | `localhost` | `<IP_PC>` | `cloudity.<dom>` |
+| **`CLOUDITY_PUBLIC_PROTO`** | `http` | `http` | **`https`** |
+| `CLOUDITY_PUBLIC_API_HOST` | (vide) | (vide) | `api.cloudity.<dom>` |
+| `VITE_API_URL` *(dérivée)* | `http://localhost:6002` | `http://<IP_PC>:6002` | `https://api.cloudity.<dom>` |
+| `CLOUDITY_MOBILE_GATEWAY_URL` *(dérivée)* | sync → localhost:6002 | `http://<IP_PC>:6002` | `https://api.cloudity.<dom>` |
 | `CORS_ALLOW_LAN` | `true` | `true` | **`false`** |
-| `CORS_ORIGINS` | localhost… | + `http://<IP_PC>:6001` | URLs HTTPS publiques |
+| `CORS_ORIGINS` *(dérivée)* | localhost… | + `http://<IP_PC>:6001` | URLs HTTPS publiques |
 | `GO_ENV` / `NODE_ENV` | development | development | **production** |
-| Où configurer | `.env` PC | `.env` PC + `deploy-web` | **Portainer** |
+| Où configurer | `.env` + `make sync-public-urls` | idem + `deploy-web` | **Portainer** |
 
-Génération secrets : [ENV-GENERATION.md](ENV-GENERATION.md)
+Génération secrets + hôte public : [ENV-GENERATION.md](ENV-GENERATION.md)
 
 ---
 

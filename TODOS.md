@@ -7,6 +7,25 @@
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
 
+### Session 2026-07-22 (soir) — Env public + Portainer + fix admin Dashboard
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`CLOUDITY_PUBLIC_HOST` / sync URLs** | ☑ | Une source de vérité → `VITE_API_URL`, `CLOUDITY_MOBILE_GATEWAY_URL`, `CORS_ORIGINS`, `WEBAUTHN_*`, OAuth — **`make sync-public-urls`** (`scripts/dev/sync-public-urls.sh`) |
+| **`.env.prod` / préprod** | ☑ | **`make env-prod DOMAIN=…`** / **`make env-preprod`** = fusion `.env` + `.env.example` + overlays · **`make portainer-env`** pour coller dans Portainer |
+| **Doc Portainer** | ☑ | `deploy/portainer/README.md` · `PORTAINER-STACK.md` · `ENV-GENERATION.md` · guide complet · `stack.env.example` |
+| **Admin Dashboard imports** | ☑ | Fix `fetchBudgetStatus` / `fetchPipelineRuns` / `recordPerformanceSnapshot` (crash module `/src/api.ts`) — Vitest Dashboard 4/4 |
+| **Seed admin unique + CORS Origin** | ☑ | (matin) un seul `SEED_ADMIN_*` · gateway Origin/Referer/same-origin · boucle SecureSettings cassée |
+
+**Tu fais quoi maintenant** :
+
+1. Dev local : `make status` · login `SEED_ADMIN_EMAIL` · `/4dm1n` (hard refresh si vieux bundle)
+2. LAN téléphone : `CLOUDITY_PUBLIC_HOST=<IP>` puis `make sync-public-urls` · `make deploy-web`
+3. Préparer Portainer (quand tu publies) : `make env-prod DOMAIN=cloudity.<tld>` · `make portainer-env`
+4. Suite produit hors mail : H14 HTTPS prod · H19 auth mobile · ADM-UPDATE (plus tard) · QA-MATRIX
+
+---
+
 ### Session 2026-07-22 — Relance stack + prefs + suite
 
 | Sujet | État | Détail |
@@ -111,7 +130,7 @@
 | **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt`, **re-chiffrement automatique des blobs après changement de PIN** (Notes/Contacts/Drive/Photos) | ☑ |
 | **H12** | **Qualité tests frontend transverse** | Matrice renforcée : paramètres apps, coffres locaux, Photos ; **Notes/Settings Vitest** ☑ ; **spam_triage_test.go** ☑ ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
-| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
+| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : `CLOUDITY_MOBILE_GATEWAY_URL` via **`make sync-public-urls`** / **`make env-prod`** · `run-mobile.sh`. Reste : valider HTTPS réel téléphone + CORS prod sur VPS. | 🟡 |
 | **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
 | **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
 | **H17** | **Mobile — structure `lib/` unifiée** | Layout `auth/` · `api/` · `features/` sur Mail/Drive/Photos/Pass/Calendar/Contacts/Notes/Tasks/Admin ; `SuiteAppShell` ; `mobile/README.md` ; scripts `customize-suite-app.sh` / `copy-suite-auth-base.sh` / `reorganize-suite-lib.py` | ☑ |
