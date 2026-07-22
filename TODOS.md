@@ -5,7 +5,27 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`main`** (GitOps Portainer) · chantier mobile structure **`feat/mobile-structure-standard`** ou directement `main`.
+**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
+
+### Session 2026-07-22 — Relance stack + prefs + suite
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Préférences utilisateur** | ☑ | API `GET/PUT /auth/me/preferences` · migration `47` · thème par app · Pass clipboard/TOTP/favicons · sync web/mobile/extension |
+| **Bootstrap JWT web** | ☑ | `sessionReady` au chargement → plus de rafale 401 Mail après refresh |
+| **Stack Docker locale** | ☑ | `make up` / `make up-full` — **stack utilisable** même si phase tests échoue |
+| **`make up-full` bug tests** | ☑ | Volume relatif `reports/test-logs/…` traité comme nom Docker + `timeout` ne peut pas appeler une fonction bash → corrigé (`chemin absolu` + sous-shell) |
+| **Admin — indicateurs de mise à jour composants** | ☐ | **PLUS TARD** : dans `/4dm1n`, tableau de bord « versions / updates » (images GHCR, services, front, APK mobile) + actions « mettre à jour » visibles et simples — voir note **ADM-UPDATE** ci-dessous |
+| **Mobile OTA / versions installées** | 🟡 | Page admin **Mobile / OTA** déjà amorcée · **REL-01..03** backlog · suite : pipeline APK + `version.json` + suivi installs |
+
+**Tu fais quoi maintenant (dev web + backend)** :
+
+1. Stack déjà up après ton `make up-full` (échec = **tests seulement**) → `make status` puis ouvre **http://localhost:6001**
+2. Login : `paul@delhomme.ovh` (mot de passe `SEED_ADMIN_PASSWORD` dans `.env`) · back-office `/4dm1n`
+3. Relancer seulement les tests corrigés : `make test` (pas besoin de re-`up`)
+4. Si stack bizarre : `make up-ready` (~5 min, sans tests)
+
+---
 
 ### Session 2026-07-02 — Structure mobile unifiée
 
@@ -98,6 +118,17 @@
 | **H18** | **Mobile — `admin_app` production-ready** | Gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + dart-define ; login admin + 2FA à venir ; liste tenants API ; aligné `cloudity_shared` | 🟡 |
 | **H19** | **Mobile — auth sans duplication** | Extraire `SessionStore` / `LoginScreen` dans `cloudity_shared` (au lieu de 8 copies) ; un seul `copy-suite-auth-base.sh` pour `main.dart` seulement | ☐ |
 | **H20** | **Mobile — profils appareils scalables** | Index `profiles.index.json`, template `_template/`, packages Cloudity listés dans profil Samsung ; reste : UI `make mobile-device-list` | ☑ |
+
+### ADM-UPDATE — Backoffice : mises à jour visibles (plus tard)
+
+> **Quand** : après stabilisation prefs + OTA mobile (REL-*) · **pas bloquant** pour le travail web/backend local actuel.
+
+| # | Besoin | Cible |
+|---|--------|--------|
+| **ADM-UPDATE-1** | Voir facilement **quelles parties** du projet ont une mise à jour dispo (images services GHCR, front web, APK apps, éventuellement extension Pass) | Page `/4dm1n` (Dashboard ou sous-page « Mises à jour ») |
+| **ADM-UPDATE-2** | Actions simples : « Mettre à jour ce service », « Publier / forcer refresh manifeste mobile » | Boutons + confirmation + smoke `/health` |
+| **ADM-UPDATE-3** | Lien avec **Mobile / OTA** déjà amorcé (`MobileDistributionPage`) + versions installées / last-seen appareils | Étendre la page existante plutôt que tout reconstruire |
+| **ADM-UPDATE-4** | Doc ops : qui peut déclencher quoi (rôle admin, tokens CI, Portainer webhook) | `DEPLOIEMENT-SUIVI.md` + BACKLOG |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
 
@@ -392,7 +423,7 @@ Objectif : même en local, le compte de dev doit pouvoir activer la 2FA et prouv
 | **2FA-2** | Activer TOTP sur compte dédié `e2e-2fa@cloudity.local` (`make seed-e2e-2fa`), copier les codes, se déconnecter | ☑ (E2E) |
 | **2FA-3** | Login web : email + mot de passe → étape code TOTP → accès `/app` | ☑ (E2E) |
 | **2FA-4** | Login web avec un code de récupération → accès OK + rappel de régénérer | ☑ (E2E) |
-| **2FA-5** | E2E Playwright dédié `e2e/twofa.spec.ts` + `make test-e2e-playwright-twofa` : activation, TOTP, mauvais code, recovery, recovery réutilisé refusé (ne touche pas `admin@cloudity.local`) | ☑ |
+| **2FA-5** | E2E Playwright dédié `e2e/twofa.spec.ts` + `make test-e2e-playwright-twofa` : activation, TOTP, mauvais code, recovery, recovery réutilisé refusé (ne touche pas le compte `SEED_ADMIN_EMAIL`) | ☑ |
 | **2FA-6** | Mobile Drive/Mail/Photos : écran 2FA + mauvais code refusé + TOTP frais calculé au moment du test → écran principal (`integration_test/twofa_flow_test.dart`, `make test-mobile-2fa`) | ☑ |
 
 Note : ne pas laisser le compte démo dans un état qui casse les E2E standards. Prévoir une remise à zéro contrôlée ou un utilisateur de test dédié `e2e-2fa@cloudity.local`.

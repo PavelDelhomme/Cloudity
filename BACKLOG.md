@@ -138,6 +138,7 @@
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).
 - [ ] **REL-03** — UI in-app « mise à jour » sur **Android** (`PackageInstaller` / intent) + tests sur au moins **2** constructeurs.
+- [ ] **ADM-UPDATE-01** — Backoffice `/4dm1n` : indicateurs visibles des mises à jour dispo (services GHCR, web, APK) + actions de mise à jour simples — **TODOS.md § ADM-UPDATE** (plus tard, après REL + prefs stables).
 - [x] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (`PassMailAliasesPanel`, API `POST /mail/me/accounts/:id/aliases`) — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2.
 - [ ] **PASS-AUTOFILL-ANDROID** — Service **Autofill** Android pour Pass (pas d’équivalent universel iOS documenté ici).
 

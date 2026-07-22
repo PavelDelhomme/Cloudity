@@ -12,8 +12,16 @@ import {
 export default function ThemePreferencesSection() {
   const { prefs, setAppTheme, setDefaultTheme } = useThemePreferences()
 
-  const renderSelect = (label: string, value: ThemeMode, onChange: (m: ThemeMode) => void) => (
-    <label className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-slate-100 dark:border-slate-700 last:border-0">
+  const renderSelect = (
+    key: string,
+    label: string,
+    value: ThemeMode,
+    onChange: (m: ThemeMode) => void,
+  ) => (
+    <label
+      key={key}
+      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-2 border-b border-slate-100 dark:border-slate-700 last:border-0"
+    >
       <span className="text-sm font-medium text-slate-800 dark:text-slate-200">{label}</span>
       <select
         value={value}
@@ -39,7 +47,7 @@ export default function ThemePreferencesSection() {
             via votre compte).
           </p>
         </div>
-        {renderSelect('Thème par défaut', prefs.theme.default, (m) => void setDefaultTheme(m))}
+        {renderSelect('default', 'Thème par défaut', prefs.theme.default, (m) => void setDefaultTheme(m))}
         <div className="pt-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">
             Par application
@@ -47,10 +55,11 @@ export default function ThemePreferencesSection() {
           <div className="divide-y divide-slate-100 dark:divide-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 px-3">
             {CLOUDITY_APP_IDS.filter((id) => id !== 'hub').map((appId: CloudityAppId) =>
               renderSelect(
+                appId,
                 APP_LABELS[appId],
                 prefs.theme.apps[appId] ?? prefs.theme.default,
-                (m) => void setAppTheme(appId, m)
-              )
+                (m) => void setAppTheme(appId, m),
+              ),
             )}
           </div>
         </div>

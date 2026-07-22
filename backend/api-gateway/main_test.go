@@ -193,6 +193,7 @@ func TestAdminAPI_RejectsDisallowedOrigin(t *testing.T) {
 }
 
 func TestAdminAPI_RequiresOriginEvenWithValidJWT(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "false")
 	_, edPriv := withTestKeys(t)
 	claims := makeClaims()
 	claims["role"] = "admin"
@@ -210,6 +211,74 @@ func TestAdminAPI_RequiresOriginEvenWithValidJWT(t *testing.T) {
 	handler.ServeHTTP(w, req)
 	if w.Code != http.StatusForbidden {
 		t.Fatalf("missing Origin: got %d, want 403", w.Code)
+	}
+}
+
+func TestAdminAPI_AllowsRefererWhenOriginMissing(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "true")
+	_, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	req.Header.Set("Referer", "http://cloudity.localhost:6001/4dm1n")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code == http.StatusForbidden && strings.Contains(w.Body.String(), "origin not allowed") {
+		t.Fatalf("Referer same-origin should pass origin gate, got 403: %s", w.Body.String())
+	}
+}
+
+func TestAdminAPI_AllowsSameOriginFetchSite(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "false")
+	_, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code == http.StatusForbidden && strings.Contains(w.Body.String(), "origin not allowed") {
+		t.Fatalf("Sec-Fetch-Site=same-origin should pass origin gate, got 403: %s", w.Body.String())
+	}
+}
+
+func TestAdminAPI_AllowsMissingOriginWhenCORSAllowLAN(t *testing.T) {
+	t.Setenv("CORS_ALLOW_LAN", "true")
+	_, edPriv := withTestKeys(t)
+	claims := makeClaims()
+	claims["role"] = "admin"
+	tok := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	tok.Header["kid"] = kidEd25519
+	signed, err := tok.SignedString(edPriv)
+	if err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/tenants", nil)
+	req.Header.Set("Authorization", "Bearer "+signed)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code == http.StatusForbidden && strings.Contains(w.Body.String(), "origin not allowed") {
+		t.Fatalf("CORS_ALLOW_LAN without Origin should pass origin gate, got 403: %s", w.Body.String())
 	}
 }
 

@@ -204,6 +204,27 @@ cloudity_test_run_with_logs() {
   return "$exit_code"
 }
 
+# Normalise CLOUDITY_TEST_LOGS_DIR en chemin absolu (bind-mount Docker).
+cloudity_test_logs_dir_abs() {
+  local dir="${CLOUDITY_TEST_LOGS_DIR:-}"
+  [ -n "$dir" ] || return 1
+  if [ "${dir#/}" = "$dir" ]; then
+    # Relatif → absolu depuis la racine repo (ou cwd).
+    local root="${CLOUDITY_REPO_ROOT:-$(pwd)}"
+    dir="${root}/${dir}"
+  fi
+  mkdir -p "$dir"
+  # Résoudre .. / symlinks si possible.
+  if command -v realpath >/dev/null 2>&1; then
+    dir="$(realpath "$dir")"
+  else
+    dir="$(cd "$dir" && pwd)"
+  fi
+  CLOUDITY_TEST_LOGS_DIR="$dir"
+  export CLOUDITY_TEST_LOGS_DIR
+  printf '%s\n' "$dir"
+}
+
 # compose run --no-deps avec capture stdout + logs service.
 cloudity_test_compose_run() {
   local phase="$1"
@@ -212,6 +233,7 @@ cloudity_test_compose_run() {
   local docker_it="${DOCKER_IT:-}"
 
   [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "$phase"
+  cloudity_test_logs_dir_abs >/dev/null
 
   local out_dir="${CLOUDITY_TEST_LOGS_DIR}/${phase}"
   mkdir -p "$out_dir"
@@ -225,6 +247,7 @@ cloudity_test_compose_run() {
   local compose_extra=()
   if [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ]; then
     compose_extra+=(-e "CLOUDITY_TEST_LOGS_DIR=/test-logs-out")
+    # Toujours un chemin absolu — sinon Docker crée un volume nommé invalide (ex. reports/test-logs/…).
     compose_extra+=(-v "${CLOUDITY_TEST_LOGS_DIR}:/test-logs-out")
   fi
 

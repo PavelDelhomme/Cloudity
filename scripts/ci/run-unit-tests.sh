@@ -17,6 +17,8 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "${CLOUDITY_TEST_RUN_LABEL:-make-test}"
+# Garantit un chemin absolu même si l’appelant (ex. up-full avant fix) a passé un relatif.
+cloudity_test_logs_dir_abs >/dev/null 2>&1 || true
 export CLOUDITY_TEST_LOGS_DIR CLOUDITY_TEST_RUN_ID
 echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
 cloudity_test_logs_summary_line
@@ -89,9 +91,22 @@ fi
 
 echo "  [cloudity-web]"
 _web_test_cmd='chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh'
+# `timeout` ne peut pas invoquer une fonction bash (il cherche un binaire) —
+# on l’applique donc via un sous-shell qui re-source l’inc et appelle la fonction.
 if command -v timeout >/dev/null 2>&1; then
   if ! timeout --foreground "${CLOUDITY_WEB_TEST_TIMEOUT}" \
-    cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$_web_test_cmd"; then
+    env \
+      CLOUDITY_REPO_ROOT="$ROOT" \
+      CLOUDITY_TEST_LOGS_DIR="${CLOUDITY_TEST_LOGS_DIR:-}" \
+      CLOUDITY_TEST_RUN_ID="${CLOUDITY_TEST_RUN_ID:-}" \
+      DOCKER_IT="${DOCKER_IT:-}" \
+      CLOUDITY_WEB_TEST_CMD="$_web_test_cmd" \
+    bash -c '
+      set -euo pipefail
+      # shellcheck source=scripts/ci/test-log-capture.inc.sh
+      source "$CLOUDITY_REPO_ROOT/scripts/ci/test-log-capture.inc.sh"
+      cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$CLOUDITY_WEB_TEST_CMD"
+    '; then
     failed=1
   fi
 else

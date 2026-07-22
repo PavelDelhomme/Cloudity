@@ -65,7 +65,9 @@ UP_FULL_ID="${CLOUDITY_TEST_RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 UP_FULL_LOG="reports/up-full-test-${UP_FULL_ID}.log"
 export CLOUDITY_TEST_RUN_ID="$UP_FULL_ID"
 export CLOUDITY_TEST_RUN_LABEL=make-up-full
-export CLOUDITY_TEST_LOGS_DIR="reports/test-logs/${UP_FULL_ID}"
+# Chemin ABSOLU obligatoire : Docker Compose traite un chemin relatif sans ./ comme un nom de volume.
+export CLOUDITY_TEST_LOGS_DIR="${ROOT}/reports/test-logs/${UP_FULL_ID}"
+mkdir -p "$CLOUDITY_TEST_LOGS_DIR"
 
 set +e
 "$MAKE" --no-print-directory test 2>&1 | tee "$UP_FULL_LOG"
@@ -73,7 +75,7 @@ TEST_EXIT=${PIPESTATUS[0]}
 set -e
 
 chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh "$HINT" 2>/dev/null || true
-CLOUDITY_TEST_RUN_ID="$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/${UP_FULL_ID}" \
+CLOUDITY_TEST_RUN_ID="$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="${ROOT}/reports/test-logs/${UP_FULL_ID}" \
   ./scripts/ci/generate-test-run-report.sh "$UP_FULL_ID" || true
 ./scripts/dev/send-progress-recap.sh || true
 

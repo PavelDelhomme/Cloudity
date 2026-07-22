@@ -439,22 +439,60 @@ func adminOriginAllowed(origin string) bool {
 	return corsOriginAllowedFixedList(o)
 }
 
+// originFromReferer extrait scheme://host d'un Referer (fallback same-origin
+// quand le navigateur omet Origin sur un GET via proxy Vite/nginx).
+func originFromReferer(referer string) string {
+	ref := strings.TrimSpace(referer)
+	if ref == "" {
+		return ""
+	}
+	u, err := url.Parse(ref)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+func corsAllowLANEnabled() bool {
+	v := os.Getenv("CORS_ALLOW_LAN")
+	return v == "true" || v == "1"
+}
+
 func writeJSON(w http.ResponseWriter, status int, body string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(body))
 }
 
+// requireAdminAPIOrigin refuse les appels /admin/* depuis une origine navigateur
+// non autorisée. Cas same-origin (dashboard :6001 → proxy → gateway) : les GET
+// omettent souvent Origin — on accepte alors Referer, Sec-Fetch-Site=same-origin,
+// ou (dev uniquement) CORS_ALLOW_LAN sans Origin. Le JWT admin reste exigé à part.
 func requireAdminAPIOrigin(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodOptions {
 		return true
 	}
-	origin := r.Header.Get("Origin")
-	if !adminOriginAllowed(origin) {
-		writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
-		return false
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		origin = originFromReferer(r.Header.Get("Referer"))
 	}
-	return true
+	if origin != "" {
+		if !adminOriginAllowed(origin) {
+			writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
+			return false
+		}
+		return true
+	}
+	site := strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")))
+	if site == "same-origin" {
+		return true
+	}
+	if corsAllowLANEnabled() {
+		// Dev : curl / proxy sans headers Fetch (JWT admin toujours requis).
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
+	return false
 }
 
 func requirePerformanceIngestToken(w http.ResponseWriter, r *http.Request) bool {

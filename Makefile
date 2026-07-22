@@ -995,25 +995,29 @@ seed: ## Insère des données de test (tenants)
 	@echo "✅ Seed OK."
 
 ENV_GET := ./scripts/dev/env-get.sh
-SEED_ADMIN_EMAIL := $(shell $(ENV_GET) SEED_ADMIN_EMAIL admin@cloudity.local 2>/dev/null)
+SEED_ADMIN_EMAIL := $(shell $(ENV_GET) SEED_ADMIN_EMAIL 2>/dev/null)
 SEED_ADMIN_PASSWORD := $(shell $(ENV_GET) SEED_ADMIN_PASSWORD 2>/dev/null)
 
-seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD depuis .env) ET le promeut en role='admin' (stack up, tenant 1)
+seed-admin: ## Un seul super-admin tenant 1 : SEED_ADMIN_* (.env) — user apps + /4dm1n ; demote les autres admins
 	@if [ -z "$(SEED_ADMIN_PASSWORD)" ]; then \
 	  echo "❌ SEED_ADMIN_PASSWORD manquant — définir dans .env (voir .env.example), puis relancer make seed-admin"; \
 	  exit 1; \
 	fi
-	@echo "👤 Création du compte de démo ($(SEED_ADMIN_EMAIL))..."
+	@if [ -z "$(SEED_ADMIN_EMAIL)" ]; then \
+	  echo "❌ SEED_ADMIN_EMAIL manquant — définir une vraie adresse dans .env (ex. paul@example.com)"; \
+	  exit 1; \
+	fi
+	@echo "👤 Création / ensure compte seed ($(SEED_ADMIN_EMAIL))..."
 	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
 	  -H "Content-Type: application/json" \
 	  -d '{"email":"$(SEED_ADMIN_EMAIL)","password":"$(SEED_ADMIN_PASSWORD)","tenant_id":"1"}' >/dev/null \
 	  && echo "✅ Compte créé." \
 	  || echo "ℹ️  Le compte existait déjà — promotion du rôle quand même."
-	@echo "🔐 Promotion role='admin' pour $(SEED_ADMIN_EMAIL) (tenant 1)..."
-	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity \
-	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1;" >/dev/null \
-	  && echo "✅ Rôle admin appliqué. Connexion: $(SEED_ADMIN_EMAIL) (mot de passe .env — UI back-office /4dm1n)" \
-	  || (echo "❌ Promotion role='admin' échouée — vérifier que la stack est up et que le tenant 1 existe."; exit 1)
+	@echo "🔐 Un seul admin tenant 1 : promote $(SEED_ADMIN_EMAIL), demote les autres…"
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1 \
+	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1; UPDATE users SET role='user' WHERE tenant_id=1 AND role='admin' AND email<>'$(SEED_ADMIN_EMAIL)';" >/dev/null \
+	  && echo "✅ Super-admin unique: $(SEED_ADMIN_EMAIL) — apps /app + back-office /4dm1n (mot de passe = SEED_ADMIN_PASSWORD)" \
+	  || (echo "❌ Promotion / demote échoué — stack up ? tenant 1 ?"; exit 1)
 
 seed-admin-reset: ## Recrée le compte admin avec SEED_ADMIN_* du .env (après changement de mot de passe)
 	@chmod +x scripts/dev/seed-admin-reset.sh scripts/dev/env-get.sh
