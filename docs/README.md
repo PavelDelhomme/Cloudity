@@ -88,6 +88,7 @@ Tout le reste vit ici, dans des **sous-dossiers thématiques** :
 | **[operations/DEPLOIEMENT-PAR-SERVICE.md](operations/DEPLOIEMENT-PAR-SERVICE.md)** | **`make deploy-web`**, **`deploy-mail`**, … — tableau local ↔ Portainer. |
 | **[operations/PORTAINER-VPS.md](operations/PORTAINER-VPS.md)** | Ton VPS (IP dans Portainer), DNS `cloudity.<domaine-principal>`, réseaux NPM. |
 | **[operations/ENV-GENERATION.md](operations/ENV-GENERATION.md)** | **`.env`** : `make secrets`, clés mail/alias, Portainer, état du chiffrement. |
+| **[operations/PILOTAGE.md](operations/PILOTAGE.md)** | **Board suivi projet** `/4dm1n/pilotage` (style JobbingTrack : valider / enchaîner). |
 | **[operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** | **Prod plus tard** : VPS + **Portainer** + **NPM** ; **Q23** `cloudity.<DOMAIN>` + `api` / `admin` ; **§ 1 bis** DNS registrar + NPM ; **§ 1 ter** chemins `/app/…` vs sous-domaines ; **§ 4 bis** multi-ponts ; Q15 homelab ; **§ 10 bis** rollback. |
 | **[operations/BRANCHES.md](operations/BRANCHES.md)** | Tableau « quelle branche pour quoi » + `make feature-finish` — détail dans [GIT.md](GIT.md). |
 | **[operations/TODO.md](operations/TODO.md)** | Notes techniques / perf / historique Mail — **pas** la checklist sprint (voir **`TODOS.md`** § MAINTENANT). |
