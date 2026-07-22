@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertTriangle, Building2, Database, History, Shield, Smartphone, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, ClipboardList, Database, History, Shield, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import {
   fetchBudgetStatus,
@@ -173,6 +173,26 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      <Card className="p-4 mt-6 border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <ClipboardList className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Pilotage projet</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                Tâches à faire, à valider et terminées — décisions OK / Partiel / KO depuis le back-office (comme JobbingTrack).
+              </p>
+            </div>
+          </div>
+          <Link
+            to={adminUiPath('pilotage')}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 dark:bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 dark:hover:bg-indigo-600"
+          >
+            Ouvrir le pilotage
+          </Link>
+        </div>
+      </Card>
 
       <Card className="p-4 mt-6 border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/20">
         <div className="flex flex-wrap items-center justify-between gap-3">

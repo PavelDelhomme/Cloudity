@@ -13,6 +13,7 @@ import {
   Palette,
   Smartphone,
   User,
+  ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
@@ -20,6 +21,7 @@ import { ResponsiveShell } from '@cloudity/ui'
 
 const adminNav = [
   { key: 'dashboard', name: 'Tableau de bord', href: adminUiPath(), icon: <LayoutDashboard className="w-4 h-4 shrink-0" />, end: true },
+  { key: 'pilotage', name: 'Pilotage', href: adminUiPath('pilotage'), icon: <ClipboardList className="w-4 h-4 shrink-0" /> },
   { key: 'tenants', name: 'Tenants', href: adminUiPath('tenants'), icon: <Building2 className="w-4 h-4 shrink-0" /> },
   { key: 'users', name: 'Utilisateurs', href: adminUiPath('users'), icon: <Users className="w-4 h-4 shrink-0" /> },
   { key: 'mobile-ota', name: 'Mobile / OTA', href: adminUiPath('mobile-distribution'), icon: <Smartphone className="w-4 h-4 shrink-0" /> },

@@ -15,6 +15,7 @@ import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
 import PasskeysPage from './pages/admin/Passkeys'
 import UiCatalogPage from './pages/admin/UiCatalogPage'
+import PilotagePage from './pages/admin/PilotagePage'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { StackHealthGate } from './components/StackHealthGate'
 import { AdminAccessGate } from './AdminAccessGate'
@@ -41,6 +42,7 @@ export function AdminAppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="pilotage" element={<PilotagePage />} />
         <Route path="tenants" element={<TenantsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="mobile-distribution" element={<MobileDistributionPage />} />

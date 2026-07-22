@@ -4,7 +4,7 @@ from fastapi import FastAPI
 
 from app.core.database import engine
 from app.models import Base, Tenant, User  # noqa: F401 — enregistre les modèles sur Base.metadata
-from app.routes import health, mail_accounts, security, stats, tenants, users
+from app.routes import health, mail_accounts, pilotage, security, stats, tenants, users
 
 Base.metadata.create_all(bind=engine)
 
@@ -21,6 +21,7 @@ app.include_router(users.router)
 app.include_router(mail_accounts.router)
 app.include_router(stats.router)
 app.include_router(security.router)
+app.include_router(pilotage.router)
 
 
 if __name__ == "__main__":

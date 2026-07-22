@@ -283,6 +283,94 @@ export async function recordPerformanceSnapshot(token: string): Promise<{ id: nu
   )
 }
 
+/** Pilotage projet (board type JobbingTrack) — /4dm1n/pilotage */
+export type PilotageTaskStatus = 'open' | 'partial' | 'ok' | 'ko' | 'deferred' | 'rework'
+
+export type PilotageChecklistItem = {
+  id: string
+  label: string
+  done: boolean
+  note?: string
+}
+
+export type PilotageTask = {
+  id: string
+  cycleId?: string | null
+  section: string
+  label: string
+  description: string
+  expected: string
+  status: PilotageTaskStatus
+  order: number
+  checklist: PilotageChecklistItem[]
+  porteurNote: string
+  history: { at: string; action: string; note?: string | null }[]
+}
+
+export type PilotageCycleView = {
+  id: string
+  label: string
+  description?: string
+  itemIds: string[]
+  status: string
+  okCount: number
+  total: number
+  progressLabel: string
+}
+
+export type PilotageBoard = {
+  version: number
+  updatedAt: string
+  cycles: { id: string; label: string; description?: string; itemIds: string[] }[]
+  tasks: Record<string, PilotageTask>
+  cycleViews?: PilotageCycleView[]
+  counts?: Record<string, number>
+  active?: { id: string; label: string; status: string } | null
+  recentDone?: { id: string; label: string; status: string }[]
+}
+
+export type PilotageBoardResponse = {
+  success: boolean
+  storageReady?: boolean
+  interactive?: boolean
+  canWrite?: boolean
+  runtimeEnv?: string
+  message?: string
+  board: PilotageBoard
+}
+
+export type PilotageActionPayload = {
+  type: 'decide' | 'checklist' | 'note' | 'reorder' | 'move' | 'create'
+  itemId: string
+  decision?: 'OK' | 'KO' | 'PARTIEL' | 'PLUS_TARD' | 'REWORK'
+  note?: string
+  checklistItemId?: string
+  done?: boolean
+  direction?: 'up' | 'down'
+  cycleId?: string | null
+  label?: string
+  description?: string
+  expected?: string
+  section?: string
+  checklistLabels?: string[]
+}
+
+export async function fetchPilotageBoard(token: string): Promise<PilotageBoardResponse> {
+  return apiJson<PilotageBoardResponse>(token, '/admin/pilotage/board', undefined, 'Pilotage board')
+}
+
+export async function postPilotageAction(
+  token: string,
+  body: PilotageActionPayload
+): Promise<PilotageBoardResponse & { message?: string }> {
+  return apiJson<PilotageBoardResponse & { message?: string }>(
+    token,
+    '/admin/pilotage/board/action',
+    { method: 'POST', body: JSON.stringify(body) },
+    'Pilotage action'
+  )
+}
+
 /** Rapport CVE/OSV (admin) — source api.osv.dev, cache optionnel côté admin-service. */
 export type CveVulnEntryResponse = {
   osv_id: string

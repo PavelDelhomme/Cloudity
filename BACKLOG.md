@@ -132,6 +132,7 @@
 - [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
 - [x] **DEPLOY-ENV-01** — Hôte public unique + fichiers env Portainer : **`CLOUDITY_PUBLIC_*`**, **`make sync-public-urls`**, **`make env-prod` / `env-preprod`**, **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/](deploy/portainer/)** (2026-07-22).
+- [x] **PILOTAGE-01** — Board suivi projet dans **`/4dm1n/pilotage`** (cycles, checklists, décisions, seed TODOS/BACKLOG) — **[PILOTAGE.md](docs/operations/PILOTAGE.md)** (2026-07-22).
 - [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + appliquer `.env.prod` généré (`CORS_ORIGINS` / `VITE_API_URL` déjà dérivés par sync).
 - [ ] **DEPLOY-PORTAINER-02** — Script ou doc « Update stack » : pull GHCR tag + redeploy (semi-auto après `docker-publish`).
 - [ ] **DEPLOY-PR-01** — PR branche chantier → `dev`, puis `dev` → `main` quand tests verts.

@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-07-22 — Pilotage /4dm1n (JobbingTrack-like)
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Migration `48-cloudity-pilotage.sql` · API `admin/pilotage/*` · page `PilotagePage` · nav + carte Dashboard.
+- Seed tâches H14 / DEPLOY / ADM-UPDATE · tests unitaires `test_pilotage_board.py`.
+- Doc : `docs/operations/PILOTAGE.md` · TODOS / STATUS / BACKLOG (`PILOTAGE-01`).
+
+---
+
 ### 2026-07-22 — Env public Portainer + fix admin Dashboard
 
 - Branche : `feat/app-vault-drive-upload-pin-rotation`.

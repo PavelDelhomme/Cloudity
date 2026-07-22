@@ -7,6 +7,23 @@
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
 
+### Session 2026-07-22 (soir+) — Pilotage admin (style JobbingTrack)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`/4dm1n/pilotage`** | ☑ | Board cycles + checklists + décisions OK/PARTIEL/KO/REWORK/Plus tard · create tâche · live update |
+| **API + DB** | ☑ | `GET/POST /admin/pilotage/*` · migration **48** · seed H14/DEPLOY/ADM… · `CLOUDITY_PILOTAGE_WRITE` en prod |
+| **Doc** | ☑ | **[docs/operations/PILOTAGE.md](./docs/operations/PILOTAGE.md)** |
+
+**Tu fais quoi maintenant** :
+
+1. `make migrate` puis recreate `admin-service` si besoin
+2. Ouvre **http://localhost:6001/4dm1n/pilotage** — coche critères, valide OK / Partiel
+3. Enchaîne les tâches du cycle « À faire maintenant » (H14, H19, DNS, QA)
+4. Suite produit hors board : H19 code · DEPLOY-DNS sur VPS quand tu publies
+
+---
+
 ### Session 2026-07-22 (soir) — Env public + Portainer + fix admin Dashboard
 
 | Sujet | État | Détail |

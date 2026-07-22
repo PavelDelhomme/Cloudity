@@ -1,25 +1,24 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-07-22 — Env public (`CLOUDITY_PUBLIC_*` + `make sync-public-urls` / `env-prod` / `portainer-env`) ; fix imports admin Dashboard ; seed admin unique + CORS Origin (matin).
+**Dernière mise à jour** : 2026-07-22 — **Pilotage** `/4dm1n/pilotage` (board JobbingTrack) + env public (`sync-public-urls` / `env-prod`).
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** § session **2026-07-22 (soir)** — ensuite matrice QA (§ **QA-MATRIX**) ; `/4dm1n` OK après hard refresh.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** § Pilotage — ouvrir **`/4dm1n/pilotage`**, valider / enchaîner les tâches du cycle « maintenant ».
 
-### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
+### Rituel (avant chaque session)
 
-1. **Git** : `git status` ; branche = **`feat/app-vault-drive-upload-pin-rotation`** (hors Mail/Déploiement prod mail) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
-2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § session du jour ; puis **[BACKLOG.md](./BACKLOG.md)** (DEPLOY-ENV-01 livré · suite DEPLOY-DNS / H14 / H19).
-3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
-4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
+1. **Git** : branche `feat/app-vault-drive-upload-pin-rotation` — **[docs/GIT.md](docs/GIT.md)**.
+2. **Pilotage** : **`/4dm1n/pilotage`** puis **[TODOS.md](./TODOS.md)** / **[BACKLOG.md](./BACKLOG.md)**.
+3. **Vérifs** : **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 0 · `make test` si merge.
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **Barrière qualité** : garder verts `make test`, `make test-pass`, E2E, mobile hôte ; **gitleaks** baseline propre ; trier **gosec** / perf — **TODOS.md** § Q4/Q7.
-2. **Dev / LAN / Portainer env** : **`CLOUDITY_PUBLIC_HOST`** + **`make sync-public-urls`** · générer **`.env.prod`** via **`make env-prod DOMAIN=…`** · coller avec **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/README.md](deploy/portainer/README.md)**.
-3. **PAUSE Mail prod** : MTA alias livré sur **`dev`** ; ne pas reprendre OVH/VPS/C7 sans signal explicite.
-4. **Suite hors mail** : H14 (HTTPS téléphone) · H19 auth mobile sans duplication · ADM-UPDATE (plus tard) · UI Calendar/Hub.
-5. **Déploiement runtime** : DNS + NPM + stacks Portainer quand tu **décides de publier** — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** (Phase A outillage env ☑).
+1. **Pilotage UI** : suivre et valider dans **`/4dm1n/pilotage`** — **[PILOTAGE.md](docs/operations/PILOTAGE.md)**.
+2. **Barrière qualité** : `make test` / E2E selon périmètre.
+3. **Dev / LAN / Portainer env** : `CLOUDITY_PUBLIC_*` + `make sync-public-urls` / `env-prod`.
+4. **PAUSE Mail prod** jusqu’à signal explicite.
+5. **Suite** : H14 HTTPS mobile · H19 auth partagée · DEPLOY-DNS quand publication.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
 
