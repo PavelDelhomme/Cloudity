@@ -15,6 +15,22 @@
 | **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
 | **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
 
+### Session 2026-07-27 — gitignore + ZF-01 stub
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Ignore junk** | ☑ | `__pycache__/` · `.gradle/` · venv/pytest — plus dans `gs` |
+| **ZF-01 stub** | ☑ | `deploy/zoneforge/CLOUDITY-ENV.stub.md` (à brancher dans ZoneForge) |
+| **H14** | 🟡 | LAN = Partiel OK ; HTTPS = **ZF-03** |
+
+**Maintenant** :
+
+1. Sync docs Pilotage
+2. H14 → critères LAN cochés → **Partiel** (ou **En cours**)
+3. Dans [ZoneForge](https://github.com/PavelDelhomme/ZoneForge) : créer env Cloudity avec le stub → cocher **ZF-01**
+
+---
+
 ### Session 2026-07-27 — ZoneForge = deploy VPS (plus de manips chiant)
 
 | Sujet | État | Détail |
