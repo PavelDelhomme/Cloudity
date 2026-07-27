@@ -15,6 +15,13 @@
 
 ---
 
+### 2026-07-27 — ZoneForge cadré dans Pilotage Cloudity
+
+- Doc `ZONEFORGE-CLOUDITY.md` ; tâches `ZF-01`…`05` ; bandeau Pilotage + `VITE_ZONEFORGE_URL`.
+- Deploy manuel Portainer/NPM = interim ; CLI local `make logs` / `status-watch` inchangé.
+
+---
+
 ### 2026-07-27 — Pilotage décisions enrichies + merge vers dev
 
 - Statuts : En cours, À valider, À re-vérifier, surfaces BE/FE/BO/mobile, notes terminées, releases cliquables.

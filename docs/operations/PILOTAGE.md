@@ -37,9 +37,10 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : runbook pas-à-pas **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · VPS **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)** (Portainer+NPM comme Nextcloud).
+**H14** : runbook **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · HTTPS VPS via **[ZoneForge](ZONEFORGE-CLOUDITY.md)** (`ZF-03`) · fallback manuel **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)**.
 
-**UX** : bouton **En cours** cliquable · Fermer le détail (Escape / clic) · section **Comment faire** + docs sur la tâche · Pré-prod 0/0 = Sync docs manquant.
+**CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
+
 
 ---
 
@@ -57,7 +58,8 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 | **Mail prod (pause)** | Deferred jusqu’à signal explicite |
 | **Pass** | L2/L3, Safari, QA Pass |
 | **Qualité & tests** | QA-MATRIX, perf, Q4/Q7 |
-| **Déploiement & infra** | Portainer, mTLS, homelab |
+| **Déploiement & infra** | Portainer, mTLS, homelab (interim manuel) |
+| **ZoneForge — deploy VPS** | Control plane OVH+NPM+Portainer — `ZF-01`…`05` · **[ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md)** · [repo](https://github.com/PavelDelhomme/ZoneForge) |
 | **Admin / mises à jour** | ADM-UPDATE, OTA admin |
 | **Terminées** | H1–H13, DEPLOY-ENV, PILOTAGE… |
 

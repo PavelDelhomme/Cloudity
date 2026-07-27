@@ -926,8 +926,29 @@ export default function PilotagePage() {
   return (
     <PageLayout
       title="Pilotage projet"
-      description="Ordre de travail, blocages → problèmes → reprise, checklist pré-prod, versions, logs."
+      description="Ordre de travail, ZoneForge pour le VPS, checklist pré-prod, versions, logs locaux."
     >
+      <Card className="p-3 mb-3 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40">
+        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <strong>Déploiement VPS</strong> : pas de manip Portainer/NPM à la main pour chaque projet — cible{' '}
+          <a
+            href={
+              (typeof import.meta !== 'undefined' &&
+                (import.meta as { env?: { VITE_ZONEFORGE_URL?: string } }).env?.VITE_ZONEFORGE_URL) ||
+              'https://github.com/PavelDelhomme/ZoneForge'
+            }
+            target="_blank"
+            rel="noreferrer"
+            className="text-indigo-600 dark:text-indigo-300 underline underline-offset-2"
+          >
+            ZoneForge
+          </a>{' '}
+          (tâches <span className="font-mono">ZF-01…05</span>). Local :{' '}
+          <span className="font-mono">make logs</span> · <span className="font-mono">make status-watch</span> ·{' '}
+          <span className="font-mono">make portainer-env</span>. Doc :{' '}
+          <span className="font-mono">docs/operations/ZONEFORGE-CLOUDITY.md</span>
+        </p>
+      </Card>
       <Card className="p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2 min-w-0">
           <ClipboardList className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />

@@ -1,6 +1,9 @@
 # Déploiement Cloudity — Portainer + NPM (comme Nextcloud)
 
-**Rôle** : déployer **préprod** et **prod** sur ton VPS comme tu le fais pour Nextcloud (stack Portainer + Proxy Host NPM + SSL).
+**Rôle** : procédure **interim** (manuelle) pour préprod/prod — utile tant que [ZoneForge](https://github.com/PavelDelhomme/ZoneForge) n’est pas prêt pour Cloudity.
+
+> **Cible** : déployer / redeploy **sans** coller dans Portainer + NPM à la main → **[ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md)** · tâches Pilotage `ZF-01`…`ZF-05`.  
+> Ce document reste le **fallback** et la référence des Proxy Hosts / DNS.
 
 **Ne pas confondre** avec `make up` sur ton PC (dev local / LAN).
 
