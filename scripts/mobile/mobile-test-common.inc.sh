@@ -3,6 +3,8 @@
 # Ne pas exécuter seul : source depuis test-mobile-app.sh après avoir défini ROOT.
 
 ROOT_COMMON="${ROOT_COMMON:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+# shellcheck source=scripts/dev/env-get.sh
+source "${ROOT_COMMON}/scripts/dev/env-get.sh"
 # shellcheck source=mobile-device-resolve.sh
 source "${ROOT_COMMON}/scripts/mobile/mobile-device-resolve.sh"
 
@@ -65,8 +67,10 @@ cloudity_prepare_e2e_env() {
     fi
   fi
   if [[ -n "${CLOUDITY_E2E_GATEWAY:-}" ]]; then
-    : "${CLOUDITY_E2E_EMAIL:=admin@cloudity.local}"
-    : "${CLOUDITY_E2E_PASSWORD:=Admin123!}"
+    : "${CLOUDITY_E2E_EMAIL:=${SEED_ADMIN_EMAIL:-$(cloudity_env_get SEED_ADMIN_EMAIL admin@cloudity.local)}}"
+    if [[ -z "${CLOUDITY_E2E_PASSWORD:-}" ]]; then
+      CLOUDITY_E2E_PASSWORD="$(cloudity_env_get SEED_ADMIN_PASSWORD)"
+    fi
     : "${CLOUDITY_E2E_TENANT:=1}"
   fi
 }

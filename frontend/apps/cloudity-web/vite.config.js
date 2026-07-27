@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react-swc'
+import react from '@vitejs/plugin-react'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
@@ -39,12 +39,8 @@ function cloudityEarlyHtmlRoutes() {
           return
         }
         const pathOnly = u.split('?')[0]
-        if (pathOnly === '/admin' || pathOnly.startsWith('/admin/')) {
-          res.statusCode = 404
-          res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-          res.end('Not Found')
-          return
-        }
+        // Ne pas intercepter `/admin/*` : ce préfixe est réservé aux API gateway (proxy Vite
+        // ci-dessous). L’UI back-office est servie via `/4dm1n` → admin.html uniquement.
         if (pathOnly === '/4dm1n' || pathOnly.startsWith('/4dm1n/')) {
           const q = u.includes('?') ? u.slice(u.indexOf('?')) : ''
           req.url = '/admin.html' + q
@@ -75,8 +71,17 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['./vitest.setup.ts'],
     exclude: ['e2e/**', '**/node_modules/**'],
     testTimeout: 15_000,
+    hookTimeout: 30_000,
+    teardownTimeout: 10_000,
+    // Vitest 4 : un worker ; isolate:true par défaut (MailPage lourd, exécution parallèle JobbingTrack).
+    pool: 'threads',
+    maxWorkers: Number(process.env.CLOUDITY_VITEST_MAX_WORKERS || 1),
+    isolate: true,
+    fileParallelism: false,
+    slowTestThreshold: 5000,
   },
   server: {
     host: '0.0.0.0',

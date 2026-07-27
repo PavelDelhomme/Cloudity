@@ -8,6 +8,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 export CLOUDITY_REPO_ROOT="$ROOT"
 
+chmod +x "$ROOT/scripts/dev/env-get.sh" 2>/dev/null || true
+# shellcheck source=scripts/dev/env-get.sh
+source "$ROOT/scripts/dev/env-get.sh"
+SEED_ADMIN_EMAIL="$(cloudity_env_get SEED_ADMIN_EMAIL admin@cloudity.local)"
+SEED_ADMIN_PASSWORD="$(cloudity_env_get SEED_ADMIN_PASSWORD)"
+
 # shellcheck source=scripts/ci/test-log-capture.inc.sh
 source "$ROOT/scripts/ci/test-log-capture.inc.sh"
 [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "e2e"
@@ -150,9 +156,13 @@ E2E_DASHBOARD_ORIGIN="${E2E_DASHBOARD_ORIGIN:-http://localhost:${PORT_DASHBOARD}
 E2E_ADMIN_ACCESS_TOKEN=""
 demo_login() {
   local out
+  if [ -z "$SEED_ADMIN_PASSWORD" ]; then
+    echo "  ⏭️  Gateway → POST /auth/login (démo) → skip (SEED_ADMIN_PASSWORD absent du .env)"
+    return
+  fi
   out=$(curl -sf -w "\n%{http_code}" -X POST "http://localhost:${PORT_GATEWAY}/auth/login" \
     -H "Content-Type: application/json" \
-    -d '{"email":"admin@cloudity.local","password":"Admin123!","tenant_id":"1"}' 2>/dev/null) || true
+    -d "$(SEED_EMAIL="$SEED_ADMIN_EMAIL" SEED_PASS="$SEED_ADMIN_PASSWORD" python3 -c 'import json,os; print(json.dumps({"email":os.environ["SEED_EMAIL"],"password":os.environ["SEED_PASS"],"tenant_id":"1"}))')" 2>/dev/null) || true
   local code
   code=$(echo "$out" | tail -n1)
   if [ "$code" = "200" ]; then

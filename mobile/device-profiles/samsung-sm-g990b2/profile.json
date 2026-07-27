@@ -19,8 +19,14 @@
     "notes": "Tests USB : adb reverse tcp:<port> tcp:<port> puis gateway http://127.0.0.1:<port>"
   },
   "cloudity_packages": [
+    "fr.cloudity.cloudity_admin",
+    "fr.cloudity.cloudity_calendar",
+    "fr.cloudity.cloudity_contacts",
     "fr.cloudity.cloudity_drive",
-    "fr.cloudity.cloudity_mail"
+    "fr.cloudity.cloudity_mail",
+    "fr.cloudity.cloudity_notes",
+    "fr.cloudity.cloudity_photos",
+    "fr.cloudity.cloudity_tasks"
   ],
   "getprop_fingerprint": {
     "ro.product.manufacturer": "samsung",

@@ -100,6 +100,16 @@ cloudity_prepare_flutter_env() {
     return 0
   fi
 
+  # SDK Cloudity dédié (évite le wrapper Arch /usr/lib/flutter cassé ; n’affecte pas les autres projets).
+  local local_root
+  local_root="$(cloudity_default_local_flutter_root)"
+  if cloudity_flutter_sdk_healthcheck "$local_root"; then
+    export FLUTTER_ROOT="$local_root"
+    export PATH="${FLUTTER_ROOT}/bin:${PATH}"
+    unset DART_ROOT
+    return 0
+  fi
+
   if command -v flutter >/dev/null 2>&1; then
     local flutter_bin fl_bin_root gradle_dir
     flutter_bin="$(command -v flutter)"

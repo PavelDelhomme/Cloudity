@@ -13,7 +13,7 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cloudity_pass/pass_crypto.dart';
+import 'package:cloudity_pass/features/pass_crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

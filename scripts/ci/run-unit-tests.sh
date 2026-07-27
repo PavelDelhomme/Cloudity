@@ -17,15 +17,29 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "${CLOUDITY_TEST_RUN_LABEL:-make-test}"
+# Garantit un chemin absolu même si l’appelant (ex. up-full avant fix) a passé un relatif.
+cloudity_test_logs_dir_abs >/dev/null 2>&1 || true
 export CLOUDITY_TEST_LOGS_DIR CLOUDITY_TEST_RUN_ID
 echo "🧪 Tests unitaires / applicatifs (conteneurs Docker, même toolchain que la stack)..."
 cloudity_test_logs_summary_line
 
+CLOUDITY_WEB_TEST_TIMEOUT="${CLOUDITY_WEB_TEST_TIMEOUT:-25m}"
+# Pas de -it : Ctrl+C fiable avec tee/pipe, pas de blocage TTY.
 DOCKER_IT=""
-if [ -t 1 ]; then
-  DOCKER_IT="-it"
-fi
 export DOCKER_IT
+
+# Nettoyage des compose run si interruption pendant la suite de tests.
+_cloudity_test_interrupt() {
+  echo ""
+  echo "⚠️  Tests interrompus — arrêt des conteneurs *-run-*…"
+  # shellcheck source=scripts/dev/prune-compose-runs.sh
+  if [ -f "$ROOT/scripts/dev/prune-compose-runs.sh" ]; then
+    chmod +x "$ROOT/scripts/dev/prune-compose-runs.sh" 2>/dev/null || true
+    "$ROOT/scripts/dev/prune-compose-runs.sh" || true
+  fi
+  exit 130
+}
+trap _cloudity_test_interrupt INT TERM
 
 failed=0
 
@@ -76,10 +90,35 @@ else
 fi
 
 echo "  [cloudity-web]"
-if ! cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web \
-  sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test"; then
-  failed=1
+_web_test_cmd='chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh'
+# `timeout` ne peut pas invoquer une fonction bash (il cherche un binaire) —
+# on l’applique donc via un sous-shell qui re-source l’inc et appelle la fonction.
+if command -v timeout >/dev/null 2>&1; then
+  if ! timeout --foreground "${CLOUDITY_WEB_TEST_TIMEOUT}" \
+    env \
+      CLOUDITY_REPO_ROOT="$ROOT" \
+      CLOUDITY_TEST_LOGS_DIR="${CLOUDITY_TEST_LOGS_DIR:-}" \
+      CLOUDITY_TEST_RUN_ID="${CLOUDITY_TEST_RUN_ID:-}" \
+      DOCKER_IT="${DOCKER_IT:-}" \
+      CLOUDITY_WEB_TEST_CMD="$_web_test_cmd" \
+    bash -c '
+      set -euo pipefail
+      # shellcheck source=scripts/ci/test-log-capture.inc.sh
+      source "$CLOUDITY_REPO_ROOT/scripts/ci/test-log-capture.inc.sh"
+      cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$CLOUDITY_WEB_TEST_CMD"
+    '; then
+    failed=1
+  fi
+else
+  if ! cloudity_test_compose_run "phase1-unit/cloudity-web" cloudity-web sh -c "$_web_test_cmd"; then
+    failed=1
+  fi
 fi
+
+trap - INT TERM
+
+chmod +x scripts/dev/prune-compose-runs.sh 2>/dev/null || true
+"$ROOT/scripts/dev/prune-compose-runs.sh" || true
 
 cloudity_test_manifest_event "{\"event\":\"unit_tests_done\",\"exit_code\":${failed},\"at\":\"$(date -Iseconds)\"}"
 
@@ -90,6 +129,10 @@ CLOUDITY_TEST_RUN_ID="${CLOUDITY_TEST_RUN_ID:-$(basename "$CLOUDITY_TEST_LOGS_DI
 if [ "$failed" -ne 0 ]; then
   echo ""
   echo "❌ Échec tests unitaires — logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}"
+  chmod +x scripts/dev/up-failure-hint.sh 2>/dev/null || true
+  if [ -f "$ROOT/scripts/dev/up-failure-hint.sh" ]; then
+    "$ROOT/scripts/dev/up-failure-hint.sh" tests
+  fi
   exit 1
 fi
 

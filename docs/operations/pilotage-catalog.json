@@ -1,0 +1,2923 @@
+{
+  "version": 3,
+  "updatedAt": "2026-07-27",
+  "cycles": [
+    {
+      "id": "cycle-now",
+      "label": "À faire maintenant",
+      "description": "Priorités immédiates — commence par H14",
+      "itemIds": [
+        "H14",
+        "H19",
+        "H6b",
+        "H6c",
+        "H12",
+        "H15",
+        "H16",
+        "H18",
+        "H21",
+        "UI-DS-REMAIN",
+        "QA-MATRIX-01",
+        "DEPLOY-DNS-01",
+        "VAL-VAULT-BRANCH",
+        "SAMSUNG-REPLAY",
+        "COMPOSE-CONFIG-01",
+        "DRIVE-DESKTOP-01"
+      ]
+    },
+    {
+      "id": "cycle-mobile",
+      "label": "Mobile & OTA",
+      "description": "Flutter, auth, REL, Pass mobile",
+      "itemIds": [
+        "AUTH-PKG",
+        "E2E-CAL-TASKS",
+        "L2-PASS-EDIT",
+        "PASS-AUTOFILL-ANDROID",
+        "MP-03",
+        "REL-01",
+        "REL-02",
+        "REL-03",
+        "MOB-BAR-ALIGN",
+        "MAIL-MOB-DRAFT",
+        "PHOTOS-SYNC-STATE",
+        "QA-MOBILE-HOST",
+        "QA-MOBILE-E2E",
+        "APP-ADM-02"
+      ]
+    },
+    {
+      "id": "cycle-web-apps",
+      "label": "Apps web & UX",
+      "description": "UI-DS, Calendar, Drive, refactor, SYNC",
+      "itemIds": [
+        "UI-CAL",
+        "UI-HUB",
+        "UI-PHOTOS",
+        "MP-05",
+        "APP-05-OPEN",
+        "APP-06-OPEN",
+        "APP-07-OPEN",
+        "APP-08-OPEN",
+        "APP-10-OPEN",
+        "APP-02-SHARE",
+        "DRIVE-SHARE-QA",
+        "SEARCH-CROSS",
+        "REFACTOR-FE-01",
+        "REFACTOR-FE-02",
+        "REFACTOR-FE-03",
+        "REFACTOR-FE-04",
+        "SYNC-MAIL-SEARCH",
+        "SYNC-MAIL-CONTACTS",
+        "SYNC-MAIL-SCHEDULED",
+        "SYNC-FOLDER-STATE",
+        "MAIL-RULES-POLISH",
+        "APP-03"
+      ]
+    },
+    {
+      "id": "cycle-desktop-drive",
+      "label": "Desktop Drive sync",
+      "description": "Client sync dossier type Nextcloud — Linux/Windows/macOS + CLI",
+      "itemIds": [
+        "DRIVE-DESKTOP-01",
+        "DRIVE-DESKTOP-02",
+        "DRIVE-DESKTOP-03",
+        "DRIVE-DESKTOP-04",
+        "DRIVE-DESKTOP-05"
+      ]
+    },
+    {
+      "id": "cycle-mail-local",
+      "label": "Mail local / anti-spam",
+      "description": "Sans OVH/VPS — M7, alias local, AS",
+      "itemIds": [
+        "M7f",
+        "M7g",
+        "M7h",
+        "AS-1",
+        "AS-2",
+        "MAIL-ALIAS-05",
+        "MAIL-ALIAS-KEY-01",
+        "MAIL-ALIAS-04",
+        "QA-MAIL-MTA",
+        "MAIL-STOR-01",
+        "SYNC-ARCH-01",
+        "APP-01-OPEN",
+        "ENSUITE-3",
+        "ENSUITE-4"
+      ]
+    },
+    {
+      "id": "cycle-mail-prod",
+      "label": "Mail prod (pause)",
+      "description": "Ne pas toucher sans signal explicite",
+      "itemIds": [
+        "MAIL-PROD-PAUSE",
+        "MAIL-ALIAS-06",
+        "ENSUITE-6",
+        "ENSUITE-7",
+        "AS-3",
+        "C7-REAL",
+        "PROD-SECRETS-ROTATE",
+        "RELAY-SMTP-VPS"
+      ]
+    },
+    {
+      "id": "cycle-pass",
+      "label": "Pass (suite)",
+      "description": "L2/L3, Safari, autofill, QA Pass",
+      "itemIds": [
+        "L3-PQ-ENROLL",
+        "L3-PASSKEYS-UNLOCK",
+        "MP-08-SAFARI",
+        "QA-PASS-EXT",
+        "QA-PASS-VAULT-E2E",
+        "ENSUITE-5"
+      ]
+    },
+    {
+      "id": "cycle-preprod",
+      "label": "Pré-prod — revalidation",
+      "description": "Ordre fixe : tout revérifier avant prod complète (apps + HTTPS + DNS).",
+      "itemIds": [
+        "PREPROD-01",
+        "PREPROD-02",
+        "PREPROD-03",
+        "PREPROD-04",
+        "PREPROD-05",
+        "PREPROD-06",
+        "PREPROD-07",
+        "PREPROD-08",
+        "PREPROD-09",
+        "PREPROD-10"
+      ]
+    },
+    {
+      "id": "cycle-qa",
+      "label": "Qualité & tests",
+      "description": "QA-MATRIX, perf, barrières Q*",
+      "itemIds": [
+        "QA-PASS-EXT-MATRIX",
+        "QA-PERF",
+        "QA-BLOC-DRIVE",
+        "QA-BLOC-CONTACTS",
+        "QA-BLOC-ADMIN-OTA",
+        "Q4",
+        "Q7",
+        "PERF-CLI-04",
+        "PERF-CLI-05",
+        "QA-EMAIL-01",
+        "TR-06-METRICS",
+        "AS-4",
+        "PG-MAIL-P1",
+        "PG-MAIL-P2",
+        "PG-MAIL-P3"
+      ]
+    },
+    {
+      "id": "cycle-deploy",
+      "label": "Déploiement & infra",
+      "description": "Portainer, DNS, mTLS, homelab",
+      "itemIds": [
+        "DEPLOY-SUIVI-01",
+        "DEPLOY-DOC-01",
+        "DEPLOY-PORTAINER-02",
+        "DEPLOY-PR-01",
+        "ENSUITE-8",
+        "MTLS-STRICT",
+        "PG-SSL-VERIFY-FULL",
+        "REDIS-TLS-CLIENTS",
+        "JWT-EDDSA-C",
+        "HOMELAB-H1",
+        "PHASE0-DBPIN",
+        "PHASE0-CONTRACTS",
+        "BACKUP-OFFSITE",
+        "PROD-VPS-DOC"
+      ]
+    },
+    {
+      "id": "cycle-admin-ota",
+      "label": "Admin / mises à jour",
+      "description": "ADM-UPDATE, OTA, migrations admin",
+      "itemIds": [
+        "ADM-UPDATE-01",
+        "ADM-UPDATE-1",
+        "ADM-UPDATE-2",
+        "ADM-UPDATE-3",
+        "ADM-UPDATE-4",
+        "OTA-MOBILE-PAGE",
+        "MIG-ADMIN-PANEL",
+        "APP-ADM-01"
+      ]
+    },
+    {
+      "id": "cycle-done",
+      "label": "Terminées (référence)",
+      "description": "Livrables majeurs déjà OK",
+      "itemIds": [
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H5b",
+        "H5c",
+        "H5d",
+        "H6",
+        "H6d",
+        "H7",
+        "H8",
+        "H9",
+        "H10",
+        "H11",
+        "H13",
+        "H17",
+        "H20",
+        "DEPLOY-ENV-01",
+        "PILOTAGE-01",
+        "PREFS-USER",
+        "CRASH-MOBILE",
+        "PORT-ORG-01",
+        "MAIL-ALIAS-01",
+        "MAIL-ALIAS-02",
+        "MAIL-ALIAS-03",
+        "AS-0",
+        "MP-04",
+        "MP-06",
+        "MP-07",
+        "PERF-CLI-01",
+        "PERF-CLI-02",
+        "PERF-CLI-03",
+        "TEST-AUTH-01",
+        "M7a",
+        "M7b",
+        "M7c",
+        "M7d",
+        "M7e"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "H14",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "H14 — Gateway mobile (LAN → HTTPS)",
+      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook détaillé : docs/operations/H14-GATEWAY-MOBILE.md\nDéploiement VPS (Portainer+NPM comme Nextcloud) : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md\n\nContextes : (A) local PC · (B) LAN téléphone · (C) HTTPS VPS.\nChez toi aujourd’hui : B est souvent déjà OK ; C = reste réel pour OK final.",
+      "expected": "PARTIEL OK si LAN smoke vert. OK final seulement si login mobile HTTPS (ou décision explicite « LAN only » documentée en note).",
+      "status": "partial",
+      "order": 1,
+      "checklistLabels": [
+        "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
+        "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
+        "3a. Smoke LAN : curl /health + CORS + login téléphone Wi‑Fi",
+        "3b. HTTPS VPS : DNS + Portainer env + NPM Proxy Host api.* + login téléphone (ou problème ouvert)"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Où suis-je ?",
+          "body": "Local/LAN = make up sur le PC. Prod = Portainer+NPM sur le VPS (comme Nextcloud). Ne mélange pas les deux."
+        },
+        {
+          "title": "Critère 1 — sync-public-urls",
+          "body": "Sur le PC : édite CLOUDITY_PUBLIC_HOST (+ PROTO) dans .env → make sync-public-urls → vérifie grep VITE_API_URL et CLOUDITY_MOBILE_GATEWAY_URL. Doc : H14-GATEWAY-MOBILE.md §critère 1."
+        },
+        {
+          "title": "Critère 2 — app mobile",
+          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass). L’URL login doit être l’IP LAN ou https://api…, jamais localhost depuis le téléphone."
+        },
+        {
+          "title": "Critère 3a — smoke LAN",
+          "body": "curl http://<IP>:6002/health → healthy. OPTIONS /auth/login avec Origin LAN → Allow-Origin. Login réel sur le téléphone."
+        },
+        {
+          "title": "Critère 3b — HTTPS VPS",
+          "body": "make env-prod + portainer-env → colle Env dans Portainer. NPM : api.cloudity.<dom> → cloudity-api-gateway:8000 Force SSL. Rebuild mobile avec https://api…. Doc : DEPLOY-PORTAINER-NPM-CLOUDITY.md."
+        },
+        {
+          "title": "Décisions Pilotage",
+          "body": "LAN OK sans VPS → Partiel. Bug CORS/TLS → Signaler un problème + log. HTTPS 4 apps OK → OK. Pause VPS → Plus tard."
+        }
+      ],
+      "docLinks": [
+        "docs/operations/H14-GATEWAY-MOBILE.md",
+        "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
+        "docs/operations/ENV-GENERATION.md"
+      ],
+      "surfaceKeys": [
+        "backend",
+        "frontend_web",
+        "backoffice",
+        "mobile"
+      ]
+    },
+    {
+      "id": "H19",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "H19 — Auth mobile sans duplication",
+      "description": "Extraire SessionStore / LoginScreen dans cloudity_shared (au lieu de copies par app).",
+      "expected": "Au moins 2 apps migrées ; tests flutter verts.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Module partagé créé",
+        "2 apps migrées",
+        "flutter test OK"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H6b",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "H6b — Auth suite mobile (broker)",
+      "description": "Broker Android OK ; iOS Keychain group + AccountManager natif.",
+      "expected": "Partage de session inter-apps sur iOS + Android.",
+      "status": "partial",
+      "order": 3,
+      "checklistLabels": [
+        "Broker Android",
+        "iOS Keychain / AccountManager"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H6c",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "H6c — Sécurité mobile transverse",
+      "description": "Checklist MOBILE-SECURITY ; reste sanitization erreurs Mail + TLS prod.",
+      "expected": "Messages d’erreur sains + TLS prod téléphone.",
+      "status": "partial",
+      "order": 4,
+      "checklistLabels": [
+        "Checklist security",
+        "Sanitization Mail",
+        "TLS prod"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H12",
+      "cycleId": "cycle-now",
+      "section": "Qualité",
+      "label": "H12 — Tests frontend transverse",
+      "description": "Vitest Notes/Settings OK ; reste E2E Playwright vault / mail sync erreur.",
+      "expected": "E2E vault + mail sync erreur verts.",
+      "status": "partial",
+      "order": 5,
+      "checklistLabels": [
+        "E2E vault",
+        "E2E mail sync erreur"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H15",
+      "cycleId": "cycle-now",
+      "section": "Photos",
+      "label": "H15 — Backup galerie robuste",
+      "description": "Matching cloud↔local livré ; reste E2E cross-appareil Samsung.",
+      "expected": "make test-mobile-suite / E2E Samsung OK.",
+      "status": "partial",
+      "order": 6,
+      "checklistLabels": [
+        "Matching fingerprints",
+        "E2E Samsung"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H16",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "H16 — Previews fichiers + thème",
+      "description": "Preview images/texte OK ; reste PDF/Office mobile + preview Photos renforcée.",
+      "expected": "PDF/Office utilisables sur appareil.",
+      "status": "partial",
+      "order": 7,
+      "checklistLabels": [
+        "Preview Photos renforcée",
+        "PDF/Office mobile"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H18",
+      "cycleId": "cycle-now",
+      "section": "Admin mobile",
+      "label": "H18 — admin_app production-ready",
+      "description": "Gateway dart-define ; login admin ; 2FA à venir ; tenants.",
+      "expected": "App admin mobile utilisable en préprod avec 2FA.",
+      "status": "partial",
+      "order": 8,
+      "checklistLabels": [
+        "Login admin",
+        "2FA",
+        "Liste tenants"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H21",
+      "cycleId": "cycle-now",
+      "section": "UI",
+      "label": "H21 — Drawer suite type Google",
+      "description": "SuiteDrawerScaffold MVP ; migrer Mail/Drive/Photos drawers.",
+      "expected": "3 apps sur le drawer partagé.",
+      "status": "partial",
+      "order": 9,
+      "checklistLabels": [
+        "Mail drawer",
+        "Drive drawer",
+        "Photos drawer"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "UI-DS-REMAIN",
+      "cycleId": "cycle-now",
+      "section": "UI",
+      "label": "@cloudity/ui — Calendar / Hub / Photos",
+      "description": "Tâches+Contacts OK ; reste Calendar, Hub, Photos.",
+      "expected": "Pages migrées ResponsivePage / tokens.",
+      "status": "partial",
+      "order": 10,
+      "checklistLabels": [
+        "Calendar",
+        "Hub",
+        "Photos"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-MATRIX-01",
+      "cycleId": "cycle-now",
+      "section": "QA",
+      "label": "QA-MATRIX — passe manuelle complète",
+      "description": "Couches ☐ : Pass ext, mobile suite, perf, MTA local, blocs Drive/Contacts.",
+      "expected": "Matrice documentée dans reports/ ou TESTS.md.",
+      "status": "partial",
+      "order": 11,
+      "checklistLabels": [
+        "Pass extension",
+        "Mobile suite",
+        "Perf",
+        "MTA local"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DEPLOY-DNS-01",
+      "cycleId": "cycle-now",
+      "section": "Déploiement",
+      "label": "DEPLOY-DNS-01 — DNS + NPM",
+      "description": "Quand publication : A/AAAA + Proxy Hosts + .env.prod.",
+      "expected": "https://api.cloudity.<dom> et https://cloudity.<dom> OK.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "DNS",
+        "NPM TLS",
+        "portainer-env collé"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "VAL-VAULT-BRANCH",
+      "cycleId": "cycle-now",
+      "section": "Validation",
+      "label": "Checklist vault/drive branche",
+      "description": "Drive vault PIN, upload, quota, titres admin, ports, merge dev.",
+      "expected": "Toutes cases validation manuelle TODOS cochées.",
+      "status": "open",
+      "order": 13,
+      "checklistLabels": [
+        "Vault PIN",
+        "Upload",
+        "Quota",
+        "Merge dev"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SAMSUNG-REPLAY",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "Rejouer suite Samsung",
+      "description": "Quand ADB libre : CLOUDITY_DEVICE_ID=… make test-mobile-suite.",
+      "expected": "Suite mobile verte sur appareil.",
+      "status": "open",
+      "order": 14,
+      "checklistLabels": [
+        "ADB device",
+        "test-mobile-suite"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "COMPOSE-CONFIG-01",
+      "cycleId": "cycle-now",
+      "section": "Infra",
+      "label": "Config compose unifiée",
+      "description": "Overlays dev/https/preprod/prod sans duplication.",
+      "expected": "Une convention documentée + compose propres.",
+      "status": "open",
+      "order": 15,
+      "checklistLabels": [
+        "Overlays documentés",
+        "Pas de duplication"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "AUTH-PKG",
+      "cycleId": "cycle-mobile",
+      "section": "Auth",
+      "label": "Auth centralisée package",
+      "description": "Socle encore copié ; cloudity_suite_shell ou tout dans cloudity_shared.",
+      "expected": "Une seule base auth partagée.",
+      "status": "partial",
+      "order": 1,
+      "checklistLabels": [
+        "Package défini",
+        "Apps branchées"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "E2E-CAL-TASKS",
+      "cycleId": "cycle-mobile",
+      "section": "E2E",
+      "label": "Réécrire twofa_flow clés storage",
+      "description": "integration_test utilise encore cloudity_mail_* — réécrire par produit.",
+      "expected": "Clés storage correctes par app.",
+      "status": "partial",
+      "order": 2,
+      "checklistLabels": [
+        "Clés par produit",
+        "Test vert"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "L2-PASS-EDIT",
+      "cycleId": "cycle-mobile",
+      "section": "Pass",
+      "label": "mobile/pass édition",
+      "description": "CRUD items, générateur, sync optimiste, conflits.",
+      "expected": "Édition Pass mobile opérationnelle.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "CRUD",
+        "Générateur",
+        "Sync"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PASS-AUTOFILL-ANDROID",
+      "cycleId": "cycle-mobile",
+      "section": "Pass",
+      "label": "Autofill Android Pass",
+      "description": "Service Autofill OS pour Pass.",
+      "expected": "Remplissage système Android.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Service Autofill",
+        "Test device"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MP-03",
+      "cycleId": "cycle-mobile",
+      "section": "Desktop",
+      "label": "Linux target mobile/mail",
+      "description": "flutter create --platforms=linux pour Mail.",
+      "expected": "Build linux Mail OK.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Scaffold linux",
+        "Build OK"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REL-01",
+      "cycleId": "cycle-mobile",
+      "section": "OTA",
+      "label": "REL-01 — version.json + APK",
+      "description": "Canal HTTPS version.json + APK signés par app.",
+      "expected": "4 apps ont un manifeste publié.",
+      "status": "open",
+      "order": 6,
+      "checklistLabels": [
+        "Manifestes",
+        "Hébergement HTTPS"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REL-02",
+      "cycleId": "cycle-mobile",
+      "section": "OTA",
+      "label": "REL-02 — CI publish APK",
+      "description": "CI/script publication APK + SHA256.",
+      "expected": "Pipeline documenté et testé.",
+      "status": "open",
+      "order": 7,
+      "checklistLabels": [
+        "CI/script",
+        "SHA256"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REL-03",
+      "cycleId": "cycle-mobile",
+      "section": "OTA",
+      "label": "REL-03 — UI update in-app",
+      "description": "PackageInstaller + tests 2 constructeurs.",
+      "expected": "Mise à jour depuis l’app.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "UI update",
+        "2 devices"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MOB-BAR-ALIGN",
+      "cycleId": "cycle-mobile",
+      "section": "UX",
+      "label": "Aligner barre mobile (loupe/notif)",
+      "description": "Parité web GlobalSearchPalette.",
+      "expected": "Barre homogène Mail/Drive/Photos.",
+      "status": "open",
+      "order": 9,
+      "checklistLabels": [
+        "Loupe",
+        "Notifs"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-MOB-DRAFT",
+      "cycleId": "cycle-mobile",
+      "section": "Mail",
+      "label": "Brouillon serveur IMAP",
+      "description": "SYNC-BACKLOG — sync brouillons côté serveur.",
+      "expected": "Brouillons persistés IMAP.",
+      "status": "open",
+      "order": 10,
+      "checklistLabels": [
+        "API brouillon",
+        "UI mobile"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PHOTOS-SYNC-STATE",
+      "cycleId": "cycle-mobile",
+      "section": "Photos",
+      "label": "État sync par photo",
+      "description": "Badge uploadé / attente / erreur.",
+      "expected": "Visibilité sync dans Cet appareil.",
+      "status": "open",
+      "order": 11,
+      "checklistLabels": [
+        "Badges",
+        "Persist état"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-MOBILE-HOST",
+      "cycleId": "cycle-mobile",
+      "section": "QA",
+      "label": "make test-mobile-suite (hôte)",
+      "description": "Flutter tests hôte toutes apps.",
+      "expected": "Suite hôte verte.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "test-mobile-suite"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-MOBILE-E2E",
+      "cycleId": "cycle-mobile",
+      "section": "QA",
+      "label": "E2E device Samsung",
+      "description": "integration_test ADB.",
+      "expected": "E2E device verts.",
+      "status": "open",
+      "order": 13,
+      "checklistLabels": [
+        "ADB",
+        "E2E"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-ADM-02",
+      "cycleId": "cycle-mobile",
+      "section": "ROADMAP",
+      "label": "ADM-02 admin mobile",
+      "description": "App admin mobile opérationnelle.",
+      "expected": "Parcours admin mobile complet.",
+      "status": "open",
+      "order": 14,
+      "checklistLabels": [
+        "Login",
+        "Ops de base"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "UI-CAL",
+      "cycleId": "cycle-web-apps",
+      "section": "UI",
+      "label": "Calendar → @cloudity/ui",
+      "description": "Migration ResponsivePage / tokens.",
+      "expected": "Calendar sur design system.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "UI-HUB",
+      "cycleId": "cycle-web-apps",
+      "section": "UI",
+      "label": "Hub → @cloudity/ui",
+      "description": "Migration AppHub.",
+      "expected": "Hub sur design system.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "UI-PHOTOS",
+      "cycleId": "cycle-web-apps",
+      "section": "UI",
+      "label": "Photos → @cloudity/ui (reste)",
+      "description": "Compléter migration Photos.",
+      "expected": "Photos aligné ui.",
+      "status": "partial",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MP-05",
+      "cycleId": "cycle-web-apps",
+      "section": "Calendar",
+      "label": "calendar-service + page web",
+      "description": "Backend events + CalDAV/iCal (5–7 j) avant mobile Calendar.",
+      "expected": "API + UI Calendar MVP.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Migrations",
+        "REST",
+        "UI"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-05-OPEN",
+      "cycleId": "cycle-web-apps",
+      "section": "ROADMAP",
+      "label": "APP-05 Calendar rappels/invitations",
+      "description": "Au-delà du polling MVP.",
+      "expected": "Rappels + invitations.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-06-OPEN",
+      "cycleId": "cycle-web-apps",
+      "section": "ROADMAP",
+      "label": "APP-06 Notes cartes/couleurs",
+      "description": "Features Notes au-delà CRUD.",
+      "expected": "Cartes / couleurs / épinglage.",
+      "status": "open",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-07-OPEN",
+      "cycleId": "cycle-web-apps",
+      "section": "ROADMAP",
+      "label": "APP-07 Tasks × Calendar",
+      "description": "Sous-tâches + intégration Calendar.",
+      "expected": "Parcours Tasks↔Calendar.",
+      "status": "open",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-08-OPEN",
+      "cycleId": "cycle-web-apps",
+      "section": "ROADMAP",
+      "label": "APP-08 Contacts vCard/groupes",
+      "description": "Import/export + liaison Mail.",
+      "expected": "Contacts riches.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-10-OPEN",
+      "cycleId": "cycle-web-apps",
+      "section": "ROADMAP",
+      "label": "APP-10 Hub recherche globale",
+      "description": "Recherche cross-apps.",
+      "expected": "Palette Hub multi-apps.",
+      "status": "open",
+      "order": 9,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-02-SHARE",
+      "cycleId": "cycle-web-apps",
+      "section": "Drive",
+      "label": "Drive partage + PDF.js",
+      "description": "Partage, zip, PDF.js.",
+      "expected": "Partage Drive utilisable.",
+      "status": "open",
+      "order": 10,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-SHARE-QA",
+      "cycleId": "cycle-web-apps",
+      "section": "QA",
+      "label": "Drive auth partagé E2E",
+      "description": "Lien email, PIN dossier, 2FA fichier.",
+      "expected": "E2E partage verts.",
+      "status": "open",
+      "order": 11,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SEARCH-CROSS",
+      "cycleId": "cycle-web-apps",
+      "section": "Recherche",
+      "label": "Recherche API cross-apps",
+      "description": "Mail/Pass au-delà Drive ?q=.",
+      "expected": "Recherche multi-produits.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REFACTOR-FE-01",
+      "cycleId": "cycle-web-apps",
+      "section": "Refactor",
+      "label": "api.ts → src/api/<domaine>",
+      "description": "Découpe mécanique prioritaire.",
+      "expected": "Modules api/* sans régression.",
+      "status": "open",
+      "order": 13,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REFACTOR-FE-02",
+      "cycleId": "cycle-web-apps",
+      "section": "Refactor",
+      "label": "MailPage.tsx split",
+      "description": "Panels + hooks après stabilisation.",
+      "expected": "Fichiers Mail découpés.",
+      "status": "open",
+      "order": 14,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REFACTOR-FE-03",
+      "cycleId": "cycle-web-apps",
+      "section": "Refactor",
+      "label": "DrivePage.tsx split",
+      "description": "Browser/breadcrumbs/menu/upload.",
+      "expected": "Drive découpé.",
+      "status": "open",
+      "order": 15,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REFACTOR-FE-04",
+      "cycleId": "cycle-web-apps",
+      "section": "Refactor",
+      "label": "DocumentEditorPage split",
+      "description": "office/word|spreadsheet|presentation.",
+      "expected": "Éditeurs découpés.",
+      "status": "open",
+      "order": 16,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SYNC-MAIL-SEARCH",
+      "cycleId": "cycle-web-apps",
+      "section": "Mail",
+      "label": "Recherche mail avancée",
+      "description": "SYNC §9 — filtres type Gmail/Proton.",
+      "expected": "Recherche mail avancée UI.",
+      "status": "open",
+      "order": 17,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SYNC-MAIL-CONTACTS",
+      "cycleId": "cycle-web-apps",
+      "section": "Mail",
+      "label": "Mail × Contacts",
+      "description": "SYNC §10 — parcours liés.",
+      "expected": "Ouverture fiche depuis message enrichie.",
+      "status": "open",
+      "order": 18,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SYNC-MAIL-SCHEDULED",
+      "cycleId": "cycle-web-apps",
+      "section": "Mail",
+      "label": "Dossier Programmés",
+      "description": "SYNC §12 — envois planifiés.",
+      "expected": "UI + worker envoi.",
+      "status": "open",
+      "order": 19,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SYNC-FOLDER-STATE",
+      "cycleId": "cycle-web-apps",
+      "section": "Mail",
+      "label": "État sync par dossier UI",
+      "description": "OK/partiel/IMAP inconnu + liaison manuelle.",
+      "expected": "Sidebar dossiers claire.",
+      "status": "open",
+      "order": 20,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-RULES-POLISH",
+      "cycleId": "cycle-web-apps",
+      "section": "Mail",
+      "label": "Règles tri — polish E2E",
+      "description": "Conditions combinées + rétroactif.",
+      "expected": "E2E règles verts.",
+      "status": "partial",
+      "order": 21,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-03",
+      "cycleId": "cycle-web-apps",
+      "section": "Office",
+      "label": "APP-03 Office en cours",
+      "description": "Éditeurs docs/tableur/slides.",
+      "expected": "Office utilisable au quotidien.",
+      "status": "partial",
+      "order": 22,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "M7f",
+      "cycleId": "cycle-mail-local",
+      "section": "Anti-spam",
+      "label": "M7f — Rspamd MTA local",
+      "description": "deploy/mail-mta + Maddy ; SPF/DKIM prod = pause.",
+      "expected": "Spam filtré en local de façon fiable.",
+      "status": "partial",
+      "order": 1,
+      "checklistLabels": [
+        "Rspamd local",
+        "Doc ops"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "M7g",
+      "cycleId": "cycle-mail-local",
+      "section": "Anti-spam",
+      "label": "M7g — Règles critères date/corps",
+      "description": "CRUD+apply OK ; critères date/corps ☐.",
+      "expected": "Critères date/corps supportés.",
+      "status": "partial",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "M7h",
+      "cycleId": "cycle-mail-local",
+      "section": "Anti-spam",
+      "label": "M7h — Rate limits gateway AS-2",
+      "description": "Redis ratelimit: par route.",
+      "expected": "Limites granulaires actives.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "AS-1",
+      "cycleId": "cycle-mail-local",
+      "section": "AS",
+      "label": "AS-1 — Stack MTA + Rspamd",
+      "description": "Local OK ; Postfix/Dovecot prod = pause.",
+      "expected": "Stack anti-spam locale complète.",
+      "status": "partial",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "AS-2",
+      "cycleId": "cycle-mail-local",
+      "section": "AS",
+      "label": "AS-2 — Rate limits granulaires",
+      "description": "Par route login/send…",
+      "expected": "AS-2 livré.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-ALIAS-05",
+      "cycleId": "cycle-mail-local",
+      "section": "Alias",
+      "label": "MAIL-ALIAS-05 — MTA alias-resolve",
+      "description": "Lookup OK ; hardening inject local.",
+      "expected": "Alias locaux fiables.",
+      "status": "partial",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-ALIAS-KEY-01",
+      "cycleId": "cycle-mail-local",
+      "section": "Alias",
+      "label": "MAIL-ALIAS-KEY-01 — chiffrement Go",
+      "description": "Brancher ALIAS_ENCRYPTION_KEY.",
+      "expected": "Colonnes alias chiffrées.",
+      "status": "open",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-ALIAS-04",
+      "cycleId": "cycle-mail-local",
+      "section": "Alias",
+      "label": "MAIL-ALIAS-04 — Alias pour ce site",
+      "description": "Localpart depuis hostname (ext/Pass).",
+      "expected": "Bouton création rapide.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-MAIL-MTA",
+      "cycleId": "cycle-mail-local",
+      "section": "QA",
+      "label": "make test-mail-mta-local",
+      "description": "Régression Maddy.",
+      "expected": "Smoke MTA vert.",
+      "status": "open",
+      "order": 9,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-STOR-01",
+      "cycleId": "cycle-mail-local",
+      "section": "Stockage",
+      "label": "Cache mail PG + rétention",
+      "description": "MAIL-STOCKAGE-CACHE.md.",
+      "expected": "Politique rétention appliquée.",
+      "status": "open",
+      "order": 10,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "SYNC-ARCH-01",
+      "cycleId": "cycle-mail-local",
+      "section": "SYNC",
+      "label": "Archivage longue durée PG",
+      "description": "Corps+PJ durable + quotas.",
+      "expected": "Archivage opérationnel.",
+      "status": "open",
+      "order": 11,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-01-OPEN",
+      "cycleId": "cycle-mail-local",
+      "section": "ROADMAP",
+      "label": "APP-01 Mail full-text étendu",
+      "description": "Au-delà fenêtre IMAP ~300.",
+      "expected": "Recherche full-text mail.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-3",
+      "cycleId": "cycle-mail-local",
+      "section": "ENSUITE",
+      "label": "MTA alias auto-hébergé local",
+      "description": "C7 réel = pause prod.",
+      "expected": "Stack locale alias OK.",
+      "status": "partial",
+      "order": 13,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-4",
+      "cycleId": "cycle-mail-local",
+      "section": "ENSUITE",
+      "label": "Admin Domaines C1–C7",
+      "description": "C1–C6 OK ; C7 livraison réelle pause.",
+      "expected": "Checklist domaines locale verte.",
+      "status": "partial",
+      "order": 14,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-PROD-PAUSE",
+      "cycleId": "cycle-mail-prod",
+      "section": "Pause",
+      "label": "Mail prod OVH / VPS / Portainer",
+      "description": "NE PAS TOUCHER jusqu’à signal explicite.",
+      "expected": "Reprise uniquement sur demande.",
+      "status": "deferred",
+      "order": 1,
+      "checklistLabels": [
+        "Signal utilisateur « retour mail »"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MAIL-ALIAS-06",
+      "cycleId": "cycle-mail-prod",
+      "section": "Alias",
+      "label": "MAIL-ALIAS-06 — From + DKIM/SPF",
+      "description": "Cohérence DNS alias.* en prod.",
+      "expected": "Envoi From alias signé.",
+      "status": "deferred",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-6",
+      "cycleId": "cycle-mail-prod",
+      "section": "ENSUITE",
+      "label": "DNS + Maddy prod",
+      "description": "MX/SPF/DKIM VPS.",
+      "expected": "Mail internet reçu.",
+      "status": "deferred",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-7",
+      "cycleId": "cycle-mail-prod",
+      "section": "ENSUITE",
+      "label": "Registry + Portainer mail",
+      "description": "GHCR webhook redeploy.",
+      "expected": "Stack mail VPS à jour.",
+      "status": "deferred",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "AS-3",
+      "cycleId": "cycle-mail-prod",
+      "section": "AS",
+      "label": "AS-3 — WAF / fail2ban",
+      "description": "ModSecurity + fail2ban hôte.",
+      "expected": "Edge durci.",
+      "status": "deferred",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "C7-REAL",
+      "cycleId": "cycle-mail-prod",
+      "section": "Domaines",
+      "label": "C7 livraison réelle",
+      "description": "IMAP/redirection fournisseur.",
+      "expected": "C7 coché.",
+      "status": "deferred",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PROD-SECRETS-ROTATE",
+      "cycleId": "cycle-mail-prod",
+      "section": "Secrets",
+      "label": "Régénérer secrets avant VPS mail",
+      "description": "MTA_INTERNAL_TOKEN, clés alias/mail.",
+      "expected": "Secrets frais dans Portainer.",
+      "status": "deferred",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "RELAY-SMTP-VPS",
+      "cycleId": "cycle-mail-prod",
+      "section": "SMTP",
+      "label": "RELAY_SMTP_* VPS",
+      "description": "Relais SMTP prod.",
+      "expected": "Envoi sortant prod OK.",
+      "status": "deferred",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "L3-PQ-ENROLL",
+      "cycleId": "cycle-pass",
+      "section": "L3",
+      "label": "Enrôlement hybride PQ",
+      "description": "X25519+ML-KEM EnvelopeV2.",
+      "expected": "Migration lazy v2.",
+      "status": "deferred",
+      "order": 1,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "L3-PASSKEYS-UNLOCK",
+      "cycleId": "cycle-pass",
+      "section": "L3",
+      "label": "Passkeys déverrouillage Pass",
+      "description": "Aligné WEBAUTHN-PLAN.",
+      "expected": "Unlock Pass via passkey.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MP-08-SAFARI",
+      "cycleId": "cycle-pass",
+      "section": "MP-08",
+      "label": "Safari wrapper Pass",
+      "description": "Xcode wrapper (Firefox OK).",
+      "expected": "Build Safari documenté.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-PASS-EXT",
+      "cycleId": "cycle-pass",
+      "section": "QA",
+      "label": "make test-pass-extension",
+      "description": "Case matrice ☐ (tests existent).",
+      "expected": "Revu documenté vert.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-PASS-VAULT-E2E",
+      "cycleId": "cycle-pass",
+      "section": "QA",
+      "label": "E2E rotation PIN vault",
+      "description": "Playwright vault.",
+      "expected": "E2E PIN vert.",
+      "status": "partial",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-5",
+      "cycleId": "cycle-pass",
+      "section": "ENSUITE",
+      "label": "J8 Pass / extension suite",
+      "description": "Icônes/Firefox faits ; Safari reste.",
+      "expected": "Suite Pass navigateur complète.",
+      "status": "partial",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-PASS-EXT-MATRIX",
+      "cycleId": "cycle-qa",
+      "section": "QA-MATRIX",
+      "label": "Extension Pass (matrice)",
+      "description": "make test-pass-extension + noter rapport.",
+      "expected": "Case matrice ☑.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-PERF",
+      "cycleId": "cycle-qa",
+      "section": "QA-MATRIX",
+      "label": "Perf benchmark",
+      "description": "make perf-benchmark / -quick.",
+      "expected": "REPORT.md généré.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-BLOC-DRIVE",
+      "cycleId": "cycle-qa",
+      "section": "QA blocs",
+      "label": "Drive/Photos E2E",
+      "description": "Playwright upload/vault.",
+      "expected": "E2E Drive/Photos.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-BLOC-CONTACTS",
+      "cycleId": "cycle-qa",
+      "section": "QA blocs",
+      "label": "Contacts/Tâches Playwright",
+      "description": "CRUD E2E.",
+      "expected": "E2E verts.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-BLOC-ADMIN-OTA",
+      "cycleId": "cycle-qa",
+      "section": "QA blocs",
+      "label": "Admin OTA manuel",
+      "description": "Manifeste + publish-mobile-manifest.",
+      "expected": "Checklist OTA manuelle.",
+      "status": "partial",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "Q4",
+      "cycleId": "cycle-qa",
+      "section": "Barrière",
+      "label": "Q4 — GOSEC_BLOCKING",
+      "description": "Activer blocking après vert complet.",
+      "expected": "GOSEC_BLOCKING=1 en CI.",
+      "status": "partial",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "Q7",
+      "cycleId": "cycle-qa",
+      "section": "Barrière",
+      "label": "Q7 — Perf budgets loadavg",
+      "description": "LOADAVG après grosse batterie.",
+      "expected": "Budgets stables.",
+      "status": "partial",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PERF-CLI-04",
+      "cycleId": "cycle-qa",
+      "section": "PERF",
+      "label": "Pré-commit soft-fail budgets",
+      "description": "Hook warning make perf-budgets.",
+      "expected": "Hook en place.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PERF-CLI-05",
+      "cycleId": "cycle-qa",
+      "section": "PERF",
+      "label": "Ingestion CI perf",
+      "description": "POST /admin/performance/pipeline-run.",
+      "expected": "Historique CI perf.",
+      "status": "open",
+      "order": 9,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "QA-EMAIL-01",
+      "cycleId": "cycle-qa",
+      "section": "Ops",
+      "label": "make progress-recap + email",
+      "description": "PROGRESS_EMAIL_* .",
+      "expected": "Récap auto.",
+      "status": "open",
+      "order": 10,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "TR-06-METRICS",
+      "cycleId": "cycle-qa",
+      "section": "Obs",
+      "label": "Métriques p95 par service",
+      "description": "Historisation admin.",
+      "expected": "Budgets p95 visibles.",
+      "status": "open",
+      "order": 11,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "AS-4",
+      "cycleId": "cycle-qa",
+      "section": "AS",
+      "label": "Obs décisions anti-abus",
+      "description": "Compteurs (pas Grafana avant compose).",
+      "expected": "Compteurs exposés.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PG-MAIL-P1",
+      "cycleId": "cycle-qa",
+      "section": "Postgres×Mail",
+      "label": "P1 — inbox après sync",
+      "description": "Confirmer messages post-sync.",
+      "expected": "Inbox non vide.",
+      "status": "open",
+      "order": 13,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PG-MAIL-P2",
+      "cycleId": "cycle-qa",
+      "section": "Postgres×Mail",
+      "label": "P2 — compter FATAL",
+      "description": "1–2/rafale = bruit.",
+      "expected": "Mesure documentée.",
+      "status": "open",
+      "order": 14,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PG-MAIL-P3",
+      "cycleId": "cycle-qa",
+      "section": "Postgres×Mail",
+      "label": "P3 — espacer sync auto",
+      "description": "GlobalMailSyncWatcher si gênant.",
+      "expected": "Moins de FATAL.",
+      "status": "open",
+      "order": 15,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DEPLOY-SUIVI-01",
+      "cycleId": "cycle-deploy",
+      "section": "Release",
+      "label": "DEPLOY-SUIVI-01 — Phases A→C",
+      "description": "Local → CI → Portainer.",
+      "expected": "Phases cochées sur VPS.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DEPLOY-DOC-01",
+      "cycleId": "cycle-deploy",
+      "section": "Release",
+      "label": "DEPLOY-DOC-01 — Templates compose",
+      "description": "infra/identity/web/mail/pass.",
+      "expected": "Templates versionnés.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DEPLOY-PORTAINER-02",
+      "cycleId": "cycle-deploy",
+      "section": "Release",
+      "label": "DEPLOY-PORTAINER-02 — Update GHCR",
+      "description": "Pull tag + redeploy.",
+      "expected": "Procédure testée.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DEPLOY-PR-01",
+      "cycleId": "cycle-deploy",
+      "section": "Release",
+      "label": "DEPLOY-PR-01 — PR → dev → main",
+      "description": "Après tests verts.",
+      "expected": "Branche mergée.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ENSUITE-8",
+      "cycleId": "cycle-deploy",
+      "section": "Desktop",
+      "label": "Linux desktop stores",
+      "description": "DISTRIBUTION-LINUX-DESKTOP.md.",
+      "expected": "Canal desktop documenté.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MTLS-STRICT",
+      "cycleId": "cycle-deploy",
+      "section": "Sécu",
+      "label": "MTLS_MODE=strict cascade",
+      "description": "mail-directory puis autres.",
+      "expected": "mTLS strict OK.",
+      "status": "open",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PG-SSL-VERIFY-FULL",
+      "cycleId": "cycle-deploy",
+      "section": "Sécu",
+      "label": "Postgres sslmode=verify-full",
+      "description": "Certs clients par service.",
+      "expected": "verify-full en préprod.",
+      "status": "open",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "REDIS-TLS-CLIENTS",
+      "cycleId": "cycle-deploy",
+      "section": "Sécu",
+      "label": "Redis tls-auth-clients",
+      "description": "Cert client go-redis.",
+      "expected": "Redis TLS clients.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "JWT-EDDSA-C",
+      "cycleId": "cycle-deploy",
+      "section": "Crypto",
+      "label": "JWT EdDSA Phase C",
+      "description": "Drop RS256 après expiration refresh.",
+      "expected": "EdDSA only.",
+      "status": "open",
+      "order": 9,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "HOMELAB-H1",
+      "cycleId": "cycle-deploy",
+      "section": "Homelab",
+      "label": "H1 RPi/Headscale avant prod",
+      "description": "Bloquant Q15=A pour VPS public.",
+      "expected": "Homelab validé.",
+      "status": "open",
+      "order": 10,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PHASE0-DBPIN",
+      "cycleId": "cycle-deploy",
+      "section": "Multi-repo",
+      "label": "dbpin pilote drive-service",
+      "description": "Migrer vers pkg partagé.",
+      "expected": "drive-service sur dbpin partagé.",
+      "status": "open",
+      "order": 11,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PHASE0-CONTRACTS",
+      "cycleId": "cycle-deploy",
+      "section": "Multi-repo",
+      "label": "OpenAPI cloudity-api-contracts",
+      "description": "Esquisse docs/.",
+      "expected": "Contrats versionnés.",
+      "status": "open",
+      "order": 12,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "BACKUP-OFFSITE",
+      "cycleId": "cycle-deploy",
+      "section": "Backup",
+      "label": "POC backup offsite",
+      "description": "Après Mail/Photos/Pass stables.",
+      "expected": "Backup testé.",
+      "status": "deferred",
+      "order": 13,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PROD-VPS-DOC",
+      "cycleId": "cycle-deploy",
+      "section": "Prod",
+      "label": "Suivre DEPLOIEMENT-VPS + HOMELAB",
+      "description": "Référence ops sécurité VPS.",
+      "expected": "Checklist VPS suivie.",
+      "status": "open",
+      "order": 14,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ADM-UPDATE-01",
+      "cycleId": "cycle-admin-ota",
+      "section": "ADM-UPDATE",
+      "label": "ADM-UPDATE — Updates visibles /4dm1n",
+      "description": "Après REL-* + prefs.",
+      "expected": "Page mises à jour.",
+      "status": "deferred",
+      "order": 1,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ADM-UPDATE-1",
+      "cycleId": "cycle-admin-ota",
+      "section": "ADM-UPDATE",
+      "label": "Voir mises à jour dispo",
+      "description": "GHCR, web, APK, ext Pass.",
+      "expected": "Indicateurs UI.",
+      "status": "deferred",
+      "order": 2,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ADM-UPDATE-2",
+      "cycleId": "cycle-admin-ota",
+      "section": "ADM-UPDATE",
+      "label": "Actions Mettre à jour",
+      "description": "Boutons + smoke /health.",
+      "expected": "Actions opérationnelles.",
+      "status": "deferred",
+      "order": 3,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ADM-UPDATE-3",
+      "cycleId": "cycle-admin-ota",
+      "section": "ADM-UPDATE",
+      "label": "Étendre Mobile/OTA",
+      "description": "MobileDistributionPage.",
+      "expected": "OTA + versions installs.",
+      "status": "partial",
+      "order": 4,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ADM-UPDATE-4",
+      "cycleId": "cycle-admin-ota",
+      "section": "ADM-UPDATE",
+      "label": "Doc ops déclencheurs",
+      "description": "Qui peut trigger CI/Portainer.",
+      "expected": "Doc claire.",
+      "status": "deferred",
+      "order": 5,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "OTA-MOBILE-PAGE",
+      "cycleId": "cycle-admin-ota",
+      "section": "OTA",
+      "label": "Page Mobile/OTA → pipeline",
+      "description": "Pipeline APK + version.json + installs.",
+      "expected": "Canal OTA bout-en-bout.",
+      "status": "partial",
+      "order": 6,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "MIG-ADMIN-PANEL",
+      "cycleId": "cycle-admin-ota",
+      "section": "Ops",
+      "label": "Panneau migrations admin",
+      "description": "SYNC §0d — état migrations.",
+      "expected": "UI migrations safe.",
+      "status": "open",
+      "order": 7,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "APP-ADM-01",
+      "cycleId": "cycle-admin-ota",
+      "section": "ROADMAP",
+      "label": "ADM-01 rôles fins / audit",
+      "description": "Parcours admin 100 % ops.",
+      "expected": "Rôles + audit logs.",
+      "status": "open",
+      "order": 8,
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Doc / TODOS mis à jour si besoin"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "H1",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H1 — Pass popup L3",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 1,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Pass popup L3 : liste onglet, filtre, copie, remplir — extension v0.2.1."
+    },
+    {
+      "id": "H2",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H2 — Icônes extension Pass",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 2,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Icônes extension Pass PNG via npm run icons."
+    },
+    {
+      "id": "H3",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H3 — MP-08 Firefox",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 3,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MP-08 Firefox : cloudity-pass-firefox + make build-pass-extension-firefox."
+    },
+    {
+      "id": "H4",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H4 — Photos créer album",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 4,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Photos web : Nouvel album → createDriveFolder."
+    },
+    {
+      "id": "H5",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H5 — MP-04 Linux desktop",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 5,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MP-04 Linux desktop Drive+Photos validé (make test-mobile-desktop-linux)."
+    },
+    {
+      "id": "H5b",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H5b — Photos mobile Android",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 6,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H5b livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H5c",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H5c — Photos vignettes & dates",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 7,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H5c livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H5d",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H5d — Drive mobile Android",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 8,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H5d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H6",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H6 — UI-3 Pass/Settings",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 9,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H6 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H6d",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H6d — Photos HEIC serveur",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 10,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H6d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H7",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H7 — Admin U9/U10",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 11,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H7 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H8",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H8 — Photos archive/verrou",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 12,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H8 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H9",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H9 — Paramètres par app web",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 13,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H9 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H10",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H10 — Coffre Photos PIN",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 14,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H10 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H11",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H11 — Coffres E2EE + re-PIN",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 15,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H11 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "H13",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H13 — Mail notifs actionnables",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 16,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Mail notifications actionnables → /app/mail?account=&message=."
+    },
+    {
+      "id": "H17",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H17 — lib/ mobile unifiée",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 17,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Structure lib/ mobile unifiée + SuiteAppShell."
+    },
+    {
+      "id": "H20",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "H20 — Profils appareils",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 18,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "H20 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "DEPLOY-ENV-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "DEPLOY-ENV-01 — Hôte public + env-prod",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 19,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "CLOUDITY_PUBLIC_* + make sync-public-urls / env-prod / portainer-env — ENV-GENERATION.md."
+    },
+    {
+      "id": "PILOTAGE-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PILOTAGE-01 — Board pilotage admin",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 20,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "Board /4dm1n/pilotage livré : cycles, sync docs, décisions, inbox, problèmes, pré-prod, ops-signals."
+    },
+    {
+      "id": "PREFS-USER",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PREFS-USER — Préférences utilisateur API",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 21,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "PREFS-USER livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "CRASH-MOBILE",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "CRASH-MOBILE — Remontée crashes mobile",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 22,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "CRASH-MOBILE livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "PORT-ORG-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PORT-ORG-01 — Ports 6001–6012",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 23,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "PORT-ORG-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MAIL-ALIAS-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MAIL-ALIAS-01 — enable/disable alias",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 24,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MAIL-ALIAS-02",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MAIL-ALIAS-02 — Règle auto alias",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 25,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-02 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MAIL-ALIAS-03",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MAIL-ALIAS-03 — Config domaine alias",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 26,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-03 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "AS-0",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "AS-0 — Doc anti-spam",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 27,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "AS-0 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MP-04",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MP-04 — Linux Drive/Photos",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 28,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MP-04 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MP-06",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MP-06 — Autofill Pass",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 29,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MP-06 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MP-07",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "MP-07 — E2E extension Pass",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 30,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "MP-07 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "PERF-CLI-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PERF-CLI-01 — Scripts perf-*",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 31,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "PERF-CLI-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "PERF-CLI-02",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PERF-CLI-02 — Makefile perf",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 32,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "PERF-CLI-02 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "PERF-CLI-03",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "PERF-CLI-03 — Doc PERFORMANCES-MONITORING",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 33,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "PERF-CLI-03 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "TEST-AUTH-01",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "TEST-AUTH-01 — Bootstrap E2E",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 34,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "TEST-AUTH-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "M7a",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "M7a — Spam IMAP",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 35,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "M7a livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "M7b",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "M7b — Signaler spam",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 36,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "M7b livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "M7c",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "M7c — Score spam",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 37,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "M7c livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "M7d",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "M7d — Bannière Spam",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 38,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "M7d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "M7e",
+      "cycleId": "cycle-done",
+      "section": "Livré",
+      "label": "M7e — Triage auto",
+      "description": "Livré (suivi TODOS/BACKLOG).",
+      "expected": "Déjà validé.",
+      "status": "ok",
+      "order": 39,
+      "checklistLabels": [
+        "Livré"
+      ],
+      "source": "catalog",
+      "completionNote": "M7e livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "DRIVE-DESKTOP-01",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-01 — Spec sync + écarts API",
+      "description": "Contrat sync type Nextcloud : delta/curseur, auth device, selective sync, conflits. Doc docs/produit/DRIVE-DESKTOP-SYNC.md. Trancher client maison vs WebDAV.",
+      "expected": "Spec acceptée + liste endpoints manquants / tickets.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Lire DRIVE-DESKTOP-SYNC.md",
+        "Comparer API /drive/* actuelle",
+        "Choisir approche (API native / WebDAV / hybride)",
+        "Écrire contrat delta + conflits"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-02",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-02 — Daemon CLI Linux",
+      "description": "Agent headless (Go/Rust) : login Cloudity, selective sync, watch FS, reprise offline. Arch/GNOME : dossier local utilisable comme un dossier normal (Nautilus + CLI).",
+      "expected": "cloudity-drive sync sur Arch ; fichier Nautilus ↔ Drive web.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Login + token device",
+        "Selective sync d'au moins un dossier",
+        "Watch FS + upload",
+        "Pull changements distants",
+        "File d'attente offline"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-03",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-03 — UI tray GNOME/Win/macOS",
+      "description": "Préférences sync, pause, statut, choix dossiers — tray/app native ou Tauri autour du daemon.",
+      "expected": "UI utilisable sur les 3 OS avec le même daemon.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Tray + statut sync",
+        "Sélecteur dossiers",
+        "Pause / reprise",
+        "Linux GNOME",
+        "Windows + macOS"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-04",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-04 — Fichiers virtuels / on-demand",
+      "description": "Placeholders / VFS (style Nextcloud virtual files, CfAPI Windows, File Provider macOS) après MVP mirror complet.",
+      "expected": "Fichiers cloud visibles sans tout télécharger ; ouverture à la demande.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "MVP mirror stable (02+03)",
+        "POC Linux ou Windows",
+        "Doc limites OS"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-05",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-05 — Packaging + auto-update",
+      "description": "AUR/flatpak/.deb, winget/MSI, dmg + canal de mise à jour.",
+      "expected": "Install one-click / package manager sur les 3 OS.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Paquet Linux (AUR ou flatpak)",
+        "Windows (winget ou MSI)",
+        "macOS dmg",
+        "Auto-update documenté"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-01",
+      "cycleId": "cycle-preprod",
+      "section": "Auth web + mobile",
+      "label": "PREPROD-01 — Auth web + mobile",
+      "description": "Login JWT / 2FA / session suite sur web et au moins 1 app mobile.",
+      "expected": "Login OK web + mobile.",
+      "status": "open",
+      "order": 1,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-02",
+      "cycleId": "cycle-preprod",
+      "section": "Mail",
+      "label": "PREPROD-02 — Mail",
+      "description": "Inbox sync, composer, alias local si configuré.",
+      "expected": "Parcours Mail smoke OK.",
+      "status": "open",
+      "order": 2,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-03",
+      "cycleId": "cycle-preprod",
+      "section": "Drive",
+      "label": "PREPROD-03 — Drive",
+      "description": "Upload, download, corbeille, coffre PIN.",
+      "expected": "Parcours Drive smoke OK.",
+      "status": "open",
+      "order": 3,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-04",
+      "cycleId": "cycle-preprod",
+      "section": "Photos",
+      "label": "PREPROD-04 — Photos",
+      "description": "Timeline, upload, albums, corbeille.",
+      "expected": "Parcours Photos smoke OK.",
+      "status": "open",
+      "order": 4,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-05",
+      "cycleId": "cycle-preprod",
+      "section": "Pass",
+      "label": "PREPROD-05 — Pass",
+      "description": "Vault unlock, CRUD item, extension si dispo.",
+      "expected": "Parcours Pass smoke OK.",
+      "status": "open",
+      "order": 5,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-06",
+      "cycleId": "cycle-preprod",
+      "section": "Gateway HTTPS / CORS",
+      "label": "PREPROD-06 — Gateway HTTPS / CORS",
+      "description": "Aligné H14 : CLOUDITY_MOBILE_GATEWAY_URL HTTPS + CORS prod.",
+      "expected": "Login mobile HTTPS OK.",
+      "status": "open",
+      "order": 6,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-07",
+      "cycleId": "cycle-preprod",
+      "section": "DNS + NPM TLS",
+      "label": "PREPROD-07 — DNS + NPM TLS",
+      "description": "api.cloudity.<dom> + front HTTPS (DEPLOY-DNS-01).",
+      "expected": "Endpoints publics OK.",
+      "status": "open",
+      "order": 7,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-08",
+      "cycleId": "cycle-preprod",
+      "section": "Quotas & stockage",
+      "label": "PREPROD-08 — Quotas & stockage",
+      "description": "Badges espace Drive/Photos/Mail cohérents.",
+      "expected": "Quota visible sans erreur.",
+      "status": "open",
+      "order": 8,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-09",
+      "cycleId": "cycle-preprod",
+      "section": "Barrière tests",
+      "label": "PREPROD-09 — Barrière tests",
+      "description": "make test (+ mobile suite si device).",
+      "expected": "Barrière verte documentée.",
+      "status": "open",
+      "order": 9,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-10",
+      "cycleId": "cycle-preprod",
+      "section": "Checklist inbox / problèmes",
+      "label": "PREPROD-10 — Checklist inbox / problèmes",
+      "description": "Aucun problème ouvert bloquant ; inbox revue.",
+      "expected": "Inbox traitée ou reportée.",
+      "status": "open",
+      "order": 10,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    }
+  ],
+  "releases": [
+    {
+      "id": "rel-mvp-local",
+      "label": "v0.1 — MVP local",
+      "status": "partial",
+      "summary": "Stack make up : Mail/Drive/Photos/Pass web + mobiles de base.",
+      "features": [
+        "Auth JWT",
+        "Drive MVP",
+        "Mail IMAP",
+        "Photos",
+        "Pass vault",
+        "Pilotage"
+      ]
+    },
+    {
+      "id": "rel-preprod-https",
+      "label": "v0.2 — Préprod HTTPS",
+      "status": "open",
+      "summary": "Gateway HTTPS, CORS, DNS/NPM, login mobile réel (H14).",
+      "features": [
+        "H14 gateway HTTPS",
+        "DEPLOY-DNS",
+        "CORS prod",
+        "Mobile broker"
+      ]
+    },
+    {
+      "id": "rel-prod-full",
+      "label": "v1.0 — Prod complète",
+      "status": "open",
+      "summary": "Gates pré-prod OK + OTA + Drive desktop sync + mail prod.",
+      "features": [
+        "Gates PREPROD-*",
+        "REL OTA",
+        "DRIVE-DESKTOP",
+        "Mail prod"
+      ]
+    }
+  ]
+}

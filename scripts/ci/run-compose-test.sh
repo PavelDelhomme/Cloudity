@@ -40,10 +40,12 @@ echo "🧪 ${SERVICE} (Docker) — phase ${PHASE}"
 cloudity_test_logs_summary_line
 
 if cloudity_test_compose_run "$PHASE" "$SERVICE" "$@"; then
+  cloudity_test_write_summary 0
   echo "✅ ${SERVICE} OK"
   cloudity_test_logs_summary_line
   exit 0
 fi
 
+cloudity_test_write_summary 1
 echo "❌ ${SERVICE} ÉCHEC — logs : ${CLOUDITY_TEST_LOGS_DIR}/${PHASE}/"
 exit 1

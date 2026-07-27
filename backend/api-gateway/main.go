@@ -109,7 +109,7 @@ func loadPublicKey() interface{} {
 }
 
 // loadKeysLocked tente de charger RSA et Ed25519 depuis le volume Docker
-// partagé `./backend/auth-service:/app/keys:ro`. Doit être appelé sous
+// partagé `./backend/auth-service/public*.pem:/app/keys/*.pem:ro`. Doit être appelé sous
 // publicKeyMu.Lock().
 func loadKeysLocked() {
 	rsaPaths := []string{
@@ -245,6 +245,11 @@ func NewHandler() http.Handler {
 	// `application/reports+json` selon le standard utilisé. On loggue tout
 	// ce qui arrive en JSON minifié, on répond 204.
 	r.HandleFunc("/csp-report", handleCSPReport).Methods("POST")
+
+	// Rapports crash / feedback apps mobile Flutter (inspiré JobbingTrack).
+	r.HandleFunc("/mobile/crashes", handlePostMobileCrash).Methods("POST")
+	r.HandleFunc("/mobile/crashes", handleListMobileCrashes).Methods("GET")
+	r.HandleFunc("/mobile/crashes/detail", handleGetMobileCrash).Methods("GET")
 
 	// Transport interne partagé pour le reverse proxy.
 	//
@@ -434,22 +439,60 @@ func adminOriginAllowed(origin string) bool {
 	return corsOriginAllowedFixedList(o)
 }
 
+// originFromReferer extrait scheme://host d'un Referer (fallback same-origin
+// quand le navigateur omet Origin sur un GET via proxy Vite/nginx).
+func originFromReferer(referer string) string {
+	ref := strings.TrimSpace(referer)
+	if ref == "" {
+		return ""
+	}
+	u, err := url.Parse(ref)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return ""
+	}
+	return u.Scheme + "://" + u.Host
+}
+
+func corsAllowLANEnabled() bool {
+	v := os.Getenv("CORS_ALLOW_LAN")
+	return v == "true" || v == "1"
+}
+
 func writeJSON(w http.ResponseWriter, status int, body string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(body))
 }
 
+// requireAdminAPIOrigin refuse les appels /admin/* depuis une origine navigateur
+// non autorisée. Cas same-origin (dashboard :6001 → proxy → gateway) : les GET
+// omettent souvent Origin — on accepte alors Referer, Sec-Fetch-Site=same-origin,
+// ou (dev uniquement) CORS_ALLOW_LAN sans Origin. Le JWT admin reste exigé à part.
 func requireAdminAPIOrigin(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodOptions {
 		return true
 	}
-	origin := r.Header.Get("Origin")
-	if !adminOriginAllowed(origin) {
-		writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
-		return false
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		origin = originFromReferer(r.Header.Get("Referer"))
 	}
-	return true
+	if origin != "" {
+		if !adminOriginAllowed(origin) {
+			writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
+			return false
+		}
+		return true
+	}
+	site := strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")))
+	if site == "same-origin" {
+		return true
+	}
+	if corsAllowLANEnabled() {
+		// Dev : curl / proxy sans headers Fetch (JWT admin toujours requis).
+		return true
+	}
+	writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
+	return false
 }
 
 func requirePerformanceIngestToken(w http.ResponseWriter, r *http.Request) bool {
@@ -498,7 +541,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
 			r.URL.Path == "/health" ||
-			r.URL.Path == "/csp-report" {
+			r.URL.Path == "/csp-report" ||
+			(r.Method == http.MethodPost && r.URL.Path == "/mobile/crashes") {
 			next.ServeHTTP(w, r)
 			return
 		}

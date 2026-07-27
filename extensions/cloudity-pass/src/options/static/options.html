@@ -9,19 +9,59 @@
     <main>
       <h1>Cloudity Pass — Paramètres</h1>
       <section>
+        <h2>Gateway</h2>
         <label>
           URL du gateway Cloudity
           <input id="gateway-url" type="url" placeholder="https://api.cloudity.example" />
         </label>
-        <button id="save-gateway">Enregistrer</button>
-        <p id="status" class="hint" hidden></p>
+        <button id="save-gateway">Enregistrer l’URL</button>
       </section>
-      <section class="hint todo">
+      <section>
+        <h2>Presse-papier</h2>
+        <label class="checkbox">
+          <input id="clipboard-enabled" type="checkbox" />
+          Autoriser la copie (identifiant, mot de passe, TOTP)
+        </label>
+        <label>
+          Effacement automatique
+          <select id="clipboard-clear-ms">
+            <option value="0">Désactivé</option>
+            <option value="15000">15 secondes</option>
+            <option value="30000">30 secondes</option>
+            <option value="60000">1 minute</option>
+            <option value="120000">2 minutes</option>
+          </select>
+        </label>
+        <label class="checkbox">
+          <input id="totp-auto-copy" type="checkbox" />
+          Copier automatiquement le code TOTP à chaque rotation
+        </label>
+      </section>
+      <section>
+        <h2>Sécurité</h2>
+        <label>
+          Verrouillage auto du coffre
+          <select id="auto-lock-ms">
+            <option value="60000">1 minute</option>
+            <option value="300000">5 minutes</option>
+            <option value="600000">10 minutes</option>
+            <option value="900000">15 minutes</option>
+          </select>
+        </label>
+        <label class="checkbox">
+          <input id="dal-enabled" type="checkbox" />
+          Digital Asset Links (Android — autofill site ↔ app)
+        </label>
+      </section>
+      <section class="actions">
+        <button id="sync-prefs">Synchroniser depuis le compte</button>
+        <button id="save-pass-prefs">Enregistrer les préférences Pass</button>
+      </section>
+      <p id="status" class="hint" hidden></p>
+      <section class="hint">
         <p>
-          v0.2.0 : l’URL du gateway est requise ici ; la <strong>connexion Cloudity</strong> et le
-          <strong>mot de passe maître</strong> (init / déverrouillage après sonde
-          <code>GET /pass/vaults</code>) se font dans le <strong>popup</strong> de l’extension.
-          Autofill et liste d’entrées : <code>MP-06</code>.
+          Connexion et déverrouillage du coffre dans le <strong>popup</strong>. Les préférences
+          sont partagées avec le hub web et l’app mobile (même compte utilisateur).
         </p>
       </section>
     </main>

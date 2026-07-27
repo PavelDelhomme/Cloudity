@@ -40,3 +40,14 @@ export {
 
 // Générateur
 export { generatePassword } from './passwordGenerator'
+
+// Sauvegarde / restauration (blobs chiffrés — zero-access)
+export {
+  PASS_BACKUP_SCHEMA,
+  buildPassBackupV1,
+  parsePassBackupJson,
+  passBackupStats,
+  type PassBackupV1,
+  type PassBackupVaultV1,
+  type PassBackupItemV1,
+} from './backup'

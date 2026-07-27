@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Button } from '@cloudity/ui'
 import { Copy, AlertTriangle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { generateTotp, parseOtpauthUri, totpSecondsRemaining } from './totp'
 import { copyWithAutoClear } from './clipboardAutoClear'
+import { loadCachedUserPreferences } from '../../../lib/userPreferencesStore'
 
 interface Props {
   /** URI `otpauth://totp/...` (le secret n'est jamais loggé). */
@@ -21,6 +22,7 @@ export default function TotpDisplay({ otpauthUri }: Props) {
   const [code, setCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [secondsLeft, setSecondsLeft] = useState<number>(parsed?.period ?? 30)
+  const lastAutoCopiedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!parsed) {
@@ -35,6 +37,22 @@ export default function TotpDisplay({ otpauthUri }: Props) {
         if (!cancelled) {
           setCode(c)
           setError(null)
+          const prefs = loadCachedUserPreferences().pass
+          if (
+            prefs.clipboardEnabled &&
+            prefs.totpAutoCopy &&
+            c &&
+            lastAutoCopiedRef.current !== c
+          ) {
+            lastAutoCopiedRef.current = c
+            try {
+              await copyWithAutoClear(c, {
+                ttlMs: prefs.clipboardClearMs > 0 ? prefs.clipboardClearMs : 30_000,
+              })
+            } catch {
+              /* permission refusée */
+            }
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -70,9 +88,14 @@ export default function TotpDisplay({ otpauthUri }: Props) {
 
   const onCopy = async () => {
     if (!code) return
+    const prefs = loadCachedUserPreferences().pass
+    if (!prefs.clipboardEnabled) {
+      toast.error('Copie presse-papier désactivée (Paramètres → Pass)')
+      return
+    }
     try {
       await copyWithAutoClear(code, {
-        ttlMs: Math.min(secondsLeft * 1000, 30_000),
+        ttlMs: prefs.clipboardClearMs > 0 ? Math.min(secondsLeft * 1000, prefs.clipboardClearMs) : 0,
         onCleared: () => toast('Code TOTP effacé'),
       })
       toast.success(`Code TOTP copié`)

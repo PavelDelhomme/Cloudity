@@ -34,7 +34,7 @@ slug: multi-plateforme
 | App | Web | Android | iOS | Linux desktop | macOS desktop | Windows desktop | Extension navigateur |
 |---|---|---|---|---|---|---|---|
 | **Mail** (APP-01)     | ✅ `cloudity-web`            | ✅ `mobile/mail` | 🟡 cible Flutter `ios/` mais non testée | ❌ pas de cible Flutter `linux/` à scaffold | ❌ | ❌ | ⛔ |
-| **Drive** (APP-02)    | ✅ `cloudity-web`            | ✅ `mobile/drive` (MVP racine) | 🟡 cible Flutter `ios/` non testée | 🟡 cible `mobile/drive/linux/` scaffoldée mais build Linux jamais validé | 🟡 cible `macos/` scaffoldée jamais validée | 🟡 cible `windows/` scaffoldée | ⛔ |
+| **Drive** (APP-02)    | ✅ `cloudity-web`            | ✅ `mobile/drive` (MVP racine) | 🟡 cible Flutter `ios/` non testée | 🟡 Flutter `linux/` + ❌ **sync dossier OS** ([DRIVE-DESKTOP-SYNC](DRIVE-DESKTOP-SYNC.md)) | 🟡 Flutter `macos/` + ❌ sync OS | 🟡 Flutter `windows/` + ❌ sync OS | ⛔ |
 | **Pass** (APP-04)     | ✅ `cloudity-web`            | ✅ `mobile/pass` (lecture seule) | ❌ pas de cible Flutter `ios/` | ✅ `mobile/pass/linux/` (Flutter desktop) | ❌ | ❌ | 🟡 `extensions/cloudity-pass/` squelette MV3 (livré 2026-05-13) |
 | **Photos** (APP-09)   | ✅ `cloudity-web`            | ✅ `mobile/photos` | 🟡 cible `ios/` non testée | 🟡 cible `linux/` scaffoldée jamais validée | 🟡 cible `macos/` scaffoldée | 🟡 cible `windows/` | ⛔ |
 | **Calendar** (APP-05) | ❌ pas de page web dédiée    | 🟡 `mobile/calendar/` placeholder (livré 2026-05-13) | ❌ | ❌ | ❌ | ❌ | ⛔ |
@@ -56,6 +56,9 @@ slug: multi-plateforme
   Pass / Mail mais **seules celles de Pass tournent vraiment**. Les
   autres ont juste les répertoires `linux/` créés par `flutter create`,
   jamais buildés.
+* **Drive sync bureau type Nextcloud** (dossier OS miroir, GNOME/CLI/
+  Windows/macOS) : **❌ non démarré** — distinct du Flutter desktop.
+  Voir **[DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md)** (`DRIVE-DESKTOP-01`…`05`).
 * L'**extension navigateur Pass** vient d'avoir son squelette MV3
   poussé. Pas encore de build / publication.
 
@@ -101,6 +104,7 @@ chantier qui doit toucher plusieurs surfaces.
 | Surface | Effort estimé | Justification |
 |---|---|---|
 | Apps **Linux desktop** Drive / Photos / Mail (Flutter) | 1 j de validation `flutter run -d linux` par app + plombage cible Linux Mail (manque `linux/` dans `mobile/mail`) | les targets existent déjà sauf Mail ; le plus gros travail est l'UX desktop (clavier/souris vs touch) |
+| **Client sync Drive bureau** (type Nextcloud) | Spec + daemon Linux puis UI/packaging — **[DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md)** | besoin produit fort : dossier local sync auto (GNOME, Arch, Windows, macOS, CLI) ≠ app Flutter |
 | App `calendar-service` backend Go + page web Calendar | 5-7 j | nécessite migration DB + sync iCal/CalDAV (Phase produit C) |
 | Apps **mobile/notes**, **mobile/tasks**, **mobile/contacts** | ≥ 5 j chacune | hors-sprint, dépend de la priorité produit (Notes > Tasks > Contacts) |
 | Extensions **Firefox** + **Safari** Pass | dérive de l'extension Chromium MV3 | `manifest.json` partagé + adaptations API extension (Safari = Web Extensions API) |

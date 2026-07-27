@@ -126,7 +126,16 @@ make run-mobile APP="Photos"
 
 Si aucun dossier n’existe pour l’`APP` demandé, le script affiche comment créer le projet (`flutter create …`) et sort avec le code **2** (comportement voulu : *pas encore implémenté*, pas un crash). Dans le dépôt actuel : **`Photos`**, **`Drive`**, **`Mail`** et **`Admin`** (si présent) sont lançables ; **Calendar**, **Contacts**, etc. le seront une fois le dossier Flutter créé.
 
-Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** via `CLOUDITY_MOBILE_GATEWAY_URL`. Valeurs typiques : **émulateur** `http://10.0.2.2:6080` ; **téléphone USB** `adb reverse tcp:6080 tcp:6080` puis `http://127.0.0.1:6080` ; **préprod/prod** `https://api.cloudity.<domaine>`. Une URL `https://IP_LAN:6080` ne suffit pas toute seule : il faut que la gateway soit réellement servie en TLS et que le téléphone fasse confiance au certificat (cert public ou CA locale installée). Erreurs réseau brutes (`errno = 101`, timeout, refus) → message lisible via `cloudity_shared` **`friendlyNetworkMessage`** sur les écrans de connexion. **SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — soit `sudo chown -R "$(whoami)" /usr/lib/flutter`, soit Flutter clone dans `$HOME` puis **`export FLUTTER_ROOT="$HOME/flutter"`** et **`export PATH="$FLUTTER_ROOT/bin:$PATH"`** (honoré par `scripts/run-mobile.sh` et `test-mobile-app.sh`).
+Variables utiles en dev : `VITE_API_URL` côté web ; côté mobile Flutter, configurer l’URL du **gateway** via `CLOUDITY_MOBILE_GATEWAY_URL`. Valeurs typiques : **émulateur** `http://10.0.2.2:6080` ; **téléphone USB** `adb reverse tcp:6080 tcp:6080` puis `http://127.0.0.1:6080` ; **préprod/prod** `https://api.cloudity.<domaine>`. Une URL `https://IP_LAN:6080` ne suffit pas toute seule : il faut que la gateway soit réellement servie en TLS et que le téléphone fasse confiance au certificat (cert public ou CA locale installée). Erreurs réseau brutes (`errno = 101`, timeout, refus) → message lisible via `cloudity_shared` **`friendlyNetworkMessage`** sur les écrans de connexion.
+
+**Erreur Arch `Wrong full snapshot version`** : le binaire `/usr/bin/flutter` (paquet pacman) est souvent désynchronisé. **Ne pas** lancer `flutter run` directement depuis `mobile/pass`. À la racine du repo :
+
+```bash
+make ensure-flutter-sdk    # installe/répare ~/.local/share/cloudity-flutter (SDK officiel)
+make run-mobile APP=Pass   # utilise automatiquement ce SDK + gateway .env
+```
+
+**SDK Arch (`/usr/lib/flutter`) en lecture seule** : `make run-mobile` échoue tant que Gradle ne peut pas écrire sous `flutter_tools/gradle` — le SDK Cloudity dans `$HOME` (`make ensure-flutter-sdk`) contourne ce problème sans toucher au paquet système.
 
 **Note** : `make init-mobile` parcourt aussi `mobile/contacts`, `mobile/photos`, `mobile/pass` lorsqu’ils existent. Suite produit : **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** (scaffold + CI).
 

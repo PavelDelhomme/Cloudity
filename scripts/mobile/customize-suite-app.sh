@@ -11,7 +11,7 @@ PRODUCT="${4:?calendar|contacts|notes|tasks}"
 
 SEED_COLOR=$(case "$PRODUCT" in
   calendar) echo "Colors.orange" ;;
-  contacts) echo "Colors.indigo" ;;
+  contacts) echo "Colors.deepPurple" ;;
   notes) echo "Colors.amber" ;;
   tasks) echo "Colors.purple" ;;
   *) echo "Colors.blue" ;;
@@ -58,19 +58,22 @@ if [[ -d "${DIR}/android/app/src/main/kotlin/fr/cloudity/cloudity_mail" ]]; then
 fi
 sed -i "s/fr.cloudity.cloudity_mail/${ANDROID_PKG}/g" "${DIR}/android/app/build.gradle.kts"
 
-# Supprimer écrans Mail spécifiques
-rm -f "${DIR}/lib/inbox_screen.dart" \
-  "${DIR}/lib/compose_mail_screen.dart" \
-  "${DIR}/lib/message_detail_screen.dart" \
-  "${DIR}/lib/mail_imap_password_screen.dart" \
-  "${DIR}/lib/mail_settings_screen.dart" \
-  "${DIR}/lib/mail_account_helpers.dart" \
-  "${DIR}/test/mail_validation_test.dart"
+# Supprimer écrans Mail spécifiques (ancien ou nouveau layout lib/)
+rm -f "${DIR}/lib/features/inbox_screen.dart" \
+  "${DIR}/lib/inbox_screen.dart" \
+  "${DIR}/lib/features/compose_mail_screen.dart" \
+  "${DIR}/lib/features/message_detail_screen.dart" \
+  "${DIR}/lib/features/mail_imap_password_screen.dart" \
+  "${DIR}/lib/features/mail_settings_screen.dart" \
+  "${DIR}/lib/features/mail_account_helpers.dart" \
+  "${DIR}/lib/features/mail_validation.dart" \
+  "${DIR}/test/mail_validation_test.dart" \
+  "${DIR}/test/mail_account_helpers_test.dart"
 
-# Auth API léger
+mkdir -p "${DIR}/lib/auth" "${DIR}/lib/api" "${DIR}/lib/features"
+
 "${ROOT}/scripts/mobile/copy-suite-auth-base.sh" "${APP}" "${PKG}"
 
-# Tests widget minimal
 cat > "${DIR}/test/widget_test.dart" <<'EOF'
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
@@ -85,96 +88,59 @@ EOF
 
 rm -f "${DIR}/integration_test/mail_flow_test.dart" 2>/dev/null || true
 
-# Login : titre app
-sed -i "s/Cloudity Mail/${TITLE}/g" "${DIR}/lib/login_screen.dart"
-sed -i "s/cloudity_mail_login/cloudity_${PKG//cloudity_/}_login/g" "${DIR}/lib/login_screen.dart"
+sed -i "s/Cloudity Mail/${TITLE}/g" "${DIR}/lib/auth/login_screen.dart"
+LOGIN_KEY="cloudity_${PKG//cloudity_/}_login"
+sed -i "s/cloudity_mail_login/${LOGIN_KEY}/g" "${DIR}/lib/auth/login_screen.dart"
 
-# main.dart
 cat > "${DIR}/lib/main.dart" <<EOF
 import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'login_screen.dart';
-import 'session_store.dart';
-import 'user_session.dart';
+import 'auth/login_screen.dart';
+import 'auth/session_store.dart';
+import 'auth/user_session.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const _App());
+  runApp(const Cloudity${PRODUCT^}App());
 }
 
-class _App extends StatelessWidget {
-  const _App();
+class Cloudity${PRODUCT^}App extends StatelessWidget {
+  const Cloudity${PRODUCT^}App({super.key});
 
   @override
   Widget build(BuildContext context) {
     return CloudityThemedApp(
       title: '${TITLE}',
       seedColor: ${SEED_COLOR},
-      home: const _Bootstrap(),
+      home: SuiteAppShell<UserSession>(
+        restoreSession: _restoreSession,
+        clearSession: SessionStore.clearTokens,
+        loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+        homeBuilder: (session, onLogout) => SuiteProductHomeScreen(
+          product: SuiteProduct.${PRODUCT},
+          gatewayBase: session.api.baseUrl,
+          accessToken: session.accessToken,
+          refreshAccessToken: () async {
+            await session.refreshIfNeeded();
+            return session.accessToken;
+          },
+          onLogout: onLogout,
+        ),
+      ),
     );
   }
 }
 
-class _Bootstrap extends StatefulWidget {
-  const _Bootstrap();
-
-  @override
-  State<_Bootstrap> createState() => _BootstrapState();
-}
-
-class _BootstrapState extends State<_Bootstrap> {
-  bool _ready = false;
-  UserSession? _session;
-
-  @override
-  void initState() {
-    super.initState();
-    _restore();
-  }
-
-  Future<void> _restore() async {
-    final pair = await SessionStore.loadValidatedSession();
-    if (!mounted) return;
-    setState(() {
-      _ready = true;
-      if (pair != null) {
-        _session = UserSession(
-          api: pair.api,
-          accessToken: pair.access,
-          refreshToken: pair.refresh,
-        );
-      }
-    });
-  }
-
-  Future<void> _onLogout() async {
-    await SessionStore.clearTokens();
-    if (!mounted) return;
-    setState(() => _session = null);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_ready) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    final session = _session;
-    if (session == null) {
-      return LoginScreen(onLoggedIn: (s) => setState(() => _session = s));
-    }
-    return SuiteProductHomeScreen(
-      product: SuiteProduct.${PRODUCT},
-      gatewayBase: session.api.baseUrl,
-      accessToken: session.accessToken,
-      refreshAccessToken: () async {
-        await session.refreshIfNeeded();
-        return session.accessToken;
-      },
-      onLogout: _onLogout,
-    );
-  }
+Future<UserSession?> _restoreSession() async {
+  final pair = await SessionStore.loadValidatedSession();
+  if (pair == null) return null;
+  return UserSession(
+    api: pair.api,
+    accessToken: pair.access,
+    refreshToken: pair.refresh,
+  );
 }
 EOF
 
-echo "✅ ${APP} personnalisé (${PKG})"
+echo "✅ ${APP} personnalisé (${PKG}) — layout lib/auth|api|features"

@@ -7,8 +7,8 @@ RUN apk add --no-cache git wget
 
 RUN go install github.com/cosmtrek/air@v1.42.0
 
-# Context = ./backend (voir docker-compose.yml). go.mod replace => ../internalsec → /internalsec
-COPY internalsec /internalsec
+# Context = ./backend (voir docker-compose.yml). go.mod replace => ./internalsec
+COPY internalsec /app/internalsec
 COPY api-gateway/go.mod api-gateway/go.sum ./
 RUN go mod download
 

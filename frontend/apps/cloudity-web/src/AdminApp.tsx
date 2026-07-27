@@ -10,10 +10,14 @@ import TenantsPage from './pages/admin/Tenants'
 import UsersPage from './pages/admin/Users'
 import SettingsPage from './pages/admin/Settings'
 import MobileDistributionPage from './pages/admin/MobileDistributionPage'
+import MobileLogsPage from './pages/admin/MobileLogsPage'
 import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
 import PasskeysPage from './pages/admin/Passkeys'
 import UiCatalogPage from './pages/admin/UiCatalogPage'
+import PilotagePage from './pages/admin/PilotagePage'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
+import { StackHealthGate } from './components/StackHealthGate'
 import { AdminAccessGate } from './AdminAccessGate'
 
 const queryClient = new QueryClient({
@@ -38,9 +42,11 @@ export function AdminAppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="pilotage" element={<PilotagePage />} />
         <Route path="tenants" element={<TenantsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="mobile-distribution" element={<MobileDistributionPage />} />
+        <Route path="mobile-logs" element={<MobileLogsPage />} />
         <Route path="domaines" element={<DomainesPage />} />
         <Route path="securite-cve" element={<SecurityCvePage />} />
         <Route path="passkeys" element={<PasskeysPage />} />
@@ -71,12 +77,16 @@ export function AdminAppRoutes() {
 export default function AdminApp() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <Global401Handler />
-          <AdminAppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <StackHealthGate>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthProvider>
+              <Global401Handler />
+              <AdminAppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+        </StackHealthGate>
+      </AppErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{

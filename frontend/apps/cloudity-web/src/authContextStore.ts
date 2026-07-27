@@ -10,6 +10,8 @@ export type AuthState = {
 
 export type AuthContextValue = AuthState & {
   isAuthenticated: boolean
+  /** False tant que le JWT stocké n’a pas été validé/rafraîchi au chargement (évite les 401 en rafale). */
+  sessionReady: boolean
   login: (accessToken: string, refreshToken: string | undefined, tenantId: number, email: string) => void
   logout: () => void
   /** Si le JWT d’accès expire bientôt, tente un refresh (dédupliqué) avant syncs batch / IMAP. */

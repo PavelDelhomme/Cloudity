@@ -30,11 +30,22 @@ Document court pour **faire grandir** le projet (API, services, web, mobile) san
 - **Cache / files** : Redis déjà présent pour sessions ; extensions possibles (queues, rate limit).
 - **Séparation prod** : `docker-compose.prod.yml` pour images non-`go run`, secrets injectés (pas de mots de passe en clair dans l’image).
 
-## Si `make up-full` échoue (healthchecks)
+## Si `make up-full` échoue
+
+**Recours immédiat (stack utilisable sans tests)** : **`make up-ready`** puis **`make status`**.
+
+| Symptôme | Action |
+|----------|--------|
+| Tests Vitest / Go rouges | Stack souvent OK → **`make test`** seul après correction, ou **`make up-ready`** si doute |
+| Ctrl+C pendant les tests | Stack conservée → **`make status`** ; nettoyage `*-run-*` : **`make down`** si besoin |
+| Healthcheck unhealthy (drive, passwords…) | Voir ci-dessous |
+| Conteneurs `*-run-*` bloquants | **`make down`** (prune automatique) |
+
+### Healthchecks (drive-service, passwords-service…)
 
 1. `make debug-logs` — en tête : **passwords-service** et **drive-service**.
 2. Vérifier `.env` : `POSTGRES_PASSWORD` sans caractères non encodés dans une URL si vous construisez `DATABASE_URL` à la main (`@`, `#`, `:` → encodage ou guillemets).
-3. Après changement de Dockerfile : `docker compose build --no-cache drive-service passwords-service` puis `make up`.
+3. Après changement de Dockerfile : `docker compose build --no-cache drive-service passwords-service` puis **`make up-ready`**.
 4. Premier démarrage : les services Go en mode `go run` peuvent prendre **1–3 minutes** ; les healthchecks ont une **période de grâce** (`start_period`) pour éviter les faux « unhealthy ».
 
 ## Prochaines briques possibles

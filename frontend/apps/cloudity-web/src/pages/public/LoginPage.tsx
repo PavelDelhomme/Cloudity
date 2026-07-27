@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { login as apiLogin, verify2FA } from '../../api'
-import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
+import { isAdminUiReturnPath, normalizePostLoginPath, formatAuthError } from '@cloudity/shared'
 import { navigateAfterAuth } from '../../postAuthNavigate'
 import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } from '../../webauthn'
 import { Key, ShieldCheck } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function LoginPage() {
   // récupération `XXXX-XXXX-XXXX`.
   const [twoFAStep, setTwoFAStep] = useState(false)
   const [twoFACode, setTwoFACode] = useState('')
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   // Calcule la destination post-login en lisant la query string au moment
   // du submit (évite la course avec RedirectIfAuth / flush React).
@@ -62,6 +63,7 @@ export default function LoginPage() {
       return
     }
     setLoading(true)
+    setLoginError(null)
     try {
       const res = await apiLogin({ email: normalizedEmail, password })
       if (res.requires_2fa) {
@@ -75,7 +77,9 @@ export default function LoginPage() {
       finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail)
       toast.success('Connexion réussie')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur de connexion')
+      const msg = formatAuthError(err, 'login')
+      setLoginError(msg)
+      toast.error(msg)
     } finally {
       setLoading(false)
     }
@@ -177,6 +181,14 @@ export default function LoginPage() {
 
         {/* Carte formulaire */}
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200/80 dark:border-slate-600 shadow-sm p-8">
+          {loginError && !twoFAStep ? (
+            <div
+              role="alert"
+              className="mb-5 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 px-3.5 py-3 text-sm text-red-800 dark:text-red-200"
+            >
+              {loginError}
+            </div>
+          ) : null}
           {twoFAStep ? (
             <form onSubmit={handle2FASubmit} className="space-y-5">
               <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">

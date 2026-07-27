@@ -42,8 +42,12 @@ func isDevBrowserOrigin(origin string) bool {
 	return false
 }
 
+func normalizeCorsOrigin(origin string) string {
+	return strings.TrimRight(strings.TrimSpace(origin), "/")
+}
+
 func corsOriginAllowedFixedList(origin string) bool {
-	o := strings.TrimSpace(origin)
+	o := normalizeCorsOrigin(origin)
 	if o == "" {
 		return false
 	}
@@ -51,7 +55,7 @@ func corsOriginAllowedFixedList(origin string) bool {
 	if v := os.Getenv("CORS_ORIGINS"); v != "" {
 		origins = strings.Split(v, ",")
 		for i, s := range origins {
-			origins[i] = strings.TrimSpace(s)
+			origins[i] = normalizeCorsOrigin(s)
 		}
 	}
 	for _, allowed := range origins {

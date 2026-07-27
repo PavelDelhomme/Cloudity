@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../pass_crypto.dart';
-import '../user_session.dart';
-import '../vault_controller.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
+
+import '../features/pass_crypto.dart';
+import '../features/pass_local_backup.dart';
+import '../auth/user_session.dart';
+import '../features/vault_controller.dart';
 import 'item_detail_screen.dart';
 
 class PassItemsScreen extends StatefulWidget {
@@ -12,12 +15,14 @@ class PassItemsScreen extends StatefulWidget {
     required this.controller,
     required this.vaultId,
     required this.vaultName,
+    this.offlineDoc,
   });
 
   final PassUserSession session;
   final VaultController controller;
   final int vaultId;
   final String vaultName;
+  final Map<String, dynamic>? offlineDoc;
 
   @override
   State<PassItemsScreen> createState() => _PassItemsScreenState();
@@ -30,6 +35,7 @@ class _DecodedItemPreview {
     required this.subtitle,
     required this.envelopeB64u,
     required this.formatVersion,
+    this.url,
     this.error,
     this.type,
   });
@@ -37,6 +43,7 @@ class _DecodedItemPreview {
   final int id;
   final String title;
   final String? subtitle;
+  final String? url;
   final String envelopeB64u;
   final int formatVersion;
   final String? type;
@@ -56,10 +63,16 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
   }
 
   Future<List<_DecodedItemPreview>> _load() async {
-    final raw = await widget.session.api.fetchItems(
-      accessToken: widget.session.accessToken,
-      vaultId: widget.vaultId,
-    );
+    List<Map<String, dynamic>> raw;
+    try {
+      raw = await widget.session.api.fetchItems(
+        accessToken: widget.session.accessToken,
+        vaultId: widget.vaultId,
+      );
+    } catch (_) {
+      raw = PassLocalBackupStore.itemsForVault(widget.offlineDoc, widget.vaultId);
+      if (raw.isEmpty) rethrow;
+    }
     final out = <_DecodedItemPreview>[];
     for (final r in raw) {
       final id = (r['id'] as int?) ?? 0;
@@ -88,6 +101,7 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
           id: id,
           title: title,
           subtitle: plain.username ?? plain.url,
+          url: plain.url,
           envelopeB64u: ct,
           formatVersion: fv,
           type: plain.type,
@@ -108,25 +122,6 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
 
   Future<void> _refresh() async {
     setState(() => _items = _load());
-  }
-
-  IconData _iconFor(String? type) {
-    switch (type) {
-      case PassItemTypes.login:
-        return Icons.login;
-      case PassItemTypes.note:
-        return Icons.sticky_note_2_outlined;
-      case PassItemTypes.card:
-        return Icons.credit_card;
-      case PassItemTypes.identity:
-        return Icons.badge_outlined;
-      case PassItemTypes.totp:
-        return Icons.lock_clock;
-      case PassItemTypes.sshKey:
-        return Icons.terminal;
-      default:
-        return Icons.shield_outlined;
-    }
   }
 
   @override
@@ -201,11 +196,11 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
                     itemBuilder: (_, i) {
                       final it = filtered[i];
                       return ListTile(
-                        leading: Icon(
-                          _iconFor(it.type),
-                          color: it.hasError
-                              ? Theme.of(context).colorScheme.error
-                              : null,
+                        leading: PassFavicon(
+                          gatewayBase: widget.session.api.baseUrl,
+                          url: it.url,
+                          title: it.title,
+                          size: 36,
                         ),
                         title: Text(it.title),
                         subtitle: it.subtitle == null ? null : Text(it.subtitle!),
@@ -216,8 +211,10 @@ class _PassItemsScreenState extends State<PassItemsScreen> {
                                 Navigator.of(context).push(MaterialPageRoute(
                                   builder: (_) => PassItemDetailScreen(
                                     title: it.title,
+                                    url: it.url,
                                     envelopeB64u: it.envelopeB64u,
                                     controller: widget.controller,
+                                    gatewayBase: widget.session.api.baseUrl,
                                   ),
                                 ));
                               },

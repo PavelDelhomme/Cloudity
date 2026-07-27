@@ -9,8 +9,8 @@
  *  2. Repli silencieux sur le chemin canonique en cas de 503.
  *  3. `SettingsRedirect` redirige vers `/app/settings/sec/<token>` quand
  *     le slug est disponible, sinon vers `/app/settings/canonical`.
- *  4. `SecureSettingsPage` redirige vers le canonique si la validation
- *     renvoie `false` (403 simulé).
+ *  4. `SecureSettingsPage` redirige vers `/app/settings/canonical` si la
+ *     validation renvoie `false` (pas `/app/settings` — boucle 403/429).
  */
 
 import React from 'react'
@@ -102,7 +102,7 @@ describe('SecureSettingsPage', () => {
   it('rend AppSettingsPage si la validation est OK', async () => {
     validateSecurePath.mockResolvedValue(true)
 
-    renderWithRouter('/app/settings/sec/abcdef', <SettingsRedirect />)
+    renderWithRouter('/app/settings/sec/abcdef', <SecureSettingsPage />)
 
     await waitFor(() => expect(screen.getByTestId('settings-page')).toBeTruthy())
   })
@@ -110,12 +110,19 @@ describe('SecureSettingsPage', () => {
   it('redirige vers /app/settings/canonical si validation 403', async () => {
     validateSecurePath.mockResolvedValue(false)
 
-    renderWithRouter('/app/settings/sec/expired', <SettingsRedirect />)
-
-    // SettingsRedirect tente d'abord fetchSecurePaths qui échoue → canonique
-    fetchSecurePaths.mockRejectedValue(new Error('HTTP 503'))
+    renderWithRouter('/app/settings/sec/expired', <SecureSettingsPage />)
 
     await waitFor(() => expect(screen.getByTestId('canonical')).toBeTruthy())
+  })
+
+  it('affiche une erreur sans boucler si validate échoue (429/réseau)', async () => {
+    validateSecurePath.mockRejectedValue(new Error('HTTP 429: Too Many Requests'))
+
+    renderWithRouter('/app/settings/sec/flooded', <SecureSettingsPage />)
+
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy())
+    expect(screen.getByText(/Too Many Requests/i)).toBeTruthy()
+    expect(screen.queryByTestId('canonical')).toBeNull()
   })
 })
 

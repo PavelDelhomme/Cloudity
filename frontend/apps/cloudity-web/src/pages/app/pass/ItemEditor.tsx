@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { generatePassword, type ItemPlaintextV1 } from '@cloudity/pass-crypto'
 import { copyWithAutoClear } from './clipboardAutoClear'
 import TotpDisplay from './TotpDisplay'
+import { loadCachedUserPreferences } from '../../../lib/userPreferencesStore'
 
 export interface ItemEditorValue {
   /** Identifiant interne (numérique) si édition d'un item existant. */
@@ -80,12 +81,21 @@ export default function ItemEditor({
 
   const onCopy = async (label: string, value: string) => {
     if (!value) return
+    const prefs = loadCachedUserPreferences().pass
+    if (!prefs.clipboardEnabled) {
+      toast.error('Copie presse-papier désactivée (Paramètres → Pass)')
+      return
+    }
     try {
       await copyWithAutoClear(value, {
-        ttlMs: 30_000,
+        ttlMs: prefs.clipboardClearMs > 0 ? prefs.clipboardClearMs : 0,
         onCleared: () => toast(`${label} effacé du presse-papiers`),
       })
-      toast.success(`${label} copié (auto-effacement 30 s)`)
+      const hint =
+        prefs.clipboardClearMs > 0
+          ? ` (auto-effacement ${Math.round(prefs.clipboardClearMs / 1000)} s)`
+          : ''
+      toast.success(`${label} copié${hint}`)
     } catch (err) {
       toast.error(`Copie : ${err instanceof Error ? err.message : 'erreur'}`)
     }

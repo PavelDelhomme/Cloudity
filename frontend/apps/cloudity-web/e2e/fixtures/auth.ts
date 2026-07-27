@@ -1,8 +1,9 @@
 import { Page } from '@playwright/test'
+import { seedAdminEmail, seedAdminPassword } from '../loadSeedEnv'
 
-/** Compte démo créé par `make seed-admin` */
-export const DEMO_EMAIL = process.env.PLAYWRIGHT_E2E_EMAIL || 'admin@cloudity.local'
-export const DEMO_PASSWORD = process.env.PLAYWRIGHT_E2E_PASSWORD || 'Admin123!'
+/** Compte démo créé par `make seed-admin` (SEED_ADMIN_* dans .env ou PLAYWRIGHT_E2E_*) */
+export const DEMO_EMAIL = seedAdminEmail()
+export const DEMO_PASSWORD = seedAdminPassword()
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

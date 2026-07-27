@@ -15,7 +15,7 @@ require (
 	golang.org/x/crypto v0.52.0
 )
 
-replace github.com/pavel/cloudity/internalsec => ../internalsec
+replace github.com/pavel/cloudity/internalsec => ./internalsec
 
 require (
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect

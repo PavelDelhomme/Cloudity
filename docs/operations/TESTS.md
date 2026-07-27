@@ -2,6 +2,23 @@
 
 **Objectif** : tout tester (API, frontend, E2E). Les tests unitaires/applicatifs passent par **`make test`**, exécutés **dans les images Docker** (même environnement que la stack). Les E2E sont **à part** : **`make test-e2e`** (après `make up`).
 
+### Démarrage local : `make up-ready` vs `make up-full`
+
+| Commande | Contenu | Durée typique | Quand l’utiliser |
+|----------|---------|---------------|------------------|
+| **`make up-ready`** | down + up + seed + compte démo | ~5 min | **Usage quotidien**, première install, **recours si `up-full` échoue** |
+| **`make up-full`** | idem + **`make test`** (Go, pytest, Vitest) | 15 min – 1 h+ | Avant merge / validation complète |
+| **`UP_FULL_SKIP_TESTS=1 make up-full`** | comme up-ready | ~5 min | Alias pratique si vous êtes déjà dans le flux up-full |
+
+**Si `make up-full` échoue** (tests rouges, Ctrl+C, timeout Vitest, conteneurs `*-run-*` bloquants) :
+
+1. **`make up-ready`** — stack + seed sans relancer les tests (souvent la stack est déjà up après un échec en phase tests).
+2. **`make status`** — URLs et état des services.
+3. **`make test`** — relancer uniquement la batterie de tests.
+4. **`make down`** — tout arrêter + nettoyer les `*-run-*` si Docker est bloqué.
+
+Le script **`scripts/dev/up-failure-hint.sh`** affiche ce rappel automatiquement en fin d’échec.
+
 **Convention Docker d’abord (alignement CI / équipe)** :
 
 | Domaine | Où ça tourne | Commande typique |
@@ -82,7 +99,9 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 | **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 | **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
-| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Le chemin est **relatif à** `frontend/apps/cloudity-web/`. |
+| **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Limite RAM/workers via **`frontend/scripts/vitest-cloudity-web.sh`** (`NODE_OPTIONS=--max-old-space-size=3072`, **`CLOUDITY_VITEST_MAX_WORKERS=1`** par défaut). |
+
+**Affichage Vitest « Test Files 0 passed (1) / Tests 0 passed (34) »** : compteur **en cours d’exécution** (0 terminés sur N), pas un échec final. **`MailPage.test.tsx`** charge un composant très lourd (~7k lignes) : le premier test peut prendre **plusieurs minutes** ; si ça dépasse ~10 min sans progression, vérifier la RAM (éviter gros jobs parallèles type JobbingTrack) et relancer via **`make test-dashboard-one`** (Docker).
 | **`make test-dashboard-lint`** | **ESLint** du dashboard dans le conteneur (`npm run lint`). |
 
 ### Frontend web (@cloudity/web) : chemin canonique = Docker
@@ -249,7 +268,9 @@ Tous les services listés ci‑dessous sont invoqués via **`docker compose run`
 
 **Exclusion E2E** : les specs Playwright dans `e2e/**` sont exclues de Vitest (`vite.config.js` → `test.exclude: ['e2e/**']`). Les tests E2E **navigateur** se lancent avec **`npm run test:e2e`** dans `frontend/apps/cloudity-web` ou **`make test-e2e-playwright`** depuis la racine.
 
-**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-full`** pour que Pass et Domaines admin fonctionnent avec un token valide.
+**401 en manuel sur /pass/vaults ou /mail/domains (admin)** : en runtime, la gateway a besoin de la clé publique JWT (`public.pem`). Exécuter **`make setup`** puis **`make up-ready`** (ou **`make up-full`**) pour que Pass et Domaines admin fonctionnent avec un token valide.
+
+**Anti-spam Mail (Cloudity-owned)** : après chaque sync IMAP, `mail-directory-service` applique les règles M6 puis le **triage Cloudity** (`MAIL_SPAM_AUTO_TRIAGE_*` dans `.env`) : messages en réception avec score ≥ seuil → dossier `spam`. « Signaler spam » / « Pas indésirable » crée des règles expéditeur automatiques. MTA local : **`make mail-mta-local-up`** (Rspamd + Maddy). Tests : `backend/mail-directory-service/spam_triage_test.go`.
 
 **« [no test files] »** : Lors de **`go test ./...`**, les sous-packages qui n’ont **aucun** fichier `*_test.go` (ex. `.../cmd`) affichent une ligne du type **`?   github.com/pavel/cloudity/api-gateway/cmd   [no test files]`**. C’est **normal** : Go indique simplement qu’il n’y a pas de tests dans ce package. Ces packages ne sont pas comptés dans le nombre de tests ; seuls les packages contenant des `*_test.go` exécutent des tests. Aucune action requise.
 

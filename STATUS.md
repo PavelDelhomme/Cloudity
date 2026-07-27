@@ -1,26 +1,24 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-06-29 — Mail mobile : bannière `last_sync_error` ; Contacts `@cloudity/ui` ; sync mail erreurs web (commit précédent).
+**Dernière mise à jour** : 2026-07-27 — Pilotage catalogue ~155 tâches + Sync docs (TODOS/BACKLOG) ; active **H14**.
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** — matrice QA complète (§ **QA-MATRIX**) ; relancer `make up-full` après correctif frontend.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** § 2026-07-27 — Pilotage (blocages/pré-prod) → **Sync docs** → enchaîner **H14** (LAN OK local ; reste HTTPS prod).
 
-### Rituel (avant chaque session) — **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** partie A
+### Rituel (avant chaque session)
 
-1. **Git** : `git status` ; branche = **`feat/app-hub-photos-ux-hardening`** (hors Mail/Déploiement) — **[docs/GIT.md](docs/GIT.md)** + **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
-2. **Contexte** : ouvrir **[TODOS.md](./TODOS.md)** § **Périmètre obligatoire** ; puis **[BACKLOG.md](./BACKLOG.md)** MP-04 / MP-08 / frontend selon la tâche.
-3. **Vérifs** : **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — au minimum `docker info` → **`make test`** (Docker). Front : **`make test-dashboard`** / **`make dashboard-npm-install`** plutôt que npm à la main sur l’hôte.
-4. **Journal (assistant)** : **[docs/LOGS.md](docs/LOGS.md)** à chaque tour — sauf si le message commence par **`NPNLD`** (voir **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)**).
+1. **Git** : branche `feat/app-vault-drive-upload-pin-rotation` — **[docs/GIT.md](docs/GIT.md)**.
+2. **Pilotage** : **`/4dm1n/pilotage`** puis **[TODOS.md](./TODOS.md)** / **[BACKLOG.md](./BACKLOG.md)**.
+3. **Vérifs** : **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 0 · `make test` si merge.
 
 ### Priorités (résumé — détail dans TODOS)
 
-1. **Barrière qualité** : garder verts `make test`, `make test-pass`, E2E, mobile hôte ; **gitleaks** baseline propre (`.gitleaks.toml`) ; trier **gosec** warnings et perf (`LOADAVG_1M`) — **TODOS.md** § Q4/Q7.
-2. **2FA locale compte démo** : validée web + mobile ADB avec compte dédié — activation TOTP, mauvais code refusé, recovery code consommé refusé, Drive/Mail/Photos sur Samsung via `make test-mobile-2fa`.
-3. **PAUSE Mail** : MTA alias livré sur **`dev`** jusqu’au routeur `alias-router` + notifications Mail ; ne pas reprendre Portainer/VPS/C7 sans signal explicite.
-4. **UI-DS-01 (livré sur `dev`)** : **`@cloudity/ui`** fusionné depuis **`feat/cloudity-ui-design-system`** (U0–U8) ; suite hors mail = **UI-3** Pass/Settings utilisateur — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)**.
-5. **Suite hors mail prod** : MP-04 ☑ · Pass popup L3 ☑ · icônes extension ☑ · **MP-08 Firefox** (build initial) ☑ · Photos « Nouvel album » web ☑ ; prochain = UI-3, sync galerie mobile, Safari extension.
-6. **Déploiement** : GHCR + Portainer — **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** après stabilisation UI + mail.
+1. **Pilotage UI** : suivre et valider dans **`/4dm1n/pilotage`** — **[PILOTAGE.md](docs/operations/PILOTAGE.md)**.
+2. **Barrière qualité** : `make test` / E2E selon périmètre.
+3. **Dev / LAN / Portainer env** : `CLOUDITY_PUBLIC_*` + `make sync-public-urls` / `env-prod`.
+4. **PAUSE Mail prod** jusqu’à signal explicite.
+5. **Suite** : H14 HTTPS mobile · H19 auth partagée · DEPLOY-DNS quand publication.
 
 ### Feuille de route — Drive, Mail, Pass, Photos + mobile « prêts prod » (après J8, sans court-circuiter Q15)
 
@@ -31,7 +29,7 @@
 | **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, extension MP-06/MP-07 livrée). |
 | **B — Qualité transverse** | Barrière merge stable | **`make test`**, **`make test-dashboard`**, E2E **TESTS.md** ; mobile **`make test-mobile-suite`** (Mail / Drive / Photos) + variables **`CLOUDITY_E2E_*`** pour device. |
 | **C — Mail « complet »** | Messagerie + **alias créés dans Cloudity** (sans panneau OVH) | **[MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** (cible) ; MVP § 2 **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** ; **MAIL-ALIAS-01…06** + **AS-1** (MTA/DKIM) dans **BACKLOG** ; admin **`/mail/domains*`** pour couche domaine. |
-| **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; gros fichiers front : **REFACTOR-FE-03** / **FE-02** quand les flux sont stabilisés. |
+| **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; **sync bureau type Nextcloud** : **[DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)** (`DRIVE-DESKTOP-*`, ❌ pas encore démarré) ; gros fichiers front : **REFACTOR-FE-03** / **FE-02**. |
 | **E — Prod** | Publier | Q15 vert → **TODOS** § Prod VPS + stacks Portainer. |
 | **F — Releases & distribution** | Mises à jour **service par service** ; **OTA Android** ; comptes & secrets | **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** (`make deploy-web`, `deploy-mail`, …) · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** · **ENV** : **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** |
 
@@ -85,11 +83,12 @@
 | **Arrêter la stack** | `make down` |
 | **Logs en temps réel** | `make logs` |
 | **Aide Make** | `make help` |
-| **Première fois** | **`make setup`** puis **`make up-full`** |
+| **Première fois** | **`make setup`** puis **`make up-ready`** (rapide) ou **`make up-full`** (+ tests) |
 | **Migrations SQL** | **`make migrate`** (racine, Docker) — applique **`infrastructure/postgresql/migrations/`**. Inclus aussi dans **`make rebuild`** / chaîne **`make up`** via le service **`db-migrate`**. Détail **[docs/operations/TESTS.md](docs/operations/TESTS.md)** (Migrations). |
-| **Nettoyer coffres Pass « e2e-* » (restes Playwright)** | **`make clean-pass-e2e-vaults`** — supprime en Postgres les **`pass_vaults`** dont le nom commence par **`e2e-`** pour l’utilisateur seed (**`admin@cloudity.local`** par défaut, surcharge **`PASS_E2E_CLEAN_EMAIL`**). Prérequis : **`make up`**. Ne pas nommer un coffre réel **`e2e-…`**. Voir **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **3.5**. |
+| **Nettoyer coffres Pass « e2e-* » (restes Playwright)** | **`make clean-pass-e2e-vaults`** — supprime en Postgres les **`pass_vaults`** dont le nom commence par **`e2e-`** pour l’utilisateur seed (**`SEED_ADMIN_EMAIL`**, ou surcharge **`PASS_E2E_CLEAN_EMAIL`**). Prérequis : **`make up`**. Ne pas nommer un coffre réel **`e2e-…`**. Voir **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **3.5**. |
 | **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)** § 5 |
 | **Réparation dev rapide (mail + extension)** | **`make doctor`** ou **`make stack-heal`** — clé **`MAIL_PASSWORD_ENCRYPTION_KEY`**, recréation **`mail-directory-service`**, build extension Pass ; **`ensure-alias-encryption-key`** inclus. Sortie **✅** = OK ; sync IMAP KO après rotation de clé → ré-enregistrer le MDP boîte — **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 2.c, **[TODOS.md](./TODOS.md)** |
+| **Env public / Portainer** | **`make sync-public-urls`** · **`make env-prod DOMAIN=…`** · **`make env-preprod`** · **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/README.md](deploy/portainer/README.md)** |
 | **Surveillance ressources (CLI)** | **`make perf-watch`** (boucle), **`make perf-snapshot LABEL=…`**, **`make perf-diff`**, **`make perf-budgets`** — détail **[docs/operations/PERFORMANCES-MONITORING.md](docs/operations/PERFORMANCES-MONITORING.md)** ; **rituel** : snapshot **avant** ET **après** chaque feature non triviale, puis `make perf-diff` (exit 1 = régression). |
 | **Anti-spam / anti-abus (doc)** | Vision **multi-couches** (edge → gateway → auth → MTA **Rspamd** ; option ML plus tard) + **mail vs chiffrement Pass** (pas de confusion) : **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)**, **[docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** ; sync Mail : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 0e. |
 | **Avant chaque reprise** | **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — `docker info` → **`make test`** → (optionnel) E2E Playwright, `flutter test` Pass, `compose config`. **État stack + URLs** : **`make status`** (`CLOUDITY_STATUS_HOST` pour le LAN). |
@@ -100,11 +99,11 @@
 
 **Session web** : JWT d’accès **60 min** par défaut (`ACCESS_TOKEN_DURATION_MINUTES` sur **auth-service** dans `docker-compose`) ; refresh **30 j** avec rotation ; le front **rafraîchit** le token toutes les **10 min** et **au retour sur l’onglet** pour éviter les déconnexions quand le navigateur ralentit les timers en arrière-plan.
 
-**Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Sur ta machine, définis `VITE_API_URL=http://<TON_IP>:6080` (ex. `192.168.1.5`) dans `.env` ou au lancement, puis `make up`. Sur le téléphone (même Wi‑Fi), ouvre `http://<TON_IP>:6001`.
+**Ouvrir sur smartphone** : CORS autorise le réseau local (`CORS_ALLOW_LAN=true` par défaut en dev). Dans **`.env`** : `CLOUDITY_PUBLIC_HOST=<TON_IP>` puis **`make sync-public-urls`** (met à jour `VITE_API_URL`, mobile, CORS…) puis **`make deploy-web`**. Sur le téléphone (même Wi‑Fi) : `http://<TON_IP>:6001`.
 
-**Connexion locale** : Il n'y a pas de compte par défaut. Soit créer un compte sur http://localhost:6001/register , soit lancer **`make up-full`** (après **`make setup`**) pour créer le compte de démo `admin@cloudity.local` (tenant 1). Le mot de passe de démo est défini dans `scripts/db/` / `Makefile` (cible `seed-admin`) — **ne jamais le réutiliser hors du dev local** ; voir **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)**. **`make up-full`** = down + up + attente services + seed + seed-admin + **make test** (une seule commande, vérification incluse).
+**Connexion locale** : pas de compte magique hardcodé. Définis **`SEED_ADMIN_EMAIL`** / **`SEED_ADMIN_PASSWORD`** dans **`.env`** (email réel recommandé), puis **`make seed-admin`** (ou **`make up-ready`** / **`up-full`** après **`make setup`**). Ce compte est **à la fois** utilisateur des apps (`/app`) **et** super-admin (`/4dm1n`). Mot de passe local uniquement — **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)**. **`make up-ready`** = down + up + seed + compte démo (~5 min). **`make up-full`** = idem + **`make test`**. En cas d’échec **`up-full`** : **`make up-ready`** puis **`make status`**.
 
-> **Accès au back-office `/4dm1n`** : il faut un **JWT avec `role: "admin"`**. **`make seed-admin`** **crée** le compte de démo **et le promeut** (`UPDATE users SET role='admin'`). Côté **auth-service**, les JWT incluent désormais le claim `role` (lu en BDD au login / register / refresh). Si tu étais connecté **avant** ce changement (token sans `role`), **déconnecte-toi puis reconnecte-toi** : sinon l’UI redirige vers `/app` et l’API gateway renvoie **403 admin role required**.
+> **Back-office `/4dm1n`** : JWT avec **`role: "admin"`**. **`make seed-admin`** promeut **uniquement** `SEED_ADMIN_EMAIL` et **rétrograde** les autres `role=admin` du tenant 1. Après un vieux JWT sans `role` : **reconnecte-toi**. Erreur **`admin API: origin not allowed`** : ouvrir via le proxy Vite (ex. `http://cloudity.localhost:6001`), `CORS_ALLOW_LAN=true` / `CORS_ORIGINS`, rebuild gateway.
 
 **Authentification et interconnexion centralisées** : Oui. **Un seul** service d’auth (**auth-service**), **une seule** entrée API (**api-gateway** sur le port 6080). Toutes les apps (Dashboard, Drive, Mail, Pass, Agenda, Notes, Tâches) utilisent le **même JWT** : le frontend stocke le token dans le localStorage (`cloudity_admin_auth`) et envoie `Authorization: Bearer <token>` sur chaque requête. Le gateway valide le JWT, extrait `user_id` et `tenant_id`, et les transmet aux backends via les en-têtes **X-User-ID** et **X-Tenant-ID**. Aucun backend ne fait de login lui-même : Pass, Mail, Drive, Calendar, Notes, Tasks et Admin s’appuient tous sur ce mécanisme. Les futures apps (Flutter, PWA) pourront réutiliser la même API et le même token.
 
@@ -142,7 +141,7 @@
 2. **Architecture multi-produits (§ 0b)** — **A1 phase 1** (workspaces npm racine **`frontend/`**) livré ; enchaîner **A2 + A3 minimal** (auth + client API partagés) puis **A8** (Docker build depuis **`frontend/`** unifié) selon besoin.  
 3. **Trajectoire livraison produit (après stabilisation admin + web)** — finaliser le socle **Mail / Photos / Contacts / Calendar / Drive** en **Web** puis dupliquer en **Linux/Desktop** et **Mobile** (même compte Cloudity / même API gateway locale), pour usage quotidien réel et déploiement VPS.
 
-**Note cadrage produit (mai 2026)** : après stabilisation Web Mail, la suite planifiée est la parité fonctionnelle Desktop/Linux + Mobile (connexion compte Cloudity existant, ex. `admin@cloudity.local` en environnement local), testable sur réseau local domestique avant bascule VPS. Prévoir et maintenir en parallèle : pipeline **CI/CD**, sauvegardes automatiques et **snapshots** de restauration (DB + stockage) pour rollback rapide en cas d’incident.
+**Note cadrage produit (mai 2026)** : après stabilisation Web Mail, la suite planifiée est la parité fonctionnelle Desktop/Linux + Mobile (connexion avec le compte seed **`SEED_ADMIN_EMAIL`** en local), testable sur réseau local domestique avant bascule VPS. Prévoir et maintenir en parallèle : pipeline **CI/CD**, sauvegardes automatiques et **snapshots** de restauration (DB + stockage) pour rollback rapide en cas d’incident.
 
 **Plus tard (tâches à faire)** : Administration (renforcer écrans, rôles) ; **Photos** — albums, sync batterie, détection des **autres apps** suite sur l’appareil (phase 2) ; l’app **mobile/photos** a désormais **connexion compte**, timeline et tests **`make test-mobile-photos`** (voir `docs/produit/PHOTOS.md`, **TESTS.md** § 1b) ; **Notes** (interface type Google Keep, cartes, couleurs, rappels) ; **Calendar** (vue agenda / semaine améliorée) ; Mail client riche (suite prioritaire après stabilisation Photos) ; Contacts ; etc. Voir section 1 et 5 ci-dessous.
 
@@ -280,7 +279,7 @@ Etat: **cadre ajuste**. Priorite reaffirmee:
 - [ ] **Photos** : app mobile + sync + extensions (au-delà du MVP web).
 - [ ] **Prod** : Nginx Proxy Manager, TLS 1.3, backups chiffrés.
 
-**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-full`**.
+**Migrations DB** : au démarrage (**`make up`**), le service **db-migrate** applique automatiquement les scripts dans `infrastructure/postgresql/migrations/` (04-schema-drive, 05-calendar, 06-notes, 07-tasks, 20250225_mail). Aucune action manuelle : base existante ou nouvelle reçoit les migrations. En manuel : **`make migrate`**. **JWT** : l'auth-service persiste désormais **private.pem** et **public.pem** lorsqu'il génère les clés ; après un redémarrage, les mêmes clés sont rechargées et les tokens restent valides (plus besoin de se déconnecter/reconnecter). **Register** : si l'email existe déjà pour le tenant, l'API renvoie **409 Conflict** au lieu de 500 ; **make seed-admin** peut afficher un avertissement « compte déjà existant » sans erreur. En cas de 401 persistant (clé jamais générée), lancer **`make setup`** puis **`make up-ready`** (ou **`make up-full`**).
 
 *Détail des phases et checklist complète : section 5 ci-dessous ; vision long terme et métriques : **[docs/produit/PlanImplementation.md](docs/produit/PlanImplementation.md)**.*
 
@@ -393,7 +392,7 @@ La détection IMAP/SMTP est **entièrement automatique** à partir de l’adress
 | M4 | **Lecture, recherche, filtres** | Marquer lu / non lu dans la liste ; recherche full-text dans les messages ; filtres et tri (date, expéditeur, objet) ; « À lire plus tard » / liste en attente ; gestion de la file d’envoi (messages en attente). | API : flags read/unread, search endpoint ; E2E : marquer lu, recherche. |
 | M5 | **Envoi programmé** | Programmer l’envoi d’un mail (date/heure). Backend : file d’envoi + worker ou cron. Interface : date/heure dans la fenêtre de rédaction. **UX cible** : entrée liste **« Programmés »** (vue Cloudity + calendrier / modification / annulation) en complément des brouillons — voir **SYNC-BACKLOG §12**. | API : scheduled_send ; E2E : programmer envoi. |
 | M6 | **Dossiers et règles** | Dossiers personnalisés, sous-dossiers, déplacer messages, règles de tri auto. Conditions visées : expéditeur, destinataire, sujet, contenu, date/heure/plage horaire. Actions visées : déplacer dossier, marquer lu/non lu, spam, archiver. Inclure modification de règles + application rétroactive. Sync à la demande ou planifiée. | API : folders, rules. |
-| M7 | **Spam** | Dossier Spam dans l'UI ; détection (scoring / Rspamd) ; marquer spam / non spam. | API : folder spam, flag. |
+| M7 | **Spam** | **Cloudity-owned** : triage post-sync (réception → spam, `MAIL_SPAM_AUTO_TRIAGE_*`), score heuristique + en-têtes **Rspamd**, apprentissage expéditeur (règles M6 auto), UI spam/ham ; sync Junk IMAP fournisseur en parallèle. **AS-1 partiel** : Rspamd MTA local ; prod SPF/DKIM ☐. | API + `spam_triage_test.go` |
 | M8 | **Paramètres et conversations** | Paramètres Mail : **signature** (déjà en place). UX compte mail (sync) : **livré** — champs **serveur IMAP/SMTP verrouillés** pendant la synchronisation de la boîte en cours + message explicite dans la modale ; enregistrement bloqué durant ce verrou. **Sync par boîte** (boutons dédiés) : livré — **PLAN §9**. **Règles par boîte** : **MVP livré** (CRUD, critères étendus, réconciliation IMAP best-effort) ; suite : tests API/E2E, raffinements. Conversations : grouper mails d'un même fil (thread) — **à faire**. **Corps du message** : backend **livrée** (fallback IMAP) ; **UX** : chargement + **Recharger le message** si corps vide (**avril 2026**). **Notifications hors page Mail** : watcher global **livré** ; PWA / SW — backlog. **Brouillons** : récupération et envoi à gérer (côté app mail). | Unit : paramètres, thread. |
 | M9 | **Interconnexion Mail ↔ Drive / Calendar / Notes / Tasks / Contacts** | Drive (pièces jointes). À faire : Calendar, Notes, Tasks, Contacts (suggestions, expéditeur → fiche). | E2E : Mail → Drive, Contacts. |
 

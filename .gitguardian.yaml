@@ -1,20 +1,10 @@
-# Baseline GitGuardian — faux positifs documentés (cf. docs/securite/SECRETS.md).
-# Le check GitHub PR peut aussi exiger une règle d'exclusion sur dashboard.gitguardian.com.
+# GitGuardian — faux positifs documentés (cf. docs/securite/SECRETS.md § GitGuardian).
+# Les mots de passe démo ne doivent plus être en dur dans le code mobile (dart-define + .env).
 
-version: 2
-
-secret:
-  ignored_matches:
-    # Compte démo local (`make seed-admin`) — jamais utilisé en production.
-    - name: Cloudity demo password (seed-admin)
-      match: Admin123!
-    - name: Token perf ingest dev (placeholder docker-compose)
-      match: dev_perf_ingest_change_me
-  ignored_paths:
-    - ".env.example"
-    - "Makefile"
-    - "TODOS.md"
-    - "docs/**"
-    - "scripts/ci/test-e2e.sh"
-    - "frontend/apps/cloudity-web/e2e/**"
-    - "backend/**/main_test.go"
+paths-ignore:
+  - name: Go tests — credentials démo seed-admin
+    paths:
+      - backend/**/**_test.go
+  - name: E2E Playwright — env PLAYWRIGHT_E2E_PASSWORD
+    paths:
+      - frontend/apps/cloudity-web/e2e/**

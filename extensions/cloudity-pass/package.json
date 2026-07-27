@@ -13,7 +13,8 @@
     "test": "node scripts/test-domain-matcher.mjs"
   },
   "dependencies": {
-    "@cloudity/pass-crypto": "file:../../frontend/packages/pass-crypto"
+    "@cloudity/pass-crypto": "file:../../frontend/packages/pass-crypto",
+    "@cloudity/shared": "file:../../frontend/packages/cloudity-shared"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.270",

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Validation Linux desktop Flutter pour les apps qui ont déjà une cible linux/.
-# Par défaut : pub get + flutter test + flutter build linux --debug.
-# Optionnel : CLOUDITY_DESKTOP_RUN_SMOKE=1 lance aussi un run court (timeout).
+# Validation Linux desktop Flutter (Drive, Photos, Pass).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
-if ! command -v flutter >/dev/null 2>&1; then
-  echo "❌ Flutter requis pour valider les apps Linux desktop."
+# shellcheck source=mobile-flutter-env.sh
+source "${ROOT}/scripts/mobile/mobile-flutter-env.sh"
+if ! cloudity_prepare_flutter_env "$ROOT"; then
+  echo "❌ Flutter requis — lancez : make ensure-flutter-sdk"
   exit 1
 fi
 
-apps=(drive photos)
+apps=(drive photos pass)
 
 for app in "${apps[@]}"; do
   app_dir="${ROOT}/mobile/${app}"
@@ -45,4 +45,4 @@ for app in "${apps[@]}"; do
   fi
 done
 
-echo "✅ Linux desktop Drive/Photos : tests + builds debug OK."
+echo "✅ Linux desktop Drive/Photos/Pass : tests + builds debug OK."

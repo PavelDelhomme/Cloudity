@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
 # État des services Cloudity : tableau lisible (ports, URL, Up/Down), ordre logique, rafraîchissement via make status-watch.
 #
-# Couleurs : actives en TTY ; sinon si forcées (watch pipe souvent sans TTY) :
-#   CLOUDITY_STATUS_FORCE_COLOR=1  ou  FORCE_COLOR=1  ou  CLICOLOR_FORCE=1
-# Ex. : watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd repo && ./scripts/dev/status.sh'
-# make status-watch définit déjà CLOUDITY_STATUS_FORCE_COLOR=1 pour le sous-processus.
+# Couleurs : codes ANSI (pas seulement tput). Actives si stdout est un TTY, ou si forcées :
+#   CLOUDITY_STATUS_FORCE_COLOR=1  (make status-watch)  ·  FORCE_COLOR=1  ·  CLICOLOR_FORCE=1
+# Respecte NO_COLOR sauf si CLOUDITY_STATUS_FORCE_COLOR=1 (mode watch).
+#
+# Conteneurs masqués : *-run-* = jobs éphémères `docker compose run` (tests Vitest, go test…).
+# Voir docs/architecture/SERVICES.md § 4 et docs/operations/TESTS.md.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+RED="" GREEN="" YELLOW="" DIM="" BOLD="" CYAN="" RESET=""
+
 _use_color() {
-  command -v tput >/dev/null 2>&1 || return 1
-  [[ -z "${NO_COLOR:-}" ]] || return 1
+  [[ -z "${NO_COLOR:-}" || "${CLOUDITY_STATUS_FORCE_COLOR:-}" == "1" ]] || return 1
   if [[ -t 1 ]]; then return 0; fi
   if [[ "${CLOUDITY_STATUS_FORCE_COLOR:-}" == "1" ]]; then return 0; fi
   if [[ "${FORCE_COLOR:-}" == "1" ]]; then return 0; fi
@@ -19,15 +22,20 @@ _use_color() {
 }
 
 if _use_color; then
-  RED=$(tput setaf 1)
-  GREEN=$(tput setaf 2)
-  YELLOW=$(tput setaf 3)
-  DIM=$(tput dim)
-  BOLD=$(tput bold)
-  RESET=$(tput sgr0)
-else
-  RED="" GREEN="" YELLOW="" DIM="" BOLD="" RESET=""
+  RED=$'\033[31m'
+  GREEN=$'\033[32m'
+  YELLOW=$'\033[33m'
+  CYAN=$'\033[36m'
+  DIM=$'\033[2m'
+  BOLD=$'\033[1m'
+  RESET=$'\033[0m'
 fi
+
+# Conteneur one-shot `docker compose run` (tests CI, Vitest, go test…) — pas un service long-running.
+is_compose_run_ephemeral() {
+  local name="$1"
+  [[ "$name" == *"-run-"* ]]
+}
 
 if docker compose version >/dev/null 2>&1; then
   COMPOSE="docker compose"
@@ -131,10 +139,15 @@ echo "  ${SEP}"
 
 raw=$($COMPOSE -f docker-compose.yml ps -a --format "{{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || true)
 
+ephemeral_hidden=0
 tmp=$(mktemp)
 while IFS= read -r line; do
   [ -z "$line" ] && continue
   name=$(echo "$line" | awk -F'\t' '{print $1}')
+  if is_compose_run_ephemeral "$name"; then
+    ephemeral_hidden=$((ephemeral_hidden + 1))
+    continue
+  fi
   status=$(echo "$line" | awk -F'\t' '{print $2}')
   ports=$(echo "$line" | awk -F'\t' '{print $3}')
   port=$(host_port "$ports")
@@ -148,19 +161,37 @@ while IFS= read -r line; do
 done <<< "$raw" | sort -t$'\t' -k1,1n -k2,2 | cut -f2- >"$tmp"
 
 shown=0
+web_up=0
+gateway_up=0
 while IFS=$'\t' read -r sn port url up; do
   [ -z "${sn:-}" ] && continue
   shown=1
+  if [ "$up" = "Up" ]; then
+    if [ "$sn" = "cloudity-web" ]; then web_up=1; fi
+    if [ "$sn" = "api-gateway" ]; then gateway_up=1; fi
+  fi
   if [ "$up" = "Up" ] || [ "$up" = "OK (job)" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${GREEN}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
-  else
+  elif [ "$up" = "Fail" ]; then
     printf "  %-${W}s %-${COLW}s %-${URLW}s ${RED}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
+  else
+    printf "  %-${W}s %-${COLW}s %-${URLW}s ${YELLOW}%-${STATW}s${RESET}\n" "$sn" "$port" "$url" "$up"
   fi
 done <"$tmp"
 rm -f "$tmp"
 
+stack_accessible=0
+if [ "$web_up" = "1" ] && [ "$gateway_up" = "1" ]; then
+  stack_accessible=1
+fi
+
 if [ "$shown" = "0" ]; then
   echo "  ${YELLOW}Aucun conteneur Cloudity listé. Lancez : make up${RESET}"
+fi
+
+if [ "$ephemeral_hidden" -gt 0 ]; then
+  echo "  ${DIM}${ephemeral_hidden} conteneur(s) éphémère(s) « compose run » masqué(s) (*-run-*) — tests CI, pas la stack.${RESET}"
+  echo "  ${DIM}Arrêter un run bloqué : docker rm -f <nom>  ·  doc : docs/architecture/SERVICES.md § 4${RESET}"
 fi
 
 echo "  ${SEP}"
@@ -201,30 +232,46 @@ PORT_REDIS="$(_env_get PORT_REDIS 6079)"
 PORT_ADMINER="$(_env_get PORT_ADMINER 6083)"
 PORT_REDIS_COMMANDER="$(_env_get PORT_REDIS_COMMANDER 6084)"
 
-HOST="${CLOUDITY_STATUS_HOST:-localhost}"
-PROTO="${CLOUDITY_STATUS_PROTO:-http}"
+HOST="${CLOUDITY_STATUS_HOST:-}"
+if [ -z "$HOST" ]; then
+  HOST="$(_env_get CLOUDITY_PUBLIC_HOST localhost)"
+fi
+PROTO="${CLOUDITY_STATUS_PROTO:-}"
+if [ -z "$PROTO" ]; then
+  PROTO="$(_env_get CLOUDITY_PUBLIC_PROTO http)"
+fi
 ORIGIN="${PROTO}://${HOST}:${PORT_DASHBOARD}"
 API="${PROTO}://${HOST}:${PORT_GATEWAY}"
 
 echo "  ${BOLD}URLs d'accès (navigateur / API)${RESET}  ${DIM}— même tableau que STATUS.md §0 ; ports : PORTS-HOTES.md${RESET}"
-echo "  ${DIM}Depuis un autre appareil sur le LAN :${RESET} ${BOLD}export CLOUDITY_STATUS_HOST='<IP_de_ta_machine>'${RESET} ${DIM}puis relancer${RESET} ${BOLD}make status${RESET}${DIM} (HTTP dev par défaut ; prod = TLS NPM, voir DEPLOIEMENT-VPS-PORTAINER-NPM.md).${RESET}"
 echo "  ${SEP}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
-printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"
-printf "  ${DIM}%-22s${RESET} %s\n" "Inscription" "${ORIGIN}/register"
-printf "  ${DIM}%-22s${RESET} %s\n" "Pass" "${ORIGIN}/app/pass"
-printf "  ${DIM}%-22s${RESET} %s\n" "Mail" "${ORIGIN}/app/mail"
-printf "  ${DIM}%-22s${RESET} %s\n" "Drive" "${ORIGIN}/app/drive"
-printf "  ${DIM}%-22s${RESET} %s\n" "Back-office" "${ORIGIN}/4dm1n"
-printf "  ${DIM}%-22s${RESET} %s\n" "API (gateway)" "${API}/health"
-printf "  ${DIM}%-22s${RESET} %s\n" "Auth health" "${API}/auth/health"
-printf "  ${DIM}%-22s${RESET} %s\n" "Playwright (API)" "${API}  ${DIM}# ex. PLAYWRIGHT_API_URL${RESET}"
-echo "  ${SEP}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Postgres (psql)" "${HOST}:${PORT_POSTGRES}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Redis" "${HOST}:${PORT_REDIS}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Adminer" "${PROTO}://${HOST}:${PORT_ADMINER}"
-printf "  ${DIM}%-22s${RESET} %s\n" "Redis Commander" "${PROTO}://${HOST}:${PORT_REDIS_COMMANDER}"
+if [ "$stack_accessible" = "1" ]; then
+  echo "  ${DIM}Hôte public (.env) :${RESET} ${BOLD}CLOUDITY_PUBLIC_HOST${RESET}${DIM} +${RESET} ${BOLD}make sync-public-urls${RESET}${DIM} · override affichage :${RESET} ${BOLD}CLOUDITY_STATUS_HOST${RESET}"
+  echo "  ${SEP}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Hub / suite" "${ORIGIN}/app"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Connexion" "${ORIGIN}/login"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Inscription" "${ORIGIN}/register"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Pass" "${ORIGIN}/app/pass"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Mail" "${ORIGIN}/app/mail"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Drive" "${ORIGIN}/app/drive"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Back-office" "${ORIGIN}/4dm1n"
+  printf "  ${DIM}%-22s${RESET} %s\n" "API (gateway)" "${API}/health"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Auth health" "${API}/auth/health"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Playwright (API)" "${API}  ${DIM}# ex. PLAYWRIGHT_API_URL${RESET}"
+  echo "  ${SEP}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Postgres (psql)" "${HOST}:${PORT_POSTGRES}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Redis" "${HOST}:${PORT_REDIS}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Adminer" "${PROTO}://${HOST}:${PORT_ADMINER}"
+  printf "  ${DIM}%-22s${RESET} %s\n" "Redis Commander" "${PROTO}://${HOST}:${PORT_REDIS_COMMANDER}"
+else
+  echo "  ${YELLOW}Stack arrêtée — aucune URL n'est joignable pour l'instant.${RESET}"
+  if [ "$shown" = "1" ]; then
+    echo "  ${DIM}Des conteneurs existent mais cloudity-web et/ou api-gateway ne sont pas Up.${RESET}"
+  fi
+  echo "  ${DIM}Démarrez la stack :${RESET} ${BOLD}make up${RESET}"
+  echo "  ${DIM}Référence des ports une fois démarrée :${RESET} PORTS-HOTES.md, STATUS.md §0"
+fi
 echo "  ${SEP}"
 echo ""
-echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"
+echo "  ${DIM}Rafraîchissement : ${RESET}${BOLD}make status-watch${RESET}${DIM}  (Ctrl+C conserve le dernier état)  ·  alias :${RESET} ${BOLD}make statys${RESET}${DIM}|${RESET}${BOLD}stats${RESET}${DIM}|${RESET}${BOLD}stat${RESET}"
 echo ""

@@ -43,6 +43,8 @@ import UnlockScreen from './UnlockScreen'
 import ItemEditor, { type ItemEditorValue } from './ItemEditor'
 import ProtonImportDialog from './ProtonImportDialog'
 import PassMailAliasesPanel from './PassMailAliasesPanel'
+import PassBackupActions from './PassBackupActions'
+import PassFavicon from './PassFavicon'
 import type { ConvertedItem } from './protonImport'
 
 // --- Helpers ----------------------------------------------------------
@@ -155,7 +157,7 @@ function PassPageInner() {
 
   return (
     <div className="flex flex-col gap-6">
-      <UnlockedPass accessToken={accessToken} logout={logout} />
+      <UnlockedPass accessToken={accessToken} userId={userId} logout={logout} />
       {aliasesPanel}
     </div>
   )
@@ -194,10 +196,11 @@ function PassHeader({
 
 interface UnlockedPassProps {
   accessToken: string
+  userId: string
   logout: () => void
 }
 
-function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
+function UnlockedPass({ accessToken, userId, logout }: UnlockedPassProps) {
   const queryClient = useQueryClient()
   const vault = useUnlockedVault()
   const { lock } = useVault()
@@ -390,6 +393,16 @@ function UnlockedPass({ accessToken, logout }: UnlockedPassProps) {
   return (
     <div className="flex flex-col gap-6 min-h-0">
       <PassHeader onLock={lock} />
+      <PassBackupActions
+        accessToken={accessToken}
+        userId={userId}
+        onImported={() => {
+          queryClient.invalidateQueries({ queryKey: ['vaults'] })
+          queryClient.invalidateQueries({
+            predicate: (q) => Array.isArray(q.queryKey) && q.queryKey[0] === 'vault-items',
+          })
+        }}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
         {/* Colonne 1 : vaults */}
@@ -599,7 +612,13 @@ function ItemList({
               onClick={() => onPick(it)}
               className="w-full text-left px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center justify-between gap-3"
             >
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-2">
+                <PassFavicon
+                  url={typeof f.url === 'string' ? f.url : undefined}
+                  title={title}
+                  size={22}
+                />
+                <div className="min-w-0">
                 <div className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
                   {title}
                 </div>
@@ -608,6 +627,7 @@ function ItemList({
                     {subtitle}
                   </div>
                 )}
+                </div>
               </div>
               {it.decryptError ? (
                 <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 text-xs">

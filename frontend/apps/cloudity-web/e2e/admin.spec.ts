@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { login } from './fixtures/auth'
+import { login, DEMO_EMAIL, DEMO_PASSWORD } from './fixtures/auth'
 
 /**
  * Smoke E2E /4dm1n — connexion admin → ouverture du back-office.
@@ -15,9 +15,6 @@ import { login } from './fixtures/auth'
  * **`PLAYWRIGHT_E2E_*`** pour rester aligné avec **`auth.spec.ts`** (mot de passe : Makefile / scripts db, pas dans la doc).
  */
 
-const ADMIN_EMAIL = process.env.PLAYWRIGHT_E2E_EMAIL || 'admin@cloudity.local'
-const ADMIN_PASSWORD = process.env.PLAYWRIGHT_E2E_PASSWORD || 'Admin123!'
-
 test.describe('Back-office admin (/4dm1n)', () => {
   test('redirige /4dm1n vers /login si non authentifié', async ({ page }) => {
     await page.goto('/4dm1n')
@@ -26,21 +23,20 @@ test.describe('Back-office admin (/4dm1n)', () => {
   })
 
   test('connexion admin via ?next=/4dm1n ouvre le back-office', async ({ page }) => {
-    await login(page, { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, returnTo: '/4dm1n' })
+    await login(page, { email: DEMO_EMAIL, password: DEMO_PASSWORD, returnTo: '/4dm1n' })
     await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 20_000 })
     await expect(page.getByRole('link', { name: /tenants/i })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole('link', { name: /utilisateurs/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /domaines mail/i })).toBeVisible()
   })
 
-  test('navigation latérale : Tenants puis Utilisateurs', async ({ page }) => {
-    await login(page, { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, returnTo: '/4dm1n' })
+  test('navigation latérale : Logs mobile', async ({ page }) => {
+    await login(page, { email: DEMO_EMAIL, password: DEMO_PASSWORD, returnTo: '/4dm1n' })
     await expect(page).toHaveURL(/\/4dm1n(\/|$)/, { timeout: 20_000 })
 
-    await page.getByRole('link', { name: /^tenants$/i }).click()
-    await expect(page).toHaveURL(/\/4dm1n\/tenants/, { timeout: 10_000 })
-
-    await page.getByRole('link', { name: /utilisateurs/i }).click()
-    await expect(page).toHaveURL(/\/4dm1n\/users/, { timeout: 10_000 })
+    await page.getByRole('link', { name: /logs mobile/i }).click()
+    await expect(page).toHaveURL(/\/4dm1n\/mobile-logs/, { timeout: 10_000 })
+    await expect(page.getByRole('heading', { name: /logs mobile/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /actualiser/i })).toBeVisible()
   })
 })

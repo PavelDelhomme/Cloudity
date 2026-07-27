@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudity_photos/photo_sync_badge.dart';
+import 'package:cloudity_photos/features/photo_sync_badge.dart';
 
 void main() {
   testWidgets('PhotoSyncBadge affiche les libellés de statut', (tester) async {

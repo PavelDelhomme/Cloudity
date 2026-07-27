@@ -22,6 +22,20 @@ export const PASS_AUTO_LOCK_OPTIONS: readonly PassAutoLockOption[] = [
 
 export function getPassAutoLockAfterMs(): number {
   try {
+    const cached = localStorage.getItem('cloudity.userPreferences.v1')
+    if (cached) {
+      const parsed = JSON.parse(cached) as { pass?: { autoLockMs?: number } }
+      const ms = parsed.pass?.autoLockMs
+      if (typeof ms === 'number' && Number.isFinite(ms)) {
+        if (ms === 0) return 0
+        const allowed = PASS_AUTO_LOCK_OPTIONS.map((o) => o.ms).filter((m) => m > 0)
+        return allowed.includes(ms) ? ms : DEFAULT_PASS_AUTO_LOCK_MS
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
     const raw = localStorage.getItem(PASS_AUTO_LOCK_STORAGE_KEY)
     if (raw == null) return DEFAULT_PASS_AUTO_LOCK_MS
     const n = Number.parseInt(raw, 10)

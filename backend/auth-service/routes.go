@@ -6,6 +6,7 @@ import (
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pavel/cloudity/auth-service/webauthn"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,9 +21,11 @@ func registerAuthHTTPRoutes(r *gin.Engine, auth *AuthService, db *sql.DB, rdb *r
 	r.GET("/auth/security-paths", auth.SecurePaths)
 	r.POST("/auth/security-paths/validate", auth.ValidateSecurePath)
 	r.GET("/auth/validate", auth.ValidateToken)
+	r.GET("/auth/me/preferences", auth.GetUserPreferences)
+	r.PUT("/auth/me/preferences", auth.PutUserPreferences)
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "healthy"}) })
 
 	registerE2EBootstrapRoutesIfEnabled(r, auth)
 
-	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, auth).RegisterRoutes(r)
+	webauthn.NewWebAuthnService(webauthn.LoadWebAuthnConfig(), db, rdb, auth.webauthnBridge()).RegisterRoutes(r)
 }

@@ -404,6 +404,13 @@ function showMailRestoreInboxAction(activeFolder: string, msgFolder: string | un
   return ef === 'spam' || ef === 'trash' || ef === 'archive'
 }
 
+/** Libellé « remettre en réception » vs « pas indésirable » (dossier Spam). */
+function mailRestoreInboxActionLabel(activeFolder: string, msgFolder: string | undefined): string {
+  return effectiveMsgFolderForActions(activeFolder, msgFolder) === 'spam'
+    ? 'Pas indésirable'
+    : 'Remettre en boîte de réception'
+}
+
 /** Dossier cible par défaut dans l’assistant « règle depuis ce message » (standard ou dossier IMAP courant). */
 function ruleAssistantDefaultActionFolder(msgFolder: string | undefined): MailFolderId {
   const raw = (msgFolder ?? '').trim()
@@ -1300,7 +1307,10 @@ export default function MailPage() {
     staleTime: 300_000,
   })
   const googleOAuthEnabled = googleOAuthStatus?.enabled === true
-  const accounts = Array.isArray(accountsData) ? accountsData : (accountsData ?? [])
+  const accounts = useMemo(
+    () => (Array.isArray(accountsData) ? accountsData : []),
+    [accountsData]
+  )
   const sortedAccounts = useMemo(
     () => sortMailAccountsByUserOrder(accounts, accountOrder),
     [accounts, accountOrder]
@@ -1451,11 +1461,11 @@ export default function MailPage() {
     staleTime: 15_000,
   })
 
-  /** Badge « Tous les dossiers » : hors corbeille / spam / brouillons (même logique que l’API `folder=all`). */
+  /** Badge « Tous les messages » : réception + archive + dossiers perso (hors envoyés, corbeille, spam, brouillons). */
   const allMessagesBadgeTotal = useMemo(() => {
     if (!folderSummary) return null
     let n = 0
-    const inAllView: MailStandardFolderId[] = ['inbox', 'sent', 'archive']
+    const inAllView: MailStandardFolderId[] = ['inbox', 'archive']
     for (const id of inAllView) {
       n += folderSummary[id]?.total ?? 0
     }
@@ -1915,8 +1925,13 @@ export default function MailPage() {
       const curDate = Date.parse(m.date_at ?? m.created_at ?? '') || 0
       if (curDate >= prevDate) bestByKey.set(key, m)
     }
-    return Array.from(bestByKey.values())
-  }, [dedupedVisibleMessages, conversationListMode, conversationThreadKey])
+    return Array.from(bestByKey.values()).sort((a, b) => {
+      const da = Date.parse(a.date_at ?? a.created_at ?? '') || 0
+      const db = Date.parse(b.date_at ?? b.created_at ?? '') || 0
+      if (messageListOrder === 'asc') return da - db
+      return db - da
+    })
+  }, [dedupedVisibleMessages, conversationListMode, conversationThreadKey, messageListOrder])
   const totalPages = Math.max(1, Math.ceil(messagesTotal / MESSAGES_PAGE_SIZE) || 1)
   const hasNextPage = (messagePage + 1) * MESSAGES_PAGE_SIZE < messagesTotal
   const allMessagesSelectedOnPage = messages.length > 0 && messages.every((m) => selectedMessageIds.includes(m.id))
@@ -2288,6 +2303,9 @@ export default function MailPage() {
     }
     minimizeComposeSlot(target.id)
   }, [activeComposeId, composeSlots, minimizeComposeSlot, openNewCompose, setActiveAndExpand])
+
+  const toggleComposeFromChromeRef = useRef(toggleComposeFromChrome)
+  toggleComposeFromChromeRef.current = toggleComposeFromChrome
 
   // Auto-save brouillon du slot actif toutes les 3 s
   useEffect(() => {
@@ -2958,7 +2976,9 @@ export default function MailPage() {
   ])
 
   const mailAppChromeSearch = useMemo(
-    () => (
+    () => {
+      if (accounts.length === 0) return null
+      return (
       <div ref={mailSearchPopoverRef} className="relative w-full min-w-0 flex items-center gap-2">
         <div className="relative min-w-[14rem] flex-1">
           <input
@@ -2992,7 +3012,7 @@ export default function MailPage() {
         </div>
         <button
           type="button"
-          onClick={toggleComposeFromChrome}
+          onClick={() => toggleComposeFromChromeRef.current()}
           className="shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 px-2.5 py-2 text-xs font-medium text-brand-800 dark:text-brand-200 hover:bg-brand-100 dark:hover:bg-brand-900/50"
           title="Nouveau message"
         >
@@ -3042,8 +3062,15 @@ export default function MailPage() {
           </div>
         ) : null}
       </div>
-    ),
-    [appendSearchToken, clearMailSearch, mailSearchPopoverOpen, mailSearchText, toggleComposeFromChrome]
+      )
+    },
+    [
+      accounts.length,
+      appendSearchToken,
+      clearMailSearch,
+      mailSearchPopoverOpen,
+      mailSearchText,
+    ]
   )
 
   useEffect(() => {
@@ -4915,6 +4942,14 @@ export default function MailPage() {
               </div>
             </div>
             ) : null}
+            {activeFolder === 'spam' ? (
+              <div className="px-4 py-2 border-b border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-950/20">
+                <p className="text-xs text-orange-900/90 dark:text-orange-100/90 leading-relaxed">
+                  Dossier <strong>Spam</strong> : messages classés par <strong>Cloudity</strong> (score heuristique + règles expéditeur après « Signaler spam » / « Pas indésirable ») et synchronisés depuis le Junk IMAP fournisseur.
+                  Le MTA local (<strong>Rspamd</strong> via <code>make mail-mta-local-up</code>) enrichit les en-têtes pour les alias <code>@alias.*</code>.
+                </p>
+              </div>
+            ) : null}
             {messages.length > 0 && selectedMessageIds.length > 0 ? (
               <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-900/20">
                     <div className="flex flex-wrap items-center gap-2">
@@ -4956,6 +4991,7 @@ export default function MailPage() {
                           <Trash2 className="h-4 w-4 shrink-0" /> Supprimer définitivement
                         </button>
                       ) : null}
+                      {activeFolder !== 'spam' ? (
                       <button
                         type="button"
                         onClick={() => handleBulkMove('spam')}
@@ -4965,6 +5001,7 @@ export default function MailPage() {
                       >
                         <AlertTriangle className="h-4 w-4 shrink-0" /> Spam
                       </button>
+                      ) : null}
                       {(activeFolder === 'all' ||
                         activeFolder === 'unified' ||
                         (activeFolder !== 'archive' && activeFolder !== 'trash')) && (
@@ -4982,10 +5019,10 @@ export default function MailPage() {
                         type="button"
                         onClick={() => handleBulkMove('inbox')}
                         disabled={bulkWorking}
-                        aria-label="Boîte de réception en masse"
+                        aria-label={activeFolder === 'spam' ? 'Pas indésirable en masse' : 'Boîte de réception en masse'}
                         className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 flex items-center gap-2"
                       >
-                        <Inbox className="h-4 w-4" /> Boîte de réception
+                        <Inbox className="h-4 w-4" /> {activeFolder === 'spam' ? 'Pas indésirable' : 'Boîte de réception'}
                       </button>
 
                       <button
@@ -5272,8 +5309,8 @@ export default function MailPage() {
                                   onClick={() => handleMoveToFolder(msg.id, 'inbox', msg.account_id, msg.thread_key)}
                                   disabled={movingMessageId === msg.id}
                                   className="p-1.5 rounded text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:text-brand-400 dark:hover:bg-brand-900/30 disabled:opacity-50"
-                                  title="Remettre en boîte de réception"
-                                  aria-label="Boîte de réception"
+                                  title={mailRestoreInboxActionLabel(activeFolder, msg.folder)}
+                                  aria-label={mailRestoreInboxActionLabel(activeFolder, msg.folder)}
                                 >
                                   <Inbox className="h-4 w-4" />
                                 </button>
@@ -7051,7 +7088,8 @@ export default function MailPage() {
               disabled={movingMessageId === contextMenuMessage.id}
               className="w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 disabled:opacity-50"
             >
-              <Inbox className="h-4 w-4 shrink-0" /> Remettre en boîte de réception
+              <Inbox className="h-4 w-4 shrink-0" />{' '}
+              {mailRestoreInboxActionLabel(activeFolder, contextMenuMessage.folder)}
             </button>
           )}
         </div>

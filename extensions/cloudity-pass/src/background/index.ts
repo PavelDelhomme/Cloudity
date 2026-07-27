@@ -18,8 +18,14 @@ import {
   type ItemPlaintextV1,
 } from '@cloudity/pass-crypto';
 import { hostMatchesEntry } from '../shared/domainMatcher';
+import {
+  loadCachedUserPreferences,
+  syncUserPreferencesFromSession,
+  updatePassPreferences,
+  type PassPreferences,
+} from '../shared/userPreferences';
 
-const AUTO_LOCK_MS = 5 * 60 * 1000;
+const DEFAULT_AUTO_LOCK_MS = 5 * 60 * 1000;
 const ALARM_NAME = 'cloudity-pass-auto-lock';
 const STORAGE_GATEWAY_URL = 'cloudity_pass_gateway_url_v1';
 
@@ -59,10 +65,24 @@ function lock(reason: string): void {
 function bumpActivity(): void {
   state.lastActivityAt = Date.now();
   if (state.unlocked) {
-    void chrome.alarms.create(ALARM_NAME, {
-      when: state.lastActivityAt + AUTO_LOCK_MS,
-    });
+    void scheduleAutoLockAlarm();
   }
+}
+
+async function passPrefs(): Promise<PassPreferences> {
+  return (await loadCachedUserPreferences()).pass;
+}
+
+async function autoLockMs(): Promise<number> {
+  const ms = (await passPrefs()).autoLockMs;
+  return ms > 0 ? ms : DEFAULT_AUTO_LOCK_MS;
+}
+
+async function scheduleAutoLockAlarm(): Promise<void> {
+  const ms = await autoLockMs();
+  await chrome.alarms.create(ALARM_NAME, {
+    when: state.lastActivityAt + ms,
+  });
 }
 
 async function deriveUserSalt(userId: string | number): Promise<Uint8Array> {
@@ -182,6 +202,15 @@ interface FillActiveTabMessage {
   vaultId: number;
 }
 
+interface SavePassPrefsMessage {
+  kind: 'save-pass-prefs';
+  patch: Partial<PassPreferences>;
+}
+
+interface SyncPrefsMessage {
+  kind: 'sync-prefs';
+}
+
 type PassMessage =
   | LoginMessage
   | LogoutMessage
@@ -191,13 +220,16 @@ type PassMessage =
   | StatusMessage
   | SaveGatewayMessage
   | ListCandidatesMessage
-  | FillActiveTabMessage;
+  | FillActiveTabMessage
+  | SavePassPrefsMessage
+  | SyncPrefsMessage;
 
 interface StatusResponse {
   ok?: undefined;
   unlocked: boolean;
   lastActivityAt: number;
   autoLockMs: number;
+  passPrefs: PassPreferences;
   gatewayUrl?: string;
   /** Session Cloudity active (JWT session storage). */
   authenticated: boolean;
@@ -344,16 +376,40 @@ async function handleMessage(msg: PassMessage): Promise<PassResponse> {
       if (authenticated && gatewayUrl && sess) {
         vaultEmpty = await fetchVaultsEmpty(sess.access, gatewayUrl.trim().replace(/\/$/, ''));
       }
+      const prefs = await passPrefs();
+      const lockMs = prefs.autoLockMs > 0 ? prefs.autoLockMs : DEFAULT_AUTO_LOCK_MS;
       return {
         unlocked: state.unlocked,
         lastActivityAt: state.lastActivityAt,
-        autoLockMs: AUTO_LOCK_MS,
+        autoLockMs: lockMs,
+        passPrefs: prefs,
         gatewayUrl,
         authenticated,
         vaultEmpty,
         userIdStr: sess?.userIdStr ?? state.userIdStr,
         sessionApiAvailable: (await sessionArea()) != null,
       };
+    }
+    case 'sync-prefs': {
+      const sess = await readSession();
+      const gateway = await getGatewayUrl();
+      if (!sess?.access || !gateway) {
+        return { ok: false, error: 'Connexion ou gateway requis pour synchroniser.' };
+      }
+      await syncUserPreferencesFromSession(gateway, sess.access);
+      return { ok: true };
+    }
+    case 'save-pass-prefs': {
+      const sess = await readSession();
+      const gateway = await getGatewayUrl();
+      if (!sess?.access || !gateway) {
+        return { ok: false, error: 'Connexion requise pour enregistrer les préférences.' };
+      }
+      await updatePassPreferences(gateway, sess.access, msg.patch);
+      if (state.unlocked) {
+        await scheduleAutoLockAlarm();
+      }
+      return { ok: true };
     }
     case 'save-gateway':
       await chrome.storage.local.set({
@@ -424,6 +480,11 @@ async function handleMessage(msg: PassMessage): Promise<PassResponse> {
       await writeSessionTokens(access, refresh, userIdStr);
       state.userIdStr = userIdStr;
       lock('new-login');
+      try {
+        await syncUserPreferencesFromSession(gateway, access);
+      } catch (e) {
+        console.warn('[cloudity-pass] sync preferences failed', e);
+      }
       return { ok: true };
     }
     case 'unlock': {

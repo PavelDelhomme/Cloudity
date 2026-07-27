@@ -33,17 +33,18 @@ describe('SettingsPage', () => {
 
   it('renders Settings title', () => {
     renderSettings()
-    expect(screen.getByRole('heading', { name: /Paramètres/ })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Paramètres administration/ })).toBeTruthy()
   })
 
-  it('displays session email and tenant id', () => {
+  it('displays session email in connected session banner', () => {
     renderSettings()
+    expect(screen.getByText(/Session connectée/)).toBeTruthy()
     expect(screen.getByText('admin@cloudity.io')).toBeTruthy()
-    expect(screen.getByText('42')).toBeTruthy()
   })
 
-  it('shows Session section', () => {
+  it('links personal settings to /app/settings', () => {
     renderSettings()
-    expect(screen.getByText('Session')).toBeTruthy()
+    const link = screen.getByRole('link', { name: /Paramètres app/ })
+    expect(link.getAttribute('href')).toBe('/app/settings')
   })
 })

@@ -23,6 +23,22 @@
     "tasks": {
       "accent": "#7c3aed",
       "accentDark": "#6d28d9"
+    },
+    "contacts": {
+      "accent": "#0891b2",
+      "accentDark": "#0e7490"
+    },
+    "notes": {
+      "accent": "#ca8a04",
+      "accentDark": "#a16207"
+    },
+    "pass": {
+      "accent": "#059669",
+      "accentDark": "#047857"
+    },
+    "admin": {
+      "accent": "#475569",
+      "accentDark": "#334155"
     }
   },
   "radius": {

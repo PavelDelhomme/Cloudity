@@ -49,21 +49,9 @@ fi
 
 echo "→ Flutter : $(command -v flutter)"
 
-env_get() {
-  local key="$1"
-  local file="${ROOT}/.env"
-  [[ -f "$file" ]] || return 0
-  awk -F= -v k="$key" '
-    $0 ~ "^[[:space:]]*#" { next }
-    $1 == k {
-      sub(/^[^=]*=/, "", $0)
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0)
-      gsub(/^"|"$/, "", $0)
-      print $0
-      exit
-    }
-  ' "$file"
-}
+# shellcheck source=scripts/dev/env-get.sh
+source "${ROOT}/scripts/dev/env-get.sh"
+env_get() { cloudity_env_get "$@"; }
 
 MOBILE_GATEWAY="${CLOUDITY_GATEWAY_URL:-${CLOUDITY_MOBILE_GATEWAY_URL:-}}"
 if [[ -z "$MOBILE_GATEWAY" ]]; then
@@ -158,9 +146,9 @@ if [[ -n "${CLOUDITY_DEVICE_ID:-}" ]]; then
 elif [[ -n "${ANDROID_SERIAL:-}" ]]; then
   DEVICE_ARGS=(-d "${ANDROID_SERIAL}")
 elif command -v adb >/dev/null 2>&1; then
-  ROOT_RM="$(cd "$(dirname "$0")/../.." && pwd)"
+  # ROOT est fixé en tête de script — ne pas recalculer via $0 après le cd "$TARGET".
   # shellcheck source=mobile-device-resolve.sh
-  source "${ROOT_RM}/scripts/mobile/mobile-device-resolve.sh"
+  source "${ROOT}/scripts/mobile/mobile-device-resolve.sh"
   SERIAL="$(cloudity_resolve_adb_serial "run-mobile")" || SERIAL=""
   if [[ -n "${SERIAL}" ]]; then
     echo "   → ADB : ${SERIAL}"
@@ -174,6 +162,14 @@ DART_DEFINES=()
 if [[ -n "$MOBILE_GATEWAY" ]]; then
   DART_DEFINES+=(--dart-define=CLOUDITY_GATEWAY_URL="$MOBILE_GATEWAY")
   DART_DEFINES+=(--dart-define=CLOUDITY_E2E_GATEWAY="$MOBILE_GATEWAY")
+fi
+# Identifiants dev depuis .env (jamais en dur dans le code — GitGuardian / gitleaks)
+_dev_email="$(env_get SEED_ADMIN_EMAIL)"
+[[ -z "$_dev_email" ]] && _dev_email="admin@cloudity.local"
+_dev_pass="$(env_get SEED_ADMIN_PASSWORD)"
+DART_DEFINES+=(--dart-define=CLOUDITY_DEV_EMAIL="$_dev_email")
+if [[ -n "$_dev_pass" ]]; then
+  DART_DEFINES+=(--dart-define=CLOUDITY_DEV_PASSWORD="$_dev_pass")
 fi
 
 exec flutter run "${DEVICE_ARGS[@]}" "${DART_DEFINES[@]}" "$@"

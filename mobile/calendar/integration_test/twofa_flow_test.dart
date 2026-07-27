@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:crypto/crypto.dart';
 
-import 'package:cloudity_mail/main.dart' as app;
+import 'package:cloudity_calendar/main.dart' as app;
 
 const String kE2eGateway = String.fromEnvironment(
   'CLOUDITY_E2E_GATEWAY',
