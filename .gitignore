@@ -124,3 +124,17 @@ mobile/**/ios/Flutter/ephemeral/
 mobile/**/ios/Flutter/Generated.xcconfig
 mobile/**/ios/Flutter/flutter_export_environment.sh
 mobile/**/ios/Runner/GeneratedPluginRegistrant.*
+# Gradle / Android build caches (broker, apps Flutter)
+**/.gradle/
+**/android/.gradle/
+**/android/**/build/
+
+# Python — caches bytecode (admin-service, scripts)
+**/__pycache__/
+*.py[cod]
+*$py.class
+**/.pytest_cache/
+**/venv/
+**/.venv/
+backend/**/venv/
+backend/**/.venv/

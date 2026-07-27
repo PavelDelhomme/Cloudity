@@ -37,7 +37,7 @@ Templates Compose restent dans `deploy/portainer/` (source de vérité Git). Zon
 
 | ID | Objectif |
 |----|---------|
-| **ZF-01** | Cadrer Cloudity comme *projet* ZoneForge (env, providers OVH/NPM/Portainer) |
+| **ZF-01** | Cadrer Cloudity comme *projet* ZoneForge (env, providers OVH/NPM/Portainer) — stub **[deploy/zoneforge/CLOUDITY-ENV.stub.md](../deploy/zoneforge/CLOUDITY-ENV.stub.md)** |
 | **ZF-02** | Template publish Cloudity (compose path + env depuis `make portainer-env`) |
 | **ZF-03** | Premier redeploy préprod via ZoneForge (DNS + proxy + stack) — **remplace** la checklist manuelle H14-3b |
 | **ZF-04** | Lien / deep-link depuis Pilotage Cloudity → ZoneForge (URL configurable) |
