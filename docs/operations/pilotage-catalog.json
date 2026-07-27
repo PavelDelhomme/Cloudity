@@ -2917,9 +2917,14 @@
         {
           "title": "Où",
           "body": "Repo ZoneForge (make up-dev / make dev). Pilotage Cloudity ne fait que suivre ZF-*."
+        },
+        {
+          "title": "Stub Cloudity",
+          "body": "Ouvre deploy/zoneforge/CLOUDITY-ENV.stub.md et crée l’env dans ZoneForge (providers ovh/npm/portainer). Puis Sync docs + cocher critères ZF-01."
         }
       ],
       "docLinks": [
+        "deploy/zoneforge/CLOUDITY-ENV.stub.md",
         "docs/operations/ZONEFORGE-CLOUDITY.md"
       ],
       "surfaceKeys": [
