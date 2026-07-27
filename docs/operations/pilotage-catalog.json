@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "updatedAt": "2026-07-27",
   "cycles": [
     {
@@ -19,6 +19,8 @@
         "UI-DS-REMAIN",
         "QA-MATRIX-01",
         "DEPLOY-DNS-01",
+        "ZF-03",
+        "ZF-01",
         "VAL-VAULT-BRANCH",
         "SAMSUNG-REPLAY",
         "COMPOSE-CONFIG-01",
@@ -197,6 +199,18 @@
       ]
     },
     {
+      "id": "cycle-zoneforge",
+      "label": "ZoneForge — deploy VPS",
+      "description": "Control plane OVH+NPM+Portainer — https://github.com/PavelDelhomme/ZoneForge (remplace manips VPS manuelles)",
+      "itemIds": [
+        "ZF-01",
+        "ZF-02",
+        "ZF-03",
+        "ZF-04",
+        "ZF-05"
+      ]
+    },
+    {
       "id": "cycle-admin-ota",
       "label": "Admin / mises à jour",
       "description": "ADM-UPDATE, OTA, migrations admin",
@@ -264,7 +278,7 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook détaillé : docs/operations/H14-GATEWAY-MOBILE.md\nDéploiement VPS (Portainer+NPM comme Nextcloud) : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md\n\nContextes : (A) local PC · (B) LAN téléphone · (C) HTTPS VPS.\nChez toi aujourd’hui : B est souvent déjà OK ; C = reste réel pour OK final.",
+      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nHTTPS VPS : cible = ZoneForge (docs/operations/ZONEFORGE-CLOUDITY.md · ZF-03) ; manuel Portainer/NPM = interim seulement (DEPLOY-PORTAINER-NPM-CLOUDITY.md).\nContextes : (A) local · (B) LAN · (C) HTTPS via ZoneForge.",
       "expected": "PARTIEL OK si LAN smoke vert. OK final seulement si login mobile HTTPS (ou décision explicite « LAN only » documentée en note).",
       "status": "partial",
       "order": 1,
@@ -293,15 +307,16 @@
           "body": "curl http://<IP>:6002/health → healthy. OPTIONS /auth/login avec Origin LAN → Allow-Origin. Login réel sur le téléphone."
         },
         {
-          "title": "Critère 3b — HTTPS VPS",
-          "body": "make env-prod + portainer-env → colle Env dans Portainer. NPM : api.cloudity.<dom> → cloudity-api-gateway:8000 Force SSL. Rebuild mobile avec https://api…. Doc : DEPLOY-PORTAINER-NPM-CLOUDITY.md."
-        },
-        {
           "title": "Décisions Pilotage",
           "body": "LAN OK sans VPS → Partiel. Bug CORS/TLS → Signaler un problème + log. HTTPS 4 apps OK → OK. Pause VPS → Plus tard."
+        },
+        {
+          "title": "Critère 3b — HTTPS via ZoneForge",
+          "body": "Ne pas s’acharner sur Portainer/NPM à la main : avancer ZF-01→ZF-03. Interim manuel seulement si ZoneForge pas prêt. Lien : ZONEFORGE-CLOUDITY.md"
         }
       ],
       "docLinks": [
+        "docs/operations/ZONEFORGE-CLOUDITY.md",
         "docs/operations/H14-GATEWAY-MOBILE.md",
         "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
         "docs/operations/ENV-GENERATION.md"
@@ -2876,6 +2891,153 @@
       "checklistLabels": [
         "Critère principal atteint",
         "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ZF-01",
+      "cycleId": "cycle-zoneforge",
+      "section": "ZoneForge",
+      "label": "ZF-01 — Cadrer Cloudity dans ZoneForge",
+      "description": "Créer l’environnement Cloudity dans ZoneForge ; brancher providers ovh + npm + portainer. Doc : docs/operations/ZONEFORGE-CLOUDITY.md · repo https://github.com/PavelDelhomme/ZoneForge",
+      "expected": "Env Cloudity visible dans ZoneForge ; sync providers OK (sans secrets dans Cloudity).",
+      "status": "open",
+      "order": 1,
+      "kind": "task",
+      "checklistLabels": [
+        "Lire ZONEFORGE-CLOUDITY.md",
+        "Env Cloudity créé dans ZoneForge",
+        "Providers OVH / NPM / Portainer branchés (credentials côté ZF seulement)"
+      ],
+      "howToSteps": [
+        {
+          "title": "Pourquoi",
+          "body": "Éviter les manips manuelles Portainer+NPM+OVH pour chaque redeploy Cloudity (et les autres projets VPS)."
+        },
+        {
+          "title": "Où",
+          "body": "Repo ZoneForge (make up-dev / make dev). Pilotage Cloudity ne fait que suivre ZF-*."
+        }
+      ],
+      "docLinks": [
+        "docs/operations/ZONEFORGE-CLOUDITY.md"
+      ],
+      "surfaceKeys": [
+        "backend",
+        "backoffice"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ZF-02",
+      "cycleId": "cycle-zoneforge",
+      "section": "ZoneForge",
+      "label": "ZF-02 — Template publish Cloudity",
+      "description": "Template ZoneForge : compose deploy/portainer/* + injection env (sortie make portainer-env).",
+      "expected": "Publish dry-run / template prêt pour préprod.",
+      "status": "open",
+      "order": 2,
+      "kind": "task",
+      "checklistLabels": [
+        "Template stack Cloudity (compose path Git)",
+        "Mapping env depuis make portainer-env",
+        "Préprod vs prod séparés (2 stacks ou 2 envs)"
+      ],
+      "howToSteps": [],
+      "docLinks": [
+        "docs/operations/ZONEFORGE-CLOUDITY.md",
+        "docs/operations/ENV-GENERATION.md"
+      ],
+      "surfaceKeys": [
+        "backend"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ZF-03",
+      "cycleId": "cycle-zoneforge",
+      "section": "ZoneForge",
+      "label": "ZF-03 — Premier redeploy préprod via ZoneForge",
+      "description": "DNS + proxy host + stack Cloudity préprod publiés par ZoneForge. Remplace la checklist manuelle H14-3b / DEPLOY-DNS pour la préprod.",
+      "expected": "https://api…/health + front HTTPS OK sans coller manuellement dans Portainer/NPM.",
+      "status": "open",
+      "order": 3,
+      "kind": "task",
+      "checklistLabels": [
+        "DNS A cloudity + api via ZoneForge/OVH",
+        "Proxy hosts NPM créés/à jour",
+        "Stack Portainer redeployée",
+        "Smoke health + CORS Origin HTTPS"
+      ],
+      "howToSteps": [
+        {
+          "title": "Lien H14",
+          "body": "H14 LAN reste sur le PC. H14 HTTPS VPS se valide quand ZF-03 est OK (ou Signaler un problème si ZF bloque)."
+        }
+      ],
+      "docLinks": [
+        "docs/operations/ZONEFORGE-CLOUDITY.md",
+        "docs/operations/H14-GATEWAY-MOBILE.md",
+        "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md"
+      ],
+      "surfaceKeys": [
+        "backend",
+        "frontend_web",
+        "mobile",
+        "backoffice"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ZF-04",
+      "cycleId": "cycle-zoneforge",
+      "section": "ZoneForge",
+      "label": "ZF-04 — Lien Pilotage → ZoneForge",
+      "description": "Dans /4dm1n/pilotage (et éventuellement Dashboard) : URL ZoneForge configurable (VITE_ZONEFORGE_URL) + rappel CLI make logs.",
+      "expected": "Un clic depuis Pilotage ouvre ZoneForge ; doc CLI visible.",
+      "status": "open",
+      "order": 4,
+      "kind": "task",
+      "checklistLabels": [
+        "Variable VITE_ZONEFORGE_URL / doc",
+        "Lien visible dans Pilotage (bandeau deploy)",
+        "Rappel make logs / status-watch dans l’UI ou PILOTAGE.md"
+      ],
+      "howToSteps": [],
+      "docLinks": [
+        "docs/operations/PILOTAGE.md",
+        "docs/operations/ZONEFORGE-CLOUDITY.md"
+      ],
+      "surfaceKeys": [
+        "backoffice",
+        "frontend_web"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "ZF-05",
+      "cycleId": "cycle-zoneforge",
+      "section": "ZoneForge",
+      "label": "ZF-05 — Prod Cloudity via ZoneForge",
+      "description": "Publish prod + smoke. Interim manuel documenté uniquement en fallback.",
+      "expected": "Prod déployable / redeployable depuis ZoneForge ; Pilotage PREPROD/PROD gates OK.",
+      "status": "open",
+      "order": 5,
+      "kind": "task",
+      "checklistLabels": [
+        "Publish prod OK",
+        "Smoke health + login web",
+        "Doc fallback manuel à jour (interim)"
+      ],
+      "howToSteps": [],
+      "docLinks": [
+        "docs/operations/ZONEFORGE-CLOUDITY.md"
+      ],
+      "surfaceKeys": [
+        "backend",
+        "frontend_web",
+        "mobile",
+        "backoffice"
       ],
       "source": "catalog"
     }

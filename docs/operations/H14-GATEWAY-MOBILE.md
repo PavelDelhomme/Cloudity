@@ -99,7 +99,10 @@ Dans l’écran login mobile, l’URL gateway préremplie doit être **exactemen
 
 ## Critère 3 — Smoke login + CORS
 
-### 3b — HTTPS VPS — Bug CORS / TLS / NPM (checklist)
+### 3b — HTTPS VPS — via ZoneForge (cible) / manuel interim
+
+Si TLS / CORS / NPM te saoule : **avance [ZoneForge](https://github.com/PavelDelhomme/ZoneForge)** (`ZF-01`→`ZF-03` dans Pilotage) plutôt que coller tout dans Portainer/NPM.
+Checklist manuelle ci-dessous = **interim** seulement — voir aussi [ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md).
 
 Symptôme typique : login mobile ou web OK en LAN, **KO** derrière NPM (`CORS` / certificat / mixed content).
 
