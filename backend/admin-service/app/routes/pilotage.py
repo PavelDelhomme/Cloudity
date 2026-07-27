@@ -23,7 +23,14 @@ router = APIRouter(prefix="/admin", tags=["pilotage"])
 
 
 class PilotageActionBody(BaseModel):
-    type: str = Field(..., description="decide|checklist|note|reorder|move|create")
+    type: str = Field(
+        ...,
+        description=(
+            "decide|checklist|note|reorder|move|create|"
+            "report_problem|resolve_problem|inbox_note|promote_inbox|"
+            "attach_log|set_focus|release_status|surface"
+        ),
+    )
     itemId: str = ""
     decision: str | None = None
     note: str | None = None
@@ -36,6 +43,15 @@ class PilotageActionBody(BaseModel):
     expected: str | None = None
     section: str | None = None
     checklistLabels: list[str] | None = None
+    parentId: str | None = None
+    problemId: str | None = None
+    logText: str | None = None
+    logSource: str | None = None
+    inboxId: str | None = None
+    kind: str | None = None
+    releaseId: str | None = None
+    status: str | None = None
+    surfaceKey: str | None = None
 
 
 def _runtime_env() -> str:
@@ -302,3 +318,40 @@ def list_pilotage_events(
             }
         )
     return {"success": True, "storageReady": True, "items": items}
+
+
+@router.get("/pilotage/ops-signals")
+def pilotage_ops_signals(
+    services: str = "api-gateway,auth-service,admin-service",
+    tail: int = 60,
+) -> dict[str, Any]:
+    """Remonte logs Docker (socket) + crashes mobile (fichiers partagés)."""
+    from app.services.pilotage_ops import list_container_logs, list_mobile_crashes
+
+    lim = max(10, min(int(tail or 60), 200))
+    names = [s.strip() for s in (services or "").split(",") if s.strip()][:8]
+    available, notes, containers = list_container_logs(names, tail=lim)
+    crashes = list_mobile_crashes(20)
+    notes = list(notes) + list(crashes.get("notes") or [])
+    return {
+        "success": True,
+        "available": available,
+        "notes": notes,
+        "containers": containers,
+        "mobileCrashes": crashes.get("items") or [],
+        "mobileCrashesDir": crashes.get("dir"),
+        "hint": (
+            "Attache un extrait à la tâche active, ou note-le dans l’inbox "
+            "(mobile_log / container_log). Crashes vides = aucune app n’a encore posté."
+        ),
+    }
+
+
+@router.get("/pilotage/mobile-crashes/{crash_id}")
+def pilotage_mobile_crash_detail(crash_id: str) -> dict[str, Any]:
+    from app.services.pilotage_ops import read_mobile_crash
+
+    data = read_mobile_crash(crash_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Crash introuvable")
+    return {"success": True, "crash": data}

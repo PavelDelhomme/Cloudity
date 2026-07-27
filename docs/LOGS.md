@@ -15,6 +15,47 @@
 
 ---
 
+### 2026-07-27 — Pilotage décisions enrichies + merge vers dev
+
+- Statuts : En cours, À valider, À re-vérifier, surfaces BE/FE/BO/mobile, notes terminées, releases cliquables.
+- CORS : normalisation trailing `/` sur origines ; checklist NPM/TLS dans H14.
+- Commit feat + merge `dev`.
+
+---
+
+### 2026-07-27 — Pilotage UX, ops docker.sock, runbook H14/NPM
+
+- Ops : socket Docker + volume crashes sur admin-service ; `mobileCrashes` dans ops-signals.
+- UX : En cours cliquable, dismiss panneau, howToSteps, Terminées fermée par défaut.
+- Docs : `H14-GATEWAY-MOBILE.md`, `DEPLOY-PORTAINER-NPM-CLOUDITY.md` ; catalogue H14 enrichi.
+
+---
+
+### 2026-07-27 — Pilotage : crashes mobile dans Signaux ops
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Pilotage « Signaux ops » : liste `/mobile/crashes` → Inbox ou Problème (bloque la tâche) ; lien `/4dm1n/mobile-logs`.
+
+---
+
+### 2026-07-27 — Pilotage : blocages, pré-prod, logs, versions
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Workflow `report_problem` / `resolve_problem` / `blocked` / inbox / attach_log / releases.
+- Cycle `cycle-preprod` (PREPROD-01…10) ; `GET /admin/pilotage/ops-signals`.
+- UI PilotagePage enrichie ; doc PILOTAGE.md.
+
+---
+
+### 2026-07-27 — Drive sync bureau (type Nextcloud)
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Constat : web + Flutter ≠ client sync dossier OS.
+- Ajout : `docs/produit/DRIVE-DESKTOP-SYNC.md` · `DRIVE-DESKTOP-01`…`05` (BACKLOG) · cycle Pilotage `cycle-desktop-drive` (catalogue 160 tâches / 11 cycles).
+- Docs : ROADMAP APP-02, MULTI-PLATEFORME, PILOTAGE, TODOS.
+
+---
+
 ### 2026-07-27 — Pilotage catalogue complet + sync MD
 
 - Branche : `feat/app-vault-drive-upload-pin-rotation`.

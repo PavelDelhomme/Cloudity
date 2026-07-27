@@ -79,3 +79,49 @@ def test_sync_from_docs():
     board, msg = sync_from_docs(None)
     assert "Sync" in msg or "tâches" in msg
     assert len(board["tasks"]) >= 100
+
+
+def test_report_problem_blocks_parent_and_becomes_active():
+    board = build_seed_board()
+    board, msg = apply_board_action(
+        board,
+        {
+            "type": "report_problem",
+            "itemId": "H14",
+            "note": "CORS HTTPS mobile KO",
+            "logText": "Access-Control-Allow-Origin missing",
+            "logSource": "mobile_log",
+        },
+    )
+    assert "bloqué" in msg.lower() or "problème" in msg.lower()
+    assert board["tasks"]["H14"]["status"] == "blocked"
+    blockers = board["tasks"]["H14"]["blockedBy"]
+    assert len(blockers) == 1
+    pid = blockers[0]
+    assert board["tasks"][pid]["kind"] == "problem"
+    assert board["tasks"][pid]["parentId"] == "H14"
+    assert board["focusTaskId"] == pid
+    enriched = enrich_board(board)
+    assert enriched["active"]["id"] == pid
+    assert enriched["active"]["kind"] == "problem"
+
+    board2, msg2 = apply_board_action(
+        board, {"type": "resolve_problem", "itemId": pid, "note": "CORS fixé"}
+    )
+    assert board2["tasks"][pid]["status"] == "ok"
+    assert board2["tasks"]["H14"]["status"] == "partial"
+    assert board2["tasks"]["H14"]["blockedBy"] == []
+    assert board2["focusTaskId"] == "H14"
+    assert "reprise" in msg2.lower() or "H14" in msg2
+
+
+def test_inbox_note_and_preprod_in_catalog():
+    board = build_seed_board()
+    assert any(c["id"] == "cycle-preprod" for c in board["cycles"])
+    assert "PREPROD-01" in board["tasks"]
+    assert board.get("releases")
+    board, _ = apply_board_action(
+        board, {"type": "inbox_note", "itemId": "H14", "note": "logcat boom", "kind": "mobile_log"}
+    )
+    assert len(board["inbox"]) >= 1
+    assert board["inbox"][0]["kind"] == "mobile_log"

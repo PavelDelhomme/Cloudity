@@ -126,9 +126,12 @@ services:
       # Autorise CORS depuis le réseau local (ex. smartphone : http://<TON_IP>:6001)
       - CORS_ALLOW_LAN=${CORS_ALLOW_LAN:-true}
       - GOTOOLCHAIN=auto
+      - MOBILE_CRASH_LOG_DIR=/app/storage/mobile-crashes
     volumes:
       - ./backend/api-gateway:/app:cached
-      # Clés JWT publiques auth-service uniquement (pas tout le dossier — évite artefacts Docker sur l'hôte).
+      # Crashes Flutter partagés avec admin-service (Pilotage Signaux ops)
+      - ./backend/api-gateway/storage/mobile-crashes:/app/storage/mobile-crashes
+      # Clés JWT publiques auth-service uniquement (pas tout le dossier — évite artefacts Docker sur l’hôte).
       - ./backend/auth-service/public.pem:/app/keys/public.pem:ro
       - ./backend/auth-service/public_ed25519.pem:/app/keys/public_ed25519.pem:ro
       - ./backend/internalsec:/app/internalsec:cached
@@ -175,9 +178,13 @@ services:
       # Scan CVE (OSV) : racine du dépôt en lecture seule pour go.mod / package-lock / requirements
       - CVE_SCAN_REPO_ROOT=/cloudity-repo
       - CVE_SCAN_CACHE_HOURS=24
+      - MOBILE_CRASH_LOG_DIR=/mobile-crashes
+      - DOCKER_SOCK=/var/run/docker.sock
     volumes:
       - ./backend/admin-service:/app:cached
       - .:/cloudity-repo:ro
+      - ./backend/api-gateway/storage/mobile-crashes:/mobile-crashes:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - python_cache:/root/.cache/pip
     depends_on:
       postgres:

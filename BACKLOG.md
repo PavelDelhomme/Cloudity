@@ -144,6 +144,17 @@
 - [x] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (`PassMailAliasesPanel`, API `POST /mail/me/accounts/:id/aliases`) — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2.
 - [ ] **PASS-AUTOFILL-ANDROID** — Service **Autofill** Android pour Pass (pas d’équivalent universel iOS documenté ici).
 
+### Drive — client sync bureau (type Nextcloud)
+
+> Vision : **[docs/produit/DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)**.  
+> Aujourd’hui : web + apps Flutter. **Pas** encore de daemon qui expose un dossier OS synchronisé (GNOME/Arch, Windows, macOS, CLI).
+
+- [ ] **DRIVE-DESKTOP-01** — Spec + écarts API : sync delta/curseur, auth device, conflits, selective sync — doc + tickets endpoints.
+- [ ] **DRIVE-DESKTOP-02** — Daemon CLI (Linux d’abord) : login, watch FS, sync bidirectionnelle, reprise offline.
+- [ ] **DRIVE-DESKTOP-03** — UI tray / préférences (GNOME + Windows + macOS).
+- [ ] **DRIVE-DESKTOP-04** — Fichiers virtuels / on-demand (VFS, CfAPI, File Provider) — après MVP mirror.
+- [ ] **DRIVE-DESKTOP-05** — Packaging (AUR/flatpak, winget, dmg) + auto-update.
+
 > **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
 
 ### Reportés post-20 mai (5 chantiers infra évalués 2026-05-13)

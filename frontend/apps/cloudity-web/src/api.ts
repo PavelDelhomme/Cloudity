@@ -284,13 +284,39 @@ export async function recordPerformanceSnapshot(token: string): Promise<{ id: nu
 }
 
 /** Pilotage projet (board type JobbingTrack) — /4dm1n/pilotage */
-export type PilotageTaskStatus = 'open' | 'partial' | 'ok' | 'ko' | 'deferred' | 'rework'
+export type PilotageTaskStatus =
+  | 'open'
+  | 'in_progress'
+  | 'waiting'
+  | 'partial'
+  | 'to_validate'
+  | 'ok'
+  | 'recheck'
+  | 'rework'
+  | 'ko'
+  | 'tested'
+  | 'to_test_prod'
+  | 'prod_ok'
+  | 'done'
+  | 'blocked'
+  | 'deferred'
 
 export type PilotageChecklistItem = {
   id: string
   label: string
   done: boolean
   note?: string
+}
+
+export type PilotageLogSnippet = {
+  at: string
+  source: string
+  text: string
+}
+
+export type PilotageSurface = {
+  done: boolean
+  label?: string
 }
 
 export type PilotageTask = {
@@ -302,9 +328,35 @@ export type PilotageTask = {
   expected: string
   status: PilotageTaskStatus
   order: number
+  kind?: 'task' | 'problem' | 'gate' | string
+  parentId?: string | null
+  blockedBy?: string[]
+  logSnippets?: PilotageLogSnippet[]
+  howToSteps?: { title: string; body: string }[]
+  docLinks?: string[]
   checklist: PilotageChecklistItem[]
+  surfaces?: Record<string, PilotageSurface>
+  completionNote?: string
   porteurNote: string
   history: { at: string; action: string; note?: string | null }[]
+}
+
+export type PilotageInboxItem = {
+  id: string
+  at: string
+  kind: string
+  text: string
+  linkedTaskId?: string | null
+  promoted?: boolean
+}
+
+export type PilotageRelease = {
+  id: string
+  label: string
+  status: string
+  summary?: string
+  features?: string[]
+  note?: string
 }
 
 export type PilotageCycleView = {
@@ -325,8 +377,21 @@ export type PilotageBoard = {
   tasks: Record<string, PilotageTask>
   cycleViews?: PilotageCycleView[]
   counts?: Record<string, number>
-  active?: { id: string; label: string; status: string } | null
+  active?: { id: string; label: string; status: string; kind?: string; parentId?: string } | null
+  blockedHint?: {
+    taskId: string
+    label: string
+    blockedBy: { id: string; label: string }[]
+    resumeHint: string
+  } | null
+  openProblems?: { id: string; label: string; parentId?: string; status: string }[]
+  preprodProgress?: { okCount: number; total: number; progressLabel: string }
   recentDone?: { id: string; label: string; status: string }[]
+  inbox?: PilotageInboxItem[]
+  releases?: PilotageRelease[]
+  focusTaskId?: string | null
+  decisionsCatalog?: { status: string; decision: string; label: string; group: string }[]
+  toValidate?: { id: string; label: string; status: string }[]
 }
 
 export type PilotageBoardResponse = {
@@ -339,10 +404,43 @@ export type PilotageBoardResponse = {
   board: PilotageBoard
 }
 
+export type PilotageDecisionCode =
+  | 'A_FAIRE'
+  | 'EN_COURS'
+  | 'EN_ATTENTE'
+  | 'PARTIEL'
+  | 'A_VALIDER'
+  | 'OK'
+  | 'A_REVERIFIER'
+  | 'A_CORRIGER'
+  | 'KO'
+  | 'TESTEE'
+  | 'A_TESTER_PROD'
+  | 'PROD_OK'
+  | 'TERMINEE'
+  | 'BLOQUE'
+  | 'PLUS_TARD'
+  | 'REWORK'
+  | string
+
 export type PilotageActionPayload = {
-  type: 'decide' | 'checklist' | 'note' | 'reorder' | 'move' | 'create'
+  type:
+    | 'decide'
+    | 'checklist'
+    | 'note'
+    | 'reorder'
+    | 'move'
+    | 'create'
+    | 'report_problem'
+    | 'resolve_problem'
+    | 'inbox_note'
+    | 'promote_inbox'
+    | 'attach_log'
+    | 'set_focus'
+    | 'release_status'
+    | 'surface'
   itemId: string
-  decision?: 'OK' | 'KO' | 'PARTIEL' | 'PLUS_TARD' | 'REWORK'
+  decision?: PilotageDecisionCode
   note?: string
   checklistItemId?: string
   done?: boolean
@@ -353,6 +451,37 @@ export type PilotageActionPayload = {
   expected?: string
   section?: string
   checklistLabels?: string[]
+  parentId?: string
+  problemId?: string
+  logText?: string
+  logSource?: string
+  inboxId?: string
+  kind?: string
+  releaseId?: string
+  status?: string
+  surfaceKey?: string
+}
+
+export type PilotageOpsSignals = {
+  success: boolean
+  available: boolean
+  notes?: string[]
+  hint?: string
+  containers: {
+    service: string
+    container?: string | null
+    ok: boolean
+    lines?: string[]
+    errors?: string[]
+    error?: string
+  }[]
+  mobileCrashes?: {
+    id: string
+    filename: string
+    modified: string
+    sizeBytes: number
+  }[]
+  mobileCrashesDir?: string | null
 }
 
 export async function fetchPilotageBoard(token: string): Promise<PilotageBoardResponse> {
@@ -377,6 +506,27 @@ export async function syncPilotageDocs(token: string): Promise<PilotageBoardResp
     '/admin/pilotage/board/sync-docs',
     { method: 'POST', body: '{}' },
     'Pilotage sync docs'
+  )
+}
+
+export async function fetchPilotageOpsSignals(token: string): Promise<PilotageOpsSignals> {
+  return apiJson<PilotageOpsSignals>(
+    token,
+    '/admin/pilotage/ops-signals?tail=80',
+    undefined,
+    'Pilotage ops signals'
+  )
+}
+
+export async function fetchPilotageMobileCrashDetail(
+  token: string,
+  crashId: string
+): Promise<{ success: boolean; crash: Record<string, unknown> }> {
+  return apiJson(
+    token,
+    `/admin/pilotage/mobile-crashes/${encodeURIComponent(crashId)}`,
+    undefined,
+    'Pilotage mobile crash'
   )
 }
 

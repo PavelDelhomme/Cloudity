@@ -4,7 +4,7 @@
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** § 2026-07-27 — **`/4dm1n/pilotage`** → Sync docs → enchaîner **H14**.
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** § 2026-07-27 — Pilotage (blocages/pré-prod) → **Sync docs** → enchaîner **H14** (LAN OK local ; reste HTTPS prod).
 
 ### Rituel (avant chaque session)
 
@@ -29,7 +29,7 @@
 | **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, extension MP-06/MP-07 livrée). |
 | **B — Qualité transverse** | Barrière merge stable | **`make test`**, **`make test-dashboard`**, E2E **TESTS.md** ; mobile **`make test-mobile-suite`** (Mail / Drive / Photos) + variables **`CLOUDITY_E2E_*`** pour device. |
 | **C — Mail « complet »** | Messagerie + **alias créés dans Cloudity** (sans panneau OVH) | **[MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** (cible) ; MVP § 2 **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** ; **MAIL-ALIAS-01…06** + **AS-1** (MTA/DKIM) dans **BACKLOG** ; admin **`/mail/domains*`** pour couche domaine. |
-| **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; gros fichiers front : **REFACTOR-FE-03** / **FE-02** quand les flux sont stabilisés. |
+| **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; **sync bureau type Nextcloud** : **[DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)** (`DRIVE-DESKTOP-*`, ❌ pas encore démarré) ; gros fichiers front : **REFACTOR-FE-03** / **FE-02**. |
 | **E — Prod** | Publier | Q15 vert → **TODOS** § Prod VPS + stacks Portainer. |
 | **F — Releases & distribution** | Mises à jour **service par service** ; **OTA Android** ; comptes & secrets | **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** (`make deploy-web`, `deploy-mail`, …) · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** · **ENV** : **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** |
 

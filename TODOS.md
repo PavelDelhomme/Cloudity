@@ -15,13 +15,66 @@
 | **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
 | **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
 
-**Tu fais quoi maintenant** :
+### Session 2026-07-27 — Décisions Pilotage + merge `dev`
 
-1. Ouvre **http://localhost:6001/4dm1n/pilotage** → **Sync docs** si < 100 tâches
-2. Travaille **H14** (critères + décision)
-3. Enchaîne H19 / H6b / QA selon le board
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Décisions enrichies** | ☑ | En cours, À valider, À re-vérifier, surfaces BE/FE/BO/mobile, notes terminées |
+| **Releases cliquables** | ☑ | Détail version + features |
+| **CORS** | ☑ | Trim `/` origines + checklist NPM dans H14 |
+| **Git** | ☑ | feat commit + merge → `dev` (local + origin) |
+
+**Tu fais quoi maintenant** : Sync docs → H14 **En cours** / **Partiel** (LAN) → Signaler problème pour HTTPS/NPM si besoin.
 
 ---
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Ops logs** | ☑ | docker.sock sur admin → logs conteneurs OK ; crashes via `/admin/pilotage/ops-signals` |
+| **UX Pilotage** | ☑ | En cours cliquable, fermer détail, Comment faire, Terminées repliable |
+| **H14 runbook** | ☑ | [H14-GATEWAY-MOBILE.md](docs/operations/H14-GATEWAY-MOBILE.md) · Portainer+NPM [DEPLOY-PORTAINER-NPM-CLOUDITY.md](docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md) |
+| **À faire** | 🟡 | **Sync docs** puis cocher H14 critères LAN ; HTTPS VPS = suite |
+
+**Tu fais quoi maintenant** :
+
+1. `/4dm1n/pilotage` → **Sync docs** (charge PREPROD + howTo H14)
+2. Clique **En cours : H14** → lis **Comment faire**
+3. LAN déjà OK → coche 1–3a → **Partiel** ; HTTPS VPS → suivi runbook / Signaler un problème si KO
+
+---
+
+### Session 2026-07-27 — Pilotage workflow blocages + pré-prod
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Blocage → problème → reprise** | ☑ | `report_problem` / `resolve_problem` / statut `blocked` |
+| **Inbox + logs** | ☑ | Notes à la volée + `ops-signals` docker + attach_log |
+| **Pré-prod + versions** | ☑ | `PREPROD-01`…`10` · releases v0.1/v0.2/v1.0 |
+| **En cours** | 🟡 | **H14** gateway mobile HTTPS — travailler dans l’ordre Pilotage |
+
+**Tu fais quoi maintenant** :
+
+1. **Sync docs** dans `/4dm1n/pilotage`
+2. Travailler **H14** ; si erreur → **Signaler un problème** (colle le log)
+3. Après fix du problème → **Problème résolu** → reprendre H14
+
+---
+
+### Session 2026-07-27 — Drive sync bureau (type Nextcloud)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **DRIVE-DESKTOP-SYNC** | ☐ | Vision + backlog : **[DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)** · `DRIVE-DESKTOP-01`…`05` · cycle Pilotage *Desktop Drive sync* |
+| **Écart constaté** | ☑ | Web + Flutter ≠ daemon dossier OS (GNOME/Arch, Windows, macOS, CLI) |
+
+**Tu fais quoi maintenant** :
+
+1. Ouvre **http://localhost:6001/4dm1n/pilotage** → **Sync docs** (ajoute le cycle Desktop Drive)
+2. Travaille **H14** (priorité immédiate)
+3. Quand prêt : **DRIVE-DESKTOP-01** (spec sync) — pas encore de code daemon
+
+---
+
 
 ### Session 2026-07-22 (soir+) — Pilotage admin (style JobbingTrack)
 

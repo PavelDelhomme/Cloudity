@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "updatedAt": "2026-07-27",
   "cycles": [
     {
@@ -21,7 +21,8 @@
         "DEPLOY-DNS-01",
         "VAL-VAULT-BRANCH",
         "SAMSUNG-REPLAY",
-        "COMPOSE-CONFIG-01"
+        "COMPOSE-CONFIG-01",
+        "DRIVE-DESKTOP-01"
       ]
     },
     {
@@ -75,6 +76,18 @@
       ]
     },
     {
+      "id": "cycle-desktop-drive",
+      "label": "Desktop Drive sync",
+      "description": "Client sync dossier type Nextcloud — Linux/Windows/macOS + CLI",
+      "itemIds": [
+        "DRIVE-DESKTOP-01",
+        "DRIVE-DESKTOP-02",
+        "DRIVE-DESKTOP-03",
+        "DRIVE-DESKTOP-04",
+        "DRIVE-DESKTOP-05"
+      ]
+    },
+    {
       "id": "cycle-mail-local",
       "label": "Mail local / anti-spam",
       "description": "Sans OVH/VPS — M7, alias local, AS",
@@ -121,6 +134,23 @@
         "QA-PASS-EXT",
         "QA-PASS-VAULT-E2E",
         "ENSUITE-5"
+      ]
+    },
+    {
+      "id": "cycle-preprod",
+      "label": "Pré-prod — revalidation",
+      "description": "Ordre fixe : tout revérifier avant prod complète (apps + HTTPS + DNS).",
+      "itemIds": [
+        "PREPROD-01",
+        "PREPROD-02",
+        "PREPROD-03",
+        "PREPROD-04",
+        "PREPROD-05",
+        "PREPROD-06",
+        "PREPROD-07",
+        "PREPROD-08",
+        "PREPROD-09",
+        "PREPROD-10"
       ]
     },
     {
@@ -233,17 +263,55 @@
       "id": "H14",
       "cycleId": "cycle-now",
       "section": "Mobile",
-      "label": "H14 — Gateway mobile HTTPS prod",
-      "description": "Valider CLOUDITY_MOBILE_GATEWAY_URL / make sync-public-urls / env-prod depuis le téléphone (HTTPS réel + CORS).",
-      "expected": "Login Mail/Drive/Photos/Pass OK contre gateway HTTPS (ou LAN HTTP documenté).",
+      "label": "H14 — Gateway mobile (LAN → HTTPS)",
+      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook détaillé : docs/operations/H14-GATEWAY-MOBILE.md\nDéploiement VPS (Portainer+NPM comme Nextcloud) : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md\n\nContextes : (A) local PC · (B) LAN téléphone · (C) HTTPS VPS.\nChez toi aujourd’hui : B est souvent déjà OK ; C = reste réel pour OK final.",
+      "expected": "PARTIEL OK si LAN smoke vert. OK final seulement si login mobile HTTPS (ou décision explicite « LAN only » documentée en note).",
       "status": "partial",
       "order": 1,
       "checklistLabels": [
-        "sync-public-urls / env-prod OK",
-        "App mobile pointe vers la bonne URL",
-        "Login + smoke sync OK"
+        "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
+        "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
+        "3a. Smoke LAN : curl /health + CORS + login téléphone Wi‑Fi",
+        "3b. HTTPS VPS : DNS + Portainer env + NPM Proxy Host api.* + login téléphone (ou problème ouvert)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Où suis-je ?",
+          "body": "Local/LAN = make up sur le PC. Prod = Portainer+NPM sur le VPS (comme Nextcloud). Ne mélange pas les deux."
+        },
+        {
+          "title": "Critère 1 — sync-public-urls",
+          "body": "Sur le PC : édite CLOUDITY_PUBLIC_HOST (+ PROTO) dans .env → make sync-public-urls → vérifie grep VITE_API_URL et CLOUDITY_MOBILE_GATEWAY_URL. Doc : H14-GATEWAY-MOBILE.md §critère 1."
+        },
+        {
+          "title": "Critère 2 — app mobile",
+          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass). L’URL login doit être l’IP LAN ou https://api…, jamais localhost depuis le téléphone."
+        },
+        {
+          "title": "Critère 3a — smoke LAN",
+          "body": "curl http://<IP>:6002/health → healthy. OPTIONS /auth/login avec Origin LAN → Allow-Origin. Login réel sur le téléphone."
+        },
+        {
+          "title": "Critère 3b — HTTPS VPS",
+          "body": "make env-prod + portainer-env → colle Env dans Portainer. NPM : api.cloudity.<dom> → cloudity-api-gateway:8000 Force SSL. Rebuild mobile avec https://api…. Doc : DEPLOY-PORTAINER-NPM-CLOUDITY.md."
+        },
+        {
+          "title": "Décisions Pilotage",
+          "body": "LAN OK sans VPS → Partiel. Bug CORS/TLS → Signaler un problème + log. HTTPS 4 apps OK → OK. Pause VPS → Plus tard."
+        }
+      ],
+      "docLinks": [
+        "docs/operations/H14-GATEWAY-MOBILE.md",
+        "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
+        "docs/operations/ENV-GENERATION.md"
+      ],
+      "surfaceKeys": [
+        "backend",
+        "frontend_web",
+        "backoffice",
+        "mobile"
+      ]
     },
     {
       "id": "H19",
@@ -1992,7 +2060,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Pass popup L3 : liste onglet, filtre, copie, remplir — extension v0.2.1."
     },
     {
       "id": "H2",
@@ -2006,7 +2075,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Icônes extension Pass PNG via npm run icons."
     },
     {
       "id": "H3",
@@ -2020,7 +2090,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MP-08 Firefox : cloudity-pass-firefox + make build-pass-extension-firefox."
     },
     {
       "id": "H4",
@@ -2034,7 +2105,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Photos web : Nouvel album → createDriveFolder."
     },
     {
       "id": "H5",
@@ -2048,7 +2120,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MP-04 Linux desktop Drive+Photos validé (make test-mobile-desktop-linux)."
     },
     {
       "id": "H5b",
@@ -2062,7 +2135,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H5b livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H5c",
@@ -2076,7 +2150,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H5c livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H5d",
@@ -2090,7 +2165,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H5d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H6",
@@ -2104,7 +2180,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H6 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H6d",
@@ -2118,7 +2195,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H6d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H7",
@@ -2132,7 +2210,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H7 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H8",
@@ -2146,7 +2225,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H8 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H9",
@@ -2160,7 +2240,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H9 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H10",
@@ -2174,7 +2255,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H10 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H11",
@@ -2188,7 +2270,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H11 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "H13",
@@ -2202,7 +2285,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Mail notifications actionnables → /app/mail?account=&message=."
     },
     {
       "id": "H17",
@@ -2216,7 +2300,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Structure lib/ mobile unifiée + SuiteAppShell."
     },
     {
       "id": "H20",
@@ -2230,7 +2315,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "H20 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "DEPLOY-ENV-01",
@@ -2244,7 +2330,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "CLOUDITY_PUBLIC_* + make sync-public-urls / env-prod / portainer-env — ENV-GENERATION.md."
     },
     {
       "id": "PILOTAGE-01",
@@ -2258,7 +2345,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "Board /4dm1n/pilotage livré : cycles, sync docs, décisions, inbox, problèmes, pré-prod, ops-signals."
     },
     {
       "id": "PREFS-USER",
@@ -2272,7 +2360,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "PREFS-USER livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "CRASH-MOBILE",
@@ -2286,7 +2375,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "CRASH-MOBILE livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "PORT-ORG-01",
@@ -2300,7 +2390,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "PORT-ORG-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MAIL-ALIAS-01",
@@ -2314,7 +2405,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MAIL-ALIAS-02",
@@ -2328,7 +2420,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-02 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MAIL-ALIAS-03",
@@ -2342,7 +2435,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MAIL-ALIAS-03 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "AS-0",
@@ -2356,7 +2450,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "AS-0 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MP-04",
@@ -2370,7 +2465,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MP-04 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MP-06",
@@ -2384,7 +2480,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MP-06 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "MP-07",
@@ -2398,7 +2495,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "MP-07 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "PERF-CLI-01",
@@ -2412,7 +2510,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "PERF-CLI-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "PERF-CLI-02",
@@ -2426,7 +2525,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "PERF-CLI-02 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "PERF-CLI-03",
@@ -2440,7 +2540,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "PERF-CLI-03 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "TEST-AUTH-01",
@@ -2454,7 +2555,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "TEST-AUTH-01 livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "M7a",
@@ -2468,7 +2570,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "M7a livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "M7b",
@@ -2482,7 +2585,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "M7b livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "M7c",
@@ -2496,7 +2600,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "M7c livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "M7d",
@@ -2510,7 +2615,8 @@
       "checklistLabels": [
         "Livré"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "completionNote": "M7d livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
     },
     {
       "id": "M7e",
@@ -2524,7 +2630,294 @@
       "checklistLabels": [
         "Livré"
       ],
+      "source": "catalog",
+      "completionNote": "M7e livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "DRIVE-DESKTOP-01",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-01 — Spec sync + écarts API",
+      "description": "Contrat sync type Nextcloud : delta/curseur, auth device, selective sync, conflits. Doc docs/produit/DRIVE-DESKTOP-SYNC.md. Trancher client maison vs WebDAV.",
+      "expected": "Spec acceptée + liste endpoints manquants / tickets.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Lire DRIVE-DESKTOP-SYNC.md",
+        "Comparer API /drive/* actuelle",
+        "Choisir approche (API native / WebDAV / hybride)",
+        "Écrire contrat delta + conflits"
+      ],
       "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-02",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-02 — Daemon CLI Linux",
+      "description": "Agent headless (Go/Rust) : login Cloudity, selective sync, watch FS, reprise offline. Arch/GNOME : dossier local utilisable comme un dossier normal (Nautilus + CLI).",
+      "expected": "cloudity-drive sync sur Arch ; fichier Nautilus ↔ Drive web.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Login + token device",
+        "Selective sync d'au moins un dossier",
+        "Watch FS + upload",
+        "Pull changements distants",
+        "File d'attente offline"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-03",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-03 — UI tray GNOME/Win/macOS",
+      "description": "Préférences sync, pause, statut, choix dossiers — tray/app native ou Tauri autour du daemon.",
+      "expected": "UI utilisable sur les 3 OS avec le même daemon.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Tray + statut sync",
+        "Sélecteur dossiers",
+        "Pause / reprise",
+        "Linux GNOME",
+        "Windows + macOS"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-04",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-04 — Fichiers virtuels / on-demand",
+      "description": "Placeholders / VFS (style Nextcloud virtual files, CfAPI Windows, File Provider macOS) après MVP mirror complet.",
+      "expected": "Fichiers cloud visibles sans tout télécharger ; ouverture à la demande.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "MVP mirror stable (02+03)",
+        "POC Linux ou Windows",
+        "Doc limites OS"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "DRIVE-DESKTOP-05",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Drive desktop",
+      "label": "DRIVE-DESKTOP-05 — Packaging + auto-update",
+      "description": "AUR/flatpak/.deb, winget/MSI, dmg + canal de mise à jour.",
+      "expected": "Install one-click / package manager sur les 3 OS.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Paquet Linux (AUR ou flatpak)",
+        "Windows (winget ou MSI)",
+        "macOS dmg",
+        "Auto-update documenté"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-01",
+      "cycleId": "cycle-preprod",
+      "section": "Auth web + mobile",
+      "label": "PREPROD-01 — Auth web + mobile",
+      "description": "Login JWT / 2FA / session suite sur web et au moins 1 app mobile.",
+      "expected": "Login OK web + mobile.",
+      "status": "open",
+      "order": 1,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-02",
+      "cycleId": "cycle-preprod",
+      "section": "Mail",
+      "label": "PREPROD-02 — Mail",
+      "description": "Inbox sync, composer, alias local si configuré.",
+      "expected": "Parcours Mail smoke OK.",
+      "status": "open",
+      "order": 2,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-03",
+      "cycleId": "cycle-preprod",
+      "section": "Drive",
+      "label": "PREPROD-03 — Drive",
+      "description": "Upload, download, corbeille, coffre PIN.",
+      "expected": "Parcours Drive smoke OK.",
+      "status": "open",
+      "order": 3,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-04",
+      "cycleId": "cycle-preprod",
+      "section": "Photos",
+      "label": "PREPROD-04 — Photos",
+      "description": "Timeline, upload, albums, corbeille.",
+      "expected": "Parcours Photos smoke OK.",
+      "status": "open",
+      "order": 4,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-05",
+      "cycleId": "cycle-preprod",
+      "section": "Pass",
+      "label": "PREPROD-05 — Pass",
+      "description": "Vault unlock, CRUD item, extension si dispo.",
+      "expected": "Parcours Pass smoke OK.",
+      "status": "open",
+      "order": 5,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-06",
+      "cycleId": "cycle-preprod",
+      "section": "Gateway HTTPS / CORS",
+      "label": "PREPROD-06 — Gateway HTTPS / CORS",
+      "description": "Aligné H14 : CLOUDITY_MOBILE_GATEWAY_URL HTTPS + CORS prod.",
+      "expected": "Login mobile HTTPS OK.",
+      "status": "open",
+      "order": 6,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-07",
+      "cycleId": "cycle-preprod",
+      "section": "DNS + NPM TLS",
+      "label": "PREPROD-07 — DNS + NPM TLS",
+      "description": "api.cloudity.<dom> + front HTTPS (DEPLOY-DNS-01).",
+      "expected": "Endpoints publics OK.",
+      "status": "open",
+      "order": 7,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-08",
+      "cycleId": "cycle-preprod",
+      "section": "Quotas & stockage",
+      "label": "PREPROD-08 — Quotas & stockage",
+      "description": "Badges espace Drive/Photos/Mail cohérents.",
+      "expected": "Quota visible sans erreur.",
+      "status": "open",
+      "order": 8,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-09",
+      "cycleId": "cycle-preprod",
+      "section": "Barrière tests",
+      "label": "PREPROD-09 — Barrière tests",
+      "description": "make test (+ mobile suite si device).",
+      "expected": "Barrière verte documentée.",
+      "status": "open",
+      "order": 9,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    },
+    {
+      "id": "PREPROD-10",
+      "cycleId": "cycle-preprod",
+      "section": "Checklist inbox / problèmes",
+      "label": "PREPROD-10 — Checklist inbox / problèmes",
+      "description": "Aucun problème ouvert bloquant ; inbox revue.",
+      "expected": "Inbox traitée ou reportée.",
+      "status": "open",
+      "order": 10,
+      "kind": "gate",
+      "checklistLabels": [
+        "Critère principal atteint",
+        "Noter preuve (URL, capture, log) dans la note"
+      ],
+      "source": "catalog"
+    }
+  ],
+  "releases": [
+    {
+      "id": "rel-mvp-local",
+      "label": "v0.1 — MVP local",
+      "status": "partial",
+      "summary": "Stack make up : Mail/Drive/Photos/Pass web + mobiles de base.",
+      "features": [
+        "Auth JWT",
+        "Drive MVP",
+        "Mail IMAP",
+        "Photos",
+        "Pass vault",
+        "Pilotage"
+      ]
+    },
+    {
+      "id": "rel-preprod-https",
+      "label": "v0.2 — Préprod HTTPS",
+      "status": "open",
+      "summary": "Gateway HTTPS, CORS, DNS/NPM, login mobile réel (H14).",
+      "features": [
+        "H14 gateway HTTPS",
+        "DEPLOY-DNS",
+        "CORS prod",
+        "Mobile broker"
+      ]
+    },
+    {
+      "id": "rel-prod-full",
+      "label": "v1.0 — Prod complète",
+      "status": "open",
+      "summary": "Gates pré-prod OK + OTA + Drive desktop sync + mail prod.",
+      "features": [
+        "Gates PREPROD-*",
+        "REL OTA",
+        "DRIVE-DESKTOP",
+        "Mail prod"
+      ]
     }
   ]
 }
