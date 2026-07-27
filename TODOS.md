@@ -15,6 +15,18 @@
 | **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
 | **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
 
+### Session 2026-07-27 — ZoneForge = deploy VPS (plus de manips chiant)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **ZONEFORGE-CLOUDITY** | ☑ | Doc + cycle Pilotage `ZF-01`…`05` · [ZoneForge](https://github.com/PavelDelhomme/ZoneForge) |
+| **CLI local** | ☑ | `make logs` / `status-watch` / `portainer-env` rappelés dans help + bandeau Pilotage |
+| **H14 HTTPS** | 🟡 | Dépend de **ZF-03** (pas coller Portainer/NPM à la main) |
+
+**Tu fais quoi** : Sync docs → suivre **ZF-01** (cadrer Cloudity dans ZoneForge) · H14 LAN en Partiel · HTTPS via ZF.
+
+---
+
 ### Session 2026-07-27 — Décisions Pilotage + merge `dev`
 
 | Sujet | État | Détail |

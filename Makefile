@@ -36,7 +36,10 @@ PORT_ADMINER ?= 6083
 PORT_REDIS_COMMANDER ?= 6084
 
 help: ## Affiche ce message d'aide
-	@echo 'Usage: make [target]'
+	@echo '  make logs      - Logs conteneurs locaux (colorés) + archive reports/container-logs/'
+	@echo '  make status-watch - Statut live de la stack locale'
+	@echo '  make portainer-env - KEY=VALUE pour Portainer / ZoneForge (préprod-prod)'
+	@echo '  Deploy VPS     - cible ZoneForge https://github.com/PavelDelhomme/ZoneForge — docs/operations/ZONEFORGE-CLOUDITY.md · Pilotage ZF-*'
 	@echo ''
 	@echo '  Première fois :  make setup   puis  make up-ready   (stack + seed, ~5 min) ou  make up-full   (+ tests, long)'
 	@echo ''

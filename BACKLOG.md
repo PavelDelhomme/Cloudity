@@ -133,8 +133,13 @@
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
 - [x] **DEPLOY-ENV-01** — Hôte public unique + fichiers env Portainer : **`CLOUDITY_PUBLIC_*`**, **`make sync-public-urls`**, **`make env-prod` / `env-preprod`**, **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/](deploy/portainer/)** (2026-07-22).
 - [x] **PILOTAGE-01** — Board suivi projet dans **`/4dm1n/pilotage`** (cycles, checklists, décisions, seed TODOS/BACKLOG) — **[PILOTAGE.md](docs/operations/PILOTAGE.md)** (2026-07-22).
-- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + appliquer `.env.prod` généré (`CORS_ORIGINS` / `VITE_API_URL` déjà dérivés par sync).
-- [ ] **DEPLOY-PORTAINER-02** — Script ou doc « Update stack » : pull GHCR tag + redeploy (semi-auto après `docker-publish`).
+- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + appliquer `.env.prod` généré — **préférence : via ZoneForge (ZF-03)** ; manuel = interim.
+- [ ] **DEPLOY-PORTAINER-02** — Redeploy stack (pull + update) — **cible ZoneForge publish** ; script/doc manuel en fallback.
+- [ ] **ZF-01** — Cadrer Cloudity dans **[ZoneForge](https://github.com/PavelDelhomme/ZoneForge)** (env + providers OVH/NPM/Portainer) — **[ZONEFORGE-CLOUDITY.md](docs/operations/ZONEFORGE-CLOUDITY.md)**.
+- [ ] **ZF-02** — Template publish Cloudity (compose `deploy/portainer/` + env `make portainer-env`).
+- [ ] **ZF-03** — Premier redeploy **préprod** via ZoneForge (DNS + proxy + stack) — remplace manips VPS pour H14 HTTPS.
+- [ ] **ZF-04** — Lien Pilotage `/4dm1n` → ZoneForge (`VITE_ZONEFORGE_URL`).
+- [ ] **ZF-05** — Prod Cloudity via ZoneForge + smoke.
 - [ ] **DEPLOY-PR-01** — PR branche chantier → `dev`, puis `dev` → `main` quand tests verts.
 
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
