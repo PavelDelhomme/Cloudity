@@ -1,13 +1,17 @@
-"""Seed + logique du board Pilotage (aligné JobbingTrack validation-board)."""
+"""Seed + logique du board Pilotage (catalogue JSON + sync Markdown)."""
 from __future__ import annotations
 
+import json
+import os
+import re
 from copy import deepcopy
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-TaskStatus = str  # open|partial|ok|ko|deferred|rework
-DecisionStamp = str  # OK|KO|PARTIEL|PLUS_TARD|REWORK
+TaskStatus = str
+DecisionStamp = str
 
 
 def _now() -> str:
@@ -81,240 +85,274 @@ def build_cycle_views(board: dict[str, Any]) -> list[dict[str, Any]]:
     return views
 
 
-def _task(
-    tid: str,
-    *,
-    cycle_id: str,
-    section: str,
-    label: str,
-    description: str,
-    expected: str,
-    status: TaskStatus = "open",
-    order: int = 0,
-    checklist: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
-    return {
-        "id": tid,
-        "cycleId": cycle_id,
-        "section": section,
-        "label": label,
-        "description": description,
-        "expected": expected,
-        "status": status,
-        "order": order,
-        "checklist": checklist or [],
-        "porteurNote": "",
-        "history": [],
-    }
+def docs_root() -> Path:
+    raw = (
+        os.getenv("PILOTAGE_DOCS_ROOT")
+        or os.getenv("CVE_SCAN_REPO_ROOT")
+        or ""
+    ).strip()
+    if raw:
+        return Path(raw)
+    # Dev hors Docker : remonter depuis admin-service/app/services
+    here = Path(__file__).resolve()
+    for p in [here.parents[i] for i in range(3, 8)]:
+        if (p / "TODOS.md").is_file() and (p / "docs" / "operations").is_dir():
+            return p
+    return Path("/cloudity-repo")
+
+
+def catalog_path() -> Path:
+    return docs_root() / "docs" / "operations" / "pilotage-catalog.json"
 
 
 def _check(label: str, done: bool = False) -> dict[str, Any]:
     return {"id": f"c-{uuid4().hex[:10]}", "label": label, "done": done}
 
 
-def build_seed_board() -> dict[str, Any]:
-    """Tâches initiales alignées TODOS.md / BACKLOG.md (session 2026-07-22)."""
-    cycles = [
-        {
-            "id": "cycle-now",
-            "label": "À faire maintenant",
-            "description": "Priorités courtes (hors mail prod)",
-            "itemIds": ["H14", "H19", "DEPLOY-DNS-01", "QA-SMOKE"],
-        },
-        {
-            "id": "cycle-mobile",
-            "label": "Mobile & suite",
-            "description": "Apps Flutter, auth, gateway",
-            "itemIds": ["H6b", "H6c", "H15", "H18"],
-        },
-        {
-            "id": "cycle-deploy",
-            "label": "Déploiement Portainer",
-            "description": "Env, DNS, stacks — outillage env déjà livré",
-            "itemIds": ["DEPLOY-ENV-01", "DEPLOY-SUIVI-01", "DEPLOY-PORTAINER-02"],
-        },
-        {
-            "id": "cycle-later",
-            "label": "Plus tard",
-            "description": "Après stabilisation prefs / OTA",
-            "itemIds": ["ADM-UPDATE-01", "MAIL-PROD-PAUSE"],
-        },
-    ]
-
-    tasks = {
-        "H14": _task(
-            "H14",
-            cycle_id="cycle-now",
-            section="Mobile",
-            label="H14 — Gateway mobile HTTPS prod",
-            description="Valider CLOUDITY_MOBILE_GATEWAY_URL via make sync-public-urls / env-prod sur téléphone (HTTPS réel + CORS).",
-            expected="Login Mail/Drive/Photos/Pass OK contre gateway HTTPS public.",
-            order=1,
-            checklist=[
-                _check("sync-public-urls / env-prod renseignés"),
-                _check("App mobile pointe vers HTTPS gateway"),
-                _check("Login + sync smoke OK"),
-            ],
-        ),
-        "H19": _task(
-            "H19",
-            cycle_id="cycle-now",
-            section="Mobile",
-            label="H19 — Auth mobile sans duplication",
-            description="Extraire SessionStore / LoginScreen dans cloudity_shared (au lieu de copies par app).",
-            expected="Une seule base auth partagée ; apps Mail/Drive/Photos/Pass branchées.",
-            order=2,
-            checklist=[
-                _check("Package / module partagé créé"),
-                _check("Au moins 2 apps migrées"),
-                _check("Tests flutter verts"),
-            ],
-        ),
-        "DEPLOY-DNS-01": _task(
-            "DEPLOY-DNS-01",
-            cycle_id="cycle-now",
-            section="Déploiement",
-            label="DEPLOY-DNS-01 — DNS api.cloudity + NPM",
-            description="Enregistrements DNS + Proxy Hosts NPM ; appliquer .env.prod généré (make env-prod).",
-            expected="https://api.cloudity.<domaine> et https://cloudity.<domaine> joignables.",
-            order=3,
-            checklist=[
-                _check("DNS A/AAAA en place"),
-                _check("NPM proxy hosts + TLS"),
-                _check("make portainer-env collé dans Portainer"),
-            ],
-        ),
-        "QA-SMOKE": _task(
-            "QA-SMOKE",
-            cycle_id="cycle-now",
-            section="Qualité",
-            label="QA — Smoke admin + apps locales",
-            description="Après sync URLs / seed admin : /4dm1n, /app, make status.",
-            expected="Dashboard admin charge ; login seed OK ; pas d’erreur module front.",
-            order=4,
-            checklist=[
-                _check("make status OK"),
-                _check("/4dm1n Dashboard OK"),
-                _check("/app hub OK"),
-            ],
-        ),
-        "H6b": _task(
-            "H6b",
-            cycle_id="cycle-mobile",
-            section="Mobile",
-            label="H6b — Auth suite mobile (broker)",
-            description="Broker Android cloudity_auth_broker : continuer avec ce compte, reprise session.",
-            expected="Partage de session entre apps sur appareil réel.",
-            order=1,
-            status="partial",
-            checklist=[_check("Broker Android"), _check("iOS Keychain group")],
-        ),
-        "H6c": _task(
-            "H6c",
-            cycle_id="cycle-mobile",
-            section="Mobile",
-            label="H6c — Sécurité mobile transverse",
-            description="Checklist MOBILE-SECURITY ; logout purge broker ; reste sanitization erreurs + TLS prod.",
-            expected="Checklist verte + messages d’erreur sains.",
-            order=2,
-            status="partial",
-            checklist=[
-                _check("Checklist security ☑", True),
-                _check("Logout purge broker", True),
-                _check("Sanitization erreurs Mail"),
-                _check("TLS prod téléphone"),
-            ],
-        ),
-        "H15": _task(
-            "H15",
-            cycle_id="cycle-mobile",
-            section="Photos",
-            label="H15 — Sauvegarde galerie robuste",
-            description="Backup arrière-plan, dossiers téléphone, matching cloud↔local.",
-            expected="Validation E2E cross-appareil (Samsung).",
-            order=3,
-            status="partial",
-            checklist=[_check("Matching fingerprints", True), _check("E2E Samsung")],
-        ),
-        "H18": _task(
-            "H18",
-            cycle_id="cycle-mobile",
-            section="Admin mobile",
-            label="H18 — admin_app production-ready",
-            description="Gateway dart-define ; login admin + 2FA ; liste tenants.",
-            expected="App admin mobile utilisable en préprod.",
-            order=4,
-            checklist=[_check("Login admin"), _check("2FA"), _check("Liste tenants")],
-        ),
-        "DEPLOY-ENV-01": _task(
-            "DEPLOY-ENV-01",
-            cycle_id="cycle-deploy",
-            section="Ops",
-            label="DEPLOY-ENV-01 — Hôte public + .env.prod",
-            description="CLOUDITY_PUBLIC_* · make sync-public-urls · env-prod · portainer-env.",
-            expected="Une IP/domaine change tout ; Portainer collable.",
-            order=1,
-            status="ok",
-            checklist=[
-                _check("sync-public-urls", True),
-                _check("env-prod / portainer-env", True),
-                _check("Doc ENV-GENERATION", True),
-            ],
-        ),
-        "DEPLOY-SUIVI-01": _task(
-            "DEPLOY-SUIVI-01",
-            cycle_id="cycle-deploy",
-            section="Ops",
-            label="DEPLOY-SUIVI-01 — Feuille de route A→C",
-            description="Suivre DEPLOIEMENT-SUIVI.md : local → CI → Portainer.",
-            expected="Phases A/B/C cochées sur VPS réel.",
-            order=2,
-            checklist=[_check("Phase A locale"), _check("Phase B CI"), _check("Phase C Portainer")],
-        ),
-        "DEPLOY-PORTAINER-02": _task(
-            "DEPLOY-PORTAINER-02",
-            cycle_id="cycle-deploy",
-            section="Ops",
-            label="DEPLOY-PORTAINER-02 — Update stack GHCR",
-            description="Doc/script pull tag GHCR + redeploy semi-auto.",
-            expected="Update stack documenté et testé.",
-            order=3,
-            checklist=[_check("Doc update"), _check("Essai redeploy")],
-        ),
-        "ADM-UPDATE-01": _task(
-            "ADM-UPDATE-01",
-            cycle_id="cycle-later",
-            section="Admin",
-            label="ADM-UPDATE — Mises à jour visibles /4dm1n",
-            description="Indicateurs GHCR/web/APK + actions maj — après REL + prefs.",
-            expected="Page ou section Dashboard « Mises à jour ».",
-            order=1,
-            status="deferred",
-            checklist=[_check("UI indicateurs"), _check("Actions update")],
-        ),
-        "MAIL-PROD-PAUSE": _task(
-            "MAIL-PROD-PAUSE",
-            cycle_id="cycle-later",
-            section="Mail",
-            label="Mail prod (pause) — OVH / VPS / MTA",
-            description="Ne pas toucher tant que l’utilisateur ne dit pas « on retourne sur la partie mail ».",
-            expected="Reprise explicite uniquement.",
-            order=2,
-            status="deferred",
-            checklist=[_check("Signal utilisateur « retour mail »")],
-        ),
+def _task_from_catalog_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    labels = entry.get("checklistLabels") or ["Critère principal atteint"]
+    status = entry.get("status") or "open"
+    checklist = [_check(lab, done=(status == "ok")) for lab in labels]
+    return {
+        "id": entry["id"],
+        "cycleId": entry.get("cycleId"),
+        "section": entry.get("section") or "",
+        "label": entry.get("label") or entry["id"],
+        "description": entry.get("description") or "",
+        "expected": entry.get("expected") or "",
+        "status": status,
+        "order": int(entry.get("order") or 0),
+        "checklist": checklist,
+        "porteurNote": "",
+        "history": [],
+        "source": entry.get("source") or "catalog",
     }
 
+
+def load_catalog_file() -> dict[str, Any] | None:
+    path = catalog_path()
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(data, dict) or not data.get("cycles"):
+        return None
+    return data
+
+
+def build_seed_board() -> dict[str, Any]:
+    """Board depuis pilotage-catalog.json (155+ tâches) ; fallback minimal si absent."""
+    cat = load_catalog_file()
+    if not cat:
+        return _minimal_fallback_seed()
+    tasks: dict[str, Any] = {}
+    for entry in cat.get("tasks") or []:
+        if not isinstance(entry, dict) or not entry.get("id"):
+            continue
+        tasks[entry["id"]] = _task_from_catalog_entry(entry)
+    cycles = cat.get("cycles") or []
+    # Réaligner itemIds si besoin
+    by_cycle: dict[str, list[str]] = {c["id"]: [] for c in cycles if c.get("id")}
+    for tid, t in tasks.items():
+        cid = t.get("cycleId")
+        if cid in by_cycle:
+            by_cycle[cid].append(tid)
+    for c in cycles:
+        if c.get("id") in by_cycle and not c.get("itemIds"):
+            c["itemIds"] = by_cycle[c["id"]]
     return {
-        "version": 1,
+        "version": int(cat.get("version") or 2),
         "updatedAt": _now(),
         "cycles": cycles,
         "tasks": tasks,
+        "catalogVersion": cat.get("updatedAt"),
     }
 
 
+def _minimal_fallback_seed() -> dict[str, Any]:
+    tid = "H14"
+    return {
+        "version": 1,
+        "updatedAt": _now(),
+        "cycles": [
+            {
+                "id": "cycle-now",
+                "label": "À faire maintenant",
+                "description": "Catalogue JSON manquant — make sync / monter /cloudity-repo",
+                "itemIds": [tid],
+            }
+        ],
+        "tasks": {
+            tid: {
+                "id": tid,
+                "cycleId": "cycle-now",
+                "section": "Mobile",
+                "label": "H14 — Gateway mobile HTTPS prod",
+                "description": "Valider gateway mobile.",
+                "expected": "Login mobile OK.",
+                "status": "partial",
+                "order": 1,
+                "checklist": [_check("Smoke gateway")],
+                "porteurNote": "",
+                "history": [],
+            }
+        },
+    }
+
+
+def merge_boards(existing: dict[str, Any] | None, seed: dict[str, Any]) -> dict[str, Any]:
+    """Fusionne seed (catalogue) + board existant : préserve notes, checklist, historique, décisions."""
+    if not existing or not (existing.get("tasks") or existing.get("cycles")):
+        return deepcopy(seed)
+    out = deepcopy(seed)
+    out_tasks: dict[str, Any] = out.setdefault("tasks", {})
+    old_tasks: dict[str, Any] = existing.get("tasks") or {}
+
+    for tid, old in old_tasks.items():
+        if tid not in out_tasks:
+            # Tâche créée manuellement : conserver
+            out_tasks[tid] = deepcopy(old)
+            cid = old.get("cycleId")
+            if cid:
+                for c in out.get("cycles") or []:
+                    if c.get("id") == cid:
+                        ids = list(c.get("itemIds") or [])
+                        if tid not in ids:
+                            ids.append(tid)
+                        c["itemIds"] = ids
+            continue
+        cur = out_tasks[tid]
+        # Préserver progression utilisateur
+        if old.get("porteurNote"):
+            cur["porteurNote"] = old["porteurNote"]
+        if old.get("history"):
+            cur["history"] = deepcopy(old["history"])
+        # Checklist : merge by label
+        old_by_label = {
+            (c.get("label") or ""): c for c in (old.get("checklist") or []) if c.get("label")
+        }
+        new_cl = []
+        for c in cur.get("checklist") or []:
+            lab = c.get("label") or ""
+            if lab in old_by_label and old_by_label[lab].get("done"):
+                c = {**c, "done": True, "id": old_by_label[lab].get("id") or c.get("id")}
+            else:
+                # preserve id if same label existed
+                if lab in old_by_label:
+                    c = {**c, "id": old_by_label[lab].get("id") or c.get("id")}
+            new_cl.append(c)
+        cur["checklist"] = new_cl
+        # Statut : garder décision utilisateur si plus « avancée » que le seed
+        old_st = old.get("status") or "open"
+        seed_st = cur.get("status") or "open"
+        rank = {"open": 0, "partial": 1, "rework": 2, "deferred": 3, "ko": 4, "ok": 5}
+        # Si l'utilisateur a une history decide, privilégier old
+        has_decide = any(
+            str(h.get("action", "")).startswith("decide:") for h in (old.get("history") or [])
+        )
+        if has_decide or rank.get(old_st, 0) >= rank.get(seed_st, 0):
+            cur["status"] = old_st
+        out_tasks[tid] = cur
+
+    out["updatedAt"] = _now()
+    return out
+
+
+_STATUS_MARK = {
+    "☑": "ok",
+    "✅": "ok",
+    "☐": "open",
+    "🟡": "partial",
+    "⏸️": "deferred",
+    "ℹ️": "open",
+}
+
+
+def parse_md_statuses(root: Path | None = None) -> dict[str, TaskStatus]:
+    """Extrait id → status depuis TODOS.md (tables H*) et BACKLOG.md (cases - [x])."""
+    root = root or docs_root()
+    found: dict[str, TaskStatus] = {}
+
+    todos = root / "TODOS.md"
+    if todos.is_file():
+        text = todos.read_text(encoding="utf-8", errors="replace")
+        # | **H14** | ... | 🟡 |
+        for m in re.finditer(
+            r"\|\s*\*\*([A-Z][A-Z0-9_-]+)\*\*\s*\|[^|]*\|[^|]*\|\s*([☑✅☐🟡⏸️ℹ️xX✓])",
+            text,
+        ):
+            tid, mark = m.group(1), m.group(2)
+            found[tid] = _STATUS_MARK.get(mark, "open")
+        # | **H14** | ... | ✅ |  (3-col MAINTENANT)
+        for m in re.finditer(
+            r"\|\s*\*\*([A-Z][A-Z0-9_-]+)\*\*\s*\|[^|]*\|[^|]*\|\s*([☑✅☐🟡⏸️])\s*\|",
+            text,
+        ):
+            tid, mark = m.group(1), m.group(2)
+            found[tid] = _STATUS_MARK.get(mark, found.get(tid, "open"))
+        # Sujet | État tables sessions : | **`foo`** | ☑ |
+        for m in re.finditer(
+            r"\|\s*\*\*`?([^`|*]+)`?\*\*\s*\|\s*([☑✅☐🟡⏸️])\s*\|",
+            text,
+        ):
+            label = m.group(1).strip()
+            mark = m.group(2)
+            # map known keys in label
+            for key in ("H14", "H19", "DEPLOY-ENV", "PILOTAGE"):
+                if key in label.upper().replace(" ", ""):
+                    pass
+
+    backlog = root / "BACKLOG.md"
+    if backlog.is_file():
+        text = backlog.read_text(encoding="utf-8", errors="replace")
+        for m in re.finditer(
+            r"^- \[( |x|X)\]\s+\*\*([A-Z0-9][A-Z0-9_-]+)\b",
+            text,
+            re.MULTILINE,
+        ):
+            done = m.group(1).lower() == "x"
+            tid = m.group(2)
+            # Prefer explicit backlog for DEPLOY/REL/MAIL/AS/MP/PERF
+            found[tid] = "ok" if done else found.get(tid, "open")
+
+    return found
+
+
+def apply_md_statuses(board: dict[str, Any], statuses: dict[str, TaskStatus]) -> dict[str, Any]:
+    """Applique les statuts MD sans écraser une décision decide: plus récente."""
+    board = deepcopy(board)
+    tasks = board.get("tasks") or {}
+    for tid, st in statuses.items():
+        if tid not in tasks:
+            continue
+        t = tasks[tid]
+        has_decide = any(
+            str(h.get("action", "")).startswith("decide:") for h in (t.get("history") or [])
+        )
+        if has_decide:
+            continue
+        t["status"] = st
+        if st == "ok":
+            for c in t.get("checklist") or []:
+                c["done"] = True
+    board["updatedAt"] = _now()
+    return board
+
+
+def sync_from_docs(existing: dict[str, Any] | None) -> tuple[dict[str, Any], str]:
+    """Recharge catalogue + merge + statuts Markdown."""
+    seed = build_seed_board()
+    merged = merge_boards(existing, seed)
+    statuses = parse_md_statuses()
+    merged = apply_md_statuses(merged, statuses)
+    n = len(merged.get("tasks") or {})
+    msg = f"Sync docs OK — {n} tâches, {len(statuses)} statuts lus depuis Markdown."
+    return merged, msg
+
+
 def enrich_board(board: dict[str, Any]) -> dict[str, Any]:
-    """Ajoute cycleViews + compteurs pour l’UI."""
     out = deepcopy(board)
     out["cycleViews"] = build_cycle_views(out)
     tasks = list((out.get("tasks") or {}).values())
@@ -326,26 +364,30 @@ def enrich_board(board: dict[str, Any]) -> dict[str, Any]:
         "deferred": sum(1 for t in tasks if t.get("status") == "deferred"),
         "total": len(tasks),
     }
-    # File active : première open/partial du cycle-now
     active = None
-    now_ids = next((c.get("itemIds") or [] for c in out.get("cycles") or [] if c.get("id") == "cycle-now"), [])
+    now_ids = next(
+        (c.get("itemIds") or [] for c in out.get("cycles") or [] if c.get("id") == "cycle-now"),
+        [],
+    )
     for tid in now_ids:
         t = (out.get("tasks") or {}).get(tid)
         if t and t.get("status") in ("open", "partial", "rework"):
             active = {"id": tid, "label": t.get("label"), "status": t.get("status")}
             break
     out["active"] = active
-    recent = sorted(
-        [t for t in tasks if t.get("status") == "ok"],
+    recent = [t for t in tasks if t.get("status") == "ok"]
+    recent.sort(
         key=lambda t: (t.get("history") or [{}])[-1].get("at", "") if t.get("history") else "",
         reverse=True,
-    )[:8]
-    out["recentDone"] = [{"id": t["id"], "label": t.get("label"), "status": "ok"} for t in recent]
+    )
+    out["recentDone"] = [{"id": t["id"], "label": t.get("label"), "status": "ok"} for t in recent[:12]]
+    out["docsRoot"] = str(docs_root())
+    out["catalogPath"] = str(catalog_path())
+    out["catalogLoaded"] = catalog_path().is_file()
     return out
 
 
 def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dict[str, Any], str]:
-    """Applique une action et retourne (board, message)."""
     board = deepcopy(board)
     tasks: dict[str, Any] = board.setdefault("tasks", {})
     action = body.get("type") or ""
@@ -364,20 +406,16 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
         if new_status == "ok" and not progress["allDone"] and progress["total"] > 0:
             new_status = "partial"
             decision = "PARTIEL"
-            msg = "Checklist incomplète → enregistré en PARTIEL (force OK après avoir tout coché)."
+            msg = "Checklist incomplète → PARTIEL (coche tout puis OK)."
         else:
             msg = f"Décision {decision} enregistrée."
         task["status"] = new_status
         if note:
             task["porteurNote"] = note
-        hist = task.setdefault("history", [])
-        hist.append({"at": _now(), "action": f"decide:{decision}", "note": note or None})
-        # Déplacer vers cycle-later si PLUS_TARD
-        if new_status == "deferred":
-            _move_task_cycle(board, item_id, "cycle-later")
-        elif new_status == "ok":
-            # rester dans son cycle ; recentDone dérivé
-            pass
+        task.setdefault("history", []).append(
+            {"at": _now(), "action": f"decide:{decision}", "note": note or None}
+        )
+        # PLUS_TARD : statut deferred, cycle inchangé (filtre UI)
 
     elif action == "checklist":
         cid = body.get("checklistItemId") or ""
@@ -435,16 +473,21 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
             raise ValueError("ID déjà utilisé")
         cycle_id = body.get("cycleId") or "cycle-now"
         label = (body.get("note") or body.get("label") or tid).strip()
-        new_task = _task(
-            tid,
-            cycle_id=cycle_id,
-            section=str(body.get("section") or "Perso"),
-            label=label,
-            description=str(body.get("description") or ""),
-            expected=str(body.get("expected") or "Critères à préciser."),
-            order=99,
-            checklist=[_check(c) for c in (body.get("checklistLabels") or [])] or [_check("Faire / valider")],
-        )
+        new_task = {
+            "id": tid,
+            "cycleId": cycle_id,
+            "section": str(body.get("section") or "Perso"),
+            "label": label,
+            "description": str(body.get("description") or ""),
+            "expected": str(body.get("expected") or "Critères à préciser."),
+            "status": "open",
+            "order": 99,
+            "checklist": [_check(c) for c in (body.get("checklistLabels") or [])]
+            or [_check("Faire / valider")],
+            "porteurNote": "",
+            "history": [{"at": _now(), "action": "create"}],
+            "source": "manual",
+        }
         tasks[tid] = new_task
         cycle = next((c for c in board.get("cycles") or [] if c.get("id") == cycle_id), None)
         if cycle is not None:
@@ -458,7 +501,7 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
         raise ValueError(f"Action inconnue : {action}")
 
     board["updatedAt"] = _now()
-    board["version"] = int(board.get("version") or 1)
+    board["version"] = int(board.get("version") or 2)
     return board, msg
 
 

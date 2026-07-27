@@ -15,6 +15,15 @@
 
 ---
 
+### 2026-07-27 — Pilotage catalogue complet + sync MD
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- `pilotage-catalog.json` (~155 tâches, 10 cycles) ; Sync docs API/UI ; auto-upgrade board <40 tâches.
+- Smoke : 156 tâches, active H14 ; pytest pilotage.
+- Docs : PILOTAGE.md, TODOS/STATUS.
+
+---
+
 ### 2026-07-22 — Pilotage /4dm1n (JobbingTrack-like)
 
 - Branche : `feat/app-vault-drive-upload-pin-rotation`.

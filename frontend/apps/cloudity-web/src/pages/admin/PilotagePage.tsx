@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ClipboardList, RefreshCw, ChevronUp, ChevronDown } from 'lucide-react'
+import { ClipboardList, RefreshCw, ChevronUp, ChevronDown, FolderSync } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import {
   fetchPilotageBoard,
   postPilotageAction,
+  syncPilotageDocs,
   type PilotageActionPayload,
   type PilotageBoard,
   type PilotageTask,
@@ -296,6 +297,7 @@ export default function PilotagePage() {
     cycles: true,
     recent: false,
   })
+  const [statusFilter, setStatusFilter] = useState<'all' | PilotageTaskStatus>('all')
   const [flash, setFlash] = useState<string | null>(null)
   const [newLabel, setNewLabel] = useState('')
 
@@ -315,6 +317,15 @@ export default function PilotagePage() {
     },
   })
 
+  const syncMut = useMutation({
+    mutationFn: () => syncPilotageDocs(accessToken!),
+    onSuccess: (res) => {
+      queryClient.setQueryData(['pilotage-board'], res)
+      setFlash(res.message || 'Sync docs OK')
+      window.setTimeout(() => setFlash(null), 5000)
+    },
+  })
+
   const board: PilotageBoard | undefined = data?.board
   const canWrite = Boolean(data?.canWrite)
   const selected = useMemo(() => {
@@ -331,7 +342,9 @@ export default function PilotagePage() {
   const otherCycles = cycleViews.filter((c) => c.id !== 'cycle-now')
 
   const tasksFor = (ids: string[]) =>
-    ids.map((id) => board?.tasks[id]).filter(Boolean) as PilotageTask[]
+    (ids.map((id) => board?.tasks[id]).filter(Boolean) as PilotageTask[]).filter(
+      (t) => statusFilter === 'all' || t.status === statusFilter
+    )
 
   if (!accessToken) {
     return (
@@ -380,15 +393,27 @@ export default function PilotagePage() {
             ) : null}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void refetch()}
-          disabled={isFetching}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
-        >
-          <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-          Rafraîchir
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => syncMut.mutate()}
+            disabled={syncMut.isPending || !canWrite}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            title="Recharge pilotage-catalog.json + statuts TODOS/BACKLOG (garde tes décisions)"
+          >
+            <FolderSync className={`w-4 h-4 ${syncMut.isPending ? 'animate-spin' : ''}`} />
+            Sync docs
+          </button>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-800"
+          >
+            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
+            Rafraîchir
+          </button>
+        </div>
       </Card>
 
       {isLoading ? (
@@ -401,11 +426,27 @@ export default function PilotagePage() {
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-4">
           <div className="xl:col-span-3 space-y-3">
             {board.counts ? (
-              <div className="flex flex-wrap gap-2 text-xs">
+              <div className="flex flex-wrap gap-2 text-xs items-center">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('all')}
+                  className={`rounded-full px-2.5 py-1 font-medium border ${
+                    statusFilter === 'all' ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950/40' : 'border-transparent'
+                  }`}
+                >
+                  Toutes {board.counts.total ?? 0}
+                </button>
                 {(['open', 'partial', 'ok', 'ko', 'deferred'] as const).map((k) => (
-                  <span key={k} className={`rounded-full px-2.5 py-1 font-medium ${statusClass(k === 'ko' ? 'ko' : k)}`}>
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setStatusFilter(k)}
+                    className={`rounded-full px-2.5 py-1 font-medium ${statusClass(k === 'ko' ? 'ko' : k)} ${
+                      statusFilter === k ? 'ring-2 ring-offset-1 ring-slate-400' : ''
+                    }`}
+                  >
                     {statusLabel(k === 'ko' ? 'ko' : k)} {board.counts?.[k] ?? 0}
-                  </span>
+                  </button>
                 ))}
               </div>
             ) : null}

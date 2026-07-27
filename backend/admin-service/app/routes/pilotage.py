@@ -12,7 +12,12 @@ from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.services.pilotage_board import apply_board_action, build_seed_board, enrich_board
+from app.services.pilotage_board import (
+    apply_board_action,
+    build_seed_board,
+    enrich_board,
+    sync_from_docs,
+)
 
 router = APIRouter(prefix="/admin", tags=["pilotage"])
 
@@ -135,12 +140,23 @@ def _log_event(
 def _ensure_board(db: Session) -> dict[str, Any]:
     existing = _load_payload(db)
     if existing and (existing.get("tasks") or existing.get("cycles")):
+        # Auto-upgrade si ancien seed miniature (< 40 tâches)
+        n = len((existing.get("tasks") or {}))
+        if n < 40 and catalog_loaded():
+            board, _ = sync_from_docs(existing)
+            _save_payload(db, board)
+            return board
         return existing
-    seed = build_seed_board()
+    board, _ = sync_from_docs(None)
     if _table_ready(db):
-        _save_payload(db, seed)
-    return seed
+        _save_payload(db, board)
+    return board
 
+
+def catalog_loaded() -> bool:
+    from app.services.pilotage_board import catalog_path
+
+    return catalog_path().is_file()
 
 @router.get("/pilotage/board")
 def get_pilotage_board(db: Session = Depends(get_db)) -> dict[str, Any]:
@@ -203,12 +219,36 @@ def post_pilotage_action(
     }
 
 
+@router.post("/pilotage/board/sync-docs")
+def sync_pilotage_docs(
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Recharge pilotage-catalog.json + merge + statuts TODOS/BACKLOG (préserve décisions UI)."""
+    if not _can_write():
+        raise HTTPException(status_code=403, detail="Écriture désactivée")
+    if not _table_ready(db):
+        raise HTTPException(status_code=503, detail="Tables pilotage absentes — make migrate")
+    existing = _load_payload(db)
+    try:
+        new_board, message = sync_from_docs(existing)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=str(e)) from e
+    _save_payload(db, new_board)
+    return {
+        "success": True,
+        "message": message,
+        "canWrite": True,
+        "runtimeEnv": _runtime_env(),
+        "board": enrich_board(new_board),
+    }
+
+
 @router.post("/pilotage/board/reset-seed")
 def reset_pilotage_seed(
     db: Session = Depends(get_db),
     confirm: bool = False,
 ) -> dict[str, Any]:
-    """Réinitialise le board au seed Cloudity (destructif)."""
+    """Réinitialise depuis le catalogue (perd les notes/checklists — préférer sync-docs)."""
     if not _can_write():
         raise HTTPException(status_code=403, detail="Écriture désactivée")
     if not confirm:
@@ -216,10 +256,11 @@ def reset_pilotage_seed(
     if not _table_ready(db):
         raise HTTPException(status_code=503, detail="Tables pilotage absentes — make migrate")
     seed = build_seed_board()
+    seed, _ = sync_from_docs(None)
     _save_payload(db, seed)
     return {
         "success": True,
-        "message": "Board réinitialisé depuis le seed Cloudity.",
+        "message": "Board réinitialisé depuis le catalogue + Markdown.",
         "board": enrich_board(seed),
     }
 

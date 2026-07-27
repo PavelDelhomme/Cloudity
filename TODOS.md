@@ -7,6 +7,22 @@
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
 
+### Session 2026-07-27 — Pilotage catalogue complet + sync MD
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Catalogue ~155 tâches** | ☑ | `docs/operations/pilotage-catalog.json` — 10 cycles (now/mobile/web/mail/pass/qa/deploy/admin/done) |
+| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
+| **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
+
+**Tu fais quoi maintenant** :
+
+1. Ouvre **http://localhost:6001/4dm1n/pilotage** → **Sync docs** si < 100 tâches
+2. Travaille **H14** (critères + décision)
+3. Enchaîne H19 / H6b / QA selon le board
+
+---
+
 ### Session 2026-07-22 (soir+) — Pilotage admin (style JobbingTrack)
 
 | Sujet | État | Détail |

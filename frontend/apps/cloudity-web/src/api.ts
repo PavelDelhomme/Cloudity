@@ -371,6 +371,15 @@ export async function postPilotageAction(
   )
 }
 
+export async function syncPilotageDocs(token: string): Promise<PilotageBoardResponse & { message?: string }> {
+  return apiJson<PilotageBoardResponse & { message?: string }>(
+    token,
+    '/admin/pilotage/board/sync-docs',
+    { method: 'POST', body: '{}' },
+    'Pilotage sync docs'
+  )
+}
+
 /** Rapport CVE/OSV (admin) — source api.osv.dev, cache optionnel côté admin-service. */
 export type CveVulnEntryResponse = {
   osv_id: string

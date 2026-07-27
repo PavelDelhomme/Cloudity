@@ -1,10 +1,10 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-07-22 — **Pilotage** `/4dm1n/pilotage` (board JobbingTrack) + env public (`sync-public-urls` / `env-prod`).
+**Dernière mise à jour** : 2026-07-27 — Pilotage catalogue ~155 tâches + Sync docs (TODOS/BACKLOG) ; active **H14**.
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** § Pilotage — ouvrir **`/4dm1n/pilotage`**, valider / enchaîner les tâches du cycle « maintenant ».
+**Checklist du jour** : **[TODOS.md](./TODOS.md)** § 2026-07-27 — **`/4dm1n/pilotage`** → Sync docs → enchaîner **H14**.
 
 ### Rituel (avant chaque session)
 
