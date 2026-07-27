@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 /**
  * E2E contre l'app réelle (Docker: port 6001).
- * Prérequis : make up puis make seed-admin (compte démo : voir Makefile cible seed-admin ;
+ * Prérequis : make up puis make seed-admin (compte démo : SEED_ADMIN_* dans .env ;
  * surcharge PLAYWRIGHT_E2E_EMAIL / PLAYWRIGHT_E2E_PASSWORD).
  * Pass E2E : **`PLAYWRIGHT_API_URL`** = base du **gateway** (ex. `http://localhost:6080`) pour
  * `DELETE /pass/vaults/:id` après chaque test — défaut 6080 si absent.

@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cloudity_photos/gallery_album_catalog.dart';
+import 'package:cloudity_photos/features/gallery_album_catalog.dart';
 
 void main() {
   test('décrit les albums photos usuels', () {

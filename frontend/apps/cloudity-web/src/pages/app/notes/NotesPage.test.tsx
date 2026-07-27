@@ -28,6 +28,7 @@ describe('NotesPage', () => {
   beforeEach(() => {
     queryClient.clear()
     localStorage.clear()
+    sessionStorage.clear()
     vi.mocked(useAuth).mockReturnValue({
       accessToken: 'token',
       tenantId: 1,

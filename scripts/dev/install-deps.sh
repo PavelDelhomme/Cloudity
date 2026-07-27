@@ -59,4 +59,5 @@ fi
 echo ""
 echo "✅ Toutes les dépendances sont installées."
 echo "   Démarrer la stack : make up"
-echo "   Tout-en-un :       make up-full"
+echo "   Prêt à coder :      make up-ready   (stack + seed, sans tests)"
+echo "   Tout-en-un :        make up-full    (+ tests ; si échec → make up-ready)"

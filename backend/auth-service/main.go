@@ -27,6 +27,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
 	"github.com/pavel/cloudity/internalsec"
+	"github.com/pavel/cloudity/auth-service/recovery"
 	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -622,13 +623,13 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 	// Si la saisie ressemble à un code de récupération (12 chars
 	// alphanumériques avec ou sans tirets), on tente cette voie EN PREMIER —
 	// utile quand l'utilisateur a perdu son authenticator. Sinon TOTP.
-	if looksLikeRecoveryCode(req.Code) {
+	if recovery.LooksLikeRecoveryCode(req.Code) {
 		store, ok := a.userStore.(*postgresUserStore)
 		if !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "recovery codes require postgres user store"})
 			return
 		}
-		if err := verifyAndConsumeRecoveryCode(ctx, store.db, userID, req.Code); err != nil {
+		if err := recovery.VerifyAndConsume(ctx, store.db, userID, req.Code); err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid code"})
 			return
 		}
@@ -647,7 +648,7 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 	if !is2FAEnabled {
 		_ = a.userStore.Set2FAEnabled(userID, true)
 		if store, ok := a.userStore.(*postgresUserStore); ok {
-			codes, gerr := generateAndStoreRecoveryCodes(ctx, store.db, userID)
+			codes, gerr := recovery.GenerateAndStore(ctx, store.db, userID)
 			if gerr == nil {
 				freshRecoveryCodes = codes
 			}
@@ -703,7 +704,7 @@ func keyPath(name string) string {
 // les access tokens. Persistée sur disque dans `keyDir()`
 // (private_ed25519.pem en PKCS8 mode 0600, public_ed25519.pem en PKIX mode 0644)
 // pour rester partagée avec api-gateway via :
-//   - dev : volume Docker bind `./backend/auth-service:/app/keys:ro`,
+//   - dev : bind `./backend/auth-service/public*.pem` → `/app/keys/*.pem` (gateway),
 //   - prod : volume Docker nommé `cloudity_auth_keys` monté à `AUTH_KEYS_DIR`
 //     sur auth-service (RW) et exposé en RO à api-gateway via
 //     `JWT_ED25519_PUBLIC_KEY_PATH`.

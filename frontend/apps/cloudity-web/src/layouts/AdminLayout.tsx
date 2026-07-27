@@ -12,6 +12,8 @@ import {
   Key,
   Palette,
   Smartphone,
+  User,
+  ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '../authContext'
 import { ADMIN_UI_BASE_PATH, adminUiPath } from '@cloudity/shared'
@@ -19,9 +21,11 @@ import { ResponsiveShell } from '@cloudity/ui'
 
 const adminNav = [
   { key: 'dashboard', name: 'Tableau de bord', href: adminUiPath(), icon: <LayoutDashboard className="w-4 h-4 shrink-0" />, end: true },
+  { key: 'pilotage', name: 'Pilotage', href: adminUiPath('pilotage'), icon: <ClipboardList className="w-4 h-4 shrink-0" /> },
   { key: 'tenants', name: 'Tenants', href: adminUiPath('tenants'), icon: <Building2 className="w-4 h-4 shrink-0" /> },
   { key: 'users', name: 'Utilisateurs', href: adminUiPath('users'), icon: <Users className="w-4 h-4 shrink-0" /> },
   { key: 'mobile-ota', name: 'Mobile / OTA', href: adminUiPath('mobile-distribution'), icon: <Smartphone className="w-4 h-4 shrink-0" /> },
+  { key: 'mobile-logs', name: 'Logs mobile', href: adminUiPath('mobile-logs'), icon: <Smartphone className="w-4 h-4 shrink-0" /> },
   { key: 'domaines', name: 'Domaines mail', href: adminUiPath('domaines'), icon: <Mail className="w-4 h-4 shrink-0" /> },
   { key: 'cve', name: 'CVE / dépendances', href: adminUiPath('securite-cve'), icon: <Shield className="w-4 h-4 shrink-0" /> },
   { key: 'passkeys', name: 'Passkeys', href: adminUiPath('passkeys'), icon: <Key className="w-4 h-4 shrink-0" /> },
@@ -69,7 +73,7 @@ export default function AdminLayout() {
   return (
     <ResponsiveShell
       brandTitle="Cloudity"
-      brandSubtitle="Administration"
+      brandSubtitle={email?.trim() ? `Administration · ${email.trim()}` : 'Administration'}
       brandLink={
         <Link to={ADMIN_UI_BASE_PATH} className="text-base font-semibold text-gray-900 dark:text-slate-100">
           Cloudity
@@ -95,6 +99,12 @@ export default function AdminLayout() {
         </Link>
       )}
       footerItems={[
+        {
+          key: 'profile',
+          label: 'Mon profil',
+          icon: <User className="w-4 h-4" />,
+          href: '/app/settings',
+        },
         {
           key: 'back',
           label: 'Retour à l’app',

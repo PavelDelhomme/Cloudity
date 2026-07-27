@@ -34,6 +34,7 @@ export async function copyWithAutoClear(
 ): Promise<() => void> {
   const ttlMs = opts.ttlMs ?? DEFAULT_TTL_MS
   await navigator.clipboard.writeText(text)
+  if (ttlMs <= 0) return () => {}
   let cancelled = false
   const timer = window.setTimeout(async () => {
     if (cancelled) return

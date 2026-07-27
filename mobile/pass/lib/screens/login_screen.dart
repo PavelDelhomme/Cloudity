@@ -3,9 +3,9 @@ import 'package:cloudity_shared/suite_defaults.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../pass_api.dart';
-import '../session_store.dart';
-import '../user_session.dart';
+import '../api/pass_api.dart';
+import '../auth/session_store.dart';
+import '../auth/user_session.dart';
 
 class PassLoginScreen extends StatefulWidget {
   const PassLoginScreen({super.key, required this.onLoggedIn});

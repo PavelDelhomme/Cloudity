@@ -62,13 +62,32 @@ Docs : [BRANCHES.md](../../docs/operations/BRANCHES.md) · [DEPLOIEMENT-SUIVI.md
 
 **Advanced mode** dans Portainer. Modèle : [stack.env.example](./stack.env.example).
 
-Sur ton PC :
+### Génération recommandée (depuis ton PC)
+
+```bash
+# Fusionne .env (secrets locaux) + .env.example + overlays prod, puis sync les URLs
+make env-prod DOMAIN=cloudity.ton-domaine.tld
+# Si .env.prod existe déjà :
+make env-prod DOMAIN=cloudity.ton-domaine.tld FORCE=1
+
+# Affiche KEY=VALUE à coller dans Portainer
+make portainer-env
+
+# Après édition manuelle de CLOUDITY_PUBLIC_* dans .env.prod :
+ENV_FILE=.env.prod make sync-public-urls
+```
+
+Équivalent bas niveau : `./scripts/dev/env-prepare.sh prod --domain cloudity.example`.
+
+Préprod : `make env-preprod DOMAIN=preprod.cloudity.example` → `.env.preprod` puis `make portainer-env FILE=.env.preprod`.
+
+### À la main
 
 ```bash
 make secrets-print
 ```
 
-Puis adapte les URLs HTTPS (`VITE_API_URL`, `CORS_ORIGINS`, `WEBAUTHN_*`, `CLOUDITY_MOBILE_GATEWAY_URL`).
+Puis adapte les URLs HTTPS (`CLOUDITY_PUBLIC_*` + `make sync-public-urls`, ou `VITE_API_URL` / `CORS_ORIGINS` / `WEBAUTHN_*` / `CLOUDITY_MOBILE_GATEWAY_URL`).
 
 ---
 

@@ -30,7 +30,7 @@ abstract final class MailStandardFolders {
     archive: 'Archive',
     spam: 'Spam',
     trash: 'Corbeille',
-    all: 'Tous les messages',
+    all: 'Tous les messages (reçus)',
     unified: 'Vue unifiée',
     scheduled: 'Programmée',
   };

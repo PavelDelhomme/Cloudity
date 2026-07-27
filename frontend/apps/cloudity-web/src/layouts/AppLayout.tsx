@@ -9,7 +9,7 @@ import {
   FileText,
   ListTodo,
   LayoutDashboard,
-  Settings,
+  User,
   LogOut,
   ChevronRight,
   Shield,
@@ -247,7 +247,7 @@ export function getAppBreadcrumb(pathname: string, search?: string): { label: st
     return segments
   }
   if (pathname.startsWith('/app/settings')) {
-    segments.push({ label: 'Paramètres', href: '/app/settings' })
+    segments.push({ label: 'Profil', href: '/app/settings' })
     return segments
   }
   const section = appNav.find(
@@ -436,10 +436,10 @@ export default function AppLayout() {
               to="/app/settings"
               onClick={() => setSidebarVisible(false)}
               className="flex items-center gap-2 px-3 py-2 rounded text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700"
-              title={!sidebarVisible ? 'Paramètres' : undefined}
+              title={!sidebarVisible ? 'Profil' : undefined}
             >
-              <Settings className="w-4 h-4 shrink-0" />
-              {sidebarVisible && <span className="whitespace-nowrap">Paramètres</span>}
+              <User className="w-4 h-4 shrink-0" />
+              {sidebarVisible && <span className="whitespace-nowrap">Profil</span>}
             </Link>
             <button
               type="button"

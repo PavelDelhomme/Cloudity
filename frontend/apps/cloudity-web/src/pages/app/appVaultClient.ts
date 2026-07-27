@@ -8,7 +8,6 @@ import {
 } from '@cloudity/app-vault-crypto'
 import { toBase64Url, fromBase64Url } from '@cloudity/pass-crypto'
 import { getAppVaultKey } from './appVaultKeySession'
-import type { AppVaultKind } from '@cloudity/app-vault-crypto'
 import type { AppLockedVaultKind } from './appLockedVault'
 
 type VaultKind = AppVaultKind | AppLockedVaultKind

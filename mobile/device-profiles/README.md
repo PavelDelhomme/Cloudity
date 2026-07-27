@@ -2,6 +2,8 @@
 
 Empreintes **golden** d'appareils physiques et émulateurs, versionnées dans le dépôt pour automatiser les `integration_test` sans reconfigurer à chaque fois.
 
+**Index central** : [`profiles.index.json`](./profiles.index.json) — registre de tous les profils (ajoutez une entrée pour chaque nouvel appareil). Modèle vierge : [`_template/`](./_template/).
+
 ## Profil par défaut : `samsung-sm-g990b2`
 
 | Champ | Valeur |

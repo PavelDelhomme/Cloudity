@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web
+.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -38,7 +38,7 @@ PORT_REDIS_COMMANDER ?= 6084
 help: ## Affiche ce message d'aide
 	@echo 'Usage: make [target]'
 	@echo ''
-	@echo '  Première fois :  make setup   puis  make up-full   (stack + compte démo prêts à tester)'
+	@echo '  Première fois :  make setup   puis  make up-ready   (stack + seed, ~5 min) ou  make up-full   (+ tests, long)'
 	@echo ''
 	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
 	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
@@ -46,7 +46,10 @@ help: ## Affiche ce message d'aide
 	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
 	@echo '  make deploy-web | rebuild-web - Rebuild + redémarre cloudity-web (Vite app + back-office admin.html)'
 	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
-	@echo '  make up-full   - Tout-en-un : down + up + seed + compte démo + make test (une seule commande)'
+	@echo '  make up-ready  - down + up + seed + compte démo (sans tests — usage quotidien ; si up-full échoue → commencer ici)'
+	@echo '  make up-full   - up-ready + make test  (long ; Ctrl+C pendant tests = stack conservée)'
+	@echo '                 Si échec / blocage : make up-ready  puis  make status  ·  tests seuls : make test'
+	@echo '                 UP_FULL_SKIP_TESTS=1 make up-full  — stack + seed sans tests'
 	@echo '  make down      - Arrête toute la stack'
 	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
 	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
@@ -67,7 +70,7 @@ help: ## Affiche ce message d'aide
 	@echo '  make test-security - Audits deps (npm/pip/go) + gosec + checks auth 401'
 	@echo '  make status       - Tableau services (port, URL, Up/Down) + bloc URLs (/app, /login, Pass, Mail, gateway, Adminer… ; CLOUDITY_STATUS_HOST=IP_LAN)'
 	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
-	@echo '  make status-watch - Statut toutes les 10 s (watch + couleurs Up/Down)'
+	@echo '  make status-watch - Statut live toutes les 10 s (couleurs, Ctrl+C = arrêt sans effacer)'
 	@echo '  make test-all   - TOUT: make test + … + test-mobile-suite Photos/Drive/Mail (stack up + seed-admin pour E2E)'
 	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
 	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
@@ -80,6 +83,10 @@ help: ## Affiche ce message d'aide
 	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
 	@echo '  make ensure-mta-internal-token - Ajoute/décommente MTA_INTERNAL_TOKEN (lookup MTA alias)'
 	@echo '  make sync-mail-mta-env - Aligne deploy/mail-mta/.env avec le .env racine'
+	@echo '  make sync-public-urls - Depuis CLOUDITY_PUBLIC_HOST/PROTO → VITE_API_URL, mobile, CORS, WebAuthn, OAuth'
+	@echo '  make env-prod DOMAIN=… - Génère .env.prod (.env + .env.example + overlays prod) puis sync URLs'
+	@echo '  make env-preprod DOMAIN=… - Idem → .env.preprod'
+	@echo '  make portainer-env - Affiche .env.prod prêt à coller dans Portainer (Advanced env)'
 	@echo '  make test-mail-mta-local - Smoke API alias-resolve + SMTP local (prérequis: make deploy-mail)'
 	@echo '  make mail-mta-local-up|down|logs - Stack Maddy locale (deploy/mail-mta, port SMTP_PORT)'
 	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
@@ -127,6 +134,8 @@ git-delete-remote-branch: ## Supprime une branche sur origin : make git-delete-r
 run-mobile: ## Lance une app Flutter : make run-mobile APP=Photos|Drive|Admin (prérequis : flutter). Mail/… → dossier mobile/* ; voir docs/produit/MOBILES.md
 	@chmod +x scripts/mobile/run-mobile.sh 2>/dev/null || true
 	@APP="$(APP)" ./scripts/mobile/run-mobile.sh
+
+run-mibile: run-mobile ## Alias typo fréquent (run-mibile → run-mobile)
 
 mobile-devices: ## Liste les appareils ADB détectés
 	@adb devices -l
@@ -187,50 +196,41 @@ up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension 
 	@echo "   Adminer:    http://localhost:$(PORT_ADMINER)  |  Redis Commander: http://localhost:$(PORT_REDIS_COMMANDER)  (profil dev — pas en prod ; voir docs/architecture/SERVICES.md)"
 	@echo "   Sans ces UIs :  make up-lean"
 	@echo ""
-	@echo "Compte de démo (après make seed-admin): admin@cloudity.local / Admin123!"
+	@echo "Compte de démo (après make seed-admin): $(SEED_ADMIN_EMAIL) — mot de passe = SEED_ADMIN_PASSWORD dans .env"
 
 up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
 	@echo "🚀 Démarrage Cloudity (sans outils dev Adminer / Redis Commander)..."
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-full: down up wait-for-services seed seed-admin ## Tout-en-un : down, up, seed, compte démo, puis tests unitaires (rapport dans reports/)
-	@mkdir -p reports
-	@UP_FULL_ID=$$(date +%Y%m%d-%H%M%S); \
-	UP_FULL_LOG="reports/up-full-test-$$UP_FULL_ID.log"; \
-	echo "🧪 Tests post-up-full → $$UP_FULL_LOG"; \
-	set -o pipefail; \
-	export CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID"; \
-	export CLOUDITY_TEST_RUN_LABEL=make-up-full; \
-	export CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID"; \
-	$(MAKE) test 2>&1 | tee "$$UP_FULL_LOG"; \
-	TEST_EXIT=$$?; \
-	chmod +x scripts/ci/generate-test-run-report.sh scripts/dev/send-progress-recap.sh 2>/dev/null || true; \
-	CLOUDITY_TEST_RUN_ID="$$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="reports/test-logs/$$UP_FULL_ID" ./scripts/ci/generate-test-run-report.sh "$$UP_FULL_ID" || true; \
-	./scripts/dev/send-progress-recap.sh || true; \
-	if [ $$TEST_EXIT -ne 0 ]; then \
-	  echo "❌ Tests post-up-full en échec — voir $$UP_FULL_LOG et reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
-	  exit $$TEST_EXIT; \
-	fi; \
-	echo "✅ Stack, compte démo et tests OK. Rapport : $$UP_FULL_LOG"; \
-	echo "   Synthèse : reports/test-logs/$$UP_FULL_ID/REPORT.md"; \
-	echo "   Logs conteneurs : reports/test-logs/$$UP_FULL_ID"; \
-	echo "   Tester: http://localhost:$(PORT_DASHBOARD) (admin@cloudity.local / Admin123!)"
+up-ready: down up wait-for-services seed seed-admin ## Stack + seed sans tests (rapide ; recours si up-full échoue)
+	@echo ""
+	@echo "✅ Cloudity prêt (sans tests).  make status  ·  tests : make test  ·  tout-en-un : make up-full"
 
-down: ## Arrête toute la stack
+up-full: ## up-ready + tests (échec tests → stack souvent OK : make up-ready ou make status)
+	@chmod +x scripts/dev/up-full.sh scripts/dev/prune-compose-runs.sh scripts/dev/up-failure-hint.sh 2>/dev/null || true
+	@./scripts/dev/up-full.sh
+
+# Ancienne recette inline remplacée par scripts/dev/up-full.sh (trap Ctrl+C, prune *-run-*).
+
+down: ## Arrête toute la stack (+ nettoie les conteneurs compose run *-run-*)
 	@echo "🛑 Arrêt de Cloudity..."
-	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down --remove-orphans
+	@chmod +x scripts/dev/prune-compose-runs.sh 2>/dev/null || true
+	@./scripts/dev/prune-compose-runs.sh || true
+	@$(COMPOSE) $(COMPOSE_FILES) --profile dev down --timeout 30 --remove-orphans
+	@./scripts/dev/prune-compose-runs.sh || true
 	@echo "✅ Stack arrêtée."
 
 install: ## Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets (ex. docx, xlsx).
 	@chmod +x scripts/dev/install-deps.sh 2>/dev/null || true
 	@./scripts/dev/install-deps.sh
 
-setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis lancer make up-full.
+setup: ## Setup initial (une fois après clone) : .env, clés RSA, deps. Puis make up-ready ou make up-full.
 	@if [ ! -f scripts/dev/setup.sh ]; then echo "❌ scripts/dev/setup.sh introuvable."; exit 1; fi
 	@./scripts/dev/setup.sh
 	@echo ""
-	@echo "👉 Ensuite :  make up-full   pour démarrer la stack et créer le compte démo (prêt à tester)."
+	@echo "👉 Ensuite :  make up-ready   (stack + compte démo, ~5 min)"
+	@echo "              make up-full    (idem + tests — long ; si échec → make up-ready)"
 
 secrets: ## Génère un .env avec des secrets robustes (CSPRNG : Postgres, Redis, JWT, PERF ingest, MAIL + ALIAS) — voir SECRETS.md
 	@if [ ! -f scripts/dev/gen-secrets.sh ]; then echo "❌ scripts/dev/gen-secrets.sh introuvable."; exit 1; fi
@@ -263,6 +263,38 @@ sync-mail-mta-env: ensure-mta-internal-token ## Copie MTA_INTERNAL_TOKEN + domai
 	@chmod +x scripts/dev/sync-mail-mta-env.sh 2>/dev/null || true
 	@./scripts/dev/sync-mail-mta-env.sh
 
+sync-public-urls: ## Aligne VITE_API_URL / mobile / CORS / WebAuthn / OAuth depuis CLOUDITY_PUBLIC_* (ENV_FILE=.env par défaut)
+	@chmod +x scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@ENV_FILE="$(ENV_FILE)" ./scripts/dev/sync-public-urls.sh
+
+# DOMAIN=cloudity.example  (ou HOST= / API_HOST=)
+# FORCE=1 pour écraser .env.prod existant
+env-prod: ## Génère .env.prod (fusion .env + .env.example + overlays prod) + sync-public-urls — Portainer
+	@chmod +x scripts/dev/env-prepare.sh scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@args="prod"; \
+	  if [ -n "$(DOMAIN)" ]; then args="$$args --domain $(DOMAIN)"; fi; \
+	  if [ -n "$(HOST)" ]; then args="$$args --host $(HOST)"; fi; \
+	  if [ -n "$(API_HOST)" ]; then args="$$args --api-host $(API_HOST)"; fi; \
+	  if [ -n "$(WEB_HOST)" ]; then args="$$args --web-host $(WEB_HOST)"; fi; \
+	  if [ "$(FORCE)" = "1" ]; then args="$$args --force"; fi; \
+	  if [ "$(NO_SYNC)" = "1" ]; then args="$$args --no-sync"; fi; \
+	  ./scripts/dev/env-prepare.sh $$args
+
+env-preprod: ## Génère .env.preprod (fusion .env + .env.example + overlays préprod) + sync-public-urls
+	@chmod +x scripts/dev/env-prepare.sh scripts/dev/sync-public-urls.sh 2>/dev/null || true
+	@args="preprod"; \
+	  if [ -n "$(DOMAIN)" ]; then args="$$args --domain $(DOMAIN)"; fi; \
+	  if [ -n "$(HOST)" ]; then args="$$args --host $(HOST)"; fi; \
+	  if [ -n "$(API_HOST)" ]; then args="$$args --api-host $(API_HOST)"; fi; \
+	  if [ -n "$(WEB_HOST)" ]; then args="$$args --web-host $(WEB_HOST)"; fi; \
+	  if [ "$(FORCE)" = "1" ]; then args="$$args --force"; fi; \
+	  if [ "$(NO_SYNC)" = "1" ]; then args="$$args --no-sync"; fi; \
+	  ./scripts/dev/env-prepare.sh $$args
+
+portainer-env: ## Affiche KEY=VALUE de .env.prod (ou FILE=…) à coller dans Portainer Advanced env
+	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
+	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.prod)"
+
 test-mail-mta-local: sync-mail-mta-env ## Smoke MTA : /health, alias-resolve, port SMTP (ALIAS_TEST_EMAIL optionnel)
 	@chmod +x scripts/dev/test-mail-mta-local.sh 2>/dev/null || true
 	@./scripts/dev/test-mail-mta-local.sh
@@ -292,6 +324,10 @@ build-pass-extension-firefox: ## Build extension Pass pour Firefox (MP-08, dist 
 	fi
 	@cd extensions/cloudity-pass-firefox && npm run build
 	@echo "✅ Extension Firefox : extensions/cloudity-pass-firefox/dist (about:debugging → module temporaire)"
+
+build-pass-linux: ## Build desktop Linux release Pass → dist/linux-pass/
+	@chmod +x scripts/mobile/build-pass-linux.sh scripts/mobile/mobile-flutter-env.sh
+	@./scripts/mobile/build-pass-linux.sh
 
 test-pass-extension: ## Tests extension Pass MV3 (domain matcher MP-06)
 	@echo "🧪 Extension Cloudity Pass (MV3)…"
@@ -479,8 +515,8 @@ test: ## Tests dans Docker (couleurs si terminal : pseudo-TTY + FORCE_COLOR Vite
 
 # Même image que la stack ; pas besoin de npm install local pour valider le dashboard.
 test-dashboard: ## Vitest @cloudity/web dans le conteneur (compose run --no-deps, monorepo /ws)
-	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
-	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard ./scripts/ci/run-compose-test.sh phase-dashboard/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && FORCE_COLOR=1 npm run test"
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh scripts/ci/vitest-cloudity-web.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard ./scripts/ci/run-compose-test.sh phase-dashboard/cloudity-web cloudity-web -- sh -c "chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh"
 
 test-dashboard-lint: ## ESLint @cloudity/web dans le conteneur (npm install racine + lint app)
 	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
@@ -491,8 +527,8 @@ test-dashboard-one: ## Un fichier Vitest : FILE=src/pages/app/mail/MailPage.test
 		echo "Usage: make test-dashboard-one FILE=src/pages/app/mail/MailPage.test.tsx"; \
 		exit 1; \
 	fi
-	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh
-	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-one ./scripts/ci/run-compose-test.sh phase-dashboard-one/cloudity-web cloudity-web -- sh -c "cd /ws && npm install && cd apps/cloudity-web && npx vitest run $(FILE)"
+	@chmod +x scripts/ci/run-compose-test.sh scripts/ci/test-log-capture.inc.sh scripts/ci/vitest-cloudity-web.sh
+	@CLOUDITY_TEST_RUN_LABEL=make-test-dashboard-one ./scripts/ci/run-compose-test.sh phase-dashboard-one/cloudity-web cloudity-web -- sh -c "chmod +x /ws/scripts/vitest-cloudity-web.sh && /ws/scripts/vitest-cloudity-web.sh $(FILE)"
 
 # Smoke Go : un service à la fois (même flags que la première étape de make test)
 test-go-one: ## Go tests d’un service : make test-go-one SERVICE=auth-service (clé = nom du service dans docker-compose.yml)
@@ -994,21 +1030,34 @@ seed: ## Insère des données de test (tenants)
 	@$(COMPOSE) $(COMPOSE_FILES) exec postgres psql -U cloudity_admin -d cloudity -c "INSERT INTO tenants (name, domain, database_url) VALUES ('Admin Tenant', 'admin.cloudity.local', 'postgresql://admin@localhost/admin_db'), ('Test Tenant', 'test.cloudity.local', 'postgresql://test@localhost/test_db') ON CONFLICT (domain) DO NOTHING;"
 	@echo "✅ Seed OK."
 
-SEED_ADMIN_EMAIL ?= admin@cloudity.local
-SEED_ADMIN_PASSWORD ?= Admin123!
+ENV_GET := ./scripts/dev/env-get.sh
+SEED_ADMIN_EMAIL := $(shell $(ENV_GET) SEED_ADMIN_EMAIL 2>/dev/null)
+SEED_ADMIN_PASSWORD := $(shell $(ENV_GET) SEED_ADMIN_PASSWORD 2>/dev/null)
 
-seed-admin: ## Crée le compte admin (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD) ET le promeut en role='admin' (stack up, tenant 1)
-	@echo "👤 Création du compte de démo ($(SEED_ADMIN_EMAIL))..."
+seed-admin: ## Un seul super-admin tenant 1 : SEED_ADMIN_* (.env) — user apps + /4dm1n ; demote les autres admins
+	@if [ -z "$(SEED_ADMIN_PASSWORD)" ]; then \
+	  echo "❌ SEED_ADMIN_PASSWORD manquant — définir dans .env (voir .env.example), puis relancer make seed-admin"; \
+	  exit 1; \
+	fi
+	@if [ -z "$(SEED_ADMIN_EMAIL)" ]; then \
+	  echo "❌ SEED_ADMIN_EMAIL manquant — définir une vraie adresse dans .env (ex. paul@example.com)"; \
+	  exit 1; \
+	fi
+	@echo "👤 Création / ensure compte seed ($(SEED_ADMIN_EMAIL))..."
 	@curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
 	  -H "Content-Type: application/json" \
 	  -d '{"email":"$(SEED_ADMIN_EMAIL)","password":"$(SEED_ADMIN_PASSWORD)","tenant_id":"1"}' >/dev/null \
 	  && echo "✅ Compte créé." \
 	  || echo "ℹ️  Le compte existait déjà — promotion du rôle quand même."
-	@echo "🔐 Promotion role='admin' pour $(SEED_ADMIN_EMAIL) (tenant 1)..."
-	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity \
-	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1;" >/dev/null \
-	  && echo "✅ Rôle admin appliqué. Connexion: $(SEED_ADMIN_EMAIL) / $(SEED_ADMIN_PASSWORD) (UI back-office /4dm1n)" \
-	  || (echo "❌ Promotion role='admin' échouée — vérifier que la stack est up et que le tenant 1 existe."; exit 1)
+	@echo "🔐 Un seul admin tenant 1 : promote $(SEED_ADMIN_EMAIL), demote les autres…"
+	@$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1 \
+	  -c "UPDATE users SET role='admin' WHERE email='$(SEED_ADMIN_EMAIL)' AND tenant_id=1; UPDATE users SET role='user' WHERE tenant_id=1 AND role='admin' AND email<>'$(SEED_ADMIN_EMAIL)';" >/dev/null \
+	  && echo "✅ Super-admin unique: $(SEED_ADMIN_EMAIL) — apps /app + back-office /4dm1n (mot de passe = SEED_ADMIN_PASSWORD)" \
+	  || (echo "❌ Promotion / demote échoué — stack up ? tenant 1 ?"; exit 1)
+
+seed-admin-reset: ## Recrée le compte admin avec SEED_ADMIN_* du .env (après changement de mot de passe)
+	@chmod +x scripts/dev/seed-admin-reset.sh scripts/dev/env-get.sh
+	@./scripts/dev/seed-admin-reset.sh
 
 seed-e2e-2fa: ## Compte E2E 2FA dédié : e2e-2fa@cloudity.local / E2faTest123! (recrée le user si besoin)
 	@echo "👤 Compte E2E 2FA (e2e-2fa@cloudity.local) — suppression éventuelle puis inscription..."
@@ -1135,18 +1184,9 @@ status: ## Affiche services, port, URL, état + bloc URLs (hub, Pass, Mail, gate
 statys stats stat: ## Alias de make status (ex. faute « statys » ou raccourci « stat »)
 	@$(MAKE) --no-print-directory status
 
-status-watch: ## Rafraîchit make status toutes les 10 s (`watch -c` + couleurs forcées). Prérequis : procps-ng / watch
-	@chmod +x scripts/dev/status.sh 2>/dev/null || true
-	@if command -v watch >/dev/null 2>&1; then \
-		if watch -h 2>&1 | grep -q -- '--color'; then \
-			watch -n 10 -c -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
-		else \
-			watch -n 10 -- env CLOUDITY_STATUS_FORCE_COLOR=1 bash -lc 'cd "$(CURDIR)" && ./scripts/dev/status.sh'; \
-		fi; \
-	else \
-		echo "⚠️  \`watch\` introuvable. Installez-le (ex. procps) ou : while sleep 10; do clear; CLOUDITY_STATUS_FORCE_COLOR=1 make status; done"; \
-		exit 1; \
-	fi
+status-watch: ## Rafraîchit make status toutes les 10 s (couleurs ANSI, Ctrl+C conserve le dernier état)
+	@chmod +x scripts/dev/status.sh scripts/dev/status-watch.sh 2>/dev/null || true
+	@./scripts/dev/status-watch.sh
 
 # === Surveillance ressources (CLI uniquement) ============================
 # Rituel : avant CHAQUE feature/refactor → make perf-snapshot LABEL=before-XXX
@@ -1469,6 +1509,28 @@ deploy-service: ## Rebuild + redémarre un service : make deploy-service SERVICE
 	@$(COMPOSE) $(COMPOSE_FILES) build $(SERVICE)
 	@$(COMPOSE) $(COMPOSE_FILES) up -d $(SERVICE)
 	@echo "✅ $(SERVICE) redéployé"
+
+build-prod-service: ## Image Docker prod locale (Dockerfile.prod) : make build-prod-service SERVICE=auth-service
+	@if [ -z "$(SERVICE)" ]; then \
+		echo "Usage: make build-prod-service SERVICE=auth-service"; \
+		echo "Services GHCR : auth-service, api-gateway (context=backend/), drive-service, …"; \
+		exit 1; \
+	fi
+	@case "$(SERVICE)" in \
+		auth-service|api-gateway) \
+			echo "🔨 docker build backend/$(SERVICE)/Dockerfile.prod (context backend/)…"; \
+			docker build -f backend/$(SERVICE)/Dockerfile.prod -t cloudity-$(SERVICE):local backend ;; \
+		drive-service) \
+			echo "🔨 docker build drive-service Dockerfile.prod…"; \
+			docker build -f backend/drive-service/Dockerfile.prod -t cloudity-$(SERVICE):local backend/drive-service ;; \
+		cloudity-web) \
+			echo "🔨 docker build frontend cloudity-web…"; \
+			docker build -f frontend/apps/cloudity-web/Dockerfile.prod -t cloudity-web:local frontend ;; \
+		*) \
+			echo "🔨 docker build backend/Dockerfile.go-service ($(SERVICE))…"; \
+			docker build -f backend/Dockerfile.go-service -t cloudity-$(SERVICE):local backend/$(SERVICE) ;; \
+	esac
+	@echo "✅ Image cloudity-$(SERVICE):local"
 
 logs-service: ## Logs d'un service : make logs-service SERVICE=mail-directory-service
 	@if [ -n "$(SERVICE)" ]; then \

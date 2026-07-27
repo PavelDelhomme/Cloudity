@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cloudity_mail/mail_account_helpers.dart';
+import 'package:cloudity_mail/features/mail_account_helpers.dart';
 
 void main() {
   test('mailAccountHasSyncIssue détecte last_sync_error et imap_auth_ready', () {

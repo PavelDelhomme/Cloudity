@@ -3,6 +3,13 @@
 # Prérequis : mail-directory-service joignable (stack Cloudity `make up`).
 
 services:
+  rspamd:
+    image: rspamd/rspamd:3.8
+    container_name: cloudity-rspamd-local
+    restart: unless-stopped
+    networks:
+      - mta_local
+
   alias-router:
     build:
       context: ./alias-router
@@ -40,6 +47,7 @@ services:
       - mta_local
     depends_on:
       - alias-router
+      - rspamd
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

@@ -239,6 +239,8 @@ Endpoint actuel `pass_items` :
 | **v0.1 (PoC client)** | Client Flutter Pass : **Argon2id + XChaCha20-Poly1305 + VK/IK_item**, sans hybride PQ. Format **`EnvelopeV1`** complet (clé `kem` non utilisée). | Sans dépendance PQ. |
 | **v0.2** | Enrôlement multi-device **hybride X25519 + ML-KEM-768**. | Lib PQ : Go = `circl/kem/mlkem` (Cloudflare) ; Dart = `pqcrypto_dart` ou binding `liboqs` ; TS/Web = `@noble/post-quantum`. |
 | **v1.0** | Recherche locale chiffrée (IK + tokens HMAC) ; export OPVault-like ; CLI admin (statut formats). | Phase 2 SECURITE. |
+
+> **Sauvegarde v1 (livré)** : format `cloudity-pass-backup-v1`, export/import web, cache local + biométrie mobile — voir [PASS-BACKUP.md](../produit/PASS-BACKUP.md).
 | **v2.0** | Partage E2EE (groupes), signatures hybrides **Ed25519 + ML-DSA-65**. | Phase 3 SECURITE. |
 
 ---

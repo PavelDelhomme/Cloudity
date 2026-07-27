@@ -93,7 +93,7 @@
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
 - [ ] **MAIL-ALIAS-05** — MTA Cloudity : lookup alias livré (`/mail/internal/alias-resolve`) ; reste prod hardening (Maddy conf, injection IMAP directe, **5a** API OVH optionnelle). Guide : **[MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** · **[MAIL-MTA-LOCAL-TEST.md](docs/operations/MAIL-MTA-LOCAL-TEST.md)**.
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
-- [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : Postfix + Dovecot + Rspamd (déjà listé **STATUS** « Stack mail ») ; dossier Spam, marquer spam/ham, scoring Rspamd ; SPF/DKIM/DMARC minimal — **avant** tout microservice ML dédié.
+- [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : **partiel** — triage Cloudity post-sync + apprentissage expéditeur (M6) + Rspamd dans `deploy/mail-mta` local ; reste Postfix/Dovecot prod, SPF/DKIM/DMARC (**MAIL-ALIAS-06**).
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).
 - [ ] **AS-3 — WAF / fail2ban** : ModSecurity CRS mode détection ; **fail2ban sur hôte VPS** (journal nginx), pas dans le conteneur applicatif.
 - [ ] **AS-4 — Observabilité décisions anti-abus** : métriques compteurs / histogrammes — dans le périmètre **TR-06** ; **ne pas** annoncer Grafana/Prometheus tant que non ajoutés au compose.
@@ -131,15 +131,29 @@
 
 - [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
-- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + `CORS_ORIGINS` / `VITE_API_URL` par environnement.
+- [x] **DEPLOY-ENV-01** — Hôte public unique + fichiers env Portainer : **`CLOUDITY_PUBLIC_*`**, **`make sync-public-urls`**, **`make env-prod` / `env-preprod`**, **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/](deploy/portainer/)** (2026-07-22).
+- [x] **PILOTAGE-01** — Board suivi projet dans **`/4dm1n/pilotage`** (cycles, checklists, décisions, seed TODOS/BACKLOG) — **[PILOTAGE.md](docs/operations/PILOTAGE.md)** (2026-07-22).
+- [ ] **DEPLOY-DNS-01** — DNS `api.cloudity.<domaine>` (A + NPM) + appliquer `.env.prod` généré (`CORS_ORIGINS` / `VITE_API_URL` déjà dérivés par sync).
 - [ ] **DEPLOY-PORTAINER-02** — Script ou doc « Update stack » : pull GHCR tag + redeploy (semi-auto après `docker-publish`).
-- [ ] **DEPLOY-PR-01** — PR `feat/photos-gallery-mobile-sync-security` → `dev`, puis `dev` → `main` quand tests verts.
+- [ ] **DEPLOY-PR-01** — PR branche chantier → `dev`, puis `dev` → `main` quand tests verts.
 
 - [ ] **REL-01** — Canal **`version.json` + APK** signés par app Flutter (Mail, Drive, Photos, Pass) ; hébergement **HTTPS** (GH Releases, stockage objet, ou endpoint gateway lecture seule).
 - [ ] **REL-02** — CI ou script : publication **APK** + mise à jour **`version.json`** (empreinte **SHA256**).
 - [ ] **REL-03** — UI in-app « mise à jour » sur **Android** (`PackageInstaller` / intent) + tests sur au moins **2** constructeurs.
+- [ ] **ADM-UPDATE-01** — Backoffice `/4dm1n` : indicateurs visibles des mises à jour dispo (services GHCR, web, APK) + actions de mise à jour simples — **TODOS.md § ADM-UPDATE** (plus tard, après REL + prefs stables).
 - [x] **PASS-ALIAS-UI** — Création **alias mail** depuis l’**UI Pass** web (`PassMailAliasesPanel`, API `POST /mail/me/accounts/:id/aliases`) — **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 2.
 - [ ] **PASS-AUTOFILL-ANDROID** — Service **Autofill** Android pour Pass (pas d’équivalent universel iOS documenté ici).
+
+### Drive — client sync bureau (type Nextcloud)
+
+> Vision : **[docs/produit/DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)**.  
+> Aujourd’hui : web + apps Flutter. **Pas** encore de daemon qui expose un dossier OS synchronisé (GNOME/Arch, Windows, macOS, CLI).
+
+- [ ] **DRIVE-DESKTOP-01** — Spec + écarts API : sync delta/curseur, auth device, conflits, selective sync — doc + tickets endpoints.
+- [ ] **DRIVE-DESKTOP-02** — Daemon CLI (Linux d’abord) : login, watch FS, sync bidirectionnelle, reprise offline.
+- [ ] **DRIVE-DESKTOP-03** — UI tray / préférences (GNOME + Windows + macOS).
+- [ ] **DRIVE-DESKTOP-04** — Fichiers virtuels / on-demand (VFS, CfAPI, File Provider) — après MVP mirror.
+- [ ] **DRIVE-DESKTOP-05** — Packaging (AUR/flatpak, winget, dmg) + auto-update.
 
 > **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
 

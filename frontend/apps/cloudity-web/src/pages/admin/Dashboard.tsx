@@ -1,9 +1,8 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertTriangle, Building2, Database, History, Shield, Smartphone, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, ClipboardList, Database, History, Shield, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../../authContext'
-import { adminUiPath } from '@cloudity/shared'
 import {
   fetchBudgetStatus,
   fetchDashboardStats,
@@ -12,6 +11,7 @@ import {
   fetchPipelineRuns,
   recordPerformanceSnapshot,
 } from '../../api'
+import { adminUiPath, ApiError } from '@cloudity/shared'
 import { Card, PageLayout } from '@cloudity/ui'
 
 function formatNumber(n: number): string {
@@ -80,9 +80,42 @@ export default function Dashboard() {
   }
 
   if (error) {
+    const apiErr = error instanceof ApiError ? error : null
+    const raw = error instanceof Error ? error.message : 'Erreur'
+    const detail = apiErr?.bodyDetail ?? ''
+    const originBlocked =
+      /origin not allowed/i.test(raw) || /origin not allowed/i.test(detail)
+    const forbidden = apiErr?.status === 403 || /\b403\b/.test(raw)
     return (
       <PageLayout title="Tableau de bord">
-        <p className="text-red-600 dark:text-red-400">{error instanceof Error ? error.message : 'Erreur'}</p>
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/40 p-4 max-w-xl space-y-2"
+          role="alert"
+        >
+          <p className="text-red-700 dark:text-red-300 font-medium text-sm">
+            Impossible de charger les statistiques admin
+          </p>
+          <p className="text-red-600 dark:text-red-400 text-sm break-words">{raw}</p>
+          {originBlocked ? (
+            <p className="text-slate-600 dark:text-slate-300 text-sm">
+              L’API refuse l’origine du navigateur. En local : ouvrir le dashboard via le proxy Vite
+              (ex. <code className="text-xs">http://cloudity.localhost:6001</code>), vérifier{' '}
+              <code className="text-xs">CORS_ALLOW_LAN=true</code> ou ajouter l’origine dans{' '}
+              <code className="text-xs">CORS_ORIGINS</code>, puis rebuild la gateway (
+              <code className="text-xs">make deploy-gateway</code>).
+            </p>
+          ) : forbidden ? (
+            <p className="text-slate-600 dark:text-slate-300 text-sm">
+              Accès refusé (403). Vérifiez que le JWT contient <code className="text-xs">role: admin</code>{' '}
+              (reconnectez-vous après <code className="text-xs">make seed-admin</code>) et que vous
+              utilisez le compte seed <code className="text-xs">SEED_ADMIN_EMAIL</code>.
+            </p>
+          ) : null}
+          <p className="text-slate-500 dark:text-slate-400 text-xs">
+            Les apps utilisateur (<Link className="underline" to="/app">/app</Link>) restent
+            accessibles avec le même compte.
+          </p>
+        </div>
       </PageLayout>
     )
   }
@@ -140,6 +173,26 @@ export default function Dashboard() {
           )
         })}
       </div>
+
+      <Card className="p-4 mt-6 border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <ClipboardList className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="font-semibold text-slate-900 dark:text-slate-100">Pilotage projet</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                Tâches à faire, à valider et terminées — décisions OK / Partiel / KO depuis le back-office (comme JobbingTrack).
+              </p>
+            </div>
+          </div>
+          <Link
+            to={adminUiPath('pilotage')}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 dark:bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 dark:hover:bg-indigo-600"
+          >
+            Ouvrir le pilotage
+          </Link>
+        </div>
+      </Card>
 
       <Card className="p-4 mt-6 border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/20">
         <div className="flex flex-wrap items-center justify-between gap-3">

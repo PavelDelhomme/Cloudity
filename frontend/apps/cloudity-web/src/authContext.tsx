@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 
-import { AUTH_STORAGE_KEY as STORAGE_KEY, ApiError } from '@cloudity/shared'
+import { AUTH_STORAGE_KEY as STORAGE_KEY, ApiError, isAccessTokenUsable } from '@cloudity/shared'
 import { AuthContext, type AuthContextValue, type AuthState } from './authContextStore'
 import { refreshSessionExclusive } from './authSessionRefresh'
 
@@ -61,8 +61,14 @@ function applyAuthState(
   setState(next)
 }
 
+function needsSessionBootstrap(state: AuthState): boolean {
+  if (!state.accessToken || state.tenantId == null) return false
+  return !isAccessTokenUsable(state.accessToken)
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(loadFromStorage)
+  const [sessionReady, setSessionReady] = useState(() => !needsSessionBootstrap(loadFromStorage()))
   const navigate = useNavigate()
   const refreshTokenRef = useRef<string | null>(null)
   refreshTokenRef.current = state.refreshToken
@@ -167,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email,
       }
       applyAuthState(next, setState, accessTokenRef, refreshTokenRef)
+      setSessionReady(true)
     },
     []
   )
@@ -192,15 +199,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     navigate(loginUrl, { replace: true, state: { returnTo } })
   }, [navigate])
 
+  // Au rechargement : si le JWT d’accès est expiré, refresh avant que Mail/Theme/etc. tirent des requêtes.
+  useEffect(() => {
+    if (sessionReady) return
+    let cancelled = false
+    ;(async () => {
+      const token = await refreshAccessTokenIfNeeded({ force: true })
+      if (cancelled) return
+      if (!token) {
+        logout()
+      }
+      setSessionReady(true)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [sessionReady, refreshAccessTokenIfNeeded, logout])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
       isAuthenticated: Boolean(state.accessToken && state.tenantId != null),
+      sessionReady,
       login,
       logout,
       refreshAccessTokenIfNeeded,
     }),
-    [state, login, logout, refreshAccessTokenIfNeeded]
+    [state, sessionReady, login, logout, refreshAccessTokenIfNeeded]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

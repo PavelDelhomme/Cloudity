@@ -204,6 +204,27 @@ cloudity_test_run_with_logs() {
   return "$exit_code"
 }
 
+# Normalise CLOUDITY_TEST_LOGS_DIR en chemin absolu (bind-mount Docker).
+cloudity_test_logs_dir_abs() {
+  local dir="${CLOUDITY_TEST_LOGS_DIR:-}"
+  [ -n "$dir" ] || return 1
+  if [ "${dir#/}" = "$dir" ]; then
+    # Relatif → absolu depuis la racine repo (ou cwd).
+    local root="${CLOUDITY_REPO_ROOT:-$(pwd)}"
+    dir="${root}/${dir}"
+  fi
+  mkdir -p "$dir"
+  # Résoudre .. / symlinks si possible.
+  if command -v realpath >/dev/null 2>&1; then
+    dir="$(realpath "$dir")"
+  else
+    dir="$(cd "$dir" && pwd)"
+  fi
+  CLOUDITY_TEST_LOGS_DIR="$dir"
+  export CLOUDITY_TEST_LOGS_DIR
+  printf '%s\n' "$dir"
+}
+
 # compose run --no-deps avec capture stdout + logs service.
 cloudity_test_compose_run() {
   local phase="$1"
@@ -212,6 +233,7 @@ cloudity_test_compose_run() {
   local docker_it="${DOCKER_IT:-}"
 
   [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || cloudity_test_logs_init "$phase"
+  cloudity_test_logs_dir_abs >/dev/null
 
   local out_dir="${CLOUDITY_TEST_LOGS_DIR}/${phase}"
   mkdir -p "$out_dir"
@@ -222,9 +244,16 @@ cloudity_test_compose_run() {
 
   echo "  [${service}]"
 
+  local compose_extra=()
+  if [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ]; then
+    compose_extra+=(-e "CLOUDITY_TEST_LOGS_DIR=/test-logs-out")
+    # Toujours un chemin absolu — sinon Docker crée un volume nommé invalide (ex. reports/test-logs/…).
+    compose_extra+=(-v "${CLOUDITY_TEST_LOGS_DIR}:/test-logs-out")
+  fi
+
   set +e
   # shellcheck disable=SC2086
-  cloudity_compose run --rm $docker_it --no-deps "$service" "$@" 2>&1 | tee "$test_log"
+  cloudity_compose run --rm $docker_it --no-deps "${compose_extra[@]}" "$service" "$@" 2>&1 | tee "$test_log"
   exit_code=${PIPESTATUS[0]}
   set -e
 
@@ -254,4 +283,37 @@ cloudity_test_logs_summary_line() {
   if [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] && [ -d "$CLOUDITY_TEST_LOGS_DIR" ]; then
     echo "  Logs conteneurs : ${CLOUDITY_TEST_LOGS_DIR}"
   fi
+}
+
+# Écrit reports/test-logs/<run-id>/summary.md (stdout, JSON Vitest, manifest).
+cloudity_test_write_summary() {
+  local exit_code="${1:-0}"
+  [ -n "${CLOUDITY_TEST_LOGS_DIR:-}" ] || return 0
+  local summary="${CLOUDITY_TEST_LOGS_DIR}/summary.md"
+  {
+    echo "# Cloudity test run"
+    echo ""
+    echo "- run_id: \`${CLOUDITY_TEST_RUN_ID:-unknown}\`"
+    echo "- exit_code: ${exit_code}"
+    echo "- ended_at: $(date -Iseconds)"
+    echo ""
+    echo "## Artefacts"
+    echo ""
+    if [ -f "${CLOUDITY_TEST_LOGS_DIR}/manifest.jsonl" ]; then
+      echo "- manifest: \`manifest.jsonl\`"
+    fi
+    find "$CLOUDITY_TEST_LOGS_DIR" -name 'vitest-results.json' 2>/dev/null | while read -r j; do
+      echo "- vitest JSON: \`${j#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    find "$CLOUDITY_TEST_LOGS_DIR" -name '*-test-output.log' 2>/dev/null | while read -r l; do
+      echo "- test output: \`${l#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    find "$CLOUDITY_TEST_LOGS_DIR" -name 'command-output.log' 2>/dev/null | while read -r c; do
+      echo "- command: \`${c#${CLOUDITY_TEST_LOGS_DIR}/}\`"
+    done
+    echo ""
+    echo "Voir \`manifest.jsonl\` pour la chronologie complète (phases, captures docker)."
+  } > "$summary"
+  chmod 600 "$summary" 2>/dev/null || true
+  cloudity_test_manifest_event "{\"event\":\"summary\",\"path\":\"summary.md\",\"exit_code\":${exit_code},\"at\":\"$(date -Iseconds)\"}"
 }

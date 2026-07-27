@@ -208,7 +208,47 @@ Les imports plats (`from database import …`) ont été supprimés.
 CMD uvicorn : `uvicorn app.main:app …` (Dockerfile, Dockerfile.dev avec
 `--reload-dir /app/app`, `start.sh` HTTP plain et TLS mTLS).
 
-## 6. Checks après ajout ou renommage d’un service
+## 7. `internalsec` vs dossiers vides locaux (Docker)
+
+| Chemin | Rôle |
+|--------|------|
+| **`backend/internalsec/`** (versionné) | **Bibliothèque Go** mTLS inter-services (`internalsec.go`, tests, `VERSION`, `CHANGELOG`). **À conserver.** Importée via `replace` dans chaque `go.mod` ; montée dans les conteneurs sur `/app/internalsec`. |
+| **`backend/auth-service/internalsec/`**, **`backend/api-gateway/keys/`**, etc. (vides, souvent `root:root`) | **Artefacts locaux** créés par des bind-mounts Docker mal résolus ou d’anciennes configs. **Ne pas versionner** — supprimer avec `sudo rm -rf` si présents. Ignorés via `.gitignore`. |
+| **`backend/auth-service backend/`** (nom avec espace) | **Erreur** (typo `mkdir` / chemin Windows `\ ` / volume mal formé). Chaîne de sous-dossiers imbriqués sans fichiers. **Supprimer entièrement.** |
+
+**Gateway → clés JWT** : en dev, `docker-compose.yml` monte uniquement
+`public.pem` et `public_ed25519.pem` depuis `auth-service` vers
+`/app/keys/` (plus le dossier auth-service entier).
+
+**Données runtime** (mail, photos, drive) : les blobs utilisateur vivent dans
+**PostgreSQL** + volumes Compose nommés / object storage — pas dans des
+sous-dossiers vides sous `backend/*-service/`. Le code métier (`image_decode.go`,
+`mail_storage.go`, `photos_match.go` dans `drive-service`) reste **dans le
+service** : ce sont des **fichiers Go**, pas des images Docker séparées.
+
+## 8. Réorganisation progressive (auth, drive, …)
+
+**auth-service (fait)** — packages extraits, tests verts (`go test ./...`) :
+
+```
+backend/auth-service/
+  webauthn/      # passkeys (AuthBridge → main.webauthnBridge)
+  recovery/      # codes 2FA
+  securetoken/   # capability URLs HMAC
+  securetoken_http.go, recovery_http.go, webauthn_bridge.go  # handlers Gin (package main)
+```
+
+Les autres services (ex. **drive-service** : `image_decode.go`, `mail_storage.go`)
+suivent encore le modèle **« tout en `main` + fichiers préfixés »** — extraction
+**service par service** après validation tests + Docker. Voir **[BACKLOG.md](../../BACKLOG.md)**
+et **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** pour le découpage et le
+versionnage par image (`ghcr.io/.../cloudity-<service>`).
+
+**Déploiement opérationnel** : `make deploy-service SERVICE=auth-service` (compose local),
+`.github/workflows/docker-publish.yml` → `ghcr.io/<owner>/cloudity-<service>:<tag>`,
+doc `docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md`.
+
+## 9. Checks après ajout ou renommage d’un service
 
 1. **`go.work`** : ajouter `./backend/<nouveau-service>`.
 2. **`docker-compose.yml`** : service, `build.context`, `depends_on` du gateway si health requis.

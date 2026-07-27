@@ -123,9 +123,9 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | Champ | Contenu |
 |--------|---------|
 | **Description** | Stockage fichiers et dossiers hiérarchiques, partage interne (cible). |
-| **Objectif** | Équivalent usage quotidien type Google Drive / Nextcloud. |
-| **Plateformes** | Web ; mobile (MOBILES.md). |
-| **Fonctionnalités** | Upload, download, arborescence, corbeille ; **aperçu** PDF/médias/texte/Office (modale) ; **vue Récents** (jour/heure, jusqu’à 500 nœuds) ; **à faire** : PDF.js, archives zip avancées, recherche, partage, quotas, chiffrement client optionnel (TR-01). |
+| **Objectif** | Équivalent usage quotidien type Google Drive / Nextcloud — **y compris client sync bureau** (dossier local Linux/Windows/macOS). |
+| **Plateformes** | Web ; mobile (MOBILES.md) ; **desktop sync** — **[DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md)** (à faire). |
+| **Fonctionnalités** | Upload, download, arborescence, corbeille ; **aperçu** PDF/médias/texte/Office (modale) ; **vue Récents** ; **à faire** : PDF.js, archives zip, recherche, partage, quotas, chiffrement client optionnel (TR-01), **sync dossier OS type Nextcloud** (`DRIVE-DESKTOP-*`). |
 | **Backend** | `drive-service`, `/drive/*`. |
 | **Statut** | MVP. |
 

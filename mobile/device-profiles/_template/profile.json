@@ -1,0 +1,24 @@
+{
+  "profile_id": "REPLACE_ME",
+  "device_kind": "physical",
+  "display_name": "Nom affiché",
+  "reference_serial": "",
+  "avd_name": "",
+  "captured_at": "",
+  "hardware": {
+    "manufacturer": "",
+    "model": "",
+    "device": "",
+    "android_release": "",
+    "sdk": "",
+    "abi": "",
+    "screen_px": "",
+    "density_dpi": 0
+  },
+  "adb": {
+    "gateway_reverse_port": 6002,
+    "notes": "adb reverse tcp:6002 tcp:6002"
+  },
+  "cloudity_packages": [],
+  "getprop_fingerprint": {}
+}

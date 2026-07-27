@@ -17,6 +17,7 @@
 | 5 | Optionnel — Pass mobile | `cd mobile/pass && flutter test` |
 | 6 | Compose modifié | `docker compose -f docker-compose.yml config` |
 | 7 | Lire les priorités | **[STATUS.md](../../STATUS.md)** (*À faire maintenant*) + **[TODOS.md](../../TODOS.md)** + **[BACKLOG.md](../../BACKLOG.md)** |
+| 8 | Env public / Portainer (si URLs / déploiement) | **`make sync-public-urls`** · **`make env-prod DOMAIN=…`** · **`make portainer-env`** — **[ENV-GENERATION.md](ENV-GENERATION.md)** |
 
 > **Note Vitest / Web Crypto** : les tests TOTP (`totp.ts`) utilisent `crypto.subtle` ; les buffers passés à `sign()` doivent être des **`Uint8Array`** / vues valides pour Node — en cas de régression, voir l’historique `totp.ts` (`hotp`).
 
@@ -26,7 +27,7 @@
 - **Stack complète unitaire** : **`make test`** (Go, pytest, Vitest dans le service **`cloudity-web`**).
 - **E2E** (stack déjà up + compte démo) : **`make up`** (ou **`make up-lean`** sans Adminer/Redis Commander — voir **[PORTS-HOTES.md](PORTS-HOTES.md)**), **`make seed-admin`**, attendre ~30 s, puis **`make test-e2e`** et **`make test-e2e-playwright`**.
 
-> **Important — accès admin (`/4dm1n`)** : la **gateway** et le **`AdminAccessGate`** front exigent désormais un **claim `role: "admin"`** dans le JWT. **`make seed-admin`** crée le compte **`admin@cloudity.local` / `Admin123!`** et **promeut** le user en `role='admin'` dans la BDD. Si tu étais déjà connecté avec un ancien JWT (sans `role`), **déconnecte-toi puis reconnecte-toi** (ou attends un refresh) pour récupérer un token avec le claim. Dans le cas contraire, l’UI redirige vers `/app` et l’API gateway répond `403 admin role required`.
+> **Important — accès admin (`/4dm1n`)** : gateway + **`AdminAccessGate`** exigent **`role: "admin"`** dans le JWT. **`make seed-admin`** utilise **`SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`** du **`.env`** (un seul super-admin tenant 1 ; les autres admins sont demoted). Ce compte sert aussi aux apps **`/app`**. Ancien JWT sans `role` → **reconnecte-toi**. Si l’UI admin affiche **`origin not allowed`** : même origin que le front (proxy `:6001`), `CORS_*`, rebuild **api-gateway**.
 
 ## 2. Comportement attendu dans le navigateur
 
@@ -79,8 +80,9 @@ Réglage **noyau hôte Linux** : **`vm.overcommit_memory=1`**. Voir **[DEVELOPME
 
 - Valider le fichier : `docker compose -f docker-compose.yml config`.
 - **`cloudity-web`** monte `./frontend` sur **`/ws`** et un volume **`node_modules_cache`** sur **`/ws/node_modules`**. Au démarrage, la commande Compose exécute **`npm install` à la racine `/ws`** puis **`npm run dev -w @cloudity/web`** — sans cela le volume `node_modules` est vide et **`:6001` ne répond pas**.
-- **`make wait-for-services`** (utilisé par **`make up-full`**) attend les backends **puis** une réponse HTTP sur **`PORT_DASHBOARD`** (6001), jusqu’à ~4 min pour le premier `npm install`.
-- **`make down`** utilise **`--remove-orphans`** pour éviter les vieux conteneurs après renommage de service.
+- **`make wait-for-services`** (utilisé par **`make up-ready`** et **`make up-full`**) attend les backends **puis** une réponse HTTP sur **`PORT_DASHBOARD`** (6001), jusqu’à ~4 min pour le premier `npm install`.
+- **`make down`** nettoie les conteneurs éphémères `*-run-*` (tests `docker compose run`) et utilise **`--timeout 30 --remove-orphans`**.
+- **Échec `make up-full`** : voir **`make up-ready`** + **`scripts/dev/up-failure-hint.sh`** — **[TESTS.md](TESTS.md)** § « up-ready vs up-full ».
 - **`make rebuild-dashboard`** reconstruit l’image **`cloudity-web`**.
 
 Voir aussi **[TESTS.md](TESTS.md)** pour le détail des commandes.

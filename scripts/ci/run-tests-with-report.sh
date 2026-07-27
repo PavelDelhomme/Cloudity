@@ -106,7 +106,7 @@ if stack_gateway_up; then
 else
   E2E_STATUS="SKIP (stack down)"
   echo ""
-  echo "  Phase 2 (E2E)       : IGNORÉE — stack non joignable (lance make up ou make up-full d'abord)"
+  echo "  Phase 2 (E2E)       : IGNORÉE — stack non joignable (lance make up-ready ou make up-full d'abord)"
   echo "Phase 2: SKIP — gateway http://127.0.0.1:${PORT_GATEWAY:-6080}/health injoignable" >> "$LOG"
 fi
 

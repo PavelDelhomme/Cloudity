@@ -15,6 +15,75 @@
 
 ---
 
+### 2026-07-27 — Pilotage décisions enrichies + merge vers dev
+
+- Statuts : En cours, À valider, À re-vérifier, surfaces BE/FE/BO/mobile, notes terminées, releases cliquables.
+- CORS : normalisation trailing `/` sur origines ; checklist NPM/TLS dans H14.
+- Commit feat + merge `dev`.
+
+---
+
+### 2026-07-27 — Pilotage UX, ops docker.sock, runbook H14/NPM
+
+- Ops : socket Docker + volume crashes sur admin-service ; `mobileCrashes` dans ops-signals.
+- UX : En cours cliquable, dismiss panneau, howToSteps, Terminées fermée par défaut.
+- Docs : `H14-GATEWAY-MOBILE.md`, `DEPLOY-PORTAINER-NPM-CLOUDITY.md` ; catalogue H14 enrichi.
+
+---
+
+### 2026-07-27 — Pilotage : crashes mobile dans Signaux ops
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Pilotage « Signaux ops » : liste `/mobile/crashes` → Inbox ou Problème (bloque la tâche) ; lien `/4dm1n/mobile-logs`.
+
+---
+
+### 2026-07-27 — Pilotage : blocages, pré-prod, logs, versions
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Workflow `report_problem` / `resolve_problem` / `blocked` / inbox / attach_log / releases.
+- Cycle `cycle-preprod` (PREPROD-01…10) ; `GET /admin/pilotage/ops-signals`.
+- UI PilotagePage enrichie ; doc PILOTAGE.md.
+
+---
+
+### 2026-07-27 — Drive sync bureau (type Nextcloud)
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Constat : web + Flutter ≠ client sync dossier OS.
+- Ajout : `docs/produit/DRIVE-DESKTOP-SYNC.md` · `DRIVE-DESKTOP-01`…`05` (BACKLOG) · cycle Pilotage `cycle-desktop-drive` (catalogue 160 tâches / 11 cycles).
+- Docs : ROADMAP APP-02, MULTI-PLATEFORME, PILOTAGE, TODOS.
+
+---
+
+### 2026-07-27 — Pilotage catalogue complet + sync MD
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- `pilotage-catalog.json` (~155 tâches, 10 cycles) ; Sync docs API/UI ; auto-upgrade board <40 tâches.
+- Smoke : 156 tâches, active H14 ; pytest pilotage.
+- Docs : PILOTAGE.md, TODOS/STATUS.
+
+---
+
+### 2026-07-22 — Pilotage /4dm1n (JobbingTrack-like)
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Migration `48-cloudity-pilotage.sql` · API `admin/pilotage/*` · page `PilotagePage` · nav + carte Dashboard.
+- Seed tâches H14 / DEPLOY / ADM-UPDATE · tests unitaires `test_pilotage_board.py`.
+- Doc : `docs/operations/PILOTAGE.md` · TODOS / STATUS / BACKLOG (`PILOTAGE-01`).
+
+---
+
+### 2026-07-22 — Env public Portainer + fix admin Dashboard
+
+- Branche : `feat/app-vault-drive-upload-pin-rotation`.
+- Env : `CLOUDITY_PUBLIC_*` · `scripts/dev/sync-public-urls.sh` · `env-prepare.sh` · `portainer-env-print.sh` · cibles Make `sync-public-urls` / `env-prod` / `env-preprod` / `portainer-env`.
+- Admin : imports Dashboard alignés sur `api.ts` (`fetchBudgetStatus`, …) — Vitest Dashboard 4/4.
+- Docs : `.env.example`, `ENV-GENERATION.md`, guide déploiement, `deploy/portainer/*`, `TODOS` / `STATUS` / `BACKLOG` (`DEPLOY-ENV-01` ☑).
+- Checks : `make env-prod DOMAIN=cloudity.example FORCE=1` · `npm test` Dashboard ✅.
+
+---
+
 ### 2026-06-10 — Photos H8/H9 + UX sélection + persistance Mail
 
 - Branche : `feat/app-hub-photos-ux-hardening` (`77700051`).

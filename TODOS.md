@@ -5,7 +5,146 @@
 > **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
 > **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
 
-**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** — quota, Photos/Drive vault, matching mobile.
+**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
+
+### Session 2026-07-27 — Pilotage catalogue complet + sync MD
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Catalogue ~155 tâches** | ☑ | `docs/operations/pilotage-catalog.json` — 10 cycles (now/mobile/web/mail/pass/qa/deploy/admin/done) |
+| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
+| **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
+
+### Session 2026-07-27 — Décisions Pilotage + merge `dev`
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Décisions enrichies** | ☑ | En cours, À valider, À re-vérifier, surfaces BE/FE/BO/mobile, notes terminées |
+| **Releases cliquables** | ☑ | Détail version + features |
+| **CORS** | ☑ | Trim `/` origines + checklist NPM dans H14 |
+| **Git** | ☑ | feat commit + merge → `dev` (local + origin) |
+
+**Tu fais quoi maintenant** : Sync docs → H14 **En cours** / **Partiel** (LAN) → Signaler problème pour HTTPS/NPM si besoin.
+
+---
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Ops logs** | ☑ | docker.sock sur admin → logs conteneurs OK ; crashes via `/admin/pilotage/ops-signals` |
+| **UX Pilotage** | ☑ | En cours cliquable, fermer détail, Comment faire, Terminées repliable |
+| **H14 runbook** | ☑ | [H14-GATEWAY-MOBILE.md](docs/operations/H14-GATEWAY-MOBILE.md) · Portainer+NPM [DEPLOY-PORTAINER-NPM-CLOUDITY.md](docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md) |
+| **À faire** | 🟡 | **Sync docs** puis cocher H14 critères LAN ; HTTPS VPS = suite |
+
+**Tu fais quoi maintenant** :
+
+1. `/4dm1n/pilotage` → **Sync docs** (charge PREPROD + howTo H14)
+2. Clique **En cours : H14** → lis **Comment faire**
+3. LAN déjà OK → coche 1–3a → **Partiel** ; HTTPS VPS → suivi runbook / Signaler un problème si KO
+
+---
+
+### Session 2026-07-27 — Pilotage workflow blocages + pré-prod
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Blocage → problème → reprise** | ☑ | `report_problem` / `resolve_problem` / statut `blocked` |
+| **Inbox + logs** | ☑ | Notes à la volée + `ops-signals` docker + attach_log |
+| **Pré-prod + versions** | ☑ | `PREPROD-01`…`10` · releases v0.1/v0.2/v1.0 |
+| **En cours** | 🟡 | **H14** gateway mobile HTTPS — travailler dans l’ordre Pilotage |
+
+**Tu fais quoi maintenant** :
+
+1. **Sync docs** dans `/4dm1n/pilotage`
+2. Travailler **H14** ; si erreur → **Signaler un problème** (colle le log)
+3. Après fix du problème → **Problème résolu** → reprendre H14
+
+---
+
+### Session 2026-07-27 — Drive sync bureau (type Nextcloud)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **DRIVE-DESKTOP-SYNC** | ☐ | Vision + backlog : **[DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)** · `DRIVE-DESKTOP-01`…`05` · cycle Pilotage *Desktop Drive sync* |
+| **Écart constaté** | ☑ | Web + Flutter ≠ daemon dossier OS (GNOME/Arch, Windows, macOS, CLI) |
+
+**Tu fais quoi maintenant** :
+
+1. Ouvre **http://localhost:6001/4dm1n/pilotage** → **Sync docs** (ajoute le cycle Desktop Drive)
+2. Travaille **H14** (priorité immédiate)
+3. Quand prêt : **DRIVE-DESKTOP-01** (spec sync) — pas encore de code daemon
+
+---
+
+
+### Session 2026-07-22 (soir+) — Pilotage admin (style JobbingTrack)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`/4dm1n/pilotage`** | ☑ | Board cycles + checklists + décisions OK/PARTIEL/KO/REWORK/Plus tard · create tâche · live update |
+| **API + DB** | ☑ | `GET/POST /admin/pilotage/*` · migration **48** · seed H14/DEPLOY/ADM… · `CLOUDITY_PILOTAGE_WRITE` en prod |
+| **Doc** | ☑ | **[docs/operations/PILOTAGE.md](./docs/operations/PILOTAGE.md)** |
+
+**Tu fais quoi maintenant** :
+
+1. `make migrate` puis recreate `admin-service` si besoin
+2. Ouvre **http://localhost:6001/4dm1n/pilotage** — coche critères, valide OK / Partiel
+3. Enchaîne les tâches du cycle « À faire maintenant » (H14, H19, DNS, QA)
+4. Suite produit hors board : H19 code · DEPLOY-DNS sur VPS quand tu publies
+
+---
+
+### Session 2026-07-22 (soir) — Env public + Portainer + fix admin Dashboard
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **`CLOUDITY_PUBLIC_HOST` / sync URLs** | ☑ | Une source de vérité → `VITE_API_URL`, `CLOUDITY_MOBILE_GATEWAY_URL`, `CORS_ORIGINS`, `WEBAUTHN_*`, OAuth — **`make sync-public-urls`** (`scripts/dev/sync-public-urls.sh`) |
+| **`.env.prod` / préprod** | ☑ | **`make env-prod DOMAIN=…`** / **`make env-preprod`** = fusion `.env` + `.env.example` + overlays · **`make portainer-env`** pour coller dans Portainer |
+| **Doc Portainer** | ☑ | `deploy/portainer/README.md` · `PORTAINER-STACK.md` · `ENV-GENERATION.md` · guide complet · `stack.env.example` |
+| **Admin Dashboard imports** | ☑ | Fix `fetchBudgetStatus` / `fetchPipelineRuns` / `recordPerformanceSnapshot` (crash module `/src/api.ts`) — Vitest Dashboard 4/4 |
+| **Seed admin unique + CORS Origin** | ☑ | (matin) un seul `SEED_ADMIN_*` · gateway Origin/Referer/same-origin · boucle SecureSettings cassée |
+
+**Tu fais quoi maintenant** :
+
+1. Dev local : `make status` · login `SEED_ADMIN_EMAIL` · `/4dm1n` (hard refresh si vieux bundle)
+2. LAN téléphone : `CLOUDITY_PUBLIC_HOST=<IP>` puis `make sync-public-urls` · `make deploy-web`
+3. Préparer Portainer (quand tu publies) : `make env-prod DOMAIN=cloudity.<tld>` · `make portainer-env`
+4. Suite produit hors mail : H14 HTTPS prod · H19 auth mobile · ADM-UPDATE (plus tard) · QA-MATRIX
+
+---
+
+### Session 2026-07-22 — Relance stack + prefs + suite
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Préférences utilisateur** | ☑ | API `GET/PUT /auth/me/preferences` · migration `47` · thème par app · Pass clipboard/TOTP/favicons · sync web/mobile/extension |
+| **Bootstrap JWT web** | ☑ | `sessionReady` au chargement → plus de rafale 401 Mail après refresh |
+| **Stack Docker locale** | ☑ | `make up` / `make up-full` — **stack utilisable** même si phase tests échoue |
+| **`make up-full` bug tests** | ☑ | Volume relatif `reports/test-logs/…` traité comme nom Docker + `timeout` ne peut pas appeler une fonction bash → corrigé (`chemin absolu` + sous-shell) |
+| **Admin — indicateurs de mise à jour composants** | ☐ | **PLUS TARD** : dans `/4dm1n`, tableau de bord « versions / updates » (images GHCR, services, front, APK mobile) + actions « mettre à jour » visibles et simples — voir note **ADM-UPDATE** ci-dessous |
+| **Mobile OTA / versions installées** | 🟡 | Page admin **Mobile / OTA** déjà amorcée · **REL-01..03** backlog · suite : pipeline APK + `version.json` + suivi installs |
+
+**Tu fais quoi maintenant (dev web + backend)** :
+
+1. Stack déjà up après ton `make up-full` (échec = **tests seulement**) → `make status` puis ouvre **http://localhost:6001**
+2. Login : `paul@delhomme.ovh` (mot de passe `SEED_ADMIN_PASSWORD` dans `.env`) · back-office `/4dm1n`
+3. Relancer seulement les tests corrigés : `make test` (pas besoin de re-`up`)
+4. Si stack bizarre : `make up-ready` (~5 min, sans tests)
+
+---
+
+### Session 2026-07-02 — Structure mobile unifiée
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Layout `lib/` standard** | ☑ | Toutes les apps : `auth/` · `api/` · `features/` + `main.dart` · doc **`mobile/README.md`** |
+| **`SuiteAppShell` + gateway** | ☑ | `cloudity_shared` : `suite_app_shell.dart`, `suite_gateway_config.dart`, `storage_keys.dart` centralisé |
+| **`admin_app` refonte** | ☑ | Auth réelle gateway `:6002`, vérif rôle admin, `/admin/tenants`, plus de `localhost:8080` hardcodé |
+| **`device-profiles` index** | ☑ | `profiles.index.json` + `_template/` pour scaler les appareils |
+| **Tests orphelins Mail** | ☑ | Suppression `mail_account_helpers_test` dans calendar/contacts/notes/tasks |
+| **Auth centralisée (package)** | 🟡 | Socle encore copié par app ; prochaine étape : package `cloudity_suite_shell` ou tout dans `cloudity_shared` |
+| **UI suite type Google (H21)** | 🟡 | `SuiteDrawerScaffold`, `SuiteAppSwitcher`, tokens JSON branchés ; MVP ☑ · Mail/Drive/Photos drawer à migrer |
+| **Remontée erreurs mobile** | ☑ | `CloudityCrashReporter` + `POST /mobile/crashes` + admin `/4dm1n/mobile-logs` — **`docs/produit/MOBILE-ERROR-REPORTING.md`** |
+| **E2E calendar→tasks** | 🟡 | `integration_test/twofa_flow_test.dart` utilise encore clés `cloudity_mail_*` — réécrire par produit |
 
 ### Session 2026-06-22 — UX dev & Paramètres
 
@@ -15,7 +154,7 @@
 | **Capture logs tests** | ☑ | `scripts/ci/test-log-capture.inc.sh` — chaque `make test*` / `make tests` → `reports/test-logs/<run-id>/` (redaction JWT/mots de passe, chmod 600) |
 | **`make perf-benchmark`** | ☑ | ~20 scénarios CPU/MEM/IO conteneurs → `reports/perf/benchmark-*/REPORT.md` ; `make perf-benchmark-quick` |
 | **Sync mail doublons** | ☑ | Mutex backend + dedup frontend GlobalMailSyncWatcher ; Postgres tx pour persist password |
-| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; `make test-report-show RUN_ID=<id>` ; exit code réel via `pipefail` |
+| **`make up-full` / tests** | ☑ | Rapport `reports/test-logs/<id>/REPORT.md` ; **`make up-ready`** si échec (stack sans tests) ; Ctrl+C + prune `*-run-*` |
 | **Matrice tests complète** | ☐ | Audit manuel : unitaires Go/Python/Vitest, E2E Playwright, mobile Flutter, perf (`make perf-benchmark*`), sécurité, infra — voir § **QA-MATRIX** ci-dessous |
 | **Postgres FATAL pendant sync Mail** | 🟡 | `could not send data to client` + `connection to client lost` en rafale avec `POST /mail/me/accounts/*/sync` — souvent bénin (fermeture conn pool / sync parallèle) ; voir § **Logs Postgres × Mail** ci-dessous |
 | **Récap signaux logs** | ☑ | `make test-report` / `test-report-show` ; auto-rebuild manifest si tronqué (`make test-manifest-rebuild`) |
@@ -75,13 +214,43 @@
 | **H9** | **Paramètres par application web** | Pattern : bouton **Paramètres &lt;App&gt;** dans l’en-tête, modal local (prefs non destructives, localStorage). **Photos** · **Mail** · **Drive** · **Notes** · **Tâches** · **Contacts** ☑ | ☑ |
 | **H10** | **Photos — coffre verrouillé local** | Web : code PIN local + biométrie WebAuthn (plateforme), garde avant chargement des vignettes, session courte, verrouillage auto à la sortie d’onglet, changement de code PIN depuis Paramètres Photos | ☑ |
 | **H11** | **Coffres verrouillés — suite** | Web : garde locale + E2EE serveur, upload Drive chiffré dans dossier coffre, déchiffrement Photos au déverrouillage, changement PIN sans perdre `kdfSalt`, **re-chiffrement automatique des blobs après changement de PIN** (Notes/Contacts/Drive/Photos) | ☑ |
-| **H12** | **Qualité tests frontend transverse** | Matrice non-skip renforcée : paramètres apps, coffres locaux, Photos archive/corbeille/verrouillé ; tests vault/E2EE : rotation PIN, tamper clé (`appVaultClient`), sync mail auth ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
+| **H12** | **Qualité tests frontend transverse** | Matrice renforcée : paramètres apps, coffres locaux, Photos ; **Notes/Settings Vitest** ☑ ; **spam_triage_test.go** ☑ ; reste : E2E Playwright vault/mail sync erreur | 🟡 |
 | **H13** | **Mail — notifications actionnables** | Web : clic notification in-app ou bureau → `/app/mail?account=&message=` (boîte + dernier message inbox après sync). Mobile/push système = plus tard. | ✅ |
-| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : login e-mail + mot de passe ; gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + `run-mobile.sh` ; champ URL masqué (avancé debug). Reste : HTTPS/CORS prod. | 🟡 |
+| **H14** | **Mobile — gateway prédéfini dev/préprod/prod** | Mail/Drive/Photos/Pass : `CLOUDITY_MOBILE_GATEWAY_URL` via **`make sync-public-urls`** / **`make env-prod`** · `run-mobile.sh`. Reste : valider HTTPS réel téléphone + CORS prod sur VPS. | 🟡 |
 | **H15** | **Mobile Photos — sauvegarde galerie robuste** | Sauvegarde qui continue en arrière-plan même si le panneau de suivi est fermé ; détection des dossiers/albums image du téléphone (Camera, Screenshots, WhatsApp/Telegram/etc.) avec proposition de sauvegarde par dossier ; reprise après relance et erreurs réseau lisibles ; onglet **Cet appareil** + badges sync (local/cloud) ; état backup persisté + reconcile au démarrage ; API `GET /drive/storage/summary` + affichage espace Photos/Drive dans Paramètres ; quota Mail API ; isolation dossier Photos backend ; **matching cloud↔local** (`/drive/photos/fingerprints`, `/drive/photos/match`, `content_hash`). **Reste** : validation E2E cross-appareil (Samsung libre). | 🟡 |
 | **H16** | **Mobile — UI et prévisualisations fichiers** | Drive mobile : clic fichier → preview images/texte + ouverture externe PDF/Office/archives/autres ; **thème clair/sombre** partagé (`cloudity_shared/app_theme.dart`) sur Photos/Drive/Mail/Pass ; **passkey native** Photos/Drive (`CloudityPasskeyLoginButton`) ; reste : preview Photos renforcée, rendu PDF intégré et Office mobile à cadrer ensuite. | 🟡 |
+| **H17** | **Mobile — structure `lib/` unifiée** | Layout `auth/` · `api/` · `features/` sur Mail/Drive/Photos/Pass/Calendar/Contacts/Notes/Tasks/Admin ; `SuiteAppShell` ; `mobile/README.md` ; scripts `customize-suite-app.sh` / `copy-suite-auth-base.sh` / `reorganize-suite-lib.py` | ☑ |
+| **H18** | **Mobile — `admin_app` production-ready** | Gateway via `CLOUDITY_MOBILE_GATEWAY_URL` + dart-define ; login admin + 2FA à venir ; liste tenants API ; aligné `cloudity_shared` | 🟡 |
+| **H19** | **Mobile — auth sans duplication** | Extraire `SessionStore` / `LoginScreen` dans `cloudity_shared` (au lieu de 8 copies) ; un seul `copy-suite-auth-base.sh` pour `main.dart` seulement | ☐ |
+| **H20** | **Mobile — profils appareils scalables** | Index `profiles.index.json`, template `_template/`, packages Cloudity listés dans profil Samsung ; reste : UI `make mobile-device-list` | ☑ |
+
+### ADM-UPDATE — Backoffice : mises à jour visibles (plus tard)
+
+> **Quand** : après stabilisation prefs + OTA mobile (REL-*) · **pas bloquant** pour le travail web/backend local actuel.
+
+| # | Besoin | Cible |
+|---|--------|--------|
+| **ADM-UPDATE-1** | Voir facilement **quelles parties** du projet ont une mise à jour dispo (images services GHCR, front web, APK apps, éventuellement extension Pass) | Page `/4dm1n` (Dashboard ou sous-page « Mises à jour ») |
+| **ADM-UPDATE-2** | Actions simples : « Mettre à jour ce service », « Publier / forcer refresh manifeste mobile » | Boutons + confirmation + smoke `/health` |
+| **ADM-UPDATE-3** | Lien avec **Mobile / OTA** déjà amorcé (`MobileDistributionPage`) + versions installées / last-seen appareils | Étendre la page existante plutôt que tout reconstruire |
+| **ADM-UPDATE-4** | Doc ops : qui peut déclencher quoi (rôle admin, tokens CI, Portainer webhook) | `DEPLOIEMENT-SUIVI.md` + BACKLOG |
 
 **Checks récurrents hors mail prod** : `make test-pass-extension` · `make test` · `make test-dashboard-lint` · `make test-mobile-desktop-linux` (selon périmètre touché).
+
+### Mail — anti-spam / indésirables (M7 · AS-*)
+
+> **Docs** : **[ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** · **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** · **BACKLOG AS-0..AS-5** · **SYNC-BACKLOG § 0e**.
+
+| # | Sujet | État | Suite |
+|---|--------|------|-------|
+| **M7a** | Dossier **Spam** IMAP + sync polling | ☑ | — |
+| **M7b** | Actions **Signaler spam** / **Pas indésirable** + **apprentissage expéditeur** (règles auto) | ☑ | — |
+| **M7c** | Score **heuristique + Rspamd headers** (`spam_score` 0–100) + icône en réception | ☑ | Seuil `MAIL_SPAM_AUTO_TRIAGE_THRESHOLD` |
+| **M7d** | Bannière UX dossier Spam | ☑ | — |
+| **M7e** | **Triage Cloudity** post-sync (réception → spam) | ☑ | `MAIL_SPAM_AUTO_TRIAGE_*` |
+| **M7f** | **Rspamd** MTA local (**AS-1** partiel) | 🟡 | `deploy/mail-mta` + Maddy check ; prod SPF/DKIM ☐ |
+| **M7g** | Règles M6 utilisateur (CRUD + apply) | ☑ | critères date/corps ☐ |
+| **M7h** | Rate limits gateway (**AS-2**) | ☐ | Redis `ratelimit:` |
 
 ### QA-MATRIX — récap tests à revoir (2026-06-22)
 
@@ -94,7 +263,7 @@ Objectif : **une passe manuelle documentée** sur chaque couche, avec rapport da
 | **Unitaires web Vitest** | `make test` / `make test-dashboard-one FILE=…` | idem | ☑ 387 tests |
 | **E2E Playwright** | `make test-e2e` / `make test-e2e-playwright` | `reports/e2e/` + logs capture | ☑ 80/85 (5 skipped, `20260629`) |
 | **Extension Pass** | `make test-pass-extension` | stdout + extension dist | ☐ |
-| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` | ☐ |
+| **Mobile Flutter hôte** | `make test-mobile-suite` | par app `mobile/*/test` · layout `lib/auth|api|features` | ☐ |
 | **Mobile E2E device** | `make test-mobile-*` (Samsung) | intégration + ADB | ☐ |
 | **Perf ressources** | `make perf-benchmark` / `-quick` | `reports/perf/benchmark-*/REPORT.md` | ☐ |
 | **Sécurité** | `make test-security` · gitleaks · gosec | selon script | ☑ 2026-06-29 (avertissements npm audit) |
@@ -173,7 +342,7 @@ cloudity-api-gateway            | POST /mail/me/accounts/N/sync -> 200
 
 ### Validation mobile appareil (Samsung `R5CT7263YJL`, 2026-05-21)
 
-Prérequis : `make up` · `make seed-admin` · mot de passe démo **`Admin123!`** · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
+Prérequis : `make up` · `make seed-admin` (ou `make seed-admin-reset` après changement de `SEED_ADMIN_PASSWORD` dans `.env`) · appareil `adb devices` = `device` · Wi‑Fi ou données si gateway LAN (sinon message « Pas de réseau » au lieu du dump `ClientException`).
 
 | App | Tests hôte (`flutter test`) | E2E appareil (`integration_test`) |
 |-----|---------------------------|-----------------------------------|
@@ -223,7 +392,7 @@ Action utilisateur après déploiement : **reconnexion une fois** si l’ancien 
 
 ### Incident `make up` — drive-service unhealthy (2026-06-08)
 
-Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`.
+Constat : `make up-full` échoue avec `dependency failed to start: container cloudity-drive-service is unhealthy`. **Recours** : `make up-ready` après diagnostic (voir **docs/architecture/EVOLUTION-PLATEFORME.md**).
 
 Cause : ajout **HEIC** (`goheif` + CGO `libde265`/`dav1d`) dans `drive-service` sans image Docker à jour — l’image locale datait d’avant `gcc`/`g++` dans `Dockerfile.dev`, donc `go run` échouait (`build constraints exclude all Go files` / `gcc not found`).
 
@@ -278,7 +447,7 @@ Problème UX : Photos/Drive demandaient gateway + e-mail + mot de passe + `tenan
 
 Décisions / correctifs :
 
-- **Court terme dev** : champs e-mail/mot de passe préremplis en debug (`admin@cloudity.local` / `Admin123!`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
+- **Court terme dev** : champs e-mail/mot de passe préremplis en debug via `SEED_ADMIN_*` (`.env` → `run-mobile.sh`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
 - **Court terme code** : aligner Photos + Drive sur Mail (gateway candidates, health-check auth, tenant optionnel, timeouts).
 - **Vrai partage inter-app** : `flutter_secure_storage` est isolé par package Android ; les noms `cloudity_suite_*` ne partagent pas réellement les jetons. À implémenter ensuite : **Cloudity Auth Broker / Android AccountManager** + iOS Keychain Access Group, avec écran « Continuer avec ce compte / Ajouter un compte / Créer un compte ».
 - Référence : `docs/produit/MOBILES.md` § **4.1 Auth suite mobile**.
@@ -359,7 +528,7 @@ Objectif : même en local, le compte de dev doit pouvoir activer la 2FA et prouv
 | **2FA-2** | Activer TOTP sur compte dédié `e2e-2fa@cloudity.local` (`make seed-e2e-2fa`), copier les codes, se déconnecter | ☑ (E2E) |
 | **2FA-3** | Login web : email + mot de passe → étape code TOTP → accès `/app` | ☑ (E2E) |
 | **2FA-4** | Login web avec un code de récupération → accès OK + rappel de régénérer | ☑ (E2E) |
-| **2FA-5** | E2E Playwright dédié `e2e/twofa.spec.ts` + `make test-e2e-playwright-twofa` : activation, TOTP, mauvais code, recovery, recovery réutilisé refusé (ne touche pas `admin@cloudity.local`) | ☑ |
+| **2FA-5** | E2E Playwright dédié `e2e/twofa.spec.ts` + `make test-e2e-playwright-twofa` : activation, TOTP, mauvais code, recovery, recovery réutilisé refusé (ne touche pas le compte `SEED_ADMIN_EMAIL`) | ☑ |
 | **2FA-6** | Mobile Drive/Mail/Photos : écran 2FA + mauvais code refusé + TOTP frais calculé au moment du test → écran principal (`integration_test/twofa_flow_test.dart`, `make test-mobile-2fa`) | ☑ |
 
 Note : ne pas laisser le compte démo dans un état qui casse les E2E standards. Prévoir une remise à zéro contrôlée ou un utilisateur de test dédié `e2e-2fa@cloudity.local`.

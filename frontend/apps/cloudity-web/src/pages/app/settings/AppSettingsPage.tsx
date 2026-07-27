@@ -6,7 +6,8 @@ import TwoFactorSection from './TwoFactorSection'
 import RecoveryCodesSection from './RecoveryCodesSection'
 import MailNotificationsSection from './MailNotificationsSection'
 import StorageUsageSection from './StorageUsageSection'
-import PassAutoLockSection from './PassAutoLockSection'
+import ThemePreferencesSection from './ThemePreferencesSection'
+import PassClipboardSettingsSection from './PassClipboardSettingsSection'
 
 export default function AppSettingsPage() {
   const { email, tenantId } = useAuth()
@@ -44,8 +45,13 @@ export default function AppSettingsPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Sécurité — Pass</h2>
-        <PassAutoLockSection />
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Apparence</h2>
+        <ThemePreferencesSection />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-3">Pass — comportement</h2>
+        <PassClipboardSettingsSection />
       </section>
 
       <section>

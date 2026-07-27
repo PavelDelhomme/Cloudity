@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth, Global401Handler } from './authContext'
+import { ThemeProvider, cloudityAppIdFromPath } from './theme/themeContext'
 
 import Landing from './pages/public/Landing'
 import LoginPage from './pages/public/LoginPage'
@@ -26,6 +27,9 @@ import SettingsRedirect from './pages/app/settings/SettingsRedirect'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
 import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
+import { StackHealthGate } from './components/StackHealthGate'
+import { ServiceStatusPage } from './components/ServiceStatusPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,8 +41,16 @@ const queryClient = new QueryClient({
 })
 
 function RequireAuth({ children, to = '/login' }: { children: React.ReactNode; to?: string }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, sessionReady } = useAuth()
   const location = useLocation()
+  if (!sessionReady) {
+    return (
+      <ServiceStatusPage
+        title="Connexion…"
+        message="Vérification de votre session en cours."
+      />
+    )
+  }
   if (!isAuthenticated) {
     const returnTo = `${location.pathname}${location.search}${location.hash}`
     return <Navigate to={`${to}?next=${encodeURIComponent(returnTo)}`} replace state={{ returnTo }} />
@@ -47,8 +59,16 @@ function RequireAuth({ children, to = '/login' }: { children: React.ReactNode; t
 }
 
 function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; to?: string }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, sessionReady } = useAuth()
   const location = useLocation()
+  if (!sessionReady) {
+    return (
+      <ServiceStatusPage
+        title="Connexion…"
+        message="Vérification de votre session en cours."
+      />
+    )
+  }
   if (isAuthenticated) {
     const q = typeof window !== 'undefined' ? window.location.search : location.search
     const nextParam = new URLSearchParams(q).get('next')
@@ -120,15 +140,28 @@ export function UserAppRoutes() {
   )
 }
 
+/** Applique le thème selon la route /app/* courante. */
+function ThemedAppShell({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  const appId = cloudityAppIdFromPath(location.pathname)
+  return <ThemeProvider appId={appId}>{children}</ThemeProvider>
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-        <AuthProvider>
-          <Global401Handler />
-          <UserAppRoutes />
-        </AuthProvider>
-      </BrowserRouter>
+      <AppErrorBoundary>
+        <StackHealthGate>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <AuthProvider>
+              <ThemedAppShell>
+                <Global401Handler />
+                <UserAppRoutes />
+              </ThemedAppShell>
+            </AuthProvider>
+          </BrowserRouter>
+        </StackHealthGate>
+      </AppErrorBoundary>
       <Toaster
         position="top-right"
         toastOptions={{

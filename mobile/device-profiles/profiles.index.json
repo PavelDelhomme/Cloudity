@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "default_profile": "samsung-sm-g990b2",
+  "profiles": [
+    {
+      "id": "samsung-sm-g990b2",
+      "kind": "physical",
+      "display_name": "Samsung SM-G990B2 (Galaxy S21 FE 5G)",
+      "reference_serial": "R5CT7263YJL",
+      "directory": "samsung-sm-g990b2"
+    },
+    {
+      "id": "cloudity-avd-s21-fe",
+      "kind": "emulator",
+      "display_name": "AVD Cloudity_S21_FE (emulator-5556)",
+      "avd_name": "Cloudity_S21_FE",
+      "directory": "cloudity-avd-s21-fe"
+    },
+    {
+      "id": "cloudity-avd-gphone64",
+      "kind": "emulator",
+      "display_name": "AVD gphone64 (Cloudity)",
+      "avd_name": "Cloudity_gphone64",
+      "directory": "cloudity-avd-gphone64"
+    }
+  ]
+}
