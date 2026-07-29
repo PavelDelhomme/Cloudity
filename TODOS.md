@@ -4,47 +4,49 @@
 
 > ## Point d’entrée UNIQUE (ops / deploy / Pilotage)
 > **Index doc** → [`docs/README.md`](docs/README.md)  
-> **Chemin à suivre** → **[`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md)**  
-> Valide dans **`/4dm1n/pilotage`** (tâche **H14**).  
-> Ne lis `PORTAINER-STACK-GIT-COMPLET` / `VERSIONS-*` **que** quand DEPLOIEMENT te le dit.
+> **Priorité code** → **[`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)**  
+> **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
+> Valide dans **`/4dm1n/pilotage`** : **FE-HUB-01** → FE-SPLIT-01 → **H19** → MOBILE-DA-01 → (plus tard) **H14**.  
+> Ne lis `PORTAINER-STACK-GIT-COMPLET` / `VERSIONS-*` **que** quand DEPLOIEMENT § B te le dit.
 
 > **Mail prod** (OVH, DNS, VPS mail) reste **en pause** jusqu’à signal explicite.  
 > Hors mail prod = Pass, Photos, Drive, mobile, UI, tests locaux (`make up`), etc.
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`**.
 
+### Session 2026-07-29 — Multi-apps web + DA Flutter (PRIORITÉ)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **MULTI-APPS-WEB-MOBILE.md** | ☑ | Cible hub web + DA/auth mobile |
+| **Pilotage cycle-now** | ☑ | FE-HUB-01 → FE-SPLIT-01 → H19 → MOBILE-DA-01 **avant** H14 |
+| **H14 VPS** | ⏸ | Reprendre après §0 structure (LAN déjà Partiel) |
+
+**Maintenant** :
+
+1. Lis [`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)
+2. `/4dm1n/pilotage` → **Sync docs** → Focus **FE-HUB-01**
+3. Ensuite FE-SPLIT-01 (web-mail) · H19 (auth shared) · MOBILE-DA-01
+4. **Puis seulement** DEPLOIEMENT § B / H14 HTTPS
+
+---
+
 ### Session 2026-07-29 — Nettoyage docs (index + DEPLOIEMENT + MAIL-ALIAS)
 
 | Sujet | État | Détail |
 |-------|------|--------|
 | **docs/README.md** | ☑ | Index unique de toute la doc |
-| **DEPLOIEMENT.md** | ☑ | Remplace SUIVRE-ICI (chemin ops) |
+| **DEPLOIEMENT.md** | ☑ | Remplace SUIVRE-ICI (+ §0 priorité structure) |
 | **MAIL-ALIAS.md** | ☑ | 6 fiches alias fusionnées + stubs |
 | **Stubs ops** | ☑ | GUIDE-COMPLET, DEPLOY-PORTAINER-NPM, ENVIRONNEMENTS, SUIVI → DEPLOIEMENT |
 
-**Maintenant** : [`docs/README.md`](docs/README.md) → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) → Pilotage **H14**.
-
 ---
 
 | Sujet | État | Détail |
 |-------|------|--------|
-| **DEPLOIEMENT.md** (+ `docs/README.md`) | ☑ | Point d’entrée unique local + prod |
-| **PORTAINER-STACK-GIT-COMPLET** | ☑ | Détail formulaire (ouvert depuis DEPLOIEMENT § B) |
-| **H14** | 🟡 | LAN+DNS+env OK ; restent NPM forwards + stack Portainer + smoke |
-
-**Maintenant** :
-
-1. Ouvre [`docs/README.md`](docs/README.md) puis [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md)
-2. `/4dm1n/pilotage` → Sync docs → **H14**
-3. Dans DEPLOIEMENT : § B2 NPM → § B3 Portainer → `make h14-https-check` → coche 3b-npm / 3b-smoke
-
----
-
-| Sujet | État | Détail |
-|-------|------|--------|
-| **Catalogue ~155 tâches** | ☑ | `docs/operations/pilotage-catalog.json` — 10 cycles (now/mobile/web/mail/pass/qa/deploy/admin/done) |
-| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
-| **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
+| **Catalogue** | ☑ | `pilotage-catalog.json` v12 — FE-HUB / FE-SPLIT / MOBILE-DA + H19 enrichi |
+| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` |
+| **Priorité cycle-now** | ☑ | Multi-apps **avant** H14 |
 
 ### Session 2026-07-27 — gitignore + ZF-01 stub
 

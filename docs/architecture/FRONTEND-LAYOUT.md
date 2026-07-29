@@ -1,5 +1,7 @@
 # Frontend `cloudity-web` — arborescence des pages
 
+> **Cible** : ce monolithe devient un **hub** — voir **[MULTI-APPS-WEB-MOBILE.md](MULTI-APPS-WEB-MOBILE.md)** (Pilotage **FE-HUB-01** / **FE-SPLIT-01**). Les dossiers `pages/app/<domaine>/` ci-dessous décrivent l’**état actuel** ; à terme chaque domaine = app `frontend/apps/web-*`.
+
 **Rôle** : décrire où placer les écrans React sous `frontend/apps/cloudity-web/src/pages/` pour éviter l’amas à plat dans `pages/` vs `pages/app/`.
 
 ## 1. Principes

@@ -5,7 +5,8 @@
 **UI** : http://localhost:6001/4dm1n/pilotage
 
 > **Par où commencer (ops / deploy)** :  
-> **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — un seul chemin. Tu coches ici dans Pilotage (**H14**).
+> **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — un seul chemin ops.  
+> **Priorité code** : [`MULTI-APPS-WEB-MOBILE.md`](../architecture/MULTI-APPS-WEB-MOBILE.md) · coches **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA ; **H14** ensuite.
 
 ---
 
@@ -41,7 +42,8 @@ Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : suis d’abord **[DEPLOIEMENT.md](DEPLOIEMENT.md)** · runbook [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · détail Portainer seulement si besoin [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).
+**H14** (après §0 structure) : suis **[DEPLOIEMENT.md](DEPLOIEMENT.md)** · [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · Portainer [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).  
+**Multi-apps** : [MULTI-APPS-WEB-MOBILE.md](../architecture/MULTI-APPS-WEB-MOBILE.md).
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
 
@@ -52,7 +54,7 @@ Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **
 
 | Cycle | Contenu |
 |-------|---------|
-| **À faire maintenant** | H14 (en tête), H19, H6b/c, QA, DNS… + problèmes créés |
+| **À faire maintenant** | **FE-HUB-01**, FE-SPLIT-01, **H19**, MOBILE-DA-01, puis H14, H6b/c, QA, DNS… + problèmes créés |
 | **Problèmes** | Vue dérivée `openProblems` (pas un cycle catalogue) |
 | **Pré-prod** | `PREPROD-01`…`10` revalidation apps / HTTPS / DNS / tests |
 | **Mobile & OTA** | REL-01..03, Pass édition, Samsung… |

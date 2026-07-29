@@ -6,8 +6,9 @@ Les autres `.md` sont des **détails** : tu n’y vas que quand une étape te le
 | Outil | Rôle |
 |-------|------|
 | **Ce fichier** | Ordre des actions + commandes + validation |
-| **`/4dm1n/pilotage`** | Tu **coches** au fur et à mesure (tâche **H14** en tête) |
+| **`/4dm1n/pilotage`** | Tu **coches** (vérité ops) — **maintenant** : FE-HUB → FE-SPLIT → H19 → MOBILE-DA ; **H14 ensuite** |
 | **`TODOS.md`** | Fil court / sessions — renvoie ici |
+| **Multi-apps (priorité)** | [MULTI-APPS-WEB-MOBILE.md](../architecture/MULTI-APPS-WEB-MOBILE.md) |
 | Détails Portainer Git | [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) *(seulement § Portainer)* |
 | Détails versions libs | [VERSIONS-PROJET.md](VERSIONS-PROJET.md) · [../architecture/VERSIONNAGE-LIBS.md](../architecture/VERSIONNAGE-LIBS.md) *(seulement si tu touches aux libs)* |
 
@@ -18,19 +19,36 @@ Les autres `.md` sont des **détails** : tu n’y vas que quand une étape te le
                     └──────────┬──────────┘
            ┌───────────────────┼───────────────────┐
            ▼                   ▼                   ▼
-     A — DEV local       B — PROD VPS        C — Versions
-     make up / LAN       Portainer+NPM       (plus tard)
-           │                   │
-           └────────► Pilotage H14 (cocher)
+     0 — STRUCTURE       A — DEV local       B — PROD VPS
+     hub web + DA        make up / LAN       Portainer+NPM
+     mobile (AVANT B)         │                   │
+           │                  │                   │
+           └──────────────────┴────────► Pilotage (cocher)
 ```
+
+---
+
+## 0 — Priorité structurelle (AVANT le VPS § B)
+
+Ne pas enchaîner Portainer/H14 HTTPS tant que le monolithe web + l’auth Flutter dupliquée ne sont pas cadrés.
+
+| Ordre Pilotage | ID | Objectif |
+|----------------|----|----------|
+| 1 | **FE-HUB-01** | `cloudity-web` = hub (`/`, `/login`, `/app`) seulement |
+| 2 | **FE-SPLIT-01** | Extraire 1ère app (`web-mail`) hors monolithe |
+| 3 | **H19** | Auth/login unique dans `cloudity_shared` (plus de copies `lib/auth/`) |
+| 4 | **MOBILE-DA-01** | DA Flutter commune + perso produit (couleur/logo) |
+| ensuite | **H14** | Gateway mobile → HTTPS VPS (§ B) |
+
+Doc complète : **[MULTI-APPS-WEB-MOBILE.md](../architecture/MULTI-APPS-WEB-MOBILE.md)**.
 
 ---
 
 ## Routine quotidienne (ne rien perdre)
 
 1. Branche feat → code → `make test` / smoke local.
-2. **Pilotage** : Sync docs → Focus **H14** (ou tâche du jour) → coche critères → décision (En cours / Partiel / OK).
-3. Push Git → (prod) Portainer GitOps ou Update stack.
+2. **Pilotage** : Sync docs → Focus **FE-HUB-01** (puis FE-SPLIT / H19 / MOBILE-DA) → coche → décision. **H14** seulement après § 0.
+3. Push Git → (prod) Portainer GitOps ou Update stack **quand** tu es en § B.
 4. `TODOS.md` : une ligne de session si tu veux un fil humain ; **la vérité opérationnelle = Pilotage**.
 
 ---
@@ -75,7 +93,7 @@ make run-mobile APP=Mail
 
 ---
 
-## B — Mode PROD (VPS) — maintenant (H14 3b)
+## B — Mode PROD (VPS) — après § 0 (H14 3b)
 
 Tu as déjà : DNS + certificats LE.  
 Il reste : **forwards NPM corrects** + **stack Portainer**.

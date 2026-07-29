@@ -1,22 +1,25 @@
 {
-  "version": 11,
+  "version": 12,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
       "id": "cycle-now",
       "label": "À faire maintenant",
-      "description": "Priorités immédiates Cloudity — H14 LAN d’abord (ZoneForge = cycle dédié plus tard)",
+      "description": "PRIORITÉ : multi-apps web hub + DA/auth mobile (FE-HUB-01 → FE-SPLIT-01 → H19 → MOBILE-DA-01). H14 HTTPS ensuite.",
       "itemIds": [
-        "H14",
+        "FE-HUB-01",
+        "FE-SPLIT-01",
         "H19",
+        "MOBILE-DA-01",
+        "H21",
+        "UI-DS-REMAIN",
+        "H14",
         "H6b",
         "H6c",
         "H12",
         "H15",
         "H16",
         "H18",
-        "H21",
-        "UI-DS-REMAIN",
         "QA-MATRIX-01",
         "DEPLOY-DNS-01",
         "VAL-VAULT-BRANCH",
@@ -30,6 +33,7 @@
       "label": "Mobile & OTA",
       "description": "Flutter, auth, REL, Pass mobile",
       "itemIds": [
+        "MOBILE-DA-01",
         "AUTH-PKG",
         "E2E-CAL-TASKS",
         "L2-PASS-EDIT",
@@ -51,6 +55,8 @@
       "label": "Apps web & UX",
       "description": "UI-DS, Calendar, Drive, refactor, SYNC",
       "itemIds": [
+        "FE-SPLIT-01",
+        "FE-HUB-01",
         "UI-CAL",
         "UI-HUB",
         "UI-PHOTOS",
@@ -276,10 +282,10 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Suivre docs/operations/DEPLOIEMENT.md (point d’entrée unique).\nValider chaque critère ici dans Pilotage.\nLAN = 1+2+3a. Prod VPS = 3b-dns → env → npm → smoke (détail Portainer seulement dans PORTAINER-STACK-GIT-COMPLET.md § B).",
+      "description": "Gateway mobile LAN→HTTPS. **Priorité structurelle d’abord** : FE-HUB / H19 / MOBILE-DA (voir MULTI-APPS-WEB-MOBILE.md). Reprendre H14 3b après.\nChemin ops : docs/operations/DEPLOIEMENT.md",
       "expected": "Ouvre DEPLOIEMENT.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
       "status": "partial",
-      "order": 1,
+      "order": 20,
       "checklistLabels": [
         "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
         "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
@@ -342,38 +348,41 @@
       "id": "H19",
       "cycleId": "cycle-now",
       "section": "Mobile",
-      "label": "H19 — Auth mobile sans duplication",
-      "description": "Extraire SessionStore / LoginScreen dans cloudity_shared (au lieu de copies par app).",
-      "expected": "Au moins 2 apps migrées ; tests flutter verts.",
+      "label": "H19 — Auth mobile unique (SessionStore + Login)",
+      "description": "PRIORITÉ : supprimer les copies lib/auth/session_store.dart + login_screen.dart (Mail, Drive, Photos, Calendar, …). Tout dans cloudity_shared avec slots produit.\nLié MOBILE-DA-01 / AUTH-PKG. Doc : docs/architecture/MULTI-APPS-WEB-MOBILE.md § 3.",
+      "expected": "0 copie auth dans les apps ; ≥4 apps migrées ; flutter test OK.",
       "status": "open",
-      "order": 2,
+      "order": 3,
       "checklistLabels": [
-        "Module partagé créé",
-        "2 apps migrées",
-        "flutter test OK"
+        "SessionStore + LoginScreen dans cloudity_shared (API paramétrable)",
+        "Migrer Mail + Drive",
+        "Migrer Photos + Calendar (ou Contacts)",
+        "Supprimer lib/auth dupliqués",
+        "flutter test + make run-mobile smoke"
       ],
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "But",
-          "body": "Factoriser SessionStore / LoginScreen dans un package Flutter partagé (cloudity_shared) pour éviter les copies par app. Voir TODOS.md / docs/produit/MOBILES.md."
+          "title": "Constat",
+          "body": "rg login_screen/session_store sous mobile/*/lib/auth — N copies. SuiteAppShell existe déjà mais login reste local."
         },
         {
-          "title": "Module partagé",
-          "body": "Créer le module partagé (auth session + écran login). Y brancher les imports communs."
+          "title": "Extraire",
+          "body": "Créer cloudity_shared/lib/auth/ (session + login UI) avec product accent/title."
         },
         {
-          "title": "Migrer 2 apps",
-          "body": "Migrer au moins 2 apps (ex. Mail + Drive) vers le module. make run-mobile APP=… pour smoke."
+          "title": "Migrer",
+          "body": "Apps : main.dart + SuiteAppShell utilisent le login partagé ; supprimer auth/ local."
         },
         {
-          "title": "Tests",
-          "body": "flutter test sur le package + apps migrées verts."
+          "title": "Doc",
+          "body": "MULTI-APPS-WEB-MOBILE.md § 3 + mobile/README.md"
         }
       ],
       "docLinks": [
-        "docs/produit/MOBILES.md",
-        "TODOS.md"
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "mobile/README.md",
+        "docs/produit/MOBILES.md"
       ]
     },
     {
@@ -621,7 +630,7 @@
       "cycleId": "cycle-mobile",
       "section": "Auth",
       "label": "Auth centralisée package",
-      "description": "Socle encore copié ; cloudity_suite_shell ou tout dans cloudity_shared.",
+      "description": "Alias / suite de H19 — une seule base auth. Suivre H19 + MOBILE-DA-01. Doc MULTI-APPS-WEB-MOBILE.md.",
       "expected": "Une seule base auth partagée.",
       "status": "partial",
       "order": 1,
@@ -629,7 +638,17 @@
         "Package défini",
         "Apps branchées"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/operations/pilotage-catalog.json"
+      ],
+      "howToSteps": [
+        {
+          "title": "Voir H19",
+          "body": "Pilotre H19 dans Pilotage (cycle maintenant)."
+        }
+      ]
     },
     {
       "id": "E2E-CAL-TASKS",
@@ -3113,6 +3132,128 @@
         "backoffice"
       ],
       "source": "catalog"
+    },
+    {
+      "id": "FE-HUB-01",
+      "cycleId": "cycle-now",
+      "section": "Frontend",
+      "label": "FE-HUB-01 — cloudity-web = hub seulement",
+      "description": "Cible : frontend/apps/cloudity-web ne sert plus que le shell (/, /login, /app hub + liens). Plus de gros monolithe Mail/Drive/… dedans.\nDoc : docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+      "expected": "Inventaire routes monolithe + règle hub documentée + hub UI claire (liens apps).",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Lire MULTI-APPS-WEB-MOBILE.md",
+        "Inventaire pages/app/* (taille / routes)",
+        "Hub /app = grille liens uniquement (pas de logique métier Mail/Drive)",
+        "Note Pilotage : prochain split = Mail (FE-SPLIT-01)"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Pourquoi",
+          "body": "Un seul Vite app avec tout le métier = mémoire, build, bordel. Le hub doit seulement lancer les apps."
+        },
+        {
+          "title": "Doc",
+          "body": "Ouvre docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2. Liste les dossiers pages/app/* et api.ts."
+        },
+        {
+          "title": "Hub",
+          "body": "AppHub = carte d’apps (Drive, Mail, …). Pas de features métier dans cloudity-web à terme."
+        },
+        {
+          "title": "Suite",
+          "body": "Quand inventaire OK → FE-SPLIT-01 (extraire web-mail)."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/architecture/ARCHITECTURE-FRONTENDS.md",
+        "docs/architecture/FRONTEND-LAYOUT.md",
+        "docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "backoffice"
+      ]
+    },
+    {
+      "id": "FE-SPLIT-01",
+      "cycleId": "cycle-now",
+      "section": "Frontend",
+      "label": "FE-SPLIT-01 — Extraire web-mail hors monolithe",
+      "description": "Créer frontend/apps/web-mail (workspace) consommant @cloudity/shared + @cloudity/ui ; hub cloudity-web pointe vers cette app. Doc MULTI-APPS-WEB-MOBILE.md § 2.3.",
+      "expected": "App web-mail buildable ; smoke /app/mail ; monolithe allégé d’au moins Mail.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Scaffold frontend/apps/web-mail + package.json workspace",
+        "Migrer pages/app/mail + clients API mail",
+        "Hub lien vers web-mail",
+        "Vitest / smoke OK"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Prérequis",
+          "body": "FE-HUB-01 inventaire fait. Pattern monorepo frontend/ déjà en place."
+        },
+        {
+          "title": "Scaffold",
+          "body": "Copier structure minimale Vite depuis cloudity-web ; dépendre de @cloudity/shared et @cloudity/ui uniquement."
+        },
+        {
+          "title": "Migration",
+          "body": "Déplacer pages/app/mail/* ; découper api.ts mail vers le package app ou shared."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/architecture/FRONTEND-LAYOUT.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web"
+      ]
+    },
+    {
+      "id": "MOBILE-DA-01",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "MOBILE-DA-01 — DA Flutter commune + perso produit",
+      "description": "Une DA commune (tokens, thème, shell, erreurs) pour toutes les apps Flutter ; personnalisation = accent/logo/home uniquement. Auth/login = H19 (pas de copies).\ncloudity_shared a déjà tokens/shell — à imposer partout. Doc MULTI-APPS-WEB-MOBILE.md § 3.",
+      "expected": "Checklist DA ; toutes les apps sur CloudityThemedApp + Suite* ; features/ = métier seul.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Checklist DA écrite (tokens, typo, empty/error)",
+        "Apps MVP (Cal/Contacts/Notes/Tasks) conformes",
+        "Mail/Drive/Photos/Pass/Admin sur même shell",
+        "Pas de login/session dupliqué (lié H19)"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État cloudity_shared",
+          "body": "Déjà : design tokens, thème, SuiteAppShell, drawer, gateway. Manque : imposer + finir auth unique (H19)."
+        },
+        {
+          "title": "features/",
+          "body": "Chaque app : métier dans lib/features/. Interdit d’y mettre auth/theme/drawer."
+        },
+        {
+          "title": "Perso produit",
+          "body": "Couleur/logo via cloudity_tokens.json apps.<product> — pas un fork du package."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "mobile/README.md",
+        "docs/produit/MOBILES.md"
+      ],
+      "surfaceKeys": [
+        "mobile"
+      ]
     }
   ],
   "releases": [

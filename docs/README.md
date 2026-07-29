@@ -5,18 +5,16 @@
 | Priorité | Fichier | Rôle |
 |----------|---------|------|
 | **1** | **[`TODOS.md`](../TODOS.md)** (racine) | Fil de session / « maintenant » |
-| **2** | **[`operations/DEPLOIEMENT.md`](operations/DEPLOIEMENT.md)** | **Chemin ops** : dev local · LAN · prod Portainer/NPM · Pilotage H14 |
-| **3** | **`/4dm1n/pilotage`** | Tu **coches** (vérité opérationnelle) |
+| **2** | **[`architecture/MULTI-APPS-WEB-MOBILE.md`](architecture/MULTI-APPS-WEB-MOBILE.md)** | **Priorité code** : hub web + DA/auth Flutter (avant VPS) |
+| **3** | **[`operations/DEPLOIEMENT.md`](operations/DEPLOIEMENT.md)** | Chemin ops : §0 structure · local · puis prod Portainer/NPM |
+| **4** | **`/4dm1n/pilotage`** | Tu **coches** : **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14** |
 
 Tout le reste de `docs/` est une **référence** : tu n’ouvres un fichier que quand DEPLOIEMENT ou TODOS te le demande.
 
 ```text
-TODOS.md  ──►  docs/operations/DEPLOIEMENT.md  ──►  Pilotage H14
+TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage FE-HUB / H19
                       │
-          ┌───────────┼────────────┐
-          ▼           ▼            ▼
-   Portainer Git   H14 gateway   Versions libs
-   (détail)        (détail)      (si tu touches une lib)
+                      └──► DEPLOIEMENT.md §0 puis §B (H14) quand structure OK
 ```
 
 ---
@@ -27,7 +25,7 @@ TODOS.md  ──►  docs/operations/DEPLOIEMENT.md  ──►  Pilotage H14
 |---------|-----------|----------------|
 | **[operations/](operations/)** | Faire tourner / déployer / tester | **[DEPLOIEMENT.md](operations/DEPLOIEMENT.md)** |
 | **[produit/](produit/)** | Comportement apps (Mail, Pass, Photos…) | [produit/README.md](produit/README.md) · **[MAIL-ALIAS.md](produit/MAIL-ALIAS.md)** |
-| **[architecture/](architecture/)** | Comment c’est assemblé | [SERVICES.md](architecture/SERVICES.md) · [VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
+| **[architecture/](architecture/)** | Comment c’est assemblé | **[MULTI-APPS-WEB-MOBILE.md](architecture/MULTI-APPS-WEB-MOBILE.md)** · [SERVICES.md](architecture/SERVICES.md) · [VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
 | **[securite/](securite/)** | Sécurité / secrets / crypto | [SECURITE.md](securite/SECURITE.md) · [SECRETS.md](securite/SECRETS.md) |
 | **[decisions/](decisions/)** | Questionnaires & réponses | [multi-repo/REPONSES.md](decisions/multi-repo/REPONSES.md) |
 
@@ -76,9 +74,10 @@ Référence longue VPS (optionnelle) : [operations/DEPLOIEMENT-VPS-PORTAINER-NPM
 
 | Besoin | Fichier |
 |--------|---------|
+| **Hub web + DA Flutter (priorité)** | [architecture/MULTI-APPS-WEB-MOBILE.md](architecture/MULTI-APPS-WEB-MOBILE.md) |
 | Conteneurs & ports | [architecture/SERVICES.md](architecture/SERVICES.md) |
 | SemVer libs | [architecture/VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
-| Layout backend / front | [BACKEND-LAYOUT.md](architecture/BACKEND-LAYOUT.md) · [FRONTEND-LAYOUT.md](architecture/FRONTEND-LAYOUT.md) |
+| Layout backend / front | [BACKEND-LAYOUT.md](architecture/BACKEND-LAYOUT.md) · [FRONTEND-LAYOUT.md](architecture/FRONTEND-LAYOUT.md) · [ARCHITECTURE-FRONTENDS.md](architecture/ARCHITECTURE-FRONTENDS.md) |
 | Choix multi-repo | [decisions/multi-repo/](decisions/multi-repo/) |
 | Secrets | [securite/SECRETS.md](securite/SECRETS.md) |
 
