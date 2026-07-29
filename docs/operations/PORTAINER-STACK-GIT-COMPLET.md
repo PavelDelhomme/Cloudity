@@ -1,6 +1,9 @@
 # Portainer — stack Cloudity via dépôt Git (guide complet)
 
-**But** : remplir **chaque champ** du formulaire Portainer « Add stack → Git repository », coller les bons fichiers Compose, authentifier GitHub, brancher NPM, et savoir **où** vivent le versionnage des libs / services.
+> **Tu arrives d’où ?** Depuis **[SUIVRE-ICI.md](SUIVRE-ICI.md) § B** (mode prod).  
+> Ce fichier = **détail du formulaire** Portainer uniquement. Ne remplace pas SUIVRE-ICI.
+
+**But** : remplir **chaque champ** du formulaire Portainer « Add stack → Git repository », coller les bons fichiers Compose, authentifier GitHub, brancher NPM.
 
 **Audience** : toi sur le VPS (comme Nextcloud) + préparation depuis le PC.
 

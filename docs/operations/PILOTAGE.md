@@ -4,17 +4,21 @@
 
 **UI** : http://localhost:6001/4dm1n/pilotage
 
+> **Par où commencer (ops / deploy)** :  
+> **[`SUIVRE-ICI.md`](SUIVRE-ICI.md)** — un seul chemin. Tu coches ici dans Pilotage (**H14**).
+
 ---
 
 ## 1. Sources de vérité
 
 | Source | Rôle |
 |--------|------|
-| **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches, 12 cycles) — seed du board |
-| **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** (☑/🟡/☐ et `- [x]`) |
-| **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions, historique, inbox) |
+| **[`SUIVRE-ICI.md`](SUIVRE-ICI.md)** | Ordre des actions (dev + prod) — **lire en premier** |
+| **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches) — seed du board |
+| **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** |
+| **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions) |
 
-Les Markdown restent pour les agents ; le **board admin** est ce que tu coches au quotidien.
+Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand SUIVRE-ICI le demande.
 
 ---
 
@@ -37,7 +41,7 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : runbook **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · stack Git **[PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md)** · versions **[VERSIONS-PROJET.md](VERSIONS-PROJET.md)** · fallback NPM **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)** · ZoneForge **[ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md)**.
+**H14** : suis d’abord **[SUIVRE-ICI.md](SUIVRE-ICI.md)** · runbook [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · détail Portainer seulement si besoin [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
 

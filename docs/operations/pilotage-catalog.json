@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -276,8 +276,8 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nLAN (1, 2, 3a) → Partiel. HTTPS VPS (3b) = DNS + Portainer env + NPM proxy + login téléphone.\nInterim manuel : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
-      "expected": "LAN = 1+2+3a → Partiel. HTTPS = cocher 3b-dns → 3b-env → 3b-npm → 3b-smoke puis Validé/OK.",
+      "description": "Suivre docs/operations/SUIVRE-ICI.md (point d’entrée unique).\nValider chaque critère ici dans Pilotage.\nLAN = 1+2+3a. Prod VPS = 3b-dns → env → npm → smoke (détail Portainer seulement dans PORTAINER-STACK-GIT-COMPLET.md § B).",
+      "expected": "Ouvre SUIVRE-ICI.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
       "status": "partial",
       "order": 1,
       "checklistLabels": [
@@ -291,6 +291,10 @@
       ],
       "source": "catalog",
       "howToSteps": [
+        {
+          "title": "Point d’entrée — SUIVRE-ICI.md",
+          "body": "Un seul doc à suivre : docs/operations/SUIVRE-ICI.md\n§ A = dev local (make up-ready). § B = prod (NPM + Portainer).\nN’ouvre PORTAINER-STACK-GIT-COMPLET.md que pour remplir le formulaire Portainer.\nVERSIONS-PROJET / VERSIONNAGE-LIBS = seulement si tu touches aux libs."
+        },
         {
           "title": "Où suis-je ?",
           "body": "A Local PC = make up (localhost). B LAN téléphone = IP Wi‑Fi :6002. C VPS = Portainer + NPM (https://api.cloudity.<dom>). Ne mélange pas LAN et VPS. Doc : H14-GATEWAY-MOBILE.md"
@@ -317,6 +321,7 @@
         }
       ],
       "docLinks": [
+        "docs/operations/SUIVRE-ICI.md",
         "deploy/portainer/PORTAINER-STACK.md",
         "docs/operations/VERSIONS-PROJET.md",
         "docs/operations/PORTAINER-STACK-GIT-COMPLET.md",

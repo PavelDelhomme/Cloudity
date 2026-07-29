@@ -1,5 +1,8 @@
 # Cloudity — versions du projet (libs, services, images)
 
+> **Pas le point d’entrée ops.** Pour déployer / dev : **[SUIVRE-ICI.md](SUIVRE-ICI.md)**.  
+> Ouvre ce fichier seulement si tu modifies une lib partagée ou les tags d’images.
+
 **Rôle** : savoir **où** est versionné quoi (libs partagées, backends, front, mobile, images Docker), et comment ça se relie au déploiement Portainer.
 
 Pour la **convention SemVer des 4 libs partagées** (détail + CI) :  

@@ -1,8 +1,9 @@
 # Guide complet — dev local, mobile, Portainer & NPM
 
-**Document maître** : tout ce qu’il faut suivre, de ton PC au VPS en « vraie prod » (HTTPS, téléphone, web).
+**Document long** (référence). Pour le **chemin court du jour** :  
+→ **[`SUIVRE-ICI.md`](SUIVRE-ICI.md)** (recommandé) · validation dans `/4dm1n/pilotage`.
 
-> Commence ici. Les autres fichiers `.md` restent la référence détaillée ; ce guide te dit **dans quel ordre** les lire et **quoi faire**.
+> Les autres fichiers `.md` restent la référence détaillée ; SUIVRE-ICI te dit **quand** les ouvrir.
 
 | Tu veux… | Va directement à |
 |----------|------------------|
@@ -17,6 +18,7 @@
 
 | Sujet | Fichier |
 |-------|---------|
+| **Point d’entrée (court)** | **[SUIVRE-ICI.md](SUIVRE-ICI.md)** |
 | Hub 3 environnements | [DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md) |
 | Checklist ordonnée (cases ☐) | [DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md) |
 | Portainer formulaire Git | [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md) |
