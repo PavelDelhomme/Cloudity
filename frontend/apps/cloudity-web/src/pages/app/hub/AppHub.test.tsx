@@ -1,50 +1,17 @@
 import React from 'react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TestRouter } from '../../../test-utils'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AppHub from './AppHub'
-import { useAuth } from '../../../authContext'
-
-vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../../api', () => ({
-  fetchDriveRecentFiles: vi.fn().mockResolvedValue([]),
-  fetchDriveTrash: vi.fn().mockResolvedValue([]),
-  fetchMailAccounts: vi.fn().mockResolvedValue([]),
-  fetchMailMessages: vi.fn().mockResolvedValue({ messages: [], total: 0 }),
-  fetchCalendarEvents: vi.fn().mockResolvedValue([]),
-  fetchNotes: vi.fn().mockResolvedValue([]),
-  fetchTasks: vi.fn().mockResolvedValue([]),
-  fetchContacts: vi.fn().mockResolvedValue([]),
-}))
 
 function wrap(ui: React.ReactElement) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TestRouter>{ui}</TestRouter>
-    </QueryClientProvider>
-  )
+  return <TestRouter>{ui}</TestRouter>
 }
 
 describe('AppHub', () => {
-  beforeEach(() => {
-    vi.mocked(useAuth).mockReturnValue({
-      accessToken: 'token',
-      tenantId: 1,
-      email: 'user@test.com',
-      refreshToken: null,
-      isAuthenticated: true,
-      login: vi.fn(),
-      logout: vi.fn(),
-    } as unknown as ReturnType<typeof useAuth>)
-  })
-
   it('renders hub title and category sections', () => {
     render(wrap(<AppHub />))
-    expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Applications' })).toBeTruthy()
     expect(screen.getByText('Fichiers')).toBeTruthy()
   })
 
@@ -80,5 +47,11 @@ describe('AppHub', () => {
     expect(screen.getByRole('link', { name: 'Ouvrir Tasks' }).getAttribute('href')).toBe('/app/tasks')
     expect(screen.getByRole('link', { name: 'Ouvrir Contacts' }).getAttribute('href')).toBe('/app/contacts')
     expect(screen.getByRole('link', { name: 'Ouvrir Photos' }).getAttribute('href')).toBe('/app/photos')
+  })
+
+  it('does not fetch métier previews (launcher only)', () => {
+    render(wrap(<AppHub />))
+    expect(screen.queryByText('Chargement…')).toBeNull()
+    expect(screen.queryByText(/non lu/i)).toBeNull()
   })
 })

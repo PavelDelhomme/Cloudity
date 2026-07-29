@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -11,18 +11,6 @@ import RegisterPage from './pages/public/RegisterPage'
 
 import AppLayout from './layouts/AppLayout'
 import AppHub from './pages/app/hub/AppHub'
-import DrivePage from './pages/app/drive/DrivePage'
-import OfficePage from './pages/app/office/OfficePage'
-import DocumentEditorPage from './pages/app/office/DocumentEditorPage'
-import PassPage from './pages/app/pass/PassPage'
-import MailPage from './pages/app/mail/MailPage'
-import CalendarPage from './pages/app/calendar/CalendarPage'
-import NotesPage from './pages/app/notes/NotesPage'
-import TasksPage from './pages/app/tasks/TasksPage'
-import ContactsPage from './pages/app/contacts/ContactsPage'
-import PhotosPage from './pages/app/photos/PhotosPage'
-import AppSettingsPage from './pages/app/settings/AppSettingsPage'
-import SecureSettingsPage from './pages/app/settings/SecureSettingsPage'
 import SettingsRedirect from './pages/app/settings/SettingsRedirect'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
@@ -30,6 +18,23 @@ import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { StackHealthGate } from './components/StackHealthGate'
 import { ServiceStatusPage } from './components/ServiceStatusPage'
+
+/**
+ * Produits en lazy chunks (FE-HUB-01) : le shell ne charge plus Mail/Drive/… au boot.
+ * FE-SPLIT-* déplacera ces modules vers `frontend/apps/web-*`.
+ */
+const DrivePage = lazy(() => import('./pages/app/drive/DrivePage'))
+const OfficePage = lazy(() => import('./pages/app/office/OfficePage'))
+const DocumentEditorPage = lazy(() => import('./pages/app/office/DocumentEditorPage'))
+const PassPage = lazy(() => import('./pages/app/pass/PassPage'))
+const MailPage = lazy(() => import('@cloudity/web-mail').then((m) => ({ default: m.MailPage })))
+const CalendarPage = lazy(() => import('./pages/app/calendar/CalendarPage'))
+const NotesPage = lazy(() => import('./pages/app/notes/NotesPage'))
+const TasksPage = lazy(() => import('./pages/app/tasks/TasksPage'))
+const ContactsPage = lazy(() => import('./pages/app/contacts/ContactsPage'))
+const PhotosPage = lazy(() => import('./pages/app/photos/PhotosPage'))
+const AppSettingsPage = lazy(() => import('./pages/app/settings/AppSettingsPage'))
+const SecureSettingsPage = lazy(() => import('./pages/app/settings/SecureSettingsPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,6 +44,12 @@ const queryClient = new QueryClient({
     },
   },
 })
+
+function RouteFallback() {
+  return (
+    <ServiceStatusPage title="Chargement…" message="Préparation de l’application." />
+  )
+}
 
 function RequireAuth({ children, to = '/login' }: { children: React.ReactNode; to?: string }) {
   const { isAuthenticated, sessionReady } = useAuth()
@@ -84,7 +95,7 @@ function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; 
   return <>{children}</>
 }
 
-/** Shell utilisateur + pages publiques. Le back-office est un second bundle (`admin.html` / AdminApp). */
+/** Shell utilisateur + pages publiques. Produits = lazy (et bientôt apps/web-*). */
 export function UserAppRoutes() {
   return (
     <Routes>
@@ -115,24 +126,104 @@ export function UserAppRoutes() {
           }
         >
           <Route index element={<AppHub />} />
-          <Route path="drive" element={<DrivePage />} />
+          <Route
+            path="drive"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <DrivePage />
+              </Suspense>
+            }
+          />
           <Route path="corbeille" element={<Navigate to="/app/drive?view=trash" replace />} />
-          <Route path="office" element={<OfficePage />} />
-          <Route path="office/editor/:nodeId" element={<DocumentEditorPage />} />
-          <Route path="pass" element={<PassPage />} />
-          <Route path="mail" element={<MailPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="notes" element={<NotesPage />} />
-          <Route path="tasks" element={<TasksPage />} />
-          <Route path="contacts" element={<ContactsPage />} />
-          <Route path="photos" element={<PhotosPage />} />
-          {/* `/app/settings` (canonique) tente de récupérer un slug rotatif
-              `/app/settings/sec/:token` ; en cas d'indisponibilité serveur
-              (URL_TOKEN_SECRET absent → 503), on retombe sur la page non
-              obfusquée pour ne pas casser l'UX. */}
+          <Route
+            path="office"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <OfficePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="office/editor/:nodeId"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <DocumentEditorPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="pass"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <PassPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="mail"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <MailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="calendar"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <CalendarPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="notes"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <NotesPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="tasks"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <TasksPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="contacts"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <ContactsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="photos"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <PhotosPage />
+              </Suspense>
+            }
+          />
           <Route path="settings" element={<SettingsRedirect />} />
-          <Route path="settings/sec/:token" element={<SecureSettingsPage />} />
-          <Route path="settings/canonical" element={<AppSettingsPage />} />
+          <Route
+            path="settings/sec/:token"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <SecureSettingsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="settings/canonical"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AppSettingsPage />
+              </Suspense>
+            }
+          />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

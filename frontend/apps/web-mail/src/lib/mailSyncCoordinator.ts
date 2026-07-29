@@ -2,7 +2,7 @@
  * Coordonne les sync IMAP entre GlobalMailSyncWatcher, MailPage et le Hub
  * pour éviter les rafales 409 côté mail-directory-service.
  */
-import { syncMailAccount, type MailAccountResponse } from '../api'
+import { syncMailAccount, type MailAccountResponse } from '@cloudity/web-shell/api'
 
 export type MailSyncResult = Awaited<ReturnType<typeof syncMailAccount>>
 

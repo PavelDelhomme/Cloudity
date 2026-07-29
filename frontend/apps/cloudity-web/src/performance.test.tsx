@@ -93,7 +93,7 @@ describe('Performance', () => {
   it('AppHub se rend sous le seuil', () => {
     const start = performance.now()
     render(wrap(<AppHub />))
-    expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Applications' })).toBeTruthy()
     const elapsed = performance.now() - start
     expect(elapsed).toBeLessThan(PERF.HUB_RENDER_MS)
   })

@@ -20,10 +20,11 @@
     "test:e2e:drive": "playwright test e2e/drive.spec.ts"
   },
   "dependencies": {
-    "@cloudity/app-vault-crypto": "file:../../packages/app-vault-crypto",
-    "@cloudity/pass-crypto": "file:../../packages/pass-crypto",
-    "@cloudity/shared": "file:../../packages/cloudity-shared",
-    "@cloudity/ui": "file:../../packages/cloudity-ui",
+      "@cloudity/app-vault-crypto": "file:../../packages/app-vault-crypto",
+      "@cloudity/pass-crypto": "file:../../packages/pass-crypto",
+      "@cloudity/shared": "file:../../packages/cloudity-shared",
+      "@cloudity/ui": "file:../../packages/cloudity-ui",
+      "@cloudity/web-mail": "file:../web-mail",
     "@tanstack/react-query": "^5.0.0",
     "axios": "^1.16.0",
     "docx": "^9.6.0",

@@ -19,11 +19,11 @@ Le routeur principal reste dans **`src/App.tsx`** (shell utilisateur) et **`src/
 
 | Dossier | Pages |
 |---------|--------|
-| **`hub/`** | Hub d’accueil (`AppHub`). |
-| **`drive/`** | Drive. |
+| **`hub/`** | Hub d’accueil (`AppHub`) — **launcher only** (FE-HUB-01), catalogue `src/hub/appsCatalog.ts`. |
+| **Mail** | **Déplacé** → `frontend/apps/web-mail` (`@cloudity/web-mail`), monté lazy sur `/app/mail`. |
+| **`drive/`** | Drive (encore embedded — FE-SPLIT-02). |
 | **`office/`** | Liste Office + **éditeur de documents** (`OfficePage`, `DocumentEditorPage`) — à terme : sous-modules `word/`, `spreadsheet/`, `presentation/` si le fichier `DocumentEditorPage.tsx` est découpé. |
 | **`pass/`** | Coffre mots de passe utilisateur. |
-| **`mail/`** | Mail + chrome (`MailPage`, `MailPageChrome`). |
 | **`calendar/`**, **`notes/`**, **`tasks/`**, **`contacts/`**, **`photos/`** | Apps correspondantes (`photosTypes.ts` reste à côté de `PhotosPage.tsx`). |
 | **`settings/`** | **Paramètres du compte** dans l’app utilisateur (`AppSettingsPage`) — distinct des **`pages/admin/Settings`**. |
 
@@ -39,12 +39,13 @@ le code testé (convention Vitest / Jest standard, opposée à pytest) :
 ```
 frontend/apps/cloudity-web/src/
   api.ts
-  api.test.ts                   ← OK : à côté du fichier testé
-  authContext.tsx
-  authContext.test.tsx          ← OK
-  pages/app/mail/
-    MailPage.tsx
-    MailPage.test.tsx           ← OK (à créer si manquant)
+  api/mail.ts                   ← domaine Mail (réexporté par api.ts)
+  pages/app/hub/
+    AppHub.tsx
+    AppHub.test.tsx
+frontend/apps/web-mail/src/mail/
+  MailPage.tsx
+  MailPage.test.tsx             ← tests colocalisés avec l’app Mail
 ```
 
 Avantages :

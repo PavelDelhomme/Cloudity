@@ -1,0 +1,29 @@
+{
+  "name": "@cloudity/web-mail",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Application Mail Cloudity (FE-SPLIT-01) — pages + libs mail. Montée lazy par le shell tant que le deploy multi-apps n’est pas découpé.",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mailSyncHelpers": "./src/mail/mailSyncHelpers.ts",
+    "./mailDesktopNotifications": "./src/lib/mailDesktopNotifications.ts",
+    "./mailNotifyNewMessages": "./src/lib/mailNotifyNewMessages.ts",
+    "./mailNotifySyncFailure": "./src/lib/mailNotifySyncFailure.ts",
+    "./mailSyncCoordinator": "./src/lib/mailSyncCoordinator.ts",
+    "./mailAlias": "./src/lib/mailAlias.ts",
+    "./MailAliasDomainConfig": "./src/components/mail/MailAliasDomainConfig.tsx"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^0.263.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.30.4"
+  },
+  "dependencies": {
+    "@cloudity/shared": "file:../../packages/cloudity-shared"
+  }
+}

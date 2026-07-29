@@ -1,5 +1,5 @@
-import type { MailAccountResponse } from '../api'
-import type { useNotifications } from '../notificationsContext'
+import type { MailAccountResponse } from '@cloudity/web-shell/api'
+import type { useNotifications } from '@cloudity/web-shell/notificationsContext'
 import { buildMailDeepLink, resolveMailNotificationTarget } from './mailNotificationDeepLink'
 import { showMailDesktopNotification } from './mailDesktopNotifications'
 

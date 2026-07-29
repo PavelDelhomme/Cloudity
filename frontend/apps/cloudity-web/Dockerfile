@@ -9,6 +9,7 @@ WORKDIR /ws
 COPY package.json package-lock.json* ./
 COPY packages ./packages
 COPY apps/cloudity-web ./apps/cloudity-web
+COPY apps/web-mail ./apps/web-mail
 
 RUN npm ci
 

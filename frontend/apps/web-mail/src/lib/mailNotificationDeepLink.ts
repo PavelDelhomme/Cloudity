@@ -1,4 +1,4 @@
-import { fetchMailMessages } from '../api'
+import { fetchMailMessages } from '@cloudity/web-shell/api'
 
 export type MailDeepLinkTarget = {
   accountId: number

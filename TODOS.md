@@ -14,6 +14,33 @@
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`**.
 
+### Session 2026-07-29 — FE-HUB-01 livré (cocher Pilotage)
+
+| Critère checklist | État |
+|-------------------|------|
+| MULTI-APPS-WEB-MOBILE.md | ☑ inventaire § 2.2bis + checklist |
+| Inventaire pages/app/* (taille/routes) | ☑ |
+| Hub `/app` grille liens only | ☑ AppHub + appsCatalog |
+| Note prochain = FE-SPLIT-01 (Mail) | ☑ catalogue Pilotage |
+
+**Toi** : Sync docs → Focus FE-HUB-01 → coche les 4 → OK → Focus **FE-SPLIT-01**.
+
+---
+
+### Session 2026-07-29 — FE-HUB-01 + début FE-SPLIT-01 (Mail)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Hub launcher** | ☑ | `/app` = grille liens uniquement (`appsCatalog.ts`) — plus d’aperçus API |
+| **Lazy routes** | ☑ | Produits en `React.lazy` (chunks séparés) |
+| **api/mail.ts** | ☑ | Client Mail utilisateur sorti du monolithe `api.ts` |
+| **@cloudity/web-mail** | ☑ | Pages/libs Mail hors `pages/app/` ; lazy mount shell |
+| **Suite FE-SPLIT-01** | 🟡 | SPA autonome + nginx `/app/mail` (hosting external) |
+
+**Maintenant** : Pilotage cocher FE-HUB-01 critères inventaire/hub ; enchaîner FE-SPLIT-01 (entry Vite mail + nginx).
+
+---
+
 ### Session 2026-07-29 — Multi-apps web + DA Flutter (PRIORITÉ)
 
 | Sujet | État | Détail |

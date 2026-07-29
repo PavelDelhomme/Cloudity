@@ -30,11 +30,13 @@ import GlobalSearchPalette from '../components/GlobalSearchPalette'
 import { NotificationsProvider, useNotifications } from '../notificationsContext'
 import { formatRelativeDate } from '../utils/formatDate'
 import { fetchMailAccounts, type MailAccountResponse } from '../api'
-import { coordinatedSyncMailAccount } from '../lib/mailSyncCoordinator'
-import { accountCanBackgroundImapSync } from '../pages/app/mail/mailSyncHelpers'
-import { registerMailNotificationClickHandler } from '../lib/mailDesktopNotifications'
-import { notifyNewMailMessages } from '../lib/mailNotifyNewMessages'
-import { notifyMailSyncFailure } from '../lib/mailNotifySyncFailure'
+import {
+  coordinatedSyncMailAccount,
+  accountCanBackgroundImapSync,
+  registerMailNotificationClickHandler,
+  notifyNewMailMessages,
+  notifyMailSyncFailure,
+} from '@cloudity/web-mail'
 
 function NotificationBell() {
   const ctx = useNotifications()

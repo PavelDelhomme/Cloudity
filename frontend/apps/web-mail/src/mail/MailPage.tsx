@@ -54,8 +54,8 @@ import {
   Link2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { useAuth } from '../../../authContext'
-import { useAppPageChromeSetters } from '../../../appPageChromeContext'
+import { useAuth } from '@cloudity/web-shell/authContext'
+import { useAppPageChromeSetters } from '@cloudity/web-shell/appPageChromeContext'
 import { MailAppChromeMenu } from './MailPageChrome'
 import { MailAddAccountModal } from './MailAddAccountModal'
 import { MailGoogleConnectButton } from './MailGoogleConnectButton'
@@ -77,8 +77,8 @@ import {
   sortMailAccountsByUserOrder,
   type MailListSortOrder,
 } from './mailAccountOrderPreferences'
-import { notifyMailSyncFailure } from '../../../lib/mailNotifySyncFailure'
-import { useNotifications } from '../../../notificationsContext'
+import { notifyMailSyncFailure } from '../lib/mailNotifySyncFailure'
+import { useNotifications } from '@cloudity/web-shell/notificationsContext'
 import {
   apiUrl,
   fetchDriveNodes,
@@ -135,22 +135,22 @@ import {
   type MailAccountAliasResponse,
   type VaultResponse,
   type PassItemResponse,
-} from '../../../api'
-import { coordinatedSyncMailAccount } from '../../../lib/mailSyncCoordinator'
-import MailAliasDomainConfig from '../../../components/mail/MailAliasDomainConfig'
+} from '@cloudity/web-shell/api'
+import { coordinatedSyncMailAccount } from '../lib/mailSyncCoordinator'
+import MailAliasDomainConfig from '../components/mail/MailAliasDomainConfig'
 import ComposeBodyField from './ComposeBodyField'
 import {
   effectiveAliasHostSuffix,
   resolveAliasEmailInput,
   subscribeAliasSuffixChanges,
-} from '../../../lib/mailAlias'
-import { parseMailDeepLink } from '../../../lib/mailNotificationDeepLink'
-import { notifyNewMailMessages } from '../../../lib/mailNotifyNewMessages'
+} from '../lib/mailAlias'
+import { parseMailDeepLink } from '../lib/mailNotificationDeepLink'
+import { notifyNewMailMessages } from '../lib/mailNotifyNewMessages'
 import {
   parseCloudityDateTime,
   datetimeLocalInputToUtcIso,
   formatCloudityDateTimeLocal,
-} from '../../../lib/datetime'
+} from '@cloudity/web-shell/lib/datetime'
 
 const STORAGE_RECENT_RECIPIENTS = 'cloudity_mail_recent_recipients'
 const STORAGE_MAIL_SIGNATURE = 'cloudity_mail_signature'

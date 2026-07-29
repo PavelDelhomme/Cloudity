@@ -3138,8 +3138,8 @@
       "cycleId": "cycle-now",
       "section": "Frontend",
       "label": "FE-HUB-01 — cloudity-web = hub seulement",
-      "description": "Cible : frontend/apps/cloudity-web ne sert plus que le shell (/, /login, /app hub + liens). Plus de gros monolithe Mail/Drive/… dedans.\nDoc : docs/architecture/MULTI-APPS-WEB-MOBILE.md",
-      "expected": "Inventaire routes monolithe + règle hub documentée + hub UI claire (liens apps).",
+      "description": "LIVRÉ (à cocher) : cloudity-web hub = shell (/, /login, /app grille liens). Inventaire + règle hub dans docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis. AppHub sans fetch métier. NOTE PILOTAGE : prochain Focus = FE-SPLIT-01 (Mail autonome — package @cloudity/web-mail déjà créé, reste entry Vite + nginx).",
+      "expected": "☑ Inventaire pages/app + routes · ☑ MULTI-APPS doc · ☑ Hub liens-only · ☑ Note suite = FE-SPLIT-01. Cocher critères puis Focus FE-SPLIT-01.",
       "status": "open",
       "order": 1,
       "checklistLabels": [
@@ -3151,20 +3151,20 @@
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "Pourquoi",
-          "body": "Un seul Vite app avec tout le métier = mémoire, build, bordel. Le hub doit seulement lancer les apps."
+          "title": "1 — Doc",
+          "body": "Ouvre docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis (inventaire tailles/routes) et § checklist FE-HUB-01."
         },
         {
-          "title": "Doc",
-          "body": "Ouvre docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2. Liste les dossiers pages/app/* et api.ts."
+          "title": "2 — Hub",
+          "body": "Vérifie http://localhost:6001/app : grille « Applications », liens Drive/Mail/… sans aperçus non lus / fichiers récents. Code : AppHub.tsx + appsCatalog.ts."
         },
         {
-          "title": "Hub",
-          "body": "AppHub = carte d’apps (Drive, Mail, …). Pas de features métier dans cloudity-web à terme."
+          "title": "3 — Cocher",
+          "body": "Coche les 4 critères de cette tâche → décision OK (ou Partiel si smoke UI manquant)."
         },
         {
-          "title": "Suite",
-          "body": "Quand inventaire OK → FE-SPLIT-01 (extraire web-mail)."
+          "title": "4 — Suite = FE-SPLIT-01",
+          "body": "Focus immédiat suivant : FE-SPLIT-01 — finir web-mail (SPA + nginx). Ne pas passer à H19 tant que FE-SPLIT-01 n’est pas engagé."
         }
       ],
       "docLinks": [
@@ -3183,7 +3183,7 @@
       "cycleId": "cycle-now",
       "section": "Frontend",
       "label": "FE-SPLIT-01 — Extraire web-mail hors monolithe",
-      "description": "Créer frontend/apps/web-mail (workspace) consommant @cloudity/shared + @cloudity/ui ; hub cloudity-web pointe vers cette app. Doc MULTI-APPS-WEB-MOBILE.md § 2.3.",
+      "description": "PRÉREQUIS FE-HUB-01 livré. Package frontend/apps/web-mail (@cloudity/web-mail) existe ; Mail monté lazy dans le shell. À faire : entry Vite autonome + base /app/mail + nginx ; hub hosting mail → external. Doc MULTI-APPS § 2.3.",
       "expected": "App web-mail buildable ; smoke /app/mail ; monolithe allégé d’au moins Mail.",
       "status": "open",
       "order": 2,
@@ -3196,16 +3196,20 @@
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "Prérequis",
-          "body": "FE-HUB-01 inventaire fait. Pattern monorepo frontend/ déjà en place."
+          "title": "État",
+          "body": "Code Mail déjà dans apps/web-mail ; api/mail.ts extrait. Shell importe encore lazy."
         },
         {
-          "title": "Scaffold",
-          "body": "Copier structure minimale Vite depuis cloudity-web ; dépendre de @cloudity/shared et @cloudity/ui uniquement."
+          "title": "Entry",
+          "body": "Ajouter main/vite pour web-mail (base /app/mail/), build dans Dockerfile."
         },
         {
-          "title": "Migration",
-          "body": "Déplacer pages/app/mail/* ; découper api.ts mail vers le package app ou shared."
+          "title": "Nginx",
+          "body": "location /app/mail → dist web-mail ; hub appsCatalog hosting=external + <a href>."
+        },
+        {
+          "title": "Smoke",
+          "body": "Ouvrir /app/mail après login ; bundle shell ne charge plus MailPage."
         }
       ],
       "docLinks": [
