@@ -1204,10 +1204,27 @@ export default function PilotagePage() {
             onClick={() => dismissPanel()}
           >
             {board.counts ? (
-              <div
-                className="flex flex-wrap gap-2 text-xs items-center"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                {board.active ? (
+                  <p className="text-xs text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 px-3 py-2">
+                    <span className="font-semibold">Focus</span> = tête de file (
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 font-medium"
+                      onClick={() => selectTask(board.active!.id)}
+                    >
+                      {board.active.id}
+                    </button>
+                    ,{' '}
+                    <span className={statusClass(board.active.status)}>
+                      {board.active.statusLabel || statusLabel(board.active.status)}
+                    </span>
+                    ). Les pastilles ci-dessous comptent par <strong>statut</strong> sur tout le
+                    catalogue — « En cours » = 0 tant que personne n’a cliqué la décision{' '}
+                    <em>En cours</em> (Partiel / À faire ≠ En cours).
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2 text-xs items-center">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
@@ -1229,18 +1246,30 @@ export default function PilotagePage() {
                     'ko',
                     'deferred',
                   ] as const
-                ).map((k) => (
+                ).map((k) => {
+                  const n = board.counts?.[k] ?? 0
+                  if (n === 0 && k !== 'in_progress' && statusFilter !== k) return null
+                  return (
                   <button
                     key={k}
                     type="button"
                     onClick={() => setStatusFilter(k)}
+                    title={
+                      k === 'in_progress'
+                        ? 'Statut « En cours » uniquement (décision En cours). La Focus peut être Partiel.'
+                        : k === 'open'
+                          ? 'Tâches jamais démarrées (catalogue). Filtre, pas la file « À faire maintenant ».'
+                          : undefined
+                    }
                     className={`rounded-full px-2.5 py-1 font-medium ${statusClass(k)} ${
                       statusFilter === k ? 'ring-2 ring-offset-1 ring-slate-400' : ''
-                    }`}
+                    } ${n === 0 ? 'opacity-50' : ''}`}
                   >
-                    {statusLabel(k)} {board.counts?.[k] ?? 0}
+                    {statusLabel(k)} {n}
                   </button>
-                ))}
+                  )
+                })}
+                </div>
               </div>
             ) : null}
 
@@ -1252,7 +1281,9 @@ export default function PilotagePage() {
                 onToggle={() => setOpenSections((s) => ({ ...s, now: !s.now }))}
               >
                 <p className="text-xs text-slate-500 mb-2">
-                  Travaille de haut en bas. Un problème passe en tête et bloque le parent jusqu’à résolution.
+                  File de travail (ordre). Le badge <strong>FOCUS</strong> = tête de file ;
+                  le statut (Partiel / En cours / …) est indépendant. Les pastilles du haut
+                  filtrent tout le catalogue (101 « À faire » = jamais démarrées ailleurs).
                 </p>
                 <div className="space-y-2">
                   {tasksFor(nowCycle?.itemIds || []).map((t) => (
@@ -1811,7 +1842,7 @@ export default function PilotagePage() {
               />
             ) : (
               <Card className="p-6 text-sm text-slate-500">
-                Sélectionne une tâche ou une version — ou clique En cours
+                Sélectionne une tâche ou une version — ou ouvre le Focus
               </Card>
             )}
           </div>

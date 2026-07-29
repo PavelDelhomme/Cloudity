@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -277,14 +277,17 @@
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
       "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nLAN (1, 2, 3a) → Partiel. HTTPS VPS (3b) = DNS + Portainer env + NPM proxy + login téléphone.\nInterim manuel : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
-      "expected": "LAN : 1+2+3a cochés → Partiel. HTTPS : 3b coché (DNS A cloudity.+api.cloudity. → VPS, env Portainer, NPM Force SSL, curl /health, login mobile) → OK.",
+      "expected": "LAN = 1+2+3a → Partiel. HTTPS = cocher 3b-dns → 3b-env → 3b-npm → 3b-smoke puis Validé/OK.",
       "status": "partial",
       "order": 1,
       "checklistLabels": [
         "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
         "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
         "3a. Smoke LAN : curl /health + CORS + login téléphone Wi‑Fi",
-        "3b. HTTPS VPS : DNS + env Portainer + NPM proxy api.* / web + login téléphone"
+        "3b-dns. DNS A : cloudity.<dom> + api.cloudity.<dom> → IP VPS",
+        "3b-env. make env-prod DOMAIN=… + make portainer-env collé dans Portainer",
+        "3b-npm. NPM Proxy Hosts Force SSL : api.* → gateway:8000 · web → web:3000",
+        "3b-smoke. curl https://api…/health + CORS Origin https://cloudity… + login téléphone"
       ],
       "source": "catalog",
       "howToSteps": [
@@ -306,7 +309,7 @@
         },
         {
           "title": "3b — HTTPS VPS (étape par étape)",
-          "body": "Interim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
+          "body": "État constaté (PC) : cloudity.delhomme.ovh résout (A) mais TLS SNI KO ; api.cloudity.delhomme.ovh ne résout PAS → créer l’enregistrement DNS A.\n\nInterim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
         },
         {
           "title": "Décisions Pilotage",
