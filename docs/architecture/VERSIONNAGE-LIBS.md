@@ -168,6 +168,7 @@ Cibles Make :
 - Décisions versionnage / publication : **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** § Q4 (publication publique), § Q10 (Phase 0 immédiate).
 - Conventions backend Go + statut `pkg/dbpin` : **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)** § 4.
 - Conventions frontend : **[FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md)**.
+- Index versions projet + Portainer : **[../operations/VERSIONS-PROJET.md](../operations/VERSIONS-PROJET.md)** · **[../operations/PORTAINER-STACK-GIT-COMPLET.md](../operations/PORTAINER-STACK-GIT-COMPLET.md)**.
 
 ---
 

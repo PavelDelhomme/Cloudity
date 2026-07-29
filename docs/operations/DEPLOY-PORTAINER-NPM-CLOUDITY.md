@@ -2,6 +2,10 @@
 
 **Rôle** : procédure **interim** (manuelle) pour préprod/prod — utile tant que [ZoneForge](https://github.com/PavelDelhomme/ZoneForge) n’est pas prêt pour Cloudity.
 
+> **Formulaire Git Portainer complet** (auth, Compose path, Additional paths, alternatives) →  
+> **[PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md)**  
+> Versions libs/services → **[VERSIONS-PROJET.md](VERSIONS-PROJET.md)**
+
 > **Cible** : déployer / redeploy **sans** coller dans Portainer + NPM à la main → **[ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md)** · tâches Pilotage `ZF-01`…`ZF-05`.  
 > Ce document reste le **fallback** et la référence des Proxy Hosts / DNS.
 
@@ -32,19 +36,21 @@ Tu **colles** les variables dans Portainer (comme `MYSQL_PASSWD` / `JWT_SCT` pou
 
 ## 2. Créer la stack (Portainer)
 
-**Stacks → Add stack**
+**Suivre le guide complet** : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).
+
+**Stacks → Add stack** (résumé) :
 
 | Champ | Valeur conseillée |
 |-------|-------------------|
-| Name | `cloudity` (prod) ou `cloudity-preprod` |
-| Build method | **Git repository** (ou Web editor si tu préfères coller le compose) |
-| Repository URL | ton repo GitHub Cloudity |
-| Reference | `refs/heads/main` (ou branche release) |
-| Compose path | ex. `deploy/portainer/docker-compose.stack.yml` (voir dossier `deploy/portainer/`) |
+| Name | `cloudity-stack` (prod) ou `cloudity-stack-dev` |
+| Build method | **Git repository** |
+| Repository URL | `https://github.com/PavelDelhomme/Cloudity.git` |
+| Reference | `refs/heads/main` (essai : `refs/heads/dev`) |
+| Compose path | `deploy/portainer/docker-compose.stack.yml` |
+| Additional paths | `docker-compose.yml` · `docker-compose.prod.yml` · `backend/` · `frontend/` |
+| Authentication | user GitHub + **PAT** `repo` (si privé) |
 
-**Environment variables** : mode avancé → colle la sortie de `make portainer-env`.
-
-Réseau : comme Nextcloud, attache les services exposés (web + api-gateway) au **réseau NPM** (souvent `nginx-proxy-manager_npm-network` ou `shared-network-copy` — **le même** que NPM / Nextcloud).
+**Environment variables** : mode avancé → `make portainer-env` + `NPM_NETWORK=<réseau NPM>`.
 
 ---
 

@@ -19,7 +19,8 @@
 |-------|---------|
 | Hub 3 environnements | [DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md) |
 | Checklist ordonnée (cases ☐) | [DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md) |
-| Portainer formulaire Git | [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md) |
+| Portainer formulaire Git | [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md) |
+| Versions libs / services | [VERSIONS-PROJET.md](VERSIONS-PROJET.md) · [../architecture/VERSIONNAGE-LIBS.md](../architecture/VERSIONNAGE-LIBS.md) |
 | NPM + stacks détaillées | [DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md) |
 | Ton VPS (DNS, réseaux) | [PORTAINER-VPS.md](PORTAINER-VPS.md) |
 | Secrets | [ENV-GENERATION.md](ENV-GENERATION.md) · [../securite/SECRETS.md](../securite/SECRETS.md) |
@@ -222,16 +223,18 @@ Internet ──HTTPS──► NPM (Let's Encrypt)
 
 **Stacks → Add stack → Git repository**
 
+**Guide complet (auth, Additional paths, alternatives)** : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · résumé : [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md) · versions : [VERSIONS-PROJET.md](VERSIONS-PROJET.md)
+
 | Champ | Valeur |
 |-------|--------|
 | Name | `cloudity-stack` |
 | Repository URL | `https://github.com/PavelDelhomme/Cloudity.git` |
-| Repository reference | `refs/heads/main` |
+| Repository reference | `refs/heads/main` (premier essai : `refs/heads/dev`) |
 | Compose path | `deploy/portainer/docker-compose.stack.yml` |
+| Additional paths | `docker-compose.yml` + `docker-compose.prod.yml` (+ `backend/` `frontend/` pour GitOps) |
 | Authentication | PAT GitHub si repo privé |
 | GitOps | Activé, polling 5 min |
-
-**Guide détaillé** : [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md)
+| Env | `make portainer-env` + `NPM_NETWORK=…` |
 
 ### 4.4 Variables Portainer (Advanced mode)
 

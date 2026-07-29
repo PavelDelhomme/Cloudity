@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -317,6 +317,9 @@
         }
       ],
       "docLinks": [
+        "deploy/portainer/PORTAINER-STACK.md",
+        "docs/operations/VERSIONS-PROJET.md",
+        "docs/operations/PORTAINER-STACK-GIT-COMPLET.md",
         "docs/operations/H14-GATEWAY-MOBILE.md",
         "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
         "docs/operations/ENV-GENERATION.md",

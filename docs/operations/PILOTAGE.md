@@ -37,7 +37,7 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : runbook **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · HTTPS VPS via **[ZoneForge](ZONEFORGE-CLOUDITY.md)** (`ZF-03`) · fallback manuel **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)**.
+**H14** : runbook **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · stack Git **[PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md)** · versions **[VERSIONS-PROJET.md](VERSIONS-PROJET.md)** · fallback NPM **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)** · ZoneForge **[ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md)**.
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
 

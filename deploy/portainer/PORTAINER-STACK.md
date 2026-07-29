@@ -1,6 +1,9 @@
 # Stack Portainer « cloudity-stack » — déploiement Git
 
-Guide pas à pas pour créer la stack **`cloudity-stack`** dans Portainer avec **dépôt Git**.
+Guide **condensé**. Pour le détail **champ par champ** (auth PAT, Additional paths, alternatives, dépannage) :
+
+→ **[docs/operations/PORTAINER-STACK-GIT-COMPLET.md](../../docs/operations/PORTAINER-STACK-GIT-COMPLET.md)**  
+→ Versions : **[docs/operations/VERSIONS-PROJET.md](../../docs/operations/VERSIONS-PROJET.md)**
 
 **Dépôt** : `https://github.com/PavelDelhomme/Cloudity.git`
 
@@ -36,7 +39,7 @@ Docs : [BRANCHES.md](../../docs/operations/BRANCHES.md) · [DEPLOIEMENT-SUIVI.md
 | **Repository URL** | `https://github.com/PavelDelhomme/Cloudity.git` |
 | **Repository reference** | `refs/heads/main` |
 | **Compose path** | `deploy/portainer/docker-compose.stack.yml` |
-| **Additional paths** | *(vide)* |
+| **Additional paths** | `docker-compose.yml` · `docker-compose.prod.yml` · `backend/` · `frontend/` (voir guide complet § 2.6) |
 | **Authentication** | Repo **privé** : user GitHub + PAT (`repo`) |
 | **Skip TLS Verification** | Non |
 
