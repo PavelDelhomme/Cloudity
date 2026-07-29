@@ -1,7 +1,7 @@
 # Portainer — stack Cloudity via dépôt Git (guide complet)
 
-> **Tu arrives d’où ?** Depuis **[SUIVRE-ICI.md](SUIVRE-ICI.md) § B** (mode prod).  
-> Ce fichier = **détail du formulaire** Portainer uniquement. Ne remplace pas SUIVRE-ICI.
+> **Tu arrives d’où ?** Depuis **[DEPLOIEMENT.md](DEPLOIEMENT.md) § B** (index [`../README.md`](../README.md)) (mode prod).  
+> Ce fichier = **détail du formulaire** Portainer uniquement. Ne remplace pas DEPLOIEMENT.md.
 
 **But** : remplir **chaque champ** du formulaire Portainer « Add stack → Git repository », coller les bons fichiers Compose, authentifier GitHub, brancher NPM.
 

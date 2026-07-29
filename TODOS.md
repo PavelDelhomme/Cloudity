@@ -3,28 +3,40 @@
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
 > ## Point d’entrée UNIQUE (ops / deploy / Pilotage)
-> **Lis et suis** → **[`docs/operations/SUIVRE-ICI.md`](docs/operations/SUIVRE-ICI.md)**  
-> Valide au fur et à mesure dans **`/4dm1n/pilotage`** (tâche **H14**).  
-> Ne lis `PORTAINER-STACK-GIT-COMPLET.md` / `VERSIONS-*` **que** quand SUIVRE-ICI te le dit.
+> **Index doc** → [`docs/README.md`](docs/README.md)  
+> **Chemin à suivre** → **[`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md)**  
+> Valide dans **`/4dm1n/pilotage`** (tâche **H14**).  
+> Ne lis `PORTAINER-STACK-GIT-COMPLET` / `VERSIONS-*` **que** quand DEPLOIEMENT te le dit.
 
 > **Mail prod** (OVH, DNS, VPS mail) reste **en pause** jusqu’à signal explicite.  
 > Hors mail prod = Pass, Photos, Drive, mobile, UI, tests locaux (`make up`), etc.
 
 **Branche active** : **`feat/app-vault-drive-upload-pin-rotation`**.
 
-### Session 2026-07-29 — Doc maître + Portainer Git
+### Session 2026-07-29 — Nettoyage docs (index + DEPLOIEMENT + MAIL-ALIAS)
 
 | Sujet | État | Détail |
 |-------|------|--------|
-| **SUIVRE-ICI.md** | ☑ | Point d’entrée unique local + prod |
-| **PORTAINER-STACK-GIT-COMPLET** | ☑ | Détail formulaire (ouvert depuis SUIVRE-ICI § B) |
+| **docs/README.md** | ☑ | Index unique de toute la doc |
+| **DEPLOIEMENT.md** | ☑ | Remplace SUIVRE-ICI (chemin ops) |
+| **MAIL-ALIAS.md** | ☑ | 6 fiches alias fusionnées + stubs |
+| **Stubs ops** | ☑ | GUIDE-COMPLET, DEPLOY-PORTAINER-NPM, ENVIRONNEMENTS, SUIVI → DEPLOIEMENT |
+
+**Maintenant** : [`docs/README.md`](docs/README.md) → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) → Pilotage **H14**.
+
+---
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **DEPLOIEMENT.md** (+ `docs/README.md`) | ☑ | Point d’entrée unique local + prod |
+| **PORTAINER-STACK-GIT-COMPLET** | ☑ | Détail formulaire (ouvert depuis DEPLOIEMENT § B) |
 | **H14** | 🟡 | LAN+DNS+env OK ; restent NPM forwards + stack Portainer + smoke |
 
 **Maintenant** :
 
-1. Ouvre [`docs/operations/SUIVRE-ICI.md`](docs/operations/SUIVRE-ICI.md)
+1. Ouvre [`docs/README.md`](docs/README.md) puis [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md)
 2. `/4dm1n/pilotage` → Sync docs → **H14**
-3. Enchaîne § B2 NPM → § B3 Portainer → `make h14-https-check` → coche 3b-npm / 3b-smoke
+3. Dans DEPLOIEMENT : § B2 NPM → § B3 Portainer → `make h14-https-check` → coche 3b-npm / 3b-smoke
 
 ---
 

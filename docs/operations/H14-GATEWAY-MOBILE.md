@@ -166,7 +166,7 @@ Pour cocher **OK** global H14, il faut **C** (HTTPS) ou documenter explicitement
 
 ## Liens
 
-- **Point d’entrée** : [SUIVRE-ICI.md](SUIVRE-ICI.md)  
+- **Point d’entrée** : [DEPLOIEMENT.md](DEPLOIEMENT.md)  
 - **Stack Portainer Git (détail formulaire)** : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md)  
 - Versions libs/services : [VERSIONS-PROJET.md](VERSIONS-PROJET.md) · [../architecture/VERSIONNAGE-LIBS.md](../architecture/VERSIONNAGE-LIBS.md)  
 - `make sync-public-urls` · [ENV-GENERATION.md](ENV-GENERATION.md)  

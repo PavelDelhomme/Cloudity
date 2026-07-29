@@ -1098,7 +1098,7 @@ export default function PilotagePage() {
   return (
     <PageLayout
       title="Pilotage projet"
-      description="Suivre docs/operations/SUIVRE-ICI.md — valider dans ce board (H14)."
+      description="Suivre docs/operations/DEPLOIEMENT.md — valider dans ce board (H14)."
     >
       <Card className="p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2 min-w-0">

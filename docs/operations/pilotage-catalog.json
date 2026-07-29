@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -276,8 +276,8 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Suivre docs/operations/SUIVRE-ICI.md (point d’entrée unique).\nValider chaque critère ici dans Pilotage.\nLAN = 1+2+3a. Prod VPS = 3b-dns → env → npm → smoke (détail Portainer seulement dans PORTAINER-STACK-GIT-COMPLET.md § B).",
-      "expected": "Ouvre SUIVRE-ICI.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
+      "description": "Suivre docs/operations/DEPLOIEMENT.md (point d’entrée unique).\nValider chaque critère ici dans Pilotage.\nLAN = 1+2+3a. Prod VPS = 3b-dns → env → npm → smoke (détail Portainer seulement dans PORTAINER-STACK-GIT-COMPLET.md § B).",
+      "expected": "Ouvre DEPLOIEMENT.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
       "status": "partial",
       "order": 1,
       "checklistLabels": [
@@ -292,8 +292,8 @@
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "Point d’entrée — SUIVRE-ICI.md",
-          "body": "Un seul doc à suivre : docs/operations/SUIVRE-ICI.md\n§ A = dev local (make up-ready). § B = prod (NPM + Portainer).\nN’ouvre PORTAINER-STACK-GIT-COMPLET.md que pour remplir le formulaire Portainer.\nVERSIONS-PROJET / VERSIONNAGE-LIBS = seulement si tu touches aux libs."
+          "title": "Point d’entrée — DEPLOIEMENT.md",
+          "body": "Un seul doc à suivre : docs/operations/DEPLOIEMENT.md\n§ A = dev local (make up-ready). § B = prod (NPM + Portainer).\nN’ouvre PORTAINER-STACK-GIT-COMPLET.md que pour remplir le formulaire Portainer.\nVERSIONS-PROJET / VERSIONNAGE-LIBS = seulement si tu touches aux libs."
         },
         {
           "title": "Où suis-je ?",
@@ -321,7 +321,8 @@
         }
       ],
       "docLinks": [
-        "docs/operations/SUIVRE-ICI.md",
+        "docs/README.md",
+        "docs/operations/DEPLOIEMENT.md",
         "deploy/portainer/PORTAINER-STACK.md",
         "docs/operations/VERSIONS-PROJET.md",
         "docs/operations/PORTAINER-STACK-GIT-COMPLET.md",

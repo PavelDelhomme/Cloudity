@@ -5,7 +5,7 @@
 **UI** : http://localhost:6001/4dm1n/pilotage
 
 > **Par où commencer (ops / deploy)** :  
-> **[`SUIVRE-ICI.md`](SUIVRE-ICI.md)** — un seul chemin. Tu coches ici dans Pilotage (**H14**).
+> **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — un seul chemin. Tu coches ici dans Pilotage (**H14**).
 
 ---
 
@@ -13,12 +13,12 @@
 
 | Source | Rôle |
 |--------|------|
-| **[`SUIVRE-ICI.md`](SUIVRE-ICI.md)** | Ordre des actions (dev + prod) — **lire en premier** |
+| **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** | Ordre des actions (dev + prod) — **lire en premier** |
 | **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches) — seed du board |
 | **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** |
 | **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions) |
 
-Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand SUIVRE-ICI le demande.
+Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand **DEPLOIEMENT.md** le demande.
 
 ---
 
@@ -41,7 +41,7 @@ Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : suis d’abord **[SUIVRE-ICI.md](SUIVRE-ICI.md)** · runbook [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · détail Portainer seulement si besoin [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).
+**H14** : suis d’abord **[DEPLOIEMENT.md](DEPLOIEMENT.md)** · runbook [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · détail Portainer seulement si besoin [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
 
