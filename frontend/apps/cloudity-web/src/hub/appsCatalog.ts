@@ -6,7 +6,7 @@
  * - `embedded`  : encore monté dans le routeur du shell (lazy) — à extraire (FE-SPLIT-*)
  * - `external`  : app workspace séparée ; le hub navigue en full page (`<a href>`)
  *
- * Doc : docs/architecture/MULTI-APPS-WEB-MOBILE.md
+ * Doc : docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis
  */
 
 export type HubAppHosting = 'shell' | 'embedded' | 'external'
@@ -50,7 +50,7 @@ export const HUB_APP_CATEGORIES = [
 
 export type HubAppCategory = (typeof HUB_APP_CATEGORIES)[number]
 
-/** Apps affichées sur `/app` (grille launcher). */
+/** Apps affichées sur `/app` (grille launcher — liens only). */
 export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
   {
     id: 'drive',
@@ -77,14 +77,14 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Fichiers',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-drive',
-    description: 'Éléments supprimés (Drive)',
+    description: 'Éléments supprimés',
   },
   {
     id: 'mail',
     name: 'Mail',
     href: '/app/mail',
     category: 'Communication',
-    /** FE-SPLIT-01 : code dans apps/web-mail ; encore monté lazy dans le shell. */
+    /** FE-SPLIT-01 : code dans apps/web-mail ; encore lazy dans le shell. */
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-mail',
     description: 'Messagerie',
@@ -105,6 +105,7 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Productivité',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-calendar',
+    description: 'Agenda',
   },
   {
     id: 'notes',
@@ -113,6 +114,7 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Productivité',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-notes',
+    description: 'Bloc-notes',
   },
   {
     id: 'tasks',
@@ -121,6 +123,7 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Productivité',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-tasks',
+    description: 'Tâches',
   },
   {
     id: 'contacts',
@@ -129,6 +132,7 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Personnes',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-contacts',
+    description: 'Carnet d’adresses',
   },
   {
     id: 'photos',
@@ -137,19 +141,20 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     category: 'Médias',
     hosting: 'embedded',
     workspaceApp: '@cloudity/web-photos',
+    description: 'Galerie',
   },
-]
-
-/** Entrées hors grille (shell). */
-export const HUB_SHELL_LINKS: HubAppDefinition[] = [
   {
     id: 'settings',
     name: 'Paramètres',
     href: '/app/settings',
     category: 'Compte',
     hosting: 'shell',
-    description: 'Profil / compte (reste dans le hub pour l’instant)',
+    description: 'Compte et préférences',
   },
+]
+
+/** Liens hors grille produit (admin = full page). */
+export const HUB_SHELL_LINKS: HubAppDefinition[] = [
   {
     id: 'admin',
     name: 'Administration',
@@ -157,8 +162,23 @@ export const HUB_SHELL_LINKS: HubAppDefinition[] = [
     category: 'Compte',
     hosting: 'external',
     workspaceApp: '@cloudity/web-admin',
-    description: 'Back-office (bundle admin.html)',
+    description: 'Back-office',
   },
+]
+
+/** Inventaire routes hub (pour tests + doc FE-HUB-01). */
+export const HUB_INVENTORY_ROUTES: { id: HubAppId; href: string; routePattern: string }[] = [
+  { id: 'drive', href: '/app/drive', routePattern: 'drive' },
+  { id: 'office', href: '/app/office', routePattern: 'office' },
+  { id: 'corbeille', href: '/app/corbeille', routePattern: 'corbeille → drive?view=trash' },
+  { id: 'mail', href: '/app/mail', routePattern: 'mail (@cloudity/web-mail)' },
+  { id: 'pass', href: '/app/pass', routePattern: 'pass' },
+  { id: 'calendar', href: '/app/calendar', routePattern: 'calendar' },
+  { id: 'notes', href: '/app/notes', routePattern: 'notes' },
+  { id: 'tasks', href: '/app/tasks', routePattern: 'tasks' },
+  { id: 'contacts', href: '/app/contacts', routePattern: 'contacts' },
+  { id: 'photos', href: '/app/photos', routePattern: 'photos' },
+  { id: 'settings', href: '/app/settings', routePattern: 'settings*' },
 ]
 
 export function hubAppsByCategory(): { category: string; apps: HubAppDefinition[] }[] {

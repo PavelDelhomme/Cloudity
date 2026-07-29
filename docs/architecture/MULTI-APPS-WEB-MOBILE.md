@@ -66,58 +66,62 @@ cloudity.localhost:6001/4dm1n     → admin (app dédiée ou package admin)
 
 ### 2.2bis Inventaire monolithe (FE-HUB-01 — **fait** 2026-07-29)
 
-Mesures sur le dépôt (tailles disque / fichiers). Catalogue runtime : `frontend/apps/cloudity-web/src/hub/appsCatalog.ts`.
+Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :  
+`frontend/apps/cloudity-web/src/hub/appsCatalog.ts` (+ tests `appsCatalog.test.ts`).
 
 #### Dossiers `pages/app/*` (encore dans le shell)
 
-| Dossier | Fichiers | Taille | Route(s) | Cible workspace | Statut |
-|---------|----------|--------|----------|-----------------|--------|
-| `hub/` | 2 | 12 Ko | `/app` (index) | — (shell) | **hub-only** ✓ |
-| `drive/` | 4 | 212 Ko | `/app/drive`, `/app/corbeille` → drive?view=trash | `@cloudity/web-drive` | embedded |
-| `office/` | 3 | 116 Ko | `/app/office`, `/app/office/editor/:nodeId` | `@cloudity/web-office` | embedded |
-| `pass/` | 21 | 172 Ko | `/app/pass` | `@cloudity/web-pass` | embedded |
-| `photos/` | 9 | 160 Ko | `/app/photos` | `@cloudity/web-photos` | embedded |
-| `calendar/` | 4 | 56 Ko | `/app/calendar` | `@cloudity/web-calendar` | embedded |
-| `contacts/` | 4 | 52 Ko | `/app/contacts` | `@cloudity/web-contacts` | embedded |
-| `settings/` | 13 | 84 Ko | `/app/settings`, `/app/settings/sec/:token`, `/app/settings/canonical` | shell (puis `web-profile`) | **shell** |
-| `notes/` | 4 | 32 Ko | `/app/notes` | `@cloudity/web-notes` | embedded |
-| `tasks/` | 4 | 36 Ko | `/app/tasks` | `@cloudity/web-tasks` | embedded |
-| *(racine `pages/app/`)* | vault helpers | ~60 Ko | partagé Drive/Photos | à redistribuer au split | transversal |
+| Dossier | Fichiers | Taille (KiB) | Route(s) | Cible workspace | Statut |
+|---------|----------|--------------|----------|-----------------|--------|
+| `hub/` | 2 | 6,9 | `/app` (index) | — | **hub-only** ✓ |
+| `drive/` | 4 | 200,6 | `/app/drive` · `/app/corbeille` → `drive?view=trash` | `@cloudity/web-drive` | embedded |
+| `office/` | 3 | 108,3 | `/app/office` · `/app/office/editor/:nodeId` | `@cloudity/web-office` | embedded |
+| `pass/` | 21 | 131,3 | `/app/pass` | `@cloudity/web-pass` | embedded |
+| `photos/` | 9 | 138,3 | `/app/photos` | `@cloudity/web-photos` | embedded |
+| `calendar/` | 4 | 46,9 | `/app/calendar` | `@cloudity/web-calendar` | embedded |
+| `contacts/` | 4 | 41,6 | `/app/contacts` | `@cloudity/web-contacts` | embedded |
+| `settings/` | 13 | 58,4 | `/app/settings` · `/app/settings/sec/:token` · `…/canonical` | shell → `web-profile` | **shell** |
+| `notes/` | 4 | 22,7 | `/app/notes` | `@cloudity/web-notes` | embedded |
+| `tasks/` | 4 | 28,0 | `/app/tasks` | `@cloudity/web-tasks` | embedded |
+| *(fichiers racine `pages/app/`)* | ~14 | ~48 | helpers vault Drive/Photos | redistribuer au split | transversal |
 
-**`pages/app/mail/`** : **absent** — déplacé vers `frontend/apps/web-mail/` (~516 Ko, 22 fichiers ; `MailPage.tsx` ~7 362 lignes).
+**`pages/app/mail/`** : **supprimé** — code dans `frontend/apps/web-mail/` (**25** fichiers, **~449 KiB** ; `MailPage.tsx` ≈ 7 362 lignes).
 
 #### API
 
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
-| `src/api.ts` | ~1 952 | Barrel admin / drive / pass / … + `export * from './api/mail'` |
-| `src/api/mail.ts` | ~839 | Client Mail utilisateur (`/mail/me/*`) |
+| `src/api.ts` | ~1 952 | Barrel (admin, drive, pass…) + `export * from './api/mail'` |
+| `src/api/mail.ts` | ~839 | Client Mail utilisateur `/mail/me/*` |
 
-#### Routes shell (`App.tsx`)
+#### Routes shell (`App.tsx`) ↔ inventaire hub
 
-| Path | Bundle |
-|------|--------|
-| `/`, `/login`, `/register` | shell (eager) |
-| `/app` | **AppHub** — grille liens uniquement (aucun `useQuery` / fetch métier) |
+| Path | Qui sert |
+|------|----------|
+| `/`, `/login`, `/register` | shell eager |
+| **`/app`** | **`AppHub`** — grille de **liens uniquement** (pas de `useQuery` / pas de fetch métier) |
 | `/app/mail` | lazy `@cloudity/web-mail` |
-| `/app/drive`, `/office`, `/pass`, `/calendar`, `/notes`, `/tasks`, `/contacts`, `/photos` | lazy pages locales |
-| `/app/settings*` | shell (settings) |
-| `/4dm1n` | `admin.html` (second entry) |
+| `/app/drive` `/office` `/pass` `/calendar` `/notes` `/tasks` `/contacts` `/photos` | lazy `pages/app/*` |
+| `/app/settings*` | shell settings |
+| `/4dm1n` | `admin.html` |
+
+`HUB_INVENTORY_ROUTES` dans `appsCatalog.ts` = liste machine des href launcher.
 
 #### Règle hub (gelée)
 
-- `/app` = **launcher** : liens vers apps, zéro logique Mail/Drive/Calendar.
-- Source de vérité des liens : `appsCatalog.ts` (`hosting`: `shell` | `embedded` | `external`).
-- **Prochain split Pilotage = Mail → FE-SPLIT-01** (SPA autonome + nginx ; aujourd’hui package + lazy).
+1. `/app` = **launcher** : icône + nom + courte description + lien.  
+2. **Interdit** dans `AppHub` : API Mail/Drive/Calendar, aperçus non lus, listes récentes.  
+3. Source des liens : `HUB_LAUNCHER_APPS`.  
+4. **Note Pilotage** : prochain Focus = **FE-SPLIT-01** (Mail autonome).
 
 #### Checklist FE-HUB-01
 
 | Critère | État |
 |---------|------|
-| Lire / tenir `MULTI-APPS-WEB-MOBILE.md` | ☑ |
-| Inventaire `pages/app/*` (taille / routes) | ☑ (ce §) |
-| Hub `/app` = grille liens uniquement | ☑ `AppHub.tsx` + tests |
-| Note Pilotage : prochain = **FE-SPLIT-01** (Mail) | ☑ (catalogue + ce §) |
+| Lire `MULTI-APPS-WEB-MOBILE.md` | ☑ (validé Pilotage) |
+| Inventaire `pages/app/*` (taille / routes) | ☑ **ce §** + `HUB_INVENTORY_ROUTES` |
+| Hub `/app` = grille liens uniquement | ☑ `AppHub.tsx` + tests anti-métier |
+| Note prochain = **FE-SPLIT-01** | ☑ |
 
 ### 2.3 Phases (Pilotage)
 

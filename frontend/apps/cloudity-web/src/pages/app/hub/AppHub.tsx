@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { hubAppsByCategory, type HubAppDefinition, hubAppUsesFullPageNav } from '../../../hub/appsCatalog'
 
-/** Icônes par id — purement présentation hub (pas de logique métier). */
+/** Icônes — présentation uniquement (pas de logique métier). */
 const APP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   drive: HardDrive,
   office: FileSpreadsheet,
@@ -42,6 +42,7 @@ const APP_COLORS: Record<string, string> = {
   tasks: 'text-teal-600 dark:text-teal-400',
   contacts: 'text-indigo-600 dark:text-indigo-400',
   photos: 'text-pink-600 dark:text-pink-400',
+  settings: 'text-slate-600 dark:text-slate-400',
 }
 
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -51,6 +52,7 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   Productivité: Calendar,
   Personnes: Users,
   Médias: Image,
+  Compte: Settings,
 }
 
 function AppLaunchLink({ app }: { app: HubAppDefinition }) {
@@ -59,7 +61,7 @@ function AppLaunchLink({ app }: { app: HubAppDefinition }) {
   const className =
     'flex flex-col gap-1 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 ' +
     'shadow-sm transition hover:border-slate-300 dark:hover:border-slate-500 hover:shadow-md ' +
-    'min-w-[160px] max-w-xs flex-1 p-4 text-left'
+    'min-w-[140px] max-w-xs flex-1 p-4 text-left'
 
   const body = (
     <>
@@ -69,11 +71,6 @@ function AppLaunchLink({ app }: { app: HubAppDefinition }) {
       </span>
       {app.description ? (
         <span className="text-xs text-slate-500 dark:text-slate-400">{app.description}</span>
-      ) : null}
-      {app.hosting === 'embedded' && app.workspaceApp ? (
-        <span className="text-[10px] uppercase tracking-wide text-slate-400 dark:text-slate-500 mt-1">
-          → {app.workspaceApp.replace('@cloudity/', '')}
-        </span>
       ) : null}
     </>
   )
@@ -94,8 +91,8 @@ function AppLaunchLink({ app }: { app: HubAppDefinition }) {
 }
 
 /**
- * Hub `/app` — launcher uniquement (FE-HUB-01).
- * Pas d’aperçus Mail/Drive/Calendar : zéro fetch métier ici.
+ * Hub `/app` — grille de liens uniquement (FE-HUB-01).
+ * Interdit ici : requêtes API produit, aperçus non lus, listes récentes.
  */
 export default function AppHub() {
   const sections = hubAppsByCategory()
@@ -105,7 +102,7 @@ export default function AppHub() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Applications</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Cloudity — ouvrir une app. Le shell ne contient plus d’aperçus métier.
+          Ouvre une application Cloudity.
         </p>
       </div>
       <div className="flex flex-col gap-6 min-h-0">

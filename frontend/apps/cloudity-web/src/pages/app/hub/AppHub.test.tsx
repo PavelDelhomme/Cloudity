@@ -8,50 +8,51 @@ function wrap(ui: React.ReactElement) {
   return <TestRouter>{ui}</TestRouter>
 }
 
-describe('AppHub', () => {
-  it('renders hub title and category sections', () => {
+describe('AppHub (FE-HUB-01 — grille liens)', () => {
+  it('affiche le titre Applications', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('heading', { name: 'Applications' })).toBeTruthy()
-    expect(screen.getByText('Fichiers')).toBeTruthy()
   })
 
-  it('renders category sections', () => {
+  it('affiche les catégories produit', () => {
     render(wrap(<AppHub />))
     expect(screen.getByText('Fichiers')).toBeTruthy()
     expect(screen.getByText('Communication')).toBeTruthy()
+    expect(screen.getByText('Compte')).toBeTruthy()
   })
 
-  it('renders all 10 main app links with aria-label', () => {
+  it('expose un lien par app (aria-label Ouvrir …)', () => {
     render(wrap(<AppHub />))
-    expect(screen.getByRole('link', { name: 'Ouvrir Drive' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Office' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Pass' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Mail' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Corbeille' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Calendar' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Notes' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Tasks' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Contacts' })).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Ouvrir Photos' })).toBeTruthy()
+    for (const name of [
+      'Drive',
+      'Office',
+      'Pass',
+      'Mail',
+      'Corbeille',
+      'Calendar',
+      'Notes',
+      'Tasks',
+      'Contacts',
+      'Photos',
+      'Paramètres',
+    ]) {
+      expect(screen.getByRole('link', { name: `Ouvrir ${name}` })).toBeTruthy()
+    }
   })
 
-  it('links each main app to correct route', () => {
+  it('pointe chaque app vers la bonne route', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('link', { name: 'Ouvrir Drive' }).getAttribute('href')).toBe('/app/drive')
-    expect(screen.getByRole('link', { name: 'Ouvrir Office' }).getAttribute('href')).toBe('/app/office')
-    expect(screen.getByRole('link', { name: 'Ouvrir Pass' }).getAttribute('href')).toBe('/app/pass')
     expect(screen.getByRole('link', { name: 'Ouvrir Mail' }).getAttribute('href')).toBe('/app/mail')
-    expect(screen.getByRole('link', { name: 'Ouvrir Corbeille' }).getAttribute('href')).toBe('/app/corbeille')
-    expect(screen.getByRole('link', { name: 'Ouvrir Calendar' }).getAttribute('href')).toBe('/app/calendar')
-    expect(screen.getByRole('link', { name: 'Ouvrir Notes' }).getAttribute('href')).toBe('/app/notes')
-    expect(screen.getByRole('link', { name: 'Ouvrir Tasks' }).getAttribute('href')).toBe('/app/tasks')
-    expect(screen.getByRole('link', { name: 'Ouvrir Contacts' }).getAttribute('href')).toBe('/app/contacts')
-    expect(screen.getByRole('link', { name: 'Ouvrir Photos' }).getAttribute('href')).toBe('/app/photos')
+    expect(screen.getByRole('link', { name: 'Ouvrir Paramètres' }).getAttribute('href')).toBe(
+      '/app/settings'
+    )
   })
 
-  it('does not fetch métier previews (launcher only)', () => {
+  it('n’affiche aucun aperçu métier (loader / non lus)', () => {
     render(wrap(<AppHub />))
     expect(screen.queryByText('Chargement…')).toBeNull()
     expect(screen.queryByText(/non lu/i)).toBeNull()
+    expect(screen.queryByText(/fichier récent/i)).toBeNull()
   })
 })
