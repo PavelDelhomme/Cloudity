@@ -2,7 +2,7 @@
   "name": "@cloudity/web-mail",
   "private": true,
   "version": "0.1.0",
-  "description": "Application Mail Cloudity (FE-SPLIT-01) — pages + libs mail. Montée lazy par le shell tant que le deploy multi-apps n’est pas découpé.",
+  "description": "Application Mail Cloudity (FE-SPLIT-01) — package + SPA /app/mail/.",
   "type": "module",
   "main": "src/index.ts",
   "exports": {
@@ -15,6 +15,11 @@
     "./mailAlias": "./src/lib/mailAlias.ts",
     "./MailAliasDomainConfig": "./src/components/mail/MailAliasDomainConfig.tsx"
   },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
     "lucide-react": "^0.263.0",
@@ -24,6 +29,23 @@
     "react-router-dom": "^6.30.4"
   },
   "dependencies": {
-    "@cloudity/shared": "file:../../packages/cloudity-shared"
+    "@cloudity/shared": "file:../../packages/cloudity-shared",
+    "@cloudity/ui": "file:../../packages/cloudity-ui",
+    "@tanstack/react-query": "^5.0.0",
+    "lucide-react": "^0.263.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-router-dom": "^6.30.4"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.28",
+    "@types/react-dom": "^18.0.11",
+    "@vitejs/plugin-react": "^6.0.3",
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.14",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^4.9.3",
+    "vite": "^8.0.16"
   }
 }

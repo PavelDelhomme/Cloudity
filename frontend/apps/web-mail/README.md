@@ -1,9 +1,24 @@
-# @cloudity/web-mail — app Mail (FE-SPLIT-01)
-#
-# Aujourd’hui : package workspace monté en lazy par `@cloudity/web` (même origine /app/mail).
-# Prochaine étape : entry Vite propre (base `/app/mail/`) + nginx location dédiée → hosting `external`.
-#
-# Shell host (auth, layout chrome) via alias Vite `@cloudity/web-shell/*` → cloudity-web/src
-# (temporaire jusqu’à extraction `@cloudity/web-shell` package).
+# @cloudity/web-mail — FE-SPLIT-01
 
-Voir : docs/architecture/MULTI-APPS-WEB-MOBILE.md
+## Modes
+
+| Mode | Comportement |
+|------|----------------|
+| **DEV** (`make up` / Vite shell) | Mail monté **lazy** dans `@cloudity/web` sur `/app/mail` (même process) |
+| **PROD** (Dockerfile nginx) | SPA autonome buildée ici → servie sous **`/app/mail/`** |
+
+## Build
+
+```bash
+cd frontend && npm install
+npm run build -w @cloudity/web-mail
+# dist/ → copié dans l’image nginx sous /usr/share/nginx/html/app/mail
+```
+
+## Structure
+
+- `src/mail/` — UI Mail
+- `src/main.tsx` + `MailShellLayout.tsx` — entry SPA
+- Alias `@cloudity/web-shell/*` → sources `cloudity-web/src` (auth, CSS)
+
+Doc : `docs/architecture/MULTI-APPS-WEB-MOBILE.md` § 2.3

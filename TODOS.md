@@ -27,17 +27,29 @@
 
 ---
 
+### Session 2026-07-29 — FE-SPLIT-01 livré (Mail autonome)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **@cloudity/web-mail** | ☑ | SPA Vite `base /app/mail/` + package lazy DEV |
+| **nginx + Dockerfile** | ☑ | dist mail sous `/app/mail/` ; build multi-stage |
+| **Hub external** | ☑ | `href: /app/mail/` + `ExternalMailRedirect` PROD |
+| **apiMail.ts** | ☑ | Client Mail sorti du monolithe |
+| **Build** | ☑ | `npm run build -w @cloudity/web-mail` OK |
+
+**Toi** : Sync docs → Focus FE-SPLIT-01 → coche les 4 → OK → Focus **H19**.
+
+---
+
 ### Session 2026-07-29 — FE-HUB-01 + début FE-SPLIT-01 (Mail)
 
 | Sujet | État | Détail |
 |-------|------|--------|
 | **Hub launcher** | ☑ | `/app` = grille liens uniquement (`appsCatalog.ts`) — plus d’aperçus API |
 | **Lazy routes** | ☑ | Produits en `React.lazy` (chunks séparés) |
-| **api/mail.ts** | ☑ | Client Mail utilisateur sorti du monolithe `api.ts` |
+| **apiMail.ts** | ☑ | Client Mail utilisateur sorti du monolithe `api.ts` |
 | **@cloudity/web-mail** | ☑ | Pages/libs Mail hors `pages/app/` ; lazy mount shell |
-| **Suite FE-SPLIT-01** | 🟡 | SPA autonome + nginx `/app/mail` (hosting external) |
-
-**Maintenant** : Pilotage cocher FE-HUB-01 critères inventaire/hub ; enchaîner FE-SPLIT-01 (entry Vite mail + nginx).
+| **FE-SPLIT-01** | ☑ | SPA + nginx (voir session ci-dessus) |
 
 ---
 

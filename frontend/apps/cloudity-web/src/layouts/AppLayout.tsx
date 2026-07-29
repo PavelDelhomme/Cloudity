@@ -372,21 +372,35 @@ export default function AppLayout() {
               const active = isActive(item.href, item.end)
               const hasSub = 'subItem' in item && item.subItem
               const SubIcon = hasSub ? item.subItem.icon : null
+              const mailExternal = item.href === '/app/mail' && !import.meta.env.DEV
+              const linkClass = `flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
+                active && !(hasSub && location.pathname.startsWith(item.subItem.href))
+                  ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                  : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
+              }`
               return (
                 <div key={item.name}>
+                  {mailExternal ? (
+                    <a
+                      href="/app/mail/"
+                      onClick={() => setSidebarVisible(false)}
+                      className={linkClass}
+                      title={!sidebarVisible ? item.name : undefined}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      {sidebarVisible && <span className="whitespace-nowrap">{item.name}</span>}
+                    </a>
+                  ) : (
                   <Link
                     to={item.href}
                     onClick={() => setSidebarVisible(false)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
-                      active && !(hasSub && location.pathname.startsWith(item.subItem.href))
-                        ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
-                        : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700'
-                    }`}
+                    className={linkClass}
                     title={!sidebarVisible ? item.name : undefined}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
                     {sidebarVisible && <span className="whitespace-nowrap">{item.name}</span>}
                   </Link>
+                  )}
                   {hasSub && sidebarVisible && (
                     <Link
                       to={item.subItem.href}

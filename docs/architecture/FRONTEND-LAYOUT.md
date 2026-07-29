@@ -20,7 +20,7 @@ Le routeur principal reste dans **`src/App.tsx`** (shell utilisateur) et **`src/
 | Dossier | Pages |
 |---------|--------|
 | **`hub/`** | Hub d’accueil (`AppHub`) — **launcher only** (FE-HUB-01), catalogue `src/hub/appsCatalog.ts`. |
-| **Mail** | **Déplacé** → `frontend/apps/web-mail` (`@cloudity/web-mail`), monté lazy sur `/app/mail`. |
+| **Mail** | **FE-SPLIT-01** → `frontend/apps/web-mail` (`@cloudity/web-mail`) : **DEV** lazy shell · **PROD** SPA `/app/mail/`. |
 | **`drive/`** | Drive (encore embedded — FE-SPLIT-02). |
 | **`office/`** | Liste Office + **éditeur de documents** (`OfficePage`, `DocumentEditorPage`) — à terme : sous-modules `word/`, `spreadsheet/`, `presentation/` si le fichier `DocumentEditorPage.tsx` est découpé. |
 | **`pass/`** | Coffre mots de passe utilisateur. |
@@ -39,7 +39,7 @@ le code testé (convention Vitest / Jest standard, opposée à pytest) :
 ```
 frontend/apps/cloudity-web/src/
   api.ts
-  api/mail.ts                   ← domaine Mail (réexporté par api.ts)
+  apiMail.ts                    ← domaine Mail (réexporté par api.ts)
   pages/app/hub/
     AppHub.tsx
     AppHub.test.tsx

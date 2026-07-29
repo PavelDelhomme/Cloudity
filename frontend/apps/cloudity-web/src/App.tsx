@@ -21,13 +21,16 @@ import { ServiceStatusPage } from './components/ServiceStatusPage'
 
 /**
  * Produits en lazy chunks (FE-HUB-01) : le shell ne charge plus Mail/Drive/… au boot.
- * FE-SPLIT-* déplacera ces modules vers `frontend/apps/web-*`.
+ * Mail = FE-SPLIT-01 (DEV lazy package ; PROD SPA /app/mail/). Suite splits = Drive/Pass/…
  */
 const DrivePage = lazy(() => import('./pages/app/drive/DrivePage'))
 const OfficePage = lazy(() => import('./pages/app/office/OfficePage'))
 const DocumentEditorPage = lazy(() => import('./pages/app/office/DocumentEditorPage'))
 const PassPage = lazy(() => import('./pages/app/pass/PassPage'))
-const MailPage = lazy(() => import('@cloudity/web-mail').then((m) => ({ default: m.MailPage })))
+/** DEV : lazy package. PROD image nginx : SPA séparée → ExternalMailRedirect. */
+const MailPage = import.meta.env.DEV
+  ? lazy(() => import('@cloudity/web-mail').then((m) => ({ default: m.MailPage })))
+  : lazy(() => import('./pages/app/ExternalMailRedirect'))
 const CalendarPage = lazy(() => import('./pages/app/calendar/CalendarPage'))
 const NotesPage = lazy(() => import('./pages/app/notes/NotesPage'))
 const TasksPage = lazy(() => import('./pages/app/tasks/TasksPage'))

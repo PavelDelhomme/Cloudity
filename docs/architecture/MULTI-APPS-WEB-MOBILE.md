@@ -91,8 +91,8 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
-| `src/api.ts` | ~1 952 | Barrel (admin, drive, pass…) + `export * from './api/mail'` |
-| `src/api/mail.ts` | ~839 | Client Mail utilisateur `/mail/me/*` |
+| `src/api.ts` | ~1 952 | Barrel (admin, drive, pass…) + `export * from './apiMail'` |
+| `src/apiMail.ts` | ~839 | Client Mail utilisateur `/mail/me/*` (évite conflit `api.ts` / dossier `api/`) |
 
 #### Routes shell (`App.tsx`) ↔ inventaire hub
 
@@ -100,7 +100,7 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 |------|----------|
 | `/`, `/login`, `/register` | shell eager |
 | **`/app`** | **`AppHub`** — grille de **liens uniquement** (pas de `useQuery` / pas de fetch métier) |
-| `/app/mail` | lazy `@cloudity/web-mail` |
+| `/app/mail` | **DEV** : lazy `@cloudity/web-mail` · **PROD** : redirect → SPA `/app/mail/` |
 | `/app/drive` `/office` `/pass` `/calendar` `/notes` `/tasks` `/contacts` `/photos` | lazy `pages/app/*` |
 | `/app/settings*` | shell settings |
 | `/4dm1n` | `admin.html` |
@@ -112,7 +112,7 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 1. `/app` = **launcher** : icône + nom + courte description + lien.  
 2. **Interdit** dans `AppHub` : API Mail/Drive/Calendar, aperçus non lus, listes récentes.  
 3. Source des liens : `HUB_LAUNCHER_APPS`.  
-4. **Note Pilotage** : prochain Focus = **FE-SPLIT-01** (Mail autonome).
+4. **Note Pilotage** : prochain Focus après FE-SPLIT-01 = **H19**.
 
 #### Checklist FE-HUB-01
 
@@ -123,12 +123,34 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 | Hub `/app` = grille liens uniquement | ☑ `AppHub.tsx` + tests anti-métier |
 | Note prochain = **FE-SPLIT-01** | ☑ |
 
-### 2.3 Phases (Pilotage)
+### 2.3 FE-SPLIT-01 — Mail autonome (**livré** 2026-07-29)
+
+| Élément | Détail |
+|---------|--------|
+| Package | `frontend/apps/web-mail` (`@cloudity/web-mail`) |
+| Entry SPA | `src/main.tsx` + `MailShellLayout.tsx` · `base: '/app/mail/'` · port Vite 3001 |
+| Build | `npm run build -w @cloudity/web-mail` → `dist/` |
+| Nginx | `location ^~ /app/mail` → `/app/mail/index.html` |
+| Dockerfile | build web + web-mail ; copy dist → `/usr/share/nginx/html/app/mail` |
+| Hub | `hosting: 'external'`, `href: '/app/mail/'` |
+| Shell PROD | `ExternalMailRedirect` + lien drawer `<a href="/app/mail/">` |
+| Shell DEV | lazy `@cloudity/web-mail` (même process Vite `:6001`) |
+
+#### Checklist FE-SPLIT-01
+
+| Critère | État |
+|---------|------|
+| Scaffold + workspace npm | ☑ |
+| Migrer pages/libs Mail + `apiMail.ts` | ☑ |
+| Entry Vite + nginx + Dockerfile | ☑ |
+| Hub `external` + smoke build | ☑ `vite build` OK |
+
+### 2.3bis Phases (Pilotage)
 
 | ID | Étape | Done quand |
 |----|--------|------------|
-| **FE-HUB-01** | Doc + inventaire + hub liens-only | **Livré** — cocher dans Pilotage puis Focus **FE-SPLIT-01** |
-| **FE-SPLIT-01** | Mail = app workspace autonome (`web-mail` entry + nginx) | smoke `/app/mail` hors monolithe process |
+| **FE-HUB-01** | Doc + inventaire + hub liens-only | **Livré** |
+| **FE-SPLIT-01** | Mail = app workspace autonome (`web-mail` entry + nginx) | **Livré** — cocher Pilotage puis Focus **H19** |
 | **FE-SPLIT-02** | Drive puis Pass | 3 apps hors monolithe |
 | **FE-SPLIT-N** | Reste + admin | Monolithe = shell mince |
 
@@ -173,13 +195,13 @@ Voir aussi : [`../../mobile/README.md`](../../mobile/README.md) · [`../produit/
 
 ## 4. Ordre de travail (immédiat)
 
-1. **FE-HUB-01** — ☑ doc + inventaire + hub liens-only (ce fichier § 2.2bis).  
-2. **FE-SPLIT-01** — finir Mail autonome (entry Vite + nginx) — **Focus Pilotage suivant**.  
-3. **H19** — SessionStore + LoginScreen → `cloudity_shared`.  
+1. **FE-HUB-01** — ☑ (§ 2.2bis).  
+2. **FE-SPLIT-01** — ☑ Mail autonome (§ 2.3).  
+3. **H19** — SessionStore + LoginScreen → `cloudity_shared` — **Focus Pilotage suivant**.  
 4. **MOBILE-DA-01** — checklist DA Flutter.  
 5. **H21** → **UI-DS-REMAIN** → **H14** (HTTPS VPS).
 
-Validation : `/4dm1n/pilotage` → Sync docs → cocher **FE-HUB-01** → Focus **FE-SPLIT-01**.
+Validation : `/4dm1n/pilotage` → Sync docs → cocher **FE-SPLIT-01** → Focus **H19**.
 
 ---
 

@@ -16,11 +16,15 @@ RUN npm ci
 WORKDIR /ws/apps/cloudity-web
 RUN npm run build
 
+WORKDIR /ws/apps/web-mail
+RUN npm run build
+
 FROM nginx:alpine
 
 RUN apk add --no-cache curl
 
 COPY --from=builder /ws/apps/cloudity-web/dist /usr/share/nginx/html
+COPY --from=builder /ws/apps/web-mail/dist /usr/share/nginx/html/app/mail
 
 COPY apps/cloudity-web/nginx.conf /etc/nginx/conf.d/default.conf
 

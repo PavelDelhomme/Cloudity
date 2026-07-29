@@ -43,7 +43,7 @@ describe('AppHub (FE-HUB-01 — grille liens)', () => {
   it('pointe chaque app vers la bonne route', () => {
     render(wrap(<AppHub />))
     expect(screen.getByRole('link', { name: 'Ouvrir Drive' }).getAttribute('href')).toBe('/app/drive')
-    expect(screen.getByRole('link', { name: 'Ouvrir Mail' }).getAttribute('href')).toBe('/app/mail')
+    expect(screen.getByRole('link', { name: 'Ouvrir Mail' }).getAttribute('href')).toBe('/app/mail/')
     expect(screen.getByRole('link', { name: 'Ouvrir Paramètres' }).getAttribute('href')).toBe(
       '/app/settings'
     )

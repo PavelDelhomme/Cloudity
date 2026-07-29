@@ -889,8 +889,8 @@ export async function patchDomainAlias(
 }
 
 
-// Mail utilisateur — voir ./api/mail.ts (FE-SPLIT-01)
-export * from './api/mail'
+// Mail utilisateur — voir ./apiMail.ts (FE-SPLIT-01)
+export * from './apiMail'
 
 
 export type LoginBody = { email: string; password: string; tenant_id?: number }

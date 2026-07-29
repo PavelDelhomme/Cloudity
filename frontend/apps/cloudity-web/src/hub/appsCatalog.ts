@@ -82,10 +82,10 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
   {
     id: 'mail',
     name: 'Mail',
-    href: '/app/mail',
+    href: '/app/mail/',
     category: 'Communication',
-    /** FE-SPLIT-01 : code dans apps/web-mail ; encore lazy dans le shell. */
-    hosting: 'embedded',
+    /** FE-SPLIT-01 : SPA sous /app/mail/ (prod nginx) ; en DEV le shell lazy-load encore. */
+    hosting: 'external',
     workspaceApp: '@cloudity/web-mail',
     description: 'Messagerie',
   },
@@ -171,7 +171,7 @@ export const HUB_INVENTORY_ROUTES: { id: HubAppId; href: string; routePattern: s
   { id: 'drive', href: '/app/drive', routePattern: 'drive' },
   { id: 'office', href: '/app/office', routePattern: 'office' },
   { id: 'corbeille', href: '/app/corbeille', routePattern: 'corbeille → drive?view=trash' },
-  { id: 'mail', href: '/app/mail', routePattern: 'mail (@cloudity/web-mail)' },
+  { id: 'mail', href: '/app/mail/', routePattern: 'mail (SPA @cloudity/web-mail)' },
   { id: 'pass', href: '/app/pass', routePattern: 'pass' },
   { id: 'calendar', href: '/app/calendar', routePattern: 'calendar' },
   { id: 'notes', href: '/app/notes', routePattern: 'notes' },

@@ -4201,39 +4201,43 @@ export default function MailPage() {
       )}
 
       {accountsPending && !is404 && (
-        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+        <div className="flex flex-1 items-center justify-center gap-2 text-slate-500 dark:text-slate-400 py-16">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Chargement des comptes…</span>
-          <span className="text-xs text-slate-400 dark:text-slate-500">(réutilise le cache du tableau de bord quand disponible)</span>
         </div>
       )}
 
       {!accountsPending && !is404 && accounts.length === 0 && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 flex flex-col gap-4 max-w-lg">
-          <div>
-            <p className="text-slate-900 dark:text-slate-100 font-semibold text-lg">Reliez votre boîte mail</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Gmail : un clic avec Google, comme sur votre téléphone. OVH et autres : formulaire IMAP.
-            </p>
+        <div className="flex flex-1 items-center justify-center px-4 py-10 min-h-[320px]">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-8 flex flex-col gap-5 text-center shadow-sm">
+            <div>
+              <p className="text-slate-900 dark:text-slate-100 font-semibold text-xl">Reliez votre boîte mail</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+                Gmail : un clic avec Google, comme sur votre téléphone. OVH et autres : formulaire IMAP.
+              </p>
+            </div>
+            <div className="flex justify-center">
+              <MailGoogleConnectButton
+                size="large"
+                busy={googleConnecting}
+                disabled={!googleOAuthEnabled}
+                onClick={handleConnectGoogle}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowConnectEmail(true)}
+              className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline"
+            >
+              Autre compte (OVH, Proton, IMAP…)
+            </button>
           </div>
-          <MailGoogleConnectButton
-            size="large"
-            busy={googleConnecting}
-            disabled={!googleOAuthEnabled}
-            onClick={handleConnectGoogle}
-          />
-          <button
-            type="button"
-            onClick={() => setShowConnectEmail(true)}
-            className="text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline text-center"
-          >
-            Autre compte (OVH, Proton, IMAP…)
-          </button>
         </div>
       )}
 
+      {!accountsPending && !is404 && accounts.length > 0 ? (
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[260px] flex-1">
-        {mailCompactUi && accounts.length > 0 ? (
+        {mailCompactUi ? (
           <div className="lg:hidden shrink-0 flex items-center gap-2 border-b border-slate-200 dark:border-slate-600 bg-slate-50/90 dark:bg-slate-800/90 px-3 py-2">
             {mailMobilePane !== 'nav' ? (
               <button
@@ -5725,6 +5729,7 @@ export default function MailPage() {
           </div>
         </div>
       </div>
+      ) : null}
 
       {showMailSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60" role="dialog" aria-modal="true" onClick={() => setShowMailSettings(false)}>
