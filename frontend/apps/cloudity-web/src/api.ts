@@ -377,7 +377,14 @@ export type PilotageBoard = {
   tasks: Record<string, PilotageTask>
   cycleViews?: PilotageCycleView[]
   counts?: Record<string, number>
-  active?: { id: string; label: string; status: string; kind?: string; parentId?: string } | null
+  active?: {
+    id: string
+    label: string
+    status: string
+    kind?: string
+    parentId?: string
+    statusLabel?: string
+  } | null
   blockedHint?: {
     taskId: string
     label: string
@@ -427,6 +434,7 @@ export type PilotageActionPayload = {
   type:
     | 'decide'
     | 'checklist'
+    | 'checklist_bulk'
     | 'note'
     | 'reorder'
     | 'move'
@@ -443,6 +451,7 @@ export type PilotageActionPayload = {
   decision?: PilotageDecisionCode
   note?: string
   checklistItemId?: string
+  checklistItemIds?: string[]
   done?: boolean
   direction?: 'up' | 'down'
   cycleId?: string | null

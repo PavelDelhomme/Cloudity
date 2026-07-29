@@ -1,4 +1,4 @@
-.PHONY: help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env
+.PHONY: help android-help mobile-help up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -35,89 +35,18 @@ PORT_REDIS ?= 6079
 PORT_ADMINER ?= 6083
 PORT_REDIS_COMMANDER ?= 6084
 
-help: ## Affiche ce message d'aide
-	@echo '  make logs      - Logs conteneurs locaux (colorés) + archive reports/container-logs/'
-	@echo '  make status-watch - Statut live de la stack locale'
-	@echo '  make portainer-env - KEY=VALUE pour Portainer / ZoneForge (préprod-prod)'
-	@echo '  Deploy VPS     - cible ZoneForge https://github.com/PavelDelhomme/ZoneForge — docs/operations/ZONEFORGE-CLOUDITY.md · Pilotage ZF-*'
-	@echo ''
-	@echo '  Première fois :  make setup   puis  make up-ready   (stack + seed, ~5 min) ou  make up-full   (+ tests, long)'
-	@echo ''
-	@echo '  make install    - Installe toutes les dépendances (Go, Python, Node). À lancer après clone ou après ajout de paquets.'
-	@echo '  make setup      - Setup initial (.env, clés RSA, deps). À lancer une fois après clone.'
-	@echo '  make up        - Démarre toute la stack (+ clé mail IMAP si besoin + build extension Pass MV3 dans extensions/cloudity-pass/dist)'
-	@echo '  make migrate   - Applique les migrations SQL (docker compose run db-migrate ; Postgres doit être joignable)'
-	@echo '  make deploy-web | rebuild-web - Rebuild + redémarre cloudity-web (Vite app + back-office admin.html)'
-	@echo '  make rebuild   - Reconstruit tous les services, migrations, clé mail IMAP si besoin, build extension Pass MV3'
-	@echo '  make up-ready  - down + up + seed + compte démo (sans tests — usage quotidien ; si up-full échoue → commencer ici)'
-	@echo '  make up-full   - up-ready + make test  (long ; Ctrl+C pendant tests = stack conservée)'
-	@echo '                 Si échec / blocage : make up-ready  puis  make status  ·  tests seuls : make test'
-	@echo '                 UP_FULL_SKIP_TESTS=1 make up-full  — stack + seed sans tests'
-	@echo '  make down      - Arrête toute la stack'
-	@echo '  make test       - Tests unitaires/applicatifs **dans Docker** (compose run --no-deps : Go + pytest + Vitest) — sans E2E ; Docker doit tourner'
-	@echo '  make tests      - TOUT: unit/app + E2E + E2E Playwright + sécurité + mobile Flutter Photos+Drive+Mail (test-mobile-suite), rapport dans reports/'
-	@echo '  make test-dashboard - Vitest @cloudity/web **dans le conteneur** (monorepo frontend/). Pour toute la batterie: make test.'
-	@echo '  make test-dashboard-one FILE=src/... - Un seul fichier Vitest dans le conteneur (ex. MailPage.test.tsx)'
-	@echo '  make test-dashboard-lint - ESLint @cloudity/web dans le conteneur'
-	@echo '  make test-auth      - Smoke : go test auth-service seul (Docker --no-deps)'
-	@echo '  make test-go-one SERVICE=drive-service - Smoke Go pour UN service (nom = clé docker-compose.yml)'
-	@echo '  make test-e2e   - Tests E2E (health + proxy). Prérequis: make up puis 20-30 s'
-	@echo '  make test-e2e-playwright - Tests E2E navigateur (Playwright: Hub, Drive, Calendrier, Mail…). Prérequis: make up + make seed-admin'
-	@echo '  make test-e2e-playwright-calendar - E2E Playwright, fichier e2e/calendar.spec.ts uniquement'
-	@echo '  make test-e2e-playwright-mail - E2E Playwright, fichier e2e/mail.spec.ts uniquement (stabilité React § TESTS 4.8)'
-	@echo '  make test-e2e-playwright-admin - E2E Playwright, fichier e2e/admin.spec.ts uniquement (smoke /4dm1n connexion admin -> back-office)'
-	@echo '  make test-e2e-playwright-webauthn - E2E Playwright, fichier e2e/webauthn.spec.ts (passkeys + authentificateur virtuel CDP)'
-	@echo '  make dashboard-npm-ci - npm ci à la racine frontend/ (workspaces, comme le Dockerfile prod)'
-	@echo '  make dashboard-npm-install - npm install dans apps/cloudity-web (ou utiliser frontend-install à la racine)'
-	@echo '  make frontend-npm-ci / frontend-install - npm workspaces à la racine frontend/ (STATUS §0b A1)'
-	@echo '  make test-security - Audits deps (npm/pip/go) + gosec + checks auth 401'
-	@echo '  make status       - Tableau services (port, URL, Up/Down) + bloc URLs (/app, /login, Pass, Mail, gateway, Adminer… ; CLOUDITY_STATUS_HOST=IP_LAN)'
-	@echo '  make statys | stats | stat - Alias de make status (évite « Aucune règle » si faute)'
-	@echo '  make status-watch - Statut live toutes les 10 s (couleurs, Ctrl+C = arrêt sans effacer)'
-	@echo '  make test-all   - TOUT: make test + … + test-mobile-suite Photos/Drive/Mail (stack up + seed-admin pour E2E)'
-	@echo '  make test-full  - test-all + test-docker (tests dans les conteneurs). Stack up requise.'
-	@echo '  make test-docker - Même batterie que test mais via **exec** (conteneurs déjà up — make up avant)'
-	@echo '  make quick-check - Vérifie que les services répondent (à lancer après make up)'
-	@echo '  make logs       - Logs de tous les services en temps réel'
-	@echo ''
-	@echo '  make rebuild-mail  - Reconstruit le service mail (fix 404 sur la page Mail)'
-	@echo '  make verify-mail-api - Vérifie que GET /mail/health passe par le gateway'
-	@echo '  make ensure-mail-encryption-key - Ajoute MAIL_PASSWORD_ENCRYPTION_KEY au .env si absente / placeholder (fix sync IMAP 400/503)'
-	@echo '  make ensure-alias-encryption-key - Ajoute ALIAS_ENCRYPTION_KEY (base64) au .env si absente (parité VPS / futur)'
-	@echo '  make ensure-mta-internal-token - Ajoute/décommente MTA_INTERNAL_TOKEN (lookup MTA alias)'
-	@echo '  make sync-mail-mta-env - Aligne deploy/mail-mta/.env avec le .env racine'
-	@echo '  make sync-public-urls - Depuis CLOUDITY_PUBLIC_HOST/PROTO → VITE_API_URL, mobile, CORS, WebAuthn, OAuth'
-	@echo '  make env-prod DOMAIN=… - Génère .env.prod (.env + .env.example + overlays prod) puis sync URLs'
-	@echo '  make env-preprod DOMAIN=… - Idem → .env.preprod'
-	@echo '  make portainer-env - Affiche .env.prod prêt à coller dans Portainer (Advanced env)'
-	@echo '  make test-mail-mta-local - Smoke API alias-resolve + SMTP local (prérequis: make deploy-mail)'
-	@echo '  make mail-mta-local-up|down|logs - Stack Maddy locale (deploy/mail-mta, port SMTP_PORT)'
-	@echo '  make build-pass-extension - npm install + build MV3 → extensions/cloudity-pass/dist (Charger extension non empaquetée)'
-	@echo '  make deploy-web | deploy-mail | deploy-gateway | deploy-auth | deploy-admin | deploy-pass | deploy-drive | deploy-photos - Un service (docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)'
-	@echo '  make test-pass - Tests Pass (passwords-service + pass-crypto + import Proton Vitest)'
-	@echo '  make test-pass-extension - Tests extension Pass MV3 (domain matcher MP-06)'
-	@echo '  make pass-j8-prep - Préparation migration J8 Proton (test-pass + checklist runbook)'
-	@echo '  make test-e2e-playwright-pass - E2E Playwright Pass uniquement (e2e/pass.spec.ts)'
-	@echo '  make test-e2e-playwright-pass-extension - E2E Chromium extension Pass autofill (MP-07)'
-	@echo '  make stack-heal | make doctor - Clé mail + recrée mail-directory + build extension (sans rebuild toutes les images)'
-	@echo '  make mail-clean-dev - Supprime les comptes mail du compte démo (pour retester une boîte)'
-	@echo '  make clean-pass-e2e-vaults - Supprime les coffres Pass « e2e-* » (restes Playwright sur le compte démo)'
-	@echo '  make clean-test-tenants APPLY=1 - Nettoyage safe tenants (backup + confirmation, dry-run sinon)'
-	@echo '  make run-mobile APP=Admin|Drive|Photos|Mail|… - Flutter (Photos+Drive+Admin dans le dépôt ; Mail → scaffold MOBILES.md)'
-	@echo '  make mobile-devices - Liste les appareils ADB'
-	@echo '  make mobile-adb-authorize - Redémarre ADB et aide à autoriser le téléphone'
-	@echo '  make mobile-doctor - Vérifie Flutter/ADB/SDK local pour mobile'
-	@echo '  make test-mobile-desktop-linux - Valide Drive/Photos Linux desktop (test + build debug)'
-	@echo '  make mobile-logcat-clear - Vide le buffer logcat du device ADB'
-	@echo '  make mobile-logcat - Suit logcat en direct (ADB_SERIAL optionnel)'
-	@echo '  make mobile-logcat-mail - Suit logcat filtré Cloudity/Mail/Flutter'
-	@echo '  make mobile-mail-debug - Session complète: clear logcat + test mobile mail + export logs'
-	@echo '  make mail-security-check - Vérifie sécurité Mail (PJ sans auth + HTML sanitizé)'
-	@echo '  make host-redis-sysctl - Warning Redis overcommit : sysctl hôte (APPLY=1 pour sudo sysctl session)'
-	@echo '  make feature-finish MSG="…" — git add -A, commit, push, renomme la branche en feat/finish-<slug> et met GitHub à jour (voir docs/operations/BRANCHES.md)'
-	@echo '  make git-fetch-prune — git fetch --prune (nettoyer refs distantes supprimées)'
-	@echo '  make git-delete-remote-branch BRANCH=nom — supprime origin/nom (ex. branche Cursor obsolète)'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-22s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+# TOPIC=android|stack|test|env|git|pass|mail|data|setup|all — filtre make help
+TOPIC ?=
+
+help: ## Aide Make groupée (TOPIC=android|stack|test|env|…|all). Voir aussi make android-help
+	@chmod +x scripts/dev/make-help.sh
+	@TOPIC="$(TOPIC)" ./scripts/dev/make-help.sh $(if $(TOPIC),TOPIC=$(TOPIC),)
+
+android-help: ## Aide Android / Flutter / ADB (run-mobile, logcat, tests mobile…)
+	@chmod +x scripts/dev/make-help.sh
+	@./scripts/dev/make-help.sh --android
+
+mobile-help: android-help ## Alias de make android-help
 
 feature-finish: ## Commit final + push + renommage feat/finish-… : make feature-finish MSG="message de commit"
 	@if [ -z "$(MSG)" ]; then echo '❌ Indiquez MSG="votre message" (ex. make feature-finish MSG="feat(mail): PJ liste")'; exit 1; fi

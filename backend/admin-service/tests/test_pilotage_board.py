@@ -115,6 +115,67 @@ def test_report_problem_blocks_parent_and_becomes_active():
     assert "reprise" in msg2.lower() or "H14" in msg2
 
 
+def test_decide_partial_stays_partial_even_if_checklist_complete():
+    board = build_seed_board()
+    for c in board["tasks"]["H14"]["checklist"]:
+        c["done"] = True
+    new_board, msg = apply_board_action(
+        board, {"type": "decide", "itemId": "H14", "decision": "PARTIEL"}
+    )
+    assert new_board["tasks"]["H14"]["status"] == "partial"
+    assert "partiel" in msg.lower()
+
+
+def test_checklist_does_not_auto_promote_to_validate():
+    board = build_seed_board()
+    board["tasks"]["H14"]["status"] = "partial"
+    for c in board["tasks"]["H14"]["checklist"]:
+        c["done"] = False
+    last = board["tasks"]["H14"]["checklist"][-1]
+    # cocher tout sauf un, puis le dernier
+    for c in board["tasks"]["H14"]["checklist"][:-1]:
+        c["done"] = True
+    new_board, msg = apply_board_action(
+        board,
+        {
+            "type": "checklist",
+            "itemId": "H14",
+            "checklistItemId": last["id"],
+            "done": True,
+        },
+    )
+    assert new_board["tasks"]["H14"]["status"] == "partial"
+    assert "à valider" not in msg.lower()
+
+
+def test_checklist_bulk_lan_to_partial():
+    board = build_seed_board()
+    lan_ids = [
+        c["id"]
+        for c in board["tasks"]["H14"]["checklist"]
+        if str(c.get("label", "")).startswith(("1.", "2.", "3a."))
+    ]
+    assert len(lan_ids) >= 1
+    new_board, msg = apply_board_action(
+        board,
+        {
+            "type": "checklist_bulk",
+            "itemId": "H14",
+            "checklistItemIds": lan_ids,
+            "done": True,
+            "decision": "PARTIEL",
+            "note": "LAN OK",
+        },
+    )
+    t = new_board["tasks"]["H14"]
+    assert t["status"] == "partial"
+    assert t["porteurNote"] == "LAN OK"
+    for c in t["checklist"]:
+        if c["id"] in lan_ids:
+            assert c["done"] is True
+    assert "partiel" in msg.lower() or "critère" in msg.lower()
+
+
 def test_inbox_note_and_preprod_in_catalog():
     board = build_seed_board()
     assert any(c["id"] == "cycle-preprod" for c in board["cycles"])

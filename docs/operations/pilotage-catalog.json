@@ -1,11 +1,11 @@
 {
-  "version": 4,
-  "updatedAt": "2026-07-27",
+  "version": 6,
+  "updatedAt": "2026-07-29",
   "cycles": [
     {
       "id": "cycle-now",
       "label": "À faire maintenant",
-      "description": "Priorités immédiates — commence par H14",
+      "description": "Priorités immédiates Cloudity — H14 LAN d’abord (ZoneForge = cycle dédié plus tard)",
       "itemIds": [
         "H14",
         "H19",
@@ -19,8 +19,6 @@
         "UI-DS-REMAIN",
         "QA-MATRIX-01",
         "DEPLOY-DNS-01",
-        "ZF-03",
-        "ZF-01",
         "VAL-VAULT-BRANCH",
         "SAMSUNG-REPLAY",
         "COMPOSE-CONFIG-01",
@@ -278,48 +276,48 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nHTTPS VPS : cible = ZoneForge (docs/operations/ZONEFORGE-CLOUDITY.md · ZF-03) ; manuel Portainer/NPM = interim seulement (DEPLOY-PORTAINER-NPM-CLOUDITY.md).\nContextes : (A) local · (B) LAN · (C) HTTPS via ZoneForge.",
-      "expected": "PARTIEL OK si LAN smoke vert. OK final seulement si login mobile HTTPS (ou décision explicite « LAN only » documentée en note).",
+      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nLAN (1, 2, 3a) → Partiel. HTTPS VPS (3b) = DNS + Portainer env + NPM proxy + login téléphone.\nInterim manuel : docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
+      "expected": "LAN : 1+2+3a cochés → Partiel. HTTPS : 3b coché (DNS A cloudity.+api.cloudity. → VPS, env Portainer, NPM Force SSL, curl /health, login mobile) → OK.",
       "status": "partial",
       "order": 1,
       "checklistLabels": [
         "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
         "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
         "3a. Smoke LAN : curl /health + CORS + login téléphone Wi‑Fi",
-        "3b. HTTPS VPS : DNS + Portainer env + NPM Proxy Host api.* + login téléphone (ou problème ouvert)"
+        "3b. HTTPS VPS : DNS + env Portainer + NPM proxy api.* / web + login téléphone"
       ],
       "source": "catalog",
       "howToSteps": [
         {
           "title": "Où suis-je ?",
-          "body": "Local/LAN = make up sur le PC. Prod = Portainer+NPM sur le VPS (comme Nextcloud). Ne mélange pas les deux."
+          "body": "A Local PC = make up (localhost). B LAN téléphone = IP Wi‑Fi :6002. C VPS = Portainer + NPM (https://api.cloudity.<dom>). Ne mélange pas LAN et VPS. Doc : H14-GATEWAY-MOBILE.md"
         },
         {
-          "title": "Critère 1 — sync-public-urls",
-          "body": "Sur le PC : édite CLOUDITY_PUBLIC_HOST (+ PROTO) dans .env → make sync-public-urls → vérifie grep VITE_API_URL et CLOUDITY_MOBILE_GATEWAY_URL. Doc : H14-GATEWAY-MOBILE.md §critère 1."
+          "title": "1 — sync-public-urls (PC)",
+          "body": "Dans .env : CLOUDITY_PUBLIC_HOST + CLOUDITY_PUBLIC_PROTO.\nLAN ex. : HOST=192.168.x.x PROTO=http → make sync-public-urls\nVérif : grep -E '^(VITE_API_URL|CLOUDITY_MOBILE_GATEWAY_URL|CORS_ORIGINS)=' .env\nProd (générer fichier) : HOST=cloudity.<dom> PROTO=https CLOUDITY_PUBLIC_API_HOST=api.cloudity.<dom> CLOUDITY_PUBLIC_OMIT_PORTS=true → make env-prod DOMAIN=<dom> puis make portainer-env"
         },
         {
-          "title": "Critère 2 — app mobile",
-          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass). L’URL login doit être l’IP LAN ou https://api…, jamais localhost depuis le téléphone."
+          "title": "2 — app mobile",
+          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass).\nL’écran login doit montrer CLOUDITY_MOBILE_GATEWAY_URL (IP LAN ou https://api…), jamais localhost depuis le téléphone.\nAide : make android-help"
         },
         {
-          "title": "Critère 3a — smoke LAN",
-          "body": "curl http://<IP>:6002/health → healthy. OPTIONS /auth/login avec Origin LAN → Allow-Origin. Login réel sur le téléphone."
+          "title": "3a — smoke LAN",
+          "body": "curl -sS http://<IP>:6002/health → healthy\ncurl -sS -D- -o /dev/null -X OPTIONS http://<IP>:6002/auth/login -H 'Origin: http://<IP>:6001' -H 'Access-Control-Request-Method: POST'\n→ Access-Control-Allow-Origin = Origin.\nPuis login Mail/Drive/Photos/Pass sur le téléphone (même Wi‑Fi).\nPilotage : bouton « Cocher LAN → Partiel »."
+        },
+        {
+          "title": "3b — HTTPS VPS (étape par étape)",
+          "body": "Interim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
         },
         {
           "title": "Décisions Pilotage",
-          "body": "LAN OK sans VPS → Partiel. Bug CORS/TLS → Signaler un problème + log. HTTPS 4 apps OK → OK. Pause VPS → Plus tard."
-        },
-        {
-          "title": "Critère 3b — HTTPS via ZoneForge",
-          "body": "Ne pas s’acharner sur Portainer/NPM à la main : avancer ZF-01→ZF-03. Interim manuel seulement si ZoneForge pas prêt. Lien : ZONEFORGE-CLOUDITY.md"
+          "body": "LAN OK sans VPS → Partiel (pas « En cours » : Partiel = statut). Focus = tête de file seulement. HTTPS 4 apps OK → coche 3b puis Validé/OK. Pause VPS → Plus tard."
         }
       ],
       "docLinks": [
-        "docs/operations/ZONEFORGE-CLOUDITY.md",
         "docs/operations/H14-GATEWAY-MOBILE.md",
         "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
-        "docs/operations/ENV-GENERATION.md"
+        "docs/operations/ENV-GENERATION.md",
+        "docs/operations/PORTAINER-VPS.md"
       ],
       "surfaceKeys": [
         "backend",
@@ -342,7 +340,29 @@
         "2 apps migrées",
         "flutter test OK"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "But",
+          "body": "Factoriser SessionStore / LoginScreen dans un package Flutter partagé (cloudity_shared) pour éviter les copies par app. Voir TODOS.md / docs/produit/MOBILES.md."
+        },
+        {
+          "title": "Module partagé",
+          "body": "Créer le module partagé (auth session + écran login). Y brancher les imports communs."
+        },
+        {
+          "title": "Migrer 2 apps",
+          "body": "Migrer au moins 2 apps (ex. Mail + Drive) vers le module. make run-mobile APP=… pour smoke."
+        },
+        {
+          "title": "Tests",
+          "body": "flutter test sur le package + apps migrées verts."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/MOBILES.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "H6b",
@@ -357,7 +377,25 @@
         "Broker Android",
         "iOS Keychain / AccountManager"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "But",
+          "body": "Broker auth mobile : session partagée inter-apps (Android AccountManager / iOS Keychain)."
+        },
+        {
+          "title": "Android",
+          "body": "Valider broker Android (déjà partiel si OK). Doc / TODOS section H6b."
+        },
+        {
+          "title": "iOS",
+          "body": "Keychain sharing group + AccountManager natif iOS — partage de session entre apps Cloudity."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/MOBILES.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "H6c",
@@ -373,7 +411,25 @@
         "Sanitization Mail",
         "TLS prod"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Checklist security",
+          "body": "Parcourir checklist MOBILE-SECURITY (docs). Cocher ce qui est déjà vert."
+        },
+        {
+          "title": "Sanitization Mail",
+          "body": "Messages d’erreur Mail sains (pas de stack/trace). make mail-security-check."
+        },
+        {
+          "title": "TLS prod",
+          "body": "Sur téléphone contre HTTPS VPS (lié H14 3b) — pas de cleartext / cert KO."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/MOBILES.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "H12",
