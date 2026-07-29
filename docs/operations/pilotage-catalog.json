@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -309,7 +309,7 @@
         },
         {
           "title": "3b — HTTPS VPS (étape par étape)",
-          "body": "État constaté (PC) : cloudity.delhomme.ovh résout (A) mais TLS SNI KO ; api.cloudity.delhomme.ovh ne résout PAS → créer l’enregistrement DNS A.\n\nInterim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
+          "body": "État (2026-07-29) : DNS cloudity + api.cloudity.delhomme.ovh OK · certificats LE OK.\nEncore 502/500 : NPM pointe mal OU stack Portainer absente.\n\nCorriger NPM maintenant :\n  • cloudity.delhomme.ovh → Forward host cloudity-web · port 3000 (PAS cloudity:80)\n  • api.cloudity.delhomme.ovh → Forward host cloudity-api-gateway · port 8000\n\nPuis créer la stack Portainer (depuis le PC) :\n  make portainer-env  → coller Env Advanced\n  + NPM_NETWORK=<réseau NPM exact>\n  Compose : deploy/portainer/docker-compose.stack.yml\n  Guide : deploy/portainer/PORTAINER-STACK.md §4 bis\n\nVérif : make h14-https-check\n\nÉtat constaté (PC) : cloudity.delhomme.ovh résout (A) mais TLS SNI KO ; api.cloudity.delhomme.ovh ne résout PAS → créer l’enregistrement DNS A.\n\nInterim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
         },
         {
           "title": "Décisions Pilotage",

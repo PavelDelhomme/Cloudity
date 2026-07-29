@@ -93,23 +93,64 @@ Puis adapte les URLs HTTPS (`CLOUDITY_PUBLIC_*` + `make sync-public-urls`, ou `V
 
 ## 4. NPM (HTTPS)
 
-| FQDN | Container | Port |
-|------|-----------|------|
-| `api.cloudity.<domaine>` | `cloudity-api-gateway` | 8000 |
-| `cloudity.<domaine>` | `cloudity-web` | 3000 |
-| `admin.cloudity.<domaine>` | `cloudity-web` | 3000 |
+| FQDN | Forward Hostname | Port | SSL |
+|------|------------------|------|-----|
+| `api.cloudity.<domaine>` | **`cloudity-api-gateway`** | **8000** | Let's Encrypt + Force SSL |
+| `cloudity.<domaine>` | **`cloudity-web`** | **3000** | Let's Encrypt + Force SSL |
+
+**Erreurs fréquentes** (502 / 500 OpenResty alors que le certificat LE est OK) :
+
+| Mauvais | Bon |
+|---------|-----|
+| Forward `cloudity:80` | `cloudity-web` **port 3000** |
+| Forward IP:80 / autre stack | `cloudity-api-gateway` **port 8000** |
+| Conteneurs hors réseau NPM | Joindre web + gateway au réseau NPM (`NPM_NETWORK` dans la stack) |
+
+Vérif depuis le PC :
+
+```bash
+make h14-https-check
+# ou : WEB=https://cloudity.delhomme.ovh API=https://api.cloudity.delhomme.ovh ./scripts/dev/h14-https-check.sh
+```
 
 Voir [DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md).
 
 ---
 
-## 5. Première mise en service
+## 4 bis. Premier déploiement depuis ton PC (sans tout faire à la main)
 
-1. Créer stack + variables § 3.
-2. **Deploy** (premier build long).
-3. Vérifier `cloudity-db-migrate` terminé.
-4. Créer compte admin (seed).
-5. `make smoke-prod` avec URLs NPM.
+1. **Sur le PC** (déjà fait si `.env.prod` existe) :
+   ```bash
+   make env-prod DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh FORCE=1
+   make portainer-env          # copier tout le bloc
+   ```
+2. **Portainer → Stacks → Add stack** (Git) :
+   - Name : `cloudity`
+   - Repo : `https://github.com/PavelDelhomme/Cloudity.git`
+   - Reference : `refs/heads/dev` (ou `main` quand stabilisé)
+   - Compose path : `deploy/portainer/docker-compose.stack.yml`
+   - Env Advanced : coller `make portainer-env` + ajoute `NPM_NETWORK=<nom exact du réseau NPM>` (Portainer → Networks)
+3. **Deploy** (premier build long).
+4. **Corrige les 2 Proxy Hosts NPM** (§ 4) si tu as mis `cloudity:80`.
+5. `make h14-https-check` → doit passer health 200.
+
+### Ensuite : déployer un seul composant
+
+| Où | Comment |
+|----|---------|
+| **Local (PC)** | `make deploy-web` · `make deploy-gateway` · `make deploy-auth` · … — voir [DEPLOIEMENT-PAR-SERVICE.md](../../docs/operations/DEPLOIEMENT-PAR-SERVICE.md) |
+| **VPS** | Portainer → stack → conteneur → **Recreate** (ou Pull & Redeploy si image GHCR) |
+| **Mobile** | Jamais Portainer : `make run-mobile APP=Mail` avec `CLOUDITY_MOBILE_GATEWAY_URL=https://api.cloudity.…` |
+
+Le flux « GitOps » Portainer (poll branche) évite de coller le compose à chaque fois : tu pushes, Portainer reconstruit.
+
+---
+
+## 5. Première mise en service (après Deploy)
+
+1. Vérifier `cloudity-db-migrate` terminé (logs Portainer).
+2. Compte admin (seed / `SEED_ADMIN_*` dans env).
+3. `make h14-https-check` puis éventuellement `make smoke-prod`.
 
 ---
 
