@@ -1756,8 +1756,12 @@ export type Task = {
   tenant_id: number
   user_id: number
   list_id?: number | null
+  parent_id?: number | null
   title: string
+  notes?: string
   completed: boolean
+  starred?: boolean
+  start_at?: string | null
   due_at?: string | null
   repeat_rule?: TaskRepeatRule | string | null
   created_at: string
@@ -1785,7 +1789,16 @@ export async function createTaskList(token: string, name: string): Promise<{ id:
 
 export async function createTask(
   token: string,
-  payload: { title: string; list_id?: number | null; due_at?: string | null; repeat_rule?: string | null }
+  payload: {
+    title: string
+    list_id?: number | null
+    parent_id?: number | null
+    notes?: string | null
+    start_at?: string | null
+    due_at?: string | null
+    repeat_rule?: string | null
+    starred?: boolean
+  }
 ): Promise<{ id: number; title: string }> {
   return apiJson<{ id: number; title: string }>(
     token,
@@ -1795,8 +1808,12 @@ export async function createTask(
       body: JSON.stringify({
         title: payload.title,
         list_id: payload.list_id ?? undefined,
+        parent_id: payload.parent_id ?? undefined,
+        notes: payload.notes ?? undefined,
+        start_at: payload.start_at ?? undefined,
         due_at: payload.due_at ?? undefined,
         repeat_rule: payload.repeat_rule ?? undefined,
+        starred: payload.starred ?? undefined,
       }),
     },
     'Create task'
@@ -1811,6 +1828,7 @@ export type ContactResponse = {
   name: string
   email: string
   phone?: string
+  profile?: import('./lib/contactProfile').ContactProfile
   vault_encrypted?: boolean
   vault_ciphertext?: string | null
   created_at: string
@@ -1825,8 +1843,9 @@ export async function createContact(
   token: string,
   payload: {
     name?: string
-    email: string
+    email?: string
     phone?: string
+    profile?: import('./lib/contactProfile').ContactProfile
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
@@ -1837,7 +1856,8 @@ export async function createContact(
     try {
       const j = JSON.parse(t) as { error?: string }
       throw new Error(j.error || t)
-    } catch {
+    } catch (e) {
+      if (e instanceof Error && e.message && !e.message.startsWith('{')) throw e
       throw new Error(t || `Create contact: ${res.status}`)
     }
   }
@@ -1851,6 +1871,7 @@ export async function updateContact(
     name?: string
     email?: string
     phone?: string
+    profile?: import('./lib/contactProfile').ContactProfile
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
@@ -1906,13 +1927,26 @@ export async function importContacts(
 export async function updateTask(
   token: string,
   id: number,
-  patch: Partial<{ title: string; completed: boolean; due_at: string | null; repeat_rule: string | null }>
+  patch: Partial<{
+    title: string
+    notes: string
+    completed: boolean
+    starred: boolean
+    start_at: string | null
+    due_at: string | null
+    repeat_rule: string | null
+    parent_id: number | null
+  }>
 ): Promise<void> {
   const body: Record<string, unknown> = {}
   if (patch.title !== undefined) body.title = patch.title
+  if (patch.notes !== undefined) body.notes = patch.notes
   if (patch.completed !== undefined) body.completed = patch.completed
+  if (patch.starred !== undefined) body.starred = patch.starred
+  if (patch.start_at !== undefined) body.start_at = patch.start_at === null ? '' : patch.start_at
   if (patch.due_at !== undefined) body.due_at = patch.due_at === null ? '' : patch.due_at
   if (patch.repeat_rule !== undefined) body.repeat_rule = patch.repeat_rule === null ? '' : patch.repeat_rule
+  if (patch.parent_id !== undefined) body.parent_id = patch.parent_id === null ? 0 : patch.parent_id
   const res = await apiFetch(token, `/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) })
   if (!res.ok) throw new Error(`Update task: ${res.status}`)
 }

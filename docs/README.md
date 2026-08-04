@@ -62,7 +62,7 @@ Référence longue VPS (optionnelle) : [operations/DEPLOIEMENT-VPS-PORTAINER-NPM
 | [produit/MAIL-GMAIL-OAUTH.md](produit/MAIL-GMAIL-OAUTH.md) | OAuth Gmail |
 | [produit/MOBILES.md](produit/MOBILES.md) | Apps Flutter |
 | [produit/DRIVE-DESKTOP-SYNC.md](produit/DRIVE-DESKTOP-SYNC.md) | Sync bureau Drive |
-| [produit/PHOTOS.md](produit/PHOTOS.md) · [ROADMAP.md](produit/ROADMAP.md) | Roadmap / Photos |
+| [produit/PHOTOS.md](produit/PHOTOS.md) · [ROADMAP.md](produit/ROADMAP.md) · [SUITE-PRODUCTIVITY-GAP.md](produit/SUITE-PRODUCTIVITY-GAP.md) | Roadmap / Photos / **Contacts·Tasks·Notes** |
 | [produit/editeur-docs.md](produit/editeur-docs.md) | Éditeur documents |
 | [produit/CLOUDITY-USER-PREFERENCES.md](produit/CLOUDITY-USER-PREFERENCES.md) | Préférences utilisateur |
 

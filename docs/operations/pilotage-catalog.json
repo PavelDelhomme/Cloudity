@@ -1,6 +1,6 @@
 {
-  "version": 14,
-  "updatedAt": "2026-07-29",
+  "version": 17,
+  "updatedAt": "2026-08-04",
   "cycles": [
     {
       "id": "cycle-now",
@@ -53,7 +53,7 @@
     {
       "id": "cycle-web-apps",
       "label": "Apps web & UX",
-      "description": "UI-DS, Calendar, Drive, refactor, SYNC",
+      "description": "UI-DS, Calendar, Drive, refactor, SYNC + **APP-06/07/08** (Notes/Tasks/Contacts riches — web d’abord, détail SUITE-PRODUCTIVITY-GAP.md).",
       "itemIds": [
         "FE-SPLIT-01",
         "FE-HUB-01",
@@ -926,46 +926,128 @@
       "id": "APP-06-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-06 Notes cartes/couleurs",
-      "description": "Features Notes au-delà CRUD.",
-      "expected": "Cartes / couleurs / épinglage.",
+      "label": "APP-06 — Notes type Evernote (web d’abord)",
+      "description": "PRIORITÉ produit suite (après MOBILE-DA-01). Aujourd’hui MVP : titre + texte plat, liste sans édition UI, color DB inutilisé. Cible Evernote-like WEB : édition riche, carnets/tags, couleurs/épinglage, notes de réunion liées Calendar/Tasks, rattachement Contacts, partage optionnel. Mobile = plus tard (même API). Doc : docs/produit/ROADMAP.md APP-06 + docs/produit/SUITE-PRODUCTIVITY-GAP.md.",
+      "expected": "CRUD UI complet web ; édition utile ; couleurs/épinglage ; ≥1 lien Calendar ou Tasks ; partage ou invitation contact (MVP).",
       "status": "open",
       "order": 6,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "CRUD UI Notes (créer / éditer / supprimer) web",
+        "Édition riche ou markdown + aperçu",
+        "Couleurs / épinglage / carnets ou tags",
+        "Lien Calendar et/ou Tasks (note de réunion)",
+        "Rattacher Contact(s) + partage basique",
+        "Mobile Notes aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État",
+          "body": "notes-service : title/content (+ color inutilisé). UI = create + list only."
+        },
+        {
+          "title": "Web d’abord",
+          "body": "NotesPage : éditeur, delete, color/pin. Schema notebooks/tags si besoin."
+        },
+        {
+          "title": "Liens suite",
+          "body": "Métadonnées note → event_id / task_id / contact_ids. Partage = invite email contact."
+        },
+        {
+          "title": "Mobile",
+          "body": "Après web stable : Flutter Notes consomme la même API (pas de fork produit)."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-07-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-07 Tasks × Calendar",
-      "description": "Sous-tâches + intégration Calendar.",
-      "expected": "Parcours Tasks↔Calendar.",
-      "status": "open",
+      "label": "APP-07 — Tasks type Google Tasks (web d’abord)",
+      "description": "PRIORITÉ produit suite. Livré partiel (v17) : parent_id + notes + start_at + starred (mig. 50) + UI web imbriquée. Reste : lien Calendar, mobile Flutter. Doc SUITE-PRODUCTIVITY-GAP.md + DEPLOIEMENT-PAR-SERVICE § 2bis.",
+      "expected": "Sous-tâches ; notes tâche ; start/due ; lien événement Calendar optionnel ; UI web utilisable au quotidien.",
+      "status": "partial",
       "order": 7,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "Sous-tâches (parent_id) + UI web",
+        "Notes / description par tâche",
+        "Date début + échéance (fin présumée)",
+        "Priorité ou étoile (optionnel MVP+)",
+        "Lien / sync Calendar (tâche ↔ événement)",
+        "Mobile Tasks aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État (partiel v17)",
+          "body": "Migration 50 ; tasks-service + TasksPage : sous-tâches 1 niveau, notes, start/due, étoile."
+        },
+        {
+          "title": "Déployer",
+          "body": "make migrate · make deploy-service SERVICE=tasks-service · make deploy-web · smoke /app/tasks"
+        },
+        {
+          "title": "Reste",
+          "body": "Lien Calendar ; mobile Flutter."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-08-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-08 Contacts vCard/groupes",
-      "description": "Import/export + liaison Mail.",
-      "expected": "Contacts riches.",
-      "status": "open",
+      "label": "APP-08 — Contacts type Google Contacts (web d’abord)",
+      "description": "PRIORITÉ produit suite. Livré partiel (v16) : profile JSONB + API + formulaire web riche (identité, orga, multi-tél/emails/adresses, notes, labels, sites, relations, anniversaire). Reste : vCard import/export, groups avancés, SYNC-MAIL-CONTACTS, mobile Flutter aligné. Lié SYNC-MAIL-CONTACTS.",
+      "expected": "Fiche contact riche web ; multi phone/email avec libellés ; notes ; labels ; vCard import/export ; Mail ouvre fiche.",
+      "status": "partial",
       "order": 8,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "Identité : prénom, nom, middle, préfixe, suffixe, pseudo",
+        "Orga : entreprise, poste, service, « classer en tant que »",
+        "Téléphones multiples + libellés + préfixe pays",
+        "Emails / adresses / sites / anniversaire / relations / notes",
+        "Labels/groupes + import-export vCard",
+        "Mobile Contacts aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État (partiel v16)",
+          "body": "Migration 49 profile JSONB ; contacts-service create/update/list/get avec profile ; dénorm name/email/phone. ContactsPage + ContactRichForm web. Tests Go + vitest contactProfile."
+        },
+        {
+          "title": "Smoke",
+          "body": "make migrate (49) · make deploy-service SERVICE=contacts-service · make deploy-web · /app/contacts : créer fiche multi-champs, éditer, rechercher."
+        },
+        {
+          "title": "Reste",
+          "body": "vCard import/export ; labels/groupes persistés côté serveur si besoin ; SYNC-MAIL-CONTACTS ; mobile Flutter ensuite."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-10-OPEN",

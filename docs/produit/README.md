@@ -13,7 +13,7 @@ Index : **[`../README.md`](../README.md)** · Ops : **[`../operations/DEPLOIEMEN
 | [DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md) | Sync bureau Drive |
 | [CLOUDITY-USER-PREFERENCES.md](CLOUDITY-USER-PREFERENCES.md) | Préférences utilisateur |
 | [editeur-docs.md](editeur-docs.md) | Éditeur documents |
-| [ROADMAP.md](ROADMAP.md) · [VISION-SUITE.md](VISION-SUITE.md) | Roadmap / vision |
+| [ROADMAP.md](ROADMAP.md) · [SUITE-PRODUCTIVITY-GAP.md](SUITE-PRODUCTIVITY-GAP.md) · [VISION-SUITE.md](VISION-SUITE.md) | Roadmap / **Contacts·Tasks·Notes** / vision |
 | [SYNC-BACKLOG.md](SYNC-BACKLOG.md) | Sync multi-apps |
 | [PASS-BACKUP.md](PASS-BACKUP.md) · [SPRINT-PASS-2026-05.md](SPRINT-PASS-2026-05.md) | Pass |
 

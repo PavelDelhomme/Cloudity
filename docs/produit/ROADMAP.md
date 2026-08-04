@@ -166,34 +166,40 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 
 | Champ | Contenu |
 |--------|---------|
-| **Description** | Prise de notes type Keep / bloc-notes enrichi. |
-| **Objectif** | Capture rapide, organisation par couleurs / étiquettes. |
-| **Plateformes** | Web ; mobile. |
-| **Fonctionnalités** | CRUD ; **à faire** : cartes, couleurs, épinglage, rappels. |
+| **Description** | Notes type **Evernote** (édition riche, organisation, liens suite). |
+| **Objectif** | Capture + réunion + partage léger, pas un simple textarea. |
+| **Plateformes** | **Web d’abord** ; mobile ensuite (même API). |
+| **Aujourd’hui** | MVP : title/content ; liste sans édition UI ; `color` DB inutilisé. |
+| **À faire** | CRUD UI ; édition riche/markdown ; couleurs/épinglage/carnets-tags ; lien Calendar/Tasks ; Contacts + partage. |
+| **Pilotage** | **APP-06-OPEN** · détail [`SUITE-PRODUCTIVITY-GAP.md`](SUITE-PRODUCTIVITY-GAP.md). |
 | **Backend** | `notes-service`, `/notes/*`. |
-| **Statut** | MVP. |
+| **Statut** | MVP trop maigre → chantier produit ouvert. |
 
 ### APP-07 — Tasks
 
 | Champ | Contenu |
 |--------|---------|
-| **Description** | Listes et tâches, dates d’échéance, répétition. |
-| **Objectif** | Suivi des actions liées au calendrier et au mail. |
-| **Plateformes** | Web ; mobile. |
-| **Fonctionnalités** | Listes, tâches, répétition ; **à faire** : sous-tâches avancées, intégration Calendar. |
+| **Description** | Tâches type **Google Tasks** (sous-tâches, dates, notes). |
+| **Objectif** | Suivi actions lié au calendrier. |
+| **Plateformes** | **Web d’abord** ; mobile ensuite. |
+| **Aujourd’hui** | **Partiel** : `parent_id`, `notes`, `start_at`, `starred` (mig. **50**) + UI web. |
+| **À faire** | Lien Calendar ; mobile Flutter. |
+| **Pilotage** | **APP-07-OPEN** (`partial`) · [`SUITE-PRODUCTIVITY-GAP.md`](SUITE-PRODUCTIVITY-GAP.md). |
 | **Backend** | `tasks-service`, `/tasks/*`. |
-| **Statut** | MVP. |
+| **Statut** | Sous-tâches + notes + dates + étoile livrés web ; reste Calendar / mobile. |
 
 ### APP-08 — Contacts
 
 | Champ | Contenu |
 |--------|---------|
-| **Description** | Carnet d’adresses partagé ou personnel (cible). |
+| **Description** | Carnet type **Google Contacts** (fiche riche multi-champs). |
 | **Objectif** | Alimenter Mail, Calendar, téléphone. |
-| **Plateformes** | Web ; mobile. |
-| **Fonctionnalités** | CRUD contacts ; **à faire** : import/export vCard, doublons, liaison Mail, **sync mobile** (même API), éventuellement CardDAV. |
-| **Backend** | À définir / service dédié (cible). |
-| **Statut** | Non démarré (placeholder UI). |
+| **Plateformes** | **Web d’abord** ; mobile ensuite. |
+| **Aujourd’hui** | **Partiel** : `profile` JSONB (mig. 49) + formulaire web riche ; dénorm `name`/`email`/`phone`. |
+| **À faire** | vCard import/export ; SYNC-MAIL-CONTACTS ; mobile Flutter aligné `profile`. |
+| **Pilotage** | **APP-08-OPEN** (`partial`) · [`SUITE-PRODUCTIVITY-GAP.md`](SUITE-PRODUCTIVITY-GAP.md) · **SYNC-MAIL-CONTACTS**. |
+| **Backend** | `contacts-service`, `/contacts/*` + `profile`. |
+| **Statut** | Fiche riche web livrée ; reste interop + mobile. |
 
 ### APP-09 — Photos
 

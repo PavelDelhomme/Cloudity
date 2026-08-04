@@ -27,7 +27,18 @@
 
 ---
 
-### Session 2026-08-04 — H19 auth Flutter unique
+### Session 2026-08-04 — Gap produit Contacts / Tasks / Notes
+
+| Sujet | Pilotage | Doc |
+|-------|----------|-----|
+| **Contacts** riches (Google-like) | **APP-08-OPEN** | `docs/produit/SUITE-PRODUCTIVITY-GAP.md` |
+| **Tasks** sous-tâches / dates / notes | **APP-07-OPEN** | idem |
+| **Notes** Evernote-like + liens suite | **APP-06-OPEN** | idem |
+| **Ordre** | Après **MOBILE-DA-01** | **Web d’abord**, mobile ensuite |
+
+**Toi** : Sync docs (v15) → cycle **Apps web & UX** → ouvrir APP-08 / 07 / 06 (ne pas Focus avant fin DA).
+
+---
 
 | Sujet | État | Détail |
 |-------|------|--------|

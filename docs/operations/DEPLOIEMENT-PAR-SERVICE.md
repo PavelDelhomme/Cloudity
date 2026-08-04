@@ -36,9 +36,32 @@ En **Portainer** : changer le tag/digest **d’une seule** image dans la stack, 
 | **Pass** | `passwords-service` | `make deploy-pass` | Stack `cloudity-pass` |
 | **Drive** | `drive-service` | `make deploy-drive` | Stack `cloudity-drive` |
 | **Photos** | `photos-service` | `make deploy-photos` | Stack `cloudity-photos` |
+| **Contacts** | `contacts-service` | `make deploy-service SERVICE=contacts-service` | Stack `cloudity-comm` |
+| **Tasks** | `tasks-service` | `make deploy-service SERVICE=tasks-service` | Stack `cloudity-comm` |
+| **Notes / Calendar** | `notes-service` / `calendar-service` | `make deploy-service SERVICE=…` | Stack `cloudity-comm` |
 | **Tout** | tous | `make up` / `make rebuild` | Déployer les 8 stacks (ordre § DEPLOIEMENT-VPS § 3) |
 
 > Erreur fréquente : pour Mail, utiliser **`deploy-mail`**, pas `deploy-web`.
+
+## 2bis. Suite productivité (Contacts / Tasks / Notes) — local
+
+Ordre fixe quand le schéma change : **migrate → service API → front**.
+
+| Chantier | Migration | Commandes locales |
+|----------|-----------|-------------------|
+| **APP-08 Contacts** (fiche `profile` JSONB) | **49** `49-contacts-profile.sql` | `make migrate` → `make deploy-service SERVICE=contacts-service` → `make deploy-web` |
+| **APP-07 Tasks** (sous-tâches, notes, `start_at`, étoile) | **50** `50-tasks-rich.sql` | `make migrate` → `make deploy-service SERVICE=tasks-service` → `make deploy-web` |
+| **APP-06 Notes** | selon mig. | Idem pattern `notes-service` + `deploy-web` |
+
+Smoke :
+
+```bash
+curl -sf http://localhost:6011/health   # contacts
+curl -sf http://localhost:6009/health   # tasks
+# UI : http://localhost:6001/app/contacts · /app/tasks · /app/notes
+```
+
+VPS : job **db-migrate** (stack infra) **avant** redeploy des images `contacts-service` / `tasks-service` / `cloudity-web` dans Portainer. Détail produit : [`docs/produit/SUITE-PRODUCTIVITY-GAP.md`](../produit/SUITE-PRODUCTIVITY-GAP.md).
 
 ## 3. Développement local (`make`)
 
@@ -52,6 +75,7 @@ En **Portainer** : changer le tag/digest **d’une seule** image dans la stack, 
 | **Mail** | `make deploy-mail` |
 | **Pass** | `make deploy-pass` |
 | **Drive / Photos** | `make deploy-drive`, `make deploy-photos` |
+| **Un service Go** (contacts, tasks, notes, …) | `make deploy-service SERVICE=contacts-service` |
 | Migrations SQL | `make migrate` |
 | Extension Pass MV3 | `make build-pass-extension` (pas un conteneur) |
 
@@ -84,6 +108,9 @@ docker compose up -d cloudity-web
 | `deploy/mail-mta` / DNS alias | stack `cloudity-mail-mta` séparée | Non, sauf ajout colonnes admin domaines |
 | `passwords-service` | `passwords-service` | Parfois |
 | `drive-service`, `photos-service`, … | service ciblé | Selon migration |
+| `contacts-service` (APP-08) | `contacts-service` | **Oui** — mig. **49** d’abord |
+| `tasks-service` (APP-07) | `tasks-service` | **Oui** — mig. **50** d’abord |
+| `notes-service` (APP-06) | `notes-service` | Selon migration |
 | `.env` secrets seulement | **Restart** services qui lisent la variable | Non |
 | App Flutter `mobile/mail` | **APK** + `version.json` | Non |
 
@@ -115,4 +142,4 @@ Pas de push automatique vers le VPS : tu choisis **quel** service redéployer da
 
 ---
 
-*Dernière mise à jour : 2026-05-20.*
+*Dernière mise à jour : 2026-08-04 (suite productivité APP-08 / APP-07).*
