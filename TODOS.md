@@ -27,7 +27,18 @@
 
 ---
 
-### Session 2026-07-29 — FE-SPLIT-01 livré (Mail autonome)
+### Session 2026-08-04 — H19 auth Flutter unique
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **cloudity_shared/auth** | ☑ | CloudityAuthClient + SessionStore + CloudityLoginScreen |
+| **Apps migrées** | ☑ | Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks |
+| **Tests** | ☑ | shared auth_* + widget Mail/Drive ; hub vitest 9/9 |
+| **Reste** | 🟡 | Pass + Admin login locaux ; Focus suivant = MOBILE-DA-01 |
+
+**Toi** : Sync docs → Focus H19 → coche → OK → Focus **MOBILE-DA-01**.
+
+---
 
 | Sujet | État | Détail |
 |-------|------|--------|

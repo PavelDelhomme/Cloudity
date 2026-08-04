@@ -4,6 +4,7 @@ import 'package:cloudity_shared/photo_match.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../api/drive_api.dart';
+import '../api/auth_api.dart';
 import 'gallery_backup_logic.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
@@ -51,7 +52,7 @@ Future<GalleryBackupResult> _runGalleryBackupJob() async {
     return _skipped('désactivé');
   }
 
-  final session = await SessionStore.loadValidatedSession();
+  final session = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
   if (session == null) {
     return _skipped('session_absente');
   }

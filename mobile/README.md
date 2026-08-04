@@ -5,9 +5,10 @@
 
 ## État `cloudity_shared` (à connaître)
 
-| Déjà partagé | Encore dupliqué / à finir (H19) |
-|--------------|----------------------------------|
-| Tokens, thème, `CloudityThemedApp`, `SuiteAppShell`, drawer, switcher, gateway | `lib/auth/session_store.dart` + `login_screen.dart` **copiés** dans presque chaque app |
+| Déjà partagé | Encore dupliqué / à finir |
+|--------------|---------------------------|
+| Tokens, thème, `CloudityThemedApp`, `SuiteAppShell`, drawer, switcher, gateway | Pass / Admin login encore locaux |
+| **H19** : `SessionStore`, `CloudityLoginScreen`, `CloudityAuthClient` | MOBILE-DA-01 (checklist DA) |
 | Prefs / contrats API partiels | Imposer DA partout + perso produit = accent/logo seulement |
 
 **Règle** : `lib/features/` = **métier seul**. Auth, thème, drawer = `cloudity_shared` (pas une copie locale).

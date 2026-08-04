@@ -5,7 +5,7 @@ import 'package:workmanager/workmanager.dart';
 
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'auth/login_screen.dart';
+import 'api/auth_api.dart';
 import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/gallery_backup_notifications.dart';
@@ -62,7 +62,10 @@ class _PhotosShell extends StatelessWidget {
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
-      loginBuilder: (onLoggedIn) => LoginScreen(
+      loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        productTitle: 'Cloudity Photos',
+        keyPrefix: 'cloudity_photos',
+        createApi: AuthApi.new,
         onLoggedIn: (session) {
           onLoggedIn(session);
           if (Platform.isAndroid) {
@@ -77,7 +80,7 @@ class _PhotosShell extends StatelessWidget {
 }
 
 Future<UserSession?> _restoreSession() async {
-  final pair = await SessionStore.loadValidatedSession();
+  final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
   if (pair == null) return null;
   return UserSession(
     api: pair.api,

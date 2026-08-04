@@ -496,7 +496,6 @@ func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
 	type dbRule struct {
 		id               int
 		fromPattern      string
@@ -519,6 +518,10 @@ func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (
 		r.fromDomainNorm = normalizeFromDomainPattern(domRaw)
 		rules = append(rules, r)
 	}
+	_ = rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
 	if len(rules) == 0 {
 		return 0, nil
 	}
@@ -530,7 +533,30 @@ func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (
 	if err != nil {
 		return 0, err
 	}
-	defer msgRows.Close()
+	type msgRow struct {
+		id              int
+		fromAddr        string
+		toAddrs         string
+		subject         string
+		attachmentCount int
+		folder          string
+		isRead          bool
+		messageUID      int64
+	}
+	var messages []msgRow
+	for msgRows.Next() {
+		var m msgRow
+		if err := msgRows.Scan(&m.id, &m.fromAddr, &m.toAddrs, &m.subject, &m.attachmentCount, &m.folder, &m.isRead, &m.messageUID); err != nil {
+			continue
+		}
+		messages = append(messages, m)
+	}
+	_ = msgRows.Close()
+	if err := msgRows.Err(); err != nil {
+		return 0, err
+	}
+
+	// Conn épinglée : tags seulement après fermeture du curseur messages.
 	tagRows, err := h.dbex(ctx).Query(`
 		SELECT mt.message_id, mt.tag_id
 		FROM mail_message_tags mt
@@ -551,7 +577,10 @@ func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (
 		}
 		msgTagSet[mid][tid] = struct{}{}
 	}
-	tagRows.Close()
+	_ = tagRows.Close()
+	if err := tagRows.Err(); err != nil {
+		return 0, err
+	}
 
 	affected := 0
 	var imapClientConn *client.Client
@@ -561,15 +590,15 @@ func (h *Handler) applyMailRulesForAccount(ctx context.Context, accountID int) (
 			_ = imapClientConn.Logout()
 		}
 	}()
-	for msgRows.Next() {
-		var msgID int
-		var fromAddr, toAddrs, subject, folder string
-		var attachmentCount int
-		var isRead bool
-		var messageUID int64
-		if err := msgRows.Scan(&msgID, &fromAddr, &toAddrs, &subject, &attachmentCount, &folder, &isRead, &messageUID); err != nil {
-			continue
-		}
+	for _, m := range messages {
+		msgID := m.id
+		fromAddr := m.fromAddr
+		toAddrs := m.toAddrs
+		subject := m.subject
+		attachmentCount := m.attachmentCount
+		folder := m.folder
+		isRead := m.isRead
+		messageUID := m.messageUID
 		for _, rule := range rules {
 			crit := ruleMatchCriteria{
 				FromPattern:      rule.fromPattern,

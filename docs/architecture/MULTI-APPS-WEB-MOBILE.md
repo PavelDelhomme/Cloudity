@@ -173,8 +173,8 @@ Réf. historique : [ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md) · [FR
 
 | Élément | Aujourd’hui | Cible |
 |---------|-------------|--------|
-| `SessionStore` | Copié `lib/auth/` × N apps | **Un** module `cloudity_shared` (paramétrable `productId`) |
-| `LoginScreen` | Copié × N | **Un** écran partagé + slots (titre, accent, logo produit) |
+| `SessionStore` | Copié `lib/auth/` × N apps | **☑ H19** — `cloudity_shared/lib/auth/session_store.dart` |
+| `LoginScreen` | Copié × N | **☑ H19** — `CloudityLoginScreen` (productTitle + keyPrefix) |
 | DA stricte | Tokens + thème | Checklist DA : typo, spacing, erreurs, empty states **obligatoires** |
 | `lib/features/` | Variable | **Seul** endroit du métier app ; auth/shell **interdits** dedans |
 
@@ -197,11 +197,22 @@ Voir aussi : [`../../mobile/README.md`](../../mobile/README.md) · [`../produit/
 
 1. **FE-HUB-01** — ☑ (§ 2.2bis).  
 2. **FE-SPLIT-01** — ☑ Mail autonome (§ 2.3).  
-3. **H19** — SessionStore + LoginScreen → `cloudity_shared` — **Focus Pilotage suivant**.  
-4. **MOBILE-DA-01** — checklist DA Flutter.  
+3. **H19** — ☑ SessionStore + LoginScreen → `cloudity_shared` (Mail/Drive/Photos/Calendar + Contacts/Notes/Tasks).  
+4. **MOBILE-DA-01** — checklist DA Flutter — **Focus Pilotage suivant**.  
 5. **H21** → **UI-DS-REMAIN** → **H14** (HTTPS VPS).
 
-Validation : `/4dm1n/pilotage` → Sync docs → cocher **FE-SPLIT-01** → Focus **H19**.
+Validation : `/4dm1n/pilotage` → Sync docs → cocher **H19** → Focus **MOBILE-DA-01**.
+
+### H19 — détail
+
+| Élément | Emplacement |
+|---------|-------------|
+| `CloudityAuthClient` | `mobile/cloudity_shared/lib/auth/auth_client.dart` |
+| `SessionStore` | `…/auth/session_store.dart` |
+| `CloudityLoginScreen` | `…/auth/login_screen.dart` |
+| `CloudityUserSession<T>` | `…/auth/user_session.dart` |
+| Apps migrées | Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks |
+| Encore local | Pass (`screens/login_screen`), Admin (à migrer) |
 
 ---
 

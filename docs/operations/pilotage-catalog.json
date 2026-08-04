@@ -1,5 +1,5 @@
 {
-  "version": 13,
+  "version": 14,
   "updatedAt": "2026-07-29",
   "cycles": [
     {
@@ -349,8 +349,9 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H19 — Auth mobile unique (SessionStore + Login)",
-      "description": "PRIORITÉ : supprimer les copies lib/auth/session_store.dart + login_screen.dart (Mail, Drive, Photos, Calendar, …). Tout dans cloudity_shared avec slots produit.\nLié MOBILE-DA-01 / AUTH-PKG. Doc : docs/architecture/MULTI-APPS-WEB-MOBILE.md § 3.",
-      "expected": "0 copie auth dans les apps ; ≥4 apps migrées ; flutter test OK.",
+      "description": "LIVRÉ (à cocher) : SessionStore + CloudityLoginScreen + CloudityAuthClient dans cloudity_shared. Migrés : Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks. Pass/Admin restent. Doc MULTI-APPS § 3–4. NOTE : prochain Focus = MOBILE-DA-01.",
+      "expected": "☑ SessionStore+Login dans shared · ☑ ≥4 apps · ☑ flutter test shared/mail/drive. Cocher puis Focus MOBILE-DA-01.",
+      "completionNote": "H19 livré 2026-08-04. Suite = MOBILE-DA-01.",
       "status": "open",
       "order": 3,
       "checklistLabels": [
@@ -363,20 +364,20 @@
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "Constat",
-          "body": "rg login_screen/session_store sous mobile/*/lib/auth — N copies. SuiteAppShell existe déjà mais login reste local."
+          "title": "1 — Shared",
+          "body": "cloudity_shared/lib/auth/ : CloudityAuthClient, SessionStore, CloudityLoginScreen, CloudityUserSession."
         },
         {
-          "title": "Extraire",
-          "body": "Créer cloudity_shared/lib/auth/ (session + login UI) avec product accent/title."
+          "title": "2 — Apps suite",
+          "body": "Mail/Drive/Photos/Calendar/Contacts/Notes/Tasks : AuthApi extends CloudityAuthClient ; login via CloudityLoginScreen."
         },
         {
-          "title": "Migrer",
-          "body": "Apps : main.dart + SuiteAppShell utilisent le login partagé ; supprimer auth/ local."
+          "title": "3 — Tests",
+          "body": "flutter test cloudity_shared (auth_*) ; widget_test Mail/Drive."
         },
         {
-          "title": "Doc",
-          "body": "MULTI-APPS-WEB-MOBILE.md § 3 + mobile/README.md"
+          "title": "4 — Suite = MOBILE-DA-01",
+          "body": "Cocher H19 puis Focus MOBILE-DA-01. Pass/Admin auth = follow-up optionnel."
         }
       ],
       "docLinks": [

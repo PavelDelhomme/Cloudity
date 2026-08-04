@@ -98,6 +98,10 @@ func (h *Handler) hasSenderHamExemption(ctx context.Context, accountID int, from
 
 // applyClouditySpamTriage déplace vers spam les messages encore en réception selon le score Cloudity
 // (heuristique + en-têtes Rspamd), indépendamment du dossier Junk IMAP fournisseur.
+//
+// Important : la conn SQL est **épinglée** (RLS). On charge d’abord tout le SELECT en mémoire
+// puis on ferme les rows avant tout QueryRow/Exec — sinon Postgres logue
+// « connection reset by peer / connection to client lost » (protocole cassé).
 func (h *Handler) applyClouditySpamTriage(ctx context.Context, accountID int) (int, error) {
 	cfg := mailSpamAutoTriageConfig()
 	if !cfg.Enabled {
@@ -111,7 +115,30 @@ func (h *Handler) applyClouditySpamTriage(ctx context.Context, accountID int) (i
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	type triageRow struct {
+		id         int
+		fromAddr   string
+		subject    string
+		rawHeaders string
+		folder     string
+		isRead     bool
+		messageUID int64
+	}
+	var inbox []triageRow
+	for rows.Next() {
+		var r triageRow
+		if err := rows.Scan(&r.id, &r.fromAddr, &r.subject, &r.rawHeaders, &r.folder, &r.isRead, &r.messageUID); err != nil {
+			continue
+		}
+		inbox = append(inbox, r)
+	}
+	errClose := rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	if errClose != nil {
+		return 0, errClose
+	}
 
 	affected := 0
 	var imapClientConn *client.Client
@@ -122,25 +149,18 @@ func (h *Handler) applyClouditySpamTriage(ctx context.Context, accountID int) (i
 		}
 	}()
 
-	for rows.Next() {
-		var msgID int
-		var fromAddr, subject, rawHeaders, folder string
-		var isRead bool
-		var messageUID int64
-		if err := rows.Scan(&msgID, &fromAddr, &subject, &rawHeaders, &folder, &isRead, &messageUID); err != nil {
+	for _, r := range inbox {
+		if h.hasSenderHamExemption(ctx, accountID, r.fromAddr) {
 			continue
 		}
-		if h.hasSenderHamExemption(ctx, accountID, fromAddr) {
-			continue
-		}
-		score := effectiveSpamScore(subject, fromAddr, rawHeaders)
+		score := effectiveSpamScore(r.subject, r.fromAddr, r.rawHeaders)
 		if score < cfg.Threshold {
 			continue
 		}
 		res, err := h.dbex(ctx).Exec(`
 			UPDATE mail_messages SET folder = 'spam'
 			WHERE id = $1 AND account_id = $2 AND LOWER(TRIM(folder)) = 'inbox'
-		`, msgID, accountID)
+		`, r.id, accountID)
 		if err != nil {
 			continue
 		}
@@ -149,7 +169,7 @@ func (h *Handler) applyClouditySpamTriage(ctx context.Context, accountID int) (i
 			continue
 		}
 		affected++
-		if messageUID > 0 && imapAvailable {
+		if r.messageUID > 0 && imapAvailable {
 			if imapClientConn == nil {
 				_, ic, imapErr := h.imapDialAndLogin(ctx, accountID, "")
 				if imapErr != nil {
@@ -160,8 +180,8 @@ func (h *Handler) applyClouditySpamTriage(ctx context.Context, accountID int) (i
 				}
 			}
 			if imapClientConn != nil {
-				if imapErr := h.reconcileMessageStateOnIMAP(ctx, accountID, imapClientConn, uint32(messageUID), folder, "spam", isRead, isRead); imapErr != nil {
-					log.Printf("[mail-spam] réconciliation IMAP triage account=%d msg=%d: %v", accountID, msgID, imapErr)
+				if imapErr := h.reconcileMessageStateOnIMAP(ctx, accountID, imapClientConn, uint32(r.messageUID), r.folder, "spam", r.isRead, r.isRead); imapErr != nil {
+					log.Printf("[mail-spam] réconciliation IMAP triage account=%d msg=%d: %v", accountID, r.id, imapErr)
 				}
 			}
 		}
