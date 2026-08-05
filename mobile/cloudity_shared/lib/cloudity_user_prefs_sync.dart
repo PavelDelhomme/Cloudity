@@ -1,3 +1,4 @@
+import 'user_preferences.dart';
 import 'user_preferences_api.dart';
 
 /// Credentials minimales pour synchroniser les préférences compte.

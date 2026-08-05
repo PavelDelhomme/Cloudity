@@ -1,9 +1,18 @@
 # Stack Portainer PROD — pointer Compose path vers ce fichier, branche refs/heads/main
 # Secrets : Portainer Environment variables (voir stack.env.example), pas dans Git
+#
+# Réseau NPM (edge) : même bridge que Nextcloud / nginx-proxy-manager.
+# Dans Portainer → Networks, copie le nom exact (souvent nginx-proxy-manager_default)
+# puis mets NPM_NETWORK=… dans les env de la stack.
 
 include:
   - path: ../../docker-compose.yml
   - path: ../../docker-compose.prod.yml
+
+networks:
+  npm_edge:
+    external: true
+    name: ${NPM_NETWORK:-nginx-proxy-manager_default}
 
 services:
   auth-service:
@@ -14,6 +23,9 @@ services:
     pull_policy: build
     environment:
       GO_ENV: production
+    networks:
+      - default
+      - npm_edge
   admin-service:
     pull_policy: build
     environment:
@@ -22,6 +34,9 @@ services:
     pull_policy: build
     environment:
       NODE_ENV: production
+    networks:
+      - default
+      - npm_edge
   mail-directory-service:
     pull_policy: build
   passwords-service:

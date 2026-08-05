@@ -3,154 +3,18 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-import 'package:cloudity_shared/auth_2fa.dart';
-import 'package:cloudity_shared/http_helpers.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
-/// Appels HTTP vers le **api-gateway** (auth + mail).
-class AuthApi {
-  AuthApi(String gatewayBase)
-    : _base = gatewayBase.trim().replaceAll(RegExp(r'/$'), '');
+export 'package:cloudity_shared/auth/auth_exception.dart';
 
-  final String _base;
-
-  String get baseUrl => _base;
-
-  Future<Map<String, dynamic>> login({
-    required String email,
-    required String password,
-    String tenantId = '1',
-  }) async {
-    final uri = Uri.parse('$_base/auth/login');
-    final res = await http
-        .post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'tenant_id': tenantId,
-      }),
-    )
-        .timeout(const Duration(seconds: 8));
-    final body = res.body.isEmpty ? '{}' : res.body;
-    final map = jsonDecode(body) as Map<String, dynamic>;
-    if (res.statusCode != 200) {
-      final err = map['error']?.toString() ?? body;
-      throw AuthException('Connexion impossible ($res.statusCode): $err');
-    }
-    if (map['requires_2fa'] == true) {
-      throw LoginRequires2FAException(
-        email: email,
-        tenantId: tenantId,
-        userId: map['user_id'] is int ? map['user_id'] as int : null,
-      );
-    }
-    final access = map['access_token'] as String?;
-    final refresh = map['refresh_token'] as String?;
-    if (access == null || access.isEmpty) {
-      throw AuthException('Réponse serveur sans access_token.');
-    }
-    return {'access_token': access, 'refresh_token': refresh ?? ''};
-  }
-
-  /// Étape 2 du login : POST `/auth/2fa/verify` via [Auth2FAClient].
-  Future<Auth2FAResult> verify2FA({
-    required String email,
-    required String tenantId,
-    required String code,
-  }) {
-    return Auth2FAClient(_base).verify(
-      email: email,
-      tenantId: tenantId,
-      code: code,
-    );
-  }
-
-  Future<Map<String, dynamic>> register({
-    required String email,
-    required String password,
-    String tenantId = '1',
-  }) async {
-    final uri = Uri.parse('$_base/auth/register');
-    final res = await http
-        .post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'tenant_id': tenantId,
-      }),
-    )
-        .timeout(const Duration(seconds: 8));
-    final body = res.body.isEmpty ? '{}' : res.body;
-    final map = jsonDecode(body) as Map<String, dynamic>;
-    if (res.statusCode != 201) {
-      final err = map['error']?.toString() ?? body;
-      throw AuthException('Inscription impossible ($res.statusCode): $err');
-    }
-    final access = map['access_token'] as String?;
-    final refresh = map['refresh_token'] as String?;
-    if (access == null || access.isEmpty) {
-      throw AuthException('Réponse serveur sans access_token après inscription.');
-    }
-    return {'access_token': access, 'refresh_token': refresh ?? ''};
-  }
-
-  Future<bool> authHealth() async {
-    final uri = Uri.parse('$_base/auth/health');
-    final res = await http.get(uri).timeout(const Duration(seconds: 3));
-    return res.statusCode == 200;
-  }
-
-  Future<({String access, String refresh})> refreshTokens(
-    String refreshToken,
-  ) async {
-    final uri = Uri.parse('$_base/auth/refresh');
-    final res = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh_token': refreshToken}),
-    );
-    final body = res.body.isEmpty ? '{}' : res.body;
-    final map = jsonDecode(body) as Map<String, dynamic>;
-    if (res.statusCode != 200) {
-      final err = map['error']?.toString() ?? body;
-      throw AuthException('Refresh ($res.statusCode): $err');
-    }
-    final access = map['access_token'] as String?;
-    final refresh = map['refresh_token'] as String?;
-    if (access == null || access.isEmpty) {
-      throw AuthException('Réponse refresh invalide.');
-    }
-    return (access: access, refresh: refresh ?? refreshToken);
-  }
-
-  Future<({String access, String refresh})> ensureValidTokens({
-    required String accessToken,
-    required String refreshToken,
-  }) async {
-    final v = await validate(accessToken);
-    if (v) return (access: accessToken, refresh: refreshToken);
-    if (refreshToken.isEmpty) {
-      throw AuthException('Session expirée. Reconnectez-vous.');
-    }
-    return refreshTokens(refreshToken);
-  }
-
-  Future<bool> validate(String accessToken) async {
-    final uri = Uri.parse('$_base/auth/validate');
-    final res = await http.get(
-      uri,
-      headers: authHeaders(accessToken, json: false),
-    );
-    return res.statusCode == 200;
-  }
+/// Appels HTTP gateway (auth partagée H19 + mail métier).
+class AuthApi extends CloudityAuthClient {
+  AuthApi(super.gatewayBase);
 
   Future<List<Map<String, dynamic>>> fetchMailAccounts(
     String accessToken,
   ) async {
-    final uri = Uri.parse('$_base/mail/me/accounts');
+    final uri = Uri.parse('$baseUrl/mail/me/accounts');
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
@@ -189,7 +53,7 @@ class AuthApi {
       params['q'] = t.length > 200 ? t.substring(0, 200) : t;
       if (sort == 'date') params['sort'] = 'date';
     }
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/messages').replace(queryParameters: params);
+    final uri = Uri.parse('$baseUrl/mail/me/accounts/$accountId/messages').replace(queryParameters: params);
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
@@ -226,7 +90,7 @@ class AuthApi {
     required String accessToken,
     required int accountId,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/folders/summary');
+    final uri = Uri.parse('$baseUrl/mail/me/accounts/$accountId/folders/summary');
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
@@ -250,7 +114,7 @@ class AuthApi {
     required int accountId,
     String? password,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/accounts/$accountId/sync');
+    final uri = Uri.parse('$baseUrl/mail/me/accounts/$accountId/sync');
     final body = <String, dynamic>{};
     if (password != null) body['password'] = password;
     final res = await http.post(
@@ -293,7 +157,7 @@ class AuthApi {
     required int messageId,
   }) async {
     final uri = Uri.parse(
-      '$_base/mail/me/accounts/$accountId/messages/$messageId',
+      '$baseUrl/mail/me/accounts/$accountId/messages/$messageId',
     );
     final res = await http.get(
       uri,
@@ -320,7 +184,7 @@ class AuthApi {
     required bool read,
   }) async {
     final uri = Uri.parse(
-      '$_base/mail/me/accounts/$accountId/messages/$messageId/read',
+      '$baseUrl/mail/me/accounts/$accountId/messages/$messageId/read',
     );
     final res = await http.patch(
       uri,
@@ -344,7 +208,7 @@ class AuthApi {
     required String folder,
   }) async {
     final uri = Uri.parse(
-      '$_base/mail/me/accounts/$accountId/messages/$messageId/folder',
+      '$baseUrl/mail/me/accounts/$accountId/messages/$messageId/folder',
     );
     final res = await http.patch(
       uri,
@@ -369,7 +233,7 @@ class AuthApi {
     String body = '',
     String? password,
   }) async {
-    final uri = Uri.parse('$_base/mail/me/send');
+    final uri = Uri.parse('$baseUrl/mail/me/send');
     final payload = <String, dynamic>{
       'account_id': accountId,
       'to': to,
@@ -401,7 +265,7 @@ class AuthApi {
     required int attachmentId,
   }) async {
     final uri = Uri.parse(
-      '$_base/mail/me/accounts/$accountId/messages/$messageId/attachments/$attachmentId',
+      '$baseUrl/mail/me/accounts/$accountId/messages/$messageId/attachments/$attachmentId',
     );
     final res = await http.get(
       uri,
@@ -415,12 +279,4 @@ class AuthApi {
     }
     return res.bodyBytes;
   }
-}
-
-class AuthException implements Exception {
-  AuthException(this.message);
-  final String message;
-
-  @override
-  String toString() => message;
 }

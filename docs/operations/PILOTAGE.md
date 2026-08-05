@@ -4,17 +4,22 @@
 
 **UI** : http://localhost:6001/4dm1n/pilotage
 
+> **Par où commencer (ops / deploy)** :  
+> **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — un seul chemin ops.  
+> **Priorité code** : [`MULTI-APPS-WEB-MOBILE.md`](../architecture/MULTI-APPS-WEB-MOBILE.md) · coches **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA ; **H14** ensuite.
+
 ---
 
 ## 1. Sources de vérité
 
 | Source | Rôle |
 |--------|------|
-| **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches, 12 cycles) — seed du board |
-| **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** (☑/🟡/☐ et `- [x]`) |
-| **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions, historique, inbox) |
+| **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** | Ordre des actions (dev + prod) — **lire en premier** |
+| **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches) — seed du board |
+| **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** |
+| **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions) |
 
-Les Markdown restent pour les agents ; le **board admin** est ce que tu coches au quotidien.
+Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand **DEPLOIEMENT.md** le demande.
 
 ---
 
@@ -37,7 +42,8 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** : runbook **[H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)** · HTTPS VPS via **[ZoneForge](ZONEFORGE-CLOUDITY.md)** (`ZF-03`) · fallback manuel **[DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)**.
+**H14** (après §0 structure) : suis **[DEPLOIEMENT.md](DEPLOIEMENT.md)** · [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · Portainer [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).  
+**Multi-apps** : [MULTI-APPS-WEB-MOBILE.md](../architecture/MULTI-APPS-WEB-MOBILE.md).
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).
 
@@ -48,7 +54,7 @@ Les Markdown restent pour les agents ; le **board admin** est ce que tu coches a
 
 | Cycle | Contenu |
 |-------|---------|
-| **À faire maintenant** | H14 (en tête), H19, H6b/c, QA, DNS… + problèmes créés |
+| **À faire maintenant** | **FE-HUB-01**, FE-SPLIT-01, **H19**, MOBILE-DA-01, puis H14, H6b/c, QA, DNS… + problèmes créés |
 | **Problèmes** | Vue dérivée `openProblems` (pas un cycle catalogue) |
 | **Pré-prod** | `PREPROD-01`…`10` revalidation apps / HTTPS / DNS / tests |
 | **Mobile & OTA** | REL-01..03, Pass édition, Samsung… |

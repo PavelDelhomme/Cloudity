@@ -747,7 +747,8 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
         note = (body.get("note") or "").strip()
         new_status = status_from_decision(decision)
         progress = checklist_progress(task)
-        # OK / Terminée / Prod OK exigent checklist complète
+        # OK / Terminée / Prod OK exigent checklist complète → sinon Partiel
+        # Partiel reste Partiel même si tout est coché (À valider = clic explicite).
         if (
             new_status in ("ok", "done", "prod_ok", "tested")
             and not progress["allDone"]
@@ -756,11 +757,6 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
             new_status = "partial"
             decision = "PARTIEL"
             msg = "Checklist incomplète → Partiel (coche tout, puis Validé / À valider)."
-        elif new_status == "partial" and progress["allDone"] and progress["total"] > 0:
-            # Toutes sous-tâches OK → file « À valider »
-            new_status = "to_validate"
-            decision = "A_VALIDER"
-            msg = "Toutes les critères cochés → déplacé en À valider."
         else:
             msg = f"Décision {label_from_status(new_status)} enregistrée."
         task["status"] = new_status
@@ -788,16 +784,66 @@ def apply_board_action(board: dict[str, Any], body: dict[str, Any]) -> tuple[dic
         if not found:
             raise ValueError("Critère checklist introuvable")
         progress = checklist_progress(task)
+        # Ne jamais auto-promouvoir en À valider : l’utilisateur clique la décision.
         if task.get("status") in DONEISH_STATUSES and not progress["allDone"]:
             task["status"] = "partial"
-        elif progress["allDone"] and task.get("status") == "partial":
-            task["status"] = "to_validate"
-            msg = "Critères tous cochés → À valider."
         task.setdefault("history", []).append(
             {"at": _now(), "action": f"checklist:{cid}={'1' if done else '0'}"}
         )
         if msg == "OK":
             msg = "Checklist mise à jour."
+
+    elif action == "checklist_bulk":
+        # Cocher plusieurs critères + décision optionnelle (ex. LAN → Partiel) en une requête.
+        ids_raw = body.get("checklistItemIds") or body.get("checklistIds") or []
+        if not isinstance(ids_raw, list) or not ids_raw:
+            raise ValueError("checklistItemIds requis (liste non vide)")
+        id_set = {str(x) for x in ids_raw}
+        done = bool(body.get("done", True))
+        matched = 0
+        for c in task.get("checklist") or []:
+            if str(c.get("id")) in id_set:
+                c["done"] = done
+                matched += 1
+        if matched == 0:
+            raise ValueError("Aucun critère correspondant")
+        note = (body.get("note") or "").strip()
+        decision_raw = (body.get("decision") or "").strip()
+        if decision_raw:
+            decision = decision_raw.upper().replace(" ", "_").replace("-", "_")
+            new_status = status_from_decision(decision)
+            progress = checklist_progress(task)
+            if (
+                new_status in ("ok", "done", "prod_ok", "tested")
+                and not progress["allDone"]
+                and progress["total"] > 0
+            ):
+                new_status = "partial"
+                decision = "PARTIEL"
+            task["status"] = new_status
+            if note:
+                task["porteurNote"] = note
+            if new_status == "in_progress":
+                board["focusTaskId"] = item_id
+                _prepend_cycle_now(board, item_id)
+            task.setdefault("history", []).append(
+                {
+                    "at": _now(),
+                    "action": f"checklist_bulk:{matched}:{decision}",
+                    "note": note or None,
+                }
+            )
+            msg = f"{matched} critère(s) + {label_from_status(new_status)}."
+        else:
+            progress = checklist_progress(task)
+            if task.get("status") in DONEISH_STATUSES and not progress["allDone"]:
+                task["status"] = "partial"
+            if note:
+                task["porteurNote"] = note
+            task.setdefault("history", []).append(
+                {"at": _now(), "action": f"checklist_bulk:{matched}:{'1' if done else '0'}"}
+            )
+            msg = f"{matched} critère(s) mis à jour."
 
     elif action == "surface":
         key = (body.get("surfaceKey") or body.get("section") or "").strip()

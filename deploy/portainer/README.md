@@ -1,26 +1,27 @@
 **Stacks Portainer Cloudity**
 
-**Commencer par le guide maître** : [docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](../../docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md) (local → LAN → prod NPM).
+### Commencer ici
 
-| Guide détaillé | [PORTAINER-STACK.md](./PORTAINER-STACK.md) |
-|----------------|---------------------------------------------|
-| Variables modèle | [stack.env.example](./stack.env.example) |
-| Compose prod (`main`) | [docker-compose.stack.yml](./docker-compose.stack.yml) |
-| Compose dev (`dev`) | [docker-compose.stack-dev.yml](./docker-compose.stack-dev.yml) |
+1. **Guide complet formulaire Git** (auth, Compose path, Additional paths, NPM, dépannage) :  
+   **[docs/operations/PORTAINER-STACK-GIT-COMPLET.md](../../docs/operations/PORTAINER-STACK-GIT-COMPLET.md)**
+2. **Versions libs / services / images** :  
+   **[docs/operations/VERSIONS-PROJET.md](../../docs/operations/VERSIONS-PROJET.md)**
+3. Résumé formulaire : [PORTAINER-STACK.md](./PORTAINER-STACK.md)
+
+| Fichier | Rôle |
+|---------|------|
+| [PORTAINER-STACK.md](./PORTAINER-STACK.md) | Formulaire condensé + NPM |
+| [docker-compose.stack.yml](./docker-compose.stack.yml) | Entrée **prod** (`refs/heads/main`) |
+| [docker-compose.stack-dev.yml](./docker-compose.stack-dev.yml) | Entrée **dev** (`refs/heads/dev`) |
+| [stack.env.example](./stack.env.example) | Modèle variables (sans secrets) |
 
 **Générer les env Portainer depuis ton PC** :
 
 ```bash
-make env-prod DOMAIN=cloudity.ton-domaine.tld   # → .env.prod (+ sync URLs)
-make portainer-env                               # coller dans Portainer
-# Préprod : make env-preprod DOMAIN=… && make portainer-env FILE=.env.preprod
+make env-prod DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh FORCE=1
+make portainer-env
+# Coller dans Portainer + NPM_NETWORK=<réseau NPM>
+make h14-https-check
 ```
 
-**Résumé formulaire prod** :
-
-- **Repository URL** : `https://github.com/PavelDelhomme/Cloudity.git`
-- **Repository reference** : `refs/heads/main`
-- **Compose path** : `deploy/portainer/docker-compose.stack.yml`
-- **Secrets** : Portainer Environment variables (`make env-prod` / `make portainer-env`)
-
-Suite : [DEPLOIEMENT-SUIVI.md](../../docs/operations/DEPLOIEMENT-SUIVI.md) · [DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md).
+Suite : [DEPLOIEMENT-SUIVI.md](../../docs/operations/DEPLOIEMENT-SUIVI.md) · [DEPLOIEMENT-VPS-PORTAINER-NPM.md](../../docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) · [GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](../../docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md).

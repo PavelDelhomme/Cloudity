@@ -1,26 +1,27 @@
 {
-  "version": 4,
-  "updatedAt": "2026-07-27",
+  "version": 17,
+  "updatedAt": "2026-08-04",
   "cycles": [
     {
       "id": "cycle-now",
       "label": "À faire maintenant",
-      "description": "Priorités immédiates — commence par H14",
+      "description": "PRIORITÉ : multi-apps web hub + DA/auth mobile (FE-HUB-01 → FE-SPLIT-01 → H19 → MOBILE-DA-01). H14 HTTPS ensuite.",
       "itemIds": [
-        "H14",
+        "FE-HUB-01",
+        "FE-SPLIT-01",
         "H19",
+        "MOBILE-DA-01",
+        "H21",
+        "UI-DS-REMAIN",
+        "H14",
         "H6b",
         "H6c",
         "H12",
         "H15",
         "H16",
         "H18",
-        "H21",
-        "UI-DS-REMAIN",
         "QA-MATRIX-01",
         "DEPLOY-DNS-01",
-        "ZF-03",
-        "ZF-01",
         "VAL-VAULT-BRANCH",
         "SAMSUNG-REPLAY",
         "COMPOSE-CONFIG-01",
@@ -32,6 +33,7 @@
       "label": "Mobile & OTA",
       "description": "Flutter, auth, REL, Pass mobile",
       "itemIds": [
+        "MOBILE-DA-01",
         "AUTH-PKG",
         "E2E-CAL-TASKS",
         "L2-PASS-EDIT",
@@ -51,8 +53,10 @@
     {
       "id": "cycle-web-apps",
       "label": "Apps web & UX",
-      "description": "UI-DS, Calendar, Drive, refactor, SYNC",
+      "description": "UI-DS, Calendar, Drive, refactor, SYNC + **APP-06/07/08** (Notes/Tasks/Contacts riches — web d’abord, détail SUITE-PRODUCTIVITY-GAP.md).",
       "itemIds": [
+        "FE-SPLIT-01",
+        "FE-HUB-01",
         "UI-CAL",
         "UI-HUB",
         "UI-PHOTOS",
@@ -278,48 +282,60 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Configurer et valider l’URL gateway pour les apps mobiles.\nRunbook : docs/operations/H14-GATEWAY-MOBILE.md\nHTTPS VPS : cible = ZoneForge (docs/operations/ZONEFORGE-CLOUDITY.md · ZF-03) ; manuel Portainer/NPM = interim seulement (DEPLOY-PORTAINER-NPM-CLOUDITY.md).\nContextes : (A) local · (B) LAN · (C) HTTPS via ZoneForge.",
-      "expected": "PARTIEL OK si LAN smoke vert. OK final seulement si login mobile HTTPS (ou décision explicite « LAN only » documentée en note).",
+      "description": "Gateway mobile LAN→HTTPS. **Priorité structurelle d’abord** : FE-HUB / H19 / MOBILE-DA (voir MULTI-APPS-WEB-MOBILE.md). Reprendre H14 3b après.\nChemin ops : docs/operations/DEPLOIEMENT.md",
+      "expected": "Ouvre DEPLOIEMENT.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
       "status": "partial",
-      "order": 1,
+      "order": 20,
       "checklistLabels": [
         "1. make sync-public-urls : HOST/PROTO OK → MOBILE_GATEWAY_URL cohérent (voir runbook §critère 1)",
         "2. make run-mobile : app pointe vers CLOUDITY_MOBILE_GATEWAY_URL (pas localhost depuis le téléphone)",
         "3a. Smoke LAN : curl /health + CORS + login téléphone Wi‑Fi",
-        "3b. HTTPS VPS : DNS + Portainer env + NPM Proxy Host api.* + login téléphone (ou problème ouvert)"
+        "3b-dns. DNS A : cloudity.<dom> + api.cloudity.<dom> → IP VPS",
+        "3b-env. make env-prod DOMAIN=… + make portainer-env collé dans Portainer",
+        "3b-npm. NPM Proxy Hosts Force SSL : api.* → gateway:8000 · web → web:3000",
+        "3b-smoke. curl https://api…/health + CORS Origin https://cloudity… + login téléphone"
       ],
       "source": "catalog",
       "howToSteps": [
         {
+          "title": "Point d’entrée — DEPLOIEMENT.md",
+          "body": "Un seul doc à suivre : docs/operations/DEPLOIEMENT.md\n§ A = dev local (make up-ready). § B = prod (NPM + Portainer).\nN’ouvre PORTAINER-STACK-GIT-COMPLET.md que pour remplir le formulaire Portainer.\nVERSIONS-PROJET / VERSIONNAGE-LIBS = seulement si tu touches aux libs."
+        },
+        {
           "title": "Où suis-je ?",
-          "body": "Local/LAN = make up sur le PC. Prod = Portainer+NPM sur le VPS (comme Nextcloud). Ne mélange pas les deux."
+          "body": "A Local PC = make up (localhost). B LAN téléphone = IP Wi‑Fi :6002. C VPS = Portainer + NPM (https://api.cloudity.<dom>). Ne mélange pas LAN et VPS. Doc : H14-GATEWAY-MOBILE.md"
         },
         {
-          "title": "Critère 1 — sync-public-urls",
-          "body": "Sur le PC : édite CLOUDITY_PUBLIC_HOST (+ PROTO) dans .env → make sync-public-urls → vérifie grep VITE_API_URL et CLOUDITY_MOBILE_GATEWAY_URL. Doc : H14-GATEWAY-MOBILE.md §critère 1."
+          "title": "1 — sync-public-urls (PC)",
+          "body": "Dans .env : CLOUDITY_PUBLIC_HOST + CLOUDITY_PUBLIC_PROTO.\nLAN ex. : HOST=192.168.x.x PROTO=http → make sync-public-urls\nVérif : grep -E '^(VITE_API_URL|CLOUDITY_MOBILE_GATEWAY_URL|CORS_ORIGINS)=' .env\nProd (générer fichier) : HOST=cloudity.<dom> PROTO=https CLOUDITY_PUBLIC_API_HOST=api.cloudity.<dom> CLOUDITY_PUBLIC_OMIT_PORTS=true → make env-prod DOMAIN=<dom> puis make portainer-env"
         },
         {
-          "title": "Critère 2 — app mobile",
-          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass). L’URL login doit être l’IP LAN ou https://api…, jamais localhost depuis le téléphone."
+          "title": "2 — app mobile",
+          "body": "make run-mobile APP=Mail (ou Drive/Photos/Pass).\nL’écran login doit montrer CLOUDITY_MOBILE_GATEWAY_URL (IP LAN ou https://api…), jamais localhost depuis le téléphone.\nAide : make android-help"
         },
         {
-          "title": "Critère 3a — smoke LAN",
-          "body": "curl http://<IP>:6002/health → healthy. OPTIONS /auth/login avec Origin LAN → Allow-Origin. Login réel sur le téléphone."
+          "title": "3a — smoke LAN",
+          "body": "curl -sS http://<IP>:6002/health → healthy\ncurl -sS -D- -o /dev/null -X OPTIONS http://<IP>:6002/auth/login -H 'Origin: http://<IP>:6001' -H 'Access-Control-Request-Method: POST'\n→ Access-Control-Allow-Origin = Origin.\nPuis login Mail/Drive/Photos/Pass sur le téléphone (même Wi‑Fi).\nPilotage : bouton « Cocher LAN → Partiel »."
+        },
+        {
+          "title": "3b — HTTPS VPS (étape par étape)",
+          "body": "État (2026-07-29) : DNS cloudity + api.cloudity.delhomme.ovh OK · certificats LE OK.\nEncore 502/500 : NPM pointe mal OU stack Portainer absente.\n\nCorriger NPM maintenant :\n  • cloudity.delhomme.ovh → Forward host cloudity-web · port 3000 (PAS cloudity:80)\n  • api.cloudity.delhomme.ovh → Forward host cloudity-api-gateway · port 8000\n\nPuis créer la stack Portainer (depuis le PC) :\n  make portainer-env  → coller Env Advanced\n  + NPM_NETWORK=<réseau NPM exact>\n  Compose : deploy/portainer/docker-compose.stack.yml\n  Guide : deploy/portainer/PORTAINER-STACK.md §4 bis\n\nVérif : make h14-https-check\n\nÉtat constaté (PC) : cloudity.delhomme.ovh résout (A) mais TLS SNI KO ; api.cloudity.delhomme.ovh ne résout PAS → créer l’enregistrement DNS A.\n\nInterim manuel (comme Nextcloud) — doc DEPLOY-PORTAINER-NPM-CLOUDITY.md :\n1) DNS OVH : A cloudity → IP VPS ; A api.cloudity → même IP.\n2) Sur le PC : make env-prod DOMAIN=<dom> puis make portainer-env → coller Env dans Portainer (CORS_ORIGINS=https://cloudity.<dom> sans /, CORS_ALLOW_LAN=false, VITE_API_URL + CLOUDITY_MOBILE_GATEWAY_URL = https://api.cloudity.<dom>).\n3) Stack Portainer Cloudity attachée au réseau NPM (même que Nextcloud).\n4) NPM Proxy Host API : api.cloudity.<dom> → http://cloudity-api-gateway:8000, Force SSL + LE.\n5) NPM Proxy Host Web : cloudity.<dom> → http://cloudity-web:3000, Force SSL.\n6) Redeploy stack après Env.\n7) curl -sS https://api.cloudity.<dom>/health → healthy.\n8) OPTIONS Origin https://cloudity.<dom> → Allow-Origin exact.\n9) make sync-public-urls (URLs HTTPS) + make run-mobile APP=Mail → login téléphone OK.\nSi CORS/TLS KO → Signaler un problème + coller log NPM/gateway (ne coche pas OK)."
         },
         {
           "title": "Décisions Pilotage",
-          "body": "LAN OK sans VPS → Partiel. Bug CORS/TLS → Signaler un problème + log. HTTPS 4 apps OK → OK. Pause VPS → Plus tard."
-        },
-        {
-          "title": "Critère 3b — HTTPS via ZoneForge",
-          "body": "Ne pas s’acharner sur Portainer/NPM à la main : avancer ZF-01→ZF-03. Interim manuel seulement si ZoneForge pas prêt. Lien : ZONEFORGE-CLOUDITY.md"
+          "body": "LAN OK sans VPS → Partiel (pas « En cours » : Partiel = statut). Focus = tête de file seulement. HTTPS 4 apps OK → coche 3b puis Validé/OK. Pause VPS → Plus tard."
         }
       ],
       "docLinks": [
-        "docs/operations/ZONEFORGE-CLOUDITY.md",
+        "docs/README.md",
+        "docs/operations/DEPLOIEMENT.md",
+        "deploy/portainer/PORTAINER-STACK.md",
+        "docs/operations/VERSIONS-PROJET.md",
+        "docs/operations/PORTAINER-STACK-GIT-COMPLET.md",
         "docs/operations/H14-GATEWAY-MOBILE.md",
         "docs/operations/DEPLOY-PORTAINER-NPM-CLOUDITY.md",
-        "docs/operations/ENV-GENERATION.md"
+        "docs/operations/ENV-GENERATION.md",
+        "docs/operations/PORTAINER-VPS.md"
       ],
       "surfaceKeys": [
         "backend",
@@ -332,17 +348,43 @@
       "id": "H19",
       "cycleId": "cycle-now",
       "section": "Mobile",
-      "label": "H19 — Auth mobile sans duplication",
-      "description": "Extraire SessionStore / LoginScreen dans cloudity_shared (au lieu de copies par app).",
-      "expected": "Au moins 2 apps migrées ; tests flutter verts.",
+      "label": "H19 — Auth mobile unique (SessionStore + Login)",
+      "description": "LIVRÉ (à cocher) : SessionStore + CloudityLoginScreen + CloudityAuthClient dans cloudity_shared. Migrés : Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks. Pass/Admin restent. Doc MULTI-APPS § 3–4. NOTE : prochain Focus = MOBILE-DA-01.",
+      "expected": "☑ SessionStore+Login dans shared · ☑ ≥4 apps · ☑ flutter test shared/mail/drive. Cocher puis Focus MOBILE-DA-01.",
+      "completionNote": "H19 livré 2026-08-04. Suite = MOBILE-DA-01.",
       "status": "open",
-      "order": 2,
+      "order": 3,
       "checklistLabels": [
-        "Module partagé créé",
-        "2 apps migrées",
-        "flutter test OK"
+        "SessionStore + LoginScreen dans cloudity_shared (API paramétrable)",
+        "Migrer Mail + Drive",
+        "Migrer Photos + Calendar (ou Contacts)",
+        "Supprimer lib/auth dupliqués",
+        "flutter test + make run-mobile smoke"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "1 — Shared",
+          "body": "cloudity_shared/lib/auth/ : CloudityAuthClient, SessionStore, CloudityLoginScreen, CloudityUserSession."
+        },
+        {
+          "title": "2 — Apps suite",
+          "body": "Mail/Drive/Photos/Calendar/Contacts/Notes/Tasks : AuthApi extends CloudityAuthClient ; login via CloudityLoginScreen."
+        },
+        {
+          "title": "3 — Tests",
+          "body": "flutter test cloudity_shared (auth_*) ; widget_test Mail/Drive."
+        },
+        {
+          "title": "4 — Suite = MOBILE-DA-01",
+          "body": "Cocher H19 puis Focus MOBILE-DA-01. Pass/Admin auth = follow-up optionnel."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "mobile/README.md",
+        "docs/produit/MOBILES.md"
+      ]
     },
     {
       "id": "H6b",
@@ -357,7 +399,25 @@
         "Broker Android",
         "iOS Keychain / AccountManager"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "But",
+          "body": "Broker auth mobile : session partagée inter-apps (Android AccountManager / iOS Keychain)."
+        },
+        {
+          "title": "Android",
+          "body": "Valider broker Android (déjà partiel si OK). Doc / TODOS section H6b."
+        },
+        {
+          "title": "iOS",
+          "body": "Keychain sharing group + AccountManager natif iOS — partage de session entre apps Cloudity."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/MOBILES.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "H6c",
@@ -373,7 +433,25 @@
         "Sanitization Mail",
         "TLS prod"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Checklist security",
+          "body": "Parcourir checklist MOBILE-SECURITY (docs). Cocher ce qui est déjà vert."
+        },
+        {
+          "title": "Sanitization Mail",
+          "body": "Messages d’erreur Mail sains (pas de stack/trace). make mail-security-check."
+        },
+        {
+          "title": "TLS prod",
+          "body": "Sur téléphone contre HTTPS VPS (lié H14 3b) — pas de cleartext / cert KO."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/MOBILES.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "H12",
@@ -553,7 +631,7 @@
       "cycleId": "cycle-mobile",
       "section": "Auth",
       "label": "Auth centralisée package",
-      "description": "Socle encore copié ; cloudity_suite_shell ou tout dans cloudity_shared.",
+      "description": "Alias / suite de H19 — une seule base auth. Suivre H19 + MOBILE-DA-01. Doc MULTI-APPS-WEB-MOBILE.md.",
       "expected": "Une seule base auth partagée.",
       "status": "partial",
       "order": 1,
@@ -561,7 +639,17 @@
         "Package défini",
         "Apps branchées"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/operations/pilotage-catalog.json"
+      ],
+      "howToSteps": [
+        {
+          "title": "Voir H19",
+          "body": "Pilotre H19 dans Pilotage (cycle maintenant)."
+        }
+      ]
     },
     {
       "id": "E2E-CAL-TASKS",
@@ -838,46 +926,128 @@
       "id": "APP-06-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-06 Notes cartes/couleurs",
-      "description": "Features Notes au-delà CRUD.",
-      "expected": "Cartes / couleurs / épinglage.",
+      "label": "APP-06 — Notes type Evernote (web d’abord)",
+      "description": "PRIORITÉ produit suite (après MOBILE-DA-01). Aujourd’hui MVP : titre + texte plat, liste sans édition UI, color DB inutilisé. Cible Evernote-like WEB : édition riche, carnets/tags, couleurs/épinglage, notes de réunion liées Calendar/Tasks, rattachement Contacts, partage optionnel. Mobile = plus tard (même API). Doc : docs/produit/ROADMAP.md APP-06 + docs/produit/SUITE-PRODUCTIVITY-GAP.md.",
+      "expected": "CRUD UI complet web ; édition utile ; couleurs/épinglage ; ≥1 lien Calendar ou Tasks ; partage ou invitation contact (MVP).",
       "status": "open",
       "order": 6,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "CRUD UI Notes (créer / éditer / supprimer) web",
+        "Édition riche ou markdown + aperçu",
+        "Couleurs / épinglage / carnets ou tags",
+        "Lien Calendar et/ou Tasks (note de réunion)",
+        "Rattacher Contact(s) + partage basique",
+        "Mobile Notes aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État",
+          "body": "notes-service : title/content (+ color inutilisé). UI = create + list only."
+        },
+        {
+          "title": "Web d’abord",
+          "body": "NotesPage : éditeur, delete, color/pin. Schema notebooks/tags si besoin."
+        },
+        {
+          "title": "Liens suite",
+          "body": "Métadonnées note → event_id / task_id / contact_ids. Partage = invite email contact."
+        },
+        {
+          "title": "Mobile",
+          "body": "Après web stable : Flutter Notes consomme la même API (pas de fork produit)."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-07-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-07 Tasks × Calendar",
-      "description": "Sous-tâches + intégration Calendar.",
-      "expected": "Parcours Tasks↔Calendar.",
-      "status": "open",
+      "label": "APP-07 — Tasks type Google Tasks (web d’abord)",
+      "description": "PRIORITÉ produit suite. Livré partiel (v17) : parent_id + notes + start_at + starred (mig. 50) + UI web imbriquée. Reste : lien Calendar, mobile Flutter. Doc SUITE-PRODUCTIVITY-GAP.md + DEPLOIEMENT-PAR-SERVICE § 2bis.",
+      "expected": "Sous-tâches ; notes tâche ; start/due ; lien événement Calendar optionnel ; UI web utilisable au quotidien.",
+      "status": "partial",
       "order": 7,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "Sous-tâches (parent_id) + UI web",
+        "Notes / description par tâche",
+        "Date début + échéance (fin présumée)",
+        "Priorité ou étoile (optionnel MVP+)",
+        "Lien / sync Calendar (tâche ↔ événement)",
+        "Mobile Tasks aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État (partiel v17)",
+          "body": "Migration 50 ; tasks-service + TasksPage : sous-tâches 1 niveau, notes, start/due, étoile."
+        },
+        {
+          "title": "Déployer",
+          "body": "make migrate · make deploy-service SERVICE=tasks-service · make deploy-web · smoke /app/tasks"
+        },
+        {
+          "title": "Reste",
+          "body": "Lien Calendar ; mobile Flutter."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-08-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-08 Contacts vCard/groupes",
-      "description": "Import/export + liaison Mail.",
-      "expected": "Contacts riches.",
-      "status": "open",
+      "label": "APP-08 — Contacts type Google Contacts (web d’abord)",
+      "description": "PRIORITÉ produit suite. Livré partiel (v16) : profile JSONB + API + formulaire web riche (identité, orga, multi-tél/emails/adresses, notes, labels, sites, relations, anniversaire). Reste : vCard import/export, groups avancés, SYNC-MAIL-CONTACTS, mobile Flutter aligné. Lié SYNC-MAIL-CONTACTS.",
+      "expected": "Fiche contact riche web ; multi phone/email avec libellés ; notes ; labels ; vCard import/export ; Mail ouvre fiche.",
+      "status": "partial",
       "order": 8,
       "checklistLabels": [
-        "Critère principal atteint",
-        "Doc / TODOS mis à jour si besoin"
+        "Identité : prénom, nom, middle, préfixe, suffixe, pseudo",
+        "Orga : entreprise, poste, service, « classer en tant que »",
+        "Téléphones multiples + libellés + préfixe pays",
+        "Emails / adresses / sites / anniversaire / relations / notes",
+        "Labels/groupes + import-export vCard",
+        "Mobile Contacts aligné API (plus tard)"
       ],
-      "source": "catalog"
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État (partiel v16)",
+          "body": "Migration 49 profile JSONB ; contacts-service create/update/list/get avec profile ; dénorm name/email/phone. ContactsPage + ContactRichForm web. Tests Go + vitest contactProfile."
+        },
+        {
+          "title": "Smoke",
+          "body": "make migrate (49) · make deploy-service SERVICE=contacts-service · make deploy-web · /app/contacts : créer fiche multi-champs, éditer, rechercher."
+        },
+        {
+          "title": "Reste",
+          "body": "vCard import/export ; labels/groupes persistés côté serveur si besoin ; SYNC-MAIL-CONTACTS ; mobile Flutter ensuite."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/ROADMAP.md",
+        "docs/produit/SUITE-PRODUCTIVITY-GAP.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "mobile"
+      ]
     },
     {
       "id": "APP-10-OPEN",
@@ -3045,6 +3215,133 @@
         "backoffice"
       ],
       "source": "catalog"
+    },
+    {
+      "id": "FE-HUB-01",
+      "cycleId": "cycle-now",
+      "section": "Frontend",
+      "label": "FE-HUB-01 — cloudity-web = hub seulement",
+      "description": "LIVRÉ (à cocher) : cloudity-web hub = shell (/, /login, /app grille liens). Inventaire + règle hub dans docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis. AppHub sans fetch métier. NOTE PILOTAGE : prochain Focus = FE-SPLIT-01 (Mail autonome — package @cloudity/web-mail déjà créé, reste entry Vite + nginx).",
+      "expected": "☑ Inventaire pages/app + routes · ☑ MULTI-APPS doc · ☑ Hub liens-only · ☑ Note suite = FE-SPLIT-01. Cocher critères puis Focus FE-SPLIT-01.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        "Lire MULTI-APPS-WEB-MOBILE.md",
+        "Inventaire pages/app/* (taille / routes)",
+        "Hub /app = grille liens uniquement (pas de logique métier Mail/Drive)",
+        "Note Pilotage : prochain split = Mail (FE-SPLIT-01)"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "1 — Doc",
+          "body": "Ouvre docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis (inventaire tailles/routes) et § checklist FE-HUB-01."
+        },
+        {
+          "title": "2 — Hub",
+          "body": "Vérifie http://localhost:6001/app : grille « Applications », liens Drive/Mail/… sans aperçus non lus / fichiers récents. Code : AppHub.tsx + appsCatalog.ts."
+        },
+        {
+          "title": "3 — Cocher",
+          "body": "Coche les 4 critères de cette tâche → décision OK (ou Partiel si smoke UI manquant)."
+        },
+        {
+          "title": "4 — Suite = FE-SPLIT-01",
+          "body": "Focus immédiat suivant : FE-SPLIT-01 — finir web-mail (SPA + nginx). Ne pas passer à H19 tant que FE-SPLIT-01 n’est pas engagé."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/architecture/ARCHITECTURE-FRONTENDS.md",
+        "docs/architecture/FRONTEND-LAYOUT.md",
+        "docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web",
+        "backoffice"
+      ]
+    },
+    {
+      "id": "FE-SPLIT-01",
+      "cycleId": "cycle-now",
+      "section": "Frontend",
+      "label": "FE-SPLIT-01 — Extraire web-mail hors monolithe",
+      "description": "LIVRÉ (à cocher) : @cloudity/web-mail SPA (entry Vite base /app/mail/), nginx + Dockerfile multi-build, hub hosting=external. DEV = lazy dans le shell ; PROD = SPA sous /app/mail/. Doc MULTI-APPS § 2.3. NOTE : prochain Focus = H19.",
+      "expected": "☑ Scaffold web-mail · ☑ migrate Mail + apiMail · ☑ hub external · ☑ build/smoke. Cocher puis Focus H19.",
+      "completionNote": "FE-SPLIT-01 livré 2026-07-29. Suite = H19 (auth Flutter unique).",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Scaffold frontend/apps/web-mail + package.json workspace",
+        "Migrer pages/app/mail + clients API mail",
+        "Hub lien vers web-mail",
+        "Vitest / smoke OK"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "1 — Package",
+          "body": "apps/web-mail + workspace npm ; pages Mail hors pages/app/ ; apiMail.ts côté shell."
+        },
+        {
+          "title": "2 — Entry + Docker",
+          "body": "main.tsx + vite base /app/mail/ ; Dockerfile build web + web-mail ; copy dist → /app/mail."
+        },
+        {
+          "title": "3 — Nginx + hub",
+          "body": "location ^~ /app/mail ; appsCatalog hosting=external href=/app/mail/ ; ExternalMailRedirect en PROD."
+        },
+        {
+          "title": "4 — Suite = H19",
+          "body": "Cocher FE-SPLIT-01 puis Focus H19 (SessionStore + LoginScreen → cloudity_shared). FE-SPLIT-02 = Drive ensuite."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "docs/architecture/FRONTEND-LAYOUT.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web"
+      ]
+    },
+    {
+      "id": "MOBILE-DA-01",
+      "cycleId": "cycle-now",
+      "section": "Mobile",
+      "label": "MOBILE-DA-01 — DA Flutter commune + perso produit",
+      "description": "Une DA commune (tokens, thème, shell, erreurs) pour toutes les apps Flutter ; personnalisation = accent/logo/home uniquement. Auth/login = H19 (pas de copies).\ncloudity_shared a déjà tokens/shell — à imposer partout. Doc MULTI-APPS-WEB-MOBILE.md § 3.",
+      "expected": "Checklist DA ; toutes les apps sur CloudityThemedApp + Suite* ; features/ = métier seul.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Checklist DA écrite (tokens, typo, empty/error)",
+        "Apps MVP (Cal/Contacts/Notes/Tasks) conformes",
+        "Mail/Drive/Photos/Pass/Admin sur même shell",
+        "Pas de login/session dupliqué (lié H19)"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "État cloudity_shared",
+          "body": "Déjà : design tokens, thème, SuiteAppShell, drawer, gateway. Manque : imposer + finir auth unique (H19)."
+        },
+        {
+          "title": "features/",
+          "body": "Chaque app : métier dans lib/features/. Interdit d’y mettre auth/theme/drawer."
+        },
+        {
+          "title": "Perso produit",
+          "body": "Couleur/logo via cloudity_tokens.json apps.<product> — pas un fork du package."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md",
+        "mobile/README.md",
+        "docs/produit/MOBILES.md"
+      ],
+      "surfaceKeys": [
+        "mobile"
+      ]
     }
   ],
   "releases": [

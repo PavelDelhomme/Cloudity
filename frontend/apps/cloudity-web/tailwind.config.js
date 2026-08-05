@@ -7,6 +7,7 @@ export default {
     './index.html',
     './admin.html',
     './src/**/*.{js,ts,jsx,tsx}',
+    '../web-mail/src/**/*.{js,ts,jsx,tsx}',
     '../../packages/cloudity-ui/src/**/*.{js,ts,jsx,tsx}',
   ],
   plugins: [],

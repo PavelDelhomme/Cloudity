@@ -2,18 +2,112 @@
 
 **Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
 
-> **Point d’entrée unique** : **Mail prod** (OVH, DNS, VPS, Portainer stack `cloudity-mail-mta`, secrets prod, C7 réel) est **en pause** jusqu’à **« on retourne sur la partie mail »**.  
-> **Hors mail prod** = tout le reste : Pass, Photos, Drive, mobile/desktop, UI, tests locaux — y compris **Mail en local** (`make up`, Vitest, Maddy docker) si besoin de régression, **sans** configurer OVH ni le VPS.
+> ## Point d’entrée UNIQUE (ops / deploy / Pilotage)
+> **Index doc** → [`docs/README.md`](docs/README.md)  
+> **Priorité code** → **[`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)**  
+> **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
+> Valide dans **`/4dm1n/pilotage`** : **FE-HUB-01** → FE-SPLIT-01 → **H19** → MOBILE-DA-01 → (plus tard) **H14**.  
+> Ne lis `PORTAINER-STACK-GIT-COMPLET` / `VERSIONS-*` **que** quand DEPLOIEMENT § B te le dit.
 
-**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`** · mail prod **en pause**.
+> **Mail prod** (OVH, DNS, VPS mail) reste **en pause** jusqu’à signal explicite.  
+> Hors mail prod = Pass, Photos, Drive, mobile, UI, tests locaux (`make up`), etc.
 
-### Session 2026-07-27 — Pilotage catalogue complet + sync MD
+**Branche active** : **`feat/app-vault-drive-upload-pin-rotation`**.
+
+### Session 2026-07-29 — FE-HUB-01 livré (cocher Pilotage)
+
+| Critère checklist | État |
+|-------------------|------|
+| MULTI-APPS-WEB-MOBILE.md | ☑ inventaire § 2.2bis + checklist |
+| Inventaire pages/app/* (taille/routes) | ☑ |
+| Hub `/app` grille liens only | ☑ AppHub + appsCatalog |
+| Note prochain = FE-SPLIT-01 (Mail) | ☑ catalogue Pilotage |
+
+**Toi** : Sync docs → Focus FE-HUB-01 → coche les 4 → OK → Focus **FE-SPLIT-01**.
+
+---
+
+### Session 2026-08-04 — Gap produit Contacts / Tasks / Notes
+
+| Sujet | Pilotage | Doc |
+|-------|----------|-----|
+| **Contacts** riches (Google-like) | **APP-08-OPEN** | `docs/produit/SUITE-PRODUCTIVITY-GAP.md` |
+| **Tasks** sous-tâches / dates / notes | **APP-07-OPEN** | idem |
+| **Notes** Evernote-like + liens suite | **APP-06-OPEN** | idem |
+| **Ordre** | Après **MOBILE-DA-01** | **Web d’abord**, mobile ensuite |
+
+**Toi** : Sync docs (v15) → cycle **Apps web & UX** → ouvrir APP-08 / 07 / 06 (ne pas Focus avant fin DA).
+
+---
 
 | Sujet | État | Détail |
 |-------|------|--------|
-| **Catalogue ~155 tâches** | ☑ | `docs/operations/pilotage-catalog.json` — 10 cycles (now/mobile/web/mail/pass/qa/deploy/admin/done) |
-| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` — merge catalogue + statuts TODOS/BACKLOG |
-| **H14 en tête** | ☑ | Tâche active « À faire maintenant » = Gateway mobile HTTPS |
+| **cloudity_shared/auth** | ☑ | CloudityAuthClient + SessionStore + CloudityLoginScreen |
+| **Apps migrées** | ☑ | Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks |
+| **Tests** | ☑ | shared auth_* + widget Mail/Drive ; hub vitest 9/9 |
+| **Reste** | 🟡 | Pass + Admin login locaux ; Focus suivant = MOBILE-DA-01 |
+
+**Toi** : Sync docs → Focus H19 → coche → OK → Focus **MOBILE-DA-01**.
+
+---
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **@cloudity/web-mail** | ☑ | SPA Vite `base /app/mail/` + package lazy DEV |
+| **nginx + Dockerfile** | ☑ | dist mail sous `/app/mail/` ; build multi-stage |
+| **Hub external** | ☑ | `href: /app/mail/` + `ExternalMailRedirect` PROD |
+| **apiMail.ts** | ☑ | Client Mail sorti du monolithe |
+| **Build** | ☑ | `npm run build -w @cloudity/web-mail` OK |
+
+**Toi** : Sync docs → Focus FE-SPLIT-01 → coche les 4 → OK → Focus **H19**.
+
+---
+
+### Session 2026-07-29 — FE-HUB-01 + début FE-SPLIT-01 (Mail)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Hub launcher** | ☑ | `/app` = grille liens uniquement (`appsCatalog.ts`) — plus d’aperçus API |
+| **Lazy routes** | ☑ | Produits en `React.lazy` (chunks séparés) |
+| **apiMail.ts** | ☑ | Client Mail utilisateur sorti du monolithe `api.ts` |
+| **@cloudity/web-mail** | ☑ | Pages/libs Mail hors `pages/app/` ; lazy mount shell |
+| **FE-SPLIT-01** | ☑ | SPA + nginx (voir session ci-dessus) |
+
+---
+
+### Session 2026-07-29 — Multi-apps web + DA Flutter (PRIORITÉ)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **MULTI-APPS-WEB-MOBILE.md** | ☑ | Cible hub web + DA/auth mobile |
+| **Pilotage cycle-now** | ☑ | FE-HUB-01 → FE-SPLIT-01 → H19 → MOBILE-DA-01 **avant** H14 |
+| **H14 VPS** | ⏸ | Reprendre après §0 structure (LAN déjà Partiel) |
+
+**Maintenant** :
+
+1. Lis [`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)
+2. `/4dm1n/pilotage` → **Sync docs** → Focus **FE-HUB-01**
+3. Ensuite FE-SPLIT-01 (web-mail) · H19 (auth shared) · MOBILE-DA-01
+4. **Puis seulement** DEPLOIEMENT § B / H14 HTTPS
+
+---
+
+### Session 2026-07-29 — Nettoyage docs (index + DEPLOIEMENT + MAIL-ALIAS)
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **docs/README.md** | ☑ | Index unique de toute la doc |
+| **DEPLOIEMENT.md** | ☑ | Remplace SUIVRE-ICI (+ §0 priorité structure) |
+| **MAIL-ALIAS.md** | ☑ | 6 fiches alias fusionnées + stubs |
+| **Stubs ops** | ☑ | GUIDE-COMPLET, DEPLOY-PORTAINER-NPM, ENVIRONNEMENTS, SUIVI → DEPLOIEMENT |
+
+---
+
+| Sujet | État | Détail |
+|-------|------|--------|
+| **Catalogue** | ☑ | `pilotage-catalog.json` v12 — FE-HUB / FE-SPLIT / MOBILE-DA + H19 enrichi |
+| **Sync docs** | ☑ | Bouton UI + `POST /admin/pilotage/board/sync-docs` |
+| **Priorité cycle-now** | ☑ | Multi-apps **avant** H14 |
 
 ### Session 2026-07-27 — gitignore + ZF-01 stub
 

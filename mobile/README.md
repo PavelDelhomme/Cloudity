@@ -1,6 +1,17 @@
 # Mobile Cloudity — structure et conventions
 
-> Remontée d'erreurs / crashes : **`docs/produit/MOBILE-ERROR-REPORTING.md`**
+> Remontée d'erreurs / crashes : **`docs/produit/MOBILE-ERROR-REPORTING.md`**  
+> **DA commune + auth unique (priorité)** : [`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](../docs/architecture/MULTI-APPS-WEB-MOBILE.md) · Pilotage **MOBILE-DA-01** + **H19**.
+
+## État `cloudity_shared` (à connaître)
+
+| Déjà partagé | Encore dupliqué / à finir |
+|--------------|---------------------------|
+| Tokens, thème, `CloudityThemedApp`, `SuiteAppShell`, drawer, switcher, gateway | Pass / Admin login encore locaux |
+| **H19** : `SessionStore`, `CloudityLoginScreen`, `CloudityAuthClient` | MOBILE-DA-01 (checklist DA) |
+| Prefs / contrats API partiels | Imposer DA partout + perso produit = accent/logo seulement |
+
+**Règle** : `lib/features/` = **métier seul**. Auth, thème, drawer = `cloudity_shared` (pas une copie locale).
 
 ## Interface suite (schéma Google Workspace)
 
@@ -40,14 +51,13 @@ Chaque app Flutter suit la même arborescence :
 ```
 lib/
   main.dart              # point d’entrée Flutter (reste à la racine)
-  auth/                  # session, login, clés SSO inter-apps
-    login_screen.dart
+  auth/                  # TRANSITOIRE : à supprimer quand H19 migré → cloudity_shared
+    login_screen.dart    # (copie — ne plus en créer de nouvelles)
     session_store.dart
-    user_session.dart
-  api/                   # clients HTTP vers l’api-gateway
-    auth_api.dart
-    …                    # drive_api.dart, admin_api.dart, etc.
-  features/              # écrans et logique métier
+    user_session.dart    # peut rester léger / re-export shared
+  api/                   # clients HTTP métier (pas l’auth générique)
+    …
+  features/              # écrans et logique métier UNIQUEMENT
     …
 ```
 
@@ -55,7 +65,7 @@ lib/
 
 | Package | Rôle |
 |---------|------|
-| `cloudity_shared` | Thème, `SuiteAppShell`, gateway, prefs mail, API produits MVP |
+| `cloudity_shared` | DA/tokens, `SuiteAppShell`, drawer, gateway, **auth (cible H19)**, prefs, API MVP |
 | `cloudity_auth_broker` | SSO Android (AccountManager) |
 
 ## Créer une nouvelle app suite
