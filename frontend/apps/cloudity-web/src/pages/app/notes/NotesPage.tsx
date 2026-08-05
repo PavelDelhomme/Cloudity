@@ -1,7 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { FileText, Lock, Pin, Settings, Trash2, X } from 'lucide-react'
+import {
+  Archive,
+  Bold,
+  Camera,
+  CheckSquare,
+  FileText,
+  ImagePlus,
+  Italic,
+  Lock,
+  Pencil,
+  Pin,
+  Search,
+  Settings,
+  Trash2,
+  Underline,
+  X,
+} from 'lucide-react'
 import { useAuth } from '../../../authContext'
 import {
   fetchNotes,
@@ -10,6 +26,8 @@ import {
   deleteNote,
   type Note,
   type NoteColor,
+  type NoteExtras,
+  type NoteChecklistItem,
 } from '../../../api'
 import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
 import { decryptNotePayload, encryptNotePayload } from '../appVaultClient'
@@ -30,6 +48,14 @@ import {
   type NotesAppSettings,
   type NotesSortOrder,
 } from './notesAppSettings'
+import {
+  compressImageFile,
+  emptyExtras,
+  MAX_NOTE_IMAGES,
+  newChecklistId,
+  newImageId,
+  stripHtml,
+} from './noteExtras'
 
 const COLOR_OPTIONS: { id: NoteColor; label: string; className: string }[] = [
   { id: 'default', label: 'Défaut', className: 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600' },
@@ -53,8 +79,11 @@ type DraftNote = {
   content: string
   color: NoteColor
   pinned: boolean
+  archived: boolean
   labels: string[]
   labelInput: string
+  remindAt: string | null
+  extras: NoteExtras
 }
 
 const emptyDraft = (): DraftNote => ({
@@ -62,9 +91,45 @@ const emptyDraft = (): DraftNote => ({
   content: '',
   color: 'default',
   pinned: false,
+  archived: false,
   labels: [],
   labelInput: '',
+  remindAt: null,
+  extras: emptyExtras(),
 })
+
+function toDatetimeLocal(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function fromDatetimeLocal(v: string): string | null {
+  if (!v.trim()) return null
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
+function noteMatchesSearch(n: Note, q: string): boolean {
+  const needle = q.trim().toLowerCase()
+  if (!needle) return true
+  if ((n.title || '').toLowerCase().includes(needle)) return true
+  if (stripHtml(n.content || '').toLowerCase().includes(needle)) return true
+  if ((n.labels ?? []).some((l) => l.toLowerCase().includes(needle))) return true
+  if ((n.extras?.checklist ?? []).some((i) => i.text.toLowerCase().includes(needle))) return true
+  return false
+}
+
+function normalizeExtras(extras?: NoteExtras | null): NoteExtras {
+  return {
+    checklist: [...(extras?.checklist ?? [])],
+    images: [...(extras?.images ?? [])],
+    drawing: extras?.drawing ?? null,
+  }
+}
 
 export default function NotesPage() {
   const { accessToken, logout, tenantId, email } = useAuth()
@@ -77,6 +142,8 @@ export default function NotesPage() {
   const [editing, setEditing] = useState<Note | null>(null)
   const [editDraft, setEditDraft] = useState<DraftNote>(emptyDraft)
   const [labelFilter, setLabelFilter] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const notesVaultScope = appLockedVaultScope('notes', tenantId, email)
   const [notesVaultUnlocked, setNotesVaultUnlocked] = useState(() =>
     isAppLockedVaultUnlocked('notes', appLockedVaultScope('notes', tenantId, email))
@@ -85,8 +152,8 @@ export default function NotesPage() {
   const notesVaultReady = !notesVaultRequired || Boolean(notesVaultScope && notesVaultUnlocked)
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['notes'],
-    queryFn: () => fetchNotes(accessToken!),
+    queryKey: ['notes', showArchived],
+    queryFn: () => fetchNotes(accessToken!, { archived: showArchived }),
     enabled: Boolean(accessToken) && notesVaultReady,
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
@@ -120,9 +187,11 @@ export default function NotesPage() {
   }, [notes])
 
   const filteredNotes = useMemo(() => {
-    if (!labelFilter) return notes
-    return notes.filter((n) => (n.labels ?? []).includes(labelFilter))
-  }, [notes, labelFilter])
+    let list = notes
+    if (labelFilter) list = list.filter((n) => (n.labels ?? []).includes(labelFilter))
+    if (searchQuery.trim()) list = list.filter((n) => noteMatchesSearch(n, searchQuery))
+    return list
+  }, [notes, labelFilter, searchQuery])
 
   const pinnedNotes = useMemo(() => filteredNotes.filter((n) => n.pinned), [filteredNotes])
   const otherNotes = useMemo(() => filteredNotes.filter((n) => !n.pinned), [filteredNotes])
@@ -172,33 +241,34 @@ export default function NotesPage() {
     lockNotesVault
   )
 
+  const draftPayload = (draft: DraftNote) => ({
+    title: draft.title.trim() || 'Sans titre',
+    content: draft.content,
+    color: draft.color,
+    pinned: draft.pinned,
+    archived: draft.archived,
+    labels: draft.labels,
+    remind_at: draft.remindAt,
+    extras: draft.extras,
+  })
+
   const createMutation = useMutation({
     mutationFn: (draft: DraftNote) => {
-      const noteTitle = draft.title.trim() || 'Sans titre'
-      const content = draft.content
+      const payload = draftPayload(draft)
       if (notesVaultRequired && notesVaultScope) {
         const tempId = `new-${Date.now()}`
         const ciphertext = encryptNotePayload('notes', notesVaultScope, tempId, {
-          title: noteTitle,
-          content,
+          title: payload.title,
+          content: payload.content,
         })
         return createNote(accessToken!, {
-          title: noteTitle,
+          ...payload,
           content: '',
-          color: draft.color,
-          pinned: draft.pinned,
-          labels: draft.labels,
           vault_encrypted: true,
           vault_ciphertext: ciphertext,
         })
       }
-      return createNote(accessToken!, {
-        title: noteTitle,
-        content,
-        color: draft.color,
-        pinned: draft.pinned,
-        labels: draft.labels,
-      })
+      return createNote(accessToken!, payload)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
@@ -211,28 +281,21 @@ export default function NotesPage() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, draft, wasVault }: { id: number; draft: DraftNote; wasVault?: boolean }) => {
-      const noteTitle = draft.title.trim() || 'Sans titre'
+      const payload = draftPayload(draft)
       if ((wasVault || notesVaultRequired) && notesVaultScope) {
         const ciphertext = encryptNotePayload('notes', notesVaultScope, id, {
-          title: noteTitle,
-          content: draft.content,
+          title: payload.title,
+          content: payload.content,
         })
         return updateNote(accessToken!, id, {
-          title: noteTitle,
+          ...payload,
           content: '',
-          color: draft.color,
-          pinned: draft.pinned,
-          labels: draft.labels,
           vault_encrypted: true,
           vault_ciphertext: ciphertext,
         })
       }
       return updateNote(accessToken!, id, {
-        title: noteTitle,
-        content: draft.content,
-        color: draft.color,
-        pinned: draft.pinned,
-        labels: draft.labels,
+        ...payload,
         vault_encrypted: false,
         vault_ciphertext: '',
       })
@@ -246,7 +309,9 @@ export default function NotesPage() {
   })
 
   const patchMutation = useMutation({
-    mutationFn: (p: { id: number } & Partial<{ pinned: boolean; color: string; labels: string[] }>) => {
+    mutationFn: (p: {
+      id: number
+    } & Partial<{ pinned: boolean; color: string; labels: string[]; archived: boolean }>) => {
       const { id, ...rest } = p
       return updateNote(accessToken!, id, rest)
     },
@@ -271,8 +336,11 @@ export default function NotesPage() {
       content: n.content,
       color: (n.color as NoteColor) || 'default',
       pinned: Boolean(n.pinned),
+      archived: Boolean(n.archived),
       labels: [...(n.labels ?? [])],
       labelInput: '',
+      remindAt: n.remind_at ?? null,
+      extras: normalizeExtras(n.extras),
     })
   }
 
@@ -296,34 +364,66 @@ export default function NotesPage() {
     )
   }
 
-  const renderCard = (n: Note) => (
-    <button
-      key={n.id}
-      type="button"
-      onClick={() => openEdit(n)}
-      className={`mb-3 w-full break-inside-avoid rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md ${colorClass(n.color)}`}
-    >
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-slate-900 dark:text-slate-100">{n.title || 'Sans titre'}</h3>
-        {n.pinned ? <Pin className="h-3.5 w-3.5 shrink-0 text-slate-600 dark:text-slate-300" aria-hidden /> : null}
-      </div>
-      {notesSettings.showContentPreview && n.content ? (
-        <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 line-clamp-6">{n.content}</p>
-      ) : null}
-      {(n.labels ?? []).length > 0 ? (
-        <div className="mt-3 flex flex-wrap gap-1">
-          {n.labels!.map((l) => (
-            <span
-              key={l}
-              className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-white/10 dark:text-slate-200"
-            >
-              {l}
-            </span>
-          ))}
+  const renderCard = (n: Note) => {
+    const previewText = stripHtml(n.content || '')
+    const checklist = n.extras?.checklist ?? []
+    return (
+      <button
+        key={n.id}
+        type="button"
+        onClick={() => openEdit(n)}
+        className={`mb-3 w-full break-inside-avoid rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md ${colorClass(n.color)}`}
+      >
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <h3 className="font-semibold text-slate-900 dark:text-slate-100">{n.title || 'Sans titre'}</h3>
+          <div className="flex shrink-0 items-center gap-1">
+            {n.remind_at ? (
+              <span className="text-[10px] text-slate-500" title="Rappel">
+                ⏰
+              </span>
+            ) : null}
+            {n.pinned ? <Pin className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" aria-hidden /> : null}
+          </div>
         </div>
-      ) : null}
-    </button>
-  )
+        {(n.extras?.images?.length ?? 0) > 0 ? (
+          <img
+            src={n.extras!.images![0].dataUrl}
+            alt=""
+            className="mb-2 max-h-32 w-full rounded-lg object-cover"
+          />
+        ) : n.extras?.drawing ? (
+          <img src={n.extras.drawing} alt="" className="mb-2 max-h-32 w-full rounded-lg object-contain bg-white" />
+        ) : null}
+        {notesSettings.showContentPreview && previewText ? (
+          <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-300 line-clamp-6">{previewText}</p>
+        ) : null}
+        {notesSettings.showContentPreview && checklist.length > 0 ? (
+          <ul className="mt-2 space-y-0.5 text-sm text-slate-700 dark:text-slate-300">
+            {checklist.slice(0, 4).map((item) => (
+              <li key={item.id} className={item.done ? 'line-through opacity-60' : ''}>
+                {item.done ? '☑' : '☐'} {item.text}
+              </li>
+            ))}
+            {checklist.length > 4 ? (
+              <li className="text-xs text-slate-500">+{checklist.length - 4}…</li>
+            ) : null}
+          </ul>
+        ) : null}
+        {(n.labels ?? []).length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-1">
+            {n.labels!.map((l) => (
+              <span
+                key={l}
+                className="rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-medium text-slate-700 dark:bg-white/10 dark:text-slate-200"
+              >
+                {l}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </button>
+    )
+  }
 
   return (
     <div className="flex min-h-0 flex-col gap-6">
@@ -493,11 +593,55 @@ export default function NotesPage() {
 
       {notesVaultReady ? (
         <>
-          <div className="mx-auto w-full max-w-2xl">
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-3">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                aria-hidden
+              />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Rechercher dans les notes…"
+                aria-label="Rechercher dans les notes"
+                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm shadow-sm outline-none focus:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowArchived(false)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                  !showArchived
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'border border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Actives
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowArchived(true)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium ${
+                  showArchived
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'border border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <Archive className="h-3.5 w-3.5" aria-hidden />
+                Archives
+              </button>
+            </div>
+
             {!composeOpen ? (
               <button
                 type="button"
-                onClick={() => setComposeOpen(true)}
+                onClick={() => {
+                  setCompose({ ...emptyDraft(), archived: showArchived })
+                  setComposeOpen(true)
+                }}
                 className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-500 shadow-sm hover:shadow dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
               >
                 Prendre une note…
@@ -596,7 +740,7 @@ export default function NotesPage() {
           aria-labelledby="note-edit-title"
           onClick={() => setEditing(null)}
         >
-          <div className="w-full max-w-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <NoteEditorPanel
               draft={editDraft}
               setDraft={setEditDraft}
@@ -615,6 +759,13 @@ export default function NotesPage() {
                 setEditDraft((d) => ({ ...d, pinned: next }))
                 patchMutation.mutate({ id: editing.id, pinned: next })
               }}
+              onToggleArchive={() => {
+                const next = !editDraft.archived
+                setEditDraft((d) => ({ ...d, archived: next }))
+                patchMutation.mutate({ id: editing.id, archived: next })
+                setEditing(null)
+                toast.success(next ? 'Note archivée' : 'Note restaurée')
+              }}
               saving={updateMutation.isPending || deleteMutation.isPending}
               saveLabel="Enregistrer"
             />
@@ -632,6 +783,7 @@ function NoteEditorPanel({
   onSave,
   onDelete,
   onTogglePin,
+  onToggleArchive,
   saving,
   saveLabel,
   titleId,
@@ -642,10 +794,32 @@ function NoteEditorPanel({
   onSave: () => void
   onDelete?: () => void
   onTogglePin?: () => void
+  onToggleArchive?: () => void
   saving?: boolean
   saveLabel: string
   titleId?: string
 }) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [drawingOpen, setDrawingOpen] = useState(false)
+  const [checklistInput, setChecklistInput] = useState('')
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    if (el.innerHTML !== draft.content) {
+      el.innerHTML = draft.content || ''
+    }
+  }, [draft.content])
+
+  const runFormat = (cmd: 'bold' | 'italic' | 'underline') => {
+    contentRef.current?.focus()
+    document.execCommand(cmd, false)
+    if (contentRef.current) {
+      setDraft((d) => ({ ...d, content: contentRef.current!.innerHTML }))
+    }
+  }
+
   const addLabel = () => {
     const l = draft.labelInput.trim()
     if (!l) return
@@ -656,110 +830,507 @@ function NoteEditorPanel({
     setDraft((d) => ({ ...d, labels: [...d.labels, l], labelInput: '' }))
   }
 
+  const updateExtras = (fn: (extras: NoteExtras) => NoteExtras) => {
+    setDraft((d) => ({ ...d, extras: fn(normalizeExtras(d.extras)) }))
+  }
+
+  const addChecklistItem = () => {
+    const text = checklistInput.trim()
+    if (!text) return
+    const item: NoteChecklistItem = { id: newChecklistId(), text, done: false }
+    updateExtras((ex) => ({ ...ex, checklist: [...(ex.checklist ?? []), item] }))
+    setChecklistInput('')
+  }
+
+  const onPickImages = async (files: FileList | null) => {
+    if (!files?.length) return
+    const current = draft.extras.images ?? []
+    const room = MAX_NOTE_IMAGES - current.length
+    if (room <= 0) {
+      toast.error(`Maximum ${MAX_NOTE_IMAGES} images`)
+      return
+    }
+    const toAdd = Array.from(files).slice(0, room)
+    try {
+      const images = await Promise.all(
+        toAdd.map(async (file) => ({
+          id: newImageId(),
+          dataUrl: await compressImageFile(file),
+        }))
+      )
+      updateExtras((ex) => ({ ...ex, images: [...(ex.images ?? []), ...images] }))
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Échec de l’ajout d’image')
+    }
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   return (
-    <div className={`rounded-xl border p-4 shadow-xl ${colorClass(draft.color)}`}>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <input
-          id={titleId}
-          type="text"
-          placeholder="Titre"
-          value={draft.title}
-          onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-          className="w-full border-0 bg-transparent text-base font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
+    <>
+      <div className={`rounded-xl border p-4 shadow-xl ${colorClass(draft.color)}`}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <input
+            id={titleId}
+            type="text"
+            placeholder="Titre"
+            value={draft.title}
+            onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+            className="w-full border-0 bg-transparent text-base font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-100"
+          />
+          <div className="flex shrink-0 items-center gap-1">
+            {onTogglePin ? (
+              <button
+                type="button"
+                onClick={onTogglePin}
+                className={`rounded p-1.5 ${draft.pinned ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}
+                aria-label={draft.pinned ? 'Désépingler' : 'Épingler'}
+                aria-pressed={draft.pinned}
+              >
+                <Pin className={`h-4 w-4 ${draft.pinned ? 'fill-current' : ''}`} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setDraft((d) => ({ ...d, pinned: !d.pinned }))}
+                className={`rounded p-1.5 ${draft.pinned ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}
+                aria-label={draft.pinned ? 'Désépingler' : 'Épingler'}
+                aria-pressed={draft.pinned}
+              >
+                <Pin className={`h-4 w-4 ${draft.pinned ? 'fill-current' : ''}`} />
+              </button>
+            )}
+            <button type="button" onClick={onClose} className="rounded p-1.5 text-slate-400 hover:bg-black/5" aria-label="Fermer">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-1 flex flex-wrap items-center gap-1">
+          <button
+            type="button"
+            onClick={() => runFormat('bold')}
+            className="rounded p-1.5 text-slate-600 hover:bg-black/5 dark:text-slate-300"
+            title="Gras"
+            aria-label="Gras"
+          >
+            <Bold className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => runFormat('italic')}
+            className="rounded p-1.5 text-slate-600 hover:bg-black/5 dark:text-slate-300"
+            title="Italique"
+            aria-label="Italique"
+          >
+            <Italic className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => runFormat('underline')}
+            className="rounded p-1.5 text-slate-600 hover:bg-black/5 dark:text-slate-300"
+            title="Souligné"
+            aria-label="Souligné"
+          >
+            <Underline className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div
+          ref={contentRef}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-label="Contenu de la note"
+          data-placeholder="Prendre une note…"
+          onInput={() => {
+            if (contentRef.current) {
+              setDraft((d) => ({ ...d, content: contentRef.current!.innerHTML }))
+            }
+          }}
+          className="min-h-[6rem] w-full resize-y overflow-auto border-0 bg-transparent text-sm text-slate-800 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)] dark:text-slate-200"
         />
-        <div className="flex shrink-0 items-center gap-1">
-          {onTogglePin ? (
+
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+            <CheckSquare className="h-3.5 w-3.5" aria-hidden />
+            Liste
+          </div>
+          <ul className="space-y-1.5">
+            {(draft.extras.checklist ?? []).map((item) => (
+              <li key={item.id} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  onChange={() =>
+                    updateExtras((ex) => ({
+                      ...ex,
+                      checklist: (ex.checklist ?? []).map((c) =>
+                        c.id === item.id ? { ...c, done: !c.done } : c
+                      ),
+                    }))
+                  }
+                  aria-label={item.done ? `Décocher ${item.text}` : `Cocher ${item.text}`}
+                />
+                <input
+                  type="text"
+                  value={item.text}
+                  onChange={(e) => {
+                    const text = e.target.value
+                    updateExtras((ex) => ({
+                      ...ex,
+                      checklist: (ex.checklist ?? []).map((c) => (c.id === item.id ? { ...c, text } : c)),
+                    }))
+                  }}
+                  className={`min-w-0 flex-1 border-0 bg-transparent text-sm outline-none ${
+                    item.done ? 'line-through opacity-60' : ''
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateExtras((ex) => ({
+                      ...ex,
+                      checklist: (ex.checklist ?? []).filter((c) => c.id !== item.id),
+                    }))
+                  }
+                  className="rounded p-1 text-slate-400 hover:bg-black/5 hover:text-red-600"
+                  aria-label="Retirer l’élément"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={checklistInput}
+              onChange={(e) => setChecklistInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addChecklistItem())}
+              placeholder="Ajouter un élément…"
+              className="min-w-0 flex-1 rounded border border-slate-300/70 bg-white/50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900/40"
+            />
+            <button type="button" onClick={addChecklistItem} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+              Ajouter
+            </button>
+          </div>
+        </div>
+
+        {(draft.extras.images?.length ?? 0) > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {draft.extras.images!.map((img) => (
+              <div key={img.id} className="relative">
+                <img src={img.dataUrl} alt="" className="h-20 w-20 rounded-lg object-cover" />
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateExtras((ex) => ({
+                      ...ex,
+                      images: (ex.images ?? []).filter((i) => i.id !== img.id),
+                    }))
+                  }
+                  className="absolute -right-1 -top-1 rounded-full bg-slate-900 p-0.5 text-white"
+                  aria-label="Retirer l’image"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {draft.extras.drawing ? (
+          <div className="relative mt-3 inline-block">
+            <img src={draft.extras.drawing} alt="Dessin" className="max-h-40 rounded-lg border border-slate-200 bg-white" />
             <button
               type="button"
-              onClick={onTogglePin}
-              className={`rounded p-1.5 ${draft.pinned ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}
-              aria-label={draft.pinned ? 'Désépingler' : 'Épingler'}
-              aria-pressed={draft.pinned}
+              onClick={() => updateExtras((ex) => ({ ...ex, drawing: null }))}
+              className="absolute -right-1 -top-1 rounded-full bg-slate-900 p-0.5 text-white"
+              aria-label="Supprimer le dessin"
             >
-              <Pin className={`h-4 w-4 ${draft.pinned ? 'fill-current' : ''}`} />
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => void onPickImages(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={(draft.extras.images?.length ?? 0) >= MAX_NOTE_IMAGES}
+            className="inline-flex items-center gap-1 rounded p-1.5 text-slate-600 hover:bg-black/5 disabled:opacity-40 dark:text-slate-300"
+            title="Ajouter une image"
+            aria-label="Ajouter une image"
+          >
+            <ImagePlus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            disabled
+            title="Disponible sur l’app mobile"
+            aria-label="Appareil photo"
+            className="inline-flex items-center gap-1 rounded p-1.5 text-slate-400 opacity-50"
+          >
+            <Camera className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setDrawingOpen(true)}
+            className="inline-flex items-center gap-1 rounded p-1.5 text-slate-600 hover:bg-black/5 dark:text-slate-300"
+            title="Dessiner"
+            aria-label="Dessiner"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          {onToggleArchive ? (
+            <button
+              type="button"
+              onClick={onToggleArchive}
+              className="inline-flex items-center gap-1 rounded p-1.5 text-slate-600 hover:bg-black/5 dark:text-slate-300"
+              title={draft.archived ? 'Désarchiver' : 'Archiver'}
+              aria-label={draft.archived ? 'Désarchiver' : 'Archiver'}
+            >
+              <Archive className="h-4 w-4" />
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => setDraft((d) => ({ ...d, pinned: !d.pinned }))}
-              className={`rounded p-1.5 ${draft.pinned ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}
-              aria-label={draft.pinned ? 'Désépingler' : 'Épingler'}
-              aria-pressed={draft.pinned}
+              onClick={() => setDraft((d) => ({ ...d, archived: !d.archived }))}
+              className={`inline-flex items-center gap-1 rounded p-1.5 hover:bg-black/5 ${
+                draft.archived ? 'text-slate-800 dark:text-slate-100' : 'text-slate-600 dark:text-slate-300'
+              }`}
+              title={draft.archived ? 'Ne pas archiver' : 'Archiver à la création'}
+              aria-label={draft.archived ? 'Ne pas archiver' : 'Archiver'}
+              aria-pressed={draft.archived}
             >
-              <Pin className={`h-4 w-4 ${draft.pinned ? 'fill-current' : ''}`} />
+              <Archive className="h-4 w-4" />
             </button>
           )}
-          <button type="button" onClick={onClose} className="rounded p-1.5 text-slate-400 hover:bg-black/5" aria-label="Fermer">
-            <X className="h-4 w-4" />
+        </div>
+
+        <label className="mt-3 flex flex-col gap-1 text-xs text-slate-600 dark:text-slate-300">
+          <span className="font-medium">Rappel</span>
+          <input
+            type="datetime-local"
+            value={toDatetimeLocal(draft.remindAt)}
+            onChange={(e) => setDraft((d) => ({ ...d, remindAt: fromDatetimeLocal(e.target.value) }))}
+            className="rounded border border-slate-300/70 bg-white/50 px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900/40"
+          />
+        </label>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {COLOR_OPTIONS.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              title={c.label}
+              onClick={() => setDraft((d) => ({ ...d, color: c.id }))}
+              className={`h-6 w-6 rounded-full border ${c.className} ${
+                draft.color === c.id ? 'ring-2 ring-slate-700 ring-offset-1 dark:ring-slate-200' : ''
+              }`}
+              aria-label={`Couleur ${c.label}`}
+            />
+          ))}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {draft.labels.map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, labels: d.labels.filter((x) => x !== l) }))}
+              className="rounded-full bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10"
+              title="Retirer le libellé"
+            >
+              {l} ×
+            </button>
+          ))}
+          <input
+            type="text"
+            placeholder="Libellé…"
+            value={draft.labelInput}
+            onChange={(e) => setDraft((d) => ({ ...d, labelInput: e.target.value }))}
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLabel())}
+            className="min-w-[7rem] flex-1 rounded border border-slate-300/70 bg-white/50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900/40"
+          />
+          <button type="button" onClick={addLabel} className="text-xs font-medium text-slate-600 dark:text-slate-300">
+            Ajouter
+          </button>
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={saving}
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-950/30"
+            >
+              <Trash2 className="h-4 w-4" /> Supprimer
+            </button>
+          ) : (
+            <span />
+          )}
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+          >
+            {saveLabel}
           </button>
         </div>
       </div>
-      <textarea
-        placeholder="Prendre une note…"
-        value={draft.content}
-        onChange={(e) => setDraft((d) => ({ ...d, content: e.target.value }))}
-        rows={6}
-        className="w-full resize-y border-0 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400 dark:text-slate-200"
-      />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {COLOR_OPTIONS.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            title={c.label}
-            onClick={() => setDraft((d) => ({ ...d, color: c.id }))}
-            className={`h-6 w-6 rounded-full border ${c.className} ${
-              draft.color === c.id ? 'ring-2 ring-slate-700 ring-offset-1 dark:ring-slate-200' : ''
-            }`}
-            aria-label={`Couleur ${c.label}`}
-          />
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {draft.labels.map((l) => (
-          <button
-            key={l}
-            type="button"
-            onClick={() => setDraft((d) => ({ ...d, labels: d.labels.filter((x) => x !== l) }))}
-            className="rounded-full bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10"
-            title="Retirer le libellé"
-          >
-            {l} ×
-          </button>
-        ))}
-        <input
-          type="text"
-          placeholder="Libellé…"
-          value={draft.labelInput}
-          onChange={(e) => setDraft((d) => ({ ...d, labelInput: e.target.value }))}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLabel())}
-          className="min-w-[7rem] flex-1 rounded border border-slate-300/70 bg-white/50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900/40"
+
+      {drawingOpen ? (
+        <DrawingModal
+          initialDataUrl={draft.extras.drawing}
+          onClose={() => setDrawingOpen(false)}
+          onSave={(dataUrl) => {
+            updateExtras((ex) => ({ ...ex, drawing: dataUrl }))
+            setDrawingOpen(false)
+          }}
         />
-        <button type="button" onClick={addLabel} className="text-xs font-medium text-slate-600 dark:text-slate-300">
-          Ajouter
-        </button>
-      </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
-        {onDelete ? (
+      ) : null}
+    </>
+  )
+}
+
+function DrawingModal({
+  initialDataUrl,
+  onClose,
+  onSave,
+}: {
+  initialDataUrl?: string | null
+  onClose: () => void
+  onSave: (dataUrl: string) => void
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawing = useRef(false)
+  const last = useRef<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.strokeStyle = '#1e293b'
+    ctx.lineWidth = 2.5
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    if (initialDataUrl) {
+      const img = new Image()
+      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      img.src = initialDataUrl
+    }
+  }, [initialDataUrl])
+
+  const pos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    if ('touches' in e) {
+      const t = e.touches[0] ?? e.changedTouches[0]
+      return { x: (t.clientX - rect.left) * scaleX, y: (t.clientY - rect.top) * scaleY }
+    }
+    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY }
+  }
+
+  const start = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault()
+    drawing.current = true
+    last.current = pos(e)
+  }
+
+  const move = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!drawing.current || !last.current) return
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!ctx) return
+    const p = pos(e)
+    ctx.beginPath()
+    ctx.moveTo(last.current.x, last.current.y)
+    ctx.lineTo(p.x, p.y)
+    ctx.stroke()
+    last.current = p
+  }
+
+  const end = () => {
+    drawing.current = false
+    last.current = null
+  }
+
+  const clear = () => {
+    const canvas = canvasRef.current
+    const ctx = canvas?.getContext('2d')
+    if (!canvas || !ctx) return
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="drawing-title"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 id="drawing-title" className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            Dessin
+          </h2>
+          <button type="button" onClick={onClose} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Fermer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <canvas
+          ref={canvasRef}
+          width={560}
+          height={360}
+          className="w-full touch-none rounded-lg border border-slate-200 bg-white"
+          onMouseDown={start}
+          onMouseMove={move}
+          onMouseUp={end}
+          onMouseLeave={end}
+          onTouchStart={start}
+          onTouchMove={move}
+          onTouchEnd={end}
+        />
+        <div className="mt-3 flex justify-between gap-2">
           <button
             type="button"
-            onClick={onDelete}
-            disabled={saving}
-            className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-950/30"
+            onClick={clear}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm dark:border-slate-600"
           >
-            <Trash2 className="h-4 w-4" /> Supprimer
+            Effacer
           </button>
-        ) : (
-          <span />
-        )}
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
-        >
-          {saveLabel}
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              const canvas = canvasRef.current
+              if (!canvas) return
+              onSave(canvas.toDataURL('image/png'))
+            }}
+            className="rounded-lg bg-slate-900 px-4 py-1.5 text-sm font-medium text-white dark:bg-slate-100 dark:text-slate-900"
+          >
+            Enregistrer le dessin
+          </button>
+        </div>
       </div>
     </div>
   )

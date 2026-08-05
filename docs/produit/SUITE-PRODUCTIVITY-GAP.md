@@ -65,14 +65,14 @@ make deploy-web
 
 ## APP-06 — Notes (cible Google Keep)
 
-### Livré (web, partiel — Pilotage v18 / branche `feat/notes-google-keep`)
-- Mig. **51** : `pinned`, `labels[]` ; `color` déjà en DB (19) branché API.
-- UI Keep : compose « Prendre une note… », popup édition, cartes masonry, couleurs, épinglage, libellés + filtre ; CRUD ; coffre local conservé.
+### Livré (web, partiel — Pilotage v19 / branche `feat/notes-google-keep`)
+- Mig. **51–52** : `pinned`, `labels`, `archived`, `remind_at`, `extras` (checklist / images / dessin) ; `color` (19).
+- UI Keep+ : recherche, cartes masonry, compose/popup, couleurs, pin, archive, rappel, checklist, images (fichier), dessin canvas, formatage B/I/U ; caméra = **mobile only** ; coffre local.
 
 ### Reste
-1. Checklist Keep (cases à cocher dans une note).
-2. Liens Calendar / Tasks / Contacts.
-3. Mobile Flutter aligné.
+1. Caméra / galerie natives (Flutter).
+2. Notifications push pour rappels.
+3. Liens Calendar / Tasks / Contacts.
 
 ### Déploiement (local)
 ```bash

@@ -1,5 +1,5 @@
 {
-  "version": 18,
+  "version": 19,
   "updatedAt": "2026-08-05",
   "cycles": [
     {
@@ -928,23 +928,23 @@
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
       "label": "APP-06 — Notes type Google Keep (web d’abord)",
-      "description": "PRIORITÉ produit suite. Cible Google Keep (PAS Evernote) : grille de cartes colorées, compose « Prendre une note… », popup édition, épinglage, libellés/filtre. Branche feat/notes-google-keep. Mig. 51 pinned+labels ; color déjà en DB (19).",
-      "expected": "UI Keep : cartes masonry, compose popup, couleurs, pin, libellés ; CRUD complet ; coffre local conservé.",
+      "description": "PRIORITÉ produit suite. Keep+ (v19) : recherche, cartes, pin, archive, rappel, checklist, images, dessin, gras/italique/souligné ; caméra = mobile. Branche feat/notes-google-keep. Mig. 51+52.",
+      "expected": "UI Keep complète web ; CRUD ; coffre ; checklist/images/dessin ; archive+rappel.",
       "status": "partial",
       "order": 6,
       "checklistLabels": [
         "CRUD UI Notes (créer / éditer / supprimer) web",
-        "Cartes Keep + compose popup + couleurs",
-        "Épinglage + libellés / filtre",
-        "Checklist optionnelle (MVP+)",
-        "Lien Calendar / Tasks (plus tard)",
+        "Cartes Keep + recherche + compose popup + couleurs",
+        "Épinglage + libellés + archive + rappel",
+        "Checklist + images + dessin + formatage B/I/U",
+        "Caméra / photos natives (mobile)",
         "Mobile Notes aligné API (plus tard)"
       ],
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "État (partiel v18)",
-          "body": "mig. 51 pinned+labels ; notes-service color/pin/labels ; NotesPage Keep (masonry, compose, modal, labels)."
+          "title": "État (partiel v19)",
+          "body": "mig. 51–52 ; extras JSONB ; NotesPage Keep+ (search, checklist, images, drawing, archive, remind)."
         },
         {
           "title": "Déployer",
@@ -952,7 +952,11 @@
         },
         {
           "title": "Reste",
-          "body": "Checklist Keep ; liens suite ; mobile."
+          "body": "Caméra native mobile ; notifications rappel push ; liens Calendar/Tasks."
+        },
+        {
+          "title": "Erreurs up-full (2026-08-05)",
+          "body": "Corrigé : App.test waitFor lazy routes ; hub « Applications » ; mailNotificationDeepLink mock @cloudity/web-shell/api ; Photos setAppVaultKey mock ; pilotage active=FE-HUB-01."
         }
       ],
       "docLinks": [

@@ -51,7 +51,7 @@ Ordre fixe quand le schéma change : **migrate → service API → front**.
 |----------|-----------|-------------------|
 | **APP-08 Contacts** (fiche `profile` JSONB) | **49** `49-contacts-profile.sql` | `make migrate` → `make deploy-service SERVICE=contacts-service` → `make deploy-web` |
 | **APP-07 Tasks** (sous-tâches, notes, `start_at`, étoile) | **50** `50-tasks-rich.sql` | `make migrate` → `make deploy-service SERVICE=tasks-service` → `make deploy-web` |
-| **APP-06 Notes** | **51** `51-notes-keep.sql` (+ color déjà **19**) | `make migrate` → `make deploy-service SERVICE=notes-service` → `make deploy-web` |
+| **APP-06 Notes** | **51–52** `51-notes-keep.sql` + `52-notes-keep-extras.sql` (+ color **19**) | `make migrate` → `make deploy-service SERVICE=notes-service` → `make deploy-web` |
 
 Smoke :
 
