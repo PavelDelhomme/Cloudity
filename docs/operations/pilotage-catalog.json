@@ -1,6 +1,6 @@
 {
-  "version": 17,
-  "updatedAt": "2026-08-04",
+  "version": 18,
+  "updatedAt": "2026-08-05",
   "cycles": [
     {
       "id": "cycle-now",
@@ -84,8 +84,9 @@
     {
       "id": "cycle-desktop-drive",
       "label": "Desktop Drive sync",
-      "description": "Client sync dossier type Nextcloud — Linux/Windows/macOS + CLI",
+      "description": "Client sync dossier type Nextcloud — Linux/Windows/macOS + CLI. Voir aussi MULTI-SYNC-TRACK (multi-appareil).",
       "itemIds": [
+        "MULTI-SYNC-TRACK",
         "DRIVE-DESKTOP-01",
         "DRIVE-DESKTOP-02",
         "DRIVE-DESKTOP-03",
@@ -926,36 +927,32 @@
       "id": "APP-06-OPEN",
       "cycleId": "cycle-web-apps",
       "section": "ROADMAP",
-      "label": "APP-06 — Notes type Evernote (web d’abord)",
-      "description": "PRIORITÉ produit suite (après MOBILE-DA-01). Aujourd’hui MVP : titre + texte plat, liste sans édition UI, color DB inutilisé. Cible Evernote-like WEB : édition riche, carnets/tags, couleurs/épinglage, notes de réunion liées Calendar/Tasks, rattachement Contacts, partage optionnel. Mobile = plus tard (même API). Doc : docs/produit/ROADMAP.md APP-06 + docs/produit/SUITE-PRODUCTIVITY-GAP.md.",
-      "expected": "CRUD UI complet web ; édition utile ; couleurs/épinglage ; ≥1 lien Calendar ou Tasks ; partage ou invitation contact (MVP).",
-      "status": "open",
+      "label": "APP-06 — Notes type Google Keep (web d’abord)",
+      "description": "PRIORITÉ produit suite. Cible Google Keep (PAS Evernote) : grille de cartes colorées, compose « Prendre une note… », popup édition, épinglage, libellés/filtre. Branche feat/notes-google-keep. Mig. 51 pinned+labels ; color déjà en DB (19).",
+      "expected": "UI Keep : cartes masonry, compose popup, couleurs, pin, libellés ; CRUD complet ; coffre local conservé.",
+      "status": "partial",
       "order": 6,
       "checklistLabels": [
         "CRUD UI Notes (créer / éditer / supprimer) web",
-        "Édition riche ou markdown + aperçu",
-        "Couleurs / épinglage / carnets ou tags",
-        "Lien Calendar et/ou Tasks (note de réunion)",
-        "Rattacher Contact(s) + partage basique",
+        "Cartes Keep + compose popup + couleurs",
+        "Épinglage + libellés / filtre",
+        "Checklist optionnelle (MVP+)",
+        "Lien Calendar / Tasks (plus tard)",
         "Mobile Notes aligné API (plus tard)"
       ],
       "source": "catalog",
       "howToSteps": [
         {
-          "title": "État",
-          "body": "notes-service : title/content (+ color inutilisé). UI = create + list only."
+          "title": "État (partiel v18)",
+          "body": "mig. 51 pinned+labels ; notes-service color/pin/labels ; NotesPage Keep (masonry, compose, modal, labels)."
         },
         {
-          "title": "Web d’abord",
-          "body": "NotesPage : éditeur, delete, color/pin. Schema notebooks/tags si besoin."
+          "title": "Déployer",
+          "body": "make migrate · make deploy-service SERVICE=notes-service · make deploy-web · smoke /app/notes"
         },
         {
-          "title": "Liens suite",
-          "body": "Métadonnées note → event_id / task_id / contact_ids. Partage = invite email contact."
-        },
-        {
-          "title": "Mobile",
-          "body": "Après web stable : Flutter Notes consomme la même API (pas de fork produit)."
+          "title": "Reste",
+          "body": "Checklist Keep ; liens suite ; mobile."
         }
       ],
       "docLinks": [
@@ -2817,6 +2814,37 @@
       ],
       "source": "catalog",
       "completionNote": "M7e livré (réf. TODOS/BACKLOG). Surfaces concernées validées en catalogue."
+    },
+    {
+      "id": "MULTI-SYNC-TRACK",
+      "cycleId": "cycle-desktop-drive",
+      "section": "Sync multi-appareil",
+      "label": "MULTI-SYNC — Suivi multi-appareil / multi-sync",
+      "description": "Point d’entrée Pilotage pour le sync multi-appareil. Ce n’est PAS une seule feature : (1) Drive desktop Nextcloud-like = DRIVE-DESKTOP-01…05 + docs/produit/DRIVE-DESKTOP-SYNC.md ; (2) Photos sync état appareil = PHOTOS-SYNC-STATE (cycle Mobile) ; (3) Profils appareils mobile = H20 (livré). Pas de carte « sync magique tout-en-un » hors ces chantiers.",
+      "expected": "Savoir où suivre : Desktop Drive cycle + PHOTOS-SYNC-STATE + H20. Ouvrir DRIVE-DESKTOP-01 pour démarrer le daemon.",
+      "status": "open",
+      "order": 0,
+      "checklistLabels": [
+        "Lire DRIVE-DESKTOP-SYNC.md + cycle Desktop Drive",
+        "PHOTOS-SYNC-STATE connu (Mobile)",
+        "H20 profils appareils = déjà livré",
+        "Pas de doublon de scope hors ces cartes"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Où cliquer",
+          "body": "/4dm1n/pilotage → Sync docs → cycle « Desktop Drive sync » (MULTI-SYNC-TRACK + DRIVE-DESKTOP-*) ; cycle Mobile pour PHOTOS-SYNC-STATE."
+        },
+        {
+          "title": "Ordre",
+          "body": "DRIVE-DESKTOP-01 (spec) d’abord. Ne pas confondre avec sync Mail IMAP (SYNC-MAIL-*)."
+        }
+      ],
+      "docLinks": [
+        "docs/produit/DRIVE-DESKTOP-SYNC.md",
+        "TODOS.md"
+      ]
     },
     {
       "id": "DRIVE-DESKTOP-01",

@@ -63,17 +63,24 @@ make deploy-web
 
 ---
 
-## APP-06 — Notes (cible Evernote-like)
+## APP-06 — Notes (cible Google Keep)
 
-### Aujourd’hui
-- `title` + `content` texte plat ; liste sans édition/suppression UI ; `color` en DB non branché.
+### Livré (web, partiel — Pilotage v18 / branche `feat/notes-google-keep`)
+- Mig. **51** : `pinned`, `labels[]` ; `color` déjà en DB (19) branché API.
+- UI Keep : compose « Prendre une note… », popup édition, cartes masonry, couleurs, épinglage, libellés + filtre ; CRUD ; coffre local conservé.
 
-### À livrer (web)
-1. **CRUD UI** complet (éditer / supprimer).
-2. **Édition** markdown ou riche + aperçu.
-3. **Organisation** : couleurs, épinglage, carnets et/ou tags.
-4. **Liens suite** : note de réunion → événement Calendar ; lien Tasks ; rattacher Contact(s).
-5. **Partage** basique (invite contact / lien) — MVP.
+### Reste
+1. Checklist Keep (cases à cocher dans une note).
+2. Liens Calendar / Tasks / Contacts.
+3. Mobile Flutter aligné.
+
+### Déploiement (local)
+```bash
+make migrate
+make deploy-service SERVICE=notes-service
+make deploy-web
+# smoke : /app/notes
+```
 
 ---
 

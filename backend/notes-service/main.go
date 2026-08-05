@@ -2,14 +2,16 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 const defaultPort = "8053"
@@ -83,9 +85,6 @@ func (h *Handler) requireUserID(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "failed to set user context"})
 			return
 		}
-		// On épingle la conn dans le ctx Go : tous les handlers utilisent
-		// h.dbex(ctx) et tombent sur cette conn pour la durée de la requête.
-		// Le defer conn.Close() la rend au pool après c.Next().
 		pin := &pinnedConn{conn: conn, ctx: ctx}
 		c.Request = c.Request.WithContext(withPinnedConn(ctx, pin))
 	}
@@ -93,15 +92,78 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Note struct {
-	ID              int     `json:"id"`
-	TenantID        int     `json:"tenant_id"`
-	UserID          int     `json:"user_id"`
-	Title           string  `json:"title"`
-	Content         string  `json:"content"`
-	VaultEncrypted  bool    `json:"vault_encrypted,omitempty"`
-	VaultCiphertext *string `json:"vault_ciphertext,omitempty"`
-	CreatedAt       string  `json:"created_at"`
-	UpdatedAt       string  `json:"updated_at"`
+	ID              int      `json:"id"`
+	TenantID        int      `json:"tenant_id"`
+	UserID          int      `json:"user_id"`
+	Title           string   `json:"title"`
+	Content         string   `json:"content"`
+	Color           string   `json:"color"`
+	Pinned          bool     `json:"pinned"`
+	Labels          []string `json:"labels"`
+	VaultEncrypted  bool     `json:"vault_encrypted,omitempty"`
+	VaultCiphertext *string  `json:"vault_ciphertext,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
+}
+
+const noteSelectCols = `id, tenant_id, user_id, title, content, COALESCE(color, 'default'), pinned, COALESCE(labels, '{}'), vault_encrypted, vault_ciphertext, created_at::text, COALESCE(updated_at::text, '')`
+
+func normalizeColor(c string) string {
+	c = strings.TrimSpace(strings.ToLower(c))
+	switch c {
+	case "default", "yellow", "green", "blue", "pink", "purple", "orange", "gray", "teal", "red":
+		return c
+	default:
+		return "default"
+	}
+}
+
+func normalizeLabels(in []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(in))
+	for _, raw := range in {
+		l := strings.TrimSpace(raw)
+		if l == "" {
+			continue
+		}
+		if len(l) > 64 {
+			l = l[:64]
+		}
+		key := strings.ToLower(l)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, l)
+		if len(out) >= 20 {
+			break
+		}
+	}
+	return out
+}
+
+func scanNote(scanner interface{ Scan(dest ...any) error }) (Note, error) {
+	var n Note
+	var uat string
+	var vaultCipher sql.NullString
+	var labels pq.StringArray
+	err := scanner.Scan(
+		&n.ID, &n.TenantID, &n.UserID, &n.Title, &n.Content, &n.Color, &n.Pinned, &labels,
+		&n.VaultEncrypted, &vaultCipher, &n.CreatedAt, &uat,
+	)
+	if err != nil {
+		return n, err
+	}
+	n.Labels = []string(labels)
+	if n.Labels == nil {
+		n.Labels = []string{}
+	}
+	n.UpdatedAt = uat
+	if vaultCipher.Valid {
+		s := vaultCipher.String
+		n.VaultCiphertext = &s
+	}
+	return n, nil
 }
 
 func (h *Handler) listNotes(c *gin.Context) {
@@ -111,8 +173,9 @@ func (h *Handler) listNotes(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	rows, err := h.dbex(ctx).Query(`
-		SELECT id, tenant_id, user_id, title, content, vault_encrypted, vault_ciphertext, created_at::text, COALESCE(updated_at::text, '')
-		FROM notes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY updated_at DESC NULLS LAST, created_at DESC
+		SELECT ` + noteSelectCols + `
+		FROM notes WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
+		ORDER BY pinned DESC, updated_at DESC NULLS LAST, created_at DESC
 	`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -121,14 +184,11 @@ func (h *Handler) listNotes(c *gin.Context) {
 	defer rows.Close()
 	list := make([]Note, 0)
 	for rows.Next() {
-		var n Note
-		var uat string
-		var vaultCipher sql.NullString
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &n.Title, &n.Content, &n.VaultEncrypted, &vaultCipher, &n.CreatedAt, &uat); err != nil {
+		n, err := scanNote(rows)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		n.UpdatedAt = uat
 		list = append(list, n)
 	}
 	c.JSON(http.StatusOK, list)
@@ -140,10 +200,13 @@ func (h *Handler) createNote(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title           string  `json:"title"`
-		Content         string  `json:"content"`
-		VaultEncrypted  bool    `json:"vault_encrypted"`
-		VaultCiphertext *string `json:"vault_ciphertext"`
+		Title           string   `json:"title"`
+		Content         string   `json:"content"`
+		Color           string   `json:"color"`
+		Pinned          bool     `json:"pinned"`
+		Labels          []string `json:"labels"`
+		VaultEncrypted  bool     `json:"vault_encrypted"`
+		VaultCiphertext *string  `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -155,6 +218,8 @@ func (h *Handler) createNote(c *gin.Context) {
 		title = "🔒 Note chiffrée"
 		content = ""
 	}
+	color := normalizeColor(body.Color)
+	labels := normalizeLabels(body.Labels)
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
 	tenantID := 1
 	if t := c.GetHeader("X-Tenant-ID"); t != "" {
@@ -164,8 +229,11 @@ func (h *Handler) createNote(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	var id int
-	err := h.dbex(ctx).QueryRow(`INSERT INTO notes (tenant_id, user_id, title, content, vault_encrypted, vault_ciphertext) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-		tenantID, userID, title, content, body.VaultEncrypted, body.VaultCiphertext).Scan(&id)
+	err := h.dbex(ctx).QueryRow(`
+		INSERT INTO notes (tenant_id, user_id, title, content, color, pinned, labels, vault_encrypted, vault_ciphertext)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+		tenantID, userID, title, content, color, body.Pinned, pq.Array(labels), body.VaultEncrypted, body.VaultCiphertext,
+	).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -184,23 +252,72 @@ func (h *Handler) updateNote(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title           string  `json:"title"`
-		Content         string  `json:"content"`
-		VaultEncrypted  bool    `json:"vault_encrypted"`
-		VaultCiphertext *string `json:"vault_ciphertext"`
+		Title           *string   `json:"title"`
+		Content         *string   `json:"content"`
+		Color           *string   `json:"color"`
+		Pinned          *bool     `json:"pinned"`
+		Labels          *[]string `json:"labels"`
+		VaultEncrypted  *bool     `json:"vault_encrypted"`
+		VaultCiphertext *string   `json:"vault_ciphertext"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
 		return
 	}
-	title := body.Title
-	content := body.Content
-	if body.VaultEncrypted {
-		title = "🔒 Note chiffrée"
-		content = ""
+	var parts []string
+	var args []interface{}
+	argN := 1
+	if body.Title != nil {
+		parts = append(parts, fmt.Sprintf("title = $%d", argN))
+		args = append(args, *body.Title)
+		argN++
 	}
+	if body.Content != nil {
+		parts = append(parts, fmt.Sprintf("content = $%d", argN))
+		args = append(args, *body.Content)
+		argN++
+	}
+	if body.Color != nil {
+		parts = append(parts, fmt.Sprintf("color = $%d", argN))
+		args = append(args, normalizeColor(*body.Color))
+		argN++
+	}
+	if body.Pinned != nil {
+		parts = append(parts, fmt.Sprintf("pinned = $%d", argN))
+		args = append(args, *body.Pinned)
+		argN++
+	}
+	if body.Labels != nil {
+		parts = append(parts, fmt.Sprintf("labels = $%d", argN))
+		args = append(args, pq.Array(normalizeLabels(*body.Labels)))
+		argN++
+	}
+	if body.VaultEncrypted != nil {
+		parts = append(parts, fmt.Sprintf("vault_encrypted = $%d", argN))
+		args = append(args, *body.VaultEncrypted)
+		argN++
+		if *body.VaultEncrypted {
+			parts = append(parts, "title = '🔒 Note chiffrée'", "content = ''")
+		}
+	}
+	if body.VaultCiphertext != nil {
+		parts = append(parts, fmt.Sprintf("vault_ciphertext = $%d", argN))
+		args = append(args, *body.VaultCiphertext)
+		argN++
+	}
+	if len(parts) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+	parts = append(parts, "updated_at = CURRENT_TIMESTAMP")
+	args = append(args, id)
+	q := fmt.Sprintf(
+		"UPDATE notes SET %s WHERE id = $%d AND user_id = current_setting('app.current_user_id', true)::INTEGER",
+		strings.Join(parts, ", "),
+		argN,
+	)
 	ctx := c.Request.Context()
-	res, err := h.dbex(ctx).Exec(`UPDATE notes SET title = $1, content = $2, vault_encrypted = $3, vault_ciphertext = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, title, content, body.VaultEncrypted, body.VaultCiphertext, id)
+	res, err := h.dbex(ctx).Exec(q, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -1695,13 +1695,28 @@ export async function deleteCalendarEvent(token: string, eventId: number): Promi
   if (!res.ok && res.status !== 404) throw new Error(`Delete event: ${res.status}`)
 }
 
-// Notes — bloc-notes
+// Notes — bloc-notes (Keep-like)
+export type NoteColor =
+  | 'default'
+  | 'yellow'
+  | 'green'
+  | 'blue'
+  | 'pink'
+  | 'purple'
+  | 'orange'
+  | 'gray'
+  | 'teal'
+  | 'red'
+
 export type Note = {
   id: number
   tenant_id: number
   user_id: number
   title: string
   content: string
+  color?: NoteColor | string
+  pinned?: boolean
+  labels?: string[]
   vault_encrypted?: boolean
   vault_ciphertext?: string | null
   created_at: string
@@ -1717,6 +1732,9 @@ export async function createNote(
   payload: {
     title: string
     content: string
+    color?: string
+    pinned?: boolean
+    labels?: string[]
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
@@ -1733,8 +1751,11 @@ export async function updateNote(
   token: string,
   id: number,
   payload: {
-    title: string
-    content: string
+    title?: string
+    content?: string
+    color?: string
+    pinned?: boolean
+    labels?: string[]
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
@@ -1745,6 +1766,11 @@ export async function updateNote(
     { method: 'PUT', body: JSON.stringify(payload) },
     'Update note'
   )
+}
+
+export async function deleteNote(token: string, id: number): Promise<void> {
+  const res = await apiFetch(token, `/notes/${id}`, { method: 'DELETE', json: false })
+  if (!res.ok && res.status !== 204) throw new Error(`Delete note: ${res.status}`)
 }
 
 // Tasks — listes et tâches

@@ -12,6 +12,8 @@ vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../../../api', () => ({
   fetchNotes: vi.fn().mockResolvedValue([]),
   createNote: vi.fn(),
+  updateNote: vi.fn(),
+  deleteNote: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
