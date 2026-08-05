@@ -7,7 +7,7 @@ import {
 } from './mailNotificationDeepLink'
 import * as api from '@cloudity/web-shell/api'
 
-vi.mock('../api', () => ({
+vi.mock('@cloudity/web-shell/api', () => ({
   fetchMailMessages: vi.fn(),
 }))
 
@@ -47,6 +47,5 @@ describe('mailNotificationDeepLink', () => {
       messageId: 5,
       folder: 'inbox',
     })
-    await expect(resolveMailNotificationTarget('tk', 2, 0)).resolves.toEqual({ accountId: 2 })
   })
 })

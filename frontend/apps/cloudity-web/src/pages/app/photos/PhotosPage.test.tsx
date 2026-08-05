@@ -15,10 +15,11 @@ import {
 vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
 vi.mock('../appVaultKeySession', () => ({
   getAppVaultKey: vi.fn(() => new Uint8Array(32)),
+  setAppVaultKey: vi.fn(),
   clearAppVaultKey: vi.fn(),
   importAppVaultKeyB64u: vi.fn(),
   deriveAndStoreAppVaultKey: vi.fn(),
-  exportAppVaultKeyB64u: vi.fn(),
+  exportAppVaultKeyB64u: vi.fn(() => 'vault-key-b64'),
 }))
 vi.mock('../appVaultClient', () => ({
   APP_VAULT_MIME: 'application/vnd.cloudity.vault+json;v=1',

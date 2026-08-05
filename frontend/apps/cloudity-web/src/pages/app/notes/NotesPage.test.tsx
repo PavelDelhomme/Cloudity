@@ -120,7 +120,7 @@ describe('NotesPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Déverrouiller avec le code' }))
 
     await waitFor(() => {
-      expect(api.fetchNotes).toHaveBeenCalledWith('token')
+      expect(api.fetchNotes).toHaveBeenCalledWith('token', { archived: false })
     })
   })
 

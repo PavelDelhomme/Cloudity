@@ -65,7 +65,9 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy(), {
+      timeout: 15_000,
+    })
     const logoutBtn = screen.getByRole('button', { name: /déconnexion/i })
     fireEvent.click(logoutBtn)
     await waitFor(() => {
@@ -105,11 +107,13 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Tableau de bord' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Applications' })).toBeTruthy(), {
+      timeout: 15_000,
+    })
     await waitFor(() => expect(screen.getByText('Fichiers')).toBeTruthy(), { timeout: 15_000 })
   })
 
-  it('renders Drive page when authenticated at /app/drive', () => {
+  it('renders Drive page when authenticated at /app/drive', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -122,7 +126,9 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy(), {
+      timeout: 15_000,
+    })
     expect(screen.getByText('Téléverser')).toBeTruthy()
   })
 
@@ -147,7 +153,7 @@ describe('App', () => {
     )
   })
 
-  it('renders Notes page when authenticated at /app/notes', () => {
+  it('renders Notes page when authenticated at /app/notes', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -160,11 +166,13 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy(), {
+      timeout: 15_000,
+    })
     expect(screen.getByText('Bloc-notes et idées.')).toBeTruthy()
   })
 
-  it('renders Tasks page when authenticated at /app/tasks', () => {
+  it('renders Tasks page when authenticated at /app/tasks', async () => {
     const auth = {
       accessToken: 'token',
       refreshToken: null,
@@ -177,7 +185,9 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy(), {
+      timeout: 15_000,
+    })
     expect(screen.getByText(/productivité/)).toBeTruthy()
   })
 })

@@ -1708,6 +1708,14 @@ export type NoteColor =
   | 'teal'
   | 'red'
 
+export type NoteChecklistItem = { id: string; text: string; done: boolean }
+export type NoteImage = { id: string; dataUrl: string }
+export type NoteExtras = {
+  checklist?: NoteChecklistItem[]
+  images?: NoteImage[]
+  drawing?: string | null
+}
+
 export type Note = {
   id: number
   tenant_id: number
@@ -1716,15 +1724,19 @@ export type Note = {
   content: string
   color?: NoteColor | string
   pinned?: boolean
+  archived?: boolean
   labels?: string[]
+  remind_at?: string | null
+  extras?: NoteExtras
   vault_encrypted?: boolean
   vault_ciphertext?: string | null
   created_at: string
   updated_at: string
 }
 
-export async function fetchNotes(token: string): Promise<Note[]> {
-  return apiJson<Note[]>(token, '/notes', { json: false }, 'Notes')
+export async function fetchNotes(token: string, opts?: { archived?: boolean }): Promise<Note[]> {
+  const q = opts?.archived ? '?archived=1' : ''
+  return apiJson<Note[]>(token, `/notes${q}`, { json: false }, 'Notes')
 }
 
 export async function createNote(
@@ -1734,7 +1746,10 @@ export async function createNote(
     content: string
     color?: string
     pinned?: boolean
+    archived?: boolean
     labels?: string[]
+    remind_at?: string | null
+    extras?: NoteExtras
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
@@ -1755,15 +1770,20 @@ export async function updateNote(
     content?: string
     color?: string
     pinned?: boolean
+    archived?: boolean
     labels?: string[]
+    remind_at?: string | null
+    extras?: NoteExtras
     vault_encrypted?: boolean
     vault_ciphertext?: string
   }
 ): Promise<{ id: number }> {
+  const body: Record<string, unknown> = { ...payload }
+  if (payload.remind_at === null) body.remind_at = ''
   return apiJson<{ id: number }>(
     token,
     `/notes/${id}`,
-    { method: 'PUT', body: JSON.stringify(payload) },
+    { method: 'PUT', body: JSON.stringify(body) },
     'Update note'
   )
 }

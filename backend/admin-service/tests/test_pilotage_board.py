@@ -44,9 +44,12 @@ def test_catalog_seed_has_many_tasks():
     assert any(c["id"] == "cycle-deploy" for c in board["cycles"])
 
 
-def test_h14_is_first_openish_in_cycle_now():
+def test_first_openish_in_cycle_now_is_structure_priority():
+    """cycle-now priorise FE-HUB / multi-apps avant H14 HTTPS (voir MULTI-APPS-WEB-MOBILE)."""
     board = enrich_board(build_seed_board())
-    assert board["active"]["id"] == "H14"
+    assert board["active"]["id"] == "FE-HUB-01"
+    assert board["active"]["cycleId"] == "cycle-now"
+    assert "H14" in board["tasks"]
 
 
 def test_decide_ok_incomplete_checklist_partial():
