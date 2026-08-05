@@ -166,14 +166,14 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 
 | Champ | Contenu |
 |--------|---------|
-| **Description** | Notes type **Evernote** (édition riche, organisation, liens suite). |
-| **Objectif** | Capture + réunion + partage léger, pas un simple textarea. |
+| **Description** | Notes type **Google Keep** (cartes, couleurs, libellés, compose popup). |
+| **Objectif** | Capture rapide style Keep — pas une liste plate. |
 | **Plateformes** | **Web d’abord** ; mobile ensuite (même API). |
-| **Aujourd’hui** | MVP : title/content ; liste sans édition UI ; `color` DB inutilisé. |
-| **À faire** | CRUD UI ; édition riche/markdown ; couleurs/épinglage/carnets-tags ; lien Calendar/Tasks ; Contacts + partage. |
-| **Pilotage** | **APP-06-OPEN** · détail [`SUITE-PRODUCTIVITY-GAP.md`](SUITE-PRODUCTIVITY-GAP.md). |
+| **Aujourd’hui** | **Partiel** : Keep UI + `color`/`pinned`/`labels` (mig. 51) — branche `feat/notes-google-keep`. |
+| **À faire** | Checklist Keep ; liens Calendar/Tasks ; mobile. |
+| **Pilotage** | **APP-06-OPEN** (`partial`) · [`SUITE-PRODUCTIVITY-GAP.md`](SUITE-PRODUCTIVITY-GAP.md). |
 | **Backend** | `notes-service`, `/notes/*`. |
-| **Statut** | MVP trop maigre → chantier produit ouvert. |
+| **Statut** | Chantier Keep en cours. |
 
 ### APP-07 — Tasks
 
