@@ -9,6 +9,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 const sharedRoot = path.resolve(__dirname, '../../packages/cloudity-shared/src')
 const uiRoot = path.resolve(__dirname, '../../packages/cloudity-ui/src')
+const webMailRoot = path.resolve(__dirname, '../web-mail/src')
+const webMailEntry = path.resolve(webMailRoot, 'index.ts')
+const webShellRoot = path.resolve(__dirname, 'src')
 
 /** Résolution explicite : le code source du workspace `@cloudity/shared` utilise le React hoisted de l’app (Vitest/Vite). */
 const reactPkgRoot = path.dirname(require.resolve('react/package.json'))
@@ -59,20 +62,24 @@ export default defineConfig({
     include: ['pdfjs-dist'],
   },
   resolve: {
-    alias: {
-      '@cloudity/shared': sharedRoot,
-      '@cloudity/ui': uiRoot,
-      react: reactPkgRoot,
-      'react-dom': reactDomPkgRoot,
-      'react/jsx-dev-runtime': reactJsxDevRuntime,
-      'react/jsx-runtime': reactJsxRuntime,
-    },
+    alias: [
+      { find: '@cloudity/shared', replacement: sharedRoot },
+      { find: '@cloudity/ui', replacement: uiRoot },
+      { find: /^@cloudity\/web-mail$/, replacement: webMailEntry },
+      { find: /^@cloudity\/web-shell\/(.*)$/, replacement: `${webShellRoot}/$1` },
+      { find: 'react', replacement: reactPkgRoot },
+      { find: 'react-dom', replacement: reactDomPkgRoot },
+      { find: 'react/jsx-dev-runtime', replacement: reactJsxDevRuntime },
+      { find: 'react/jsx-runtime', replacement: reactJsxRuntime },
+    ],
   },
   test: {
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     exclude: ['e2e/**', '**/node_modules/**'],
+    // Inclure les tests Mail déplacés dans @cloudity/web-mail
+    include: ['src/**/*.{test,spec}.{ts,tsx}', '../web-mail/src/**/*.{test,spec}.{ts,tsx}'],
     testTimeout: 15_000,
     hookTimeout: 30_000,
     teardownTimeout: 10_000,

@@ -4,11 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import '../api/auth_api.dart';
-import 'package:cloudity_shared/app_theme.dart';
-import 'package:cloudity_shared/http_helpers.dart';
-import 'package:cloudity_shared/storage_usage.dart';
 import 'device_gallery_body.dart';
 import '../api/drive_api.dart';
 import 'gallery_sync_settings_sheet.dart';

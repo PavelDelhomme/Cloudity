@@ -3,6 +3,11 @@ library cloudity_shared;
 
 export 'app_theme.dart';
 export 'auth_2fa.dart';
+export 'auth/auth_client.dart';
+export 'auth/auth_exception.dart';
+export 'auth/login_screen.dart';
+export 'auth/session_store.dart';
+export 'auth/user_session.dart';
 export 'cloudity_datetime.dart';
 export 'cloudity_crash_reporter.dart';
 export 'cloudity_design_tokens.dart';

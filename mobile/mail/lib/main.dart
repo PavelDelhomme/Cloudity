@@ -1,7 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'auth/login_screen.dart';
-import 'auth/session_store.dart';
+import 'api/auth_api.dart';
 import 'auth/user_session.dart';
 import 'features/inbox_screen.dart';
 
@@ -10,24 +10,45 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
       gatewayBase: s.api.baseUrl,
     );
 
-Future<void> main() async {
-  await cloudityRunSuiteApp(
-    product: ClouditySuiteApp.mail,
-    title: 'Cloudity Mail',
-    home: SuiteAppShell<UserSession>(
+Widget _mailShell() => SuiteAppShell<UserSession>(
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
-      loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+      loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        productTitle: 'Cloudity Mail',
+        keyPrefix: 'cloudity_mail',
+        createApi: AuthApi.new,
+        onLoggedIn: onLoggedIn,
+      ),
       homeBuilder: (session, onLogout) =>
           InboxScreen(session: session, onLogout: onLogout),
-    ),
+    );
+
+Future<void> main() async {
+  await cloudityRunSuiteApp(
+    product: ClouditySuiteApp.mail,
+    title: 'Cloudity Mail',
+    home: _mailShell(),
   );
 }
 
+/// Alias pour tests widget / intégration.
+class CloudityMailApp extends StatelessWidget {
+  const CloudityMailApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return CloudityThemedApp.forSuite(
+      title: 'Cloudity Mail',
+      suiteApp: ClouditySuiteApp.mail,
+      home: _mailShell(),
+    );
+  }
+}
+
 Future<UserSession?> _restoreSession() async {
-  final pair = await SessionStore.loadValidatedSession();
+  final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
   if (pair == null) return null;
   return UserSession(
     api: pair.api,

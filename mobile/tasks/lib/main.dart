@@ -1,8 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'auth/login_screen.dart';
-import 'auth/session_store.dart';
+import 'api/auth_api.dart';
 import 'auth/user_session.dart';
 
 CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
@@ -19,7 +17,12 @@ Future<void> main() async {
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
-      loginBuilder: (onLoggedIn) => LoginScreen(onLoggedIn: onLoggedIn),
+      loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        productTitle: 'Cloudity Tasks',
+        keyPrefix: 'cloudity_tasks',
+        createApi: AuthApi.new,
+        onLoggedIn: onLoggedIn,
+      ),
       homeBuilder: (session, onLogout) => SuiteProductHomeScreen(
         product: SuiteProduct.tasks,
         gatewayBase: session.api.baseUrl,
@@ -35,7 +38,7 @@ Future<void> main() async {
 }
 
 Future<UserSession?> _restoreSession() async {
-  final pair = await SessionStore.loadValidatedSession();
+  final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
   if (pair == null) return null;
   return UserSession(
     api: pair.api,

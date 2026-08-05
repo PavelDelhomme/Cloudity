@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "dev": "npm run dev -w @cloudity/web",
-    "build": "npm run build -w @cloudity/web",
+    "build": "npm run build -w @cloudity/web && npm run build -w @cloudity/web-mail",
+    "build:web": "npm run build -w @cloudity/web",
+    "build:mail": "npm run build -w @cloudity/web-mail",
     "test": "npm run test -w @cloudity/web",
     "lint": "npm run lint -w @cloudity/web",
     "preview": "npm run preview -w @cloudity/web"

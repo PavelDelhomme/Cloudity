@@ -7,7 +7,7 @@ import {
   requestMailDesktopNotifications,
   setMailDesktopNotificationsEnabled,
   type MailDesktopNotificationStatus,
-} from '../../../lib/mailDesktopNotifications'
+} from '@cloudity/web-mail'
 
 function statusLabel(status: MailDesktopNotificationStatus, enabled: boolean): string {
   if (status === 'unsupported') return 'Non supporté par ce navigateur'

@@ -13,7 +13,12 @@ import type { AppLockedVaultKind } from './appLockedVault'
 type VaultKind = AppVaultKind | AppLockedVaultKind
 
 export type VaultNotePlain = { title: string; content: string }
-export type VaultContactPlain = { name: string; email: string; phone?: string }
+export type VaultContactPlain = {
+  name: string
+  email: string
+  phone?: string
+  profile?: import('../../lib/contactProfile').ContactProfile
+}
 export type VaultDriveFilePlain = { plainMime: string; plainName: string; plain: string }
 
 function requireKey(kind: VaultKind, scope: string): Uint8Array {

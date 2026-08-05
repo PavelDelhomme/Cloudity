@@ -1,4 +1,4 @@
-import type { MailFolderId } from '../../../api'
+import type { MailFolderId } from '@cloudity/web-shell/api'
 
 export type MailViewState = {
   accountId: number | null

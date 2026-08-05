@@ -1,6 +1,7 @@
 # Architecture des frontends Cloudity
 
-> **Liens** : suivi opérationnel et checklist multi-apps → **[STATUS.md](../../STATUS.md)** (§ 0b) ; périmètre produit → **[ROADMAP.md](../produit/ROADMAP.md)** (TR-05, APP-xx) ; mobile → **[MOBILES.md](../produit/MOBILES.md)** ; index → **[README.md](../README.md)**.
+> **Priorité immédiate (cible hub + DA)** → **[MULTI-APPS-WEB-MOBILE.md](MULTI-APPS-WEB-MOBILE.md)** · Pilotage **FE-HUB-01** / **FE-SPLIT-01** / **H19** / **MOBILE-DA-01**.  
+> Autres liens : [STATUS.md](../../STATUS.md) · [ROADMAP.md](../produit/ROADMAP.md) · [MOBILES.md](../produit/MOBILES.md) · [README.md](../README.md).
 
 ## Couches partagées (source unique)
 
@@ -28,7 +29,7 @@
 
 C’est volontairement **simple à déployer** (un conteneur, un build) et cohérent avec une **API Gateway** unique qui route vers les microservices (mail, drive, calendrier, …).
 
-**Prochaine étape (cible)** : scinder en **`apps/web-shell`**, **`apps/web-admin`**, etc., avec le moteur UI **`@cloudity/ui`** (**[CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md)**) ; **`@cloudity/shared`** reste API/auth uniquement à terme.
+**Prochaine étape (cible)** : voir **[MULTI-APPS-WEB-MOBILE.md](MULTI-APPS-WEB-MOBILE.md)** — `cloudity-web` = hub mince ; apps `web-mail`, `web-drive`, … ; DA Flutter + auth dans `cloudity_shared`. Design system web : **[CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md)**.
 
 ## Objectif « multi-apps » (web + mobile)
 

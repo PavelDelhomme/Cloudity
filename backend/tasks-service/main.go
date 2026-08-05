@@ -103,16 +103,55 @@ type TaskList struct {
 }
 
 type Task struct {
-	ID          int     `json:"id"`
-	TenantID    int     `json:"tenant_id"`
-	UserID      int     `json:"user_id"`
-	ListID      *int    `json:"list_id,omitempty"`
-	Title       string  `json:"title"`
-	Completed   bool    `json:"completed"`
-	DueAt       *string `json:"due_at,omitempty"`
-	RepeatRule  *string `json:"repeat_rule,omitempty"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID         int     `json:"id"`
+	TenantID   int     `json:"tenant_id"`
+	UserID     int     `json:"user_id"`
+	ListID     *int    `json:"list_id,omitempty"`
+	ParentID   *int    `json:"parent_id,omitempty"`
+	Title      string  `json:"title"`
+	Notes      string  `json:"notes"`
+	Completed  bool    `json:"completed"`
+	Starred    bool    `json:"starred"`
+	StartAt    *string `json:"start_at,omitempty"`
+	DueAt      *string `json:"due_at,omitempty"`
+	RepeatRule *string `json:"repeat_rule,omitempty"`
+	CreatedAt  string  `json:"created_at"`
+	UpdatedAt  string  `json:"updated_at"`
+}
+
+const taskSelectCols = `id, tenant_id, user_id, list_id, parent_id, title, COALESCE(notes, ''), completed, starred, start_at::text, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')`
+
+func scanTask(rows interface {
+	Scan(dest ...any) error
+}) (Task, error) {
+	var t Task
+	var lid, pid sql.NullInt64
+	var start, due, rr sql.NullString
+	var uat string
+	err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &pid, &t.Title, &t.Notes, &t.Completed, &t.Starred, &start, &due, &rr, &t.CreatedAt, &uat)
+	if err != nil {
+		return t, err
+	}
+	if lid.Valid {
+		i := int(lid.Int64)
+		t.ListID = &i
+	}
+	if pid.Valid {
+		i := int(pid.Int64)
+		t.ParentID = &i
+	}
+	if start.Valid {
+		t.StartAt = &start.String
+	}
+	if due.Valid {
+		t.DueAt = &due.String
+	}
+	if rr.Valid && rr.String != "" {
+		s := rr.String
+		t.RepeatRule = &s
+	}
+	t.UpdatedAt = uat
+	return t, nil
 }
 
 func (h *Handler) listLists(c *gin.Context) {
@@ -178,17 +217,12 @@ func (h *Handler) listTasks(c *gin.Context) {
 	listID := c.Query("list_id")
 	var rows *sql.Rows
 	var err error
+	order := `ORDER BY starred DESC, completed, due_at NULLS LAST, created_at`
 	if listID == "" {
-		rows, err = h.dbex(ctx).Query(`
-			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
-			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER ORDER BY completed, due_at NULLS LAST, created_at
-		`)
+		rows, err = h.dbex(ctx).Query(`SELECT `+taskSelectCols+` FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER `+order)
 	} else {
 		lid, _ := strconv.Atoi(listID)
-		rows, err = h.dbex(ctx).Query(`
-			SELECT id, tenant_id, user_id, list_id, title, completed, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
-			FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND list_id = $1 ORDER BY completed, due_at NULLS LAST, created_at
-		`, lid)
+		rows, err = h.dbex(ctx).Query(`SELECT `+taskSelectCols+` FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND list_id = $1 `+order, lid)
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -197,27 +231,11 @@ func (h *Handler) listTasks(c *gin.Context) {
 	defer rows.Close()
 	list := make([]Task, 0)
 	for rows.Next() {
-		var t Task
-		var lid sql.NullInt64
-		var due sql.NullString
-		var rr sql.NullString
-		var uat string
-		if err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &t.Title, &t.Completed, &due, &rr, &t.CreatedAt, &uat); err != nil {
+		t, err := scanTask(rows)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if lid.Valid {
-			i := int(lid.Int64)
-			t.ListID = &i
-		}
-		if due.Valid {
-			t.DueAt = &due.String
-		}
-		if rr.Valid && rr.String != "" {
-			s := rr.String
-			t.RepeatRule = &s
-		}
-		t.UpdatedAt = uat
 		list = append(list, t)
 	}
 	c.JSON(http.StatusOK, list)
@@ -230,9 +248,13 @@ func (h *Handler) createTask(c *gin.Context) {
 	}
 	var body struct {
 		ListID     *int    `json:"list_id"`
+		ParentID   *int    `json:"parent_id"`
 		Title      string  `json:"title"`
+		Notes      *string `json:"notes"`
+		StartAt    *string `json:"start_at"`
 		DueAt      *string `json:"due_at"`
 		RepeatRule *string `json:"repeat_rule"`
+		Starred    *bool   `json:"starred"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Title == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
@@ -251,10 +273,50 @@ func (h *Handler) createTask(c *gin.Context) {
 	} else {
 		rr = nil
 	}
+	notes := ""
+	if body.Notes != nil {
+		notes = *body.Notes
+	}
+	starred := false
+	if body.Starred != nil {
+		starred = *body.Starred
+	}
+	listID := body.ListID
+	parentID := body.ParentID
 	ctx := c.Request.Context()
+	if parentID != nil {
+		if *parentID <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent_id"})
+			return
+		}
+		var pList sql.NullInt64
+		var pParent sql.NullInt64
+		err := h.dbex(ctx).QueryRow(`
+			SELECT list_id, parent_id FROM tasks
+			WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		`, *parentID).Scan(&pList, &pParent)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "parent task not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if pParent.Valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "subtasks cannot have children (one level only)"})
+			return
+		}
+		if listID == nil && pList.Valid {
+			i := int(pList.Int64)
+			listID = &i
+		}
+	}
 	var id int
-	err := h.dbex(ctx).QueryRow(`INSERT INTO tasks (tenant_id, user_id, list_id, title, due_at, repeat_rule) VALUES ($1, $2, $3, $4, $5::timestamptz, $6) RETURNING id`,
-		tenantID, userID, body.ListID, body.Title, body.DueAt, rr).Scan(&id)
+	err := h.dbex(ctx).QueryRow(`
+		INSERT INTO tasks (tenant_id, user_id, list_id, parent_id, title, notes, start_at, due_at, repeat_rule, starred)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10) RETURNING id`,
+		tenantID, userID, listID, parentID, body.Title, notes, body.StartAt, body.DueAt, rr, starred).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -274,9 +336,13 @@ func (h *Handler) updateTask(c *gin.Context) {
 	}
 	var body struct {
 		Title      *string `json:"title"`
+		Notes      *string `json:"notes"`
 		Completed  *bool   `json:"completed"`
+		Starred    *bool   `json:"starred"`
+		StartAt    *string `json:"start_at"`
 		DueAt      *string `json:"due_at"`
 		RepeatRule *string `json:"repeat_rule"`
+		ParentID   *int    `json:"parent_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -290,10 +356,29 @@ func (h *Handler) updateTask(c *gin.Context) {
 		args = append(args, *body.Title)
 		argN++
 	}
+	if body.Notes != nil {
+		parts = append(parts, fmt.Sprintf("notes = $%d", argN))
+		args = append(args, *body.Notes)
+		argN++
+	}
 	if body.Completed != nil {
 		parts = append(parts, fmt.Sprintf("completed = $%d", argN))
 		args = append(args, *body.Completed)
 		argN++
+	}
+	if body.Starred != nil {
+		parts = append(parts, fmt.Sprintf("starred = $%d", argN))
+		args = append(args, *body.Starred)
+		argN++
+	}
+	if body.StartAt != nil {
+		if *body.StartAt == "" {
+			parts = append(parts, "start_at = NULL")
+		} else {
+			parts = append(parts, fmt.Sprintf("start_at = $%d::timestamptz", argN))
+			args = append(args, *body.StartAt)
+			argN++
+		}
 	}
 	if body.DueAt != nil {
 		if *body.DueAt == "" {
@@ -310,6 +395,18 @@ func (h *Handler) updateTask(c *gin.Context) {
 		} else {
 			parts = append(parts, fmt.Sprintf("repeat_rule = $%d", argN))
 			args = append(args, *body.RepeatRule)
+			argN++
+		}
+	}
+	if body.ParentID != nil {
+		if *body.ParentID <= 0 {
+			parts = append(parts, "parent_id = NULL")
+		} else if *body.ParentID == id {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "task cannot be its own parent"})
+			return
+		} else {
+			parts = append(parts, fmt.Sprintf("parent_id = $%d", argN))
+			args = append(args, *body.ParentID)
 			argN++
 		}
 	}

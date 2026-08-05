@@ -77,6 +77,28 @@ const SURFACE_ORDER = [
   { key: 'mobile', fallback: 'Mobile' },
 ] as const
 
+/** Critères H14-like : LAN (1/2/3a) vs HTTPS (3b). */
+function criterionLane(label: string): 'lan' | 'https' | 'other' {
+  const t = label.trim().toLowerCase()
+  if (/^3b[.\s)]/.test(t) || t.includes('https vps') || t.includes('via zoneforge')) return 'https'
+  if (
+    /^(1[.\s)]|2[.\s)]|3a[.\s)])/.test(t) ||
+    t.includes('smoke lan') ||
+    t.includes('sync-public') ||
+    (t.includes('run-mobile') && !t.includes('https'))
+  ) {
+    return 'lan'
+  }
+  return 'other'
+}
+
+const QUICK_DECISIONS = [
+  { decision: 'EN_COURS', label: 'En cours', status: 'in_progress' },
+  { decision: 'PARTIEL', label: 'Partiel', status: 'partial' },
+  { decision: 'A_VALIDER', label: 'À valider', status: 'to_validate' },
+  { decision: 'PLUS_TARD', label: 'Plus tard', status: 'deferred' },
+] as const
+
 function statusClass(status: PilotageTaskStatus | string): string {
   switch (status) {
     case 'ok':
@@ -182,9 +204,13 @@ function TaskRow({
               {task.kind === 'problem' ? '⚠ ' : task.kind === 'gate' ? '☑ ' : ''}
               {task.label}
             </p>
-            {isActive ? (
+            {isActive && task.status === 'in_progress' ? (
               <span className="shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 EN COURS
+              </span>
+            ) : isActive ? (
+              <span className="shrink-0 rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white dark:bg-slate-500">
+                FOCUS
               </span>
             ) : null}
           </div>
@@ -228,8 +254,16 @@ function TaskDetail({
   const [note, setNote] = useState(task.porteurNote || task.completionNote || '')
   const [problemText, setProblemText] = useState('')
   const [logPaste, setLogPaste] = useState('')
+  const [showGuide, setShowGuide] = useState(true)
+  const [showAllDecisions, setShowAllDecisions] = useState(false)
 
   const remainingCriteria = task.checklist.filter((c) => !c.done).length
+  const lanItems = task.checklist.filter((c) => criterionLane(c.label) === 'lan')
+  const httpsItems = task.checklist.filter((c) => criterionLane(c.label) === 'https')
+  const otherItems = task.checklist.filter((c) => criterionLane(c.label) === 'other')
+  const lanPending = lanItems.filter((c) => !c.done)
+  const hasLanSplit = lanItems.length > 0 && (httpsItems.length > 0 || otherItems.length > 0)
+
   const decisions = decisionsCatalog?.length ? decisionsCatalog : DEFAULT_DECISIONS
   const decisionGroups = useMemo(() => {
     const order = ['travail', 'validation', 'tests', 'cloture']
@@ -252,9 +286,44 @@ function TaskDetail({
       }))
     : []
 
+  const renderCriterion = (c: { id: string; label: string; done: boolean }) => (
+    <li key={c.id} className="flex items-start gap-2">
+      <input
+        type="checkbox"
+        className="mt-1 h-4 w-4 accent-indigo-600 cursor-pointer disabled:cursor-not-allowed"
+        checked={c.done}
+        disabled={!canWrite}
+        onChange={(e) =>
+          onAction({
+            type: 'checklist',
+            itemId: task.id,
+            checklistItemId: c.id,
+            done: e.target.checked,
+          })
+        }
+      />
+      <button
+        type="button"
+        disabled={!canWrite}
+        className={`text-left text-sm ${c.done ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'} disabled:opacity-60`}
+        onClick={() =>
+          onAction({
+            type: 'checklist',
+            itemId: task.id,
+            checklistItemId: c.id,
+            done: !c.done,
+          })
+        }
+      >
+        {c.label}
+      </button>
+    </li>
+  )
+
   return (
-    <Card className="p-4 sm:p-5 sticky top-4 max-h-[calc(100vh-6rem)] overflow-auto">
-      <div className="flex items-start justify-between gap-2 mb-3">
+    <div className="sticky top-4 flex max-h-[calc(100vh-5.5rem)] flex-col">
+    <Card className="flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-700 sm:px-5">
         <div>
           <p className="text-xs font-mono text-slate-500">
             {task.id}
@@ -263,9 +332,13 @@ function TaskDetail({
           </p>
           <div className="flex flex-wrap items-center gap-2 mt-0.5">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{task.label}</h2>
-            {isEnCours ? (
+            {isEnCours && task.status === 'in_progress' ? (
               <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                 EN COURS
+              </span>
+            ) : isEnCours ? (
+              <span className="rounded bg-slate-700 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white dark:bg-slate-500">
+                FOCUS
               </span>
             ) : null}
           </div>
@@ -286,64 +359,83 @@ function TaskDetail({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="mb-3 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:underline"
-      >
-        Fermer le détail
-      </button>
-
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
       {task.status === 'blocked' && (task.blockedBy?.length ?? 0) > 0 ? (
         <div className="mb-3 rounded-lg border border-orange-300 bg-orange-50 dark:bg-orange-950/30 p-3 text-sm text-orange-900 dark:text-orange-100">
           Bloqué par : {(task.blockedBy || []).join(', ')}. Traite d’abord le problème, puis reprends.
         </div>
       ) : null}
 
-      {task.description ? (
-        <p className="text-sm text-slate-600 dark:text-slate-300 mb-3 whitespace-pre-wrap">{task.description}</p>
-      ) : null}
-
-      <div className="mb-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Attendu</p>
-        <p className="text-sm text-slate-800 dark:text-slate-200">{task.expected}</p>
-      </div>
-
-      {task.howToSteps && task.howToSteps.length > 0 ? (
-        <div className="mb-4">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Comment faire</p>
-          <ol className="space-y-3">
-            {task.howToSteps.map((step, i) => (
-              <li key={`${step.title}-${i}`} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  {i + 1}. {step.title}
-                </p>
-                {step.body ? (
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">{step.body}</p>
-                ) : null}
-              </li>
-            ))}
-          </ol>
+      {task.expected ? (
+        <div className="mb-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Attendu</p>
+          <p className="text-sm text-slate-800 dark:text-slate-200">{task.expected}</p>
         </div>
       ) : null}
 
-      {task.docLinks && task.docLinks.length > 0 ? (
-        <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">Docs</p>
-          <ul className="space-y-1">
-            {task.docLinks.map((link) => (
-              <li key={link}>
-                <a
-                  href={link.startsWith('http') ? link : undefined}
-                  className="text-xs text-indigo-600 dark:text-indigo-300 hover:underline break-all"
-                  target={link.startsWith('http') ? '_blank' : undefined}
-                  rel={link.startsWith('http') ? 'noreferrer' : undefined}
+      {!canWrite ? (
+        <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+          Lecture seule — les cases et décisions sont désactivées (écriture pilotage off pour cet
+          environnement).
+        </p>
+      ) : null}
+
+      {canWrite ? (
+        <div className="mb-4 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 bg-indigo-50/60 dark:bg-indigo-950/30 p-3">
+          <p className="mb-2 text-xs font-semibold text-indigo-900 dark:text-indigo-100">
+            Décision rapide
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_DECISIONS.map((d) => {
+              const active = d.status === task.status
+              return (
+                <button
+                  key={d.decision}
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    onAction({ type: 'decide', itemId: task.id, decision: d.decision, note })
+                  }
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold border disabled:opacity-50 ${
+                    active
+                      ? 'border-indigo-600 bg-indigo-600 text-white'
+                      : 'border-indigo-200 dark:border-indigo-700 bg-white dark:bg-slate-900 hover:bg-indigo-100/80 dark:hover:bg-indigo-900/40'
+                  }`}
                 >
-                  {link}
-                </a>
-              </li>
-            ))}
-          </ul>
+                  {d.label}
+                </button>
+              )
+            })}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onAction({ type: 'set_focus', itemId: task.id })}
+              className="rounded-lg px-3 py-2 text-sm font-semibold border border-slate-300 dark:border-slate-600"
+            >
+              Focus
+            </button>
+          </div>
+          {lanItems.length > 0 ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                onAction({
+                  type: 'checklist_bulk',
+                  itemId: task.id,
+                  checklistItemIds: lanItems.map((c) => c.id),
+                  done: true,
+                  decision: 'PARTIEL',
+                  note: note || 'LAN OK — HTTPS plus tard',
+                })
+              }
+              className="mt-2 w-full rounded-lg bg-amber-600 hover:bg-amber-700 text-white px-3 py-2.5 text-sm font-semibold disabled:opacity-50"
+            >
+              {lanPending.length > 0
+                ? `Cocher LAN (${lanPending.length}) → Partiel`
+                : 'Rester / confirmer Partiel (LAN)'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -352,64 +444,99 @@ function TaskDetail({
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Critères</p>
           {task.checklist.length > 0 ? (
             <p className="text-xs text-slate-500">
-              Reste : {remainingCriteria} critère{remainingCriteria === 1 ? '' : 's'}
+              {task.checklist.length - remainingCriteria}/{task.checklist.length} · reste{' '}
+              {remainingCriteria}
             </p>
           ) : null}
         </div>
-        <ul className="space-y-2">
-          {task.checklist.map((c) => (
-            <li key={c.id} className="flex items-start gap-2">
-              <input
-                type="checkbox"
-                className="mt-1"
-                checked={c.done}
-                disabled={!canWrite || busy}
-                onChange={(e) =>
-                  onAction({
-                    type: 'checklist',
-                    itemId: task.id,
-                    checklistItemId: c.id,
-                    done: e.target.checked,
-                  })
-                }
-              />
-              <span className={`text-sm ${c.done ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'}`}>
-                {c.label}
-              </span>
-            </li>
-          ))}
-          {task.checklist.length === 0 ? (
-            <li className="text-xs text-slate-500">Aucun critère.</li>
-          ) : null}
-        </ul>
+        {hasLanSplit ? (
+          <div className="space-y-3">
+            {lanItems.length > 0 ? (
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-200">
+                  LAN (→ Partiel)
+                </p>
+                <ul className="space-y-2">{lanItems.map(renderCriterion)}</ul>
+              </div>
+            ) : null}
+            {httpsItems.length > 0 ? (
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  HTTPS / VPS (plus tard)
+                </p>
+                <ul className="space-y-2">{httpsItems.map(renderCriterion)}</ul>
+              </div>
+            ) : null}
+            {otherItems.length > 0 ? (
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  Autres
+                </p>
+                <ul className="space-y-2">{otherItems.map(renderCriterion)}</ul>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {task.checklist.map(renderCriterion)}
+            {task.checklist.length === 0 ? (
+              <li className="text-xs text-slate-500">Aucun critère.</li>
+            ) : null}
+          </ul>
+        )}
       </div>
 
-      {surfaceEntries.length > 0 ? (
-        <div className="mb-4">
-          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Surfaces</p>
-          <ul className="space-y-2">
-            {surfaceEntries.map((s) => (
-              <li key={s.key} className="flex items-start gap-2">
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={s.done}
-                  disabled={!canWrite || busy}
-                  onChange={(e) =>
-                    onAction({
-                      type: 'surface',
-                      itemId: task.id,
-                      surfaceKey: s.key,
-                      done: e.target.checked,
-                    })
-                  }
-                />
-                <span className={`text-sm ${s.done ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'}`}>
-                  {s.label}
-                </span>
-              </li>
-            ))}
-          </ul>
+      {(task.howToSteps?.length || task.docLinks?.length || task.description) ? (
+        <div className="mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950/40">
+          <button
+            type="button"
+            className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-slate-50 dark:hover:bg-slate-900/50"
+            onClick={() => setShowGuide((v) => !v)}
+          >
+            {showGuide ? '▾ Guide / docs (replier)' : '▸ Guide / docs (déplier)'}
+            <span className="ml-2 font-normal text-slate-500">
+              — scroll dans ce panneau pour tout lire
+            </span>
+          </button>
+          {showGuide ? (
+            <div className="space-y-3 border-t border-slate-200 px-3 py-3 dark:border-slate-700">
+              {task.description ? (
+                <p className="text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                  {task.description}
+                </p>
+              ) : null}
+              {task.howToSteps && task.howToSteps.length > 0 ? (
+                <ol className="space-y-2">
+                  {task.howToSteps.map((step, i) => (
+                    <li
+                      key={`${step.title}-${i}`}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 p-3"
+                    >
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {i + 1}. {step.title}
+                      </p>
+                      {step.body ? (
+                        <pre className="mt-1 whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                          {step.body}
+                        </pre>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+              {task.docLinks && task.docLinks.length > 0 ? (
+                <ul className="space-y-1">
+                  {task.docLinks.map((link) => (
+                    <li key={link}>
+                      <span className="text-xs font-mono text-slate-600 dark:text-slate-300 break-all">
+                        {link}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -417,9 +544,9 @@ function TaskDetail({
         <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Note</span>
         <textarea
           className="mt-1 w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-sm"
-          rows={3}
+          rows={2}
           value={note}
-          disabled={!canWrite || busy}
+          disabled={!canWrite}
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => {
             if (canWrite && note !== (task.porteurNote || task.completionNote || '')) {
@@ -429,49 +556,84 @@ function TaskDetail({
         />
       </label>
 
+      {surfaceEntries.length > 0 ? (
+        <div className="mb-4">
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-2">Surfaces</p>
+          <ul className="space-y-2">
+            {surfaceEntries.map((s) => (
+              <li key={s.key} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 accent-indigo-600"
+                  checked={s.done}
+                  disabled={!canWrite}
+                  onChange={(e) =>
+                    onAction({
+                      type: 'surface',
+                      itemId: task.id,
+                      surfaceKey: s.key,
+                      done: e.target.checked,
+                    })
+                  }
+                />
+                <span
+                  className={`text-sm ${s.done ? 'text-slate-500 line-through' : 'text-slate-800 dark:text-slate-200'}`}
+                >
+                  {s.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {canWrite ? (
         <>
-          <p className="mb-2 text-[11px] text-slate-500 leading-relaxed">
-            Décisions par étape : travail → validation → tests → clôture. Le bouton actif correspond au
-            statut actuel. <strong>Focus</strong> = mettre en tête.
-          </p>
-          <div className="mb-3 space-y-3">
-            {decisionGroups.map((g) => (
-              <div key={g.group}>
-                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                  {g.label}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {g.items.map((d) => {
-                    const active = d.status === task.status
-                    return (
-                      <button
-                        key={d.decision}
-                        type="button"
-                        disabled={busy}
-                        onClick={() => onAction({ type: 'decide', itemId: task.id, decision: d.decision, note })}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold border disabled:opacity-50 ${
-                          active
-                            ? 'border-indigo-500 bg-indigo-600 text-white ring-2 ring-indigo-300 dark:ring-indigo-700'
-                            : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                      >
-                        {d.label}
-                      </button>
-                    )
-                  })}
+          <button
+            type="button"
+            className="mb-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:underline"
+            onClick={() => setShowAllDecisions((v) => !v)}
+          >
+            {showAllDecisions ? 'Masquer toutes les décisions' : 'Toutes les décisions…'}
+          </button>
+          {showAllDecisions ? (
+            <div className="mb-3 space-y-3">
+              {decisionGroups.map((g) => (
+                <div key={g.group}>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                    {g.label}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {g.items.map((d) => {
+                      const active = d.status === task.status
+                      return (
+                        <button
+                          key={d.decision}
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            onAction({
+                              type: 'decide',
+                              itemId: task.id,
+                              decision: d.decision,
+                              note,
+                            })
+                          }
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold border disabled:opacity-50 ${
+                            active
+                              ? 'border-indigo-500 bg-indigo-600 text-white ring-2 ring-indigo-300 dark:ring-indigo-700'
+                              : 'border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                          }`}
+                        >
+                          {d.label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onAction({ type: 'set_focus', itemId: task.id })}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold border border-indigo-300 text-indigo-800 dark:border-indigo-700 dark:text-indigo-200"
-            >
-              Focus / en tête
-            </button>
-          </div>
+              ))}
+            </div>
+          ) : null}
 
           {task.kind === 'problem' ? (
             <button
@@ -616,7 +778,9 @@ function TaskDetail({
           </ul>
         </div>
       ) : null}
+      </div>
     </Card>
+    </div>
   )
 }
 
@@ -844,13 +1008,21 @@ export default function PilotagePage() {
 
   const actionMut = useMutation({
     mutationFn: (payload: PilotageActionPayload) => postPilotageAction(accessToken!, payload),
-    onSuccess: (res) => {
+    onSuccess: (res, variables) => {
       queryClient.setQueryData(['pilotage-board'], res)
       setFlash(res.message || 'Mis à jour')
-      if (selectedId !== null) {
+      // Ne pas voler la sélection sur checklist / Partiel — seulement focus / problème.
+      const jumpFocus =
+        variables.type === 'set_focus' ||
+        variables.type === 'report_problem' ||
+        variables.type === 'resolve_problem' ||
+        (variables.type === 'decide' && variables.decision === 'EN_COURS') ||
+        (variables.type === 'checklist_bulk' && variables.decision === 'EN_COURS')
+      if (jumpFocus && res.board?.focusTaskId) {
         setSelectedReleaseId(null)
-        if (res.board?.focusTaskId) setSelectedId(res.board.focusTaskId)
-        else if (res.board?.active?.id) setSelectedId(res.board.active.id)
+        setSelectedId(res.board.focusTaskId)
+      } else if (variables.itemId && selectedId === null) {
+        setSelectedId(variables.itemId)
       }
       window.setTimeout(() => setFlash(null), 3500)
     },
@@ -926,29 +1098,8 @@ export default function PilotagePage() {
   return (
     <PageLayout
       title="Pilotage projet"
-      description="Ordre de travail, ZoneForge pour le VPS, checklist pré-prod, versions, logs locaux."
+      description="Suivre docs/operations/DEPLOIEMENT.md — valider dans ce board (H14)."
     >
-      <Card className="p-3 mb-3 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40">
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-          <strong>Déploiement VPS</strong> : pas de manip Portainer/NPM à la main pour chaque projet — cible{' '}
-          <a
-            href={
-              (typeof import.meta !== 'undefined' &&
-                (import.meta as { env?: { VITE_ZONEFORGE_URL?: string } }).env?.VITE_ZONEFORGE_URL) ||
-              'https://github.com/PavelDelhomme/ZoneForge'
-            }
-            target="_blank"
-            rel="noreferrer"
-            className="text-indigo-600 dark:text-indigo-300 underline underline-offset-2"
-          >
-            ZoneForge
-          </a>{' '}
-          (tâches <span className="font-mono">ZF-01…05</span>). Local :{' '}
-          <span className="font-mono">make logs</span> · <span className="font-mono">make status-watch</span> ·{' '}
-          <span className="font-mono">make portainer-env</span>. Doc :{' '}
-          <span className="font-mono">docs/operations/ZONEFORGE-CLOUDITY.md</span>
-        </p>
-      </Card>
       <Card className="p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2 min-w-0">
           <ClipboardList className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
@@ -976,13 +1127,23 @@ export default function PilotagePage() {
                   onClick={() => selectTask(board.active!.id)}
                   className="text-left rounded-md px-1.5 py-0.5 -ml-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                  En cours : <strong>{board.active.label}</strong>
+                  Focus : <strong>{board.active.label}</strong>
                 </button>
-                {isEnCoursSelected ? (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusClass(board.active.status || 'open')}`}
+                >
+                  {(board.active as { statusLabel?: string }).statusLabel ||
+                    statusLabel(board.active.status || 'open')}
+                </span>
+                {board.active.status === 'in_progress' ? (
                   <span className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                     EN COURS
                   </span>
-                ) : null}
+                ) : (
+                  <span className="text-[11px] text-slate-500">
+                    (tête de file — statut ci-contre, pas « En cours »)
+                  </span>
+                )}
                 {board.active.kind === 'problem' ? (
                   <span className="text-orange-700 dark:text-orange-300">(problème — prioritaire)</span>
                 ) : null}
@@ -1043,10 +1204,27 @@ export default function PilotagePage() {
             onClick={() => dismissPanel()}
           >
             {board.counts ? (
-              <div
-                className="flex flex-wrap gap-2 text-xs items-center"
-                onClick={(e) => e.stopPropagation()}
-              >
+              <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                {board.active ? (
+                  <p className="text-xs text-slate-600 dark:text-slate-300 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/40 px-3 py-2">
+                    <span className="font-semibold">Focus</span> = tête de file (
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 font-medium"
+                      onClick={() => selectTask(board.active!.id)}
+                    >
+                      {board.active.id}
+                    </button>
+                    ,{' '}
+                    <span className={statusClass(board.active.status)}>
+                      {board.active.statusLabel || statusLabel(board.active.status)}
+                    </span>
+                    ). Les pastilles ci-dessous comptent par <strong>statut</strong> sur tout le
+                    catalogue — « En cours » = 0 tant que personne n’a cliqué la décision{' '}
+                    <em>En cours</em> (Partiel / À faire ≠ En cours).
+                  </p>
+                ) : null}
+                <div className="flex flex-wrap gap-2 text-xs items-center">
                 <button
                   type="button"
                   onClick={() => setStatusFilter('all')}
@@ -1068,18 +1246,30 @@ export default function PilotagePage() {
                     'ko',
                     'deferred',
                   ] as const
-                ).map((k) => (
+                ).map((k) => {
+                  const n = board.counts?.[k] ?? 0
+                  if (n === 0 && k !== 'in_progress' && statusFilter !== k) return null
+                  return (
                   <button
                     key={k}
                     type="button"
                     onClick={() => setStatusFilter(k)}
+                    title={
+                      k === 'in_progress'
+                        ? 'Statut « En cours » uniquement (décision En cours). La Focus peut être Partiel.'
+                        : k === 'open'
+                          ? 'Tâches jamais démarrées (catalogue). Filtre, pas la file « À faire maintenant ».'
+                          : undefined
+                    }
                     className={`rounded-full px-2.5 py-1 font-medium ${statusClass(k)} ${
                       statusFilter === k ? 'ring-2 ring-offset-1 ring-slate-400' : ''
-                    }`}
+                    } ${n === 0 ? 'opacity-50' : ''}`}
                   >
-                    {statusLabel(k)} {board.counts?.[k] ?? 0}
+                    {statusLabel(k)} {n}
                   </button>
-                ))}
+                  )
+                })}
+                </div>
               </div>
             ) : null}
 
@@ -1091,7 +1281,9 @@ export default function PilotagePage() {
                 onToggle={() => setOpenSections((s) => ({ ...s, now: !s.now }))}
               >
                 <p className="text-xs text-slate-500 mb-2">
-                  Travaille de haut en bas. Un problème passe en tête et bloque le parent jusqu’à résolution.
+                  File de travail (ordre). Le badge <strong>FOCUS</strong> = tête de file ;
+                  le statut (Partiel / En cours / …) est indépendant. Les pastilles du haut
+                  filtrent tout le catalogue (101 « À faire » = jamais démarrées ailleurs).
                 </p>
                 <div className="space-y-2">
                   {tasksFor(nowCycle?.itemIds || []).map((t) => (
@@ -1650,7 +1842,7 @@ export default function PilotagePage() {
               />
             ) : (
               <Card className="p-6 text-sm text-slate-500">
-                Sélectionne une tâche ou une version — ou clique En cours
+                Sélectionne une tâche ou une version — ou ouvre le Focus
               </Card>
             )}
           </div>

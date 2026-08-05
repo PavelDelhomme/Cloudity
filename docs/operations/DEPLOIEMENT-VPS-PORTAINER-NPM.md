@@ -1,3 +1,5 @@
+> **Référence longue** (technique). Chemin court : [**DEPLOIEMENT.md**](DEPLOIEMENT.md) · formulaire Git : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · index [../README.md](../README.md).
+
 # Déploiement production — VPS public + Portainer + Nginx Proxy Manager
 
 **Rôle** : décrire **comment** Cloudity sera mis en ligne sur un **VPS public** (Portainer + Nginx Proxy Manager — NPM), en s'alignant sur les conventions des autres applications déjà déployées sur le même VPS (NPM partagé, réseaux Docker partagés). Le **dev local** (`docker-compose` à la racine, ports `6080/6001`) reste **complètement séparé** et inchangé.

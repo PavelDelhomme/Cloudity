@@ -1,22 +1,36 @@
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
-import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../api/auth_api.dart';
+import '../auth_2fa.dart';
+import '../network_errors.dart';
+import '../suite_dev_credentials.dart';
+import 'auth_client.dart';
+import 'auth_exception.dart';
 import 'session_store.dart';
 import 'user_session.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onLoggedIn});
+/// Écran de connexion unique (H19) — titres / clés sémantiques paramétrables.
+class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
+  const CloudityLoginScreen({
+    super.key,
+    required this.onLoggedIn,
+    required this.createApi,
+    required this.productTitle,
+    required this.keyPrefix,
+  });
 
-  final void Function(UserSession session) onLoggedIn;
+  final void Function(CloudityUserSession<T> session) onLoggedIn;
+  final T Function(String gateway) createApi;
+  final String productTitle;
+  final String keyPrefix;
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<CloudityLoginScreen<T>> createState() => _CloudityLoginScreenState<T>();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _CloudityLoginScreenState<T extends CloudityAuthClient>
+    extends State<CloudityLoginScreen<T>> {
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
@@ -28,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _twoFactorRequired = false;
   String? _pendingEmail;
   String? _pendingTenant;
-  AuthApi? _pendingApi;
+  T? _pendingApi;
 
   @override
   void initState() {
@@ -55,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
     });
     try {
-      final api = AuthApi(account.gatewayUrl);
+      final api = widget.createApi(account.gatewayUrl);
       if (!await api.authHealth()) {
         throw AuthException('Gateway Cloudity introuvable pour ce compte.');
       }
@@ -74,7 +88,11 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (!mounted) return;
       widget.onLoggedIn(
-        UserSession(api: api, accessToken: pair.access, refreshToken: pair.refresh),
+        CloudityUserSession<T>(
+          api: api,
+          accessToken: pair.access,
+          refreshToken: pair.refresh,
+        ),
       );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -93,12 +111,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final email = _emailCtrl.text.trim();
       final password = _passwordCtrl.text;
-      AuthApi? selectedApi;
+      T? selectedApi;
       Map<String, dynamic>? tokens;
       Object? lastReachError;
       final gateways = await SessionStore.gatewayCandidates();
       for (final gateway in gateways) {
-        final api = AuthApi(gateway);
+        final api = widget.createApi(gateway);
         try {
           if (!await api.authHealth()) continue;
         } catch (e) {
@@ -135,7 +153,13 @@ class _LoginScreenState extends State<LoginScreen> {
         refreshToken: refresh,
         email: email,
       );
-      widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
+      widget.onLoggedIn(
+        CloudityUserSession<T>(
+          api: selectedApi,
+          accessToken: access,
+          refreshToken: refresh,
+        ),
+      );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -171,11 +195,13 @@ class _LoginScreenState extends State<LoginScreen> {
         tenantId: int.tryParse(tenant) ?? 1,
       );
       if (!mounted) return;
-      widget.onLoggedIn(UserSession(
-        api: api,
-        accessToken: res.accessToken,
-        refreshToken: res.refreshToken,
-      ));
+      widget.onLoggedIn(
+        CloudityUserSession<T>(
+          api: api,
+          accessToken: res.accessToken,
+          refreshToken: res.refreshToken,
+        ),
+      );
     } on Auth2FAException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -204,12 +230,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final email = _emailCtrl.text.trim();
       final password = _passwordCtrl.text;
-      AuthApi? selectedApi;
+      T? selectedApi;
       Map<String, dynamic>? tokens;
       Object? lastReachError;
       final gateways = await SessionStore.gatewayCandidates();
       for (final gateway in gateways) {
-        final api = AuthApi(gateway);
+        final api = widget.createApi(gateway);
         try {
           if (!await api.authHealth()) continue;
         } catch (e) {
@@ -232,7 +258,13 @@ class _LoginScreenState extends State<LoginScreen> {
         refreshToken: refresh,
         email: email,
       );
-      widget.onLoggedIn(UserSession(api: selectedApi, accessToken: access, refreshToken: refresh));
+      widget.onLoggedIn(
+        CloudityUserSession<T>(
+          api: selectedApi,
+          accessToken: access,
+          refreshToken: refresh,
+        ),
+      );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -247,14 +279,15 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(_twoFactorRequired
-            ? 'Vérification 2FA — Cloudity Contacts'
-            : 'Connexion — Cloudity Contacts'),
+            ? 'Vérification 2FA — ${widget.productTitle}'
+            : 'Connexion — ${widget.productTitle}'),
       ),
       body: _twoFactorRequired ? _build2FAForm(context) : _buildLoginForm(context),
     );
   }
 
   Widget _buildLoginForm(BuildContext context) {
+    final p = widget.keyPrefix;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -282,7 +315,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 8),
         ],
         TextField(
-          key: const ValueKey('cloudity_contacts_login_email'),
+          key: ValueKey('${p}_login_email'),
           controller: _emailCtrl,
           decoration: const InputDecoration(
             labelText: 'E-mail',
@@ -293,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 12),
         TextField(
-          key: const ValueKey('cloudity_contacts_login_password'),
+          key: ValueKey('${p}_login_password'),
           controller: _passwordCtrl,
           decoration: InputDecoration(
             labelText: 'Mot de passe',
@@ -316,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
           children: [
             Expanded(
               child: FilledButton(
-                key: const ValueKey('cloudity_contacts_login_submit'),
+                key: ValueKey('${p}_login_submit'),
                 onPressed: _busy ? null : _submit,
                 child: _busy
                     ? const SizedBox(
@@ -329,7 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             const SizedBox(width: 10),
             OutlinedButton(
-              key: const ValueKey('cloudity_mail_register_submit'),
+              key: ValueKey('${p}_register_submit'),
               onPressed: _busy ? null : _register,
               child: const Text('Créer un compte'),
             ),
@@ -340,6 +373,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _build2FAForm(BuildContext context) {
+    final p = widget.keyPrefix;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -350,7 +384,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 20),
         TextField(
-          key: const ValueKey('cloudity_contacts_login_2fa_code'),
+          key: ValueKey('${p}_login_2fa_code'),
           controller: _codeCtrl,
           decoration: const InputDecoration(
             labelText: 'Code 2FA',
@@ -367,7 +401,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
         const SizedBox(height: 20),
         FilledButton(
-          key: const ValueKey('cloudity_contacts_login_2fa_submit'),
+          key: ValueKey('${p}_login_2fa_submit'),
           onPressed: _busy ? null : _submit2FA,
           child: _busy
               ? const SizedBox(
@@ -379,7 +413,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 12),
         TextButton(
-          key: const ValueKey('cloudity_contacts_login_2fa_cancel'),
+          key: ValueKey('${p}_login_2fa_cancel'),
           onPressed: _busy ? null : _cancel2FA,
           child: const Text('Annuler / changer de compte'),
         ),

@@ -32,18 +32,18 @@ const String kE2e2faSecret = String.fromEnvironment(
   defaultValue: '',
 );
 
-const Key kInbox = ValueKey('cloudity_mail_inbox');
-const Key kEmail = ValueKey('cloudity_mail_login_email');
-const Key kPassword = ValueKey('cloudity_mail_login_password');
-const Key kSubmit = ValueKey('cloudity_mail_login_submit');
-const Key k2faCode = ValueKey('cloudity_mail_login_2fa_code');
-const Key k2faSubmit = ValueKey('cloudity_mail_login_2fa_submit');
+const Key kInbox = ValueKey('cloudity_calendar_home');
+const Key kEmail = ValueKey('cloudity_calendar_login_email');
+const Key kPassword = ValueKey('cloudity_calendar_login_password');
+const Key kSubmit = ValueKey('cloudity_calendar_login_submit');
+const Key k2faCode = ValueKey('cloudity_calendar_login_2fa_code');
+const Key k2faSubmit = ValueKey('cloudity_calendar_login_2fa_submit');
 
 bool _onLogin(WidgetTester tester) =>
-    find.text('Connexion — Cloudity Mail').evaluate().isNotEmpty;
+    find.text('Connexion — Cloudity Calendar').evaluate().isNotEmpty;
 
 bool _on2FA(WidgetTester tester) =>
-    find.text('Vérification 2FA — Cloudity Mail').evaluate().isNotEmpty;
+    find.text('Vérification 2FA — Cloudity Calendar').evaluate().isNotEmpty;
 
 bool _onInbox(WidgetTester tester) => find.byKey(kInbox).evaluate().isNotEmpty;
 
@@ -90,7 +90,7 @@ void main() {
   testWidgets(
     'login compte 2FA : mot de passe puis TOTP → Mail',
     (tester) async {
-      await tester.pumpWidget(const app.CloudityMailApp());
+      await tester.pumpWidget(const app.CloudityCalendarApp());
       for (var i = 0; i < 80; i++) {
         await tester.pump(const Duration(milliseconds: 250));
         if (_onLogin(tester) || _on2FA(tester) || _onInbox(tester)) break;

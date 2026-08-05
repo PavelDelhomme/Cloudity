@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Button, Input, Label } from '@cloudity/shared'
-import { fetchMailAliasConfig } from '../../api'
+import { Button, Input, Label } from '@cloudity/ui'
+import { fetchMailAliasConfig } from '@cloudity/web-shell/api'
 import {
   accountEmailDomain,
   clearStoredAliasHostSuffix,

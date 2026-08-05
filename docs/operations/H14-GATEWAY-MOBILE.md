@@ -166,6 +166,9 @@ Pour cocher **OK** global H14, il faut **C** (HTTPS) ou documenter explicitement
 
 ## Liens
 
+- **Point d’entrée** : [DEPLOIEMENT.md](DEPLOIEMENT.md)  
+- **Stack Portainer Git (détail formulaire)** : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md)  
+- Versions libs/services : [VERSIONS-PROJET.md](VERSIONS-PROJET.md) · [../architecture/VERSIONNAGE-LIBS.md](../architecture/VERSIONNAGE-LIBS.md)  
 - `make sync-public-urls` · [ENV-GENERATION.md](ENV-GENERATION.md)  
-- Portainer/NPM : [PORTAINER-VPS.md](PORTAINER-VPS.md) · [DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md)  
+- Portainer/NPM : [PORTAINER-VPS.md](PORTAINER-VPS.md) · [DEPLOY-PORTAINER-NPM-CLOUDITY.md](DEPLOY-PORTAINER-NPM-CLOUDITY.md) · [../../deploy/portainer/PORTAINER-STACK.md](../../deploy/portainer/PORTAINER-STACK.md)  
 - Suivi phases : [DEPLOIEMENT-SUIVI.md](DEPLOIEMENT-SUIVI.md)

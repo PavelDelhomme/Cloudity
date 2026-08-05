@@ -5,7 +5,7 @@ import {
   resolveLatestInboxMessageId,
   resolveMailNotificationTarget,
 } from './mailNotificationDeepLink'
-import * as api from '../api'
+import * as api from '@cloudity/web-shell/api'
 
 vi.mock('../api', () => ({
   fetchMailMessages: vi.fn(),

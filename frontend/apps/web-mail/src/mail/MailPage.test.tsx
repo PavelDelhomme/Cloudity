@@ -1,12 +1,12 @@
 import React, { type ComponentType } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { TestRouter } from '../../../test-utils'
+import { TestRouter } from '@cloudity/web-shell/test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useAuth } from '../../../authContext'
-import { useNotifications } from '../../../notificationsContext'
-import { AppPageChromeProvider } from '../../../appPageChromeContext'
-import * as api from '../../../api'
+import { useAuth } from '@cloudity/web-shell/authContext'
+import { useNotifications } from '@cloudity/web-shell/notificationsContext'
+import { AppPageChromeProvider } from '@cloudity/web-shell/appPageChromeContext'
+import * as api from '@cloudity/web-shell/api'
 
 /** Pont test : le chrome app (recherche, breadcrumb) est injecté via contexte, pas dans l’arbre MailPage seul. */
 const mailChromeBridge = vi.hoisted(() => ({
@@ -82,10 +82,10 @@ vi.mock('react-hot-toast', () => {
 
 vi.mock('./ComposeBodyField', () => ({ default: () => null }))
 vi.mock('../../../components/mail/MailAliasDomainConfig', () => ({ default: () => null }))
-vi.mock('../../../lib/mailNotifySyncFailure', () => ({ notifyMailSyncFailure: vi.fn() }))
-vi.mock('../../../lib/mailDesktopNotifications', () => ({ showMailDesktopNotification: vi.fn() }))
-vi.mock('../../../lib/mailNotificationDeepLink', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../lib/mailNotificationDeepLink')>()
+vi.mock('../lib/mailNotifySyncFailure', () => ({ notifyMailSyncFailure: vi.fn() }))
+vi.mock('../lib/mailDesktopNotifications', () => ({ showMailDesktopNotification: vi.fn() }))
+vi.mock('../lib/mailNotificationDeepLink', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/mailNotificationDeepLink')>()
   return {
     ...actual,
     resolveMailNotificationTarget: vi.fn().mockImplementation(async (_token: string, accountId: number, synced: number) => {
@@ -94,7 +94,7 @@ vi.mock('../../../lib/mailNotificationDeepLink', async (importOriginal) => {
     }),
   }
 })
-vi.mock('../../../lib/mailSyncCoordinator', async () => {
+vi.mock('../lib/mailSyncCoordinator', async () => {
   const apiMod = await import('../../../api')
   return {
     coordinatedSyncMailAccount: (

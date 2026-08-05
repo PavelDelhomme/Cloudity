@@ -26,7 +26,7 @@ class PilotageActionBody(BaseModel):
     type: str = Field(
         ...,
         description=(
-            "decide|checklist|note|reorder|move|create|"
+            "decide|checklist|checklist_bulk|note|reorder|move|create|"
             "report_problem|resolve_problem|inbox_note|promote_inbox|"
             "attach_log|set_focus|release_status|surface"
         ),
@@ -35,6 +35,7 @@ class PilotageActionBody(BaseModel):
     decision: str | None = None
     note: str | None = None
     checklistItemId: str | None = None
+    checklistItemIds: list[str] | None = None
     done: bool | None = None
     direction: str | None = None
     cycleId: str | None = None
