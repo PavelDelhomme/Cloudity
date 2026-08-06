@@ -7,10 +7,18 @@
 
 | Surface | Gestionnaire | Ordre de grandeur |
 |---------|--------------|-------------------|
-| `frontend/` (workspaces) | **npm** + `package-lock.json` | ~**550+** entrées lockfile |
-| Extensions Pass Chrome/Firefox | npm | Build MV3 |
+| `frontend/` (workspaces) | **npm** + `package-lock.json` | **556** entrées lockfile (snapshot 2026-08-06) |
+| Extensions Pass Chrome/Firefox | npm | Build MV3 (arbre séparé) |
 | Backend | Go / Python | **hors npm** (cible à renforcer) |
 | Mobile | Flutter / pub | hors npm |
+
+**Inventaire FE-SEC-SUPPLY-01** : [`docs/architecture/npm-supply/INVENTORY-20260806.md`](npm-supply/INVENTORY-20260806.md) (copie ; snapshots bruts sous `reports/` gitignored).
+
+| Audit | Résultat |
+|-------|----------|
+| Total | 9 (6 high, 0 critical) |
+| Scripts install dans lock | 0 |
+| Priorité patch | **axios** (+ transitives form-data) |
 
 Les registres npm ont un historique de paquets compromis, typosquatting, scripts `postinstall` malveillants. Cloudity doit traiter ça comme **priorité structurelle**, au même titre que H19 / FE-HUB.
 
