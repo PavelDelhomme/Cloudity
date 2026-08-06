@@ -1,5 +1,5 @@
 {
-  "version": 20,
+  "version": 21,
   "updatedAt": "2026-08-06",
   "cycles": [
     {
@@ -300,8 +300,8 @@
       "cycleId": "cycle-now",
       "section": "Mobile",
       "label": "H14 — Gateway mobile (LAN → HTTPS)",
-      "description": "Gateway mobile LAN→HTTPS. **Priorité structurelle d’abord** : FE-HUB / H19 / MOBILE-DA (voir MULTI-APPS-WEB-MOBILE.md). Reprendre H14 3b après.\nChemin ops : docs/operations/DEPLOIEMENT.md",
-      "expected": "Ouvre DEPLOIEMENT.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé.",
+      "description": "Gateway mobile LAN→HTTPS. **PAS le Focus principal** tant que FE-SEC-SUPPLY / MOBILE-DA ne sont pas avancés. Reprendre H14 3b après structure.\nChemin ops : docs/operations/DEPLOIEMENT.md",
+      "expected": "Ouvre DEPLOIEMENT.md · coche ici au fur et à mesure · make h14-https-check vert → 3b-smoke → Validé. Si Focus H14 par erreur : remettre Focus sur FE-SEC-SUPPLY-01.",
       "status": "partial",
       "order": 20,
       "checklistLabels": [
@@ -369,8 +369,8 @@
       "label": "H19 — Auth mobile unique (SessionStore + Login)",
       "description": "LIVRÉ (à cocher) : SessionStore + CloudityLoginScreen + CloudityAuthClient dans cloudity_shared. Migrés : Mail, Drive, Photos, Calendar, Contacts, Notes, Tasks. Pass/Admin restent. Doc MULTI-APPS § 3–4. NOTE : prochain Focus = MOBILE-DA-01.",
       "expected": "☑ SessionStore+Login dans shared · ☑ ≥4 apps · ☑ flutter test shared/mail/drive. Cocher puis Focus MOBILE-DA-01.",
-      "completionNote": "H19 livré 2026-08-04. Suite = MOBILE-DA-01.",
-      "status": "open",
+      "completionNote": "H19 livré 2026-08-04. Suite = MOBILE-DA-01 (ou FE-SEC-SUPPLY en parallèle structure).",
+      "status": "ok",
       "order": 3,
       "checklistLabels": [
         "SessionStore + LoginScreen dans cloudity_shared (API paramétrable)",
@@ -3272,7 +3272,7 @@
       "label": "FE-SEC-SUPPLY-01 — Inventaire npm + top risques",
       "description": "PRIORITÉ STRUCTURE. Mesurer la surface npm (~550 entrées lockfile) : deps directes vs transitives, scripts postinstall, paquets HIGH/CRITICAL. Doc FRONTEND-SUPPLY-CHAIN.md phase A1.",
       "expected": "Rapport inventaire + tableau risques ; Sync docs Pilotage.",
-      "status": "open",
+      "status": "partial",
       "order": 0,
       "checklistLabels": [
         "npm ls / audit snapshot archivé sous reports/",
@@ -3281,6 +3281,7 @@
         "Sync docs Pilotage"
       ],
       "source": "catalog",
+      "completionNote": "Inventaire 2026-08-06 OK (reports/npm-supply/). Reste Sync docs UI + cocher dernière case.",
       "howToSteps": [
         {
           "title": "Doc",
@@ -3432,7 +3433,7 @@
       "label": "FE-HUB-01 — cloudity-web = hub seulement",
       "description": "LIVRÉ (à cocher) : cloudity-web hub = shell (/, /login, /app grille liens). Inventaire + règle hub dans docs/architecture/MULTI-APPS-WEB-MOBILE.md § 2.2bis. AppHub sans fetch métier. NOTE PILOTAGE : prochain Focus = FE-SPLIT-01 (Mail autonome — package @cloudity/web-mail déjà créé, reste entry Vite + nginx).",
       "expected": "☑ Inventaire pages/app + routes · ☑ MULTI-APPS doc · ☑ Hub liens-only · ☑ Note suite = FE-SPLIT-01. Cocher critères puis Focus FE-SPLIT-01.",
-      "status": "open",
+      "status": "ok",
       "order": 1,
       "checklistLabels": [
         "Lire MULTI-APPS-WEB-MOBILE.md",
@@ -3441,6 +3442,7 @@
         "Note Pilotage : prochain split = Mail (FE-SPLIT-01)"
       ],
       "source": "catalog",
+      "completionNote": "FE-HUB-01 livré — hub liens-only. Ne plus Focus ici ; suite = FE-SPLIT (ok) puis H19/MOBILE-DA ou FE-SEC-SUPPLY.",
       "howToSteps": [
         {
           "title": "1 — Doc",
@@ -3477,8 +3479,8 @@
       "label": "FE-SPLIT-01 — Extraire web-mail hors monolithe",
       "description": "LIVRÉ (à cocher) : @cloudity/web-mail SPA (entry Vite base /app/mail/), nginx + Dockerfile multi-build, hub hosting=external. DEV = lazy dans le shell ; PROD = SPA sous /app/mail/. Doc MULTI-APPS § 2.3. NOTE : prochain Focus = H19.",
       "expected": "☑ Scaffold web-mail · ☑ migrate Mail + apiMail · ☑ hub external · ☑ build/smoke. Cocher puis Focus H19.",
-      "completionNote": "FE-SPLIT-01 livré 2026-07-29. Suite = H19 (auth Flutter unique).",
-      "status": "open",
+      "completionNote": "FE-SPLIT-01 livré 2026-07-29. Suite = H19 puis MOBILE-DA / FE-SEC-SUPPLY.",
+      "status": "ok",
       "order": 2,
       "checklistLabels": [
         "Scaffold frontend/apps/web-mail + package.json workspace",

@@ -9,16 +9,16 @@
 > **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
 > Valide dans **`/4dm1n/pilotage`** : **FE-SEC-SUPPLY** (durcir npm) + **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14**.  
 
-### Session 2026-08-06 — Supply-chain npm (priorité)
+### Session 2026-08-06 — Que faire dans Pilotage (clarification)
 
-| Sujet | Pilotage | Doc |
-|-------|----------|-----|
-| Inventaire + audit + ignore-scripts | **FE-SEC-SUPPLY-01…03** | `FRONTEND-SUPPLY-CHAIN.md` phase A |
-| Réduire deps | **FE-SEC-SUPPLY-04** | phase B |
-| Crypto hors npm | **FE-SEC-SUPPLY-05** | phase C |
-| Spikes Flutter Web / admin Go + ADR | **FE-SEC-SUPPLY-06…07** | phase D |
+| Carte | Catalogue | Toi |
+|-------|-----------|-----|
+| **FE-HUB-01** / **FE-SPLIT-01** / **H19** | **`ok`** (code livré) | Sync docs → si encore « En cours », **Valider / OK** puis enlever Focus |
+| **H14** | `partial` | **Pas** le Focus principal (HTTPS plus tard) |
+| **FE-SEC-SUPPLY-01** | `partial` (inventaire fait) | **Focus ici** → Sync docs → cocher Sync |
+| **MOBILE-DA-01** | `open` | Après / en parallèle structure |
 
-**Toi** : Sync docs (v20) → Focus **FE-SEC-SUPPLY-01**. Pas de big-bang « delete node_modules » sans A+C.
+**Focus unique recommandé** : **FE-SEC-SUPPLY-01** (puis 02).
 
 ---
 
