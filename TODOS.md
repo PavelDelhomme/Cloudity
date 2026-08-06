@@ -5,9 +5,22 @@
 > ## Point d’entrée UNIQUE (ops / deploy / Pilotage)
 > **Index doc** → [`docs/README.md`](docs/README.md)  
 > **Priorité code** → **[`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)**  
+> **Priorité sécu front** → **[`docs/architecture/FRONTEND-SUPPLY-CHAIN.md`](docs/architecture/FRONTEND-SUPPLY-CHAIN.md)** · Pilotage **FE-SEC-SUPPLY-01…07**  
 > **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
-> Valide dans **`/4dm1n/pilotage`** : **FE-HUB-01** → FE-SPLIT-01 → **H19** → MOBILE-DA-01 → (plus tard) **H14**.  
-> Ne lis `PORTAINER-STACK-GIT-COMPLET` / `VERSIONS-*` **que** quand DEPLOIEMENT § B te le dit.
+> Valide dans **`/4dm1n/pilotage`** : **FE-SEC-SUPPLY** (durcir npm) + **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14**.  
+
+### Session 2026-08-06 — Supply-chain npm (priorité)
+
+| Sujet | Pilotage | Doc |
+|-------|----------|-----|
+| Inventaire + audit + ignore-scripts | **FE-SEC-SUPPLY-01…03** | `FRONTEND-SUPPLY-CHAIN.md` phase A |
+| Réduire deps | **FE-SEC-SUPPLY-04** | phase B |
+| Crypto hors npm | **FE-SEC-SUPPLY-05** | phase C |
+| Spikes Flutter Web / admin Go + ADR | **FE-SEC-SUPPLY-06…07** | phase D |
+
+**Toi** : Sync docs (v20) → Focus **FE-SEC-SUPPLY-01**. Pas de big-bang « delete node_modules » sans A+C.
+
+---
 
 > **Mail prod** (OVH, DNS, VPS mail) reste **en pause** jusqu’à signal explicite.  
 > Hors mail prod = Pass, Photos, Drive, mobile, UI, tests locaux (`make up`), etc.

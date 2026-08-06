@@ -45,10 +45,11 @@ def test_catalog_seed_has_many_tasks():
 
 
 def test_first_openish_in_cycle_now_is_structure_priority():
-    """cycle-now priorise FE-HUB / multi-apps avant H14 HTTPS (voir MULTI-APPS-WEB-MOBILE)."""
+    """cycle-now priorise FE-SEC-SUPPLY (npm) puis FE-HUB / multi-apps (voir FRONTEND-SUPPLY-CHAIN)."""
     board = enrich_board(build_seed_board())
-    assert board["active"]["id"] == "FE-HUB-01"
+    assert board["active"]["id"] == "FE-SEC-SUPPLY-01"
     assert board["active"]["cycleId"] == "cycle-now"
+    assert "FE-HUB-01" in board["tasks"]
     assert "H14" in board["tasks"]
 
 

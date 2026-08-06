@@ -18,7 +18,7 @@ const mailChromeBridge = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('../../../appPageChromeContext', () => {
+vi.mock('@cloudity/web-shell/appPageChromeContext', () => {
   const ReactMod = require('react') as typeof React
   function MailTestChromeProvider({ children }: { children: React.ReactNode }) {
     const [, rerender] = ReactMod.useReducer((n: number) => n + 1, 0)
@@ -81,7 +81,7 @@ vi.mock('react-hot-toast', () => {
 })
 
 vi.mock('./ComposeBodyField', () => ({ default: () => null }))
-vi.mock('../../../components/mail/MailAliasDomainConfig', () => ({ default: () => null }))
+vi.mock('../components/mail/MailAliasDomainConfig', () => ({ default: () => null }))
 vi.mock('../lib/mailNotifySyncFailure', () => ({ notifyMailSyncFailure: vi.fn() }))
 vi.mock('../lib/mailDesktopNotifications', () => ({ showMailDesktopNotification: vi.fn() }))
 vi.mock('../lib/mailNotificationDeepLink', async (importOriginal) => {
@@ -95,7 +95,7 @@ vi.mock('../lib/mailNotificationDeepLink', async (importOriginal) => {
   }
 })
 vi.mock('../lib/mailSyncCoordinator', async () => {
-  const apiMod = await import('../../../api')
+  const apiMod = await import('@cloudity/web-shell/api')
   return {
     coordinatedSyncMailAccount: (
       token: string,
@@ -106,9 +106,9 @@ vi.mock('../lib/mailSyncCoordinator', async () => {
   }
 })
 
-vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../../notificationsContext', () => ({ useNotifications: vi.fn() }))
-vi.mock('../../../api', () => ({
+vi.mock('@cloudity/web-shell/authContext', () => ({ useAuth: vi.fn() }))
+vi.mock('@cloudity/web-shell/notificationsContext', () => ({ useNotifications: vi.fn() }))
+vi.mock('@cloudity/web-shell/api', () => ({
   apiUrl: vi.fn((path: string) => path),
   fetchMailAccounts: vi.fn(),
   fetchMailMessages: vi.fn(),

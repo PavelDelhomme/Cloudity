@@ -6,8 +6,9 @@
 |----------|---------|------|
 | **1** | **[`TODOS.md`](../TODOS.md)** (racine) | Fil de session / « maintenant » |
 | **2** | **[`architecture/MULTI-APPS-WEB-MOBILE.md`](architecture/MULTI-APPS-WEB-MOBILE.md)** | **Priorité code** : hub web + DA/auth Flutter (avant VPS) |
+| **2b** | **[`architecture/FRONTEND-SUPPLY-CHAIN.md`](architecture/FRONTEND-SUPPLY-CHAIN.md)** | **Priorité sécu** : durcir / sortir npm (Pilotage FE-SEC-SUPPLY) |
 | **3** | **[`operations/DEPLOIEMENT.md`](operations/DEPLOIEMENT.md)** | Chemin ops : §0 structure · local · puis prod Portainer/NPM |
-| **4** | **`/4dm1n/pilotage`** | Tu **coches** : **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14** |
+| **4** | **`/4dm1n/pilotage`** | **FE-SEC-SUPPLY** · FE-HUB → FE-SPLIT → H19 → MOBILE-DA → **H14** |
 
 Tout le reste de `docs/` est une **référence** : tu n’ouvres un fichier que quand DEPLOIEMENT ou TODOS te le demande.
 
@@ -25,7 +26,7 @@ TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage FE-HUB / H19
 |---------|-----------|----------------|
 | **[operations/](operations/)** | Faire tourner / déployer / tester | **[DEPLOIEMENT.md](operations/DEPLOIEMENT.md)** |
 | **[produit/](produit/)** | Comportement apps (Mail, Pass, Photos…) | [produit/README.md](produit/README.md) · **[MAIL-ALIAS.md](produit/MAIL-ALIAS.md)** |
-| **[architecture/](architecture/)** | Comment c’est assemblé | **[MULTI-APPS-WEB-MOBILE.md](architecture/MULTI-APPS-WEB-MOBILE.md)** · [SERVICES.md](architecture/SERVICES.md) · [VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
+| **[architecture/](architecture/)** | Comment c’est assemblé | **[MULTI-APPS-WEB-MOBILE.md](architecture/MULTI-APPS-WEB-MOBILE.md)** · **[FRONTEND-SUPPLY-CHAIN.md](architecture/FRONTEND-SUPPLY-CHAIN.md)** · [SERVICES.md](architecture/SERVICES.md) · [VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
 | **[securite/](securite/)** | Sécurité / secrets / crypto | [SECURITE.md](securite/SECURITE.md) · [SECRETS.md](securite/SECRETS.md) |
 | **[decisions/](decisions/)** | Questionnaires & réponses | [multi-repo/REPONSES.md](decisions/multi-repo/REPONSES.md) |
 

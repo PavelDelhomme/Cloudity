@@ -1,12 +1,15 @@
 {
-  "version": 19,
-  "updatedAt": "2026-08-05",
+  "version": 20,
+  "updatedAt": "2026-08-06",
   "cycles": [
     {
       "id": "cycle-now",
       "label": "À faire maintenant",
-      "description": "PRIORITÉ : multi-apps web hub + DA/auth mobile (FE-HUB-01 → FE-SPLIT-01 → H19 → MOBILE-DA-01). H14 HTTPS ensuite.",
+      "description": "PRIORITÉ STRUCTURE : FE-SEC-SUPPLY (sortie/durcissement npm) + multi-apps (FE-HUB → FE-SPLIT → H19 → MOBILE-DA) puis H14.",
       "itemIds": [
+        "FE-SEC-SUPPLY-01",
+        "FE-SEC-SUPPLY-02",
+        "FE-SEC-SUPPLY-03",
         "FE-HUB-01",
         "FE-SPLIT-01",
         "H19",
@@ -26,6 +29,20 @@
         "SAMSUNG-REPLAY",
         "COMPOSE-CONFIG-01",
         "DRIVE-DESKTOP-01"
+      ]
+    },
+    {
+      "id": "cycle-frontend-supply",
+      "label": "Front supply-chain / sortie npm",
+      "description": "Durcir puis réduire la dépendance au registry npm sans perdre de features. Doc : FRONTEND-SUPPLY-CHAIN.md. Phases A→D.",
+      "itemIds": [
+        "FE-SEC-SUPPLY-01",
+        "FE-SEC-SUPPLY-02",
+        "FE-SEC-SUPPLY-03",
+        "FE-SEC-SUPPLY-04",
+        "FE-SEC-SUPPLY-05",
+        "FE-SEC-SUPPLY-06",
+        "FE-SEC-SUPPLY-07"
       ]
     },
     {
@@ -3247,6 +3264,166 @@
         "backoffice"
       ],
       "source": "catalog"
+    },
+    {
+      "id": "FE-SEC-SUPPLY-01",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Supply-chain",
+      "label": "FE-SEC-SUPPLY-01 — Inventaire npm + top risques",
+      "description": "PRIORITÉ STRUCTURE. Mesurer la surface npm (~550 entrées lockfile) : deps directes vs transitives, scripts postinstall, paquets HIGH/CRITICAL. Doc FRONTEND-SUPPLY-CHAIN.md phase A1.",
+      "expected": "Rapport inventaire + tableau risques ; Sync docs Pilotage.",
+      "status": "open",
+      "order": 0,
+      "checklistLabels": [
+        "npm ls / audit snapshot archivé sous reports/",
+        "Liste deps directes cloudity-web + web-mail + extensions",
+        "Top 10 risques documentés dans FRONTEND-SUPPLY-CHAIN.md",
+        "Sync docs Pilotage"
+      ],
+      "source": "catalog",
+      "howToSteps": [
+        {
+          "title": "Doc",
+          "body": "docs/architecture/FRONTEND-SUPPLY-CHAIN.md — Phase A."
+        },
+        {
+          "title": "Commandes",
+          "body": "cd frontend && npm audit --json > ../reports/npm-audit-latest.json ; noter ignore-scripts et overrides."
+        }
+      ],
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-02",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Supply-chain",
+      "label": "FE-SEC-SUPPLY-02 — CI audit bloquant + ignore-scripts",
+      "description": "Durcir install : .npmrc ignore-scripts (allowlist), npm ci only, audit HIGH/CRITICAL en CI (make test-security / job dédié).",
+      "expected": "PR rouge si audit critique ; installs sans scripts host non allowlistés.",
+      "status": "open",
+      "order": 1,
+      "checklistLabels": [
+        ".npmrc ignore-scripts + allowlist documentée",
+        "CI npm ci (pas npm install) sur frontend",
+        "Audit HIGH/CRITICAL bloquant ou waiver signé",
+        "Dockerfile front aligné"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
+        "docs/operations/TESTS.md"
+      ],
+      "surfaceKeys": [
+        "frontend_web"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-03",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Supply-chain",
+      "label": "FE-SEC-SUPPLY-03 — Pin + SBOM CycloneDX front",
+      "description": "Versions exactes pour nouvelles deps ; SBOM CycloneDX généré en CI et attaché aux releases.",
+      "expected": "SBOM artefact CI ; politique pin dans CONTRIBUTING / VERSIONNAGE-LIBS.",
+      "status": "open",
+      "order": 2,
+      "checklistLabels": [
+        "Politique pin (pas de ^ sauvage)",
+        "SBOM CycloneDX frontend en CI",
+        "Doc release pointe le SBOM"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
+        "docs/architecture/VERSIONNAGE-LIBS.md"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-04",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Supply-chain",
+      "label": "FE-SEC-SUPPLY-04 — Réduire surface deps",
+      "description": "Phase B : retirer/remplacer deps inutiles ; web-mail peer-only ; audit extension Pass séparé. Mesurer −N packages lockfile.",
+      "expected": "Lockfile plus petit mesurable ; pas de régression make test / smoke apps.",
+      "status": "open",
+      "order": 3,
+      "checklistLabels": [
+        "Diff lockfile avant/après documenté",
+        "web-mail sans duplication inutile",
+        "Extension Pass audit OK",
+        "make test (vitest) vert"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-05",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Crypto",
+      "label": "FE-SEC-SUPPLY-05 — Crypto hors JS npm",
+      "description": "Phase C : auditer pass-crypto / app-vault-crypto ; porter le sensible en Go/Rust WASM ; interdire nouvelles libs crypto npm sans RFC.",
+      "expected": "Chemins critiques documentés + tests parité WASM ; règle équipe.",
+      "status": "open",
+      "order": 4,
+      "checklistLabels": [
+        "Cartographie crypto front",
+        "Au moins 1 flux critique en WASM (ou déjà OK documenté)",
+        "Règle « pas de crypto npm » écrite",
+        "Tests parité"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
+        "docs/securite/SECURITE.md"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-06",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Alternatives UI",
+      "label": "FE-SEC-SUPPLY-06 — Spikes Flutter Web / admin Go",
+      "description": "Phase D1–D2 : spikes sans couper React. Flutter Web Hub+Settings ; admin Pilotage lecture en Go/HTMX. Parité API, pas big-bang.",
+      "expected": "Deux démos + notes écarts ; aucune prod cassée.",
+      "status": "open",
+      "order": 5,
+      "checklistLabels": [
+        "Spike Flutter Web Hub (même API)",
+        "Spike admin Go/HTMX lecture Pilotage",
+        "Compte-rendu écarts features",
+        "Pas de bascule prod dans cette carte"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
+        "docs/architecture/MULTI-APPS-WEB-MOBILE.md"
+      ]
+    },
+    {
+      "id": "FE-SEC-SUPPLY-07",
+      "cycleId": "cycle-frontend-supply",
+      "section": "Décision",
+      "label": "FE-SEC-SUPPLY-07 — ADR bascule ou React durci",
+      "description": "Phase D3–D4 : décision écrite (ADR). Soit React durci long terme, soit plan migration app-par-app (Mail déjà split). Checklist Pilotage si bascule.",
+      "expected": "ADR dans docs/architecture/ ; plan daté ; Focus suivant clair.",
+      "status": "open",
+      "order": 6,
+      "checklistLabels": [
+        "ADR publié",
+        "Critères go/no-go listés",
+        "Plan migration ou maintien React durci",
+        "Pilot Pilotage / TODOS"
+      ],
+      "source": "catalog",
+      "docLinks": [
+        "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
+        "docs/decisions/"
+      ]
     },
     {
       "id": "FE-HUB-01",
