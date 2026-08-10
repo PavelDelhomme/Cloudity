@@ -12,6 +12,9 @@ class CloudityDesignTokens {
   static Map<String, dynamic>? _raw;
   static bool _loaded = false;
 
+  /// `true` après [ensureLoaded] / [loadSyncForTests] (tests widget sans FutureBuilder).
+  static bool get isLoaded => _loaded && _raw != null;
+
   static Future<void> ensureLoaded() async {
     if (_loaded) return;
     final json = await rootBundle.loadString('packages/cloudity_shared/assets/cloudity_tokens.json');

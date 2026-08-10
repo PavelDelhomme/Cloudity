@@ -39,7 +39,7 @@ class CloudityDriveApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CloudityThemedApp.forSuite(
+    return clouditySuiteTestRoot(
       title: 'Cloudity Drive',
       suiteApp: ClouditySuiteApp.drive,
       home: _driveShell(),

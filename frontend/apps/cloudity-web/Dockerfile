@@ -11,7 +11,8 @@ COPY packages ./packages
 COPY apps/cloudity-web ./apps/cloudity-web
 COPY apps/web-mail ./apps/web-mail
 
-RUN npm ci
+RUN npm ci --no-audit --no-fund \
+  && npm rebuild esbuild
 
 WORKDIR /ws/apps/cloudity-web
 RUN npm run build

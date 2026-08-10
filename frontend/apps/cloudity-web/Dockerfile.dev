@@ -13,7 +13,9 @@ COPY packages ./packages
 COPY apps/cloudity-web ./apps/cloudity-web
 COPY apps/web-mail ./apps/web-mail
 
-RUN npm install
+# FE-SEC-SUPPLY-02 : npm ci (pas install) + rebuild esbuild (allowScripts / postinstall)
+RUN npm ci --no-audit --no-fund \
+  && npm rebuild esbuild
 
 WORKDIR /ws/apps/cloudity-web
 

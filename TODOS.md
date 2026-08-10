@@ -9,6 +9,17 @@
 > **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
 > Valide dans **`/4dm1n/pilotage`** : **FE-SEC-SUPPLY** (durcir npm) + **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14**.  
 
+### Session 2026-08-10 — Local + push VPS + AVD
+
+| Besoin | Commande |
+|--------|----------|
+| Stack locale | `make up-ready` / `make up-full` |
+| AVD Cloudity (pas le Samsung) | `make mobile-emulator-cloudity-start` · `make test-mobile-avd` · stop explicite seulement |
+| **Push préprod / prod** | **`make push-preprod REF=dev`** · **`make push-prod`** (`WAIT=1` · `SMOKE=1` · `SKIP_GHCR=1`) |
+| Smoke HTTPS | `make h14-https-check` |
+
+**FE-SEC-SUPPLY-02** → `partial` (allowScripts esbuild, Dockerfiles `npm ci`, script hardened). Reste audit HIGH bloquant CI.
+
 ### Session 2026-08-06 — Que faire dans Pilotage (clarification)
 
 | Carte | Catalogue | Toi |

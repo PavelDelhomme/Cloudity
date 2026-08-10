@@ -44,7 +44,7 @@ class CloudityPhotosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CloudityThemedApp.forSuite(
+    return clouditySuiteTestRoot(
       title: 'Cloudity Photos',
       suiteApp: ClouditySuiteApp.photos,
       home: const _PhotosShell(),

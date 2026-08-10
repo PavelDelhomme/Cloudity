@@ -113,6 +113,8 @@ make env-prod DOMAIN=delhomme.ovh \
   API_HOST=api.cloudity.delhomme.ovh \
   FORCE=1
 make portainer-env          # COPIER tout le bloc
+# Ou tout-en-un (génère env + déclenche GHCR + checklist) :
+# make push-prod DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh FORCE=1
 ```
 
 Ajoute dans le bloc : `NPM_NETWORK=<nom exact du réseau NPM>`  
@@ -165,11 +167,15 @@ Mobile : `make run-mobile APP=Mail` (gateway HTTPS).
 
 | Besoin | Action |
 |--------|--------|
+| **Push prod (PC → GHCR + checklist)** | **`make push-prod`** (`WAIT=1` · `SMOKE=1` · `SKIP_GHCR=1` si checklist seule) |
+| **Push préprod** | **`make push-preprod REF=dev`** |
 | Changer le code | Push branche → GitOps Portainer **ou** Update stack |
 | Un service seul (PC) | `make deploy-web` / `deploy-gateway` / … |
 | Un service seul (VPS) | Portainer → recreer **ce** conteneur |
-| Mobile | Jamais Portainer — `make android-help` |
+| Mobile / AVD | `make mobile-emulator-cloudity-start` · `make test-mobile-avd` (jamais Portainer) |
 | Versions libs | Seulement si tu modifies une lib → [VERSIONS-PROJET.md](VERSIONS-PROJET.md) |
+
+> **`make prod`** = compose **local** seulement. **`make push-prod`** = publish images GHCR + rappel Portainer/NPM.
 
 ---
 
@@ -209,7 +215,13 @@ Après chaque coche : Sync docs si tu as changé le catalogue ; garde une **note
 
 ```bash
 make help                 # essentiels + stack
+make up-ready             # stack locale + seed (sans tests)
+make up-full              # up-ready + tests
 make android-help         # mobile
+make mobile-emulator-cloudity-start   # AVD Cloudity (réutilise si déjà up)
+make test-mobile-avd      # suite mobile sur emulator-5556
+make push-preprod REF=dev # GHCR + checklist préprod
+make push-prod            # GHCR + checklist prod
 make h14-https-check      # prod HTTPS
 make portainer-env        # coller dans Portainer
 make status / status-watch

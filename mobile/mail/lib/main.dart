@@ -39,7 +39,7 @@ class CloudityMailApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CloudityThemedApp.forSuite(
+    return clouditySuiteTestRoot(
       title: 'Cloudity Mail',
       suiteApp: ClouditySuiteApp.mail,
       home: _mailShell(),

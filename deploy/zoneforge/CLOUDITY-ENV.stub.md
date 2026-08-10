@@ -52,4 +52,4 @@ Variables critiques : `CORS_ORIGINS`, `CORS_ALLOW_LAN=false`, `VITE_API_URL`, `C
 
 Suite : **ZF-02** (template publish) → **ZF-03** (premier redeploy préprod).
 
-Doc : [ZONEFORGE-CLOUDITY.md](../operations/ZONEFORGE-CLOUDITY.md)
+Doc : [ZONEFORGE-CLOUDITY.md](../../docs/operations/ZONEFORGE-CLOUDITY.md)
