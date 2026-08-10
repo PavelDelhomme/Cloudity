@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'package:cloudity_photos/main.dart' as app;
 
@@ -62,6 +63,10 @@ Future<void> _pumpUntilSubmitOrTimeline(
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    await cloudityLoadDesignTokens();
+  });
 
   testWidgets('démarrage : écran connexion ou timeline', (tester) async {
     await _pumpUntilLoginOrTimeline(tester);

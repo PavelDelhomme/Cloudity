@@ -1,4 +1,4 @@
-.PHONY: help android-help mobile-help h14-https-check up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env
+.PHONY: help android-help mobile-help h14-https-check up up-lean down setup install init dev prod build test tests test-mobile-photos test-mobile-drive test-mobile-mail test-mobile-suite test-mobile-app test-mobile-desktop-linux test-dashboard test-dashboard-lint test-dashboard-one test-go-one test-auth migrate migrate-mail dashboard-npm-ci dashboard-npm-install frontend-npm-ci frontend-install test-e2e test-e2e-playwright test-e2e-playwright-calendar test-e2e-playwright-mail test-e2e-playwright-admin test-e2e-playwright-webauthn test-e2e-playwright-pass test-e2e-playwright-pass-extension test-pass test-pass-extension pass-j8-prep status status-watch statys stats stat clean logs backup restore services-only infrastructure-only run-mobile ensure-flutter-sdk mobile-devices mobile-adb-authorize mobile-doctor mobile-logcat-clear mobile-logcat mobile-logcat-mail mobile-mail-debug mail-security-check host-redis-sysctl feature-finish git-fetch-prune git-delete-remote-branch clean-test-tenants clean-pass-e2e-vaults wait-for-backends wait-for-dashboard wait-for-services mtls-up sync-mail-mta-env test-mail-mta-local mail-mta-local-up mail-mta-local-down mail-mta-local-logs mtls-down seed-mtls mtls-status mtls-issue mtls-verify mtls-poc internalsec-test preprod-up preprod-down preprod-status up-tls up-https up-https-internal mtls-issue-postgres mtls-issue-redis mtls-issue-admin mtls-issue-auth mtls-chown-internal-certs https-status secrets secrets-print secrets-scan secrets-scan-staged dev-https cert-renewer-status cert-renewer-restart check-versioning smoke-prod ensure-mail-encryption-key ensure-alias-encryption-key ensure-mta-internal-token build-pass-extension stack-heal doctor check-ports ports-sequential test-report test-report-show test-manifest-rebuild rebuild-web deploy-web sync-public-urls env-prod env-preprod portainer-env mobile-emulator-cloudity-start mobile-emulator-cloudity-stop test-mobile-avd
 
 # Variables - Support docker-compose et docker compose
 DOCKER_COMPOSE_VERSION := $(shell docker compose version 2>/dev/null)
@@ -38,11 +38,11 @@ PORT_REDIS_COMMANDER ?= 6084
 # TOPIC=android|stack|test|env|git|pass|mail|data|setup|all — filtre make help
 TOPIC ?=
 
-help: ## Aide Make groupée (TOPIC=android|stack|test|env|…|all). Voir aussi make android-help
+help: ## Aide Make groupée (TOPIC=android|deploy|stack|test|env|…|all). Vue locale/VPS/AVD + liste filtrable
 	@chmod +x scripts/dev/make-help.sh
 	@TOPIC="$(TOPIC)" ./scripts/dev/make-help.sh $(if $(TOPIC),TOPIC=$(TOPIC),)
 
-android-help: ## Aide Android / Flutter / ADB (run-mobile, logcat, tests mobile…)
+android-help: ## Aide Android / Flutter / ADB / AVD (run-mobile, emulator Cloudity, test-mobile-avd…)
 	@chmod +x scripts/dev/make-help.sh
 	@./scripts/dev/make-help.sh --android
 
@@ -135,11 +135,10 @@ up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-exten
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-ready: down up wait-for-services seed seed-admin ## Stack + seed sans tests (rapide ; recours si up-full échoue)
-	@echo ""
+up-ready: down up wait-for-services seed seed-admin ## Stack locale + seed admin (rapide, sans tests) — recours si up-full échoue
 	@echo "✅ Cloudity prêt (sans tests).  make status  ·  tests : make test  ·  tout-en-un : make up-full"
 
-up-full: ## up-ready + tests (échec tests → stack souvent OK : make up-ready ou make status)
+up-full: ## Stack + seed + tests (UP_FULL_SKIP_TESTS=1 pour sauter les tests). Échec tests ≠ stack KO → make status / up-ready
 	@chmod +x scripts/dev/up-full.sh scripts/dev/prune-compose-runs.sh scripts/dev/up-failure-hint.sh 2>/dev/null || true
 	@./scripts/dev/up-full.sh
 
@@ -223,12 +222,48 @@ env-preprod: ## Génère .env.preprod (fusion .env + .env.example + overlays pr�
 	  if [ "$(NO_SYNC)" = "1" ]; then args="$$args --no-sync"; fi; \
 	  ./scripts/dev/env-prepare.sh $$args
 
-portainer-env: ## Affiche KEY=VALUE de .env.prod (ou FILE=…) à coller dans Portainer Advanced env
+portainer-env: ## Affiche KEY=VALUE de .env.prod (ou FILE=…) à coller dans Portainer Advanced env (+ NPM_NETWORK=…)
 	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
 	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.prod)"
 
+portainer-env-preprod: ## Affiche KEY=VALUE de .env.preprod pour Portainer / ZoneForge préprod (FILE= override)
+	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
+	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.preprod)"
 
-h14-https-check: ## Smoke H14 HTTPS (DNS+TLS+health+CORS) — WEB=/API= optionnels (défaut cloudity.delhomme.ovh)
+# Publier vers VPS (GHCR + checklist Portainer/NPM) — NE PAS confondre avec `make prod` (compose local).
+# Ex. : make push-preprod REF=dev WAIT=1
+#       make push-prod DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh FORCE=1
+#       make push-prod SKIP_GHCR=1          # checklist + portainer-env seuls
+#       make push-prod WAIT=1 SMOKE=1       # attend le workflow puis h14-https-check
+push-prod: ## VPS prod : prépare .env.prod + déclenche GHCR + checklist Portainer/NPM/ZF (WAIT=1 SMOKE=1 SKIP_GHCR=1 DOMAIN=…)
+	@chmod +x scripts/ops/push-deploy.sh
+	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" \
+		DOMAIN="$(DOMAIN)" HOST="$(HOST)" API_HOST="$(API_HOST)" WEB_HOST="$(WEB_HOST)" FORCE="$(FORCE)" \
+		WEB="$(WEB)" API="$(API)" \
+		./scripts/ops/push-deploy.sh prod
+
+push-preprod: ## VPS préprod : .env.preprod + GHCR (REF=dev défaut) + checklist (WAIT=1 SMOKE=1 SKIP_GHCR=1)
+	@chmod +x scripts/ops/push-deploy.sh
+	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" \
+		DOMAIN="$(DOMAIN)" HOST="$(HOST)" API_HOST="$(API_HOST)" WEB_HOST="$(WEB_HOST)" FORCE="$(FORCE)" \
+		WEB="$(WEB)" API="$(API)" \
+		./scripts/ops/push-deploy.sh preprod
+
+publish-ghcr: ## GHCR seul : workflow « Docker — build & publish » (REF=branche courante ; WAIT=1 pour watch)
+	@if ! command -v gh >/dev/null 2>&1; then echo "❌ gh requis"; exit 1; fi
+	@ref="$(REF)"; \
+	  if [ -z "$$ref" ]; then ref="$$(git rev-parse --abbrev-ref HEAD)"; fi; \
+	  echo "📦 gh workflow run « Docker — build & publish (GHCR) » --ref $$ref"; \
+	  gh workflow run "Docker — build & publish (GHCR)" --ref "$$ref"; \
+	  echo "✅ Demandé. Suivi : gh run list --workflow=\"Docker — build & publish (GHCR)\" --limit 5"; \
+	  if [ "$(WAIT)" = "1" ]; then \
+	    sleep 3; \
+	    rid="$$(gh run list --workflow="Docker — build & publish (GHCR)" --limit 1 --json databaseId --jq '.[0].databaseId')"; \
+	    echo "⏳ watch $$rid"; gh run watch "$$rid" --exit-status; \
+	  fi
+
+
+h14-https-check: ## Smoke HTTPS prod H14 (DNS+TLS+health+CORS) — WEB=/API= optionnels (défaut cloudity.delhomme.ovh)
 	@chmod +x scripts/dev/h14-https-check.sh
 	@WEB="$(WEB)" API="$(API)" ./scripts/dev/h14-https-check.sh
 
@@ -251,7 +286,17 @@ build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity
 	@if ! command -v npm >/dev/null 2>&1; then \
 		echo "❌ npm requis (install Node.js) pour build-pass-extension."; exit 1; \
 	fi
-	@cd extensions/cloudity-pass && npm install --no-audit --fund=false && npm run build
+	@# pass-crypto / shared résolvent leurs deps via frontend/node_modules (file: + monorepo).
+	@if [ ! -d frontend/node_modules/@noble/hashes ] || [ ! -d frontend/node_modules/@cloudity/ui ]; then \
+		echo "📦 frontend/node_modules manquant — npm ci…"; \
+		(cd frontend && npm ci --no-audit --fund=false); \
+		(cd frontend && npm install-scripts approve esbuild >/dev/null 2>&1 || true); \
+		(cd frontend && npm rebuild esbuild >/dev/null 2>&1 || true); \
+	fi
+	@cd extensions/cloudity-pass && npm install --no-audit --fund=false \
+		&& (npm install-scripts approve esbuild >/dev/null 2>&1 || true) \
+		&& (npm rebuild esbuild >/dev/null 2>&1 || true) \
+		&& npm run build
 	@echo "✅ Extension : extensions/cloudity-pass/dist (Chrome → Mode développeur → Charger l’extension non empaquetée)"
 
 build-pass-extension-firefox: ## Build extension Pass pour Firefox (MP-08, dist dérivé de cloudity-pass)
@@ -373,10 +418,11 @@ frontend-only: ## Démarre uniquement le frontend
 	@$(COMPOSE) $(COMPOSE_FILES) up -d cloudity-web
 	@echo "✅ Frontend lancé!"
 
-prod: ## Démarre l'environnement de production
-	@echo "🚀 Démarrage de l'environnement de production..."
+prod: ## Compose prod LOCAL (BUILD_TARGET=production) — pas un push VPS ; pour VPS : make push-prod
+	@echo "🚀 Démarrage de l'environnement de production LOCAL…"
+	@echo "   (VPS / GHCR / Portainer → make push-prod | make push-preprod)"
 	@BUILD_TARGET=production $(COMPOSE_PROD) up -d
-	@echo "✅ Environnement de production lancé!"
+	@echo "✅ Environnement de production local lancé!"
 
 build: ## Build tous les services
 	@echo "🔨 Build de tous les services..."
@@ -494,14 +540,22 @@ test-mobile-samsung: ## Suite mobile sur profil Samsung golden (samsung-sm-g990b
 	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
 	@CLOUDITY_DEVICE_PROFILE=samsung-sm-g990b2 CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-suite.sh
 
-test-mobile-avd: ## Suite mobile sur AVD Cloudity dédié (Cloudity_S21_FE / emulator-5556, parallèle JobbingTrack)
+test-mobile-avd: ## Photos→Drive→Mail sur AVD Cloudity (emulator-5556) — force le profil AVD, ignore le Samsung USB
 	@chmod +x scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
 	@./scripts/mobile/mobile-emulator-cloudity.sh
-	@CLOUDITY_DEVICE_PROFILE=cloudity-avd-s21-fe CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-suite.sh
+	@CLOUDITY_DEVICE_PROFILE=cloudity-avd-s21-fe \
+		CLOUDITY_DEVICE_ID=emulator-5556 \
+		ANDROID_SERIAL=emulator-5556 \
+		CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) \
+		./scripts/mobile/test-mobile-suite.sh
 
-mobile-emulator-cloudity-start: ## Démarre l'AVD Cloudity_S21_FE (port 5556) sans lancer les tests
+mobile-emulator-cloudity-start: ## AVD Cloudity_S21_FE port 5556 — réutilise si déjà up (CLOUDITY_AVD_COLD_BOOT=1 si snapshot cassé)
 	@chmod +x scripts/mobile/mobile-emulator-cloudity.sh
 	@./scripts/mobile/mobile-emulator-cloudity.sh
+
+mobile-emulator-cloudity-stop: ## Arrêt EXPLICITE AVD Cloudity seulement (jamais appelé par les tests ; Samsung / autres emu intacts)
+	@chmod +x scripts/mobile/mobile-emulator-cloudity-stop.sh
+	@./scripts/mobile/mobile-emulator-cloudity-stop.sh
 
 mobile-device-snapshot: ## Capture empreinte ADB golden dans mobile/device-profiles/ (Samsung par défaut)
 	@chmod +x scripts/mobile/mobile-device-snapshot.sh scripts/mobile/mobile-device-resolve.sh

@@ -26,5 +26,8 @@
   },
   "dependencies": {
     "react-router-dom": "^6.30.4"
+  },
+  "allowScripts": {
+    "esbuild@0.28.0": true
   }
 }

@@ -86,4 +86,11 @@ Ne pas démarrer D avant A+C1 (sinon on migre un monolithe encore vulnérable).
 - Sécurité tests : `docs/operations/TESTS.md` (govulncheck / npm audit)
 - Multi-apps : `docs/architecture/MULTI-APPS-WEB-MOBILE.md`
 
-*Dernière mise à jour : 2026-08-06.*
+### FE-SEC-SUPPLY-02 — notes d’implémentation (2026-08-10)
+
+- **npm 12** bloque les scripts d’install par défaut ; allowlist via `allowScripts` dans `frontend/package.json` et `extensions/cloudity-pass/package.json` (`esbuild@0.28.0`).
+- Install durcie : `./scripts/frontend/npm-ci-hardened.sh` (`npm ci` + approve/rebuild esbuild).
+- `make build-pass-extension` restaure `frontend/node_modules` si les deps de `pass-crypto` / `@cloudity/ui` manquent (sinon esbuild « Could not resolve »).
+- Audit HIGH : patch `brace-expansion` dans le lockfile ; moderate `react-router` en attente (bump majeur).
+
+*Dernière mise à jour : 2026-08-10.*

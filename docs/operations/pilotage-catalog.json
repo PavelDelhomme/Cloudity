@@ -3306,7 +3306,7 @@
       "label": "FE-SEC-SUPPLY-02 — CI audit bloquant + ignore-scripts",
       "description": "Durcir install : .npmrc ignore-scripts (allowlist), npm ci only, audit HIGH/CRITICAL en CI (make test-security / job dédié).",
       "expected": "PR rouge si audit critique ; installs sans scripts host non allowlistés.",
-      "status": "open",
+      "status": "partial",
       "order": 1,
       "checklistLabels": [
         ".npmrc ignore-scripts + allowlist documentée",
@@ -3315,6 +3315,7 @@
         "Dockerfile front aligné"
       ],
       "source": "catalog",
+      "completionNote": "2026-08-10 : allowScripts esbuild (frontend + pass-extension), npm-ci-hardened.sh, brace-expansion patché, build-pass-extension restaure frontend/node_modules. Reste : audit HIGH bloquant dans test-security + Dockerfiles 100% npm ci.",
       "docLinks": [
         "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
         "docs/operations/TESTS.md"

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'package:cloudity_drive/main.dart' as app;
 
@@ -24,6 +25,7 @@ bool _onFiles(WidgetTester tester) => find.byKey(kFiles).evaluate().isNotEmpty;
 
 Future<void> _pumpUntilLoginOrFiles(WidgetTester tester, {int maxSteps = 80}) async {
   await tester.pumpWidget(const app.CloudityDriveApp());
+  // Tokens async (FutureBuilder) + restore session
   for (var i = 0; i < maxSteps; i++) {
     await tester.pump(const Duration(milliseconds: 250));
     if (_onLogin(tester) || _onFiles(tester)) return;
@@ -32,6 +34,10 @@ Future<void> _pumpUntilLoginOrFiles(WidgetTester tester, {int maxSteps = 80}) as
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    await cloudityLoadDesignTokens();
+  });
 
   testWidgets('démarrage : connexion ou liste Drive', (tester) async {
     await _pumpUntilLoginOrFiles(tester);

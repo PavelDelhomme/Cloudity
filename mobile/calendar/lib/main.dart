@@ -46,7 +46,7 @@ class CloudityCalendarApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CloudityThemedApp.forSuite(
+    return clouditySuiteTestRoot(
       title: 'Cloudity Calendar',
       suiteApp: ClouditySuiteApp.calendar,
       home: _calendarShell(),
