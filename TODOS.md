@@ -9,16 +9,18 @@
 > **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
 > Valide dans **`/4dm1n/pilotage`** : **FE-SEC-SUPPLY** (durcir npm) + **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14**.  
 
-### Session 2026-08-10 — Local + push VPS + AVD
+### Session 2026-08-11 — FE-SEC-SUPPLY-02 done + 03 amorcé
 
 | Besoin | Commande |
 |--------|----------|
 | Stack locale | `make up-ready` / `make up-full` |
-| AVD Cloudity (pas le Samsung) | `make mobile-emulator-cloudity-start` · `make test-mobile-avd` · stop explicite seulement |
-| **Push préprod / prod** | **`make push-preprod REF=dev`** · **`make push-prod`** (`WAIT=1` · `SMOKE=1` · `SKIP_GHCR=1`) |
-| Smoke HTTPS | `make h14-https-check` |
+| AVD Cloudity (pas le Samsung) | `make mobile-emulator-cloudity-start` · `make test-mobile-avd` |
+| **Push préprod / prod** | **`make push-preprod REF=dev`** · **`make push-prod`** |
+| SBOM front | `make frontend-sbom` |
+| Audit HIGH | `make test-security` (bloquant) · workflow `frontend-npm-audit.yml` |
 
-**FE-SEC-SUPPLY-02** → `partial` (allowScripts esbuild, Dockerfiles `npm ci`, script hardened). Reste audit HIGH bloquant CI.
+**FE-SEC-SUPPLY-02** → **`ok`**. **FE-SEC-SUPPLY-03** → **`partial`**.  
+**Toi** : Sync docs Pilotage → Focus SUPPLY-02 (OK) → Focus **SUPPLY-03**.
 
 ### Session 2026-08-06 — Que faire dans Pilotage (clarification)
 
@@ -26,10 +28,12 @@
 |-------|-----------|-----|
 | **FE-HUB-01** / **FE-SPLIT-01** / **H19** | **`ok`** (code livré) | Sync docs → si encore « En cours », **Valider / OK** puis enlever Focus |
 | **H14** | `partial` | **Pas** le Focus principal (HTTPS plus tard) |
-| **FE-SEC-SUPPLY-01** | `partial` (inventaire fait) | **Focus ici** → Sync docs → cocher Sync |
+| **FE-SEC-SUPPLY-01** | `partial` (inventaire fait) | Sync docs → cocher Sync |
+| **FE-SEC-SUPPLY-02** | **`ok`** | Sync → Valider OK |
+| **FE-SEC-SUPPLY-03** | `partial` | **Focus** (SBOM release doc) |
 | **MOBILE-DA-01** | `open` | Après / en parallèle structure |
 
-**Focus unique recommandé** : **FE-SEC-SUPPLY-01** (puis 02).
+**Focus unique recommandé** : **FE-SEC-SUPPLY-03**.
 
 ---
 

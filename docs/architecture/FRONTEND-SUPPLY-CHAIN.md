@@ -86,11 +86,28 @@ Ne pas démarrer D avant A+C1 (sinon on migre un monolithe encore vulnérable).
 - Sécurité tests : `docs/operations/TESTS.md` (govulncheck / npm audit)
 - Multi-apps : `docs/architecture/MULTI-APPS-WEB-MOBILE.md`
 
-### FE-SEC-SUPPLY-02 — notes d’implémentation (2026-08-10)
+### FE-SEC-SUPPLY-02 — notes d’implémentation (2026-08-11)
 
 - **npm 12** bloque les scripts d’install par défaut ; allowlist via `allowScripts` dans `frontend/package.json` et `extensions/cloudity-pass/package.json` (`esbuild@0.28.0`).
 - Install durcie : `./scripts/frontend/npm-ci-hardened.sh` (`npm ci` + approve/rebuild esbuild).
-- `make build-pass-extension` restaure `frontend/node_modules` si les deps de `pass-crypto` / `@cloudity/ui` manquent (sinon esbuild « Could not resolve »).
-- Audit HIGH : patch `brace-expansion` dans le lockfile ; moderate `react-router` en attente (bump majeur).
+- `make build-pass-extension` restaure `frontend/node_modules` si les deps de `pass-crypto` / `@cloudity/ui` manquent.
+- **Audit HIGH bloquant** : `make test-security` (`NPM_AUDIT_BLOCKING=1` par défaut) + workflow `.github/workflows/frontend-npm-audit.yml`.
+- Dockerfiles front : `npm ci` + `npm rebuild esbuild`.
+- Patches HIGH : `brace-expansion`, `nanoid` (via `docx`).
+- **Waiver moderate** : `react-router` / `react-router-dom` v6 — bump v7 = breaking ; suivi SUPPLY-04 / migration planifiée. Ne bloque pas `--audit-level=high`.
 
-*Dernière mise à jour : 2026-08-10.*
+### FE-SEC-SUPPLY-03 — pin + SBOM (amorcé)
+
+- SBOM : `./scripts/frontend/sbom-cyclonedx.sh` → `reports/sbom/frontend-cyclonedx.json` (aussi artefact CI du workflow audit).
+- Politique pin : nouvelles deps runtime en version **exacte** (pas de `^` sans revue) — voir § pin ci-dessous et `VERSIONNAGE-LIBS.md`.
+
+#### Politique pin (frontend)
+
+| Règle | Détail |
+|-------|--------|
+| Nouvelles deps **runtime** | Version exacte dans `package.json` (`"1.2.3"`) ; lockfile via `npm ci` |
+| Tooling / devDeps | `^` acceptable si lockfile commité |
+| CI / Docker | **`npm ci` only** — jamais `npm install` sur image prod |
+| Override | Documenter dans ce fichier + note Pilotage si CVE force un override |
+
+*Dernière mise à jour : 2026-08-11.*

@@ -23,6 +23,7 @@ Pour **créer la stack Portainer Git** :
 | Chaque service Go | `backend/<svc>/go.mod` | Image build Portainer / GHCR |
 | Admin Python | deps `backend/admin-service` | Image build |
 | Front SPA | `frontend/package.json` + workspaces | Image `cloudity-web` |
+| **SBOM front** (CycloneDX) | `make frontend-sbom` → `reports/sbom/` (+ artefact CI) | Attacher aux releases ; voir [FRONTEND-SUPPLY-CHAIN.md](../architecture/FRONTEND-SUPPLY-CHAIN.md) |
 | Stack Docker | branche Git `main` / `dev` | Portainer Git reference |
 | Images registry (option) | tag `vX.Y.Z` / `sha-…` | `ghcr.io/<owner>/cloudity-<svc>:<tag>` |
 
