@@ -662,17 +662,20 @@ dashboard-npm-install: ## npm install racine frontend/ (workspaces) ou apps/clou
 	@(cd frontend && npm install)
 	@echo "✅ dashboard-npm-install OK"
 
-frontend-npm-ci: ## npm ci à la racine frontend/ (workspaces : @cloudity/web + @cloudity/shared)
-	@echo "📦 npm ci — frontend/ (workspaces)..."
-	@(cd frontend && npm ci)
-	@echo "✅ frontend-npm-ci OK"
+frontend-npm-ci: ## npm ci durci frontend/ (allowScripts esbuild) — FE-SEC-SUPPLY-02
+	@chmod +x scripts/frontend/npm-ci-hardened.sh
+	@./scripts/frontend/npm-ci-hardened.sh
 
-frontend-install: ## npm install à la racine frontend/ (workspaces)
+frontend-sbom: ## SBOM CycloneDX frontend → reports/sbom/frontend-cyclonedx.json (FE-SEC-SUPPLY-03)
+	@chmod +x scripts/frontend/sbom-cyclonedx.sh
+	@./scripts/frontend/sbom-cyclonedx.sh
+
+frontend-install: ## npm install à la racine frontend/ (workspaces) — préférer frontend-npm-ci en CI
 	@echo "📦 npm install — frontend/ (workspaces)..."
 	@(cd frontend && npm install)
 	@echo "✅ frontend-install OK"
 
-test-security: ## Tests et vérifications sécurité (audits deps + checks auth)
+test-security: ## Audits deps + auth (npm HIGH bloquant par défaut : NPM_AUDIT_BLOCKING=0 pour warning)
 	@chmod +x scripts/ci/test-security.sh
 	@./scripts/ci/test-security.sh
 

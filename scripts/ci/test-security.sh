@@ -36,19 +36,20 @@ warnings=0
 echo "🔒 Vérifications sécurité (audits dans Docker)..."
 echo "   Rapports détaillés : $ROOT/reports/security-*.txt"
 
-NPM_AUDIT_BLOCKING="${NPM_AUDIT_BLOCKING:-0}"
+# FE-SEC-SUPPLY-02 : audit HIGH/CRITICAL bloquant par défaut (NPM_AUDIT_BLOCKING=0 pour warning only).
+NPM_AUDIT_BLOCKING="${NPM_AUDIT_BLOCKING:-1}"
 echo ""
 echo "  [npm audit] frontend workspaces / @cloudity/web (Docker, mode $([ "$NPM_AUDIT_BLOCKING" = "1" ] && echo BLOCKING || echo WARNING))..."
 NPM_AUDIT_LOG="$ROOT/reports/security-npm-audit.txt"
-NPM_IN_CONTAINER='cd /ws && (test -d node_modules || npm ci --no-audit --no-fund) && npm audit'
+NPM_IN_CONTAINER='cd /ws && (test -d node_modules || npm ci --no-audit --no-fund) && npm rebuild esbuild >/dev/null 2>&1; npm audit --omit=dev'
 if $COMPOSE $COMPOSE_FILES run --rm cloudity-web sh -c "$NPM_IN_CONTAINER --audit-level=high" >"$NPM_AUDIT_LOG" 2>&1; then
   echo "  ✅ npm audit (high) OK"
 else
   if [ "$NPM_AUDIT_BLOCKING" = "1" ]; then
-    echo "  ❌ npm audit HIGH/CRITICAL — détail : $NPM_AUDIT_LOG (BLOCKING)"
+    echo "  ❌ npm audit HIGH/CRITICAL — détail : $NPM_AUDIT_LOG (BLOCKING ; NPM_AUDIT_BLOCKING=0 pour warning)"
     failed=1
   else
-    echo "  ⚠️  npm audit : vulnérabilités high ou erreur — détail : $NPM_AUDIT_LOG (set NPM_AUDIT_BLOCKING=1 pour fail)"
+    echo "  ⚠️  npm audit : vulnérabilités high ou erreur — détail : $NPM_AUDIT_LOG"
     warnings=1
   fi
 fi

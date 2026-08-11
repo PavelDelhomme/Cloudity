@@ -96,7 +96,7 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 | **`make test-mobile-drive`** | Wrapper **`scripts/test-mobile-app.sh` drive** — **`mobile/drive`**. |
 | **`make test-mobile-mail`** | Wrapper **`scripts/test-mobile-app.sh` mail** — **`mobile/mail`**. |
 | **`make test-mobile-desktop-linux`** | **Drive + Photos Linux desktop** : `flutter pub get`, `flutter test`, `flutter build linux --debug` ; smoke `flutter run -d linux` optionnel avec `CLOUDITY_DESKTOP_RUN_SMOKE=1`. |
-| **`make test-security`** | Audits de dépendances (npm audit, safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
+| **`make test-security`** | Audits de dépendances (npm audit **HIGH bloquant** par défaut — `NPM_AUDIT_BLOCKING=0` pour warning ; safety, govulncheck) + checks auth : `/auth/validate` sans token ou avec token invalide → 401. |
 | **`make test-docker`** | Après **`make up`** : **`docker compose exec`** sur les services Go **déjà en cours d’exécution** + pytest / Vitest en **exec** dans admin-* (vérifie le code réellement déployé dans la stack). |
 | **`make test-dashboard`** | **Vitest @cloudity/web seul**, dans l’image Docker (`cd /ws && npm install && cd apps/cloudity-web && npm run test`) — **sans** avoir besoin de `node_modules` sur la machine hôte. |
 | **`make test-dashboard-one FILE=…`** | **Un seul** fichier Vitest (itération rapide). Ex. **`FILE=src/pages/app/mail/MailPage.test.tsx`**. Limite RAM/workers via **`frontend/scripts/vitest-cloudity-web.sh`** (`NODE_OPTIONS=--max-old-space-size=3072`, **`CLOUDITY_VITEST_MAX_WORKERS=1`** par défaut). |
