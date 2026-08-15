@@ -84,6 +84,11 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_secure_password_2025}
       - JWT_SECRET=${JWT_SECRET:-super_secret_jwt_key_change_this_in_production_2025}
       - GO_ENV=development
+      # Connexion rapide UI locale (boutons Admin / Utilisateur) — jamais en prod.
+      - CLOUDITY_ALLOW_DEV_QUICK_LOGIN=${CLOUDITY_ALLOW_DEV_QUICK_LOGIN:-1}
+      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-}
+      - DEV_QUICK_LOGIN_ADMIN_EMAIL=${DEV_QUICK_LOGIN_ADMIN_EMAIL:-}
+      - DEV_QUICK_LOGIN_USER_EMAIL=${DEV_QUICK_LOGIN_USER_EMAIL:-user@cloudity.local}
       # Durée du JWT d’accès (minutes). Refresh token 30 j + rotation ; le front rafraîchit aussi au retour sur l’onglet.
       - ACCESS_TOKEN_DURATION_MINUTES=${ACCESS_TOKEN_DURATION_MINUTES:-60}
     volumes:

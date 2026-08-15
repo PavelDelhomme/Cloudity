@@ -3331,7 +3331,7 @@
       "label": "FE-SEC-SUPPLY-03 — Pin + SBOM CycloneDX front",
       "description": "Versions exactes pour nouvelles deps ; SBOM CycloneDX généré en CI et attaché aux releases.",
       "expected": "SBOM artefact CI ; politique pin dans CONTRIBUTING / VERSIONNAGE-LIBS.",
-      "status": "partial",
+      "status": "ok",
       "order": 2,
       "checklistLabels": [
         "Politique pin (pas de ^ sauvage)",
@@ -3339,10 +3339,11 @@
         "Doc release pointe le SBOM"
       ],
       "source": "catalog",
-      "completionNote": "2026-08-11 : politique pin documentée (FRONTEND-SUPPLY-CHAIN) ; script sbom-cyclonedx.sh + artefact CI. Reste : doc release VERSIONS-PROJET + Sync Pilotage.",
+      "completionNote": "2026-08-12 : pin + SBOM CI + VERSIONS-PROJET / FRONTEND-SUPPLY-CHAIN (releases). Sync Pilotage UI si besoin.",
       "docLinks": [
         "docs/architecture/FRONTEND-SUPPLY-CHAIN.md",
-        "docs/architecture/VERSIONNAGE-LIBS.md"
+        "docs/architecture/VERSIONNAGE-LIBS.md",
+        "docs/operations/VERSIONS-PROJET.md"
       ]
     },
     {

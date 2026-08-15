@@ -116,7 +116,7 @@ dev-certs-docker: ## Génère .certs/ pour HTTPS Vite dans Docker (https://local
 	@chmod +x scripts/dev/mkcert-docker-certs.sh
 	@./scripts/dev/mkcert-docker-certs.sh
 
-up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
+up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension-soft ## Démarre toute la stack (ports 60XX ; profil **dev** = Adminer + Redis Commander — UIs de debug uniquement)
 	@echo "🚀 Démarrage Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) --profile dev up -d
 	@echo "✅ Stack démarrée. Accès:"
@@ -130,15 +130,15 @@ up: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension 
 	@echo ""
 	@echo "Compte de démo (après make seed-admin): $(SEED_ADMIN_EMAIL) — mot de passe = SEED_ADMIN_PASSWORD dans .env"
 
-up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
+up-lean: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension-soft ## Démarre la stack **sans** Adminer ni Redis Commander (pas de --profile dev)
 	@echo "🚀 Démarrage Cloudity (sans outils dev Adminer / Redis Commander)..."
 	@$(COMPOSE) $(COMPOSE_FILES) up -d
 	@echo "✅ Stack démarrée (sans profil dev). Dashboard: http://localhost:$(PORT_DASHBOARD) — API: http://localhost:$(PORT_GATEWAY)"
 
-up-ready: down up wait-for-services seed seed-admin ## Stack locale + seed admin (rapide, sans tests) — recours si up-full échoue
+up-ready: down up wait-for-services seed seed-admin seed-dev-users ## Stack locale + seed admin/user (rapide, sans tests) — recours si up-full échoue
 	@echo "✅ Cloudity prêt (sans tests).  make status  ·  tests : make test  ·  tout-en-un : make up-full"
 
-up-full: ## Stack + seed + tests (UP_FULL_SKIP_TESTS=1 pour sauter les tests). Échec tests ≠ stack KO → make status / up-ready
+up-full: ## Stack + seed + tests. Reprise projet : UP_FULL_SKIP_TESTS=1 make up-full (ou make up-ready). Échec tests ≠ stack KO.
 	@chmod +x scripts/dev/up-full.sh scripts/dev/prune-compose-runs.sh scripts/dev/up-failure-hint.sh 2>/dev/null || true
 	@./scripts/dev/up-full.sh
 
@@ -282,22 +282,13 @@ mail-mta-local-logs: ## Logs Maddy local
 	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml logs -f --tail=80 alias-router maddy
 
 build-pass-extension: ## Build l’extension navigateur MV3 (extensions/cloudity-pass/dist)
-	@echo "🔌 Build extension Cloudity Pass (MV3)…"
-	@if ! command -v npm >/dev/null 2>&1; then \
-		echo "❌ npm requis (install Node.js) pour build-pass-extension."; exit 1; \
-	fi
-	@# pass-crypto / shared résolvent leurs deps via frontend/node_modules (file: + monorepo).
-	@if [ ! -d frontend/node_modules/@noble/hashes ] || [ ! -d frontend/node_modules/@cloudity/ui ]; then \
-		echo "📦 frontend/node_modules manquant — npm ci…"; \
-		(cd frontend && npm ci --no-audit --fund=false); \
-		(cd frontend && npm install-scripts approve esbuild >/dev/null 2>&1 || true); \
-		(cd frontend && npm rebuild esbuild >/dev/null 2>&1 || true); \
-	fi
-	@cd extensions/cloudity-pass && npm install --no-audit --fund=false \
-		&& (npm install-scripts approve esbuild >/dev/null 2>&1 || true) \
-		&& (npm rebuild esbuild >/dev/null 2>&1 || true) \
-		&& npm run build
-	@echo "✅ Extension : extensions/cloudity-pass/dist (Chrome → Mode développeur → Charger l’extension non empaquetée)"
+	@chmod +x scripts/dev/build-pass-extension.sh 2>/dev/null || true
+	@./scripts/dev/build-pass-extension.sh
+
+# Soft : utilisé par up / up-lean / rebuild — un échec Pass n’empêche PAS la stack de démarrer.
+build-pass-extension-soft: ## Comme build-pass-extension, mais n’échoue pas (stack up quand même)
+	@chmod +x scripts/dev/build-pass-extension.sh 2>/dev/null || true
+	@CLOUDITY_PASS_EXTENSION_SOFT=1 ./scripts/dev/build-pass-extension.sh
 
 build-pass-extension-firefox: ## Build extension Pass pour Firefox (MP-08, dist dérivé de cloudity-pass)
 	@echo "🦊 Build extension Cloudity Pass (Firefox)…"
@@ -429,7 +420,7 @@ build: ## Build tous les services
 	@$(COMPOSE) $(COMPOSE_FILES) build --parallel --no-cache
 	@echo "✅ Build terminé!"
 
-rebuild: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension ## Reconstruit tous les services Cloudity, redémarre et applique les migrations (tout-en-un)
+rebuild: ensure-mail-encryption-key ensure-alias-encryption-key build-pass-extension-soft ## Reconstruit tous les services Cloudity, redémarre et applique les migrations (tout-en-un)
 	@echo "🔨 Rebuild de tous les services Cloudity..."
 	@$(COMPOSE) $(COMPOSE_FILES) build --no-cache --parallel
 	@echo "🔄 Redémarrage des services avec les nouvelles images..."
@@ -1052,6 +1043,24 @@ seed-admin: ## Un seul super-admin tenant 1 : SEED_ADMIN_* (.env) — user apps 
 seed-admin-reset: ## Recrée le compte admin avec SEED_ADMIN_* du .env (après changement de mot de passe)
 	@chmod +x scripts/dev/seed-admin-reset.sh scripts/dev/env-get.sh
 	@./scripts/dev/seed-admin-reset.sh
+
+SEED_USER_EMAIL := $(shell $(ENV_GET) SEED_USER_EMAIL user@cloudity.local 2>/dev/null)
+SEED_USER_PASSWORD := $(shell $(ENV_GET) SEED_USER_PASSWORD 2>/dev/null)
+
+seed-dev-users: seed-admin ## Admin (SEED_ADMIN_*) + utilisateur démo (SEED_USER_* / user@cloudity.local) pour quick-login
+	@USER_EMAIL="$(SEED_USER_EMAIL)"; \
+	USER_PASS="$(SEED_USER_PASSWORD)"; \
+	if [ -z "$$USER_PASS" ]; then USER_PASS="$(SEED_ADMIN_PASSWORD)"; fi; \
+	if [ -z "$$USER_PASS" ]; then echo "❌ Mot de passe manquant (SEED_USER_PASSWORD ou SEED_ADMIN_PASSWORD)"; exit 1; fi; \
+	echo "👤 Ensure compte utilisateur démo ($$USER_EMAIL)…"; \
+	curl -sf -X POST http://localhost:$(PORT_GATEWAY)/auth/register \
+	  -H "Content-Type: application/json" \
+	  -d "{\"email\":\"$$USER_EMAIL\",\"password\":\"$$USER_PASS\",\"tenant_id\":\"1\"}" >/dev/null \
+	  && echo "✅ Compte utilisateur créé." \
+	  || echo "ℹ️  Compte utilisateur déjà présent."; \
+	$(COMPOSE) $(COMPOSE_FILES) exec -T postgres psql -U cloudity_admin -d cloudity -v ON_ERROR_STOP=1 \
+	  -c "UPDATE users SET role='user' WHERE email='$$USER_EMAIL' AND tenant_id=1;" >/dev/null \
+	  && echo "✅ role=user pour $$USER_EMAIL — boutons Dev quick-login prêts"
 
 seed-e2e-2fa: ## Compte E2E 2FA dédié : e2e-2fa@cloudity.local / E2faTest123! (recrée le user si besoin)
 	@echo "👤 Compte E2E 2FA (e2e-2fa@cloudity.local) — suppression éventuelle puis inscription..."

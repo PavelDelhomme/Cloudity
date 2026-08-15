@@ -106,6 +106,52 @@ class CloudityAuthClient {
     return res.statusCode == 200;
   }
 
+  /// Personas de connexion rapide (null si désactivé / 404).
+  Future<List<Map<String, dynamic>>?> fetchDevQuickLoginPersonas() async {
+    final uri = Uri.parse('$_base/auth/dev/personas');
+    try {
+      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 404) return null;
+      if (res.statusCode != 200) return null;
+      final map = jsonDecode(res.body.isEmpty ? '{}' : res.body) as Map<String, dynamic>;
+      if (map['enabled'] != true) return null;
+      final raw = map['personas'];
+      if (raw is! List) return null;
+      return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Connexion sans mot de passe — DEV local uniquement.
+  Future<Map<String, dynamic>> devQuickLogin({
+    required String persona,
+    String tenantId = '1',
+  }) async {
+    final uri = Uri.parse('$_base/auth/dev/quick-login');
+    final res = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'persona': persona,
+            'tenant_id': tenantId,
+          }),
+        )
+        .timeout(const Duration(seconds: 8));
+    final body = res.body.isEmpty ? '{}' : res.body;
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      final err = map['error']?.toString() ?? body;
+      throw AuthException('Connexion rapide (${res.statusCode}): $err');
+    }
+    final access = map['access_token'] as String?;
+    if (access == null || access.isEmpty) {
+      throw AuthException('Réponse serveur sans access_token.');
+    }
+    return map;
+  }
+
   Future<({String access, String refresh})> refreshTokens(
     String refreshToken,
   ) async {

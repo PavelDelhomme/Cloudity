@@ -113,6 +113,17 @@ function fromDatetimeLocal(v: string): string | null {
   return d.toISOString()
 }
 
+function draftHasContent(d: DraftNote): boolean {
+  if (d.title.trim()) return true
+  if (stripHtml(d.content || '').trim()) return true
+  if ((d.extras.checklist ?? []).some((i) => i.text.trim() || i.done)) return true
+  if ((d.extras.images ?? []).length > 0) return true
+  if (d.extras.drawing) return true
+  if (d.remindAt) return true
+  if (d.labels.length > 0) return true
+  return false
+}
+
 function noteMatchesSearch(n: Note, q: string): boolean {
   const needle = q.trim().toLowerCase()
   if (!needle) return true
@@ -142,8 +153,10 @@ export default function NotesPage() {
   const [editing, setEditing] = useState<Note | null>(null)
   const [editDraft, setEditDraft] = useState<DraftNote>(emptyDraft)
   const [labelFilter, setLabelFilter] = useState<string | null>(null)
+  const [remindersOnly, setRemindersOnly] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
+  const [composeMode, setComposeMode] = useState<'note' | 'list' | 'image' | 'draw'>('note')
   const notesVaultScope = appLockedVaultScope('notes', tenantId, email)
   const [notesVaultUnlocked, setNotesVaultUnlocked] = useState(() =>
     isAppLockedVaultUnlocked('notes', appLockedVaultScope('notes', tenantId, email))
@@ -189,9 +202,10 @@ export default function NotesPage() {
   const filteredNotes = useMemo(() => {
     let list = notes
     if (labelFilter) list = list.filter((n) => (n.labels ?? []).includes(labelFilter))
+    if (remindersOnly) list = list.filter((n) => Boolean(n.remind_at))
     if (searchQuery.trim()) list = list.filter((n) => noteMatchesSearch(n, searchQuery))
     return list
-  }, [notes, labelFilter, searchQuery])
+  }, [notes, labelFilter, remindersOnly, searchQuery])
 
   const pinnedNotes = useMemo(() => filteredNotes.filter((n) => n.pinned), [filteredNotes])
   const otherNotes = useMemo(() => filteredNotes.filter((n) => !n.pinned), [filteredNotes])
@@ -199,25 +213,6 @@ export default function NotesPage() {
   useEffect(() => {
     setNotesVaultUnlocked(isAppLockedVaultUnlocked('notes', notesVaultScope))
   }, [notesVaultScope, notesSettings.lockEnabled])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (showNotesSettings) {
-        e.preventDefault()
-        setShowNotesSettings(false)
-      } else if (editing) {
-        e.preventDefault()
-        setEditing(null)
-      } else if (composeOpen) {
-        e.preventDefault()
-        setComposeOpen(false)
-        setCompose(emptyDraft())
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [showNotesSettings, editing, composeOpen])
 
   const handleNotesVaultUnlocked = (vaultKeyB64u?: string) => {
     if (!notesVaultScope) return
@@ -274,6 +269,7 @@ export default function NotesPage() {
       queryClient.invalidateQueries({ queryKey: ['notes'] })
       setCompose(emptyDraft())
       setComposeOpen(false)
+      setComposeMode('note')
       toast.success('Note créée')
     },
     onError: (e: Error) => toast.error(e.message),
@@ -311,7 +307,13 @@ export default function NotesPage() {
   const patchMutation = useMutation({
     mutationFn: (p: {
       id: number
-    } & Partial<{ pinned: boolean; color: string; labels: string[]; archived: boolean }>) => {
+    } & Partial<{
+      pinned: boolean
+      color: string
+      labels: string[]
+      archived: boolean
+      extras: NoteExtras
+    }>) => {
       const { id, ...rest } = p
       return updateNote(accessToken!, id, rest)
     },
@@ -328,6 +330,69 @@ export default function NotesPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   })
+
+  const closeCompose = useCallback(
+    (opts?: { discard?: boolean }) => {
+      if (!opts?.discard && draftHasContent(compose) && !createMutation.isPending) {
+        createMutation.mutate(compose)
+        return
+      }
+      setComposeOpen(false)
+      setCompose(emptyDraft())
+      setComposeMode('note')
+    },
+    [compose, createMutation]
+  )
+
+  const closeEdit = useCallback(
+    (opts?: { discard?: boolean }) => {
+      if (!editing) {
+        setEditing(null)
+        return
+      }
+      if (!opts?.discard && draftHasContent(editDraft) && !updateMutation.isPending) {
+        updateMutation.mutate({
+          id: editing.id,
+          draft: editDraft,
+          wasVault: editing.vault_encrypted,
+        })
+        return
+      }
+      setEditing(null)
+    },
+    [editing, editDraft, updateMutation]
+  )
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (showNotesSettings) {
+        e.preventDefault()
+        setShowNotesSettings(false)
+      } else if (editing) {
+        e.preventDefault()
+        closeEdit()
+      } else if (composeOpen) {
+        e.preventDefault()
+        closeCompose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showNotesSettings, editing, composeOpen, closeCompose, closeEdit])
+
+  const openCompose = (mode: 'note' | 'list' | 'image' | 'draw' = 'note') => {
+    const draft = { ...emptyDraft(), archived: showArchived }
+    if (mode === 'list') {
+      draft.extras = {
+        ...emptyExtras(),
+        checklist: [{ id: newChecklistId(), text: '', done: false }],
+      }
+    }
+    setComposeMode(mode)
+    setCompose(draft)
+    setComposeOpen(true)
+  }
 
   const openEdit = (n: Note) => {
     setEditing(n)
@@ -367,22 +432,67 @@ export default function NotesPage() {
   const renderCard = (n: Note) => {
     const previewText = stripHtml(n.content || '')
     const checklist = n.extras?.checklist ?? []
+    const stop = (e: React.MouseEvent) => e.stopPropagation()
     return (
-      <button
+      <div
         key={n.id}
-        type="button"
+        role="button"
+        tabIndex={0}
         onClick={() => openEdit(n)}
-        className={`mb-3 w-full break-inside-avoid rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md ${colorClass(n.color)}`}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            openEdit(n)
+          }
+        }}
+        className={`group mb-3 w-full break-inside-avoid rounded-xl border p-4 text-left shadow-sm transition hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 ${colorClass(n.color)}`}
       >
         <div className="mb-1 flex items-start justify-between gap-2">
           <h3 className="font-semibold text-slate-900 dark:text-slate-100">{n.title || 'Sans titre'}</h3>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             {n.remind_at ? (
-              <span className="text-[10px] text-slate-500" title="Rappel">
+              <span className="mr-1 text-[10px] text-slate-500" title="Rappel">
                 ⏰
               </span>
             ) : null}
             {n.pinned ? <Pin className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" aria-hidden /> : null}
+            <div
+              className="ml-1 flex opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+              onClick={stop}
+            >
+              <button
+                type="button"
+                title={n.pinned ? 'Désépingler' : 'Épingler'}
+                aria-label={n.pinned ? 'Désépingler' : 'Épingler'}
+                className="rounded p-1 text-slate-500 hover:bg-black/5 hover:text-slate-800 dark:hover:bg-white/10 dark:hover:text-slate-100"
+                onClick={() => patchMutation.mutate({ id: n.id, pinned: !n.pinned })}
+              >
+                <Pin className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                title={n.archived ? 'Restaurer' : 'Archiver'}
+                aria-label={n.archived ? 'Restaurer' : 'Archiver'}
+                className="rounded p-1 text-slate-500 hover:bg-black/5 hover:text-slate-800 dark:hover:bg-white/10 dark:hover:text-slate-100"
+                onClick={() => {
+                  patchMutation.mutate({ id: n.id, archived: !n.archived })
+                  toast.success(n.archived ? 'Note restaurée' : 'Note archivée')
+                }}
+              >
+                <Archive className="h-3.5 w-3.5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                title="Supprimer"
+                aria-label="Supprimer"
+                className="rounded p-1 text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                onClick={() => {
+                  if (window.confirm('Supprimer cette note ?')) deleteMutation.mutate(n.id)
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            </div>
           </div>
         </div>
         {(n.extras?.images?.length ?? 0) > 0 ? (
@@ -400,8 +510,24 @@ export default function NotesPage() {
         {notesSettings.showContentPreview && checklist.length > 0 ? (
           <ul className="mt-2 space-y-0.5 text-sm text-slate-700 dark:text-slate-300">
             {checklist.slice(0, 4).map((item) => (
-              <li key={item.id} className={item.done ? 'line-through opacity-60' : ''}>
-                {item.done ? '☑' : '☐'} {item.text}
+              <li key={item.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={item.done}
+                  aria-label={item.text || 'Élément de liste'}
+                  className="mt-0.5"
+                  onClick={stop}
+                  onChange={() => {
+                    const next = checklist.map((c) =>
+                      c.id === item.id ? { ...c, done: !c.done } : c
+                    )
+                    patchMutation.mutate({
+                      id: n.id,
+                      extras: { ...normalizeExtras(n.extras), checklist: next },
+                    })
+                  }}
+                />
+                <span className={item.done ? 'line-through opacity-60' : ''}>{item.text || '…'}</span>
               </li>
             ))}
             {checklist.length > 4 ? (
@@ -421,7 +547,7 @@ export default function NotesPage() {
             ))}
           </div>
         ) : null}
-      </button>
+      </div>
     )
   }
 
@@ -609,7 +735,7 @@ export default function NotesPage() {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowArchived(false)}
@@ -633,27 +759,64 @@ export default function NotesPage() {
                 <Archive className="h-3.5 w-3.5" aria-hidden />
                 Archives
               </button>
+              <button
+                type="button"
+                onClick={() => setRemindersOnly((v) => !v)}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium ${
+                  remindersOnly
+                    ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                    : 'border border-slate-300 text-slate-600 dark:border-slate-600 dark:text-slate-300'
+                }`}
+              >
+                Rappels
+              </button>
             </div>
 
             {!composeOpen ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setCompose({ ...emptyDraft(), archived: showArchived })
-                  setComposeOpen(true)
-                }}
-                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-500 shadow-sm hover:shadow dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
-              >
-                Prendre une note…
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                <button
+                  type="button"
+                  onClick={() => openCompose('note')}
+                  className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm text-slate-500 shadow-sm hover:shadow dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                >
+                  Prendre une note…
+                </button>
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    title="Liste"
+                    aria-label="Nouvelle liste"
+                    onClick={() => openCompose('list')}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <CheckSquare className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    title="Image"
+                    aria-label="Nouvelle note avec image"
+                    onClick={() => openCompose('image')}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <ImagePlus className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    title="Dessin"
+                    aria-label="Nouveau dessin"
+                    onClick={() => openCompose('draw')}
+                    className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-600 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              </div>
             ) : (
               <NoteEditorPanel
                 draft={compose}
                 setDraft={setCompose}
-                onClose={() => {
-                  setComposeOpen(false)
-                  setCompose(emptyDraft())
-                }}
+                initialMode={composeMode}
+                onClose={() => closeCompose()}
                 onSave={() => createMutation.mutate(compose)}
                 saving={createMutation.isPending}
                 saveLabel="Créer"
@@ -738,14 +901,14 @@ export default function NotesPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="note-edit-title"
-          onClick={() => setEditing(null)}
+          onClick={() => closeEdit()}
         >
           <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <NoteEditorPanel
               draft={editDraft}
               setDraft={setEditDraft}
               titleId="note-edit-title"
-              onClose={() => setEditing(null)}
+              onClose={() => closeEdit()}
               onSave={() =>
                 updateMutation.mutate({
                   id: editing.id,
@@ -787,6 +950,7 @@ function NoteEditorPanel({
   saving,
   saveLabel,
   titleId,
+  initialMode = 'note',
 }: {
   draft: DraftNote
   setDraft: React.Dispatch<React.SetStateAction<DraftNote>>
@@ -798,11 +962,20 @@ function NoteEditorPanel({
   saving?: boolean
   saveLabel: string
   titleId?: string
+  initialMode?: 'note' | 'list' | 'image' | 'draw'
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [drawingOpen, setDrawingOpen] = useState(false)
+  const [drawingOpen, setDrawingOpen] = useState(initialMode === 'draw')
   const [checklistInput, setChecklistInput] = useState('')
+
+  useEffect(() => {
+    if (initialMode === 'image') {
+      const t = window.setTimeout(() => fileInputRef.current?.click(), 80)
+      return () => window.clearTimeout(t)
+    }
+    if (initialMode === 'draw') setDrawingOpen(true)
+  }, [initialMode])
 
   useEffect(() => {
     const el = contentRef.current

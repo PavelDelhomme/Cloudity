@@ -90,15 +90,17 @@ Ne pas démarrer D avant A+C1 (sinon on migre un monolithe encore vulnérable).
 
 - **npm 12** bloque les scripts d’install par défaut ; allowlist via `allowScripts` dans `frontend/package.json` et `extensions/cloudity-pass/package.json` (`esbuild@0.28.0`).
 - Install durcie : `./scripts/frontend/npm-ci-hardened.sh` (`npm ci` + approve/rebuild esbuild).
-- `make build-pass-extension` restaure `frontend/node_modules` si les deps de `pass-crypto` / `@cloudity/ui` manquent.
+- `make build-pass-extension` → `scripts/dev/build-pass-extension.sh` (approve esbuild par **nom**, restaure `frontend/node_modules` si besoin).
+- `make up` / `up-lean` / `rebuild` utilisent **`build-pass-extension-soft`** : un échec Pass n’empêche plus la stack de démarrer.
 - **Audit HIGH bloquant** : `make test-security` (`NPM_AUDIT_BLOCKING=1` par défaut) + workflow `.github/workflows/frontend-npm-audit.yml`.
 - Dockerfiles front : `npm ci` + `npm rebuild esbuild`.
 - Patches HIGH : `brace-expansion`, `nanoid` (via `docx`).
 - **Waiver moderate** : `react-router` / `react-router-dom` v6 — bump v7 = breaking ; suivi SUPPLY-04 / migration planifiée. Ne bloque pas `--audit-level=high`.
 
-### FE-SEC-SUPPLY-03 — pin + SBOM (amorcé)
+### FE-SEC-SUPPLY-03 — pin + SBOM
 
-- SBOM : `./scripts/frontend/sbom-cyclonedx.sh` → `reports/sbom/frontend-cyclonedx.json` (aussi artefact CI du workflow audit).
+- SBOM : `./scripts/frontend/sbom-cyclonedx.sh` / `make frontend-sbom` → `reports/sbom/frontend-cyclonedx.json` (artefact CI `frontend-sbom-cyclonedx` du workflow audit).
+- **Releases** : joindre cet artefact (ou le fichier généré) à chaque release GitHub / note de version — carte dans [VERSIONS-PROJET.md](../operations/VERSIONS-PROJET.md) §1.
 - Politique pin : nouvelles deps runtime en version **exacte** (pas de `^` sans revue) — voir § pin ci-dessous et `VERSIONNAGE-LIBS.md`.
 
 #### Politique pin (frontend)
@@ -110,4 +112,4 @@ Ne pas démarrer D avant A+C1 (sinon on migre un monolithe encore vulnérable).
 | CI / Docker | **`npm ci` only** — jamais `npm install` sur image prod |
 | Override | Documenter dans ce fichier + note Pilotage si CVE force un override |
 
-*Dernière mise à jour : 2026-08-11.*
+*Dernière mise à jour : 2026-08-12.*

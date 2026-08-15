@@ -1032,6 +1032,49 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   return res.json() as Promise<LoginResponse>
 }
 
+export type DevQuickLoginPersona = {
+  id: string
+  label: string
+  email: string
+  role: string
+}
+
+export type DevQuickLoginPersonasResponse = {
+  enabled: boolean
+  personas: DevQuickLoginPersona[]
+}
+
+/** Liste les personas de connexion rapide (404 si désactivé / prod). */
+export async function fetchDevQuickLoginPersonas(): Promise<DevQuickLoginPersonasResponse | null> {
+  const res = await apiFetch(null, '/auth/dev/personas', { method: 'GET' })
+  if (res.status === 404) return null
+  if (!res.ok) return null
+  return res.json() as Promise<DevQuickLoginPersonasResponse>
+}
+
+export type DevQuickLoginResponse = LoginResponse & { email?: string; role?: string }
+
+/** Connexion sans mot de passe — DEV local uniquement (auth-service). */
+export async function devQuickLogin(opts: {
+  persona?: 'admin' | 'user' | string
+  email?: string
+  tenant_id?: number | string
+}): Promise<DevQuickLoginResponse> {
+  const res = await apiFetch(null, '/auth/dev/quick-login', {
+    method: 'POST',
+    body: JSON.stringify({
+      persona: opts.persona,
+      email: opts.email,
+      tenant_id: String(opts.tenant_id ?? 1),
+    }),
+  })
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(parseApiErrorMessage(t, `Connexion rapide impossible (${res.status})`))
+  }
+  return res.json() as Promise<DevQuickLoginResponse>
+}
+
 export type RefreshResponse = {
   access_token: string
   refresh_token: string
