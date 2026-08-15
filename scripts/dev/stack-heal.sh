@@ -46,8 +46,8 @@ fi
 
 if command -v npm >/dev/null 2>&1; then
   echo "🔌 Build extension Cloudity Pass…"
-  (cd extensions/cloudity-pass && npm install --no-audit --fund=false && npm run build)
-  echo "✅ Extension → extensions/cloudity-pass/dist"
+  chmod +x scripts/dev/build-pass-extension.sh 2>/dev/null || true
+  CLOUDITY_PASS_EXTENSION_SOFT=1 ./scripts/dev/build-pass-extension.sh
 else
   echo "⚠️  npm absent — installe Node.js puis : make build-pass-extension"
 fi

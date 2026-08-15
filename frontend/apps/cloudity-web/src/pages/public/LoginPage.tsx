@@ -7,6 +7,7 @@ import { navigateAfterAuth } from '../../postAuthNavigate'
 import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } from '../../webauthn'
 import { Key, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { DevQuickLoginPanel } from './DevQuickLoginPanel'
 
 type LoginStep = 'email' | 'password'
 
@@ -317,6 +318,15 @@ export default function LoginPage() {
               Utiliser une passkey
             </button>
           )}
+
+          {!twoFAStep ? (
+            <DevQuickLoginPanel
+              disabled={loading}
+              onSuccess={(accessToken, refreshToken, authEmail) => {
+                finishLogin(accessToken, refreshToken, authEmail)
+              }}
+            />
+          ) : null}
 
           <p className="mt-6 text-center text-sm text-gray-500 dark:text-slate-400">
             Pas de compte ?{' '}

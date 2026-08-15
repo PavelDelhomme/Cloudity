@@ -2,7 +2,9 @@
 # make up-full — down + up + seed + (optionnel) tests unitaires.
 #
 # Variables :
-#   UP_FULL_SKIP_TESTS=1   — ne pas lancer make test (équivalent rapide à up-ready après seed)
+#   UP_FULL_SKIP_TESTS=1     — ne pas lancer make test (équivalent up-ready + rapport)
+#   UP_FULL_REQUIRE_TESTS=1  — si les tests échouent, exit ≠ 0 (défaut historique)
+#   Sans REQUIRE : stack OK ⇒ exit 0 même si les tests échouent (reprise projet sans blocage)
 #
 # Ctrl+C pendant les tests : nettoie les *-run-*, la stack long-running reste up.
 set -euo pipefail
@@ -47,6 +49,10 @@ _run_stack_phase up
 _run_stack_phase wait-for-services
 _run_stack_phase seed
 _run_stack_phase seed-admin
+# Compte utilisateur démo (quick-login) — non bloquant si déjà présent / échec réseau
+if ! "$MAKE" --no-print-directory seed-dev-users; then
+  echo "⚠️  seed-dev-users a échoué — admin OK ; relancer plus tard : make seed-dev-users"
+fi
 
 if [ "${UP_FULL_SKIP_TESTS:-0}" = "1" ]; then
   echo ""
@@ -57,7 +63,7 @@ if [ "${UP_FULL_SKIP_TESTS:-0}" = "1" ]; then
 fi
 
 echo ""
-echo "🧪 Phase tests (Ctrl+C = arrêter les tests, stack conservée ; ensuite : make up-ready si besoin)…"
+echo "🧪 Phase tests (Ctrl+C = arrêter les tests, stack conservée)…"
 TESTS_STARTED=1
 
 mkdir -p reports
@@ -83,11 +89,17 @@ CLOUDITY_TEST_RUN_ID="$UP_FULL_ID" CLOUDITY_TEST_LOGS_DIR="${ROOT}/reports/test-
 
 if [ "$TEST_EXIT" -ne 0 ]; then
   echo ""
-  echo "❌ Tests post-up-full en échec — voir $UP_FULL_LOG et reports/test-logs/${UP_FULL_ID}/REPORT.md"
+  echo "⚠️  Tests post-up-full en échec — voir $UP_FULL_LOG et reports/test-logs/${UP_FULL_ID}/REPORT.md"
+  echo "   La stack reste utilisable : make status  ·  http://localhost:6001"
   if [ -x "$HINT" ]; then
     "$HINT" tests
   fi
-  exit "$TEST_EXIT"
+  if [ "${UP_FULL_REQUIRE_TESTS:-0}" = "1" ]; then
+    echo "   (UP_FULL_REQUIRE_TESTS=1 → exit $TEST_EXIT)"
+    exit "$TEST_EXIT"
+  fi
+  echo "   Exit 0 quand même (reprise projet). Pour échouer si tests KO : UP_FULL_REQUIRE_TESTS=1 make up-full"
+  exit 0
 fi
 
 echo "✅ Stack, compte démo et tests OK."

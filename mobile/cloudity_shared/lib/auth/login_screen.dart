@@ -43,6 +43,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   String? _pendingEmail;
   String? _pendingTenant;
   T? _pendingApi;
+  List<Map<String, dynamic>> _devPersonas = [];
 
   @override
   void initState() {
@@ -52,6 +53,79 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     });
     if (kDebugMode) {
       ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
+      _loadDevPersonas();
+    }
+  }
+
+  Future<void> _loadDevPersonas() async {
+    try {
+      final gateways = await SessionStore.gatewayCandidates();
+      for (final gateway in gateways) {
+        final api = widget.createApi(gateway);
+        final personas = await api.fetchDevQuickLoginPersonas();
+        if (personas != null && personas.isNotEmpty) {
+          if (mounted) setState(() => _devPersonas = personas);
+          return;
+        }
+      }
+    } catch (_) {
+      // silencieux — panneau masqué
+    }
+  }
+
+  Future<void> _devQuickLogin(Map<String, dynamic> persona) async {
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
+    try {
+      final personaId = persona['id']?.toString() ?? '';
+      T? selectedApi;
+      Map<String, dynamic>? tokens;
+      Object? lastReachError;
+      final gateways = await SessionStore.gatewayCandidates();
+      for (final gateway in gateways) {
+        final api = widget.createApi(gateway);
+        try {
+          if (!await api.authHealth()) continue;
+        } catch (e) {
+          lastReachError = e;
+          continue;
+        }
+        selectedApi = api;
+        tokens = await api.devQuickLogin(persona: personaId);
+        break;
+      }
+      if (selectedApi == null || tokens == null) {
+        if (lastReachError != null) throw lastReachError;
+        throw AuthException(
+          'Connexion rapide indisponible. make up + make seed-dev-users + auth-service redémarré ?',
+        );
+      }
+      final access = tokens['access_token']! as String;
+      final refresh = (tokens['refresh_token'] as String?) ?? '';
+      final email = (tokens['email'] as String?) ??
+          persona['email']?.toString() ??
+          '';
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: selectedApi.baseUrl,
+        accessToken: access,
+        refreshToken: refresh,
+        email: email,
+      );
+      widget.onLoggedIn(
+        CloudityUserSession<T>(
+          api: selectedApi,
+          accessToken: access,
+          refreshToken: refresh,
+        ),
+      );
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = friendlyNetworkMessage(e, action: 'connexion rapide'));
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -308,6 +382,34 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
               child: FilledButton.tonal(
                 onPressed: _busy ? null : () => _continueWithBroker(acc),
                 child: Text('Continuer avec ${acc.email}'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Divider(),
+          const SizedBox(height: 8),
+        ],
+        if (kDebugMode && _devPersonas.isNotEmpty) ...[
+          Text(
+            'Dev — connexion rapide',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Sans mot de passe (local uniquement)',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          for (final p in _devPersonas)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: FilledButton.tonal(
+                key: ValueKey('${widget.keyPrefix}_dev_quick_${p['id']}'),
+                onPressed: _busy ? null : () => _devQuickLogin(p),
+                child: Text(
+                  '${p['label'] ?? p['id']} — ${p['email'] ?? ''}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           const SizedBox(height: 8),
