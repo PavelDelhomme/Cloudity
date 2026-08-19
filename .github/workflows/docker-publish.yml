@@ -12,7 +12,7 @@ name: Docker — build & publish (GHCR)
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, prod, dev]
     tags: ["v*.*.*"]
   pull_request:
     paths:
@@ -104,7 +104,9 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -146,7 +148,9 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -185,7 +189,9 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -199,3 +205,32 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
           provenance: false
+
+  ghcr-public:
+    name: GHCR packages public (Portainer CE pull)
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    needs: [go-services, python-admin, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Ensure GHCR packages are public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          PKGS=(
+            cloudity-auth-service cloudity-api-gateway cloudity-admin-service
+            cloudity-frontend cloudity-passwords-service cloudity-mail-directory-service
+            cloudity-calendar-service cloudity-notes-service cloudity-tasks-service
+            cloudity-drive-service cloudity-contacts-service cloudity-photos-service
+          )
+          for PKG in "${PKGS[@]}"; do
+            if gh api --method PATCH "/user/packages/container/${PKG}" -f visibility=public 2>/dev/null; then
+              echo "OK user ${PKG}"
+            elif gh api --method PATCH "/orgs/${OWNER}/packages/container/${PKG}" -f visibility=public 2>/dev/null; then
+              echo "OK org ${PKG}"
+            else
+              echo "::warning::${PKG} — passe en Public manuellement si Portainer ne pull pas"
+            fi
+          done

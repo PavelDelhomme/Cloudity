@@ -235,19 +235,64 @@ portainer-env-preprod: ## Affiche KEY=VALUE de .env.preprod pour Portainer / Zon
 #       make push-prod DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh FORCE=1
 #       make push-prod SKIP_GHCR=1          # checklist + portainer-env seuls
 #       make push-prod WAIT=1 SMOKE=1       # attend le workflow puis h14-https-check
-push-prod: ## VPS prod : prépare .env.prod + déclenche GHCR + checklist Portainer/NPM/ZF (WAIT=1 SMOKE=1 SKIP_GHCR=1 DOMAIN=…)
+push-prod: ## VPS prod : .env.prod + GHCR (REF=prod) + checklist (WAIT=1 SMOKE=1 REDEPLOY=1 SKIP_GHCR=1 DOMAIN=…)
 	@chmod +x scripts/ops/push-deploy.sh
-	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" \
+	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" REDEPLOY="$(REDEPLOY)" \
 		DOMAIN="$(DOMAIN)" HOST="$(HOST)" API_HOST="$(API_HOST)" WEB_HOST="$(WEB_HOST)" FORCE="$(FORCE)" \
 		WEB="$(WEB)" API="$(API)" \
 		./scripts/ops/push-deploy.sh prod
 
-push-preprod: ## VPS préprod : .env.preprod + GHCR (REF=dev défaut) + checklist (WAIT=1 SMOKE=1 SKIP_GHCR=1)
+push-preprod: ## VPS préprod : .env.preprod + GHCR tag :dev (REF=dev) + checklist
 	@chmod +x scripts/ops/push-deploy.sh
-	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" \
+	@REF="$(REF)" WAIT="$(WAIT)" SKIP_ENV="$(SKIP_ENV)" SKIP_GHCR="$(SKIP_GHCR)" SMOKE="$(SMOKE)" REDEPLOY="$(REDEPLOY)" \
 		DOMAIN="$(DOMAIN)" HOST="$(HOST)" API_HOST="$(API_HOST)" WEB_HOST="$(WEB_HOST)" FORCE="$(FORCE)" \
 		WEB="$(WEB)" API="$(API)" \
 		./scripts/ops/push-deploy.sh preprod
+
+push-dev: ## Push branche + GHCR tag :dev (REF=dev)
+	@git push -u origin HEAD 2>/dev/null || git push origin HEAD
+	@$(MAKE) publish-ghcr REF="$${REF:-dev}" WAIT="$(WAIT)"
+
+admin-deploy-prod: ## Merge dev→prod + GHCR + redeploy VPS (MODE=web|mobile|all APP=Mail)
+	@chmod +x scripts/deploy/admin-deploy-prod.sh scripts/deploy/redeploy-vps.sh
+	@MODE="$(MODE)" APP="$(APP)" ./scripts/deploy/admin-deploy-prod.sh "$${MODE:-web}"
+
+redeploy-vps: ## Redeploy Portainer/SSH après CI (PORTAINER_URL+API_KEY ou Watchtower)
+	@chmod +x scripts/deploy/redeploy-vps.sh
+	@./scripts/deploy/redeploy-vps.sh
+
+deploy-hint: ## Rappel NPM / Portainer / Watchtower / mobile OTA
+	@echo "📋 Cloudity deploy — voir DEPLOY.md"
+	@echo "   Portainer prod : deploy/portainer/docker-compose.ghcr.yml (TAG=latest)"
+	@echo "   Watchtower     : deploy/watchtower-compose.yml"
+	@echo "   NPM            : cloudity.<domaine> → cloudity-web:3000 · api.* → gateway:8000"
+	@echo "   Mobile OTA     : make mobile-publish APP=Mail"
+	@echo "   Canaux         : docs/operations/DISTRIBUTION-CHANNELS.md"
+
+bump-patch: ## VERSION patch (0.1.0 → 0.1.1)
+	@chmod +x scripts/deploy/bump-version.sh
+	@./scripts/deploy/bump-version.sh patch
+
+bump-minor: ## VERSION minor
+	@chmod +x scripts/deploy/bump-version.sh
+	@./scripts/deploy/bump-version.sh minor
+
+bump-major: ## VERSION major
+	@chmod +x scripts/deploy/bump-version.sh
+	@./scripts/deploy/bump-version.sh major
+
+version: ## Affiche VERSION + versionCode Android
+	@printf 'VERSION=%s\n' "$$(tr -d '[:space:]' < VERSION 2>/dev/null || echo 0.0.0)"
+	@MA=$$(cut -d. -f1 VERSION); MI=$$(cut -d. -f2 VERSION); PA=$$(cut -d. -f3 VERSION); \
+	  echo "versionCode=$$(( $${MA:-0} * 10000 + $${MI:-0} * 100 + $${PA:-0} ))"
+
+mobile-publish: ## Build APK + manifeste OTA (APP=Mail|Drive|Photos|Pass)
+	@chmod +x scripts/mobile/android-publish-apk.sh scripts/ci/publish-mobile-manifest.sh
+	@APP="$(APP)" ./scripts/mobile/android-publish-apk.sh
+
+mobile-upload-apk: ## Build + upload APK vers DEPLOY_URL (APP=… APK_UPLOAD_TOKEN=…)
+	@chmod +x scripts/mobile/publish-apk-remote.sh scripts/mobile/android-publish-apk.sh
+	@APP="$(APP)" DEPLOY_URL="$(DEPLOY_URL)" ./scripts/mobile/publish-apk-remote.sh
 
 publish-ghcr: ## GHCR seul : workflow « Docker — build & publish » (REF=branche courante ; WAIT=1 pour watch)
 	@if ! command -v gh >/dev/null 2>&1; then echo "❌ gh requis"; exit 1; fi

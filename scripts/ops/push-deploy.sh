@@ -37,13 +37,14 @@ WAIT="${WAIT:-0}"
 SKIP_ENV="${SKIP_ENV:-0}"
 SKIP_GHCR="${SKIP_GHCR:-0}"
 SMOKE="${SMOKE:-0}"
+REDEPLOY="${REDEPLOY:-0}"
 DOMAIN="${DOMAIN:-}"
 FORCE="${FORCE:-0}"
 
 if [[ "$TARGET" == "prod" ]]; then
   ENV_FILE=".env.prod"
   ENV_MAKE="env-prod"
-  DEFAULT_REF="main"
+  DEFAULT_REF="prod"
   ZF_ENV="cloudity"
   WEB_DEFAULT="https://cloudity.delhomme.ovh"
   API_DEFAULT="https://api.cloudity.delhomme.ovh"
@@ -158,7 +159,8 @@ echo "════════════════════════�
 cat <<EOF
 1. Portainer → stack cloudity-stack (ou ${ZF_ENV})
    · GitOps ON → pull auto ~5 min, OU bouton « Update the stack »
-   · Compose : deploy/portainer/docker-compose.stack.yml
+   · Compose : deploy/portainer/docker-compose.ghcr.yml  (images GHCR — recommandé)
+   · Legacy Git build : deploy/portainer/docker-compose.stack.yml
    · Branche : ${REF}
    · Env : bloc ci-dessus + NPM_NETWORK=…
 
@@ -183,6 +185,14 @@ Local (ne confonds pas) :
 EOF
 
 # --- 4. Smoke optionnel ---
+if [[ "$REDEPLOY" == "1" ]]; then
+  echo ""
+  echo "🔄 REDEPLOY=1 — redeploy VPS…"
+  chmod +x scripts/deploy/redeploy-vps.sh 2>/dev/null || true
+  CLOUDITY_DEPLOY_BRANCH="$REF" CLOUDITY_IMAGE_TAG="$([ "$TARGET" = prod ] && echo latest || echo dev)" \
+    ./scripts/deploy/redeploy-vps.sh || true
+fi
+
 if [[ "$SMOKE" == "1" ]]; then
   echo ""
   echo "🔎 SMOKE=1 — h14-https-check…"

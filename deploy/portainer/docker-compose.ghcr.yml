@@ -1,0 +1,317 @@
+# Stack Portainer PROD — images GHCR (style YTMusic, multi-services Cloudity)
+# Coller dans Portainer CE → Stacks → Web editor OU Git :
+#   Compose path : deploy/portainer/docker-compose.ghcr.yml
+#   Branche prod → TAG=latest   ·   Branche dev → TAG=dev (stack séparée)
+#
+# Prérequis :
+#   - Réseau NPM externe (NPM_NETWORK)
+#   - make env-prod && make portainer-env → coller les variables
+#   - Watchtower : deploy/watchtower-compose.yml (MAJ auto sans webhook Pro)
+
+version: "3.8"
+
+x-db-url: &db-url
+  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: cloudity-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-cloudity}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - cloudity_postgres_data:/var/lib/postgresql/data
+    networks: [cloudity-data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cloudity-redis
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD}
+    volumes:
+      - cloudity_redis_data:/data
+    networks: [cloudity-data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "$$REDIS_PASSWORD", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-migrate:
+    image: postgres:15-alpine
+    container_name: cloudity-db-migrate
+    restart: "no"
+    volumes:
+      - ../../scripts:/scripts:ro
+      - ../../infrastructure/postgresql/migrations:/migrations:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-cloudity}
+      PGHOST: postgres
+    command: ["/bin/sh", "/scripts/db/migrate-db.sh"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [cloudity-data]
+
+  auth-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-auth-service:${TAG:-latest}
+    container_name: cloudity-auth-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8081"
+      REDIS_URL: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      GO_ENV: production
+      ACCESS_TOKEN_DURATION_MINUTES: ${ACCESS_TOKEN_DURATION_MINUTES:-60}
+      AUTH_KEYS_DIR: /var/lib/cloudity/auth-keys
+      CLOUDITY_ALLOW_DEV_QUICK_LOGIN: "0"
+    volumes:
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  admin-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-admin-service:${TAG:-latest}
+    container_name: cloudity-admin-service
+    restart: unless-stopped
+    environment:
+      PORT: "8082"
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      PERFORMANCE_INGEST_TOKEN: ${PERFORMANCE_INGEST_TOKEN:?set PERFORMANCE_INGEST_TOKEN}
+      PYTHON_ENV: production
+    depends_on:
+      auth-service:
+        condition: service_healthy
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  passwords-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-passwords-service:${TAG:-latest}
+    container_name: cloudity-passwords-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8051"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  mail-directory-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-mail-directory-service:${TAG:-latest}
+    container_name: cloudity-mail-directory-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8050"
+      GO_ENV: production
+      MAIL_PASSWORD_ENCRYPTION_KEY: ${MAIL_PASSWORD_ENCRYPTION_KEY:?set MAIL_PASSWORD_ENCRYPTION_KEY}
+      ALIAS_ENCRYPTION_KEY: ${ALIAS_ENCRYPTION_KEY:-}
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  calendar-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-calendar-service:${TAG:-latest}
+    container_name: cloudity-calendar-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8052"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  notes-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-notes-service:${TAG:-latest}
+    container_name: cloudity-notes-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8053"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  tasks-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-tasks-service:${TAG:-latest}
+    container_name: cloudity-tasks-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8054"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  drive-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-drive-service:${TAG:-latest}
+    container_name: cloudity-drive-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8055"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  contacts-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-contacts-service:${TAG:-latest}
+    container_name: cloudity-contacts-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8056"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  photos-service:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-photos-service:${TAG:-latest}
+    container_name: cloudity-photos-service
+    restart: unless-stopped
+    environment:
+      <<: *db-url
+      PORT: "8057"
+      GO_ENV: production
+    depends_on:
+      db-migrate:
+        condition: service_completed_successfully
+    networks: [cloudity-data]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+  api-gateway:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-api-gateway:${TAG:-latest}
+    container_name: cloudity-api-gateway
+    restart: unless-stopped
+    environment:
+      PORT: "8000"
+      GO_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth-service:8081
+      ADMIN_SERVICE_URL: http://admin-service:8082
+      PASSWORDS_SERVICE_URL: http://passwords-service:8051
+      MAIL_DIRECTORY_SERVICE_URL: http://mail-directory-service:8050
+      CALENDAR_SERVICE_URL: http://calendar-service:8052
+      CONTACTS_SERVICE_URL: http://contacts-service:8056
+      NOTES_SERVICE_URL: http://notes-service:8053
+      TASKS_SERVICE_URL: http://tasks-service:8054
+      DRIVE_SERVICE_URL: http://drive-service:8055
+      PHOTOS_SERVICE_URL: http://photos-service:8057
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS}
+      CORS_ALLOW_LAN: "false"
+      PERFORMANCE_INGEST_TOKEN: ${PERFORMANCE_INGEST_TOKEN}
+      JWT_PUBLIC_KEY_PATH: /var/lib/cloudity/auth-keys/public.pem
+      JWT_ED25519_PUBLIC_KEY_PATH: /var/lib/cloudity/auth-keys/public_ed25519.pem
+    volumes:
+      - cloudity_auth_keys:/var/lib/cloudity/auth-keys:ro
+      - cloudity_mobile_data:/app/storage/mobile-releases:ro
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_started
+    networks:
+      - cloudity-data
+      - npm_edge
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  cloudity-web:
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-frontend:${TAG:-latest}
+    container_name: cloudity-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    networks:
+      - npm_edge
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  cloudity_postgres_data:
+    name: cloudity_postgres_data
+  cloudity_redis_data:
+    name: cloudity_redis_data
+  cloudity_auth_keys:
+    name: cloudity_auth_keys
+  cloudity_mobile_data:
+    name: cloudity_mobile_data
+
+networks:
+  cloudity-data:
+    driver: bridge
+    name: cloudity-data
+  npm_edge:
+    external: true
+    name: ${NPM_NETWORK:-nginx-proxy-manager_npm-network}
