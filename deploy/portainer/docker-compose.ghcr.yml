@@ -1,12 +1,10 @@
 # Stack Portainer PROD — images GHCR (style YTMusic, multi-services Cloudity)
-# Coller dans Portainer CE → Stacks → Web editor OU Git :
+# Déploiement Portainer : mode **Repository** (Git) — PAS Web editor seul.
+#   Repository : https://github.com/PavelDelhomme/Cloudity
 #   Compose path : deploy/portainer/docker-compose.ghcr.yml
-#   Branche prod → TAG=latest   ·   Branche dev → TAG=dev (stack séparée)
+#   Branche prod → TAG=latest   ·   Branche dev → TAG=dev
 #
-# Prérequis :
-#   - Réseau NPM externe (NPM_NETWORK)
-#   - make env-prod && make portainer-env → coller les variables
-#   - Watchtower : deploy/watchtower-compose.yml (MAJ auto sans webhook Pro)
+# Guide pas à pas : deploy/portainer/PORTAINER-INSTALL-PROD.md
 
 version: "3.8"
 
@@ -292,7 +290,7 @@ services:
     labels:
       - com.centurylinklabs.watchtower.enable=true
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:3000/"]
+      test: ["CMD", "wget", "-q", "-O/dev/null", "http://127.0.0.1:80/"]
       interval: 30s
       timeout: 10s
       retries: 5
