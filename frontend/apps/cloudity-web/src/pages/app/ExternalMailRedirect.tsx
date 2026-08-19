@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { ServiceStatusPage } from './components/ServiceStatusPage'
+import { ServiceStatusPage } from '../../components/ServiceStatusPage'
 
 /** Prod : quitte le shell vers la SPA Mail (nginx /app/mail/). */
 export default function ExternalMailRedirect() {

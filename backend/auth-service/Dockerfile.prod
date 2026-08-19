@@ -10,16 +10,17 @@
 # === Stage 1 : build statique ===========================================
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /src
+WORKDIR /app
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
 
 RUN apk add --no-cache git ca-certificates
 
+# go.mod replace => ./internalsec (relatif au WORKDIR du service)
 COPY internalsec ./internalsec
-COPY auth-service ./auth-service
-
-WORKDIR /src/auth-service
+COPY auth-service/go.mod auth-service/go.sum ./
 RUN go mod download
+
+COPY auth-service/ ./
 
 RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/auth-service .
 

@@ -10,17 +10,17 @@
 # === Stage 1 : build statique ===========================================
 FROM golang:1.25-alpine AS builder
 
-WORKDIR /src
+WORKDIR /app
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=auto
 
 RUN apk add --no-cache git ca-certificates
 
-# Copie les modules locaux importés via `replace` AVANT le service.
+# go.mod replace => ./internalsec (relatif au WORKDIR du service)
 COPY internalsec ./internalsec
-COPY api-gateway ./api-gateway
-
-WORKDIR /src/api-gateway
+COPY api-gateway/go.mod api-gateway/go.sum ./
 RUN go mod download
+
+COPY api-gateway/ ./
 
 RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/api-gateway .
 
