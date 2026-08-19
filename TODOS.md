@@ -19,8 +19,8 @@
 | SBOM front | `make frontend-sbom` |
 | Audit HIGH | `make test-security` (bloquant) · workflow `frontend-npm-audit.yml` |
 
-**FE-SEC-SUPPLY-02** → **`ok`**. **FE-SEC-SUPPLY-03** → **`ok`**.  
-**Toi** : Sync docs Pilotage → Valider SUPPLY-02 / SUPPLY-03 → Focus **SUPPLY-04**.
+**FE-SEC-SUPPLY-02** → **`ok`**. **FE-SEC-SUPPLY-03** → **`ok`**. **FE-SEC-SUPPLY-04** → **`ok`**.  
+**Toi** : Sync docs Pilotage → Valider SUPPLY-02 / 03 / 04 → Focus **SUPPLY-05**.
 
 ### Session 2026-08-06 — Que faire dans Pilotage (clarification)
 
@@ -31,10 +31,11 @@
 | **FE-SEC-SUPPLY-01** | `partial` (inventaire fait) | Sync docs → cocher Sync |
 | **FE-SEC-SUPPLY-02** | **`ok`** | Sync → Valider OK |
 | **FE-SEC-SUPPLY-03** | `ok` | Pin + SBOM CI + doc release (Sync Pilotage UI) |
-| **FE-SEC-SUPPLY-04** | `open` | Réduire surface deps |
+| **FE-SEC-SUPPLY-04** | `ok` | −12 lockfile, axios retiré, web-mail peer-only, Pass audit 0 |
+| **FE-SEC-SUPPLY-05** | `open` | Crypto hors JS npm / WASM |
 | **MOBILE-DA-01** | `open` | Après / en parallèle structure |
 
-**Focus unique recommandé** : **FE-SEC-SUPPLY-04** (ou Notes Keep UI / MOBILE-DA-01).
+**Focus unique recommandé** : **FE-SEC-SUPPLY-05** (ou MOBILE-DA-01 / Notes mobile).
 
 ---
 

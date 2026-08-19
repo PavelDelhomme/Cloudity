@@ -8,7 +8,12 @@ import * as api from '../../api'
 import * as webauthn from '../../webauthn'
 
 vi.mock('../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../api', () => ({ login: vi.fn(), verify2FA: vi.fn() }))
+vi.mock('../../api', () => ({
+  login: vi.fn(),
+  verify2FA: vi.fn(),
+  fetchDevQuickLoginPersonas: vi.fn(() => Promise.resolve(null)),
+  devQuickLogin: vi.fn(),
+}))
 vi.mock('../../webauthn', () => ({
   isWebAuthnSupported: vi.fn(() => false),
   loginWithPasskey: vi.fn(),

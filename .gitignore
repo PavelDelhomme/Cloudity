@@ -138,3 +138,7 @@ mobile/**/ios/Runner/GeneratedPluginRegistrant.*
 **/.venv/
 backend/**/venv/
 backend/**/.venv/
+
+# Lockfiles workspace : un seul à la racine frontend/ (évite axios/arbre dupliqué)
+frontend/apps/*/package-lock.json
+frontend/packages/*/package-lock.json

@@ -112,4 +112,19 @@ Ne pas démarrer D avant A+C1 (sinon on migre un monolithe encore vulnérable).
 | CI / Docker | **`npm ci` only** — jamais `npm install` sur image prod |
 | Override | Documenter dans ce fichier + note Pilotage si CVE force un override |
 
-*Dernière mise à jour : 2026-08-12.*
+*Dernière mise à jour : 2026-08-17.*
+
+### FE-SEC-SUPPLY-04 — réduire la surface (Phase B)
+
+Snapshot **2026-08-17** :
+
+| Métrique | Avant | Après |
+|----------|-------|-------|
+| Entrées `frontend/package-lock.json` | **558** | **546** (−12) |
+| `axios` runtime | déclaré, **0 import** | **retiré** (plus dans le lock) |
+| Lockfile dupliqué `apps/cloudity-web/package-lock.json` | présent (axios 1.16 stale) | **supprimé** + gitignore `frontend/apps/*/package-lock.json` |
+| `@cloudity/web-mail` | react/lucide/router en `dependencies` **et** peers | **peer-only** (runtime fourni par `@cloudity/web` ; copies en `devDependencies` pour le build Vite isolé) |
+| Extension Pass `npm audit --omit=dev --audit-level=high` | — | **0 vuln** |
+
+Waiver **moderate** `react-router` v6 inchangé (bump v7 breaking). Lucide conservé (icônes partout ; remplacement = chantier UI, pas un −N lockfile gratuit).
+
