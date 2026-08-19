@@ -1,0 +1,27 @@
+# Template Portainer CE — Cloudity prod (GHCR + Watchtower)
+# Title: Cloudity (prod)
+# Platform: Linux / Compose
+#
+# === NPM ===
+#   cloudity.<domaine>     → cloudity-web:3000
+#   api.cloudity.<domaine> → cloudity-api-gateway:8000
+#   SSL LE + Force SSL + Websockets ON
+#
+# === Variables (make env-prod && make portainer-env) ===
+#   REGISTRY_OWNER=paveldelhomme
+#   TAG=latest
+#   NPM_NETWORK=nginx-proxy-manager_npm-network
+#   + secrets stack.env.example
+#
+# === MAJ (Portainer CE sans webhook Pro) ===
+#   git push origin prod → GHCR :latest → Watchtower (~5 min)
+#   OU make admin-deploy-prod web
+#   OU Portainer → Pull and redeploy (NE PAS Remove volumes)
+
+version: "3.8"
+
+# Copie complète : deploy/portainer/docker-compose.ghcr.yml
+# Ce fichier est un raccourci documentaire — la source de vérité est docker-compose.ghcr.yml
+
+include:
+  - path: docker-compose.ghcr.yml

@@ -1,0 +1,122 @@
+# Canaux de distribution Cloudity
+
+Stratégie multi-canal pour installer et mettre à jour les applications (web, mobile, desktop).
+
+---
+
+## 1. Vue d'ensemble
+
+| Canal | Cible | Statut | Commande / doc |
+|-------|--------|--------|----------------|
+| **Web PWA** | Navigateur | ✅ Prod via GHCR + Watchtower | `make push-prod` |
+| **OTA APK** | Android sideload | ✅ Scripts prêts | `make mobile-publish APP=Mail` |
+| **F-Droid** | Android libre | 📋 Métadonnées stub | `deploy/fdroid/` |
+| **Google Play** | Android store | 📋 Checklist manuelle | § 4 ci-dessous |
+| **TestFlight** | iOS | 📋 Compte Apple requis | § 5 |
+| **Linux desktop** | .deb / Flatpak | 📋 Plan | `DISTRIBUTION-LINUX-DESKTOP.md` |
+
+Version source : [`VERSION`](../VERSION) — affichage **`d+`** (dev) / **`p+`** (prod).
+
+---
+
+## 2. OTA self-hosted (Android)
+
+### Build & manifeste
+
+```bash
+make mobile-publish APP=Mail              # APK locale + version.json
+DEPLOY_URL=https://cloudity.example make mobile-upload-apk APP=Mail
+```
+
+Fichiers produits :
+
+- `dist/mobile-apk/cloudity_mail-X.Y.Z.apk`
+- `dist/mobile-manifests/version-cloudity_mail.json`
+
+Format manifeste :
+
+```json
+{
+  "app": "cloudity_mail",
+  "version": "0.1.0",
+  "min_supported": "0.1.0",
+  "apk_url": "https://api.cloudity.example/deploy/apk/cloudity_mail/0.1.0",
+  "sha256": "…",
+  "published_at": "2026-08-19T12:00:00Z"
+}
+```
+
+### Côté app Flutter
+
+Au démarrage : `GET /api/deploy/mobile/manifest?app=cloudity_mail` → dialogue mise à jour si version > installée.
+
+> Route gateway à brancher — stub upload dans `scripts/mobile/publish-apk-remote.sh`.
+
+---
+
+## 3. F-Droid
+
+Répertoire [`deploy/fdroid/`](../deploy/fdroid/) :
+
+- `README.md` — procédure soumission
+- `metadata/fr.cloudity.cloudity_mail.yml` — stub Fastlane/F-Droid
+
+F-Droid exige :
+
+- Code source public (GitHub ✅)
+- Build reproductible (`flutter build apk` avec tag Git)
+- Pas de dépendance Google Play Services obligatoire
+
+---
+
+## 4. Google Play Store
+
+Checklist (manuelle) :
+
+1. Compte Play Console (~25 USD one-time)
+2. Keystore release **hors Git** (backup chiffré)
+3. `flutter build appbundle --release` par app
+4. Privacy policy URL publique
+5. Data safety form
+6. Internal testing → closed → production
+
+Packages Android :
+
+| App | Package |
+|-----|---------|
+| Mail | `fr.cloudity.cloudity_mail` |
+| Drive | `fr.cloudity.cloudity_drive` |
+| Photos | `fr.cloudity.cloudity_photos` |
+| Pass | `fr.cloudity.cloudity_pass` |
+
+Flavors recommandés : `dev` (`.dev` suffix) / `prod` (store).
+
+---
+
+## 5. iOS (TestFlight)
+
+Sans compte Apple Developer (~99 USD/an) : **pas de distribution OTA** type APK.
+
+Options :
+
+- **TestFlight** : builds Xcode + upload Transporter
+- **MDM entreprise** : usage interne uniquement
+
+---
+
+## 6. Web — pas d'« OTA »
+
+Nouvelle image `cloudity-frontend` → Watchtower → rechargement navigateur (cache bust Vite).
+
+---
+
+## 7. Bump version
+
+```bash
+make bump-patch    # 0.1.0 → 0.1.1
+make bump-minor
+make bump-major
+make admin-deploy-prod MODE=all   # web + mobile après bump
+```
+
+`versionCode` Android = `major×10000 + minor×100 + patch`.

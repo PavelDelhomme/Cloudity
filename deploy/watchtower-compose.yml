@@ -1,0 +1,34 @@
+# Watchtower — mise à jour auto des images Cloudity (Portainer CE, SANS webhook Pro)
+#
+# 1. Portainer → Stacks → Add stack → name: watchtower
+# 2. Colle ce fichier
+# 3. Deploy
+#
+# Les services Cloudity GHCR portent le label :
+#   com.centurylinklabs.watchtower.enable=true
+# → Watchtower ne touche QUE les conteneurs labellisés.
+#
+# Après push `prod` + build GHCR, Watchtower pull :latest sous ~5 min
+# et recrée les conteneurs (volumes postgres/redis/auth-keys conservés).
+
+version: "3.8"
+
+services:
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "false"
+    networks:
+      - shared
+
+networks:
+  shared:
+    external: true
+    name: ${SHARED_NETWORK:-shared-network-copy}

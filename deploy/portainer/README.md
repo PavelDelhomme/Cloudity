@@ -11,9 +11,15 @@
 | Fichier | Rôle |
 |---------|------|
 | [PORTAINER-STACK.md](./PORTAINER-STACK.md) | Formulaire condensé + NPM |
-| [docker-compose.stack.yml](./docker-compose.stack.yml) | Entrée **prod** (`refs/heads/main`) |
-| [docker-compose.stack-dev.yml](./docker-compose.stack-dev.yml) | Entrée **dev** (`refs/heads/dev`) |
+| [docker-compose.stack.yml](./docker-compose.stack.yml) | Entrée **prod** Git build (`refs/heads/main`) |
+| [docker-compose.stack-dev.yml](./docker-compose.stack-dev.yml) | Entrée **dev** Git build |
+| **[docker-compose.ghcr.yml](./docker-compose.ghcr.yml)** | **Prod GHCR** — recommandé (style YTMusic + Watchtower) |
+| [portainer-template.yml](./portainer-template.yml) | Raccourci doc Portainer CE |
 | [stack.env.example](./stack.env.example) | Modèle variables (sans secrets) |
+
+**Watchtower** (MAJ auto sans webhook Pro) : [../watchtower-compose.yml](../watchtower-compose.yml)
+
+**Guide rapide** : [DEPLOY.md](../../DEPLOY.md) à la racine du dépôt.
 
 **Générer les env Portainer depuis ton PC** :
 
