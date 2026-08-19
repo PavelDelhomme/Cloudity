@@ -3353,7 +3353,7 @@
       "label": "FE-SEC-SUPPLY-04 — Réduire surface deps",
       "description": "Phase B : retirer/remplacer deps inutiles ; web-mail peer-only ; audit extension Pass séparé. Mesurer −N packages lockfile.",
       "expected": "Lockfile plus petit mesurable ; pas de régression make test / smoke apps.",
-      "status": "open",
+      "status": "ok",
       "order": 3,
       "checklistLabels": [
         "Diff lockfile avant/après documenté",
@@ -3362,6 +3362,7 @@
         "make test (vitest) vert"
       ],
       "source": "catalog",
+      "completionNote": "2026-08-17 : lockfile 558→546 ; axios inutilisé retiré ; web-mail peer-only ; lock dupliqué cloudity-web supprimé ; Pass audit HIGH 0. Waiver react-router v6. Suite = SUPPLY-05 crypto WASM.",
       "docLinks": [
         "docs/architecture/FRONTEND-SUPPLY-CHAIN.md"
       ]

@@ -26,7 +26,6 @@
     "@cloudity/ui": "file:../../packages/cloudity-ui",
     "@cloudity/web-mail": "file:../web-mail",
     "@tanstack/react-query": "^5.0.0",
-    "axios": "^1.19.0",
     "docx": "^9.6.0",
     "lucide-react": "^0.263.0",
     "mammoth": "^1.8.0",
