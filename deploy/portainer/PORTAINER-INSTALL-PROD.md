@@ -554,6 +554,7 @@ Première connexion admin : seed via variables `SEED_ADMIN_EMAIL` / `SEED_ADMIN_
 |----------|-------|-----|
 | NPM 502 sur web | forward `cloudity:80` | `cloudity-web:80` |
 | NPM 502 sur API | proxy manquant | `cloudity-api-gateway:8000` |
+| db-migrate fail exit 2 / `users does not exist` | volume Postgres créé **sans** scripts `init/` (premier deploy) | fix compose (init monté) + **supprimer** le volume `cloudity_postgres_data` puis redeploy |
 | db-migrate fail | Web editor sans Git | mode **Repository** |
 | GHCR pull denied | packages privés | Public sur GitHub Packages |
 | CORS browser | origine absente de `CORS_ORIGINS` | ajouter le sous-domaine |
