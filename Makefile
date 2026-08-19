@@ -226,6 +226,11 @@ portainer-env: ## Affiche KEY=VALUE de .env.prod (ou FILE=…) à coller dans Po
 	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
 	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.prod)"
 
+portainer-prod-env: ## Génère secrets prod + bloc complet Portainer (DOMAIN= HOST= API_HOST= NPM_NETWORK=)
+	@chmod +x scripts/ops/generate-portainer-prod-env.sh scripts/dev/gen-secrets.sh scripts/dev/env-prepare.sh scripts/dev/portainer-env-print.sh
+	@DOMAIN="$(DOMAIN)" HOST="$(HOST)" API_HOST="$(API_HOST)" NPM_NETWORK="$(NPM_NETWORK)" REGISTRY_OWNER="$(REGISTRY_OWNER)" \
+		./scripts/ops/generate-portainer-prod-env.sh
+
 portainer-env-preprod: ## Affiche KEY=VALUE de .env.preprod pour Portainer / ZoneForge préprod (FILE= override)
 	@chmod +x scripts/dev/portainer-env-print.sh 2>/dev/null || true
 	@./scripts/dev/portainer-env-print.sh "$(if $(FILE),$(FILE),.env.preprod)"

@@ -19,7 +19,14 @@
 
 **Watchtower** (MAJ auto sans webhook Pro) : [../watchtower-compose.yml](../watchtower-compose.yml)
 
-**Guide rapide** : [DEPLOY.md](../../DEPLOY.md) à la racine du dépôt.
+**Guide première install VPS** : **[PORTAINER-INSTALL-PROD.md](./PORTAINER-INSTALL-PROD.md)** ← commence ici
+
+**Générer le bloc env Portainer (secrets prod frais)** :
+
+```bash
+make portainer-prod-env NPM_NETWORK=nginx-proxy-manager_npm-network
+# ou DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh
+```
 
 **Générer les env Portainer depuis ton PC** :
 
