@@ -7,8 +7,13 @@
 # a un trou. On reconnecte, on attend, on ne spawn pas un 2ᵉ qemu.
 #
 # Cold boot forcé (snapshot cassé) : CLOUDITY_AVD_COLD_BOOT=1
+# Lancement stable hors TTY / agent : CLOUDITY_AVD_USE_SYSTEMD=1 (systemd-run --user)
 # Arrêt explicite uniquement : make mobile-emulator-cloudity-stop
 set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=mobile-android-sdk.inc.sh
+source "${ROOT}/scripts/mobile/mobile-android-sdk.inc.sh"
 
 AVD_NAME="${CLOUDITY_AVD_NAME:-Cloudity_S21_FE}"
 AVD_PORT="${CLOUDITY_AVD_PORT:-5556}"
@@ -17,25 +22,14 @@ LOG_FILE="/tmp/cloudity-avd-${AVD_NAME}.log"
 PID_FILE="/tmp/cloudity-avd-${AVD_NAME}.pid"
 LOCK_FILE="/tmp/cloudity-avd-${AVD_NAME}.lock"
 COLD_BOOT="${CLOUDITY_AVD_COLD_BOOT:-0}"
-
-cloudity_android_sdk_root() {
-  local candidate
-  for candidate in \
-    "${ANDROID_SDK_ROOT:-}" \
-    "${ANDROID_HOME:-}" \
-    "${HOME}/Android/Sdk" \
-    "/opt/android-sdk"; do
-    [[ -n "$candidate" && -x "${candidate}/emulator/emulator" && -d "${candidate}/system-images" ]] || continue
-    printf '%s' "$candidate"
-    return 0
-  done
-  return 1
-}
+# Hors terminal (CI, agent) : systemd-run par défaut si disponible.
+if [[ -z "${CLOUDITY_AVD_USE_SYSTEMD:-}" ]] && ! [[ -t 1 ]] && command -v systemd-run >/dev/null 2>&1; then
+  CLOUDITY_AVD_USE_SYSTEMD=1
+fi
 
 SDK_ROOT="$(cloudity_android_sdk_root || true)"
 EMULATOR="${SDK_ROOT:+$SDK_ROOT/emulator/emulator}"
-
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cloudity_android_sdk_export || true
 
 if [[ ! -d "${HOME}/.android/avd/${AVD_NAME}.avd" ]]; then
   chmod +x "${ROOT}/scripts/mobile/mobile-emulator-cloudity-create.sh"
@@ -240,11 +234,35 @@ else
   echo "🚀 Démarrage AVD ${AVD_NAME} sur ${AVD_PORT} (snapshot si dispo, SDK=${SDK_ROOT})…"
 fi
 
-ANDROID_SDK_ROOT="$SDK_ROOT" ANDROID_HOME="$SDK_ROOT" \
-  nohup "$EMULATOR" "${EMU_ARGS[@]}" >"$LOG_FILE" 2>&1 &
-emu_pid=$!
-echo "$emu_pid" >"$PID_FILE"
-echo "   PID ${emu_pid} · logs : ${LOG_FILE}"
+cloudity__launch_emulator() {
+  local emu_pid
+  if [[ "${CLOUDITY_AVD_USE_SYSTEMD:-0}" == "1" ]] && command -v systemd-run >/dev/null 2>&1; then
+    echo "   Mode systemd-run (CLOUDITY_AVD_USE_SYSTEMD=1, SDK=${SDK_ROOT})…"
+    systemd-run --user --unit="cloudity-avd-${AVD_NAME}" --collect \
+      -p "Environment=HOME=${HOME}" \
+      -p "Environment=ANDROID_SDK_ROOT=${SDK_ROOT}" \
+      -p "Environment=ANDROID_HOME=${SDK_ROOT}" \
+      -p "Environment=PATH=${SDK_ROOT}/emulator:${SDK_ROOT}/platform-tools:${PATH}" \
+      "${EMULATOR}" "${EMU_ARGS[@]}" >>"$LOG_FILE" 2>&1 || return 1
+    # Attendre le PID qemu sous l'unité user
+    sleep 3
+    emu_pid="$(cloudity__avd_pids | head -1 || true)"
+    if [[ -n "$emu_pid" ]]; then
+      echo "$emu_pid" >"$PID_FILE"
+      echo "   PID ${emu_pid} (systemd cloudity-avd-${AVD_NAME}) · logs : ${LOG_FILE}"
+      return 0
+    fi
+    echo "⚠️  systemd-run lancé mais PID qemu introuvable — bascule nohup"
+  fi
+  ANDROID_SDK_ROOT="$SDK_ROOT" ANDROID_HOME="$SDK_ROOT" \
+    setsid "$EMULATOR" "${EMU_ARGS[@]}" >>"$LOG_FILE" 2>&1 &
+  emu_pid=$!
+  echo "$emu_pid" >"$PID_FILE"
+  echo "   PID ${emu_pid} · logs : ${LOG_FILE}"
+}
+
+cloudity__launch_emulator
+emu_pid="$(cat "$PID_FILE" 2>/dev/null || true)"
 
 # Laisse qemu binder le port avant wait-for-device
 sleep 2

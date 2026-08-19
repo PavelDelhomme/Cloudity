@@ -16,8 +16,14 @@ AVD **dédié aux tests Cloudity**, distinct de `JobbingTrack_S21_FE` (`emulator
 # Démarrer l'AVD Cloudity (en parallèle de JobbingTrack sur 5554)
 make mobile-emulator-cloudity-start
 
-# Suite E2E Photos → Drive → Mail sur l'AVD Cloudity uniquement
+# Suite E2E Photos → Drive → Mail (stack + AVD automatiques)
 make test-mobile-avd
+make test-mobile-avd-photos
+make test-mobile-avd-drive
+make test-mobile-avd-mail
+
+# Stack déjà up : ne pas relancer Docker
+CLOUDITY_AVD_SKIP_STACK=1 make test-mobile-avd-drive
 
 # Rafraîchir l'empreinte golden depuis emulator-5556
 make mobile-device-snapshot-avd

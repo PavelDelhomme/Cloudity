@@ -531,17 +531,24 @@ test-mobile-samsung: ## Suite mobile sur profil Samsung golden (samsung-sm-g990b
 	@chmod +x scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
 	@CLOUDITY_DEVICE_PROFILE=samsung-sm-g990b2 CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-suite.sh
 
-test-mobile-avd: ## Photos→Drive→Mail sur AVD Cloudity (emulator-5556) — force le profil AVD, ignore le Samsung USB
-	@chmod +x scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
-	@./scripts/mobile/mobile-emulator-cloudity.sh
-	@CLOUDITY_DEVICE_PROFILE=cloudity-avd-s21-fe \
-		CLOUDITY_DEVICE_ID=emulator-5556 \
-		ANDROID_SERIAL=emulator-5556 \
-		CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) \
-		./scripts/mobile/test-mobile-suite.sh
+test-mobile-avd: ## Photos→Drive→Mail sur AVD Cloudity (stack+AVD auto, emulator-5556)
+	@chmod +x scripts/mobile/test-mobile-avd.sh scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/mobile-android-sdk.inc.sh scripts/mobile/test-mobile-suite.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-avd.sh suite
+
+test-mobile-avd-photos: ## Tests Photos sur AVD Cloudity (stack+AVD auto)
+	@chmod +x scripts/mobile/test-mobile-avd.sh scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/mobile-android-sdk.inc.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-avd.sh photos
+
+test-mobile-avd-drive: ## Tests Drive sur AVD Cloudity (stack+AVD auto)
+	@chmod +x scripts/mobile/test-mobile-avd.sh scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/mobile-android-sdk.inc.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-avd.sh drive
+
+test-mobile-avd-mail: ## Tests Mail sur AVD Cloudity (stack+AVD auto)
+	@chmod +x scripts/mobile/test-mobile-avd.sh scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/mobile-android-sdk.inc.sh scripts/mobile/test-mobile-app.sh scripts/mobile/mobile-test-common.inc.sh scripts/mobile/mobile-device-resolve.sh
+	@CLOUDITY_GATEWAY_PORT=$(PORT_GATEWAY) ./scripts/mobile/test-mobile-avd.sh mail
 
 mobile-emulator-cloudity-start: ## AVD Cloudity_S21_FE port 5556 — réutilise si déjà up (CLOUDITY_AVD_COLD_BOOT=1 si snapshot cassé)
-	@chmod +x scripts/mobile/mobile-emulator-cloudity.sh
+	@chmod +x scripts/mobile/mobile-emulator-cloudity.sh scripts/mobile/mobile-android-sdk.inc.sh
 	@./scripts/mobile/mobile-emulator-cloudity.sh
 
 mobile-emulator-cloudity-stop: ## Arrêt EXPLICITE AVD Cloudity seulement (jamais appelé par les tests ; Samsung / autres emu intacts)
