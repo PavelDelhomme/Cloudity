@@ -1,0 +1,26 @@
+# Unité systemd user pour AVD Cloudity — copie stable hors session shell / agent CI.
+#
+# Installation :
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|%HOME%|${HOME}|g" scripts/mobile/cloudity-avd.service.example > ~/.config/systemd/user/cloudity-avd.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now cloudity-avd.service
+#
+# Ou une fois : CLOUDITY_AVD_USE_SYSTEMD=1 make mobile-emulator-cloudity-start
+#
+[Unit]
+Description=Cloudity AVD Cloudity_S21_FE (emulator-5556)
+After=network.target
+
+[Service]
+Type=simple
+Environment=HOME=%HOME%
+Environment=ANDROID_SDK_ROOT=%HOME%/Android/Sdk
+Environment=ANDROID_HOME=%HOME%/Android/Sdk
+Environment=PATH=%HOME%/Android/Sdk/emulator:%HOME%/Android/Sdk/platform-tools:/usr/local/bin:/usr/bin
+ExecStart=%HOME%/Android/Sdk/emulator/emulator -avd Cloudity_S21_FE -port 5556 -no-boot-anim
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=default.target
