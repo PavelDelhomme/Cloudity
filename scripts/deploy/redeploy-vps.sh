@@ -16,7 +16,7 @@ if [[ -f "$ROOT/.env" ]]; then
   set +a
 fi
 
-REGISTRY_OWNER="${REGISTRY_OWNER:-PavelDelhomme}"
+REGISTRY_OWNER="${REGISTRY_OWNER:-paveldelhomme}"
 TAG="${CLOUDITY_IMAGE_TAG:-latest}"
 STACK_NAME="${PORTAINER_STACK_NAME:-cloudity}"
 WORKFLOW_NAME="${CLOUDITY_GHCR_WORKFLOW:-Docker — build & publish (GHCR)}"

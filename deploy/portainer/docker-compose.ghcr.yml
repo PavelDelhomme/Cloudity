@@ -23,6 +23,8 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - cloudity_postgres_data:/var/lib/postgresql/data
+      # Schéma de base (users, tenants…) — exécuté une seule fois à la création du volume.
+      - ../../infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
     networks: [cloudity-data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
