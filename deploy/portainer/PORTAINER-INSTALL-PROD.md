@@ -129,7 +129,137 @@ Tous en **A** → `95.111.227.204` :
 
 ---
 
-## 2. Nginx Proxy Manager
+## 2 bis. NPM — ta config actuelle (cloudity.delhomme.ovh)
+
+### HTTPS partout
+
+NPM termine le HTTPS (Let's Encrypt). Vers les conteneurs tu laisses **`http`** (pas https) :
+
+| Vers conteneur | Scheme NPM | SSL onglet |
+|----------------|------------|------------|
+| `cloudity-web:80` | **http** | ✅ Request SSL + Force SSL |
+| `cloudity-api-gateway:8000` | **http** | ✅ Request SSL + Force SSL |
+
+L'utilisateur voit `https://cloudity.delhomme.ovh` — NPM déchiffre et parle en HTTP au conteneur.
+
+### Corriger le proxy `cloudity:80`
+
+| Champ | Valeur |
+|-------|--------|
+| Domain Names | voir ci-dessous |
+| Scheme | `http` |
+| Forward hostname | **`cloudity-web`** (pas `cloudity`) |
+| Forward port | **`80`** |
+| SSL | Let's Encrypt + **Force SSL** + HTTP/2 |
+
+### ⚠️ Ne mets PAS `api.cloudity…` dans le proxy web
+
+| Domaine | Proxy NPM séparé ? | Forward |
+|---------|-------------------|---------|
+| `api.cloudity.delhomme.ovh` | **Oui — proxy dédié** | `cloudity-api-gateway:8000` |
+| `cloudity.delhomme.ovh` | Proxy web #1 | `cloudity-web:80` |
+| `admin`, `mail`, `drive`, `pass`, … | **Même proxy web** (Domain Names multiples) | `cloudity-web:80` |
+
+Dans **un seul** Proxy Host web, tu peux lister tous les domaines front :
+
+```
+cloudity.delhomme.ovh
+admin.cloudity.delhomme.ovh
+mail.cloudity.delhomme.ovh
+drive.cloudity.delhomme.ovh
+pass.cloudity.delhomme.ovh
+calendar.cloudity.delhomme.ovh
+notes.cloudity.delhomme.ovh
+tasks.cloudity.delhomme.ovh
+contacts.cloudity.delhomme.ovh
+photos.cloudity.delhomme.ovh
+office.cloudity.delhomme.ovh
+```
+
+Puis **Advanced** (optionnel) — rediriger vers la bonne app :
+
+```nginx
+# mail.cloudity… → ouvre Mail directement
+if ($host = "mail.cloudity.delhomme.ovh") {
+  return 302 https://cloudity.delhomme.ovh/app/mail$is_args$args;
+}
+# drive.cloudity…
+if ($host = "drive.cloudity.delhomme.ovh") {
+  return 302 https://cloudity.delhomme.ovh/app/drive$is_args$args;
+}
+# (idem pass → /app/pass, calendar → /app/calendar, etc.)
+```
+
+### Redirections typo (`d.cloudity`, `m.cloudity`, `mails`…)
+
+**Pas encore dans l'admin Cloudity** — c'est une évolution prévue (API NPM + DNS OVH). Pour l'instant :
+
+- **`mails.cloudity…`** → NPM Advanced : `return 301 https://mail.cloudity.delhomme.ovh$request_uri;`
+- Typos (`d.`, `m.`, `pa.`) → ajouter DNS A + même proxy web, ou redirects NPM manuels
+
+### Proxy API (2ᵉ Proxy Host obligatoire)
+
+| Champ | Valeur |
+|-------|--------|
+| Domain Names | `api.cloudity.delhomme.ovh` |
+| Forward | `cloudity-api-gateway:8000` |
+| SSL | Force SSL |
+| Advanced | `client_max_body_size 200m;` |
+
+---
+
+## 4 bis. Fichier env pour Portainer (sans tout retaper)
+
+```bash
+cd ~/Documents/Dev/Perso/Cloudity/Cloudity
+make portainer-prod-env NPM_NETWORK=nginx-proxy-manager_npm-network
+```
+
+Génère aussi **`deploy/portainer/stack.env`** (gitignored).
+
+Dans Portainer → Stack → Environment variables :
+
+- **Option A** : bouton **Load variables from file** → choisir `stack.env`
+- **Option B** : coller le bloc stdout
+- **Option C** : `scp deploy/portainer/stack.env user@95.111.227.204:/opt/cloudity/` puis référencer sur le VPS
+
+⚠️ **Regénère les secrets** si tu les as collés dans un chat (`make portainer-prod-env` refait tout).
+
+---
+
+## 5 bis. Formulaire Portainer Git — valeurs exactes
+
+| Champ Portainer | Valeur |
+|-----------------|--------|
+| **Name** | `cloudity` |
+| **Build method** | Repository |
+| **Repository URL** | `https://github.com/PavelDelhomme/Cloudity` |
+| **Repository reference** | `refs/heads/feat/notes-google-keep` (puis `refs/heads/prod` quand branche prod créée) |
+| **Compose path** | `deploy/portainer/docker-compose.ghcr.yml` |
+| **Additional paths** | **vide** (rien à ajouter) |
+| **Authentication** | GitHub username + PAT (`repo` scope) si repo privé |
+| **Environment variables** | Load from `deploy/portainer/stack.env` |
+| **GitOps** | ON (optionnel) |
+| **Re-pull image** | ON |
+
+**Additional paths** : seulement si tu avais des `include:` vers d'autres compose — pas le cas avec `docker-compose.ghcr.yml`.
+
+---
+
+## 5 ter. Auth / inscription (état actuel)
+
+| Fonctionnalité | Statut |
+|----------------|--------|
+| Login web avec redirect `?next=/app/drive` | ✅ `RequireAuth` dans le shell SPA |
+| Register API `POST /auth/register` | ✅ basique (email + password + tenant) |
+| Validation email par lien | ❌ pas encore (compte actif immédiatement) |
+| Mobile → browser inscription → retour app | ❌ deep link à implémenter |
+| Force mot de passe (Have I Been Pwned) | ❌ backlog |
+| Ouverture `drive.cloudity…` sans login | → redirect `/login?next=…` une fois stack up |
+
+Le flux complet que tu décris est la **cible produit** — la base auth existe, l'email verification et mobile deep link viendront après la stack prod.
+
+---
 
 ### Corriger ta config actuelle
 

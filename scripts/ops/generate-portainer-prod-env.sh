@@ -2,11 +2,10 @@
 # Génère le bloc Environment variables pour Portainer PROD (secrets frais + URLs prod).
 #
 # Usage :
-#   ./scripts/ops/generate-portainer-prod-env.sh
-#   DOMAIN=delhomme.ovh HOST=cloudity.delhomme.ovh API_HOST=api.cloudity.delhomme.ovh ./scripts/ops/generate-portainer-prod-env.sh
+#   make portainer-prod-env NPM_NETWORK=nginx-proxy-manager_npm-network
+#   WRITE_STACK_ENV=1 make portainer-prod-env   # écrit aussi deploy/portainer/stack.env
 #
-# Sortie : stdout KEY=VALUE (copier dans Portainer → Stack cloudity → Environment variables → Advanced)
-# Fichier local (gitignored) : .env.prod
+# Sortie : stdout KEY=VALUE + fichier .env.prod + optionnel deploy/portainer/stack.env
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -14,27 +13,51 @@ cd "$ROOT"
 DOMAIN="${DOMAIN:-delhomme.ovh}"
 HOST="${HOST:-cloudity.${DOMAIN}}"
 API_HOST="${API_HOST:-api.cloudity.${DOMAIN}}"
+ADMIN_HOST="${ADMIN_HOST:-admin.cloudity.${DOMAIN}}"
 REGISTRY_OWNER="${REGISTRY_OWNER:-PavelDelhomme}"
 NPM_NETWORK="${NPM_NETWORK:-nginx-proxy-manager_npm-network}"
+WRITE_STACK_ENV="${WRITE_STACK_ENV:-1}"
+STACK_ENV_FILE="${STACK_ENV_FILE:-$ROOT/deploy/portainer/stack.env}"
+
+# Sous-domaines web optionnels (CORS + WebAuthn)
+APP_SUBDOMAINS="${APP_SUBDOMAINS:-mail drive pass calendar notes tasks contacts photos office}"
+
+build_https_origins() {
+  local base="$1"
+  shift
+  local subs=("$@")
+  local out="https://${HOST}"
+  local s
+  if [[ -n "$ADMIN_HOST" && "$ADMIN_HOST" != "$HOST" ]]; then
+    out="${out},https://${ADMIN_HOST}"
+  fi
+  for s in "${subs[@]}"; do
+    out="${out},https://${s}.cloudity.${DOMAIN}"
+  done
+  printf '%s' "$out"
+}
+
+CORS_ORIGINS_VALUE="$(build_https_origins "$HOST" $APP_SUBDOMAINS)"
+WEBAUTHN_ORIGINS_VALUE="$CORS_ORIGINS_VALUE"
 
 echo "════════════════════════════════════════════════════════" >&2
 echo " Génération .env.prod + secrets prod (CSPRNG)" >&2
 echo " Domaine : ${HOST} · API : ${API_HOST}" >&2
+echo " CORS    : ${CORS_ORIGINS_VALUE}" >&2
 echo "════════════════════════════════════════════════════════" >&2
 echo "" >&2
 
-# Secrets prod robustes (ne pas réutiliser les mots de passe dev du .env local)
 SECRETS="$(./scripts/dev/gen-secrets.sh --print)"
 eval "$(echo "$SECRETS" | grep -E '^[A-Z_]+=' | sed 's/^/export /')"
 
-# Fusion .env.example + overlays prod + sync URLs publiques
+SEED_ADMIN_PASSWORD="${SEED_ADMIN_PASSWORD:-$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)}"
+
 ./scripts/dev/env-prepare.sh prod \
   --domain "$DOMAIN" \
   --host "$HOST" \
   --api-host "$API_HOST" \
   --force
 
-# Écrase les secrets faibles hérités du .env dev
 {
   echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}"
   echo "REDIS_PASSWORD=${REDIS_PASSWORD}"
@@ -42,9 +65,12 @@ eval "$(echo "$SECRETS" | grep -E '^[A-Z_]+=' | sed 's/^/export /')"
   echo "PERFORMANCE_INGEST_TOKEN=${PERFORMANCE_INGEST_TOKEN}"
   echo "MAIL_PASSWORD_ENCRYPTION_KEY=${MAIL_PASSWORD_ENCRYPTION_KEY}"
   echo "ALIAS_ENCRYPTION_KEY=${ALIAS_ENCRYPTION_KEY}"
+  echo "SEED_ADMIN_PASSWORD=${SEED_ADMIN_PASSWORD}"
+  echo "CORS_ORIGINS=${CORS_ORIGINS_VALUE}"
+  echo "WEBAUTHN_ORIGINS=${WEBAUTHN_ORIGINS_VALUE}"
+  echo "CLOUDITY_PUBLIC_API_HOST=${API_HOST}"
 } >> .env.prod
 
-# Dédupliquer (dernière valeur gagne)
 awk -F= '
   /^[[:space:]]*#/ { next }
   /^[[:space:]]*$/ { next }
@@ -60,24 +86,38 @@ awk -F= '
 ' .env.prod > .env.prod.tmp && mv .env.prod.tmp .env.prod
 
 ./scripts/dev/sync-public-urls.sh .env.prod 2>/dev/null || true
+grep -v '^CORS_ORIGINS=' .env.prod | grep -v '^WEBAUTHN_ORIGINS=' > .env.prod.tmp
+mv .env.prod.tmp .env.prod
+echo "CORS_ORIGINS=${CORS_ORIGINS_VALUE}" >> .env.prod
+echo "WEBAUTHN_ORIGINS=${WEBAUTHN_ORIGINS_VALUE}" >> .env.prod
+
+ENV_BLOCK="$(mktemp)"
+{
+  echo "REGISTRY_OWNER=${REGISTRY_OWNER}"
+  echo "TAG=latest"
+  echo "NPM_NETWORK=${NPM_NETWORK}"
+  ./scripts/dev/portainer-env-print.sh .env.prod
+  grep -q '^ACCESS_TOKEN_DURATION_MINUTES=' .env.prod 2>/dev/null || echo "ACCESS_TOKEN_DURATION_MINUTES=60"
+} > "$ENV_BLOCK"
+
+if [[ "$WRITE_STACK_ENV" == "1" ]]; then
+  mkdir -p "$(dirname "$STACK_ENV_FILE")"
+  cp "$ENV_BLOCK" "$STACK_ENV_FILE"
+  chmod 600 "$STACK_ENV_FILE"
+  echo "📄 Fichier Portainer : ${STACK_ENV_FILE}" >&2
+  echo "   Portainer CE → Stack → Environment variables → « Load variables from file » (si dispo)" >&2
+  echo "   ou : scp deploy/portainer/stack.env user@vps:/opt/cloudity/stack.env" >&2
+fi
 
 echo "" >&2
 echo "—— Coller dans Portainer (Advanced environment) ——" >&2
 echo "" >&2
-
-# Variables obligatoires pour docker-compose.ghcr.yml + stack
-cat <<EOF
-REGISTRY_OWNER=${REGISTRY_OWNER}
-TAG=latest
-NPM_NETWORK=${NPM_NETWORK}
-EOF
-
-./scripts/dev/portainer-env-print.sh .env.prod
-
-# Clés minimales requises par le compose (rappel si absentes)
-grep -q '^ACCESS_TOKEN_DURATION_MINUTES=' .env.prod 2>/dev/null || echo "ACCESS_TOKEN_DURATION_MINUTES=60"
+cat "$ENV_BLOCK"
+rm -f "$ENV_BLOCK"
 
 echo "" >&2
 echo "—— Fin du bloc Portainer ——" >&2
-echo "Fichier local sauvé : .env.prod (gitignored)" >&2
-echo "NPM : ${HOST} → cloudity-web:3000 · ${API_HOST} → cloudity-api-gateway:8000" >&2
+echo "Fichier local : .env.prod + ${STACK_ENV_FILE} (gitignored)" >&2
+echo "NPM web  : ${HOST} (+ sous-domaines apps) → cloudity-web:80 (HTTPS terminé par NPM)" >&2
+echo "NPM API  : ${API_HOST} → cloudity-api-gateway:8000" >&2
+echo "⚠️  Ne partage jamais ce bloc (secrets) — regénère si exposé." >&2

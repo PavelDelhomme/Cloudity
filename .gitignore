@@ -50,9 +50,11 @@ deploy/mail-mta/.env
 .env.test
 .env.*.local
 .env.*
+deploy/portainer/stack.env
 
 # Garde-fou : autoriser uniquement les exemples documentés.
 !.env.example
+!deploy/portainer/stack.env.example
 !deploy/mail-mta/.env.local.example
 
 # Certificats locaux (mkcert) — dev HTTPS
