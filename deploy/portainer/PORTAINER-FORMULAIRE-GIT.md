@@ -20,6 +20,15 @@ Stack **`cloudity`** · branche **`prod`** (ou `feat/notes-google-keep` en atten
 | **Re-pull image and redeploy** | ON |
 | **Prune unused containers** | OFF |
 
+### Pièges déjà vus (à vérifier avant Deploy)
+
+| Champ / détail | Bon | Mauvais |
+|----------------|-----|---------|
+| Compose path | `…/docker-compose.ghcr.yml` | `…ghrc.yml` (typo) |
+| `REGISTRY_OWNER` | `paveldelhomme` (minuscules) | `PavelDelhomme` → *invalid reference format* |
+| Volume Postgres | **supprimé** avec la stack (Remove volumes) | volume ancien sans `init/` → `db-migrate` exit 2 |
+| Build method | **Repository** (Git) | Web editor seul (pas de `scripts/` / migrations) |
+
 ---
 
 ## Fichier Environment (sur ton PC)
