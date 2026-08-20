@@ -21,7 +21,7 @@ else
   echo "   · ⚠️  stack.env absent — lance : make portainer-prod-env NPM_NETWORK=..."
 fi
 echo "   · Repository reference : refs/heads/prod"
-echo "   · Compose path         : deploy/portainer/docker-compose.ghcr.yml"
+  echo "   · Compose path         : docker-compose.ghcr.yml"
 echo ""
 echo "3. GHCR (PC)"
 echo "   · make publish-ghcr REF=prod WAIT=1"

@@ -15,7 +15,7 @@ HOST="${HOST:-cloudity.${DOMAIN}}"
 API_HOST="${API_HOST:-api.cloudity.${DOMAIN}}"
 ADMIN_HOST="${ADMIN_HOST:-admin.cloudity.${DOMAIN}}"
 REGISTRY_OWNER="${REGISTRY_OWNER:-paveldelhomme}"
-NPM_NETWORK="${NPM_NETWORK:-nginx-proxy-manager_npm-network}"
+NPM_NETWORK="${NPM_NETWORK:-shared-network-copy}"
 WRITE_STACK_ENV="${WRITE_STACK_ENV:-1}"
 STACK_ENV_FILE="${STACK_ENV_FILE:-$ROOT/deploy/portainer/stack.env}"
 
