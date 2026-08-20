@@ -24,7 +24,8 @@ Stack **`cloudity`** · branche **`prod`**.
 
 | Champ / détail | Bon | Mauvais |
 |----------------|-----|---------|
-| Compose path | `docker-compose.ghcr.yml` (racine) | `deploy/portainer/docker-compose.ghcr.yml` → **db-migrate exit 2** |
+| Compose path | `docker-compose.ghcr.yml` (racine) | `deploy/portainer/...` |
+| `db-migrate` | image `cloudity-db-migrate` (GHCR) | bind mount `./scripts` → **vides** sur l’hôte Portainer |
 | `REGISTRY_OWNER` | `paveldelhomme` | `PavelDelhomme` |
 | `NPM_NETWORK` | `shared-network-copy` (comme Nextcloud) | mauvais nom → web/API injoignables depuis NPM |
 | Volume Postgres | **supprimé** avant recreer | volume ancien sans `init/` |
