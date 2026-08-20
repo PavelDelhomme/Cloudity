@@ -1,0 +1,18 @@
+# Image one-shot : applique init/ + migrations PostgreSQL (sans bind mount hôte).
+# Requis pour Portainer : les mounts relatifs du clone Git ne sont PAS visibles
+# sur le daemon Docker hôte → scripts/migrations vides → db-migrate exit 2.
+#
+# Build (contexte = racine du dépôt) :
+#   docker build -f deploy/portainer/Dockerfile.db-migrate -t cloudity-db-migrate .
+
+FROM postgres:15-alpine
+
+COPY scripts/db/migrate-db.sh /migrate-db.sh
+COPY infrastructure/postgresql/init /init
+COPY infrastructure/postgresql/migrations /migrations
+
+RUN chmod +x /migrate-db.sh \
+  && ls /init/*.sql >/dev/null \
+  && ls /migrations/*.sql >/dev/null
+
+ENTRYPOINT ["/bin/sh", "/migrate-db.sh"]

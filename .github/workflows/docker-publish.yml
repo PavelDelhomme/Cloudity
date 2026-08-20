@@ -206,10 +206,51 @@ jobs:
           cache-to: type=gha,mode=max,scope=frontend
           provenance: false
 
+  db-migrate:
+    name: Build db-migrate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/cloudity-db-migrate
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
+            type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/portainer/Dockerfile.db-migrate
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=db-migrate
+          cache-to: type=gha,mode=max,scope=db-migrate
+          provenance: false
+
   ghcr-public:
     name: GHCR packages public (Portainer CE pull)
     if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-    needs: [go-services, python-admin, frontend]
+    needs: [go-services, python-admin, frontend, db-migrate]
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -224,6 +265,7 @@ jobs:
             cloudity-frontend cloudity-passwords-service cloudity-mail-directory-service
             cloudity-calendar-service cloudity-notes-service cloudity-tasks-service
             cloudity-drive-service cloudity-contacts-service cloudity-photos-service
+            cloudity-db-migrate
           )
           for PKG in "${PKGS[@]}"; do
             if gh api --method PATCH "/user/packages/container/${PKG}" -f visibility=public 2>/dev/null; then

@@ -23,8 +23,6 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - cloudity_postgres_data:/var/lib/postgresql/data
-      # Schéma de base (users, tenants…) — exécuté une seule fois à la création du volume.
-      - ./infrastructure/postgresql/init:/docker-entrypoint-initdb.d:ro
     networks: [cloudity-data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
@@ -48,19 +46,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # Image GHCR (pas de bind mount) : Portainer clone Git ≠ chemins visibles par le daemon hôte.
   db-migrate:
-    image: postgres:15-alpine
+    image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-db-migrate:${TAG:-latest}
     container_name: cloudity-db-migrate
     restart: "no"
-    volumes:
-      - ./scripts:/scripts:ro
-      - ./infrastructure/postgresql/migrations:/migrations:ro
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-cloudity}
       PGHOST: postgres
-    command: ["/bin/sh", "/scripts/db/migrate-db.sh"]
     depends_on:
       postgres:
         condition: service_healthy
