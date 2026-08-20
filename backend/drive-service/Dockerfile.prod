@@ -17,7 +17,8 @@ RUN go build -trimpath -ldflags="-s -w" -buildvcs=false -o /out/drive-service .
 
 FROM alpine:3.22
 
-RUN apk add --no-cache ca-certificates wget
+# libstdc++ / libgcc : binaire CGO (goheif HEIC)
+RUN apk add --no-cache ca-certificates wget libstdc++ libgcc
 
 WORKDIR /app
 COPY --from=builder /out/drive-service /app/drive-service
