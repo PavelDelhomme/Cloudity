@@ -35,27 +35,197 @@ CI : push `prod`/`dev` → workflow **Docker — build & publish (GHCR)** → ta
 
 Images : [`docs/architecture/GHCR-IMAGES.md`](docs/architecture/GHCR-IMAGES.md).
 
-### A.0 Créer la stack Portainer **maintenant** (Total control)
+### A.0 Créer la stack Portainer **Total** — mode opératoire précis
 
-1. Attendre que le run GHCR sur `prod` soit **vert** (`gh run list --workflow="Docker — build & publish (GHCR)" --branch prod --limit 1`).
-2. Sur le VPS, **arrêter** la stack SSH **sans** supprimer les volumes :
-   ```bash
-   cd /tmp/cloudity-build
-   docker compose -f docker-compose.ghcr.yml --env-file .env down
-   # JAMAIS : down -v
-   docker volume ls | grep cloudity   # volumes encore là
-   ```
-3. Portainer → **Add stack** (Partie II) :
-   - Name : `cloudity`
-   - Repository : `https://github.com/PavelDelhomme/Cloudity`
-   - Ref : `refs/heads/prod`
-   - Compose path : **`docker-compose.ghcr.yml`**
-   - Env : coller `deploy/portainer/stack.env` (`TAG=latest`, `REGISTRY_OWNER=paveldelhomme`, `NPM_NETWORK=shared-network-copy`)
-   - GitOps ON · Re-pull ON
-4. Deploy → Control **Total**. Vérifier `db-migrate` Exited(0), gateway healthy, `make h14-https-check`.
-5. (Optionnel) 2ᵉ stack `cloudity-preprod` · ref `refs/heads/preprod` · `TAG=preprod` · **autre** volume Postgres.
+> **Ton cas = migration** (données déjà en prod dans des volumes Docker).  
+> Tu dois suivre **uniquement le Chemin M** ci-dessous.  
+> **Ne copie jamais** les commandes `docker volume rm` — elles sont réservées au Chemin F (DB neuve, perte totale).
 
-Détail migration : **Partie III**. Formulaire : **Partie II**.
+#### Deux chemins — choisir **un seul**
+
+| Chemin | Quand | Volumes Postgres / Redis / JWT |
+|--------|--------|--------------------------------|
+| **M — Migration** (toi, maintenant) | Stack déjà tournée en SSH / Limited ; tu veux **Total** sans perdre la DB | **GARDER** |
+| **F — Fresh / wipe** | Première install OU tu acceptes une DB **vide** | **SUPPRIMER** (destructif) |
+
+---
+
+#### Chemin M — Migration Limited → Total (copier-coller VPS)
+
+**Où taper** : session SSH VPS (`cnx_srv` / `pavel@vmi…`).  
+**Pas besoin de `gh` sur le VPS** (vérifier CI depuis ton PC ou GitHub Actions dans le navigateur).
+
+**Étape M0 — Vérifier que les volumes existent encore (obligatoire)**
+
+```bash
+docker volume ls | grep cloudity
+```
+
+Tu dois voir **exactement** ces 4 lignes :
+
+```text
+cloudity_auth_keys
+cloudity_mobile_data
+cloudity_postgres_data
+cloudity_redis_data
+```
+
+Si un volume manque → **arrête-toi** et dis-le (ne crée pas la stack Portainer à l’aveugle).
+
+Optionnel — taille / contenu (preuve que la DB n’est pas vide) :
+
+```bash
+docker run --rm -v cloudity_postgres_data:/d alpine:3.20 du -sh /d
+docker run --rm -v cloudity_auth_keys:/d alpine:3.20 ls -la /d
+```
+
+**Étape M1 — CI images (depuis ton PC, pas le VPS)**
+
+Sur le **PC** (où `gh` est installé) :
+
+```bash
+gh run list --repo PavelDelhomme/Cloudity --workflow "Docker — build & publish (GHCR)" --branch prod --limit 3
+```
+
+Ou navigateur : https://github.com/PavelDelhomme/Cloudity/actions  
+→ dernier run sur branche **`prod`** = **success** (vert).
+
+Sur le VPS, `gh` n’existe pas : **ignore** toute commande `gh …` dans ce guide pour le serveur.
+
+**Étape M2 — Arrêter la stack SSH sans toucher aux volumes**
+
+```bash
+# Si le dossier n’existe plus : la stack est déjà arrêtée → passe à M3
+cd /tmp/cloudity-build 2>/dev/null || { echo "Pas de /tmp/cloudity-build — OK si déjà down"; }
+
+# Seulement si tu es dans /tmp/cloudity-build et que .env existe :
+if [ -f /tmp/cloudity-build/docker-compose.ghcr.yml ] && [ -f /tmp/cloudity-build/.env ]; then
+  cd /tmp/cloudity-build
+  docker compose -f docker-compose.ghcr.yml --env-file .env down
+fi
+
+# Interdit (perdrait la DB) :
+#   docker compose ... down -v
+#   docker volume rm cloudity_postgres_data ...
+```
+
+Vérifier qu’il n’y a **plus** de conteneurs Cloudity, mais **encore** les volumes :
+
+```bash
+docker ps -a --format '{{.Names}}' | grep cloudity || echo "OK: plus de conteneurs cloudity"
+docker volume ls | grep cloudity
+```
+
+**Étape M3 — Réseau NPM (ne pas inventer de nom)**
+
+```bash
+docker ps --format '{{.Names}}' | grep -iE 'npm|proxy'
+# Exemple attendu :
+#   nginx-proxy-manager_npm_1
+#   nginx-proxy-manager_db-npm_1
+
+docker inspect nginx-proxy-manager_npm_1 --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+# Exemple attendu (au moins un de) :
+#   shared-network-copy
+#   nginx-proxy-manager_npm-network
+```
+
+Dans `stack.env` / Portainer Environment : **`NPM_NETWORK=shared-network-copy`** (déjà utilisé avec Nextcloud sur ce VPS).  
+Si `inspect` ne montre que `nginx-proxy-manager_npm-network`, utilise **ce** nom à la place — mais un seul nom, le vrai.
+
+**Étape M4 — Portainer UI (Add stack)**
+
+1. Ouvre Portainer → **Stacks** → **Add stack**.
+2. Remplis **exactement** :
+
+| Champ | Valeur à coller telle quelle |
+|-------|------------------------------|
+| **Name** | `cloudity` |
+| **Build method** | **Repository** |
+| **Repository URL** | `https://github.com/PavelDelhomme/Cloudity` |
+| **Repository reference** | `refs/heads/prod` |
+| **Compose path** | `docker-compose.ghcr.yml` |
+| **Additional paths** | *(vide — ne rien mettre)* |
+| **GitOps updates** | ON |
+| **Re-pull image and redeploy** | ON |
+| **Prune** | OFF |
+
+3. **Environment variables** : depuis ton **PC**, ouvre le fichier  
+   `deploy/portainer/stack.env`  
+   et **colle tout le contenu** dans Portainer.  
+   Vérifie ces 3 lignes (sans changer le reste) :
+
+```bash
+REGISTRY_OWNER=paveldelhomme
+TAG=latest
+NPM_NETWORK=shared-network-copy
+```
+
+4. Clique **Deploy the stack**.  
+   Attends la fin (pull images + start). Ne ferme pas la page trop tôt.
+
+**Étape M5 — Succès**
+
+Dans Portainer → stack **`cloudity`** :
+
+- Control = **Total** (plus « Limited »)
+- `cloudity-db-migrate` → **exited** (code **0**) — **normal**
+- `cloudity-api-gateway` → **healthy**
+- `cloudity-web` → **running**
+
+Depuis ton **PC** :
+
+```bash
+curl -sf https://api.cloudity.delhomme.ovh/health
+curl -sfI https://cloudity.delhomme.ovh/ | head -5
+```
+
+Si 502 : NPM → proxy `cloudity.delhomme.ovh` → forward **`cloudity-web:80`** en scheme **http** (pas https).
+
+**Étape M6 — Nettoyage optionnel (après succès seulement)**
+
+```bash
+# Seulement quand Portainer Total marche et le site répond 200
+rm -rf /tmp/cloudity-build
+# Dans Portainer : supprimer l’ancienne entrée orpheline « cloudity-build » Limited si elle traîne (sans toucher aux volumes)
+```
+
+---
+
+#### Chemin F — Fresh / wipe (**DESTRUCTIF** — ne pas utiliser pour ta migration)
+
+> À n’utiliser que si tu veux **effacer** utilisateurs, mails syncés, coffres Pass serveur, etc.
+
+```bash
+docker rm -f $(docker ps -aq --filter name=cloudity) 2>/dev/null || true
+docker volume rm cloudity_postgres_data cloudity_redis_data cloudity_auth_keys cloudity_mobile_data
+docker network rm cloudity-data 2>/dev/null || true
+```
+
+Puis Add stack comme **M4**.
+
+---
+
+#### Erreurs fréquentes (ce que tu as croisé)
+
+| Ce que tu as tapé / vu | Pourquoi ça coince | Que faire |
+|------------------------|--------------------|-----------|
+| `docker volume rm cloudity_…` | Commande du **Chemin F** (wipe) | **Ne pas** la rejouer. Vérifie `docker volume ls \| grep cloudity` — si les 4 volumes sont là, continue **M4** |
+| `docker inspect NOM` | `NOM` était un **placeholder**, pas un vrai nom | Utiliser le vrai nom : `nginx-proxy-manager_npm_1` |
+| `gh: command not found` sur le VPS | `gh` n’est **pas** installé sur Contabo | Vérifier CI sur le **PC** ou GitHub Actions web |
+| Bracket paste `^[[200~…` | Collage « bracketed paste » du terminal | Re-coller la commande propre, sans caractères invisibles |
+| `ls` / chercher le repo dans `/home/pavel` | Le clone SSH était dans **`/tmp/cloudity-build`**, pas dans home | Après M2, tu n’as plus besoin du clone : Portainer clone Git lui-même |
+
+---
+
+#### Où tu en es **maintenant** (si volumes encore listés)
+
+1. ~~M2 down~~ — déjà fait si `docker compose … down` a réussi.  
+2. **Ne plus** lancer de `volume rm`.  
+3. Enchaîne **directement M4** (Add stack Portainer) avec `stack.env`.  
+4. Puis **M5** smoke.
+
+Détail formulaire (prod + preprod) : **Partie II**. Détail migration long : **Partie III**.
 
 ---
 
@@ -746,7 +916,8 @@ Stack **`cloudity`** · branche **`prod`**.
 | `db-migrate` | image `cloudity-db-migrate` (GHCR) | bind mount `./scripts` → **vides** sur l’hôte Portainer |
 | `REGISTRY_OWNER` | `paveldelhomme` | `PavelDelhomme` |
 | `NPM_NETWORK` | `shared-network-copy` (comme Nextcloud) | mauvais nom → web/API injoignables depuis NPM |
-| Volume Postgres | **supprimé** avant recreer | volume ancien sans `init/` |
+| Volume Postgres (migration) | **garder** `cloudity_postgres_data` | `docker volume rm` (perd la DB) |
+| Volume Postgres (fresh only) | wipe volontaire Chemin F § A.0 | wipe pendant une migration |
 
 ---
 
@@ -769,16 +940,30 @@ TAG=latest
 
 ---
 
-## Avant Deploy (VPS — nettoyage)
+## Avant Deploy (VPS) — **deux cas**
+
+### Cas migration (Limited → Total) — **TOI MAINTENANT**
+
+```bash
+# Garder les volumes. Juste s’assurer que la stack SSH est down :
+cd /tmp/cloudity-build 2>/dev/null && \
+  docker compose -f docker-compose.ghcr.yml --env-file .env down || true
+docker volume ls | grep cloudity
+# Doit lister postgres / redis / auth_keys / mobile_data
+# ❌ NE PAS lancer docker volume rm
+```
+
+Puis Portainer Add stack (§ ci-dessus / **A.0 Chemin M**).
+
+### Cas fresh / wipe (**DESTRUCTIF** — DB neuve uniquement)
 
 ```bash
 docker rm -f $(docker ps -aq --filter name=cloudity) 2>/dev/null || true
-docker volume rm cloudity_postgres_data cloudity_redis_data cloudity_auth_keys cloudity_mobile_data 2>/dev/null || true
+docker volume rm cloudity_postgres_data cloudity_redis_data cloudity_auth_keys cloudity_mobile_data
 docker network rm cloudity-data 2>/dev/null || true
 ```
 
 ---
-
 ## Après Deploy — succès si
 
 1. `cloudity-db-migrate` → **Exited (0)** + log `[migrate] Terminé.`
@@ -948,15 +1133,17 @@ rm -rf /tmp/cloudity-build
 # Dans Portainer : si une vieille entrée « cloudity-build » Limited reste orpheline, la supprimer (containers déjà down).
 ```
 
-### 3.7 Première install (volumes vides) — seulement si tu acceptes une DB neuve
+### 3.7 Première install (volumes vides) — **Chemin F seulement**
+
+> Même chose que **A.0 Chemin F**. **Interdit** pendant une migration Limited → Total.
 
 ```bash
 docker rm -f $(docker ps -aq --filter name=cloudity) 2>/dev/null || true
-docker volume rm cloudity_postgres_data cloudity_redis_data cloudity_auth_keys cloudity_mobile_data 2>/dev/null || true
+docker volume rm cloudity_postgres_data cloudity_redis_data cloudity_auth_keys cloudity_mobile_data
 docker network rm cloudity-data 2>/dev/null || true
 ```
 
-Puis § 3.3. **Ne pas** faire ça pour la migration Limited → Total actuelle.
+Puis § 3.3 / **A.0 M4**.
 
 ---
 
