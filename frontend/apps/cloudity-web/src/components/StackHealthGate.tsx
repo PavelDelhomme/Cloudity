@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { apiUrl } from '@cloudity/shared'
 import { ServiceStatusPage } from './ServiceStatusPage'
 
 const POLL_MS = 3000
@@ -18,7 +19,7 @@ export function StackHealthGate({ children }: Props) {
 
   const probe = useCallback(async () => {
     try {
-      const res = await fetch('/health', {
+      const res = await fetch(apiUrl('/health'), {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
       })
