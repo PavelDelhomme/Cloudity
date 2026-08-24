@@ -8,11 +8,11 @@ name: Docker — build & publish (GHCR)
 #   * tag git    → ghcr.io/.../<svc>:<semver>  (ex. v1.2.3 → :v1.2.3 + :latest si non-pre)
 #   * SHA court  → ghcr.io/.../<svc>:sha-<7chars>  (toujours)
 #
-# Voir docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § GitHub Actions.
+# Voir DEPLOIEMENT_PROCEDURE.md (CI/CD GHCR).
 
 on:
   push:
-    branches: [main, master, prod, dev]
+    branches: [main, master, prod, preprod, dev]
     tags: ["v*.*.*"]
   pull_request:
     paths:
@@ -107,6 +107,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=preprod,enable=${{ github.ref == 'refs/heads/preprod' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -151,6 +152,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=preprod,enable=${{ github.ref == 'refs/heads/preprod' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -192,6 +194,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=preprod,enable=${{ github.ref == 'refs/heads/preprod' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -234,6 +237,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' }}
             type=raw,value=prod,enable=${{ github.ref == 'refs/heads/prod' }}
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            type=raw,value=preprod,enable=${{ github.ref == 'refs/heads/preprod' }}
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -249,7 +253,7 @@ jobs:
 
   ghcr-public:
     name: GHCR packages public (Portainer CE pull)
-    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/preprod' || github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: [go-services, python-admin, frontend, db-migrate]
     runs-on: ubuntu-latest
     permissions:

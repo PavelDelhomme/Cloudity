@@ -24,13 +24,40 @@
 ## A. Ordre de priorité (ne pas inverser)
 
 ```text
-1. Restructurer le monorepo (base commune web/mobile/backend)
-2. Adapter les apps pour déployer par bloc
-3. Stacks Portainer Git : cloudity-preprod + cloudity (Total control)
-4. Admin « hold / promote » versions + OTA mobile
+1. Restructurer le monorepo (base commune web/mobile/backend)     ← en cours (auth shared + mail/drive split OK)
+2. Adapter les apps pour déployer par bloc                       ← OK local (make deploy-*) + table GHCR
+3. Stacks Portainer Git : cloudity-preprod + cloudity (Total)    ← À FAIRE MAINTENANT (ci-dessous)
+4. Admin « hold / promote » versions + OTA mobile                ← après Total control
 ```
 
-Aujourd’hui on est entre **1** (doc + conventions) et **3** (stack encore Limited sur le VPS).
+**État branches (2026-08-24)** : `chore/restructure-platform` = `dev` = `prod` = `preprod` (même tip).  
+CI : push `prod`/`dev` → workflow **Docker — build & publish (GHCR)** → tags `:latest`/`:prod` et `:dev`. Branche `preprod` → tag `:preprod`.
+
+Images : [`docs/architecture/GHCR-IMAGES.md`](docs/architecture/GHCR-IMAGES.md).
+
+### A.0 Créer la stack Portainer **maintenant** (Total control)
+
+1. Attendre que le run GHCR sur `prod` soit **vert** (`gh run list --workflow="Docker — build & publish (GHCR)" --branch prod --limit 1`).
+2. Sur le VPS, **arrêter** la stack SSH **sans** supprimer les volumes :
+   ```bash
+   cd /tmp/cloudity-build
+   docker compose -f docker-compose.ghcr.yml --env-file .env down
+   # JAMAIS : down -v
+   docker volume ls | grep cloudity   # volumes encore là
+   ```
+3. Portainer → **Add stack** (Partie II) :
+   - Name : `cloudity`
+   - Repository : `https://github.com/PavelDelhomme/Cloudity`
+   - Ref : `refs/heads/prod`
+   - Compose path : **`docker-compose.ghcr.yml`**
+   - Env : coller `deploy/portainer/stack.env` (`TAG=latest`, `REGISTRY_OWNER=paveldelhomme`, `NPM_NETWORK=shared-network-copy`)
+   - GitOps ON · Re-pull ON
+4. Deploy → Control **Total**. Vérifier `db-migrate` Exited(0), gateway healthy, `make h14-https-check`.
+5. (Optionnel) 2ᵉ stack `cloudity-preprod` · ref `refs/heads/preprod` · `TAG=preprod` · **autre** volume Postgres.
+
+Détail migration : **Partie III**. Formulaire : **Partie II**.
+
+---
 
 ### A.1 `cloudity-web` vs apps produit (en 20 s)
 
