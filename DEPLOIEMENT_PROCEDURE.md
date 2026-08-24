@@ -166,31 +166,27 @@ Si `inspect` ne montre que `nginx-proxy-manager_npm-network`, utilise **ce** nom
 
 5. **Environment variables** — **obligatoire** avant Deploy :
 
-Sur ton **PC** (pas le VPS) :
+> **Migration (volumes existants) — ne PAS `make portainer-prod-env`**  
+> Cette commande **regénère** `POSTGRES_PASSWORD`, `JWT_SECRET`, etc. Postgres garde l’ancien mot de passe dans le volume → `db-migrate` exit 1 · `password authentication failed`.  
+> Utilise le **`stack.env` déjà en prod** (copié depuis le VPS `/tmp/cloudity-build/.env` ou ton backup).
 
-```bash
-cd ~/Documents/Dev/Perso/Cloudity/Cloudity
-make portainer-prod-env NPM_NETWORK=shared-network-copy
-# → génère / met à jour deploy/portainer/stack.env
-```
+- **Load variables from .env file** → `deploy/portainer/stack.env` sur ton PC
+- **Supprimer** dans Portainer toute variable en doublon ou avec valeur `e.g. bar`
+- **Ne pas inclure** (dev-only) : `CORS_ORIGINS_EXTRA`, `WEBAUTHN_ORIGINS_EXTRA` (vides) — la prod utilise **`CORS_ORIGINS`** et **`WEBAUTHN_ORIGINS`**
+- **Ne pas inclure** `MTLS_ALLOWED_PEERS` si vide (`MTLS_MODE=off`)
 
-Dans Portainer, **une** de ces méthodes :
-
-- **Recommandé** : bouton **Load variables from .env file** → choisir `deploy/portainer/stack.env` sur ton PC.
-- **Sinon** : mode **Advanced** → coller **tout** le contenu de `stack.env` (lignes `CLE=valeur`, une par ligne).
-
-Vérifier au minimum ces 3 lignes dans la liste affichée :
+Vérifier au minimum :
 
 ```bash
 REGISTRY_OWNER=paveldelhomme
 TAG=latest
 NPM_NETWORK=shared-network-copy
+POSTGRES_PASSWORD=…    # identique au volume existant
 ```
 
-> Ne pas laisser Environment variables **vide** — sans `POSTGRES_PASSWORD`, `JWT_SECRET`, etc., le deploy échouera ou les services crasheront.
+> Ne pas laisser Environment variables **vide**.
 
-6. Clique **Deploy the stack**.  
-   Attends la fin (clone Git + pull images GHCR + start). Ne fermer la page trop tôt (plusieurs minutes la 1ʳᵉ fois).
+6. Clique **Deploy the stack**.
 
 **Étape M5 — Succès**
 
@@ -242,8 +238,12 @@ Puis Add stack comme **M4**.
 | `docker inspect NOM` | `NOM` était un **placeholder**, pas un vrai nom | Utiliser le vrai nom : `nginx-proxy-manager_npm_1` |
 | `gh: command not found` sur le VPS | `gh` n’est **pas** installé sur Contabo | Vérifier CI sur le **PC** ou GitHub Actions web |
 | Bracket paste `^[[200~…` | Collage « bracketed paste » du terminal | Re-coller la commande propre, sans caractères invisibles |
-| `docker-compose.ghrc.yml` dans Compose path | **Typo** : le vrai fichier est **`docker-compose.ghcr.yml`** (gh**c**r) | Corriger le champ → Remove stack en erreur → recréer **M4** |
-| Environment variables vide | Portainer n’a pas `stack.env` | **Load variables from .env file** avec `deploy/portainer/stack.env` depuis le PC |
+| `docker-compose.ghrc.yml` dans Compose path | **Typo** : le vrai fichier est **`docker-compose.ghcr.yml`** (gh**c**r) | Corriger → Remove stack en erreur → recréer **M4** |
+| `make portainer-prod-env` en migration | Regénère secrets ≠ volume Postgres | Garder l’ancien `stack.env` / `.env` VPS |
+| `POSTGRES_PASSWORD` neuf + volume ancien | `db-migrate` exit 1 · `password authentication failed` | Remettre le mot de passe **d’origine** dans Portainer |
+| `NPM_NETWORK=shared-network-proxy` | Réseau **inexistant** | **`shared-network-copy`** |
+| Environment variables vide | Portainer n’a pas `stack.env` | **Load variables from .env file** |
+| Doublons / `e.g. bar` dans Portainer | Placeholder UI ou rechargement double | Supprimer les entrées en double ; garder `CORS_ORIGINS` (pas `*_EXTRA` vide) |
 
 ---
 
@@ -1282,7 +1282,8 @@ DNS MX/SPF/DKIM : hors de la stack web (voir docs mail-alias si besoin).
 | `db-migrate` | image `cloudity-db-migrate` (scripts baked) | bind mount `./scripts` → **vides** sous `/data/compose/N` |
 | `REGISTRY_OWNER` | `paveldelhomme` | `PavelDelhomme` |
 | `NPM_NETWORK` | `shared-network-copy` | mauvais nom → 502 NPM |
-| Champs vides | laisser vides `CORS_ORIGINS_EXTRA`, `WEBAUTHN_ORIGINS_EXTRA`, `MTLS_ALLOWED_PEERS` | coller `e.g. bar` |
+| Champs dev-only en prod | **`CORS_ORIGINS`** + **`WEBAUTHN_ORIGINS`** suffisent | `CORS_ORIGINS_EXTRA` / `WEBAUTHN_ORIGINS_EXTRA` vides (supprimer ou ne pas charger) |
+| `MTLS_ALLOWED_PEERS` vide | OK de **ne pas** l’envoyer si `MTLS_MODE=off` | laisser `e.g. bar` ou doublon |
 | Contrôle | Créer **dans** Portainer (Repository) | `docker compose` SSH → **Limited** |
 | Volumes | `name: cloudity_*` explicites | laisser Compose préfixer par le nom de projet |
 

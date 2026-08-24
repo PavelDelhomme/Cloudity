@@ -21,9 +21,24 @@ fi
 
 echo "# --- Coller dans Portainer (Advanced env) — source: $FILE ---" >&2
 awk '
+  function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
+  function val() {
+    v = $0; sub(/^[^=]*=/, "", v); return trim(v)
+  }
   /^[[:space:]]*#/ { next }
   /^[[:space:]]*$/ { next }
-  /^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=/ { print }
+  /^[[:space:]]*(export[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*=/ {
+    line = $0
+    sub(/^[[:space:]]*export[[:space:]]+/, "", line)
+    split(line, kv, "=")
+    k = kv[1]
+    v = val()
+    if (k ~ /_EXTRA$/ && v == "") next
+    if (k == "MTLS_ALLOWED_PEERS" && v == "") next
+    if (k in seen) next
+    seen[k] = 1
+    print line
+  }
 ' "$FILE"
 echo "# --- fin ($FILE) ---" >&2
 echo "✅ Variables affichées sur stdout — copie dans Portainer." >&2
