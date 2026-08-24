@@ -10,6 +10,7 @@ COPY package.json package-lock.json* ./
 COPY packages ./packages
 COPY apps/cloudity-web ./apps/cloudity-web
 COPY apps/web-mail ./apps/web-mail
+COPY apps/web-drive ./apps/web-drive
 
 RUN npm ci --no-audit --no-fund \
   && npm rebuild esbuild
@@ -20,12 +21,16 @@ RUN npm run build
 WORKDIR /ws/apps/web-mail
 RUN npm run build
 
+WORKDIR /ws/apps/web-drive
+RUN npm run build
+
 FROM nginx:alpine
 
 RUN apk add --no-cache curl
 
 COPY --from=builder /ws/apps/cloudity-web/dist /usr/share/nginx/html
 COPY --from=builder /ws/apps/web-mail/dist /usr/share/nginx/html/app/mail
+COPY --from=builder /ws/apps/web-drive/dist /usr/share/nginx/html/app/drive
 
 COPY apps/cloudity-web/nginx.conf /etc/nginx/conf.d/default.conf
 

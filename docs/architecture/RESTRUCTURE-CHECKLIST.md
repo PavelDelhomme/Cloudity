@@ -24,8 +24,9 @@ Doc : [`STRUCTURE-CIBLE.md`](./STRUCTURE-CIBLE.md) · Ops : [`../../DEPLOIEMENT_
 
 ## P3 — Split apps web (comme Mail)
 
-- [ ] `web-drive` · `web-pass` · `web-photos` · …
-- [ ] Image `cloudity-frontend` assemble les bundles
+- [ ] `web-pass` · `web-photos` · …
+- [x] `web-drive` (FE-SPLIT-02) — même pattern que Mail
+- [x] Image `cloudity-frontend` assemble Mail + Drive bundles
 
 ## P4 — Move physique backend
 

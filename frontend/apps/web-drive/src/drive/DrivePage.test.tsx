@@ -2,21 +2,21 @@ import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, act, waitFor, within } from '@testing-library/react'
 import { Routes, Route } from 'react-router-dom'
-import { TestRouter } from '../../../test-utils'
+import { TestRouter } from '@cloudity/web-shell/test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import DrivePage, { renameBaseNameSelectionEnd } from './DrivePage'
-import AppLayout from '../../../layouts/AppLayout'
-import { useAuth } from '../../../authContext'
-import { UploadProvider } from '../../../UploadProvider'
-import { DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../../uploadContext'
-import * as api from '../../../api'
-import { grantAppLockedVaultSession, setupAppLockedPin } from '../appLockedVault'
+import AppLayout from '@cloudity/web-shell/layouts/AppLayout'
+import { useAuth } from '@cloudity/web-shell/authContext'
+import { UploadProvider } from '@cloudity/web-shell/UploadProvider'
+import { DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '@cloudity/web-shell/uploadContext'
+import * as api from '@cloudity/web-shell/api'
+import { grantAppLockedVaultSession, setupAppLockedPin } from '@cloudity/web-shell/pages/app/appLockedVault'
 
-vi.mock('../../../authContext', () => ({ useAuth: vi.fn() }))
-vi.mock('../../../utils/wordToHtml', () => ({
+vi.mock('@cloudity/web-shell/authContext', () => ({ useAuth: vi.fn() }))
+vi.mock('@cloudity/web-shell/utils/wordToHtml', () => ({
   wordBlobToHtml: vi.fn(async () => '<p>Aperçu docx test</p>'),
 }))
-vi.mock('../../../api', () => ({
+vi.mock('@cloudity/web-shell/api', () => ({
   fetchMailAccounts: vi.fn().mockResolvedValue([]),
   syncMailAccount: vi.fn().mockResolvedValue({ synced: 0 }),
   fetchDriveNodes: vi.fn().mockResolvedValue([]),
@@ -89,7 +89,7 @@ describe('DrivePage', () => {
   })
 
   it('avec ?q= dans l’URL, appelle fetchDriveSearch pour la recherche sur tout le Drive', async () => {
-    const api = await import('../../../api')
+    const api = await import('@cloudity/web-shell/api')
     render(
       <QueryClientProvider client={queryClient}>
         <UploadProvider>
@@ -202,7 +202,7 @@ describe('DrivePage', () => {
   })
 
   it('clicking Document in Nouveau fichier menu calls createDriveFileWithUniqueName', async () => {
-    const api = await import('../../../api')
+    const api = await import('@cloudity/web-shell/api')
     render(wrap(<DrivePage />))
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Nouveau fichier' }))
@@ -263,7 +263,7 @@ describe('DrivePage', () => {
   })
 
   it('Nouveau dossier : saisie nom + Créer appelle createDriveFolder et ferme le formulaire', async () => {
-    const api = await import('../../../api')
+    const api = await import('@cloudity/web-shell/api')
     vi.mocked(api.createDriveFolder).mockResolvedValue({ id: 10 })
     render(wrap(<DrivePage />))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Nouveau dossier' })).toBeTruthy(), { timeout: 3000 })
@@ -286,7 +286,7 @@ describe('DrivePage', () => {
   })
 
   it('dans un sous-dossier, Nouveau dossier appelle createDriveFolder avec le parent_id du dossier', async () => {
-    const api = await import('../../../api')
+    const api = await import('@cloudity/web-shell/api')
     const mockFolder = {
       id: 50,
       name: 'Dossier Parent',
@@ -462,7 +462,7 @@ describe('DrivePage', () => {
     }
 
     it('affiche un tableau avec colonnes Nom, Taille quand il y a des nœuds (vue liste)', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: (k: string, v: string) => { storage[k] = v } }, writable: true })
@@ -475,7 +475,7 @@ describe('DrivePage', () => {
     })
 
     it('par défaut affiche la vue grille (cartes) quand il y a des nœuds', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = {}
       Object.defineProperty(window, 'localStorage', {
@@ -490,7 +490,7 @@ describe('DrivePage', () => {
     })
 
     it('affiche le nombre de dossiers/fichiers pour un dossier (1er niveau)', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -501,7 +501,7 @@ describe('DrivePage', () => {
     })
 
     it('sélection style Google: clic sur la coche affiche la barre de sélection', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -518,7 +518,7 @@ describe('DrivePage', () => {
     })
 
     it('pas de case à cocher: sélection par clic sur la coche', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -533,7 +533,7 @@ describe('DrivePage', () => {
     })
 
     it('Échap désélectionne les éléments', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -548,7 +548,7 @@ describe('DrivePage', () => {
     })
 
     it('Suppr ouvre la modal de confirmation de suppression (corbeille)', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -565,7 +565,7 @@ describe('DrivePage', () => {
     })
 
     it('clic sur Déplacer vers la corbeille ouvre la modal (pas confirm du navigateur)', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = { cloudity_drive_display: 'list' }
       Object.defineProperty(window, 'localStorage', { value: { getItem: (k: string) => storage[k] ?? null, setItem: vi.fn() }, writable: true })
@@ -580,7 +580,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: double-clic sur une carte dossier sélectionne et affiche la barre de sélection (clic simple ouvre le dossier)', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       const storage: Record<string, string> = {}
       Object.defineProperty(window, 'localStorage', {
@@ -597,7 +597,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: bouton Tout sélectionner sélectionne tous les nœuds', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFolder as never, mockFile as never])
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: () => null, setItem: () => {} },
@@ -611,7 +611,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: menu trois points (Actions) affiche Télécharger, Renommer, Corbeille', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: () => null, setItem: () => {} },
@@ -636,7 +636,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: clic sur une carte fichier ouvre la modale d\'aperçu', async () => {
-      const api = await import('../../../api')
+      const api = await import('@cloudity/web-shell/api')
       vi.mocked(api.fetchDriveNodes).mockResolvedValue([mockFile as never])
       vi.mocked(api.downloadDriveFile).mockResolvedValue(
         new Blob(['x'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
@@ -662,7 +662,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: menu Corbeille ouvre la modale de confirmation', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: () => null, setItem: () => {} },
@@ -686,7 +686,7 @@ describe('DrivePage', () => {
     })
 
     it('vue grille: Renommer ouvre le formulaire inline sur la carte', async () => {
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       Object.defineProperty(window, 'localStorage', {
         value: { getItem: () => null, setItem: () => {} },
@@ -713,7 +713,7 @@ describe('DrivePage', () => {
         value: { getItem: (k: string) => storage[k] ?? null, setItem: (k: string, v: string) => { storage[k] = v } },
         writable: true,
       })
-      const { fetchDriveNodes } = await import('../../../api')
+      const { fetchDriveNodes } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveNodes).mockResolvedValue([mockFile as never])
       render(wrap(<DrivePage />))
       await waitFor(() => expect(screen.getByRole('table')).toBeTruthy(), { timeout: 3000 })
@@ -721,7 +721,7 @@ describe('DrivePage', () => {
     })
 
     it('clic sur un fichier (vue liste) ouvre la modale d\'aperçu avec métadonnées', async () => {
-      const api = await import('../../../api')
+      const api = await import('@cloudity/web-shell/api')
       vi.mocked(api.fetchDriveNodes).mockResolvedValue([mockFile as never])
       vi.mocked(api.downloadDriveFile).mockResolvedValue(
         new Blob(['x'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
@@ -769,7 +769,7 @@ describe('DrivePage', () => {
     })
 
     it('section Récents à la racine : une ligne avec cartes quand il y a des récents', async () => {
-      const api = await import('../../../api')
+      const api = await import('@cloudity/web-shell/api')
       const recentNode = {
         id: 42,
         name: 'Dernier.docx',
@@ -825,7 +825,7 @@ describe('DrivePage', () => {
     })
 
     it('en vue corbeille affiche la liste trash avec colonne Supprimé le', async () => {
-      const { fetchDriveTrash } = await import('../../../api')
+      const { fetchDriveTrash } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveTrash).mockResolvedValue([mockTrashNode as never])
       localStorage.setItem('cloudity.drive.appSettings.v1', JSON.stringify({ displayMode: 'list', showRecentSection: true }))
       render(wrap(<DrivePage />))

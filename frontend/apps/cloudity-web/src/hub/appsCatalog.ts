@@ -55,9 +55,10 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
   {
     id: 'drive',
     name: 'Drive',
-    href: '/app/drive',
+    href: '/app/drive/',
     category: 'Fichiers',
-    hosting: 'embedded',
+    /** FE-SPLIT-02 : SPA sous /app/drive/ (prod nginx) ; en DEV le shell lazy-load encore. */
+    hosting: 'external',
     workspaceApp: '@cloudity/web-drive',
     description: 'Fichiers et dossiers',
   },
@@ -73,9 +74,9 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
   {
     id: 'corbeille',
     name: 'Corbeille',
-    href: '/app/corbeille',
+    href: '/app/drive/?view=trash',
     category: 'Fichiers',
-    hosting: 'embedded',
+    hosting: 'external',
     workspaceApp: '@cloudity/web-drive',
     description: 'Éléments supprimés',
   },
@@ -168,9 +169,9 @@ export const HUB_SHELL_LINKS: HubAppDefinition[] = [
 
 /** Inventaire routes hub (pour tests + doc FE-HUB-01). */
 export const HUB_INVENTORY_ROUTES: { id: HubAppId; href: string; routePattern: string }[] = [
-  { id: 'drive', href: '/app/drive', routePattern: 'drive' },
+  { id: 'drive', href: '/app/drive/', routePattern: 'drive (SPA @cloudity/web-drive)' },
   { id: 'office', href: '/app/office', routePattern: 'office' },
-  { id: 'corbeille', href: '/app/corbeille', routePattern: 'corbeille → drive?view=trash' },
+  { id: 'corbeille', href: '/app/drive/?view=trash', routePattern: 'corbeille → drive?view=trash (SPA)' },
   { id: 'mail', href: '/app/mail/', routePattern: 'mail (SPA @cloudity/web-mail)' },
   { id: 'pass', href: '/app/pass', routePattern: 'pass' },
   { id: 'calendar', href: '/app/calendar', routePattern: 'calendar' },

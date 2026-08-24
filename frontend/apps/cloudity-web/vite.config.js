@@ -11,6 +11,8 @@ const sharedRoot = path.resolve(__dirname, '../../packages/cloudity-shared/src')
 const uiRoot = path.resolve(__dirname, '../../packages/cloudity-ui/src')
 const webMailRoot = path.resolve(__dirname, '../web-mail/src')
 const webMailEntry = path.resolve(webMailRoot, 'index.ts')
+const webDriveRoot = path.resolve(__dirname, '../web-drive/src')
+const webDriveEntry = path.resolve(webDriveRoot, 'index.ts')
 const webShellRoot = path.resolve(__dirname, 'src')
 
 /** Résolution explicite : le code source du workspace `@cloudity/shared` utilise le React hoisted de l’app (Vitest/Vite). */
@@ -66,6 +68,7 @@ export default defineConfig({
       { find: '@cloudity/shared', replacement: sharedRoot },
       { find: '@cloudity/ui', replacement: uiRoot },
       { find: /^@cloudity\/web-mail$/, replacement: webMailEntry },
+      { find: /^@cloudity\/web-drive$/, replacement: webDriveEntry },
       { find: /^@cloudity\/web-shell\/(.*)$/, replacement: `${webShellRoot}/$1` },
       { find: 'react', replacement: reactPkgRoot },
       { find: 'react-dom', replacement: reactDomPkgRoot },
@@ -78,8 +81,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     exclude: ['e2e/**', '**/node_modules/**'],
-    // Inclure les tests Mail déplacés dans @cloudity/web-mail
-    include: ['src/**/*.{test,spec}.{ts,tsx}', '../web-mail/src/**/*.{test,spec}.{ts,tsx}'],
+    // Inclure les tests Mail / Drive déplacés hors monolithe
+    include: [
+      'src/**/*.{test,spec}.{ts,tsx}',
+      '../web-mail/src/**/*.{test,spec}.{ts,tsx}',
+      '../web-drive/src/**/*.{test,spec}.{ts,tsx}',
+    ],
     testTimeout: 15_000,
     hookTimeout: 30_000,
     teardownTimeout: 10_000,

@@ -48,7 +48,7 @@ Racine dépôt (hors `docs/`) : [`README.md`](../README.md) · [`TODOS.md`](../T
 | [operations/PORTS-HOTES.md](operations/PORTS-HOTES.md) | Ports 60XX |
 | [GIT.md](GIT.md) · [operations/BRANCHES.md](operations/BRANCHES.md) | Branches |
 
-Les anciens `PORTAINER-*.md` / `DEPLOIEMENT-*.md` / `DEPLOY.md` sont des **stubs** → `DEPLOIEMENT_PROCEDURE.md`.
+Les anciens guides Portainer / déploiement fragmentés ont été **supprimés** — tout est dans [`DEPLOIEMENT_PROCEDURE.md`](../DEPLOIEMENT_PROCEDURE.md).
 
 ---
 

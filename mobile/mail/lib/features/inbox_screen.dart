@@ -9,7 +9,6 @@ import 'mail_account_helpers.dart';
 import 'mail_imap_password_screen.dart';
 import 'mail_settings_screen.dart';
 import 'message_detail_screen.dart';
-import '../auth/session_store.dart';
 import '../auth/user_session.dart';
 
 class _MailLifecycleObserver extends WidgetsBindingObserver {

@@ -74,7 +74,7 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 | Dossier | Fichiers | Taille (KiB) | Route(s) | Cible workspace | Statut |
 |---------|----------|--------------|----------|-----------------|--------|
 | `hub/` | 2 | 6,9 | `/app` (index) | — | **hub-only** ✓ |
-| `drive/` | 4 | 200,6 | `/app/drive` · `/app/corbeille` → `drive?view=trash` | `@cloudity/web-drive` | embedded |
+| `drive/` | — | — | `/app/drive/` (SPA) · corbeille → `?view=trash` | `@cloudity/web-drive` | **external** (FE-SPLIT-02) |
 | `office/` | 3 | 108,3 | `/app/office` · `/app/office/editor/:nodeId` | `@cloudity/web-office` | embedded |
 | `pass/` | 21 | 131,3 | `/app/pass` | `@cloudity/web-pass` | embedded |
 | `photos/` | 9 | 138,3 | `/app/photos` | `@cloudity/web-photos` | embedded |
@@ -86,6 +86,8 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 | *(fichiers racine `pages/app/`)* | ~14 | ~48 | helpers vault Drive/Photos | redistribuer au split | transversal |
 
 **`pages/app/mail/`** : **supprimé** — code dans `frontend/apps/web-mail/` (**25** fichiers, **~449 KiB** ; `MailPage.tsx` ≈ 7 362 lignes).
+
+**`pages/app/drive/`** : **supprimé** — code dans `frontend/apps/web-drive/` (`DrivePage.tsx` + settings/tests).
 
 #### API
 
@@ -101,7 +103,8 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 | `/`, `/login`, `/register` | shell eager |
 | **`/app`** | **`AppHub`** — grille de **liens uniquement** (pas de `useQuery` / pas de fetch métier) |
 | `/app/mail` | **DEV** : lazy `@cloudity/web-mail` · **PROD** : redirect → SPA `/app/mail/` |
-| `/app/drive` `/office` `/pass` `/calendar` `/notes` `/tasks` `/contacts` `/photos` | lazy `pages/app/*` |
+| `/app/drive` | **DEV** : lazy `@cloudity/web-drive` · **PROD** : redirect → SPA `/app/drive/` |
+| `/app/office` `/pass` `/calendar` `/notes` `/tasks` `/contacts` `/photos` | lazy `pages/app/*` |
 | `/app/settings*` | shell settings |
 | `/4dm1n` | `admin.html` |
 
@@ -145,13 +148,26 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 | Entry Vite + nginx + Dockerfile | ☑ |
 | Hub `external` + smoke build | ☑ `vite build` OK |
 
+### 2.3ter FE-SPLIT-02 — Drive autonome
+
+| Élément | Détail |
+|---------|--------|
+| Package | `frontend/apps/web-drive` (`@cloudity/web-drive`) |
+| Entry SPA | `src/main.tsx` + `DriveShellLayout.tsx` · `base: '/app/drive/'` · port Vite 3002 |
+| Build | `npm run build -w @cloudity/web-drive` → `dist/` |
+| Nginx | `location ^~ /app/drive` → `/app/drive/index.html` |
+| Dockerfile | build web + web-mail + web-drive ; copy dist → `/usr/share/nginx/html/app/drive` |
+| Hub | `hosting: 'external'`, `href: '/app/drive/'` |
+| Shell PROD | `ExternalDriveRedirect` + lien drawer `<a href="/app/drive/">` |
+| Shell DEV | lazy `@cloudity/web-drive` (même process Vite) |
+
 ### 2.3bis Phases (Pilotage)
 
 | ID | Étape | Done quand |
 |----|--------|------------|
 | **FE-HUB-01** | Doc + inventaire + hub liens-only | **Livré** |
 | **FE-SPLIT-01** | Mail = app workspace autonome (`web-mail` entry + nginx) | **Livré** — cocher Pilotage puis Focus **H19** |
-| **FE-SPLIT-02** | Drive puis Pass | 3 apps hors monolithe |
+| **FE-SPLIT-02** | Drive = `web-drive` (Pass ensuite) | **Drive livré** — Pass reste |
 | **FE-SPLIT-N** | Reste + admin | Monolithe = shell mince |
 
 Déploiement interim : **un** conteneur nginx peut encore servir plusieurs builds sous des chemins, ou plusieurs services Compose plus tard.

@@ -21,7 +21,8 @@ Le routeur principal reste dans **`src/App.tsx`** (shell utilisateur) et **`src/
 |---------|--------|
 | **`hub/`** | Hub d’accueil (`AppHub`) — **launcher only** (FE-HUB-01), catalogue `src/hub/appsCatalog.ts`. |
 | **Mail** | **FE-SPLIT-01** → `frontend/apps/web-mail` (`@cloudity/web-mail`) : **DEV** lazy shell · **PROD** SPA `/app/mail/`. |
-| **`drive/`** | Drive (encore embedded — FE-SPLIT-02). |
+| **Drive** | **FE-SPLIT-02** → `frontend/apps/web-drive` (`@cloudity/web-drive`) : **DEV** lazy shell · **PROD** SPA `/app/drive/`. |
+| **`pass/`** | Pass (encore embedded — FE-SPLIT suivant). |
 | **`office/`** | Liste Office + **éditeur de documents** (`OfficePage`, `DocumentEditorPage`) — à terme : sous-modules `word/`, `spreadsheet/`, `presentation/` si le fichier `DocumentEditorPage.tsx` est découpé. |
 | **`pass/`** | Coffre mots de passe utilisateur. |
 | **`calendar/`**, **`notes/`**, **`tasks/`**, **`contacts/`**, **`photos/`** | Apps correspondantes (`photosTypes.ts` reste à côté de `PhotosPage.tsx`). |
@@ -62,7 +63,7 @@ Constat (audit 13/05/2026, lignes hors `*.test.*`) :
 | Fichier | Lignes | Plan de découpe (cible) |
 |---------|-------:|--------------------------|
 | `pages/app/mail/MailPage.tsx` | **6576** | **Critique** : `MailPage.tsx` (orchestration) + `MailPageChrome.tsx` (déjà séparé) + sous-composants par zone (`MailListPanel`, `MailReadingPanel`, `MailComposer`, `MailFolderTree`) + hooks `useMail*` dans `pages/app/mail/hooks/`. |
-| `pages/app/drive/DrivePage.tsx` | 3228 | `DrivePage.tsx` (shell) + `DriveBrowser`, `DriveBreadcrumbs`, `DriveContextMenu`, `DriveUploadOverlay` + hooks `pages/app/drive/hooks/`. |
+| `frontend/apps/web-drive/src/drive/DrivePage.tsx` | 3228 | `DrivePage.tsx` (shell) + `DriveBrowser`, `DriveBreadcrumbs`, `DriveContextMenu`, `DriveUploadOverlay` + hooks. |
 | `api.ts` | 2191 | Découpe par **domaine** vers `src/api/` : `auth.ts`, `drive.ts`, `mail.ts`, `pass.ts`, `photos.ts`, `calendar.ts`, `notes.ts`, `tasks.ts`, `contacts.ts`, `office.ts`, `admin.ts`, `performance.ts`, `webauthn.ts`, `index.ts` (re-export pour compat). |
 | `pages/app/office/DocumentEditorPage.tsx` | 1388 | Sous-modules `word/`, `spreadsheet/`, `presentation/` (déjà mentionné § 2 de ce doc). |
 

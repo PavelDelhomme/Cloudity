@@ -4,7 +4,8 @@ import '../api/pass_api.dart';
 import '../features/pass_biometric_store.dart';
 import '../features/pass_crypto.dart';
 import '../features/pass_local_backup.dart';
-import '../auth/session_store.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
+
 import '../auth/user_session.dart';
 import '../features/vault_controller.dart';
 
@@ -152,13 +153,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
       );
       widget.session.accessToken = pair.access;
       widget.session.refreshToken = pair.refresh;
-      await PassSessionStore.saveSession(
-        gatewayUrl: widget.session.api.baseUrl,
-        accessToken: pair.access,
-        refreshToken: pair.refresh,
-        userId: widget.session.userId,
-        userEmail: widget.session.userEmail,
-      );
+      await widget.session.persist();
       final vaults = await widget.session.api.fetchVaults(widget.session.accessToken);
       if (!mounted) return;
       setState(() {
@@ -168,6 +163,9 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
           _params = Argon2idParams.desktop;
         }
       });
+    } on AuthException catch (_) {
+      if (!mounted) return;
+      widget.onLogout();
     } on PassException catch (e) {
       if (!mounted) return;
       if (e.message == 'non_autorisé') {

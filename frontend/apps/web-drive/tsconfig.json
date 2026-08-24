@@ -13,12 +13,7 @@
     "baseUrl": ".",
     "paths": {
       "@cloudity/shared": ["../../packages/cloudity-shared/src/index.ts"],
-      "@cloudity/ui": ["../../packages/cloudity-ui/src/index.ts"],
-      "@cloudity/pass-crypto": ["../../packages/pass-crypto/src/index.ts"],
-      "@cloudity/app-vault-crypto": ["../../packages/app-vault-crypto/src/index.ts"],
-      "@cloudity/web-mail": ["../web-mail/src/index.ts"],
-      "@cloudity/web-drive": ["../web-drive/src/index.ts"],
-      "@cloudity/web-shell/*": ["./src/*"]
+      "@cloudity/web-shell/*": ["../cloudity-web/src/*"]
     }
   },
   "include": ["src"]

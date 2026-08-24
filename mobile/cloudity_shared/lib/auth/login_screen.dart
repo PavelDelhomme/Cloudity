@@ -6,7 +6,6 @@ import '../auth_2fa.dart';
 import '../network_errors.dart';
 import '../suite_dev_credentials.dart';
 import 'auth_client.dart';
-import 'auth_exception.dart';
 import 'session_store.dart';
 import 'user_session.dart';
 
@@ -18,12 +17,15 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
     required this.createApi,
     required this.productTitle,
     required this.keyPrefix,
+    this.supportingText,
   });
 
   final void Function(CloudityUserSession<T> session) onLoggedIn;
   final T Function(String gateway) createApi;
   final String productTitle;
   final String keyPrefix;
+  /// Texte d’intro sous le titre (branding / consignes app).
+  final String? supportingText;
 
   @override
   State<CloudityLoginScreen<T>> createState() => _CloudityLoginScreenState<T>();
@@ -107,11 +109,13 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       final email = (tokens['email'] as String?) ??
           persona['email']?.toString() ??
           '';
+      final userId = tokens['user_id']?.toString();
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: selectedApi.baseUrl,
         accessToken: access,
         refreshToken: refresh,
         email: email,
+        userId: userId,
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(
@@ -221,11 +225,13 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
+      final userId = tokens['user_id']?.toString();
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: selectedApi.baseUrl,
         accessToken: access,
         refreshToken: refresh,
         email: email,
+        userId: userId,
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(
@@ -326,11 +332,13 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
+      final userId = tokens['user_id']?.toString();
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: selectedApi.baseUrl,
         accessToken: access,
         refreshToken: refresh,
         email: email,
+        userId: userId,
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(
@@ -366,7 +374,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       padding: const EdgeInsets.all(20),
       children: [
         Text(
-          'Même compte que le web. Entrez e-mail + mot de passe (gateway détectée automatiquement).',
+          widget.supportingText ??
+              'Même compte que le web. Entrez e-mail + mot de passe (gateway détectée automatiquement).',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
         ),
         const SizedBox(height: 20),

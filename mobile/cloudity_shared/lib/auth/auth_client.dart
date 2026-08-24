@@ -54,7 +54,13 @@ class CloudityAuthClient {
     if (access == null || access.isEmpty) {
       throw AuthException('Réponse serveur sans access_token.');
     }
-    return {'access_token': access, 'refresh_token': refresh ?? ''};
+    final out = <String, dynamic>{
+      'access_token': access,
+      'refresh_token': refresh ?? '',
+    };
+    final uid = map['user_id'];
+    if (uid != null) out['user_id'] = uid.toString();
+    return out;
   }
 
   Future<Auth2FAResult> verify2FA({
