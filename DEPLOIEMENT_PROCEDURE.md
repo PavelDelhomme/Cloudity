@@ -135,25 +135,51 @@ Si `inspect` ne montre que `nginx-proxy-manager_npm-network`, utilise **ce** nom
 
 **Étape M4 — Portainer UI (Add stack)**
 
-1. Ouvre Portainer → **Stacks** → **Add stack**.
-2. Remplis **exactement** :
+1. Si une tentative a **échoué** (ex. `no such file or directory`) : Portainer → Stacks → stack en erreur → **Remove** (ne supprime **pas** les volumes Docker nommés `cloudity_*`).
+2. Ouvre Portainer → **Stacks** → **Add stack**.
+3. Remplis **exactement** :
 
 | Champ | Valeur à coller telle quelle |
 |-------|------------------------------|
-| **Name** | `cloudity` |
+| **Name** | `cloudity` *(ou `cloudity-stack` — les `container_name` du compose restent `cloudity-web`, etc.)* |
 | **Build method** | **Repository** |
-| **Repository URL** | `https://github.com/PavelDelhomme/Cloudity` |
+| **Repository authentication** | **OFF** (repo public) |
+| **Repository URL** | `https://github.com/PavelDelhomme/Cloudity` *(avec ou sans `.git` — les deux marchent)* |
 | **Repository reference** | `refs/heads/prod` |
 | **Compose path** | `docker-compose.ghcr.yml` |
 | **Additional paths** | *(vide — ne rien mettre)* |
-| **GitOps updates** | ON |
-| **Re-pull image and redeploy** | ON |
-| **Prune** | OFF |
 
-3. **Environment variables** : depuis ton **PC**, ouvre le fichier  
-   `deploy/portainer/stack.env`  
-   et **colle tout le contenu** dans Portainer.  
-   Vérifie ces 3 lignes (sans changer le reste) :
+> **Piège n°1 — typo Compose path**  
+> Le fichier s’appelle **`docker-compose.ghcr.yml`** (**gh** **c** **r** = GitHub Container Registry).  
+> **`docker-compose.ghrc.yml`** (gh**rc**) → erreur Portainer :  
+> `stat /data/compose/…/docker-compose.ghrc.yml: no such file or directory`
+
+4. **GitOps updates** → **Activate**, puis :
+
+| Sous-champ GitOps | Valeur |
+|-------------------|--------|
+| **Mechanism** | **Polling** *(Webhook = option payante / inutile ici)* |
+| **Fetch interval** | `5m` |
+| **Re-pull image** | OFF si grisé « business feature » — normal en CE |
+| **Force redeployment** | OFF si grisé « business feature » |
+| **Skip TLS Verification** | **OFF** |
+
+5. **Environment variables** — **obligatoire** avant Deploy :
+
+Sur ton **PC** (pas le VPS) :
+
+```bash
+cd ~/Documents/Dev/Perso/Cloudity/Cloudity
+make portainer-prod-env NPM_NETWORK=shared-network-copy
+# → génère / met à jour deploy/portainer/stack.env
+```
+
+Dans Portainer, **une** de ces méthodes :
+
+- **Recommandé** : bouton **Load variables from .env file** → choisir `deploy/portainer/stack.env` sur ton PC.
+- **Sinon** : mode **Advanced** → coller **tout** le contenu de `stack.env` (lignes `CLE=valeur`, une par ligne).
+
+Vérifier au minimum ces 3 lignes dans la liste affichée :
 
 ```bash
 REGISTRY_OWNER=paveldelhomme
@@ -161,8 +187,10 @@ TAG=latest
 NPM_NETWORK=shared-network-copy
 ```
 
-4. Clique **Deploy the stack**.  
-   Attends la fin (pull images + start). Ne ferme pas la page trop tôt.
+> Ne pas laisser Environment variables **vide** — sans `POSTGRES_PASSWORD`, `JWT_SECRET`, etc., le deploy échouera ou les services crasheront.
+
+6. Clique **Deploy the stack**.  
+   Attends la fin (clone Git + pull images GHCR + start). Ne fermer la page trop tôt (plusieurs minutes la 1ʳᵉ fois).
 
 **Étape M5 — Succès**
 
@@ -214,7 +242,8 @@ Puis Add stack comme **M4**.
 | `docker inspect NOM` | `NOM` était un **placeholder**, pas un vrai nom | Utiliser le vrai nom : `nginx-proxy-manager_npm_1` |
 | `gh: command not found` sur le VPS | `gh` n’est **pas** installé sur Contabo | Vérifier CI sur le **PC** ou GitHub Actions web |
 | Bracket paste `^[[200~…` | Collage « bracketed paste » du terminal | Re-coller la commande propre, sans caractères invisibles |
-| `ls` / chercher le repo dans `/home/pavel` | Le clone SSH était dans **`/tmp/cloudity-build`**, pas dans home | Après M2, tu n’as plus besoin du clone : Portainer clone Git lui-même |
+| `docker-compose.ghrc.yml` dans Compose path | **Typo** : le vrai fichier est **`docker-compose.ghcr.yml`** (gh**c**r) | Corriger le champ → Remove stack en erreur → recréer **M4** |
+| Environment variables vide | Portainer n’a pas `stack.env` | **Load variables from .env file** avec `deploy/portainer/stack.env` depuis le PC |
 
 ---
 
@@ -1095,13 +1124,13 @@ Portainer → **Stacks** → **Add stack** :
 | **Build method** | **Repository** |
 | **Repository URL** | `https://github.com/PavelDelhomme/Cloudity` |
 | **Repository reference** | `refs/heads/prod` |
-| **Compose path** | `docker-compose.ghcr.yml` *(racine du dépôt — pas `deploy/portainer/…`)* |
+| **Compose path** | `docker-compose.ghcr.yml` *(racine — **ghcr** pas ghrc)* |
 | **Additional paths** | *(vide)* |
 | **Authentication** | OFF si repo public |
-| **Environment variables** | coller `stack.env` |
-| **GitOps updates** | **ON** (recommandé) |
-| **Fetch interval** | ex. `5m` |
-| **Re-pull image and redeploy** | **ON** |
+| **GitOps updates** | **ON** → Mechanism **Polling**, interval **5m** |
+| **Re-pull image / Force redeploy** | OFF si « business feature » (CE) |
+| **Skip TLS Verification** | OFF |
+| **Environment variables** | **Load from file** → `deploy/portainer/stack.env` (PC) |
 | **Prune** | OFF |
 
 **Deploy the stack.**
