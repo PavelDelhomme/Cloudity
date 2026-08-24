@@ -44,6 +44,10 @@ echo "════════════════════════�
 echo " Génération .env.prod + secrets prod (CSPRNG)" >&2
 echo " Domaine : ${HOST} · API : ${API_HOST}" >&2
 echo " CORS    : ${CORS_ORIGINS_VALUE}" >&2
+if [[ "${PRESERVE_SECRETS:-}" == "1" ]] || [[ -f "$STACK_ENV_FILE" && "${FORCE_NEW_SECRETS:-}" != "1" ]]; then
+  echo " ⚠️  Migration : ne PAS regénérer POSTGRES_PASSWORD/JWT si volumes existent." >&2
+  echo "     Utilise le stack.env existant ou PRESERVE_SECRETS=1." >&2
+fi
 echo "════════════════════════════════════════════════════════" >&2
 echo "" >&2
 
