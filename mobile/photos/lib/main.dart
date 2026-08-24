@@ -6,7 +6,6 @@ import 'package:workmanager/workmanager.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
-import 'auth/session_store.dart';
 import 'auth/user_session.dart';
 import 'features/gallery_backup_notifications.dart';
 import 'features/gallery_sync_prefs.dart';

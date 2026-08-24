@@ -24,8 +24,8 @@ import { NotificationsProvider } from '@cloudity/web-shell/notificationsContext'
 /** Nav shell Mail SPA : liens pleine page vers le hub (autres apps = cloudity-web). */
 const nav = [
   { name: 'Tableau de bord', href: '/app', icon: LayoutDashboard },
-  { name: 'Drive', href: '/app/drive', icon: HardDrive },
-  { name: 'Corbeille', href: '/app/corbeille', icon: Trash2 },
+  { name: 'Drive', href: '/app/drive/', icon: HardDrive },
+  { name: 'Corbeille', href: '/app/drive/?view=trash', icon: Trash2 },
   { name: 'Office', href: '/app/office', icon: FileSpreadsheet },
   { name: 'Pass', href: '/app/pass', icon: Lock },
   { name: 'Mail', href: '/app/mail/', icon: Mail, current: true },

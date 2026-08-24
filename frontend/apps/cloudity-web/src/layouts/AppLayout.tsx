@@ -373,6 +373,7 @@ export default function AppLayout() {
               const hasSub = 'subItem' in item && item.subItem
               const SubIcon = hasSub ? item.subItem.icon : null
               const mailExternal = item.href === '/app/mail' && !import.meta.env.DEV
+              const driveExternal = item.href === '/app/drive' && !import.meta.env.DEV
               const linkClass = `flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
                 active && !(hasSub && location.pathname.startsWith(item.subItem.href))
                   ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
@@ -380,9 +381,9 @@ export default function AppLayout() {
               }`
               return (
                 <div key={item.name}>
-                  {mailExternal ? (
+                  {mailExternal || driveExternal ? (
                     <a
-                      href="/app/mail/"
+                      href={mailExternal ? '/app/mail/' : '/app/drive/'}
                       onClick={() => setSidebarVisible(false)}
                       className={linkClass}
                       title={!sidebarVisible ? item.name : undefined}
@@ -402,6 +403,21 @@ export default function AppLayout() {
                   </Link>
                   )}
                   {hasSub && sidebarVisible && (
+                    driveExternal ? (
+                    <a
+                      href="/app/drive/?view=trash"
+                      onClick={() => setSidebarVisible(false)}
+                      className={`flex items-center gap-2 pl-6 pr-3 py-1.5 rounded text-sm font-medium ${
+                        isActive(item.subItem.href, true)
+                          ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
+                          : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700'
+                      }`}
+                      title={item.subItem.name}
+                    >
+                      {SubIcon && <SubIcon className="w-4 h-4 shrink-0" />}
+                      <span className="whitespace-nowrap">{item.subItem.name}</span>
+                    </a>
+                    ) : (
                     <Link
                       to={item.subItem.href}
                       onClick={() => setSidebarVisible(false)}
@@ -415,6 +431,7 @@ export default function AppLayout() {
                       {SubIcon && <SubIcon className="w-4 h-4 shrink-0" />}
                       <span className="whitespace-nowrap">{item.subItem.name}</span>
                     </Link>
+                    )
                   )}
                 </div>
               )

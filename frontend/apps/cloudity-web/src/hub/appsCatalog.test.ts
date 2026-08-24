@@ -21,6 +21,7 @@ describe('appsCatalog (FE-HUB-01 inventaire)', () => {
     expect(ids).toContain('drive')
     expect(ids).toContain('settings')
     expect(HUB_INVENTORY_ROUTES.find((r) => r.id === 'mail')?.href).toBe('/app/mail/')
+    expect(HUB_INVENTORY_ROUTES.find((r) => r.id === 'drive')?.href).toBe('/app/drive/')
   })
 
   it('groupement par catégories non vide', () => {

@@ -4,8 +4,9 @@
 
 | App | Rôle |
 |-----|------|
-| **`cloudity-web`** | Shell : login, hub `/app`, **et encore** Drive/Pass/Photos/Office/admin embedded |
-| **`web-mail`** | Mail extrait (build séparé) — modèle pour les prochaines apps |
+| **`cloudity-web`** | Shell : login, hub `/app`, **et encore** Pass/Photos/Office/admin embedded |
+| **`web-mail`** | Mail extrait (build séparé) — FE-SPLIT-01 |
+| **`web-drive`** | Drive extrait (build séparé) — FE-SPLIT-02 |
 
 ## Packages (`packages/`)
 

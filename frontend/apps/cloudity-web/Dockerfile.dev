@@ -12,6 +12,7 @@ COPY package.json package-lock.json* ./
 COPY packages ./packages
 COPY apps/cloudity-web ./apps/cloudity-web
 COPY apps/web-mail ./apps/web-mail
+COPY apps/web-drive ./apps/web-drive
 
 # FE-SEC-SUPPLY-02 : npm ci (pas install) + rebuild esbuild (allowScripts / postinstall)
 RUN npm ci --no-audit --no-fund \

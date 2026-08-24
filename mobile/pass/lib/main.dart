@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'package:cloudity_shared/cloudity_shared.dart';
 
-import 'auth/session_store.dart';
+import 'api/pass_api.dart';
 import 'auth/user_session.dart';
 import 'features/vault_controller.dart';
-import 'screens/login_screen.dart';
 import 'screens/unlock_screen.dart';
 import 'screens/vaults_screen.dart';
 
@@ -45,9 +44,23 @@ class _PassRootState extends State<_PassRoot> {
     );
   }
 
+  Future<PassUserSession> _toPassSession(CloudityUserSession<PassApi> s) async {
+    final email = await SessionStore.readAccountEmail();
+    final userId = await SessionStore.readUserId() ?? '';
+    return PassUserSession(
+      api: s.api,
+      accessToken: s.accessToken,
+      refreshToken: s.refreshToken,
+      userId: userId,
+      userEmail: email,
+    );
+  }
+
   Future<void> _restore() async {
-    final loaded = await PassSessionStore.loadValidatedSession();
-    final email = await PassSessionStore.readUserEmail();
+    final loaded =
+        await SessionStore.loadValidatedSession(createApi: PassApi.new);
+    final email = await SessionStore.readAccountEmail();
+    final userId = await SessionStore.readUserId();
     if (!mounted) return;
     setState(() {
       _ready = true;
@@ -56,7 +69,7 @@ class _PassRootState extends State<_PassRoot> {
           api: loaded.api,
           accessToken: loaded.access,
           refreshToken: loaded.refresh,
-          userId: loaded.userId ?? '',
+          userId: userId ?? '',
           userEmail: email,
         );
         _bindCrashSession(_session!);
@@ -71,10 +84,12 @@ class _PassRootState extends State<_PassRoot> {
     _restore();
   }
 
-  void _onLoggedIn(PassUserSession session) {
+  Future<void> _onLoggedIn(CloudityUserSession<PassApi> base) async {
+    final session = await _toPassSession(base);
+    if (!mounted) return;
     _bindCrashSession(session);
     setState(() => _session = session);
-    _syncUserPreferences(session);
+    unawaited(_syncUserPreferences(session));
   }
 
   Future<void> _syncUserPreferences(PassUserSession session) async {
@@ -92,7 +107,7 @@ class _PassRootState extends State<_PassRoot> {
   Future<void> _onLogout() async {
     _vault.lock();
     CloudityCrashReporter.clearSession();
-    await PassSessionStore.clearAll();
+    await SessionStore.clearIncludingPassSecrets();
     if (!mounted) return;
     setState(() => _session = null);
   }
@@ -104,7 +119,15 @@ class _PassRootState extends State<_PassRoot> {
     }
     final session = _session;
     if (session == null) {
-      return PassLoginScreen(onLoggedIn: _onLoggedIn);
+      return CloudityLoginScreen<PassApi>(
+        productTitle: 'Cloudity Pass',
+        keyPrefix: 'cloudity_pass',
+        createApi: PassApi.new,
+        supportingText:
+            'Compte Cloudity (le même que sur le web). Le coffre reste verrouillé '
+            'tant que vous n\'aurez pas saisi votre mot de passe maître à l\'étape suivante.',
+        onLoggedIn: (s) => unawaited(_onLoggedIn(s)),
+      );
     }
     return AnimatedBuilder(
       animation: _vault,

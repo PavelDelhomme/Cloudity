@@ -9,16 +9,17 @@ Companion ops : [`DEPLOIEMENT_PROCEDURE.md`](../DEPLOIEMENT_PROCEDURE.md).
 
 | Dossier | Rôle aujourd’hui | Intention |
 |---------|------------------|-----------|
-| `frontend/apps/cloudity-web` | **Shell / hub** : login, `/app` grille, **et encore** Drive, Pass, Photos, Office, admin… dans le même bundle | Doit devenir **uniquement** site + login + hub (+ éventuellement settings) |
-| `frontend/apps/web-mail` | App Mail **extraite** (FE-SPLIT-01) : build séparé, packagée dans l’image `cloudity-frontend` sous `/app/mail/` | Modèle à **répéter** pour Drive, Pass, Photos… |
+| `frontend/apps/cloudity-web` | **Shell / hub** : login, `/app` grille, **et encore** Pass, Photos, Office, admin… dans le même bundle | Doit devenir **uniquement** site + login + hub (+ éventuellement settings) |
+| `frontend/apps/web-mail` | App Mail **extraite** (FE-SPLIT-01) : build séparé, packagée dans l’image `cloudity-frontend` sous `/app/mail/` | Modèle à **répéter** pour Pass, Photos… |
+| `frontend/apps/web-drive` | App Drive **extraite** (FE-SPLIT-02) : idem sous `/app/drive/` | Suite = Pass, Photos… |
 
-Ce n’est **pas** deux fronts concurrentes : c’est le **début du découpage**. Mail est sorti ; le reste est encore « embedded » dans `cloudity-web/src/pages/app/*`.
+Ce n’est **pas** des fronts concurrentes : c’est le **découpage** progressif. Mail + Drive sont sortis ; le reste est encore « embedded » dans `cloudity-web/src/pages/app/*`.
 
 ```text
 Navigateur
   └── cloudity-web (shell) ──► charge / embed les apps produit
          ├── web-mail     (déjà séparé)
-         ├── web-drive    (cible)
+         ├── web-drive    (déjà séparé)
          ├── web-pass     (cible)
          └── …
 ```
@@ -119,7 +120,7 @@ Socle technique déjà partiel : `dist/mobile-manifests`, Watchtower labels, Git
 | **P0** | Doc cible (ce fichier) + `DEPLOIEMENT_PROCEDURE` + formulaire Portainer | Nul |
 | **P1** | Inventaire + README par zone (`backend/README`, `frontend/README`) ; conventions noms | Nul |
 | **P2** | Renforcer libs communes (auth Dart unique, `@cloudity/ui` partout) **sans** bouger dossiers | Faible |
-| **P3** | Extraire apps web (Drive → `web-drive`, etc.) comme `web-mail` | Moyen |
+| **P3** | Extraire apps web (Pass → `web-pass`, etc.) comme `web-mail` / `web-drive` | Moyen |
 | **P4** | Déplacer `backend/*` → `backend/services/_platform|_product` + màj Dockerfiles/CI | Élevé |
 | **P5** | 2 stacks Portainer Git (preprod + prod) + GitOps | Moyen |
 | **P6** | Admin « promote / hold release » + OTA mobile | Moyen |
@@ -136,7 +137,8 @@ Cloudity/
 ├── frontend/
 │   ├── apps/
 │   │   ├── cloudity-web/    # shell + apps encore embedded
-│   │   └── web-mail/        # Mail split ✓
+│   │   ├── web-mail/        # Mail split ✓
+│   │   └── web-drive/       # Drive split ✓
 │   └── packages/            # ui, shared, crypto
 ├── mobile/                  # apps Flutter + cloudity_shared
 ├── deploy/portainer/        # env examples, stubs docs

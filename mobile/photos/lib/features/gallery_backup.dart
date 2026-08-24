@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:cloudity_shared/photo_match.dart';
+import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import '../api/drive_api.dart';
@@ -9,7 +9,6 @@ import 'gallery_backup_logic.dart';
 import 'gallery_permissions.dart';
 import 'gallery_sync_prefs.dart';
 import 'gallery_backup_notifications.dart';
-import '../auth/session_store.dart';
 
 export 'gallery_backup_logic.dart' show GalleryBackupResult;
 

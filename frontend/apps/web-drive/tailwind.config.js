@@ -5,10 +5,8 @@ export default {
   presets: [cloudityUiPreset],
   content: [
     './index.html',
-    './admin.html',
     './src/**/*.{js,ts,jsx,tsx}',
-    '../web-mail/src/**/*.{js,ts,jsx,tsx}',
-    '../web-drive/src/**/*.{js,ts,jsx,tsx}',
+    '../cloudity-web/src/**/*.{js,ts,jsx,tsx}',
     '../../packages/cloudity-ui/src/**/*.{js,ts,jsx,tsx}',
   ],
   plugins: [],

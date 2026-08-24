@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../storage_keys.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
-import 'auth_exception.dart';
 
 const _sessionRestoreTimeout = Duration(seconds: 10);
 
@@ -46,6 +45,7 @@ class SessionStore {
     required String refreshToken,
     required String email,
     int tenantId = 1,
+    String? userId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final base = gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
@@ -54,6 +54,9 @@ class SessionStore {
     await _secure.write(key: CloudityStorageKeys.refreshToken, value: refreshToken);
     await _secure.write(key: CloudityStorageKeys.accountEmail, value: email.trim());
     await prefs.setInt(CloudityStorageKeys.tenantId, tenantId);
+    if (userId != null && userId.isNotEmpty) {
+      await _secure.write(key: CloudityStorageKeys.userId, value: userId);
+    }
     if (CloudityAuthBroker.isSupported) {
       await CloudityAuthBroker.saveSession(
         CloudityAuthAccount(
@@ -77,6 +80,19 @@ class SessionStore {
       await CloudityAuthBroker.clearAccount(email);
     }
   }
+
+  /// Logout Pass : jetons + userId + secrets biométrie / MK wrappée.
+  static Future<void> clearIncludingPassSecrets() async {
+    await clearTokens();
+    await _secure.delete(key: CloudityStorageKeys.userId);
+    await _secure.delete(key: CloudityStorageKeys.secureMkWrapped);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(CloudityStorageKeys.biometricEnabled);
+    await prefs.remove(CloudityStorageKeys.userEmail);
+  }
+
+  static Future<String?> readUserId() =>
+      _secure.read(key: CloudityStorageKeys.userId);
 
   static bool get hasBuildGateway => SuiteGatewayConfig.hasDartDefine;
 

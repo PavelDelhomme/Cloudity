@@ -21,13 +21,15 @@ import { ServiceStatusPage } from './components/ServiceStatusPage'
 
 /**
  * Produits en lazy chunks (FE-HUB-01) : le shell ne charge plus Mail/Drive/… au boot.
- * Mail = FE-SPLIT-01 (DEV lazy package ; PROD SPA /app/mail/). Suite splits = Drive/Pass/…
+ * Mail = FE-SPLIT-01 · Drive = FE-SPLIT-02 (DEV lazy package ; PROD SPA /app/mail|drive/).
  */
-const DrivePage = lazy(() => import('./pages/app/drive/DrivePage'))
+/** DEV : lazy package. PROD image nginx : SPA séparée → External*Redirect. */
+const DrivePage = import.meta.env.DEV
+  ? lazy(() => import('@cloudity/web-drive').then((m) => ({ default: m.DrivePage })))
+  : lazy(() => import('./pages/app/ExternalDriveRedirect'))
 const OfficePage = lazy(() => import('./pages/app/office/OfficePage'))
 const DocumentEditorPage = lazy(() => import('./pages/app/office/DocumentEditorPage'))
 const PassPage = lazy(() => import('./pages/app/pass/PassPage'))
-/** DEV : lazy package. PROD image nginx : SPA séparée → ExternalMailRedirect. */
 const MailPage = import.meta.env.DEV
   ? lazy(() => import('@cloudity/web-mail').then((m) => ({ default: m.MailPage })))
   : lazy(() => import('./pages/app/ExternalMailRedirect'))

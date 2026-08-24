@@ -35,17 +35,17 @@ import {
   Lock,
   Settings,
 } from 'lucide-react'
-import { AppLockedGate } from '../AppLockedGate'
-import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
-import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
+import { AppLockedGate } from '@cloudity/web-shell/pages/app/AppLockedGate'
+import { AppLockedPinChangeSection } from '@cloudity/web-shell/pages/app/AppLockedPinChangeSection'
+import { useAppLockedVaultAutoLock } from '@cloudity/web-shell/pages/app/useAppLockedVaultAutoLock'
 import {
   APP_LOCKED_SESSION_TTL_MS,
   appLockedVaultScope,
   grantAppLockedVaultSession,
   isAppLockedVaultUnlocked,
   revokeAppLockedVaultSession,
-} from '../appLockedVault'
-import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
+} from '@cloudity/web-shell/pages/app/appLockedVault'
+import { clearAppVaultKey, importAppVaultKeyB64u } from '@cloudity/web-shell/pages/app/appVaultKeySession'
 import {
   DEFAULT_DRIVE_APP_SETTINGS,
   loadDriveAppSettings,
@@ -53,10 +53,10 @@ import {
   type DriveAppSettings,
   type DriveDisplayMode,
 } from './driveAppSettings'
-import { useAuth } from '../../../authContext'
-import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '../../../uploadContext'
-import { formatFileSize } from '../../../utils/formatFileSize'
-import { formatRelativeDate, formatFullDate, formatRelativeDateWithTime } from '../../../utils/formatDate'
+import { useAuth } from '@cloudity/web-shell/authContext'
+import { useUpload, DRIVE_FILE_INPUT_ID, DRIVE_FOLDER_INPUT_ID } from '@cloudity/web-shell/uploadContext'
+import { formatFileSize } from '@cloudity/web-shell/utils/formatFileSize'
+import { formatRelativeDate, formatFullDate, formatRelativeDateWithTime } from '@cloudity/web-shell/utils/formatDate'
 import {
   fetchDriveNodes,
   fetchDriveSearch,
@@ -77,12 +77,12 @@ import {
   moveDriveNode,
   type DriveNode,
   type DriveZipEntry,
-} from '../../../api'
-import { getExtension, isOfficeIframePreviewName, isWordDocument } from '../office/DocumentEditorPage'
-import { parseCsvToGrid } from '../../../utils/csvGrid'
-import { markdownToHtml } from '../../../utils/htmlMarkdown'
-import { DrivePdfJsPreview } from '../../../components/DrivePdfJsPreview'
-import StorageUsageInline from '../../../components/StorageUsageInline'
+} from '@cloudity/web-shell/api'
+import { getExtension, isOfficeIframePreviewName, isWordDocument } from '@cloudity/web-shell/pages/app/office/DocumentEditorPage'
+import { parseCsvToGrid } from '@cloudity/web-shell/utils/csvGrid'
+import { markdownToHtml } from '@cloudity/web-shell/utils/htmlMarkdown'
+import { DrivePdfJsPreview } from '@cloudity/web-shell/components/DrivePdfJsPreview'
+import StorageUsageInline from '@cloudity/web-shell/components/StorageUsageInline'
 
 /** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
 const OFFICE_PREVIEW_MAX_ROWS = 5000
@@ -604,7 +604,7 @@ function FilePreviewContent({
       try {
         if (isWordDocument(node.name)) {
           const blob = await downloadDriveFile(token, node.id, { inline: true })
-          const { wordBlobToHtml } = await import('../../../utils/wordToHtml')
+          const { wordBlobToHtml } = await import('@cloudity/web-shell/utils/wordToHtml')
           const html = await wordBlobToHtml(blob)
           if (!cancelled) setOfficePreview({ phase: 'html', html: html || '<p></p>' })
           return
@@ -612,7 +612,7 @@ function FilePreviewContent({
         const lower = node.name.toLowerCase()
         if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.xlsm')) {
           const blob = await downloadDriveFile(token, node.id, { inline: true })
-          const { xlsxBlobToGrid } = await import('../../../utils/exportOffice')
+          const { xlsxBlobToGrid } = await import('@cloudity/web-shell/utils/exportOffice')
           const grid = await xlsxBlobToGrid(blob)
           if (!cancelled) setOfficePreview({ phase: 'spreadsheet', grid })
           return
@@ -2411,7 +2411,7 @@ export default function DrivePage() {
     setCreatingDocument(true)
     try {
       const { id, name } = await createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre.docx')
-      const { htmlToDocxBlob } = await import('../../../utils/exportOffice')
+      const { htmlToDocxBlob } = await import('@cloudity/web-shell/utils/exportOffice')
       const blob = await htmlToDocxBlob('<p></p>')
       await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
       if (name !== 'Sans titre.docx') {
@@ -2434,7 +2434,7 @@ export default function DrivePage() {
     setCreatingDocument(true)
     try {
       const { id, name } = await createDriveFileWithUniqueName(accessToken, currentParentId, 'Sans titre.xlsx')
-      const { emptyXlsxBlob } = await import('../../../utils/exportOffice')
+      const { emptyXlsxBlob } = await import('@cloudity/web-shell/utils/exportOffice')
       const blob = await emptyXlsxBlob()
       await putDriveNodeContentBlob(accessToken, id, blob, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       if (name !== 'Sans titre.xlsx') {
