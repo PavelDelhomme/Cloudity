@@ -328,8 +328,8 @@ test-mail-mta-local: sync-mail-mta-env ## Smoke MTA : /health, alias-resolve, po
 	@./scripts/dev/test-mail-mta-local.sh
 
 mail-mta-local-up: sync-mail-mta-env ## Démarre Maddy local (deploy/mail-mta/docker-compose.local.yml)
-	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml up -d --build alias-router maddy
-	@echo "✅ Maddy local — SMTP hôte : port $$(sed -n 's/^SMTP_PORT=//p' deploy/mail-mta/.env 2>/dev/null | tail -1 | grep -E '.+' || echo 2526)"
+	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml up -d --build
+	@echo "✅ Maddy local — SMTP hôte : port $$(sed -n 's/^SMTP_PORT=//p' deploy/mail-mta/.env 2>/dev/null | tail -1 | grep -E '.+' || echo 2526) — Mailpit UI : http://127.0.0.1:$${MAILPIT_UI_PORT:-8025}"
 
 mail-mta-local-down: ## Arrête la stack Maddy locale
 	@cd deploy/mail-mta && $(COMPOSE) -f docker-compose.local.yml down

@@ -5,17 +5,18 @@
 | Priorité | Fichier | Rôle |
 |----------|---------|------|
 | **1** | **[`TODOS.md`](../TODOS.md)** (racine) | Fil de session / « maintenant » |
-| **2** | **[`architecture/MULTI-APPS-WEB-MOBILE.md`](architecture/MULTI-APPS-WEB-MOBILE.md)** | **Priorité code** : hub web + DA/auth Flutter (avant VPS) |
-| **2b** | **[`architecture/FRONTEND-SUPPLY-CHAIN.md`](architecture/FRONTEND-SUPPLY-CHAIN.md)** | **Priorité sécu** : durcir / sortir npm (Pilotage FE-SEC-SUPPLY) |
-| **3** | **[`operations/DEPLOIEMENT.md`](operations/DEPLOIEMENT.md)** | Chemin ops : §0 structure · local · puis prod Portainer/NPM |
+| **2** | **[`architecture/MULTI-APPS-WEB-MOBILE.md`](architecture/MULTI-APPS-WEB-MOBILE.md)** | Hub web + DA Flutter |
+| **2a** | **[`architecture/STRUCTURE-CIBLE.md`](architecture/STRUCTURE-CIBLE.md)** | **Restructure** : web-mail, backend plateforme/produit, phases |
+| **2b** | **[`architecture/FRONTEND-SUPPLY-CHAIN.md`](architecture/FRONTEND-SUPPLY-CHAIN.md)** | Durcir / sortir npm |
+| **3** | **[`DEPLOIEMENT_PROCEDURE.md`](../DEPLOIEMENT_PROCEDURE.md)** | **Déploiement unique** : Portainer Git, NPM, Limited→Total, màj partielle/totale |
 | **4** | **`/4dm1n/pilotage`** | **FE-SEC-SUPPLY** · FE-HUB → FE-SPLIT → H19 → MOBILE-DA → **H14** |
 
-Tout le reste de `docs/` est une **référence** : tu n’ouvres un fichier que quand DEPLOIEMENT ou TODOS te le demande.
+Tout le reste de `docs/` est une **référence** : tu n’ouvres un fichier que quand DEPLOIEMENT_PROCEDURE ou TODOS te le demande.
 
 ```text
 TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage FE-HUB / H19
                       │
-                      └──► DEPLOIEMENT.md §0 puis §B (H14) quand structure OK
+                      └──► DEPLOIEMENT_PROCEDURE.md (prod Portainer / NPM)
 ```
 
 ---
@@ -24,7 +25,7 @@ TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage FE-HUB / H19
 
 | Dossier | Pour quoi | Entrée typique |
 |---------|-----------|----------------|
-| **[operations/](operations/)** | Faire tourner / déployer / tester | **[DEPLOIEMENT.md](operations/DEPLOIEMENT.md)** |
+| **[operations/](operations/)** | Faire tourner / déployer / tester | **[DEPLOIEMENT_PROCEDURE.md](../DEPLOIEMENT_PROCEDURE.md)** |
 | **[produit/](produit/)** | Comportement apps (Mail, Pass, Photos…) | [produit/README.md](produit/README.md) · **[MAIL-ALIAS.md](produit/MAIL-ALIAS.md)** |
 | **[architecture/](architecture/)** | Comment c’est assemblé | **[MULTI-APPS-WEB-MOBILE.md](architecture/MULTI-APPS-WEB-MOBILE.md)** · **[FRONTEND-SUPPLY-CHAIN.md](architecture/FRONTEND-SUPPLY-CHAIN.md)** · [SERVICES.md](architecture/SERVICES.md) · [VERSIONNAGE-LIBS.md](architecture/VERSIONNAGE-LIBS.md) |
 | **[securite/](securite/)** | Sécurité / secrets / crypto | [SECURITE.md](securite/SECURITE.md) · [SECRETS.md](securite/SECRETS.md) |
@@ -34,14 +35,12 @@ Racine dépôt (hors `docs/`) : [`README.md`](../README.md) · [`TODOS.md`](../T
 
 ---
 
-## Operations — fichiers utiles (après DEPLOIEMENT)
+## Operations — fichiers utiles
 
 | Fichier | Quand |
 |---------|--------|
-| [operations/DEPLOIEMENT.md](operations/DEPLOIEMENT.md) | **Toujours** pour local / prod |
-| [operations/PORTAINER-STACK-GIT-COMPLET.md](operations/PORTAINER-STACK-GIT-COMPLET.md) | Formulaire Portainer Git (champ par champ) |
+| **[DEPLOIEMENT_PROCEDURE.md](../DEPLOIEMENT_PROCEDURE.md)** | **Toujours** — Portainer / NPM / Git / màj |
 | [operations/H14-GATEWAY-MOBILE.md](operations/H14-GATEWAY-MOBILE.md) | Gateway mobile LAN → HTTPS |
-| [operations/DEPLOIEMENT-PAR-SERVICE.md](operations/DEPLOIEMENT-PAR-SERVICE.md) | `make deploy-web` / un service |
 | [operations/ENV-GENERATION.md](operations/ENV-GENERATION.md) | `.env` / `env-prod` / secrets |
 | [operations/PILOTAGE.md](operations/PILOTAGE.md) | Board `/4dm1n/pilotage` |
 | [operations/VERSIONS-PROJET.md](operations/VERSIONS-PROJET.md) | Qui versionne quoi |
@@ -49,9 +48,7 @@ Racine dépôt (hors `docs/`) : [`README.md`](../README.md) · [`TODOS.md`](../T
 | [operations/PORTS-HOTES.md](operations/PORTS-HOTES.md) | Ports 60XX |
 | [GIT.md](GIT.md) · [operations/BRANCHES.md](operations/BRANCHES.md) | Branches |
 
-**Stubs** (anciens noms, redirigent) : `SUIVRE-ICI.md`, `GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md`, `DEPLOY-PORTAINER-NPM-CLOUDITY.md`, `DEPLOIEMENT-ENVIRONNEMENTS.md`, `DEPLOIEMENT-SUIVI.md`.
-
-Référence longue VPS (optionnelle) : [operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md).
+Les anciens `PORTAINER-*.md` / `DEPLOIEMENT-*.md` / `DEPLOY.md` sont des **stubs** → `DEPLOIEMENT_PROCEDURE.md`.
 
 ---
 

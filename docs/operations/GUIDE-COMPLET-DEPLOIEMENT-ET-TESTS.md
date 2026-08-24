@@ -1,9 +1,7 @@
-# → Guide déploiement (fusionné)
+# Déplacé
 
-**Contenu fusionné / remplacé.** Lis maintenant :
+Ce guide a été **fusionné** dans le fichier unique :
 
-→ **[DEPLOIEMENT.md](DEPLOIEMENT.md)**
+**→ [`DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)**
 
-Détail Portainer : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · Tests : [TESTS.md](TESTS.md) · Index : [../README.md](../README.md)
-
-*Stub anti-casse des anciens liens — 2026-07-29.*
+Ne plus enrichir ce fichier.
