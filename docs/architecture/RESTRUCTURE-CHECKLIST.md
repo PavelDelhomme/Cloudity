@@ -1,44 +1,39 @@
 # Restructure — checklist opérationnelle
 
-Branche : **`chore/restructure-platform`**  
-Doc : [`STRUCTURE-CIBLE.md`](./STRUCTURE-CIBLE.md) · Ops : [`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)
+Doc : [`STRUCTURE-CIBLE.md`](./STRUCTURE-CIBLE.md) · Images : [`GHCR-IMAGES.md`](./GHCR-IMAGES.md) · Ops : [`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)
 
 ## P0 — Doc (fait)
 
-- [x] `DEPLOIEMENT_PROCEDURE.md` + formulaire Portainer
-- [x] Expliquer `cloudity-web` vs `web-mail`
-- [x] Catégories plateforme / produit
-- [x] Branches `dev` / `preprod` / `prod` alignées
+- [x] `DEPLOIEMENT_PROCEDURE.md` unique (Install + Formulaire + Limited + par service)
+- [x] Branches `dev` / `preprod` / `prod` alignées sur la restructure
+- [x] CI GHCR sur `dev` + `prod` (+ `preprod` tag)
 
-## P1 — Conventions (en cours)
+## P1 — Conventions (fait)
 
 - [x] `backend/README.md` · `frontend/README.md`
-- [ ] Inventaire routes `cloudity-web` encore embedded (Drive, Pass, Photos…)
-- [ ] Convention noms images GHCR ↔ services (table unique)
+- [x] Inventaire embedded `cloudity-web` : hub, pass, photos, office, notes, calendar, contacts, tasks, settings (mail+drive sortis)
+- [x] Table images GHCR [`GHCR-IMAGES.md`](./GHCR-IMAGES.md)
 
-## P2 — Base commune (sans bouger dossiers)
+## P2 — Base commune
 
-- [ ] Auth Flutter **uniquement** via `cloudity_shared` (supprimer copies login)
-- [ ] `@cloudity/ui` + tokens partagés sur toutes pages hub
-- [ ] Contrats API documentés (OpenAPI gateway)
+- [x] Auth Flutter via `cloudity_shared` (Pass + apps produit)
+- [ ] `@cloudity/ui` + tokens partout sur hub (progressif)
+- [ ] Contrats OpenAPI gateway (backlog)
 
-## P3 — Split apps web (comme Mail)
+## P3 — Split apps web
 
-- [ ] `web-pass` · `web-photos` · …
-- [x] `web-drive` (FE-SPLIT-02) — même pattern que Mail
-- [x] Image `cloudity-frontend` assemble Mail + Drive bundles
+- [x] `web-mail` · `web-drive`
+- [ ] `web-pass` · `web-photos` · `web-office` · …
 
 ## P4 — Move physique backend
 
-- [ ] `backend/services/_platform| _product` + màj Dockerfiles / CI / compose
+- [ ] `backend/services/_platform|_product` (après splits web stables)
 
-## P5 — Portainer Total
+## P5 — Portainer Total (en cours)
 
-- [ ] Migrer Limited → stack Git `cloudity` (prod)
-- [ ] Créer stack `cloudity-preprod` (branche `preprod`, TAG=`preprod`)
+- [ ] Migrer Limited `cloudity-build` → stack Git **`cloudity`** (`refs/heads/prod`)
+- [ ] Créer stack **`cloudity-preprod`** (`refs/heads/preprod`, `TAG=preprod`)
 
 ## P6 — Admin hold/promote + OTA
 
-- [ ] UI admin versions
-- [ ] Promote preprod → prod
-- [ ] URLs APK / manifestes
+- [ ] UI admin versions / promote / OTA APK
