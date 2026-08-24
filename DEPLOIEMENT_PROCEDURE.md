@@ -206,6 +206,27 @@ curl -sfI https://cloudity.delhomme.ovh/ | head -5
 
 Si 502 : NPM → proxy `cloudity.delhomme.ovh` → forward **`cloudity-web:80`** en scheme **http** (pas https).
 
+**Étape M5 bis — « Démarrage de Cloudity… / HTML au lieu de JSON »**
+
+Symptôme : la page reste sur *StackHealthGate* avec « Réponse HTML au lieu de JSON ».
+
+Cause : le front appelle `GET /health` sur le **domaine web** ; sans proxy nginx, nginx sert `index.html`.
+
+Fix permanent : image `cloudity-frontend:latest` rebuildée (commit `nginx.conf` avec `location = /health` → `cloudity-api-gateway:8000`).
+
+Patch **temporaire** sur le VPS (perdu au `--force-recreate` tant que l’image n’est pas à jour) :
+
+```bash
+docker exec cloudity-web sh -c 'grep -q "location = /health" /etc/nginx/conf.d/default.conf || sed -i "/location ^~ \\/app\\/drive/i\\
+    location = /health {\\
+        proxy_pass http://cloudity-api-gateway:8000/health;\\
+        proxy_http_version 1.1;\\
+        proxy_set_header Host \$host;\\
+    }\\
+" /etc/nginx/conf.d/default.conf; nginx -t && nginx -s reload'
+curl -sf https://cloudity.delhomme.ovh/health   # → {\"status\":\"healthy\"}
+```
+
 **Étape M6 — Nettoyage optionnel (après succès seulement)**
 
 ```bash
@@ -243,7 +264,7 @@ Puis Add stack comme **M4**.
 | `POSTGRES_PASSWORD` neuf + volume ancien | `db-migrate` exit 1 · `password authentication failed` | Remettre le mot de passe **d’origine** dans Portainer |
 | `NPM_NETWORK=shared-network-proxy` | Réseau **inexistant** | **`shared-network-copy`** |
 | Environment variables vide | Portainer n’a pas `stack.env` | **Load variables from .env file** |
-| Doublons / `e.g. bar` dans Portainer | Placeholder UI ou rechargement double | Supprimer les entrées en double ; garder `CORS_ORIGINS` (pas `*_EXTRA` vide) |
+| `/health` renvoie HTML en prod | Nginx `cloudity-web` ne proxy pas `/health` vers la gateway (Vite le faisait en dev) | Corrigé dans `nginx.conf` — pull image `:latest` après CI, ou patch temporaire sur le conteneur (voir § A.0 M5 bis) |
 
 ---
 
