@@ -688,7 +688,7 @@ Docs : [DEPLOY.md](../../DEPLOY.md) · [DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOI
 # Partie II — Formulaire Git Portainer (copier-coller)
 
 
-> Contenu repris **intégralement** de l’ancien `deploy/portainer/DEPLOIEMENT_PROCEDURE.md (Partie II)`, enrichi preprod.
+> Contenu repris **intégralement** de l’ancien `deploy/portainer/PORTAINER-FORMULAIRE-GIT.md`, enrichi preprod.
 
 
 Stack **`cloudity`** · branche **`prod`**.
