@@ -2,13 +2,22 @@
 
 **Fichier unique** pour Portainer, Git, NPM, environnements, mises à jour totales / partielles, et reprise de contrôle.
 
-> Les anciens guides (`PORTAINER-*.md`, `DEPLOIEMENT-VPS-*.md`, `DEPLOY.md`, etc.) sont des **stubs** qui pointent ici. Ne les enrichis plus.
+> Anciens fichiers `PORTAINER-*.md` / `DEPLOIEMENT-*.md` **supprimés** — tout est ici.
 
-**Architecture & restructure** (pourquoi `web-mail`, catégories backend, phases) :  
-→ [`docs/architecture/STRUCTURE-CIBLE.md`](docs/architecture/STRUCTURE-CIBLE.md)
+**Architecture & restructure** : [`docs/architecture/STRUCTURE-CIBLE.md`](docs/architecture/STRUCTURE-CIBLE.md)
 
-**Formulaire Portainer court** :  
-→ [`deploy/portainer/DEPLOIEMENT_PROCEDURE.md (Partie II)`](deploy/portainer/DEPLOIEMENT_PROCEDURE.md (Partie II))
+**Où trouver quoi dans ce fichier**
+
+| Besoin | Section |
+|--------|---------|
+| État VPS Limited / migrate exited | § 0 |
+| Guide install complet (DNS, NPM, secrets, stack, Watchtower, mobile…) | **Partie I** |
+| Formulaire Git **copier-coller** (prod + preprod) | **Partie II** |
+| Migration Limited → Total | **Partie III** |
+| Màj un seul service (local ↔ Portainer) | **Partie IV** |
+
+> **Vérité actuelle (2026-08)** — si une section historique dit autrement :  
+> Compose path = **`docker-compose.ghcr.yml` (racine)** · `REGISTRY_OWNER=paveldelhomme` · `NPM_NETWORK=shared-network-copy` · Forward NPM en **http**.
 
 ---
 
@@ -23,13 +32,14 @@
 
 Aujourd’hui on est entre **1** (doc + conventions) et **3** (stack encore Limited sur le VPS).
 
-### A.1 `cloudity-web` vs `web-mail` (en 20 s)
+### A.1 `cloudity-web` vs apps produit (en 20 s)
 
 | | |
 |--|--|
-| **`cloudity-web`** | Shell (login, hub) **+ encore** Drive/Pass/Photos/Office dedans |
-| **`web-mail`** | App Mail **déjà sortie** — même modèle pour les prochaines apps |
-| **Image prod** | Une image `cloudity-frontend` qui **assemble** shell + bundles (mail, …) |
+| **`cloudity-web`** | Shell (login, hub) **+ encore** Pass/Photos/Office… |
+| **`web-mail`** | Mail **extrait** (build séparé) |
+| **`web-drive`** | Drive **extrait** (même modèle que Mail) — FE-SPLIT-02 |
+| **Image prod** | `cloudity-frontend` assemble shell + `/app/mail` + `/app/drive` + … |
 
 ### A.2 Plateforme vs produit (backend)
 
