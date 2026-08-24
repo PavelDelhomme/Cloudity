@@ -1,9 +1,7 @@
-# → Portainer + NPM Cloudity
+# Déplacé
 
-**Contenu fusionné / remplacé.** Lis maintenant :
+Ce guide a été **fusionné** dans le fichier unique :
 
-→ **[DEPLOIEMENT.md](DEPLOIEMENT.md)**
+**→ [`DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)**
 
-Formulaire Git : [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) · H14 : [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md)
-
-*Stub anti-casse des anciens liens — 2026-07-29.*
+Ne plus enrichir ce fichier.

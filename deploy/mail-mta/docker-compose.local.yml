@@ -3,6 +3,18 @@
 # Prérequis : mail-directory-service joignable (stack Cloudity `make up`).
 
 services:
+  # Sink SMTP pour le relais post-lookup (UI http://127.0.0.1:8025).
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: cloudity-mailpit-local
+    restart: unless-stopped
+    ports:
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+      # Exposé aussi sur l’hôte si RELAY pointe encore vers host.docker.internal:1025
+      - "${RELAY_SMTP_PORT:-1025}:1025"
+    networks:
+      - mta_local
+
   rspamd:
     image: rspamd/rspamd:3.8
     container_name: cloudity-rspamd-local
@@ -20,18 +32,21 @@ services:
       ALIAS_ROUTER_LISTEN_ADDR: :2527
       MAIL_DIRECTORY_URL: ${MAIL_DIRECTORY_URL:-http://host.docker.internal:6050}
       MTA_INTERNAL_TOKEN: ${MTA_INTERNAL_TOKEN}
-      RELAY_SMTP_HOST: ${RELAY_SMTP_HOST:-host.docker.internal}
+      # Préférer le service compose `mailpit` (évite un MailHog externe manquant).
+      RELAY_SMTP_HOST: ${RELAY_SMTP_HOST:-mailpit}
       RELAY_SMTP_PORT: ${RELAY_SMTP_PORT:-1025}
       RELAY_SMTP_USERNAME: ${RELAY_SMTP_USERNAME:-}
       RELAY_SMTP_PASSWORD: ${RELAY_SMTP_PASSWORD:-}
       RELAY_FROM: ${RELAY_FROM:-}
     networks:
       - mta_local
+    depends_on:
+      - mailpit
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
   maddy:
-    image: foxcpp/maddy:latest
+    image: foxcpp/maddy:0.9.4
     container_name: cloudity-maddy-local
     hostname: ${MADDY_HOSTNAME:-mail.alias.example.invalid}
     restart: unless-stopped
@@ -48,6 +63,7 @@ services:
     depends_on:
       - alias-router
       - rspamd
+      - mailpit
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

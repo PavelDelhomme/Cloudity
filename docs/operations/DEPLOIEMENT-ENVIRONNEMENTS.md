@@ -1,9 +1,7 @@
-# → Environnements local / VPS
+# Déplacé
 
-**Contenu fusionné / remplacé.** Lis maintenant :
+Ce guide a été **fusionné** dans le fichier unique :
 
-→ **[DEPLOIEMENT.md](DEPLOIEMENT.md)**
+**→ [`DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)**
 
-Par service : [DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md)
-
-*Stub anti-casse des anciens liens — 2026-07-29.*
+Ne plus enrichir ce fichier.

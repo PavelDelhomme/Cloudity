@@ -4,7 +4,7 @@
 #   Compose path : docker-compose.ghcr.yml (racine du dépôt — obligatoire pour les mounts scripts/init)
 #   Branche prod → TAG=latest   ·   Branche dev → TAG=dev
 #
-# Guide pas à pas : deploy/portainer/PORTAINER-INSTALL-PROD.md
+# Guide unique : DEPLOIEMENT_PROCEDURE.md (racine)
 
 version: "3.8"
 
@@ -61,6 +61,18 @@ services:
         condition: service_healthy
     networks: [cloudity-data]
 
+  # Volume Docker créé root:root ; auth/gateway tournent en USER nonroot (65532).
+  # Sans ce one-shot, auth ne peut pas écrire public_ed25519.pem → gateway 401 JWT.
+  auth-keys-init:
+    image: alpine:3.20
+    container_name: cloudity-auth-keys-init
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - cloudity_auth_keys:/keys
+    command: ["sh", "-c", "chown -R 65532:65532 /keys && chmod 700 /keys"]
+    networks: [cloudity-data]
+
   auth-service:
     image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-auth-service:${TAG:-latest}
     container_name: cloudity-auth-service
@@ -79,6 +91,8 @@ services:
       - cloudity_auth_keys:/var/lib/cloudity/auth-keys
     depends_on:
       db-migrate:
+        condition: service_completed_successfully
+      auth-keys-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy

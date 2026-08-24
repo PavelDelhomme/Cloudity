@@ -1,9 +1,7 @@
-# → Suivi déploiement (checklist)
+# Déplacé
 
-**Contenu fusionné / remplacé.** Lis maintenant :
+Ce guide a été **fusionné** dans le fichier unique :
 
-→ **[DEPLOIEMENT.md](DEPLOIEMENT.md)**
+**→ [`DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)**
 
-Validation UI : `/4dm1n/pilotage` tâche **H14**.
-
-*Stub anti-casse des anciens liens — 2026-07-29.*
+Ne plus enrichir ce fichier.
