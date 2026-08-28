@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="fr.cloudity.permission.READ_AUTH_BROKER" />
+    <uses-permission android:name="fr.cloudity.permission.WRITE_AUTH_BROKER" />
     <application
         android:label="admin_app"
         android:name="${applicationName}"
@@ -23,6 +25,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Digital Asset Links — passkeys Android (Bitwarden / Credential Manager) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="cloudity.delhomme.ovh" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

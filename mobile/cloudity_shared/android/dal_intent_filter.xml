@@ -1,0 +1,8 @@
+<!-- Fragment à coller dans MainActivity (intent-filters) — passkeys Android / Bitwarden.
+     Domaine = WEBAUTHN_RP_ID prod (cloudity.delhomme.ovh). Voir docs/produit/PASS-DIGITAL-ASSET-LINKS.md -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="cloudity.delhomme.ovh" />
+            </intent-filter>

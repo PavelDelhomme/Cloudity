@@ -6,11 +6,17 @@ import android.net.Uri
 
 object CloudityAuthBrokerHelper {
 
+    /** Toutes les apps Cloudity signées avec la même clé (suite Android). */
     private val peerPackages = listOf(
-        "fr.cloudity.cloudity_photos",
-        "fr.cloudity.cloudity_drive",
         "fr.cloudity.cloudity_mail",
+        "fr.cloudity.cloudity_drive",
+        "fr.cloudity.cloudity_photos",
         "com.cloudity.cloudity_pass",
+        "fr.cloudity.cloudity_calendar",
+        "fr.cloudity.cloudity_contacts",
+        "fr.cloudity.cloudity_notes",
+        "fr.cloudity.cloudity_tasks",
+        "fr.cloudity.admin_app",
     )
 
     fun authorityFor(packageName: String): String = "$packageName.cloudity.auth"

@@ -40,7 +40,7 @@ class CloudityAuthAccount {
       };
 }
 
-/// Partage gateway + jetons entre Photos, Drive, Mail (Android, signature identique).
+/// Partage gateway + jetons entre toutes les apps Cloudity (Android, signature identique).
 class CloudityAuthBroker {
   CloudityAuthBroker._();
 

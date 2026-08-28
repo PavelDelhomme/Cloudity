@@ -11,6 +11,7 @@ class PasskeyLoginResult {
     this.role,
     this.email,
     this.userId,
+    this.rawTokens,
   });
 
   final String accessToken;
@@ -18,6 +19,7 @@ class PasskeyLoginResult {
   final String? role;
   final String? email;
   final String? userId;
+  final Map<String, dynamic>? rawTokens;
 }
 
 /// Connexion discoverable via Credential Manager / passkeys natives.
@@ -37,11 +39,9 @@ class CloudityPasskeyLogin {
     }
   }
 
-  Future<PasskeyLoginResult?> loginDiscoverable({
-    String tenantId = '1',
-  }) async {
+  Future<PasskeyLoginResult?> loginDiscoverable() async {
     final client = CloudityWebAuthnClient(gatewayBase);
-    final begin = await client.beginDiscoverableLogin(tenantId: tenantId);
+    final begin = await client.beginDiscoverableLogin();
     final options = begin['options'];
     if (options is! Map<String, dynamic>) {
       throw CloudityWebAuthnException('options manquantes');
@@ -63,7 +63,7 @@ class CloudityPasskeyLogin {
       return null;
     }
     final tokens = await client.finishDiscoverableLogin(
-      tenantId: tenantId,
+      tenantId: '1', // compat prod mono-tenant ; omis une fois auth-service redéployé
       challengeB64u: challenge,
       assertion: response.toJson(),
     );
@@ -73,7 +73,36 @@ class CloudityPasskeyLogin {
       role: tokens['role'] as String?,
       email: tokens['email'] as String?,
       userId: tokens['user_id']?.toString(),
+      rawTokens: tokens,
     );
+  }
+
+  /// Enregistre une passkey discoverable (empreinte / PIN) pour l'utilisateur connecté.
+  Future<String?> registerPasskey({
+    required String accessToken,
+    String nickname = 'Téléphone',
+  }) async {
+    final client = CloudityWebAuthnClient(gatewayBase);
+    final begin = await client.beginRegister(accessToken);
+    final publicKey = begin['publicKey'];
+    final opts = publicKey is Map<String, dynamic>
+        ? Map<String, dynamic>.from(publicKey)
+        : Map<String, dynamic>.from(begin);
+    final request = RegisterRequestType.fromJson(opts);
+    RegisterResponseType response;
+    try {
+      response = await _authenticator.register(request);
+    } on PasskeyAuthCancelledException {
+      return null;
+    }
+    final attestation = Map<String, dynamic>.from(response.toJson());
+    attestation['type'] = 'public-key';
+    final result = await client.finishRegister(
+      accessToken: accessToken,
+      attestation: attestation,
+      nickname: nickname,
+    );
+    return result['credential_id'] as String?;
   }
 }
 
@@ -83,13 +112,11 @@ class CloudityPasskeyLoginButton extends StatefulWidget {
     super.key,
     required this.gatewayBase,
     required this.onSuccess,
-    this.tenantId = '1',
     this.busy = false,
     this.onBusyChanged,
   });
 
   final String gatewayBase;
-  final String tenantId;
   final bool busy;
   final ValueChanged<bool>? onBusyChanged;
   final void Function(PasskeyLoginResult result) onSuccess;
@@ -116,7 +143,7 @@ class _CloudityPasskeyLoginButtonState extends State<CloudityPasskeyLoginButton>
     try {
       final result = await CloudityPasskeyLogin(
         widget.gatewayBase,
-      ).loginDiscoverable(tenantId: widget.tenantId);
+      ).loginDiscoverable();
       if (result != null && result.accessToken.isNotEmpty) {
         widget.onSuccess(result);
       }
@@ -134,10 +161,21 @@ class _CloudityPasskeyLoginButtonState extends State<CloudityPasskeyLoginButton>
   @override
   Widget build(BuildContext context) {
     if (!_supported) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
     return OutlinedButton.icon(
       onPressed: widget.busy ? null : _login,
-      icon: const Icon(Icons.key_outlined),
-      label: const Text('Se connecter avec une passkey'),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        side: BorderSide(color: cs.primary.withValues(alpha: 0.55)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      icon: Icon(Icons.fingerprint, color: cs.primary),
+      label: Text(
+        'Connexion empreinte / passkey',
+        style: TextStyle(fontWeight: FontWeight.w600, color: cs.primary),
+      ),
     );
   }
 }
