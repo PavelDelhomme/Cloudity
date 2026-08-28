@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../auth_2fa.dart';
 import '../cloudity_design_tokens.dart';
+import '../jwt_claims.dart';
 import '../network_errors.dart';
 import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
@@ -125,6 +126,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         refreshToken: refresh,
         email: email,
         userId: userId,
+        tenantId: _tenantFromAuth(access, tokens),
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(
@@ -241,6 +243,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         refreshToken: refresh,
         email: email,
         userId: userId,
+        tenantId: _tenantFromAuth(access, tokens),
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(
@@ -262,7 +265,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     final api = _pendingApi;
     final email = _pendingEmail;
     final tenant = _pendingTenant;
-    if (api == null || email == null || tenant == null) {
+    if (api == null || email == null) {
       setState(() => _error = 'Session 2FA perdue, recommencez.');
       return;
     }
@@ -281,7 +284,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
         email: email,
-        tenantId: int.tryParse(tenant) ?? 1,
+        tenantId: _tenantFromAuth(res.accessToken, null),
       );
       if (!mounted) return;
       widget.onLoggedIn(
@@ -309,6 +312,14 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _codeCtrl.clear();
       _error = null;
     });
+  }
+
+  int _tenantFromAuth(String access, Map<String, dynamic>? tokens) {
+    final fromApi = tokens?['tenant_id']?.toString();
+    if (fromApi != null && fromApi.isNotEmpty) {
+      return int.tryParse(fromApi) ?? 1;
+    }
+    return tenantIdFromAccessToken(access) ?? 1;
   }
 
   Future<void> _register() async {
@@ -348,6 +359,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         refreshToken: refresh,
         email: email,
         userId: userId,
+        tenantId: _tenantFromAuth(access, tokens),
       );
       widget.onLoggedIn(
         CloudityUserSession<T>(

@@ -117,6 +117,8 @@ func parseAccessTokenDurationMinutes() time.Duration {
 type UserStore interface {
 	CreateUser(email, passwordHash, tenantID string) (userID string, err error)
 	GetUserByEmailTenant(email, tenantID string) (userID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error)
+	// GetUserByEmail résout le tenant à partir de l'email (0 ou 1 compte actif).
+	GetUserByEmail(email string) (userID, tenantID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error)
 	GetUserRoleByID(userID string) (role string, err error)
 	UpdateTOTPSecret(userID, secret string) error
 	Set2FAEnabled(userID string, enabled bool) error
@@ -294,6 +296,42 @@ func (p *postgresUserStore) GetUserByEmailTenant(email, tenantID string) (userID
 	return userID, passwordHash, totpSecret, role, is2FAEnabled, nil
 }
 
+func (p *postgresUserStore) GetUserByEmail(email string) (userID, tenantID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	rows, err := p.db.Query(`
+		SELECT id::text, tenant_id::text, password_hash, COALESCE(totp_secret,''), COALESCE(role,'user'), is_2fa_enabled
+		FROM users WHERE lower(email) = $1 AND is_active = true
+	`, email)
+	if err != nil {
+		return "", "", "", "", "", false, err
+	}
+	defer rows.Close()
+	type row struct {
+		userID, tenantID, passwordHash, totpSecret, role string
+		is2FAEnabled                                      bool
+	}
+	var matches []row
+	for rows.Next() {
+		var r row
+		if scanErr := rows.Scan(&r.userID, &r.tenantID, &r.passwordHash, &r.totpSecret, &r.role, &r.is2FAEnabled); scanErr != nil {
+			return "", "", "", "", "", false, scanErr
+		}
+		matches = append(matches, r)
+	}
+	if err := rows.Err(); err != nil {
+		return "", "", "", "", "", false, err
+	}
+	switch len(matches) {
+	case 0:
+		return "", "", "", "", "", false, sql.ErrNoRows
+	case 1:
+		m := matches[0]
+		return m.userID, m.tenantID, m.passwordHash, m.totpSecret, m.role, m.is2FAEnabled, nil
+	default:
+		return "", "", "", "", "", false, fmt.Errorf("ambiguous email: plusieurs tenants")
+	}
+}
+
 func (p *postgresUserStore) GetUserRoleByID(userID string) (string, error) {
 	var role string
 	err := p.db.QueryRow(`SELECT COALESCE(role,'user') FROM users WHERE id::text = $1 AND is_active = true`, userID).Scan(&role)
@@ -417,15 +455,33 @@ func hashRefreshToken(token string) string {
 
 // --- Handlers ---
 
+func normalizeAuthEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
+}
+
+// resolveLoginUser : si tenantID est vide, le tenant est déduit de l'email.
+func (a *AuthService) resolveLoginUser(email, tenantID string) (userID, resolvedTenant, passwordHash, totpSecret, role string, is2FAEnabled bool, err error) {
+	email = normalizeAuthEmail(email)
+	tenantID = strings.TrimSpace(tenantID)
+	if tenantID != "" {
+		uid, ph, ts, r, fa, e := a.userStore.GetUserByEmailTenant(email, tenantID)
+		return uid, tenantID, ph, ts, r, fa, e
+	}
+	return a.userStore.GetUserByEmail(email)
+}
+
 func (a *AuthService) Register(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=8"`
-		TenantID string `json:"tenant_id" binding:"required"`
+		TenantID string `json:"tenant_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
+	}
+	if strings.TrimSpace(req.TenantID) == "" {
+		req.TenantID = "1"
 	}
 
 	hashedPassword, err := a.hashPassword(req.Password)
@@ -456,6 +512,7 @@ func (a *AuthService) Register(c *gin.Context) {
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 		"user_id":       userID,
+		"tenant_id":     req.TenantID,
 		"expires_in":    int(accessTokenDuration.Seconds()),
 	})
 }
@@ -464,7 +521,7 @@ func (a *AuthService) Login(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required"`
-		TenantID string `json:"tenant_id" binding:"required"`
+		TenantID string `json:"tenant_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
@@ -472,7 +529,7 @@ func (a *AuthService) Login(c *gin.Context) {
 	}
 	start := time.Now()
 
-	userID, passwordHash, _, role, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userID, tenantID, passwordHash, _, role, is2FAEnabled, err := a.resolveLoginUser(req.Email, req.TenantID)
 	if err == sql.ErrNoRows || err != nil {
 		padLoginResponse(start)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
@@ -490,22 +547,24 @@ func (a *AuthService) Login(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"requires_2fa": true,
 			"user_id":      userID,
+			"tenant_id":    tenantID,
 			"temp_token":   "", // en production on pourrait émettre un token court pour l'étape 2FA
 		})
 		return
 	}
 
-	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
+	accessToken, _ := a.generateAccessToken(userID, tenantID, normalizeAuthEmail(req.Email), role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
 	ctx := c.Request.Context()
-	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, req.TenantID, req.Email, refreshTokenDuration)
+	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, tenantID, normalizeAuthEmail(req.Email), refreshTokenDuration)
 
 	padLoginResponse(start)
 	c.JSON(200, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": refreshToken,
 		"user_id":       userID,
+		"tenant_id":     tenantID,
 		"expires_in":    int(accessTokenDuration.Seconds()),
 	})
 }
@@ -604,14 +663,14 @@ func (a *AuthService) Enable2FA(c *gin.Context) {
 func (a *AuthService) Verify2FA(c *gin.Context) {
 	var req struct {
 		Email    string `json:"email" binding:"required,email"`
-		TenantID string `json:"tenant_id" binding:"required"`
+		TenantID string `json:"tenant_id"`
 		Code     string `json:"code" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": err.Error()})
 		return
 	}
-	userID, _, totpSecret, role, is2FAEnabled, err := a.userStore.GetUserByEmailTenant(req.Email, req.TenantID)
+	userID, tenantID, _, totpSecret, role, is2FAEnabled, err := a.resolveLoginUser(req.Email, req.TenantID)
 	if err != nil || totpSecret == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user or 2FA not set up"})
 		return
@@ -655,15 +714,16 @@ func (a *AuthService) Verify2FA(c *gin.Context) {
 		}
 	}
 
-	accessToken, _ := a.generateAccessToken(userID, req.TenantID, req.Email, role)
+	accessToken, _ := a.generateAccessToken(userID, tenantID, normalizeAuthEmail(req.Email), role)
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
-	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, req.TenantID, req.Email, refreshTokenDuration)
+	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, tenantID, normalizeAuthEmail(req.Email), refreshTokenDuration)
 
 	resp := gin.H{
 		"access_token":       accessToken,
 		"refresh_token":      refreshToken,
 		"user_id":            userID,
+		"tenant_id":          tenantID,
 		"expires_in":         int(accessTokenDuration.Seconds()),
 		"used_recovery_code": usedRecoveryCode,
 	}

@@ -22,18 +22,21 @@ class CloudityAuthClient {
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
-    String tenantId = '1',
+    String? tenantId,
   }) async {
     final uri = Uri.parse('$_base/auth/login');
+    final payload = <String, dynamic>{
+      'email': email,
+      'password': password,
+    };
+    if (tenantId != null && tenantId.trim().isNotEmpty) {
+      payload['tenant_id'] = tenantId.trim();
+    }
     final res = await http
         .post(
           uri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'tenant_id': tenantId,
-          }),
+          body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 8));
     final body = res.body.isEmpty ? '{}' : res.body;
@@ -45,7 +48,7 @@ class CloudityAuthClient {
     if (map['requires_2fa'] == true) {
       throw LoginRequires2FAException(
         email: email,
-        tenantId: tenantId,
+        tenantId: map['tenant_id']?.toString() ?? tenantId ?? '1',
         userId: map['user_id'] is int ? map['user_id'] as int : null,
       );
     }
@@ -60,12 +63,13 @@ class CloudityAuthClient {
     };
     final uid = map['user_id'];
     if (uid != null) out['user_id'] = uid.toString();
+    if (map['tenant_id'] != null) out['tenant_id'] = map['tenant_id'].toString();
     return out;
   }
 
   Future<Auth2FAResult> verify2FA({
     required String email,
-    required String tenantId,
+    String? tenantId,
     required String code,
   }) {
     return Auth2FAClient(_base).verify(
@@ -78,18 +82,21 @@ class CloudityAuthClient {
   Future<Map<String, dynamic>> register({
     required String email,
     required String password,
-    String tenantId = '1',
+    String? tenantId,
   }) async {
     final uri = Uri.parse('$_base/auth/register');
+    final payload = <String, dynamic>{
+      'email': email,
+      'password': password,
+    };
+    if (tenantId != null && tenantId.trim().isNotEmpty) {
+      payload['tenant_id'] = tenantId.trim();
+    }
     final res = await http
         .post(
           uri,
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email,
-            'password': password,
-            'tenant_id': tenantId,
-          }),
+          body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 8));
     final body = res.body.isEmpty ? '{}' : res.body;
