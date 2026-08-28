@@ -11,6 +11,7 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
     );
 
 Widget _driveShell() => SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.drive,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

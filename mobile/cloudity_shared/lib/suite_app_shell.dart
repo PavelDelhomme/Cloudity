@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'app_theme.dart';
 import 'cloudity_crash_reporter.dart';
 import 'cloudity_user_prefs_sync.dart';
+import 'ota_update.dart';
+import 'suite_app_catalog.dart';
 
 /// Infos session pour la remontée d'erreurs mobile.
 class CloudityCrashSessionBinding {
@@ -30,6 +32,8 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
     this.crashSession,
     this.sessionCredentials,
     this.syncUserPreferences = true,
+    this.suiteApp,
+    this.enableOtaCheck = true,
   });
 
   final Future<S?> Function() restoreSession;
@@ -40,6 +44,9 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
   /// Extrait gateway + token pour sync préférences compte (thème par app, Pass, …).
   final ClouditySessionCredentials? Function(S session)? sessionCredentials;
   final bool syncUserPreferences;
+  /// Produit suite — active le check OTA (`/deploy/mobile/manifest`) si non null.
+  final ClouditySuiteApp? suiteApp;
+  final bool enableOtaCheck;
 
   @override
   State<SuiteAppShell<S>> createState() => _SuiteAppShellState<S>();
@@ -74,6 +81,20 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
     await CloudityThemedAppScope.maybeOf(context)?.reloadTheme();
   }
 
+  void _maybeScheduleOta(S session) {
+    if (!widget.enableOtaCheck) return;
+    final app = widget.suiteApp;
+    if (app == null) return;
+    final gw = widget.crashSession?.call(session).gatewayBase?.trim() ??
+        widget.sessionCredentials?.call(session)?.gatewayBase.trim();
+    if (gw == null || gw.isEmpty) return;
+    cloudityScheduleOtaCheck(
+      context,
+      gatewayBase: gw,
+      appSlug: app.otaAppSlug,
+    );
+  }
+
   Future<void> _restore() async {
     final session = await widget.restoreSession();
     if (!mounted) return;
@@ -85,12 +106,14 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
       _ready = true;
       _session = session;
     });
+    if (session != null) _maybeScheduleOta(session);
   }
 
   void _onLoggedIn(S session) {
     _bindCrashSession(session);
     setState(() => _session = session);
     unawaited(_syncPrefs(session));
+    _maybeScheduleOta(session);
   }
 
   Future<void> _onLogout() async {

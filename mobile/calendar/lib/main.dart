@@ -10,6 +10,7 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
     );
 
 Widget _calendarShell() => SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.calendar,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

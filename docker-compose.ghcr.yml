@@ -270,9 +270,14 @@ services:
       PERFORMANCE_INGEST_TOKEN: ${PERFORMANCE_INGEST_TOKEN}
       JWT_PUBLIC_KEY_PATH: /var/lib/cloudity/auth-keys/public.pem
       JWT_ED25519_PUBLIC_KEY_PATH: /var/lib/cloudity/auth-keys/public_ed25519.pem
+      MOBILE_RELEASE_DIR: /app/storage/mobile-releases
+      MOBILE_OTA_PUBLIC_BASE: https://${CLOUDITY_PUBLIC_API_HOST:-api.cloudity.delhomme.ovh}
+      CLOUDITY_PUBLIC_API_HOST: ${CLOUDITY_PUBLIC_API_HOST:-api.cloudity.delhomme.ovh}
+      CLOUDITY_PUBLIC_PROTO: ${CLOUDITY_PUBLIC_PROTO:-https}
+      MOBILE_APK_UPLOAD_TOKEN: ${MOBILE_APK_UPLOAD_TOKEN:-}
     volumes:
       - cloudity_auth_keys:/var/lib/cloudity/auth-keys:ro
-      - cloudity_mobile_data:/app/storage/mobile-releases:ro
+      - cloudity_mobile_data:/app/storage/mobile-releases
     depends_on:
       auth-service:
         condition: service_healthy

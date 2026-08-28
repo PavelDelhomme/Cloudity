@@ -17,6 +17,7 @@ export 'http_helpers.dart';
 export 'mail_constants.dart';
 export 'mail_view_preferences.dart';
 export 'network_errors.dart';
+export 'ota_update.dart';
 export 'passkey_login.dart';
 export 'photo_match.dart';
 export 'service_status_screen.dart';

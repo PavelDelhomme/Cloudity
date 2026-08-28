@@ -13,6 +13,7 @@ Future<void> main() async {
     product: ClouditySuiteApp.contacts,
     title: 'Cloudity Contacts',
     home: SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.contacts,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

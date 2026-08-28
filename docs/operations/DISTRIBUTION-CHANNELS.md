@@ -19,28 +19,38 @@ Version source : [`VERSION`](../VERSION) — affichage **`d+`** (dev) / **`p+`**
 
 ---
 
-## 2. OTA self-hosted (Android)
+## 2. OTA self-hosted (Android) — URLs sécurisées
 
-### Build & manifeste
+| Env | Gateway | Manifeste / APK |
+|-----|---------|-----------------|
+| **Local** | `http://127.0.0.1:6002` (+ `adb reverse`) | `GET /deploy/mobile/manifest?app=…` · `GET /deploy/apk/…` |
+| **Dev / LAN** | `http://192.168.x.x:6002` | idem |
+| **Préprod** | `https://api.*-preprod.…` | TLS |
+| **Prod** | `https://api.cloudity.delhomme.ovh` | TLS via NPM |
+
+Stockage : volume **`cloudity_mobile_data`** (`MOBILE_RELEASE_DIR`). Upload : `POST /deploy/mobile/upload` + `MOBILE_APK_UPLOAD_TOKEN` (ou JWT admin sur `/admin/mobile/apk/upload`).
+
+### Build & publier
 
 ```bash
 make mobile-publish APP=Mail              # APK locale + version.json
-DEPLOY_URL=https://cloudity.example make mobile-upload-apk APP=Mail
+MOBILE_APK_UPLOAD_TOKEN=… DEPLOY_URL=https://api.cloudity.delhomme.ovh \
+  make mobile-upload-apk APP=Mail
 ```
 
-Fichiers produits :
+Fichiers locaux :
 
 - `dist/mobile-apk/cloudity_mail-X.Y.Z.apk`
 - `dist/mobile-manifests/version-cloudity_mail.json`
 
-Format manifeste :
+Format manifeste (aussi servi par la gateway) :
 
 ```json
 {
   "app": "cloudity_mail",
   "version": "0.1.0",
   "min_supported": "0.1.0",
-  "apk_url": "https://api.cloudity.example/deploy/apk/cloudity_mail/0.1.0",
+  "apk_url": "https://api.cloudity.delhomme.ovh/deploy/apk/cloudity_mail/0.1.0",
   "sha256": "…",
   "published_at": "2026-08-19T12:00:00Z"
 }
@@ -48,9 +58,9 @@ Format manifeste :
 
 ### Côté app Flutter
 
-Au démarrage : `GET /api/deploy/mobile/manifest?app=cloudity_mail` → dialogue mise à jour si version > installée.
+Au login / restore : `SuiteAppShell` → `CloudityOtaClient.checkUpdate` → dialogue si version serveur > installée → ouvre `apk_url` HTTPS.
 
-> Route gateway à brancher — stub upload dans `scripts/mobile/publish-apk-remote.sh`.
+Hold (masque la release) : `POST /admin/mobile/apk/hold?app=cloudity_mail&held=true` (JWT admin).
 
 ---
 

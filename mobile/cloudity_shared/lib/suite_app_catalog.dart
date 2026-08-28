@@ -52,6 +52,19 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.admin => '/4dm1n',
       };
 
+  /// Slug manifeste OTA (`version-cloudity_mail.json`).
+  String get otaAppSlug => switch (this) {
+        ClouditySuiteApp.mail => 'cloudity_mail',
+        ClouditySuiteApp.drive => 'cloudity_drive',
+        ClouditySuiteApp.photos => 'cloudity_photos',
+        ClouditySuiteApp.calendar => 'cloudity_calendar',
+        ClouditySuiteApp.contacts => 'cloudity_contacts',
+        ClouditySuiteApp.notes => 'cloudity_notes',
+        ClouditySuiteApp.tasks => 'cloudity_tasks',
+        ClouditySuiteApp.pass => 'cloudity_pass',
+        ClouditySuiteApp.admin => 'cloudity_admin',
+      };
+
   IconData get icon => switch (this) {
         ClouditySuiteApp.mail => Icons.mail_outline,
         ClouditySuiteApp.drive => Icons.folder_outlined,
