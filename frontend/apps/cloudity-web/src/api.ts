@@ -2073,3 +2073,69 @@ export async function fetchMobileCrashDetail(
   if (!res.ok) throw new Error(`Détail crash: ${res.status}`)
   return res.json() as Promise<Record<string, unknown>>
 }
+
+/** OTA mobile — releases publiées sur la gateway (volume cloudity_mobile_data). */
+export type MobileOTAManifest = {
+  app: string
+  version: string
+  min_supported: string
+  apk_url: string
+  sha256: string
+  published_at: string
+  held?: boolean
+}
+
+export type MobileOTAReleaseEntry = {
+  app: string
+  label: string
+  release: MobileOTAManifest | null
+  has_apk: boolean
+  manifest_path: string
+}
+
+export type MobileOTAReleasesResponse = {
+  releases: MobileOTAReleaseEntry[]
+  public_base: string
+  upload_path: string
+  hold_path: string
+  hint?: string
+}
+
+export async function fetchMobileOTAReleases(token: string): Promise<MobileOTAReleasesResponse> {
+  return apiJson<MobileOTAReleasesResponse>(token, '/admin/mobile/releases', undefined, 'OTA releases')
+}
+
+export async function holdMobileOTARelease(
+  token: string,
+  app: string,
+  held: boolean
+): Promise<MobileOTAManifest> {
+  const q = new URLSearchParams({ app, held: held ? 'true' : 'false' })
+  return apiJson<MobileOTAManifest>(
+    token,
+    `/admin/mobile/apk/hold?${q}`,
+    { method: 'POST', body: '{}' },
+    'OTA hold'
+  )
+}
+
+export async function uploadMobileOTAApk(
+  token: string,
+  opts: { app: string; version: string; file: File; minSupported?: string }
+): Promise<MobileOTAManifest> {
+  const fd = new FormData()
+  fd.append('app', opts.app)
+  fd.append('version', opts.version)
+  if (opts.minSupported) fd.append('min_supported', opts.minSupported)
+  fd.append('apk', opts.file)
+  const res = await apiFetch(token, '/admin/mobile/apk/upload', {
+    method: 'POST',
+    body: fd,
+    json: false,
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`Upload APK: ${res.status}${t ? ` — ${t}` : ''}`)
+  }
+  return res.json() as Promise<MobileOTAManifest>
+}

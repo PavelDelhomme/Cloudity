@@ -37,6 +37,7 @@ Doc : [`STRUCTURE-CIBLE.md`](./STRUCTURE-CIBLE.md) · Images : [`GHCR-IMAGES.md`
 
 ## P6 — Admin hold/promote + OTA
 
-- [x] Gateway : `GET /deploy/mobile/manifest`, `GET /deploy/apk/…`, `POST /deploy/mobile/upload`, hold admin
-- [x] Flutter : `CloudityOtaClient` + dialogue dans `SuiteAppShell`
-- [ ] UI admin `/4dm1n` versions / promote (liste manifests) — backlog
+- [x] Gateway : manifest / apk / upload / hold / **list releases**
+- [x] Flutter : `CloudityOtaClient` + `SuiteAppShell`
+- [x] UI admin **`/4dm1n` → Déploiements** (liste, hold, upload APK, matrice web/API)
+- [x] `make mobile-upload-all` + doc `DEPLOY-MATRIX.md`

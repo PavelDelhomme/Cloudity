@@ -7,7 +7,10 @@ Index global → [`../README.md`](../README.md)
 |---------|------|
 | **[DEPLOIEMENT.md](DEPLOIEMENT.md)** | Dev · LAN · prod VPS · Pilotage H14 |
 | [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) | Formulaire Portainer Git |
+| [DEPLOY-MATRIX.md](DEPLOY-MATRIX.md) | **Qui déploie quoi** : web · API · OTA mobile · UI `/4dm1n` |
+| [DISTRIBUTION-CHANNELS.md](DISTRIBUTION-CHANNELS.md) | OTA APK · F-Droid · Play · TestFlight |
 | [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) | Gateway mobile |
+
 | [DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md) | Un service à la fois |
 | [ENV-GENERATION.md](ENV-GENERATION.md) | `.env` / Portainer env |
 | [PILOTAGE.md](PILOTAGE.md) | Board admin |

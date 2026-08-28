@@ -257,6 +257,7 @@ func NewHandler() http.Handler {
 	r.HandleFunc("/deploy/apk/{app}/{version}", handleGetMobileAPK).Methods("GET", "HEAD")
 	r.HandleFunc("/admin/mobile/apk/upload", handleUploadMobileAPK).Methods("POST")
 	r.HandleFunc("/admin/mobile/apk/hold", handleHoldMobileRelease).Methods("POST")
+	r.HandleFunc("/admin/mobile/releases", handleListMobileReleases).Methods("GET")
 	// Alias upload CI (token) hors /admin pour éviter le check Origin navigateur.
 	r.HandleFunc("/deploy/mobile/upload", handleUploadMobileAPK).Methods("POST")
 

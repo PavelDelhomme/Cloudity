@@ -1,17 +1,24 @@
 import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { register as apiRegister } from '../../api'
 import toast from 'react-hot-toast'
 import { Label, Input, Button } from '@cloudity/shared'
+import { MobileAppInstallBanner } from '../../components/MobileAppInstallBanner'
+import { resolveMobileOtaTarget } from '../../lib/mobileOtaPrompt'
 
 export default function RegisterPage() {
   const { login: setAuth } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const q = typeof window !== 'undefined' ? window.location.search : location.search
+  const nextParam = new URLSearchParams(q).get('next')
+  const mobileOtaApp = resolveMobileOtaTarget(nextParam)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +56,7 @@ export default function RegisterPage() {
           </Link>
           <p className="text-gray-600 dark:text-slate-400 text-sm mt-1">Créer un compte</p>
         </div>
+        <MobileAppInstallBanner app={mobileOtaApp} />
         <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>

@@ -8,6 +8,8 @@ import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } f
 import { Eye, EyeOff, Key, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { DevQuickLoginPanel } from './DevQuickLoginPanel'
+import { MobileAppInstallBanner } from '../../components/MobileAppInstallBanner'
+import { resolveMobileOtaTarget } from '../../lib/mobileOtaPrompt'
 
 type LoginStep = 'email' | 'password'
 
@@ -39,6 +41,11 @@ export default function LoginPage() {
   }
 
   const normalizedEmail = email.trim()
+
+  const q = typeof window !== 'undefined' ? window.location.search : location.search
+  const nextParam = new URLSearchParams(q).get('next')
+  const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo
+  const mobileOtaApp = resolveMobileOtaTarget(nextParam ?? stateReturnTo)
 
   const finishLogin = (
     accessToken: string,
@@ -182,6 +189,7 @@ export default function LoginPage() {
         </div>
 
         {/* Carte formulaire */}
+        <MobileAppInstallBanner app={mobileOtaApp} />
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200/80 dark:border-slate-600 shadow-sm p-8">
           {loginError && !twoFAStep ? (
             <div

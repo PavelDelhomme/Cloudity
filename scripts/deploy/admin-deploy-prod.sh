@@ -84,12 +84,20 @@ deploy_web() {
 }
 
 deploy_mobile() {
-  echo "==> Mobile : build + manifeste OTA (APP=${APP})"
-  chmod +x "$ROOT/scripts/mobile/android-publish-apk.sh" 2>/dev/null || true
-  APP="$APP" bash "$ROOT/scripts/mobile/android-publish-apk.sh"
-  if [[ -n "${DEPLOY_URL:-}" ]]; then
-    chmod +x "$ROOT/scripts/mobile/publish-apk-remote.sh" 2>/dev/null || true
-    APP="$APP" DEPLOY_URL="${DEPLOY_URL}" bash "$ROOT/scripts/mobile/publish-apk-remote.sh" || true
+  echo "==> Mobile : build + upload OTA"
+  chmod +x "$ROOT/scripts/mobile/android-publish-apk.sh" \
+    "$ROOT/scripts/mobile/publish-apk-remote.sh" \
+    "$ROOT/scripts/mobile/mobile-upload-all.sh" 2>/dev/null || true
+  if [[ "${APP}" == "all" || "${APP}" == "ALL" ]]; then
+    DEPLOY_URL="${DEPLOY_URL:-https://api.cloudity.delhomme.ovh}" \
+      bash "$ROOT/scripts/mobile/mobile-upload-all.sh"
+  else
+    APP="$APP" bash "$ROOT/scripts/mobile/android-publish-apk.sh"
+    if [[ -n "${DEPLOY_URL:-}" ]]; then
+      APP="$APP" DEPLOY_URL="${DEPLOY_URL}" bash "$ROOT/scripts/mobile/publish-apk-remote.sh"
+    else
+      echo "    (DEPLOY_URL vide — manifeste local seulement ; set DEPLOY_URL pour upload)"
+    fi
   fi
 }
 

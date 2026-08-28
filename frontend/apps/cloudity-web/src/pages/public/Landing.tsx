@@ -2,6 +2,7 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { Navigate } from 'react-router-dom'
+import { MobileAppsDownloadGrid } from '../../components/MobileAppsDownloadGrid'
 
 export default function Landing() {
   const { isAuthenticated } = useAuth()
@@ -53,6 +54,8 @@ export default function Landing() {
           <li><strong className="text-gray-900 dark:text-slate-100">Pass</strong> — Gestionnaire de mots de passe</li>
           <li><strong className="text-gray-900 dark:text-slate-100">Mail</strong> — Boîte mail et alias</li>
         </ul>
+
+        <MobileAppsDownloadGrid />
       </main>
 
       <footer className="border-t border-gray-200 dark:border-slate-700 mt-16 py-6">
