@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { fetchMobileCrashDetail, fetchMobileCrashList, type MobileCrashListItem } from '../../api'
+import { useAuth } from '../../authContext'
 
 export default function MobileLogsPage() {
+  const { accessToken } = useAuth()
   const [items, setItems] = useState<MobileCrashListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -9,36 +11,37 @@ export default function MobileLogsPage() {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null)
 
   const reload = useCallback(async () => {
+    if (!accessToken) return
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchMobileCrashList()
+      const res = await fetchMobileCrashList(accessToken)
       setItems(res.items ?? [])
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [accessToken])
 
   useEffect(() => {
     void reload()
   }, [reload])
 
   useEffect(() => {
-    if (!selectedId) {
+    if (!selectedId || !accessToken) {
       setDetail(null)
       return
     }
     void (async () => {
       try {
-        const d = await fetchMobileCrashDetail(selectedId)
+        const d = await fetchMobileCrashDetail(selectedId, accessToken)
         setDetail(d)
       } catch (e) {
         setDetail({ error: e instanceof Error ? e.message : String(e) })
       }
     })()
-  }, [selectedId])
+  }, [selectedId, accessToken])
 
   return (
     <div className="space-y-6">

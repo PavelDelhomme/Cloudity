@@ -922,7 +922,8 @@ Première connexion admin : seed via variables `SEED_ADMIN_EMAIL` / `SEED_ADMIN_
 | JWT invalidés | volume auth-keys supprimé | ne pas Remove volumes |
 | **Plusieurs conteneurs `Exited`** | jobs **one-shot** (`restart: "no"`) | **Normal** si `Exited (0)` — voir § 10.1 |
 | `postgres:15-alpine` / `redis:7-alpine` (pas GHCR) | **infra officielle**, pas du code Cloudity | **Normal** — seuls les microservices Cloudity sont sur GHCR |
-| Mail OAuth KO | redirect URI | `GOOGLE_OAUTH_REDIRECT_URI=https://api.cloudity…/mail/me/oauth/google/callback` |
+| Logs mobile admin : `Unexpected token '<'` | nginx web sans proxy `/mobile` → renvoie `index.html` | rebuild `cloudity-frontend` (proxy `/mobile` → gateway) |
+| CVE admin : 0 paquets | admin-service prod sans manifests | rebuild `cloudity-admin-service` (CVE embarqué au build CI) |
 
 ### 10.1 Conteneurs `Exited` — normal ou alarme ?
 

@@ -179,7 +179,7 @@ export default function SecurityCvePage() {
   return (
     <PageLayout
       title="Analyse CVE (dépendances)"
-      description="Interrogation de la base OSV (alignée CVE) sur les go.mod, package-lock npm et requirements Python du dépôt monté côté admin-service."
+      description="Interrogation OSV sur les manifests du dépôt (go.mod, npm, Python). En prod GHCR, les manifests sont embarqués dans l’image admin-service au build."
     >
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <button

@@ -157,7 +157,7 @@ jobs:
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
-          context: backend/admin-service
+          context: .
           file: backend/admin-service/Dockerfile.prod
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
