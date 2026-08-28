@@ -63,6 +63,7 @@ class _PhotosShell extends StatelessWidget {
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        suiteApp: ClouditySuiteApp.photos,
         productTitle: 'Cloudity Photos',
         keyPrefix: 'cloudity_photos',
         createApi: AuthApi.new,

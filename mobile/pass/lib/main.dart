@@ -130,6 +130,7 @@ class _PassRootState extends State<_PassRoot> {
     final session = _session;
     if (session == null) {
       return CloudityLoginScreen<PassApi>(
+        suiteApp: ClouditySuiteApp.pass,
         productTitle: 'Cloudity Pass',
         keyPrefix: 'cloudity_pass',
         createApi: PassApi.new,

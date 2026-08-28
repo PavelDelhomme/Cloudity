@@ -16,6 +16,7 @@ Widget _calendarShell() => SuiteAppShell<UserSession>(
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        suiteApp: ClouditySuiteApp.calendar,
         productTitle: 'Cloudity Calendar',
         keyPrefix: 'cloudity_calendar',
         createApi: AuthApi.new,

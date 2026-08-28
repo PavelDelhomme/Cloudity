@@ -17,6 +17,7 @@ Widget _driveShell() => SuiteAppShell<UserSession>(
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        suiteApp: ClouditySuiteApp.drive,
         productTitle: 'Cloudity Drive',
         keyPrefix: 'cloudity_drive',
         createApi: AuthApi.new,

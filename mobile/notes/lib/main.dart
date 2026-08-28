@@ -19,6 +19,7 @@ Future<void> main() async {
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        suiteApp: ClouditySuiteApp.notes,
         productTitle: 'Cloudity Notes',
         keyPrefix: 'cloudity_notes',
         createApi: AuthApi.new,
