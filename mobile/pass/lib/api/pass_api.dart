@@ -30,6 +30,25 @@ class PassApi extends CloudityAuthClient {
     throw PassException('Réponse vaults invalide');
   }
 
+  /// Crée un coffre (métadonnées serveur — le chiffrement reste côté client).
+  Future<Map<String, dynamic>> createVault({
+    required String accessToken,
+    required String name,
+  }) async {
+    final trimmed = name.trim();
+    final res = await http.post(
+      Uri.parse('$baseUrl/pass/vaults'),
+      headers: authHeaders(accessToken),
+      body: jsonEncode({'name': trimmed.isEmpty ? 'Mon coffre' : trimmed}),
+    );
+    if (res.statusCode == 401) throw PassException('non_autorisé');
+    if (res.statusCode != 201) {
+      final body = res.body.isEmpty ? '' : ' — ${res.body}';
+      throw PassException('Création coffre HTTP ${res.statusCode}$body');
+    }
+    return Map<String, dynamic>.from(jsonDecode(res.body) as Map);
+  }
+
   Future<List<Map<String, dynamic>>> fetchItems({
     required String accessToken,
     required int vaultId,
