@@ -189,7 +189,8 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
       _probeError = err;
       _offlineMode = vaults.isNotEmpty;
       _localBackupAt = PassLocalBackupStore.exportedAtLabel(doc);
-      _isFirstVault = vaults.isEmpty;
+      // Sans liste serveur : ne jamais proposer « première init » (évite un 2e coffre web).
+      _isFirstVault = false;
       _probeLoading = false;
     });
   }
@@ -232,16 +233,21 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
             );
             widget.session.accessToken = pair.access;
             widget.session.refreshToken = pair.refresh;
-            final created = await widget.session.api.createVault(
-              accessToken: widget.session.accessToken,
-              name: _vaultNameCtrl.text,
-            );
-            if (widget.session.userId.isNotEmpty) {
-              await PassLocalBackupStore.saveFromApi(
-                userId: widget.session.userId,
-                vaultRows: [created],
-                fetchItems: (_) async => [],
+            // Re-vérifie : coffre web ou double tap — ne pas recréer.
+            final existing =
+                await widget.session.api.fetchVaults(widget.session.accessToken);
+            if (existing.isEmpty) {
+              final created = await widget.session.api.createVault(
+                accessToken: widget.session.accessToken,
+                name: _vaultNameCtrl.text,
               );
+              if (widget.session.userId.isNotEmpty) {
+                await PassLocalBackupStore.saveFromApi(
+                  userId: widget.session.userId,
+                  vaultRows: [created],
+                  fetchItems: (_) async => [],
+                );
+              }
             }
           } on PassException catch (e) {
             if (e.message == 'non_autorisé') {
@@ -342,9 +348,18 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
                 if (_isFirstVault) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Première utilisation : le profil « Desktop (compatible web) » est présélectionné '
-                    'pour rester aligné avec le hub web.',
+                    'Aucun coffre sur le serveur : tu vas en créer un (visible aussi sur le web). '
+                    'Profil « Desktop » présélectionné pour compatibilité web.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                  ),
+                ] else if (_probeError == null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Un ou plusieurs coffres existent déjà sur ton compte — utilise le même '
+                    'mot de passe maître que sur le web.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                   ),
                 ],
                 const SizedBox(height: 16),

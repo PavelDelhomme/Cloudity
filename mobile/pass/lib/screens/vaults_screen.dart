@@ -100,12 +100,26 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
       widget.session.accessToken = pair.access;
       widget.session.refreshToken = pair.refresh;
       await widget.session.persist();
+      final existing =
+          await widget.session.api.fetchVaults(widget.session.accessToken);
+      if (existing.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _vaults = Future.value(existing));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Coffre existant : ${(existing.first['name'] as String?) ?? 'Coffre'}',
+            ),
+          ),
+        );
+        return;
+      }
       await widget.session.api.createVault(
         accessToken: widget.session.accessToken,
         name: _newVaultCtrl.text,
       );
       if (!mounted) return;
-      await _refresh();
+      setState(() => _vaults = _load());
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Coffre créé.')),
