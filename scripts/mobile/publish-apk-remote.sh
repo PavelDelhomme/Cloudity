@@ -36,6 +36,7 @@ case "$APP" in
   Contacts|contacts) PKG="cloudity_contacts" ;;
   Notes|notes) PKG="cloudity_notes" ;;
   Tasks|tasks) PKG="cloudity_tasks" ;;
+  Admin|admin) PKG="cloudity_admin" ;;
   *) echo "APP inconnu" >&2; exit 1 ;;
 esac
 

@@ -21,7 +21,7 @@ case "$APP" in
   Contacts|contacts) APP_DIR="$ROOT/mobile/contacts"; PKG="cloudity_contacts"; ANDROID_PKG="fr.cloudity.cloudity_contacts" ;;
   Notes|notes) APP_DIR="$ROOT/mobile/notes"; PKG="cloudity_notes"; ANDROID_PKG="fr.cloudity.cloudity_notes" ;;
   Tasks|tasks) APP_DIR="$ROOT/mobile/tasks"; PKG="cloudity_tasks"; ANDROID_PKG="fr.cloudity.cloudity_tasks" ;;
-  Admin|admin) APP_DIR="$ROOT/mobile/admin_app"; PKG="cloudity_admin"; ANDROID_PKG="fr.cloudity.cloudity_admin" ;;
+  Admin|admin) APP_DIR="$ROOT/mobile/admin_app"; PKG="cloudity_admin"; ANDROID_PKG="fr.cloudity.admin_app" ;;
   *)
     echo "APP inconnu : $APP (Mail|Drive|Photos|Pass|Calendar|Contacts|Notes|Tasks|Admin)" >&2
     exit 1
@@ -37,6 +37,11 @@ if ! command -v flutter >/dev/null 2>&1; then
   echo "❌ Flutter requis (PATH)" >&2
   exit 1
 fi
+
+# Arch : /usr/bin/flutter (pacman) casse souvent le snapshot — SDK officiel ~/.local/share/cloudity-flutter
+# shellcheck source=scripts/mobile/mobile-flutter-env.sh
+source "$ROOT/scripts/mobile/mobile-flutter-env.sh"
+cloudity_prepare_flutter_env
 
 GATEWAY_URL="${CLOUDITY_MOBILE_GATEWAY_URL:-${VITE_API_URL:-http://127.0.0.1:6002}}"
 if [[ -n "${DEPLOY_URL:-}" ]]; then
