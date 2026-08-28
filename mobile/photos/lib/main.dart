@@ -57,6 +57,7 @@ class _PhotosShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.photos,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

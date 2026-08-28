@@ -29,11 +29,14 @@ Doc : [`STRUCTURE-CIBLE.md`](./STRUCTURE-CIBLE.md) · Images : [`GHCR-IMAGES.md`
 
 - [ ] `backend/services/_platform|_product` (après splits web stables)
 
-## P5 — Portainer Total (en cours)
+## P5 — Portainer Total
 
-- [ ] Migrer Limited `cloudity-build` → stack Git **`cloudity`** (`refs/heads/prod`)
+- [x] Stack Git **`cloudity`** (`refs/heads/prod`, Total) + GitOps 5m
+- [x] Watchtower (labels Cloudity) pour pull `:latest`
 - [ ] Créer stack **`cloudity-preprod`** (`refs/heads/preprod`, `TAG=preprod`)
 
 ## P6 — Admin hold/promote + OTA
 
-- [ ] UI admin versions / promote / OTA APK
+- [x] Gateway : `GET /deploy/mobile/manifest`, `GET /deploy/apk/…`, `POST /deploy/mobile/upload`, hold admin
+- [x] Flutter : `CloudityOtaClient` + dialogue dans `SuiteAppShell`
+- [ ] UI admin `/4dm1n` versions / promote (liste manifests) — backlog

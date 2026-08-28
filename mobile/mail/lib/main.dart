@@ -11,6 +11,7 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
     );
 
 Widget _mailShell() => SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.mail,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

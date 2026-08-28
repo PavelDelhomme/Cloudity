@@ -36,9 +36,10 @@ fi
 GATEWAY_URL="${CLOUDITY_MOBILE_GATEWAY_URL:-${VITE_API_URL:-http://127.0.0.1:6002}}"
 if [[ -n "${DEPLOY_URL:-}" ]]; then
   GATEWAY_URL="${DEPLOY_URL%/}"
-  [[ "$GATEWAY_URL" == */api ]] || GATEWAY_URL="${DEPLOY_URL%/}/api"
-  if [[ "$DEPLOY_URL" == https://* ]]; then
-    GATEWAY_URL="${DEPLOY_URL/https:\/\//https://api.}"
+  GATEWAY_URL="${GATEWAY_URL%/api}"
+  # Front → API (prod HTTPS)
+  if [[ "$GATEWAY_URL" =~ ^https://cloudity\. ]]; then
+    GATEWAY_URL="${GATEWAY_URL/https:\/\/cloudity./https://api.cloudity.}"
   fi
 fi
 
@@ -59,7 +60,7 @@ SHA256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
 
 APK_URL="${APK_URL:-file://$APK_PATH}"
 if [[ -n "${DEPLOY_URL:-}" ]]; then
-  APK_URL="${DEPLOY_URL%/}/api/deploy/apk/${PKG}/${VERSION}"
+  APK_URL="${GATEWAY_URL%/}/deploy/apk/${PKG}/${VERSION}"
 fi
 
 APP="$PKG" VERSION="$VERSION" APK_URL="$APK_URL" SHA256="$SHA256" \

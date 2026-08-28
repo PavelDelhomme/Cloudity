@@ -13,6 +13,7 @@ Future<void> main() async {
     product: ClouditySuiteApp.notes,
     title: 'Cloudity Notes',
     home: SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.notes,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

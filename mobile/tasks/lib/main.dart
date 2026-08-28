@@ -13,6 +13,7 @@ Future<void> main() async {
     product: ClouditySuiteApp.tasks,
     title: 'Cloudity Tasks',
     home: SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.tasks,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,

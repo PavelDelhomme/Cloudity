@@ -16,6 +16,7 @@ Future<void> main() async {
     product: ClouditySuiteApp.admin,
     title: 'Cloudity Admin',
     home: SuiteAppShell<UserSession>(
+      suiteApp: ClouditySuiteApp.admin,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
       crashSession: _crashBinding,
