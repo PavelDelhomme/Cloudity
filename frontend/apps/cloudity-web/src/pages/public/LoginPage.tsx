@@ -5,7 +5,7 @@ import { login as apiLogin, verify2FA } from '../../api'
 import { isAdminUiReturnPath, normalizePostLoginPath, formatAuthError } from '@cloudity/shared'
 import { navigateAfterAuth } from '../../postAuthNavigate'
 import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } from '../../webauthn'
-import { Key, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, Key, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { DevQuickLoginPanel } from './DevQuickLoginPanel'
 
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [step, setStep] = useState<LoginStep>('email')
   const [loading, setLoading] = useState(false)
   // Étape 2FA : si `requires_2fa` revient du backend, on bascule sur un
@@ -285,17 +286,32 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
                 Mot de passe
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                required
-                placeholder="••••••••"
-                autoFocus
-                className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  required
+                  placeholder="••••••••"
+                  autoFocus
+                  className="block w-full rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3.5 py-2.5 pr-11 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                  title={showPassword ? 'Masquer' : 'Afficher'}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" aria-hidden />
+                  ) : (
+                    <Eye className="w-4 h-4" aria-hidden />
+                  )}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
