@@ -899,6 +899,7 @@ export type LoginResponse = {
   refresh_token?: string
   requires_2fa?: boolean
   user_id?: string
+  tenant_id?: number | string
 }
 
 /** Réponse de `/auth/2fa/verify`. Si on vient d'activer la 2FA pour la 1ère fois, le serveur inclut `recovery_codes` (à montrer UNE fois). */
@@ -931,9 +932,14 @@ export async function verify2FA(body: {
   tenant_id?: number
   code: string
 }): Promise<Verify2FAResponse> {
+  const payload: Record<string, string> = {
+    email: body.email,
+    code: body.code,
+  }
+  if (body.tenant_id != null) payload.tenant_id = String(body.tenant_id)
   const res = await apiFetch(null, '/auth/2fa/verify', {
     method: 'POST',
-    body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const t = await res.text()
@@ -1021,9 +1027,14 @@ function parseApiErrorMessage(raw: string, fallback: string): string {
 }
 
 export async function login(body: LoginBody): Promise<LoginResponse> {
+  const payload: Record<string, string> = {
+    email: body.email,
+    password: body.password,
+  }
+  if (body.tenant_id != null) payload.tenant_id = String(body.tenant_id)
   const res = await apiFetch(null, '/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const t = await res.text()
@@ -1099,13 +1110,19 @@ export type RegisterResponse = {
   access_token: string
   refresh_token?: string
   user_id?: string
+  tenant_id?: number | string
   expires_in?: number
 }
 
 export async function register(body: RegisterBody): Promise<RegisterResponse> {
+  const payload: Record<string, string> = {
+    email: body.email,
+    password: body.password,
+  }
+  if (body.tenant_id != null) payload.tenant_id = String(body.tenant_id)
   const res = await apiFetch(null, '/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ ...body, tenant_id: String(body.tenant_id ?? 1) }),
+    body: JSON.stringify(payload),
   })
   if (!res.ok) {
     const t = await res.text()

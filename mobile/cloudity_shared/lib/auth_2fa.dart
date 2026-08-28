@@ -103,7 +103,7 @@ class Auth2FAClient {
   /// [Auth2FAException] avec un message localisé pour les codes invalides.
   Future<Auth2FAResult> verify({
     required String email,
-    required String tenantId,
+    String? tenantId,
     required String code,
   }) async {
     final trimmed = code.trim();
@@ -111,17 +111,20 @@ class Auth2FAClient {
       throw Auth2FAException('Code 2FA vide.');
     }
     final uri = Uri.parse('$_base/auth/2fa/verify');
+    final payload = <String, dynamic>{
+      'email': email,
+      'code': trimmed,
+    };
+    if (tenantId != null && tenantId.trim().isNotEmpty) {
+      payload['tenant_id'] = tenantId.trim();
+    }
     http.Response res;
     try {
       res = await _client
           .post(
             uri,
             headers: authHeaders(null),
-            body: jsonEncode({
-              'email': email,
-              'tenant_id': tenantId,
-              'code': trimmed,
-            }),
+            body: jsonEncode(payload),
           )
           .timeout(const Duration(seconds: 10));
     } catch (e) {

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { register as apiRegister } from '../../api'
+import { tenantIdFromAccessToken } from '@cloudity/shared'
 import toast from 'react-hot-toast'
 import { Label, Input, Button } from '@cloudity/shared'
 import { MobileAppInstallBanner } from '../../components/MobileAppInstallBanner'
@@ -37,7 +38,11 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       const res = await apiRegister({ email: email.trim(), password })
-      setAuth(res.access_token!, res.refresh_token, 1, email.trim())
+      const tid =
+        (typeof res.tenant_id === 'number' ? res.tenant_id : parseInt(String(res.tenant_id ?? ''), 10)) ||
+        tenantIdFromAccessToken(res.access_token!) ||
+        1
+      setAuth(res.access_token!, res.refresh_token, tid, email.trim())
       toast.success('Compte créé. Bienvenue !')
       navigate('/app', { replace: true })
     } catch (err) {

@@ -11,6 +11,7 @@ export 'auth/user_session.dart';
 export 'cloudity_datetime.dart';
 export 'cloudity_crash_reporter.dart';
 export 'cloudity_design_tokens.dart';
+export 'jwt_claims.dart';
 export 'cloudity_error_ui.dart';
 export 'cloudity_suite_bootstrap.dart';
 export 'http_helpers.dart';

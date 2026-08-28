@@ -6,7 +6,7 @@ export { apiFetch, apiJson, apiJsonOk, ApiError } from './apiFetch'
 export type { ApiFetchInit, ApiOkJson } from './apiFetch'
 export { ADMIN_UI_BASE_PATH, adminUiPath, isAdminUiReturnPath, normalizePostLoginPath } from './adminUiPath'
 export { getJwtPayloadExpMs, isAccessTokenUsable } from './jwtExpiry'
-export { parseJwtPayload, jwtPayloadHasAdminRole, accessTokenHasAdminRole } from './jwtRole'
+export { parseJwtPayload, jwtPayloadHasAdminRole, accessTokenHasAdminRole, tenantIdFromAccessToken } from './jwtRole'
 export { passDomainFromUrl, mailFaviconUrl } from './passFavicon'
 export {
   APP_LABELS,

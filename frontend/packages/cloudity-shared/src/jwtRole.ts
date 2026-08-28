@@ -30,6 +30,18 @@ export function jwtPayloadHasAdminRole(payload: Record<string, unknown> | null):
   return false
 }
 
+export function tenantIdFromAccessToken(token: string): number | null {
+  const payload = parseJwtPayload(token)
+  if (!payload) return null
+  const tid = payload.tenant_id
+  if (typeof tid === 'number' && !Number.isNaN(tid)) return tid
+  if (typeof tid === 'string') {
+    const n = parseInt(tid, 10)
+    return Number.isNaN(n) ? null : n
+  }
+  return null
+}
+
 /** Indique si le JWT d’accès courant porte le rôle admin (UX : avant appel API). */
 export function accessTokenHasAdminRole(token: string | null | undefined): boolean {
   if (!token) return false

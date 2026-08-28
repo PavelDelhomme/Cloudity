@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../../authContext'
 import { login as apiLogin } from '../../api'
+import { tenantIdFromAccessToken } from '@cloudity/shared'
 import toast from 'react-hot-toast'
 import { Label, Input, Button } from '@cloudity/shared'
 
@@ -8,23 +9,25 @@ export default function Login() {
   const { login: setAuth } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [tenantId, setTenantId] = useState('1')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const tid = parseInt(tenantId, 10)
-    if (!email.trim() || !password || Number.isNaN(tid)) {
-      toast.error('Email, mot de passe et Tenant ID requis')
+    if (!email.trim() || !password) {
+      toast.error('Email et mot de passe requis')
       return
     }
     setLoading(true)
     try {
-      const res = await apiLogin({ email: email.trim(), password, tenant_id: tid })
+      const res = await apiLogin({ email: email.trim(), password })
       if (res.requires_2fa) {
         toast.error('Connexion 2FA non gérée depuis ce formulaire')
         return
       }
+      const tid =
+        (typeof res.tenant_id === 'number' ? res.tenant_id : parseInt(String(res.tenant_id ?? ''), 10)) ||
+        tenantIdFromAccessToken(res.access_token) ||
+        1
       setAuth(res.access_token, res.refresh_token ?? undefined, tid, email.trim())
       toast.success('Connexion réussie')
     } catch (err) {
@@ -68,24 +71,13 @@ export default function Login() {
                 placeholder="••••••••"
               />
             </div>
-            <div>
-              <Label htmlFor="tenantId">Tenant ID</Label>
-              <Input
-                id="tenantId"
-                type="number"
-                min={1}
-                value={tenantId}
-                onChange={(e) => setTenantId(e.target.value)}
-                required
-              />
-            </div>
             <Button type="submit" disabled={loading} className="w-full !py-2.5">
               {loading ? 'Connexion…' : 'Se connecter'}
             </Button>
           </form>
         </div>
         <p className="text-center text-slate-500 text-sm mt-6">
-          Utilisez vos identifiants Cloudity pour accéder au tableau de bord.
+          Même compte que le web — le tenant est détecté automatiquement depuis votre email.
         </p>
       </div>
     </div>

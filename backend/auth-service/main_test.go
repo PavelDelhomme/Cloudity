@@ -94,6 +94,28 @@ func (m *mockUserStore) promoteUser(email, tenantID, role string) {
 	m.users[email][tenantID] = row
 }
 
+func (m *mockUserStore) GetUserByEmail(email string) (userID, tenantID, passwordHash, totpSecret, role string, is2FAEnabled bool, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	byTenant, ok := m.users[email]
+	if !ok || len(byTenant) == 0 {
+		return "", "", "", "", "", false, errUserNotFound
+	}
+	if len(byTenant) > 1 {
+		return "", "", "", "", "", false, fmt.Errorf("ambiguous email")
+	}
+	for tid, row := range byTenant {
+		secret := m.totpSecrets[row.userID]
+		twoFA := m.twoFA[row.userID]
+		roleVal := row.role
+		if roleVal == "" {
+			roleVal = "user"
+		}
+		return row.userID, tid, row.passwordHash, secret, roleVal, twoFA, nil
+	}
+	return "", "", "", "", "", false, errUserNotFound
+}
+
 func (m *mockUserStore) GetUserRoleByID(userID string) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()

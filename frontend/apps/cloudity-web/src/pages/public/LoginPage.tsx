@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { login as apiLogin, verify2FA } from '../../api'
-import { isAdminUiReturnPath, normalizePostLoginPath, formatAuthError } from '@cloudity/shared'
+import { isAdminUiReturnPath, normalizePostLoginPath, formatAuthError, tenantIdFromAccessToken } from '@cloudity/shared'
 import { navigateAfterAuth } from '../../postAuthNavigate'
 import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } from '../../webauthn'
 import { Eye, EyeOff, Key, ShieldCheck } from 'lucide-react'
@@ -51,8 +51,16 @@ export default function LoginPage() {
     accessToken: string,
     refreshToken: string | undefined,
     authEmail: string,
+    tenantFromApi?: number | string,
   ) => {
-    setAuth(accessToken, refreshToken, 1, authEmail)
+    const parsed =
+      typeof tenantFromApi === 'number'
+        ? tenantFromApi
+        : tenantFromApi != null
+          ? parseInt(String(tenantFromApi), 10)
+          : NaN
+    const tid = (!Number.isNaN(parsed) && parsed > 0 ? parsed : null) ?? tenantIdFromAccessToken(accessToken) ?? 1
+    setAuth(accessToken, refreshToken, tid, authEmail)
     navigateAfterAuth(navigate, computeReturnDestination())
   }
 
@@ -83,7 +91,7 @@ export default function LoginPage() {
         toast.success('Mot de passe validé. Saisis ton code 2FA ou un code de récupération.')
         return
       }
-      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail)
+      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail, res.tenant_id)
       toast.success('Connexion réussie')
     } catch (err) {
       const msg = formatAuthError(err, 'login')
@@ -103,7 +111,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const res = await verify2FA({ email: normalizedEmail, code: twoFACode.trim() })
-      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail)
+      finishLogin(res.access_token, res.refresh_token ?? undefined, normalizedEmail, res.tenant_id)
       if (res.used_recovery_code) {
         toast.success('Connexion via code de récupération — pense à régénérer.', { duration: 6000 })
       } else {
