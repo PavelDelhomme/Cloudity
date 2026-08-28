@@ -32,6 +32,9 @@ COPY --from=builder /ws/apps/cloudity-web/dist /usr/share/nginx/html
 COPY --from=builder /ws/apps/web-mail/dist /usr/share/nginx/html/app/mail
 COPY --from=builder /ws/apps/web-drive/dist /usr/share/nginx/html/app/drive
 
+RUN mkdir -p /usr/share/nginx/html/.well-known
+COPY apps/cloudity-web/.well-known/assetlinks.json /usr/share/nginx/html/.well-known/assetlinks.json
+
 COPY apps/cloudity-web/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

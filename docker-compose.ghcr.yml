@@ -103,6 +103,9 @@ services:
       ACCESS_TOKEN_DURATION_MINUTES: ${ACCESS_TOKEN_DURATION_MINUTES:-60}
       AUTH_KEYS_DIR: /var/lib/cloudity/auth-keys
       CLOUDITY_ALLOW_DEV_QUICK_LOGIN: "0"
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-Cloudity Admin}
+      WEBAUTHN_ORIGINS: ${WEBAUTHN_ORIGINS:-http://localhost:6001,http://localhost:5173}
     volumes:
       - cloudity_auth_keys:/var/lib/cloudity/auth-keys
     depends_on:

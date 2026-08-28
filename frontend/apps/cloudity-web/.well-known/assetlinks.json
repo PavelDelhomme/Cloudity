@@ -1,0 +1,119 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_mail",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_drive",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_photos",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cloudity.cloudity_pass",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_calendar",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_contacts",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_notes",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.cloudity_tasks",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "fr.cloudity.admin_app",
+      "sha256_cert_fingerprints": [
+        "3C:F6:C5:32:1D:A1:51:7E:79:94:0C:9E:25:51:4A:63:9B:2C:44:9E:3E:FF:7D:F7:47:68:76:CB:F6:F4:C1:1F"
+      ]
+    }
+  }
+]

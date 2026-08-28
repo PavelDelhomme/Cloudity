@@ -79,25 +79,39 @@ Légende : **Web** = application navigateur (**`frontend/apps/cloudity-web`**, p
 
 Objectif UX : lorsqu’une app Cloudity est déjà connectée sur le téléphone, une nouvelle app (Photos, Drive, Mail, Pass…) doit proposer **« Continuer avec ce compte »**, **« Ajouter un autre compte »** ou **« Créer un compte »**. L’utilisateur ne doit pas saisir un `tenant_id` technique.
 
-État actuel (2026-05-21) :
+État actuel (**2026-08-28**) :
 
-- **Tenant masqué côté mobile** : les apps utilisent `tenant_id=1` en dev local ; la cible produit est la résolution tenant par e-mail côté auth-service (ROADMAP APP-00).
-- **Gateway prédéfini (H14)** : dans `.env`, `CLOUDITY_MOBILE_GATEWAY_URL` pointe vers l’**API gateway**. En dev local/LAN : `http://192.168.1.134:6080` ou `http://127.0.0.1:6080` avec `adb reverse`. En préprod/prod : **HTTPS obligatoire**, ex. `https://api.cloudity.<domaine>`. `scripts/mobile/run-mobile.sh` injecte cette valeur via `--dart-define=CLOUDITY_GATEWAY_URL=…`. Les écrans de connexion **Mail / Drive / Photos / Pass** n’affichent plus le champ URL gateway en release : seulement e-mail + mot de passe. En **debug**, un lien « Réglages avancés » permet encore de surcharger l’URL.
-- **Gateway auto en dev (fallback)** : intégration USB via `adb reverse` → `http://127.0.0.1:6080`; émulateur → `http://10.0.2.2:6080`.
-- **Compte démo debug** : builds debug préremplissent `admin@cloudity.local` / `Admin123!` pour ne pas bloquer les validations locales. À ne jamais activer en release.
-- **Limite technique importante** : `flutter_secure_storage` et `SharedPreferences` sont isolés par package Android. Les clés `cloudity_suite_*` harmonisent les noms, mais **ne suffisent pas** à partager un refresh token entre `fr.cloudity.cloudity_drive`, `fr.cloudity.cloudity_photos`, etc.
-- **Sécurité session actuelle** : refresh token conservé dans `flutter_secure_storage` chiffré par app ; access token rafraîchi au démarrage. UX correcte sans ressaisie tant que le refresh reste valide, mais pas encore de SSO inter-apps.
+- **Tenant auto** : login mobile sans champ tenant — résolution par e-mail côté `auth-service` ; le tenant est persisté depuis le JWT / réponse API.
+- **Gateway prédéfini (H14)** : `CLOUDITY_MOBILE_GATEWAY_URL` → API gateway HTTPS en prod. Écran connexion unifié (`CloudityLoginScreen` + `login_screen_shell.dart`) : e-mail + mot de passe uniquement en release.
+- **Broker Android (9 apps)** : `mobile/cloudity_auth_broker` — `ContentProvider` chiffré (`${applicationId}.cloudity.auth`), permissions signature `fr.cloudity.permission.*_AUTH_BROKER`. Packages couverts : Mail, Drive, Photos, Pass, Calendar, Contacts, Notes, Tasks, Admin.
+- **UX type Google** : si une app est déjà connectée, les autres proposent **« Continuer avec un compte Cloudity »** ; **1 compte** → reprise automatique au démarrage (`loadValidatedSession` + `_bootstrapLogin`) ; plusieurs comptes → tuile par e-mail avec indication de l’app source (ex. « Connecté sur Cloudity Mail »).
+- **Passkeys / empreinte** : bouton « Connexion empreinte / passkey », proposition d’enregistrement après login mot de passe, tentative auto au démarrage. Prérequis prod : `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGINS` (incl. `android:apk-key-hash:…`) passés à **`auth-service`** dans `docker-compose.ghcr.yml` ; `/.well-known/assetlinks.json` servi par `cloudity-web` (voir § 4.2).
+- **OTA** : `make mobile-upload-all` + install Samsung — **[DISTRIBUTION-CHANNELS.md](../operations/DISTRIBUTION-CHANNELS.md)**.
 
-Chantier requis pour le vrai partage sécurisé :
+Historique (2026-05-21) : premier broker limité à Mail / Drive / Photos ; stockage local isolé par package sans broker.
 
-1. **Android AccountManager** ou **Cloudity Auth Broker** signé avec le même certificat que les apps Cloudity.
-2. Stocker refresh token / compte dans un stockage OS partagé, protégé par Keystore/biométrie si nécessaire.
-3. Les apps consommatrices demandent un token via broker : sélection compte existant, ajout compte, création compte.
-4. iOS équivalent : Keychain Access Group + Associated Domains.
+Suite : iOS Keychain Access Group · keystore release (regénérer `assetlinks.json`).
 
-**Broker Android livré (2026-05-21)** : package `mobile/cloudity_auth_broker` — `ContentProvider` chiffré par app (`${applicationId}.cloudity.auth`), permissions `fr.cloudity.permission.*_AUTH_BROKER` (signature). Photos, Drive et Mail : bouton **« Continuer avec … »** sur l’écran connexion, `SessionStore.saveSessionWithEmail` + reprise via `listAccounts` si pas de jeton local.
+### 4.2 Passkeys Android (Digital Asset Links)
 
-Suite : iOS Keychain Access Group · AccountManager natif · migrer `SessionStore` dans `mobile/cloudity_shared`. **Pass** reste isolé tant qu’une revue crypto n’a pas validé le partage.
+Pour Bitwarden / Credential Manager sur apps natives :
+
+| Composant | Détail |
+|-----------|--------|
+| **RP ID prod** | `cloudity.delhomme.ovh` (`WEBAUTHN_RP_ID`) — **pas** `api.` |
+| **Origines** | URLs HTTPS web + `android:apk-key-hash:<base64url>` du certificat APK |
+| **assetlinks.json** | `frontend/apps/cloudity-web/.well-known/assetlinks.json` (copié dans l’image nginx) — une entrée par `applicationId` |
+| **Manifests** | intent-filter `android:autoVerify="true"` → `https://cloudity.<domaine>` |
+| **Génération** | `./scripts/mobile/mobile-generate-assetlinks.sh dist/mobile-apk/cloudity_mail-*.apk` |
+
+Vérification prod :
+
+```bash
+curl -sS https://cloudity.<domaine>/.well-known/assetlinks.json | jq 'length'
+curl -sS -X POST https://api.cloudity.<domaine>/auth/webauthn/login/begin-discoverable | jq '.options.publicKey.rpId'
+```
+
+Doc détaillée : **[PASS-DIGITAL-ASSET-LINKS.md](PASS-DIGITAL-ASSET-LINKS.md)** (étendu à toute la suite).
 
 ---
 

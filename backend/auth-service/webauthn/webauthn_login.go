@@ -167,23 +167,19 @@ func (s *Service) LoginBeginDiscoverable(c *gin.Context) {
 
 // LoginFinishDiscoverable POST /auth/webauthn/login/finish-discoverable
 //
-//	body = { "tenant_id": "<tid>", "challenge": "<b64url>", "assertion": <PublicKeyCredential> }
+//	body = { "tenant_id": "<tid>" (optionnel), "challenge": "<b64url>", "assertion": <PublicKeyCredential> }
 //
 // Le `userHandle` est lu depuis l'assertion ; on le résout en `user_id`
-// (inverse de `WebAuthnID()`). Le role provient de la base.
+// (inverse de `WebAuthnID()`). Le role provient de la base. Si `tenant_id`
+// est omis, il est résolu depuis la ligne `users` (login sans saisie tenant).
 func (s *Service) LoginFinishDiscoverable(c *gin.Context) {
 	var meta struct {
-		TenantID  string          `json:"tenant_id" binding:"required"`
+		TenantID  string          `json:"tenant_id"`
 		Challenge string          `json:"challenge" binding:"required"`
 		Assertion json.RawMessage `json:"assertion" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&meta); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	tenantID, err := strconv.ParseInt(meta.TenantID, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
 		return
 	}
 	sd, err := s.loadSession(c.Request.Context(), discoverableSessionKey(meta.Challenge))
@@ -225,6 +221,22 @@ func (s *Service) LoginFinishDiscoverable(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+	var tenantID int64
+	if tid := strings.TrimSpace(meta.TenantID); tid != "" {
+		tenantID, err = strconv.ParseInt(tid, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tenant_id"})
+			return
+		}
+	} else {
+		err = s.db.QueryRowContext(c.Request.Context(), `
+			SELECT tenant_id FROM users WHERE id = $1
+		`, userID).Scan(&tenantID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("tenant lookup: %v", err)})
+			return
+		}
+	}
 	if err := s.bumpSignCount(c.Request.Context(), cred.ID, cred.Authenticator.SignCount); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("sign_count: %v", err)})
 		return
@@ -240,5 +252,6 @@ func (s *Service) LoginFinishDiscoverable(c *gin.Context) {
 		"role":          user.role,
 		"user_id":       strconv.FormatInt(userID, 10),
 		"email":         user.email,
+		"tenant_id":     strconv.FormatInt(tenantID, 10),
 	})
 }
