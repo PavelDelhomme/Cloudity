@@ -392,8 +392,8 @@ def build_report_payload() -> dict[str, Any]:
     if root is None:
         return {
             "error": "CVE_SCAN_REPO_ROOT absent ou dossier illisible. "
-            "Montez la racine du dépôt en lecture seule (ex. docker-compose : .:/cloudity-repo:ro) "
-            "et définissez CVE_SCAN_REPO_ROOT=/cloudity-repo.",
+            "En local : montez le dépôt (.:/cloudity-repo:ro). "
+            "En prod GHCR : rebuild cloudity-admin-service (manifests embarqués au build).",
             "findings": [],
             "packages_scanned": 0,
             "packages_with_vulns": 0,
