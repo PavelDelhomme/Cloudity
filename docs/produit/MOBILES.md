@@ -164,6 +164,8 @@ Flux app : au login, `SuiteAppShell` → `GET /deploy/mobile/manifest?app=cloudi
 
 **Web (Android, non connecté)** : page login avec `?next=/app/notes` → bannière « Télécharger l’APK » ; accueil `/` → grille des apps Android disponibles.
 
+**Samsung / ADB** : `make mobile-install-device CLOUDITY_DEVICE_PROFILE=samsung-sm-g990b2 DEPLOY_URL=https://api.cloudity.delhomme.ovh`
+
 | App Flutter | Slug OTA | Dossier |
 |-------------|----------|---------|
 | Mail | `cloudity_mail` | `mobile/mail` |
