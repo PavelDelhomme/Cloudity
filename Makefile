@@ -272,6 +272,10 @@ redeploy-vps: ## Redeploy Portainer/SSH après CI (PORTAINER_URL+API_KEY ou Watc
 	@chmod +x scripts/deploy/redeploy-vps.sh
 	@./scripts/deploy/redeploy-vps.sh
 
+prod-recreate-front: ## VPS : pull + recreate web/gateway/admin (CLOUDITY_COMPOSE_DIR=/tmp/cloudity-build)
+	@chmod +x scripts/deploy/prod-recreate-front.sh
+	@./scripts/deploy/prod-recreate-front.sh
+
 deploy-hint: ## Rappel NPM / Portainer / Watchtower / mobile OTA
 	@echo "📋 Cloudity deploy — voir DEPLOY.md"
 	@echo "   Portainer prod : deploy/portainer/docker-compose.ghcr.yml (TAG=latest)"
