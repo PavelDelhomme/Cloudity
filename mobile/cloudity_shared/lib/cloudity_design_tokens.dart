@@ -45,6 +45,17 @@ class CloudityDesignTokens {
     return const Color(0xFF2563EB);
   }
 
+  /// Couleur accent foncée (dégradés login, etc.).
+  static Color accentDark(ClouditySuiteApp app) {
+    _ensureSync();
+    final apps = _raw!['apps'] as Map<String, dynamic>?;
+    final entry = apps?[app.tokenKey] as Map<String, dynamic>?;
+    if (entry != null && entry['accentDark'] is String) {
+      return _hex(entry['accentDark'] as String);
+    }
+    return seedColor(app);
+  }
+
   static double radius(String size) {
     _ensureSync();
     final radius = _raw!['radius'] as Map<String, dynamic>?;

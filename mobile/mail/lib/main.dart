@@ -17,6 +17,7 @@ Widget _mailShell() => SuiteAppShell<UserSession>(
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
+        suiteApp: ClouditySuiteApp.mail,
         productTitle: 'Cloudity Mail',
         keyPrefix: 'cloudity_mail',
         createApi: AuthApi.new,

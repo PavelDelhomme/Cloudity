@@ -3,29 +3,38 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../auth_2fa.dart';
+import '../cloudity_design_tokens.dart';
 import '../network_errors.dart';
+import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
 import 'auth_client.dart';
+import 'login_screen_shell.dart';
 import 'session_store.dart';
 import 'user_session.dart';
 
-/// Écran de connexion unique (H19) — titres / clés sémantiques paramétrables.
+/// Écran de connexion unique (H19) — branding par app, structure commune.
 class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   const CloudityLoginScreen({
     super.key,
     required this.onLoggedIn,
     required this.createApi,
-    required this.productTitle,
+    required this.suiteApp,
     required this.keyPrefix,
+    this.productTitle,
     this.supportingText,
   });
 
   final void Function(CloudityUserSession<T> session) onLoggedIn;
   final T Function(String gateway) createApi;
-  final String productTitle;
+  final ClouditySuiteApp suiteApp;
   final String keyPrefix;
+  /// Titre complet affiché (« Connexion — Cloudity Mail »). Défaut : Cloudity + [suiteApp].
+  final String? productTitle;
   /// Texte d’intro sous le titre (branding / consignes app).
   final String? supportingText;
+
+  String get effectiveProductTitle =>
+      productTitle ?? 'Cloudity ${suiteApp.title}';
 
   @override
   State<CloudityLoginScreen<T>> createState() => _CloudityLoginScreenState<T>();
@@ -358,90 +367,77 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_twoFactorRequired
-            ? 'Vérification 2FA — ${widget.productTitle}'
-            : 'Connexion — ${widget.productTitle}'),
-      ),
-      body: _twoFactorRequired ? _build2FAForm(context) : _buildLoginForm(context),
+    return CloudityLoginScreenShell(
+      suiteApp: widget.suiteApp,
+      productTitle: widget.effectiveProductTitle,
+      supportingText: _twoFactorRequired
+          ? 'Saisis le code à 6 chiffres de ton authenticator (TOTP) ou un code de '
+              'récupération de 12 caractères.'
+          : (widget.supportingText ??
+              'Même compte que sur le web. La gateway est détectée automatiquement.'),
+      twoFactor: _twoFactorRequired,
+      form: _twoFactorRequired ? _build2FAForm(context) : _buildLoginForm(context),
     );
   }
 
   Widget _buildLoginForm(BuildContext context) {
     final p = widget.keyPrefix;
-    return ListView(
-      padding: const EdgeInsets.all(20),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          widget.supportingText ??
-              'Même compte que le web. Entrez e-mail + mot de passe (gateway détectée automatiquement).',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-        ),
-        const SizedBox(height: 20),
-        if (_brokerAccounts.isNotEmpty) ...[
-          Text(
-            'Compte déjà connecté sur une autre app Cloudity',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          for (final acc in _brokerAccounts)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: FilledButton.tonal(
-                onPressed: _busy ? null : () => _continueWithBroker(acc),
-                child: Text('Continuer avec ${acc.email}'),
-              ),
-            ),
-          const SizedBox(height: 8),
-          const Divider(),
-          const SizedBox(height: 8),
-        ],
-        if (kDebugMode && _devPersonas.isNotEmpty) ...[
-          Text(
-            'Dev — connexion rapide',
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Sans mot de passe (local uniquement)',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          for (final p in _devPersonas)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: FilledButton.tonal(
-                key: ValueKey('${widget.keyPrefix}_dev_quick_${p['id']}'),
-                onPressed: _busy ? null : () => _devQuickLogin(p),
-                child: Text(
-                  '${p['label'] ?? p['id']} — ${p['email'] ?? ''}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+        if (_brokerAccounts.isNotEmpty)
+          CloudityLoginExtraPanel(
+            title: 'Compte déjà connecté',
+            subtitle: 'Reprendre une session d\'une autre app Cloudity',
+            children: [
+              for (final acc in _brokerAccounts)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FilledButton.tonal(
+                    onPressed: _busy ? null : () => _continueWithBroker(acc),
+                    child: Text('Continuer avec ${acc.email}'),
+                  ),
                 ),
-              ),
-            ),
-          const SizedBox(height: 8),
-          const Divider(),
-          const SizedBox(height: 8),
-        ],
+            ],
+          ),
+        if (kDebugMode && _devPersonas.isNotEmpty)
+          CloudityLoginExtraPanel(
+            title: 'Dev — connexion rapide',
+            subtitle: 'Sans mot de passe (local uniquement)',
+            children: [
+              for (final persona in _devPersonas)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: FilledButton.tonal(
+                    key: ValueKey('${widget.keyPrefix}_dev_quick_${persona['id']}'),
+                    onPressed: _busy ? null : () => _devQuickLogin(persona),
+                    child: Text(
+                      '${persona['label'] ?? persona['id']} — ${persona['email'] ?? ''}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         TextField(
           key: ValueKey('${p}_login_email'),
           controller: _emailCtrl,
           decoration: const InputDecoration(
             labelText: 'E-mail',
-            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.alternate_email_outlined, size: 22),
           ),
           keyboardType: TextInputType.emailAddress,
           autocorrect: false,
+          textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: CloudityDesignTokens.spacing('md')),
         TextField(
           key: ValueKey('${p}_login_password'),
           controller: _passwordCtrl,
           decoration: InputDecoration(
             labelText: 'Mot de passe',
-            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.lock_outline, size: 22),
             suffixIcon: IconButton(
               tooltip: _passwordVisible ? 'Masquer le mot de passe' : 'Afficher le mot de passe',
               onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
@@ -449,35 +445,44 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
             ),
           ),
           obscureText: !_passwordVisible,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_busy) _submit();
+          },
           onTapOutside: (_) => FocusScope.of(context).unfocus(),
         ),
         if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          SizedBox(height: CloudityDesignTokens.spacing('md')),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('sm')),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline, size: 20, color: Theme.of(context).colorScheme.error),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                key: ValueKey('${p}_login_submit'),
-                onPressed: _busy ? null : _submit,
-                child: _busy
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Se connecter'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton(
-              key: ValueKey('${p}_register_submit'),
-              onPressed: _busy ? null : _register,
-              child: const Text('Créer un compte'),
-            ),
-          ],
+        SizedBox(height: CloudityDesignTokens.spacing('xl')),
+        CloudityLoginActions(
+          primaryKey: ValueKey('${p}_login_submit'),
+          primaryLabel: 'Se connecter',
+          onPrimary: _submit,
+          busy: _busy,
+          secondaryKey: ValueKey('${p}_register_submit'),
+          secondaryLabel: 'Créer un compte',
+          onSecondary: _register,
         ),
       ],
     );
@@ -485,50 +490,41 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   Widget _build2FAForm(BuildContext context) {
     final p = widget.keyPrefix;
-    return ListView(
-      padding: const EdgeInsets.all(20),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Saisis le code à 6 chiffres de ton authenticator (TOTP) ou un code de '
-          'récupération de 12 caractères.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.black87),
-        ),
-        const SizedBox(height: 20),
         TextField(
           key: ValueKey('${p}_login_2fa_code'),
           controller: _codeCtrl,
           decoration: const InputDecoration(
             labelText: 'Code 2FA',
-            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.pin_outlined, size: 22),
             hintText: '123456 ou ABCD-1234-EFGH',
           ),
           keyboardType: TextInputType.visiblePassword,
           autocorrect: false,
           enableSuggestions: false,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_busy) _submit2FA();
+          },
         ),
         if (_error != null) ...[
-          const SizedBox(height: 12),
+          SizedBox(height: CloudityDesignTokens.spacing('md')),
           Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
         ],
-        const SizedBox(height: 20),
-        FilledButton(
-          key: ValueKey('${p}_login_2fa_submit'),
-          onPressed: _busy ? null : _submit2FA,
-          child: _busy
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Valider'),
-        ),
-        const SizedBox(height: 12),
-        TextButton(
-          key: ValueKey('${p}_login_2fa_cancel'),
-          onPressed: _busy ? null : _cancel2FA,
-          child: const Text('Annuler / changer de compte'),
+        SizedBox(height: CloudityDesignTokens.spacing('xl')),
+        CloudityLoginActions(
+          primaryKey: ValueKey('${p}_login_2fa_submit'),
+          primaryLabel: 'Valider',
+          onPrimary: _submit2FA,
+          busy: _busy,
+          secondaryKey: ValueKey('${p}_login_2fa_cancel'),
+          secondaryLabel: 'Annuler / changer de compte',
+          onSecondary: _cancel2FA,
         ),
       ],
     );
   }
 }
+
