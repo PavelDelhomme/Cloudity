@@ -9,7 +9,7 @@ Stratégie multi-canal pour installer et mettre à jour les applications (web, m
 | Canal | Cible | Statut | Commande / doc |
 |-------|--------|--------|----------------|
 | **Web PWA** | Navigateur | ✅ Prod via GHCR + Watchtower | `make push-prod` |
-| **OTA APK** | Android sideload | ✅ Scripts prêts | `make mobile-publish APP=Mail` |
+| **OTA APK** | Android sideload | ✅ Prod HTTPS + UI admin | `make mobile-upload-apk` / `mobile-upload-all` · `/4dm1n` → Déploiements |
 | **F-Droid** | Android libre | 📋 Métadonnées stub | `deploy/fdroid/` |
 | **Google Play** | Android store | 📋 Checklist manuelle | § 4 ci-dessous |
 | **TestFlight** | iOS | 📋 Compte Apple requis | § 5 |
@@ -33,9 +33,14 @@ Stockage : volume **`cloudity_mobile_data`** (`MOBILE_RELEASE_DIR`). Upload : `P
 ### Build & publier
 
 ```bash
-make mobile-publish APP=Mail              # APK locale + version.json
+# Une app
 MOBILE_APK_UPLOAD_TOKEN=… DEPLOY_URL=https://api.cloudity.delhomme.ovh \
   make mobile-upload-apk APP=Mail
+
+# Toutes (Mail Drive Photos Pass Calendar Contacts Notes Tasks)
+DEPLOY_URL=https://api.cloudity.delhomme.ovh make mobile-upload-all
+
+# Ou depuis le navigateur admin (JWT) : /4dm1n → Déploiements → Publier OTA
 ```
 
 Fichiers locaux :
@@ -58,10 +63,16 @@ Format manifeste (aussi servi par la gateway) :
 
 ### Côté app Flutter
 
-Au login / restore : `SuiteAppShell` → `CloudityOtaClient.checkUpdate` → dialogue si version serveur > installée → ouvre `apk_url` HTTPS.
+Au login / restore : `SuiteAppShell` (ou Pass maison) → `CloudityOtaClient.checkUpdate` → dialogue si version serveur > installée → ouvre `apk_url` HTTPS.
 
-Hold (masque la release) : `POST /admin/mobile/apk/hold?app=cloudity_mail&held=true` (JWT admin).
+| Action | Endpoint |
+|--------|----------|
+| Liste releases (UI admin) | `GET /admin/mobile/releases` |
+| Upload JWT admin | `POST /admin/mobile/apk/upload` |
+| Hold | `POST /admin/mobile/apk/hold?app=cloudity_mail&held=true` |
+| Upload token CI | `POST /deploy/mobile/upload` + `MOBILE_APK_UPLOAD_TOKEN` |
 
+Matrice web/API/mobile : [`DEPLOY-MATRIX.md`](DEPLOY-MATRIX.md).
 ---
 
 ## 3. F-Droid

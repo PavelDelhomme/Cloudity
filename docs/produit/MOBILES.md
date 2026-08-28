@@ -152,15 +152,45 @@ Tant que l’état reste `unauthorized`, **`flutter run` ne pourra pas installer
 
 ---
 
-## 6. Checklist d’avancement (à cocher)
+## 7. OTA Android — mises à jour sécurisées (local / dev / prod)
+
+| Env | Gateway | Comment publier |
+|-----|---------|-----------------|
+| Local | `http://127.0.0.1:6002` | `DEPLOY_URL=http://127.0.0.1:6002 make mobile-upload-apk APP=Mail` |
+| LAN | `http://192.168.x.x:6002` | idem + `adb reverse` ou IP LAN |
+| **Prod** | `https://api.cloudity.delhomme.ovh` | UI **`/4dm1n` → Déploiements** (upload APK) **ou** `make mobile-upload-apk` / `make mobile-upload-all` |
+
+Flux app : au login, `SuiteAppShell` → `GET /deploy/mobile/manifest?app=cloudity_*` → dialogue si version serveur > installée → télécharge `apk_url` HTTPS.
+
+**Web (Android, non connecté)** : page login avec `?next=/app/notes` → bannière « Télécharger l’APK » ; accueil `/` → grille des apps Android disponibles.
+
+| App Flutter | Slug OTA | Dossier |
+|-------------|----------|---------|
+| Mail | `cloudity_mail` | `mobile/mail` |
+| Drive | `cloudity_drive` | `mobile/drive` |
+| Photos | `cloudity_photos` | `mobile/photos` |
+| Pass | `cloudity_pass` | `mobile/pass` |
+| Calendar | `cloudity_calendar` | `mobile/calendar` |
+| Contacts | `cloudity_contacts` | `mobile/contacts` |
+| Notes | `cloudity_notes` | `mobile/notes` |
+| Tasks | `cloudity_tasks` | `mobile/tasks` |
+| Admin | `cloudity_admin` | `mobile/admin_app` |
+
+**Web + backends** (pas d’APK) : `make push-prod` ou `make admin-deploy-prod MODE=web` → images GHCR → Portainer GitOps + Watchtower.
+
+Détail ops : [`DISTRIBUTION-CHANNELS.md`](../operations/DISTRIBUTION-CHANNELS.md) · [`DEPLOY-MATRIX.md`](../operations/DEPLOY-MATRIX.md).
+
+---
+
+## 8. Checklist d’avancement (à cocher)
 
 - [ ] Choisir stack par défaut (Flutter vs PWA vs mixte).
 - [x] Cible `make run-mobile APP=…` (`scripts/run-mobile.sh`) — **Admin** exécutable d’office ; les autres dès qu’un dossier Flutter correspondant existe (voir tableau § 5).
-- [ ] Premier client mobile (souvent **Pass** ou **Mail** selon priorité ROADMAP).
+- [x] OTA HTTPS : gateway + UI `/4dm1n` → Déploiements + `make mobile-upload-all` (voir § 7).
 - [ ] Pipeline build iOS/Android (CI) — en local : **`make test-mobile-suite`** (ou Photos / Drive seuls) + phase 5 de **`make tests`** (ADB optionnel).
 - [ ] Publication stores (comptes, politique confidentialité).
 - [ ] **ADM-02** : MVP admin mobile après stabilisation ADM-01 web.
 
 ---
 
-*Fichier : `docs/produit/MOBILES.md`. Dernière révision : 2026-04-17.*
+*Fichier : `docs/produit/MOBILES.md`. Dernière révision : 2026-08-28.*

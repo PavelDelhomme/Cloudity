@@ -304,16 +304,18 @@ Clients → **gateway uniquement**.
 
 Mobile : APKs pointent vers l’API de l’env (`localhost` / preprod / `api.cloudity.…`) ; distribution via URL/manifeste OTA.
 
-### A.4 Admin — déployer / mettre en attente (objectif)
+### A.4 Admin — déployer / mettre en attente
 
-UI `/4dm1n` + `mobile/admin_app` devra :
+| Capacité | État |
+|----------|------|
+| Lister releases OTA (toutes apps) | ✅ `GET /admin/mobile/releases` + UI **`/4dm1n` → Déploiements** |
+| Hold / republier APK | ✅ `POST /admin/mobile/apk/hold` |
+| Upload APK depuis le navigateur | ✅ `POST /admin/mobile/apk/upload` (JWT admin) |
+| Matrice web + backends (rappel GitOps) | ✅ même page admin |
+| Rebuild GHCR / Portainer depuis le navigateur | ❌ volontaire — `make push-prod` depuis le PC de **dev** (sécurité) |
+| Promote preprod → prod images | 📋 Git merge `preprod`→`prod` + Watchtower |
 
-1. Lister versions (images GHCR + APK)
-2. **Hold** une release (staging)
-3. **Promote** preprod → prod
-4. Publier OTA mobile
-
-Socle déjà partiel (manifestes APK, Watchtower, GitOps). Branchement admin = phase P6 de `STRUCTURE-CIBLE.md`.
+Voir [`DEPLOY-MATRIX.md`](docs/operations/DEPLOY-MATRIX.md).
 
 ---
 
@@ -874,10 +876,17 @@ Les mobiles **ne passent pas** par les sous-domaines `mail.cloudity…` — uniq
 
 Rebuild image `cloudity-frontend` → même flux GHCR.
 
-### Mobile
+### Mobile (toutes les apps Android)
 
-Nouvelle APK + manifeste OTA — pas de conteneur VPS.
+Nouvelle APK + manifeste OTA sur volume `cloudity_mobile_data` — **pas** de conteneur VPS à rebuild.
 
+| Canal | Comment |
+|-------|---------|
+| UI admin | `https://cloudity.delhomme.ovh/4dm1n` → **Déploiements** (upload / hold / versions) |
+| PC de dev | `DEPLOY_URL=https://api.cloudity.delhomme.ovh make mobile-upload-apk APP=Mail` |
+| Toutes apps | `make mobile-upload-all` (Mail Drive Photos Pass Calendar Contacts Notes Tasks) |
+
+Les téléphones interrogent `GET /deploy/mobile/manifest?app=cloudity_*` au login. Doc : [`DEPLOY-MATRIX.md`](docs/operations/DEPLOY-MATRIX.md).
 ---
 
 ## 10. Vérification
@@ -911,7 +920,33 @@ Première connexion admin : seed via variables `SEED_ADMIN_EMAIL` / `SEED_ADMIN_
 | GHCR pull denied | packages privés | Public sur GitHub Packages |
 | CORS browser | origine absente de `CORS_ORIGINS` | ajouter le sous-domaine |
 | JWT invalidés | volume auth-keys supprimé | ne pas Remove volumes |
+| **Plusieurs conteneurs `Exited`** | jobs **one-shot** (`restart: "no"`) | **Normal** si `Exited (0)` — voir § 10.1 |
+| `postgres:15-alpine` / `redis:7-alpine` (pas GHCR) | **infra officielle**, pas du code Cloudity | **Normal** — seuls les microservices Cloudity sont sur GHCR |
 | Mail OAuth KO | redirect URI | `GOOGLE_OAUTH_REDIRECT_URI=https://api.cloudity…/mail/me/oauth/google/callback` |
+
+### 10.1 Conteneurs `Exited` — normal ou alarme ?
+
+Sur **`docker ps -a`**, tu verras souvent **3 conteneurs arrêtés** avec **`Exited (0)`** — c’est **voulu** :
+
+| Conteneur | Rôle | Attendu |
+|-----------|------|---------|
+| `cloudity-db-migrate` | Applique les migrations SQL au deploy | `Exited (0)` après succès |
+| `cloudity-auth-keys-init` | `chown` du volume JWT (`cloudity_auth_keys`) | `Exited (0)` |
+| `cloudity-mobile-releases-init` | Crée `/apk` + `/manifests` OTA + permissions | `Exited (0)` |
+
+Ils ont `restart: "no"` dans `docker-compose.ghcr.yml` : ce ne sont **pas** des services 24/7.
+
+**Alarme** seulement si :
+- `Exited (1)` ou autre code ≠ 0 → lire `docker logs cloudity-db-migrate` (etc.)
+- un service **long-running** (`api-gateway`, `postgres`, `web`…) est `Exited` → redeploy / logs
+
+**Postgres & Redis** : images Docker **officielles** (`postgres:15-alpine`, `redis:7-alpine`). Cloudity ne les rebuild pas sur GHCR — données dans les volumes nommés `cloudity_postgres_data` / `cloudity_redis_data`. Watchtower ne les met à jour que si tu ajoutes des labels (optionnel).
+
+```bash
+docker ps -a --filter name=cloudity --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
+docker logs cloudity-db-migrate --tail 30
+docker logs cloudity-auth-keys-init --tail 10
+```
 
 ---
 
@@ -923,10 +958,11 @@ make deploy-hint                       # rappel rapide
 make push-prod REF=prod WAIT=1         # CI GHCR
 make admin-deploy-prod                 # dev → prod
 make redeploy-vps                      # Portainer API / SSH
-make mobile-publish APP=Mail           # APK OTA
+make mobile-upload-apk APP=Mail        # build + OTA une app
+make mobile-upload-all                 # OTA toutes apps mobiles
 ```
 
-Docs : [DEPLOY.md](../../DEPLOY.md) · [DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT_PROCEDURE.md) · [DISTRIBUTION-CHANNELS.md](../../docs/operations/DISTRIBUTION-CHANNELS.md)
+Docs : [`DEPLOY-MATRIX.md`](docs/operations/DEPLOY-MATRIX.md) · [`DISTRIBUTION-CHANNELS.md`](docs/operations/DISTRIBUTION-CHANNELS.md) · [`MOBILES.md`](docs/produit/MOBILES.md)
 
 
 ---

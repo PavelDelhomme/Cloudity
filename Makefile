@@ -297,13 +297,17 @@ version: ## Affiche VERSION + versionCode Android
 	@MA=$$(cut -d. -f1 VERSION); MI=$$(cut -d. -f2 VERSION); PA=$$(cut -d. -f3 VERSION); \
 	  echo "versionCode=$$(( $${MA:-0} * 10000 + $${MI:-0} * 100 + $${PA:-0} ))"
 
-mobile-publish: ## Build APK + manifeste OTA (APP=Mail|Drive|Photos|Pass)
+mobile-publish: ## Build APK + manifeste OTA (APP=Mail|Drive|Photos|Pass|…)
 	@chmod +x scripts/mobile/android-publish-apk.sh scripts/ci/publish-mobile-manifest.sh
 	@APP="$(APP)" ./scripts/mobile/android-publish-apk.sh
 
-mobile-upload-apk: ## Build + upload APK vers DEPLOY_URL (APP=… APK_UPLOAD_TOKEN=…)
+mobile-upload-apk: ## Build + upload APK vers DEPLOY_URL (APP=… MOBILE_APK_UPLOAD_TOKEN=…)
 	@chmod +x scripts/mobile/publish-apk-remote.sh scripts/mobile/android-publish-apk.sh
 	@APP="$(APP)" DEPLOY_URL="$(DEPLOY_URL)" ./scripts/mobile/publish-apk-remote.sh
+
+mobile-upload-all: ## Build+upload OTA toutes apps (APPS="Mail Drive …" DEPLOY_URL=… TOKEN=…)
+	@chmod +x scripts/mobile/mobile-upload-all.sh scripts/mobile/publish-apk-remote.sh scripts/mobile/android-publish-apk.sh
+	@DEPLOY_URL="$(DEPLOY_URL)" APPS="$(APPS)" BUILD_FIRST="$(BUILD_FIRST)" ./scripts/mobile/mobile-upload-all.sh
 
 publish-ghcr: ## GHCR seul : workflow « Docker — build & publish » (REF=branche courante ; WAIT=1 pour watch)
 	@if ! command -v gh >/dev/null 2>&1; then echo "❌ gh requis"; exit 1; fi

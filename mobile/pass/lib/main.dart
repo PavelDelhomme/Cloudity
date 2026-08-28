@@ -56,6 +56,14 @@ class _PassRootState extends State<_PassRoot> {
     );
   }
 
+  void _scheduleOta(PassUserSession session) {
+    cloudityScheduleOtaCheck(
+      context,
+      gatewayBase: session.api.baseUrl,
+      appSlug: ClouditySuiteApp.pass.otaAppSlug,
+    );
+  }
+
   Future<void> _restore() async {
     final loaded =
         await SessionStore.loadValidatedSession(createApi: PassApi.new);
@@ -76,6 +84,7 @@ class _PassRootState extends State<_PassRoot> {
         unawaited(_syncUserPreferences(_session!));
       }
     });
+    if (_session != null) _scheduleOta(_session!);
   }
 
   @override
@@ -90,6 +99,7 @@ class _PassRootState extends State<_PassRoot> {
     _bindCrashSession(session);
     setState(() => _session = session);
     unawaited(_syncUserPreferences(session));
+    _scheduleOta(session);
   }
 
   Future<void> _syncUserPreferences(PassUserSession session) async {

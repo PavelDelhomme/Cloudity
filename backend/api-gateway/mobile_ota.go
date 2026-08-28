@@ -273,6 +273,91 @@ func handleUploadMobileAPK(w http.ResponseWriter, r *http.Request) {
 	writeJSONObj(w, http.StatusCreated, m)
 }
 
+func knownMobileOTAApps() []string {
+	return []string{
+		"cloudity_mail",
+		"cloudity_drive",
+		"cloudity_photos",
+		"cloudity_pass",
+		"cloudity_calendar",
+		"cloudity_contacts",
+		"cloudity_notes",
+		"cloudity_tasks",
+		"cloudity_admin",
+	}
+}
+
+func handleListMobileReleases(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminJWT(w, r) {
+		return
+	}
+	type entry struct {
+		App      string             `json:"app"`
+		Label    string             `json:"label"`
+		Release  *mobileOTAManifest `json:"release"`
+		HasAPK   bool               `json:"has_apk"`
+		Manifest string             `json:"manifest_path"`
+	}
+	labels := map[string]string{
+		"cloudity_mail":     "Mail",
+		"cloudity_drive":    "Drive",
+		"cloudity_photos":   "Photos",
+		"cloudity_pass":     "Pass",
+		"cloudity_calendar": "Agenda",
+		"cloudity_contacts": "Contacts",
+		"cloudity_notes":    "Notes",
+		"cloudity_tasks":    "Tâches",
+		"cloudity_admin":    "Admin",
+	}
+	seen := map[string]bool{}
+	out := make([]entry, 0, 16)
+	for _, app := range knownMobileOTAApps() {
+		seen[app] = true
+		e := entry{
+			App:      app,
+			Label:    labels[app],
+			Manifest: "version-" + app + ".json",
+		}
+		if m, err := readMobileManifest(app); err == nil {
+			e.Release = m
+			if _, err := os.Stat(mobileAPKPath(app, m.Version)); err == nil {
+				e.HasAPK = true
+			}
+		}
+		out = append(out, e)
+	}
+	// Manifestes hors catalogue (legacy)
+	manDir := filepath.Join(mobileReleaseDir(), "manifests")
+	if ents, err := os.ReadDir(manDir); err == nil {
+		for _, ent := range ents {
+			name := ent.Name()
+			if !strings.HasPrefix(name, "version-") || !strings.HasSuffix(name, ".json") {
+				continue
+			}
+			app := strings.TrimSuffix(strings.TrimPrefix(name, "version-"), ".json")
+			if seen[app] {
+				continue
+			}
+			e := entry{App: app, Label: app, Manifest: name}
+			if m, err := readMobileManifest(app); err == nil {
+				e.Release = m
+				if _, err := os.Stat(mobileAPKPath(app, m.Version)); err == nil {
+					e.HasAPK = true
+				}
+			}
+			out = append(out, e)
+		}
+	}
+	base := mobileOTAPublicBase()
+	writeJSONObj(w, http.StatusOK, map[string]any{
+		"releases":    out,
+		"public_base": base,
+		"upload_path": "/admin/mobile/apk/upload",
+		"hold_path":   "/admin/mobile/apk/hold",
+		"hint":        "Web/backends : push branche prod → GHCR → GitOps/Watchtower. Mobile : upload APK ici ou make mobile-upload-apk APP=…",
+	})
+}
+
 func handleHoldMobileRelease(w http.ResponseWriter, r *http.Request) {
 	if !requireAdminJWT(w, r) {
 		return
