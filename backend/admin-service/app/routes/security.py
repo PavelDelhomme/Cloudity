@@ -168,17 +168,21 @@ async def get_cve_report(
                 pl = json.loads(pl)
             if not isinstance(pl, dict):
                 pl = {}
-            scanned = snap["recorded_at"]
-            scanned_at = scanned.isoformat() if hasattr(scanned, "isoformat") else str(scanned)
-            merged = {**pl, "packages_scanned": snap.get("package_count", pl.get("packages_scanned"))}
-            return _response_from_payload(
-                merged,
-                scanned_at=scanned_at,
-                from_cache=True,
-                snapshot_id=int(snap["id"]),
-                row_package_count=int(snap["package_count"] or 0),
-                row_vuln_count=int(snap["vuln_count"] or 0),
-            )
+            # Ignore les snapshots « config KO » (ex. ancienne image sans /cloudity-repo)
+            if pl.get("error") and int(snap.get("package_count") or pl.get("packages_scanned") or 0) == 0:
+                snap = None
+            else:
+                scanned = snap["recorded_at"]
+                scanned_at = scanned.isoformat() if hasattr(scanned, "isoformat") else str(scanned)
+                merged = {**pl, "packages_scanned": snap.get("package_count", pl.get("packages_scanned"))}
+                return _response_from_payload(
+                    merged,
+                    scanned_at=scanned_at,
+                    from_cache=True,
+                    snapshot_id=int(snap["id"]),
+                    row_package_count=int(snap["package_count"] or 0),
+                    row_vuln_count=int(snap["vuln_count"] or 0),
+                )
 
     payload = build_report_payload()
     now_iso = datetime.now(timezone.utc).isoformat()

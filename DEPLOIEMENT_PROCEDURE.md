@@ -941,7 +941,7 @@ Ils ont `restart: "no"` dans `docker-compose.ghcr.yml` : ce ne sont **pas** des 
 - `Exited (1)` ou autre code ≠ 0 → lire `docker logs cloudity-db-migrate` (etc.)
 - un service **long-running** (`api-gateway`, `postgres`, `web`…) est `Exited` → redeploy / logs
 
-**Postgres & Redis** : images Docker **officielles** (`postgres:15-alpine`, `redis:7-alpine`). Cloudity ne les rebuild pas sur GHCR — données dans les volumes nommés `cloudity_postgres_data` / `cloudity_redis_data`. Watchtower ne les met à jour que si tu ajoutes des labels (optionnel).
+**Watchtower** pull `:latest` mais ne recrée le conteneur que si le **digest** image change. Après un fix CI, si l’admin affiche encore l’ancienne erreur CVE : **Nouveau scan OSV** ou script VPS `scripts/deploy/prod-recreate-front.sh` (recrée web + gateway + admin).
 
 ```bash
 docker ps -a --filter name=cloudity --format 'table {{.Names}}\t{{.Status}}\t{{.Image}}'
