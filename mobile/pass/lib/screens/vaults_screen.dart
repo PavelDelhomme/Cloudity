@@ -33,12 +33,21 @@ class PassVaultsScreen extends StatefulWidget {
 class _PassVaultsScreenState extends State<PassVaultsScreen> {
   late Future<List<Map<String, dynamic>>> _vaults;
   Map<String, dynamic>? _localDoc;
+  final _newVaultCtrl = TextEditingController(text: 'Mon coffre');
+  bool _creatingVault = false;
+  String? _createError;
 
   @override
   void initState() {
     super.initState();
     _vaults = _load();
     _applyPassPrefs();
+  }
+
+  @override
+  void dispose() {
+    _newVaultCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _applyPassPrefs() async {
@@ -72,6 +81,95 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
 
   Future<void> _refresh() async {
     setState(() => _vaults = _load());
+  }
+
+  Future<void> _createVault() async {
+    if (widget.offlineMode || _localDoc != null) {
+      setState(() => _createError = 'Création impossible hors ligne.');
+      return;
+    }
+    setState(() {
+      _creatingVault = true;
+      _createError = null;
+    });
+    try {
+      final pair = await widget.session.api.ensureValidTokens(
+        accessToken: widget.session.accessToken,
+        refreshToken: widget.session.refreshToken,
+      );
+      widget.session.accessToken = pair.access;
+      widget.session.refreshToken = pair.refresh;
+      await widget.session.persist();
+      await widget.session.api.createVault(
+        accessToken: widget.session.accessToken,
+        name: _newVaultCtrl.text,
+      );
+      if (!mounted) return;
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Coffre créé.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _createError = e.toString());
+    } finally {
+      if (mounted) setState(() => _creatingVault = false);
+    }
+  }
+
+  Widget _emptyVaultsBody(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Icon(Icons.vpn_key_outlined, size: 48, color: cs.primary),
+        const SizedBox(height: 16),
+        Text(
+          'Aucun coffre pour l’instant',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Crée ton premier coffre ici — il sera visible aussi sur le web Cloudity Pass.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 24),
+        TextField(
+          controller: _newVaultCtrl,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nom du coffre',
+            border: OutlineInputBorder(),
+          ),
+          enabled: !_creatingVault,
+        ),
+        if (_createError != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            _createError!,
+            style: TextStyle(color: cs.error),
+            textAlign: TextAlign.center,
+          ),
+        ],
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          onPressed: _creatingVault ? null : _createVault,
+          icon: _creatingVault
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.add),
+          label: Text(_creatingVault ? 'Création…' : 'Créer le coffre'),
+        ),
+      ],
+    );
   }
 
   @override
@@ -128,17 +226,7 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
             final vaults = snap.data ?? const [];
             final offlineBanner = widget.offlineMode || _localDoc != null;
             if (vaults.isEmpty) {
-              return ListView(
-                children: const [
-                  Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text(
-                      'Aucun coffre. Créez-en un depuis l\'app web (édition mobile en L2).',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ],
-              );
+              return _emptyVaultsBody(context);
             }
             return ListView.separated(
               itemCount: vaults.length + (offlineBanner ? 1 : 0),

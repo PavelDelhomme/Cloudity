@@ -31,6 +31,7 @@ class PassUnlockScreen extends StatefulWidget {
 class _PassUnlockScreenState extends State<PassUnlockScreen> {
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
+  final _vaultNameCtrl = TextEditingController(text: 'Mon coffre');
   Argon2idParams _params = Argon2idParams.mobileLow;
   bool _busy = false;
   String? _error;
@@ -138,6 +139,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
   void dispose() {
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
+    _vaultNameCtrl.dispose();
     super.dispose();
   }
 
@@ -222,13 +224,41 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
       if (widget.controller.unlockError != null) {
         setState(() => _error = widget.controller.unlockError);
       } else {
+        if (_isFirstVault && !_offlineMode) {
+          try {
+            final pair = await widget.session.api.ensureValidTokens(
+              accessToken: widget.session.accessToken,
+              refreshToken: widget.session.refreshToken,
+            );
+            widget.session.accessToken = pair.access;
+            widget.session.refreshToken = pair.refresh;
+            final created = await widget.session.api.createVault(
+              accessToken: widget.session.accessToken,
+              name: _vaultNameCtrl.text,
+            );
+            if (widget.session.userId.isNotEmpty) {
+              await PassLocalBackupStore.saveFromApi(
+                userId: widget.session.userId,
+                vaultRows: [created],
+                fetchItems: (_) async => [],
+              );
+            }
+          } on PassException catch (e) {
+            if (e.message == 'non_autorisé') {
+              widget.onLogout();
+              return;
+            }
+            setState(() => _error = 'Coffre chiffré localement mais création serveur échouée : ${e.message}');
+            return;
+          }
+        }
         await _offerBiometricAfterPasswordUnlock();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               _isFirstVault
-                  ? 'Coffre initialisé — mémorise ce mot de passe maître (Cloudity ne peut pas le réinitialiser).'
+                  ? 'Coffre créé sur le serveur — mémorise ton mot de passe maître (Cloudity ne peut pas le réinitialiser).'
                   : _offlineMode
                       ? 'Coffre déverrouillé (mode hors ligne — sauvegarde locale).'
                       : 'Coffre déverrouillé.',
@@ -331,6 +361,17 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
                 if (_isFirstVault) ...[
                   const SizedBox(height: 12),
                   TextField(
+                    key: const ValueKey('cloudity_pass_vault_name'),
+                    controller: _vaultNameCtrl,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom du coffre',
+                      hintText: 'Mon coffre',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
                     key: const ValueKey('cloudity_pass_unlock_confirm'),
                     controller: _confirmCtrl,
                     obscureText: true,
@@ -407,7 +448,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
             Text('Parcours', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 6),
             Text(
-              '1. Compte Cloudity (fait) → 2. Mot de passe maître du coffre → 3. Lecture des entrées chiffrées',
+              '1. Compte Cloudity (fait) → 2. Mot de passe maître + coffre serveur → 3. Entrées chiffrées',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87),
             ),
           ],
