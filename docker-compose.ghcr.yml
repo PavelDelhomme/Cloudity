@@ -73,6 +73,22 @@ services:
     command: ["sh", "-c", "chown -R 65532:65532 /keys && chmod 700 /keys"]
     networks: [cloudity-data]
 
+  # Même problème pour OTA APK (upload gateway → volume mobile-releases).
+  mobile-releases-init:
+    image: alpine:3.20
+    container_name: cloudity-mobile-releases-init
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - cloudity_mobile_data:/data
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /data/apk /data/manifests && chown -R 65532:65532 /data && chmod -R u+rwX /data",
+      ]
+    networks: [cloudity-data]
+
   auth-service:
     image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-auth-service:${TAG:-latest}
     container_name: cloudity-auth-service
@@ -283,6 +299,8 @@ services:
         condition: service_healthy
       admin-service:
         condition: service_started
+      mobile-releases-init:
+        condition: service_completed_successfully
     networks:
       - cloudity-data
       - npm_edge

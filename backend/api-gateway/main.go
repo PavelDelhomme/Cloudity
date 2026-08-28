@@ -253,8 +253,8 @@ func NewHandler() http.Handler {
 
 	// OTA Android self-hosted (HTTPS via api.* — manifests publics, upload admin/token).
 	r.HandleFunc("/deploy/mobile/manifest", handleGetMobileOTAManifest).Methods("GET")
-	r.HandleFunc("/deploy/apk/{app}", handleGetMobileAPK).Methods("GET")
-	r.HandleFunc("/deploy/apk/{app}/{version}", handleGetMobileAPK).Methods("GET")
+	r.HandleFunc("/deploy/apk/{app}", handleGetMobileAPK).Methods("GET", "HEAD")
+	r.HandleFunc("/deploy/apk/{app}/{version}", handleGetMobileAPK).Methods("GET", "HEAD")
 	r.HandleFunc("/admin/mobile/apk/upload", handleUploadMobileAPK).Methods("POST")
 	r.HandleFunc("/admin/mobile/apk/hold", handleHoldMobileRelease).Methods("POST")
 	// Alias upload CI (token) hors /admin pour éviter le check Origin navigateur.
@@ -554,6 +554,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			r.URL.Path == "/health" ||
 			r.URL.Path == "/csp-report" ||
 			(r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/deploy/")) ||
+			(r.Method == http.MethodHead && strings.HasPrefix(r.URL.Path, "/deploy/")) ||
 			(r.Method == http.MethodPost && r.URL.Path == "/deploy/mobile/upload") ||
 			(r.Method == http.MethodPost && r.URL.Path == "/mobile/crashes") {
 			next.ServeHTTP(w, r)
