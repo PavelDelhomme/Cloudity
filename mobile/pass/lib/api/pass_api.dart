@@ -49,6 +49,20 @@ class PassApi extends CloudityAuthClient {
     return Map<String, dynamic>.from(jsonDecode(res.body) as Map);
   }
 
+  Future<void> deleteVault({
+    required String accessToken,
+    required int vaultId,
+  }) async {
+    final res = await http.delete(
+      Uri.parse('$baseUrl/pass/vaults/$vaultId'),
+      headers: authHeaders(accessToken, json: false),
+    );
+    if (res.statusCode == 401) throw PassException('non_autorisé');
+    if (res.statusCode != 204 && res.statusCode != 200) {
+      throw PassException('Suppression coffre HTTP ${res.statusCode}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchItems({
     required String accessToken,
     required int vaultId,
