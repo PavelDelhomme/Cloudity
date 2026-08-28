@@ -949,6 +949,14 @@ docker logs cloudity-db-migrate --tail 30
 docker logs cloudity-auth-keys-init --tail 10
 ```
 
+**Nettoyer** les anciens one-shots `Exited (0)` (optionnel, cosmétique Portainer) :
+```bash
+# Sur le VPS
+bash scripts/deploy/prune-cloudity-oneshots.sh
+# Dry-run : DRY_RUN=1 bash scripts/deploy/prune-cloudity-oneshots.sh
+```
+Au prochain redeploy stack, Portainer recréera `db-migrate`, `auth-keys-init`, `mobile-releases-init` si le compose le prévoit.
+
 ---
 
 ## Commandes Make

@@ -313,6 +313,14 @@ mobile-upload-all: ## Build+upload OTA toutes apps (APPS="Mail Drive …" DEPLOY
 	@chmod +x scripts/mobile/mobile-upload-all.sh scripts/mobile/publish-apk-remote.sh scripts/mobile/android-publish-apk.sh
 	@DEPLOY_URL="$(DEPLOY_URL)" APPS="$(APPS)" BUILD_FIRST="$(BUILD_FIRST)" ./scripts/mobile/mobile-upload-all.sh
 
+mobile-install-device: ## Installe APK OTA sur ADB (CLOUDITY_DEVICE_ID=… DEPLOY_URL=… APPS="Mail …")
+	@chmod +x scripts/mobile/mobile-install-device.sh scripts/mobile/mobile-device-resolve.sh
+	@DEPLOY_URL="$(DEPLOY_URL)" APPS="$(APPS)" INSTALL_LOCAL="$(INSTALL_LOCAL)" CLOUDITY_DEVICE_ID="$(CLOUDITY_DEVICE_ID)" CLOUDITY_DEVICE_PROFILE="$(CLOUDITY_DEVICE_PROFILE)" ./scripts/mobile/mobile-install-device.sh
+
+smoke-prod-extended: ## Smoke prod VPS étendu (public + admin JWT + CVE + OTA)
+	@chmod +x scripts/ops/smoke-prod-extended.sh
+	@./scripts/ops/smoke-prod-extended.sh
+
 publish-ghcr: ## GHCR seul : workflow « Docker — build & publish » (REF=branche courante ; WAIT=1 pour watch)
 	@if ! command -v gh >/dev/null 2>&1; then echo "❌ gh requis"; exit 1; fi
 	@ref="$(REF)"; \
