@@ -596,13 +596,25 @@ func TestRefreshTokenHandler(t *testing.T) {
 	if res["access_token"] == nil || res["refresh_token"] == nil {
 		t.Errorf("Refresh response: %+v", res)
 	}
-	// Rotation: old refresh should be invalid
+	newRefresh, _ := res["refresh_token"].(string)
+	// Soft-rotate : l’ancien refresh reste utilisable pendant la grâce multi-apps.
 	w2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest(http.MethodPost, "/auth/refresh", strings.NewReader(body))
 	req2.Header.Set("Content-Type", "application/json")
 	r.ServeHTTP(w2, req2)
-	if w2.Code != http.StatusUnauthorized {
-		t.Errorf("Reuse of old refresh token should be 401, got %d", w2.Code)
+	if w2.Code != http.StatusOK {
+		t.Errorf("Reuse of old refresh within grace should be 200, got %d body %s", w2.Code, w2.Body.String())
+	}
+	// Le nouveau refresh émis au 1er tour doit aussi rester valide.
+	if newRefresh != "" {
+		w3 := httptest.NewRecorder()
+		body3 := `{"refresh_token":"` + newRefresh + `"}`
+		req3 := httptest.NewRequest(http.MethodPost, "/auth/refresh", strings.NewReader(body3))
+		req3.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(w3, req3)
+		if w3.Code != http.StatusOK {
+			t.Errorf("New refresh token should be valid, got %d body %s", w3.Code, w3.Body.String())
+		}
 	}
 }
 

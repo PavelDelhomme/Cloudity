@@ -37,6 +37,9 @@ import (
 var accessTokenDuration time.Duration
 
 const refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
+// Après rotation, l’ancien refresh reste valide brièvement pour les apps suite
+// qui refreshent en parallèle (Notes/Drive/Mail…) — sinon 401 en rafale.
+const refreshRotationGrace = 2 * time.Minute
 
 // newRedisClient construit le client Redis. Si REDIS_TLS=1 (ou true/on),
 // connexion TLS vers Redis avec vérification de la CA (fichier REDIS_TLS_CA,
@@ -586,7 +589,10 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	_ = a.sessionStore.DeleteRefresh(ctx, refreshHash) // rotation
+	// Soft-rotate : garder l’ancien hash ~2 min (multi-apps Android broker).
+	// Un DEL immédiat provoquait des 401 en chaîne dès qu’une 2ᵉ app
+	// présentait le même refresh pendant que la 1ʳᵉ propagait le nouveau.
+	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, tenantID, email, refreshRotationGrace)
 
 	role, _ := a.userStore.GetUserRoleByID(userID)
 	accessToken, _ := a.generateAccessToken(userID, tenantID, email, role)

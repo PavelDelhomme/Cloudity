@@ -7,6 +7,7 @@ import 'suite_app_catalog.dart';
 import 'suite_drawer_scaffold.dart';
 import 'suite_feedback_screen.dart';
 import 'suite_product_api.dart';
+import 'suite_product_editor.dart';
 
 /// Produit suite affiché par l'écran d'accueil mobile.
 enum SuiteProduct { calendar, contacts, notes, tasks }
@@ -173,6 +174,52 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  Future<void> _openEditor({Map<String, dynamic>? existing}) async {
+    final saved = await showSuiteProductEditor(
+      context: context,
+      product: widget.product,
+      api: _api,
+      existing: existing,
+      taskListId: _selectedTaskListId,
+    );
+    if (saved && mounted) await _reload();
+  }
+
+  Future<void> _deleteItem(Map<String, dynamic> item) async {
+    final id = suiteItemId(item);
+    if (id == null) return;
+    if (!await confirmSuiteDelete(context, _itemTitle(item))) return;
+    try {
+      switch (widget.product) {
+        case SuiteProduct.calendar:
+          await _api.deleteCalendarEvent(id);
+        case SuiteProduct.contacts:
+          await _api.deleteContact(id);
+        case SuiteProduct.notes:
+          await _api.deleteNote(id);
+        case SuiteProduct.tasks:
+          await _api.deleteTask(id);
+      }
+      if (mounted) await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _toggleTask(Map<String, dynamic> item) async {
+    final id = suiteItemId(item);
+    if (id == null) return;
+    final done = item['completed'] == true;
+    try {
+      await _api.updateTask(id: id, completed: !done);
+      if (mounted) await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   List<Widget> _productNavItems() {
     return [
       ListTile(
@@ -242,9 +289,25 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
-                            child: Text(
-                              'Aucun élément. Créez-en depuis le web ${widget.product.webPath}.',
-                              textAlign: TextAlign.center,
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Aucun élément pour l’instant.',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Crée-en un ici — il apparaît aussi sur le web Cloudity.',
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                FilledButton.icon(
+                                  onPressed: _openEditor,
+                                  icon: const Icon(Icons.add),
+                                  label: Text('Créer — ${widget.product.title}'),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -258,11 +321,38 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       itemBuilder: (context, index) {
                         final item = _items[index];
                         final sub = _itemSubtitle(item);
+                        final done = item['completed'] == true;
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           child: ListTile(
-                            title: Text(_itemTitle(item), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            subtitle: sub != null ? Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis) : null,
+                            leading: widget.product == SuiteProduct.tasks
+                                ? IconButton(
+                                    icon: Icon(
+                                      done
+                                          ? Icons.check_circle
+                                          : Icons.radio_button_unchecked,
+                                    ),
+                                    onPressed: () => _toggleTask(item),
+                                  )
+                                : null,
+                            title: Text(
+                              _itemTitle(item),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: done
+                                  ? const TextStyle(
+                                      decoration: TextDecoration.lineThrough,
+                                    )
+                                  : null,
+                            ),
+                            subtitle: sub != null
+                                ? Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis)
+                                : null,
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _deleteItem(item),
+                            ),
+                            onTap: () => _openEditor(existing: item),
                           ),
                         );
                       },
@@ -346,6 +436,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     ],
                   ),
                   isThreeLine: location != null && location.trim().isNotEmpty,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _deleteItem(item),
+                  ),
+                  onTap: () => _openEditor(existing: item),
                 ),
               );
             }
@@ -379,6 +474,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         webAppPath: widget.product.webPath,
         onLogout: () => widget.onLogout(),
       ),
+      floatingActionButton: _showSettings
+          ? null
+          : FloatingActionButton(
+              onPressed: _openEditor,
+              tooltip: 'Créer',
+              child: const Icon(Icons.add),
+            ),
       body: _buildListBody(),
     );
   }

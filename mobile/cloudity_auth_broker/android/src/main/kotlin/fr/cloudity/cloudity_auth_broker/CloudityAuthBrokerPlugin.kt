@@ -22,6 +22,7 @@ class CloudityAuthBrokerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "listAccounts" -> result.success(CloudityAuthBrokerHelper.listAccounts(appContext))
+            "listAllAccountCopies" -> result.success(CloudityAuthBrokerHelper.listAllCopies(appContext))
             "saveSession" -> {
                 val email = call.argument<String>("email")?.trim().orEmpty()
                 if (email.isEmpty()) {

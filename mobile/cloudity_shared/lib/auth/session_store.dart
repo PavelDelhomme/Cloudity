@@ -70,12 +70,17 @@ class SessionStore {
     }
   }
 
-  /// Efface les jetons locaux + compte broker (logout complet). Conserve l’URL gateway.
-  static Future<void> clearTokens() async {
-    final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
+  /// Efface uniquement la session **locale** (ne touche pas le broker des autres apps).
+  static Future<void> clearLocalTokens() async {
     await _secure.delete(key: CloudityStorageKeys.accessToken);
     await _secure.delete(key: CloudityStorageKeys.refreshToken);
     await _secure.delete(key: CloudityStorageKeys.accountEmail);
+  }
+
+  /// Logout explicite : jetons locaux + compte broker (toutes les apps).
+  static Future<void> clearTokens() async {
+    final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
+    await clearLocalTokens();
     if (CloudityAuthBroker.isSupported && email != null && email.isNotEmpty) {
       await CloudityAuthBroker.clearAccount(email);
     }
@@ -148,19 +153,101 @@ class SessionStore {
       );
     }
     if (refresh.isEmpty) return null;
-    final api = createApi(gateway);
+
+    // Ne pas rester bloqué sur une gateway LAN/USB périmée stockée dans le broker.
+    final gateways = SuiteGatewayConfig.candidates(savedGateway: gateway);
+    AuthException? lastAuth;
+    for (final gw in gateways) {
+      final api = createApi(gw);
+      try {
+        final pair = await api
+            .ensureValidTokens(accessToken: access, refreshToken: refresh)
+            .timeout(_sessionRestoreTimeout);
+        final email = await _secure.read(key: CloudityStorageKeys.accountEmail);
+        if (email != null && email.isNotEmpty) {
+          await saveSessionWithEmail(
+            gatewayUrl: gw,
+            accessToken: pair.access,
+            refreshToken: pair.refresh,
+            email: email,
+            tenantId: await readTenantId(),
+            userId: await readUserId(),
+          );
+        } else {
+          await saveSession(
+            gatewayUrl: gw,
+            accessToken: pair.access,
+            refreshToken: pair.refresh,
+          );
+        }
+        return (api: api, access: pair.access, refresh: pair.refresh);
+      } on AuthException catch (e) {
+        lastAuth = e;
+        if (e.message.toLowerCase().contains('refresh') ||
+            e.message.contains('401')) {
+          break;
+        }
+      } catch (_) {
+        // Essayer la gateway suivante.
+      }
+    }
     try {
-      final pair = await api
-          .ensureValidTokens(accessToken: access, refreshToken: refresh)
-          .timeout(_sessionRestoreTimeout);
-      await _secure.write(key: CloudityStorageKeys.accessToken, value: pair.access);
-      await _secure.write(key: CloudityStorageKeys.refreshToken, value: pair.refresh);
-      return (api: api, access: pair.access, refresh: pair.refresh);
-    } on AuthException {
-      await clearTokens();
+      throw lastAuth ?? AuthException('Session invalide');
+    } on AuthException catch (e) {
+      // Refresh mort localement → tenter les autres copies broker (Drive/Mail/…).
+      if (e.message.toLowerCase().contains('refresh') &&
+          CloudityAuthBroker.isSupported) {
+        final recovered = await _tryBrokerCopies(
+          createApi: createApi,
+          preferredGateway: gateway,
+        );
+        if (recovered != null) return recovered;
+      }
+      // Ne PAS clearTokens() ici : ça effaçait le broker de **toutes** les apps
+      // et tuait la session Drive/Mail encore valide → 401 en chaîne.
+      await clearLocalTokens();
       return null;
     } catch (_) {
       return null;
     }
+  }
+
+  /// Essaie chaque refresh distinct du broker jusqu’à succès, puis propage.
+  static Future<({T api, String access, String refresh})?> _tryBrokerCopies<
+      T extends CloudityAuthClient>({
+    required T Function(String gateway) createApi,
+    required String preferredGateway,
+  }) async {
+    final copies = await CloudityAuthBroker.listAllAccountCopies();
+    if (copies.isEmpty) return null;
+    final tried = <String>{};
+    for (final acc in copies) {
+      if (!tried.add(acc.refreshToken)) continue;
+      final gateways = SuiteGatewayConfig.candidates(
+        savedGateway: acc.gatewayUrl.isNotEmpty ? acc.gatewayUrl : preferredGateway,
+      );
+      for (final gw in gateways) {
+        final api = createApi(gw);
+        try {
+          final pair = await api
+              .ensureValidTokens(
+                accessToken: acc.accessToken,
+                refreshToken: acc.refreshToken,
+              )
+              .timeout(_sessionRestoreTimeout);
+          await saveSessionWithEmail(
+            gatewayUrl: gw,
+            accessToken: pair.access,
+            refreshToken: pair.refresh,
+            email: acc.email,
+            tenantId: acc.tenantId,
+          );
+          return (api: api, access: pair.access, refresh: pair.refresh);
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+    return null;
   }
 }

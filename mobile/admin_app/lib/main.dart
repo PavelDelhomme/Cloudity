@@ -9,21 +9,33 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
       gatewayBase: s.api.baseUrl,
     );
 
-Future<bool> _isAdmin(AuthApi api, String access) async {
-  try {
-    final me = await api.fetchMe(access);
-    final role = (me['role'] ?? me['user']?['role'])?.toString().toLowerCase();
-    return role == 'admin';
-  } catch (_) {
+Future<bool?> _adminRoleOrNull(AuthApi api, String access) async {
+  // Pas d’endpoint /auth/me fiable : le rôle admin est dans le JWT.
+  final role = roleFromAccessToken(access);
+  if (role == null) {
+    // Jeton illisible — vérifier au moins que la gateway répond.
+    try {
+      if (!await api.authHealth()) return null;
+    } catch (_) {
+      return null;
+    }
     return false;
   }
+  return role == 'admin';
 }
 
 Future<UserSession?> _restoreSession() async {
   final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
   if (pair == null) return null;
-  if (!await _isAdmin(pair.api, pair.access)) {
-    await SessionStore.clearTokens();
+  final isAdmin = await _adminRoleOrNull(pair.api, pair.access);
+  if (isAdmin == null) {
+    // Gateway injoignable : garder le broker des autres apps, session locale seule.
+    await SessionStore.clearLocalTokens();
+    return null;
+  }
+  if (!isAdmin) {
+    // Compte user classique — ne pas effacer Drive/Mail/Notes.
+    await SessionStore.clearLocalTokens();
     return null;
   }
   return UserSession(
@@ -37,8 +49,14 @@ Future<void> _onLoggedIn(
   CloudityUserSession<AuthApi> session,
   void Function(UserSession session) onLoggedIn,
 ) async {
-  if (!await _isAdmin(session.api, session.accessToken)) {
-    await SessionStore.clearTokens();
+  final isAdmin = await _adminRoleOrNull(session.api, session.accessToken);
+  if (isAdmin == null) {
+    throw AuthException(
+      'Gateway Cloudity injoignable. Vérifie la connexion puis réessaie.',
+    );
+  }
+  if (!isAdmin) {
+    await SessionStore.clearLocalTokens();
     throw AuthException('Compte non administrateur.');
   }
   onLoggedIn(

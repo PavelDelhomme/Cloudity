@@ -35,6 +35,7 @@ export 'cloudity_user_prefs_sync.dart';
 export 'pass_clipboard.dart';
 export 'pass_favicon.dart';
 export 'suite_product_api.dart';
+export 'suite_product_editor.dart';
 export 'suite_product_home.dart';
 export 'user_preferences.dart';
 export 'user_preferences_api.dart';

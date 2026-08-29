@@ -32,6 +32,33 @@ class AuthApi extends CloudityAuthClient {
     return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
+  Future<Map<String, dynamic>> createMailAccount({
+    required String accessToken,
+    required String email,
+    String? label,
+    String? password,
+  }) async {
+    final uri = Uri.parse('$baseUrl/mail/me/accounts');
+    final payload = <String, dynamic>{
+      'email': email.trim().toLowerCase(),
+      if (label != null && label.trim().isNotEmpty) 'label': label.trim(),
+      if (password != null && password.isNotEmpty) 'password': password,
+    };
+    final res = await http.post(
+      uri,
+      headers: authHeaders(accessToken),
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 401) throw AuthException('non_autorisé');
+    if (res.statusCode == 409) {
+      throw AuthException('Cette adresse est déjà reliée.');
+    }
+    if (res.statusCode != 201 && res.statusCode != 200) {
+      throw AuthException('Création boîte HTTP ${res.statusCode}: ${res.body}');
+    }
+    return Map<String, dynamic>.from(jsonDecode(res.body) as Map);
+  }
+
   Future<({List<Map<String, dynamic>> messages, int total})> fetchMailMessages({
     required String accessToken,
     required int accountId,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'mail_account_helpers.dart';
 import 'mail_imap_password_screen.dart';
+import 'add_mail_account_screen.dart';
 import '../auth/user_session.dart';
 
 /// Paramètres Mail (MVP) — aligné web : comptes, MDP IMAP, lien vers réglages web.
@@ -62,6 +63,19 @@ class MailSettingsScreen extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text('Boîtes mail', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: () async {
+            final ok = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) => AddMailAccountScreen(session: session),
+              ),
+            );
+            if (ok == true) await onAccountsChanged();
+          },
+          icon: const Icon(Icons.add),
+          label: const Text('Ajouter une boîte'),
+        ),
         const SizedBox(height: 8),
         ...accounts.map((acc) {
           final email = acc['email']?.toString() ?? '';

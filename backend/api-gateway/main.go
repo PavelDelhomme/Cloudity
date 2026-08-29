@@ -477,8 +477,9 @@ func writeJSON(w http.ResponseWriter, status int, body string) {
 
 // requireAdminAPIOrigin refuse les appels /admin/* depuis une origine navigateur
 // non autorisée. Cas same-origin (dashboard :6001 → proxy → gateway) : les GET
-// omettent souvent Origin — on accepte alors Referer, Sec-Fetch-Site=same-origin,
-// ou (dev uniquement) CORS_ALLOW_LAN sans Origin. Le JWT admin reste exigé à part.
+// omettent souvent Origin — on accepte alors Referer ou Sec-Fetch-Site=same-origin.
+// Clients natifs (apps mobile Dart, curl) n’envoient ni Origin ni Sec-Fetch-Site :
+// on les autorise — le JWT admin reste obligatoire dans le middleware parent.
 func requireAdminAPIOrigin(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodOptions {
 		return true
@@ -498,8 +499,11 @@ func requireAdminAPIOrigin(w http.ResponseWriter, r *http.Request) bool {
 	if site == "same-origin" {
 		return true
 	}
+	// Pas d’Origin/Referer : app native / CLI (pas un navigateur cross-site).
+	if site == "" || site == "none" {
+		return true
+	}
 	if corsAllowLANEnabled() {
-		// Dev : curl / proxy sans headers Fetch (JWT admin toujours requis).
 		return true
 	}
 	writeJSON(w, http.StatusForbidden, `{"error":"admin API: origin not allowed"}`)
