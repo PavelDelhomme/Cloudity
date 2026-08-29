@@ -16,7 +16,7 @@ case "$APP" in
   Mail|mail) APP_DIR="$ROOT/mobile/mail"; PKG="cloudity_mail"; ANDROID_PKG="fr.cloudity.cloudity_mail" ;;
   Drive|drive) APP_DIR="$ROOT/mobile/drive"; PKG="cloudity_drive"; ANDROID_PKG="fr.cloudity.cloudity_drive" ;;
   Photos|photos) APP_DIR="$ROOT/mobile/photos"; PKG="cloudity_photos"; ANDROID_PKG="fr.cloudity.cloudity_photos" ;;
-  Pass|pass) APP_DIR="$ROOT/mobile/pass"; PKG="cloudity_pass"; ANDROID_PKG="fr.cloudity.cloudity_pass" ;;
+  Pass|pass) APP_DIR="$ROOT/mobile/pass"; PKG="cloudity_pass"; ANDROID_PKG="com.cloudity.cloudity_pass" ;;
   Calendar|calendar) APP_DIR="$ROOT/mobile/calendar"; PKG="cloudity_calendar"; ANDROID_PKG="fr.cloudity.cloudity_calendar" ;;
   Contacts|contacts) APP_DIR="$ROOT/mobile/contacts"; PKG="cloudity_contacts"; ANDROID_PKG="fr.cloudity.cloudity_contacts" ;;
   Notes|notes) APP_DIR="$ROOT/mobile/notes"; PKG="cloudity_notes"; ANDROID_PKG="fr.cloudity.cloudity_notes" ;;

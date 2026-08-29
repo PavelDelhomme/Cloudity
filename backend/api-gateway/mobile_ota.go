@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const maxMobileAPKBytes = 200 * 1024 * 1024 // 200 MiB
+const maxMobileAPKBytes = 256 * 1024 * 1024 // 256 MiB (Photos debug APK ~212 MiB)
 
 var mobileAppSlugRe = regexp.MustCompile(`^[a-z][a-z0-9_]{1,64}$`)
 var mobileVersionRe = regexp.MustCompile(`^[0-9]+(\.[0-9]+){0,3}([-+][A-Za-z0-9._-]+)?$`)

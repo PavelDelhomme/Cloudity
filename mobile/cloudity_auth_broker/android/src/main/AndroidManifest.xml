@@ -6,6 +6,28 @@
         android:name="fr.cloudity.permission.WRITE_AUTH_BROKER"
         android:protectionLevel="signature" />
 
+    <!-- Android 11+ : sans <queries>, ContentResolver ne voit pas les peers → SSO invisible. -->
+    <queries>
+        <package android:name="fr.cloudity.cloudity_mail" />
+        <package android:name="fr.cloudity.cloudity_drive" />
+        <package android:name="fr.cloudity.cloudity_photos" />
+        <package android:name="com.cloudity.cloudity_pass" />
+        <package android:name="fr.cloudity.cloudity_calendar" />
+        <package android:name="fr.cloudity.cloudity_contacts" />
+        <package android:name="fr.cloudity.cloudity_notes" />
+        <package android:name="fr.cloudity.cloudity_tasks" />
+        <package android:name="fr.cloudity.admin_app" />
+        <provider android:authorities="fr.cloudity.cloudity_mail.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_drive.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_photos.cloudity.auth" />
+        <provider android:authorities="com.cloudity.cloudity_pass.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_calendar.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_contacts.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_notes.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.cloudity_tasks.cloudity.auth" />
+        <provider android:authorities="fr.cloudity.admin_app.cloudity.auth" />
+    </queries>
+
     <application>
         <provider
             android:name=".CloudityAuthProvider"

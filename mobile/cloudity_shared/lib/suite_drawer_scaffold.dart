@@ -248,6 +248,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.navItems = const [],
     this.appBarActions = const [],
     this.settingsBody,
+    this.floatingActionButton,
   });
 
   final ClouditySuiteApp currentApp;
@@ -262,6 +263,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
   final VoidCallback onCloseSettings;
   final Future<void> Function() onLogout;
   final Widget? settingsBody;
+  final Widget? floatingActionButton;
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
@@ -309,6 +311,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
       ),
       drawer: _buildDrawer(context),
       body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
+      floatingActionButton: showSettings ? null : floatingActionButton,
     );
   }
 }

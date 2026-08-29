@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import '../api/auth_api.dart';
+import 'add_mail_account_screen.dart';
 import 'compose_mail_screen.dart';
 import 'mail_account_helpers.dart';
 import 'mail_imap_password_screen.dart';
@@ -631,9 +632,31 @@ class _InboxScreenState extends State<InboxScreen> {
           : _accounts.isEmpty
           ? ListView(
               padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 80),
-                Text('Aucun compte mail relié. Ajoutez une boîte depuis le tableau de bord web (Mail).'),
+              children: [
+                const SizedBox(height: 48),
+                Text(
+                  'Aucune boîte reliée',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ajoute ta boîte IMAP ici pour lire et envoyer des mails.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () async {
+                    final ok = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => AddMailAccountScreen(session: widget.session),
+                      ),
+                    );
+                    if (ok == true) await _reloadAccounts();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Ajouter une boîte'),
+                ),
               ],
             )
           : ListView(

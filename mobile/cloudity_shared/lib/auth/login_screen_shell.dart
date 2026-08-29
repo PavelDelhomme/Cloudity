@@ -253,22 +253,26 @@ class CloudityLoginActions extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        FilledButton(
-          key: primaryKey,
-          onPressed: busy ? null : onPrimary,
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('md')),
+        Semantics(
+          button: true,
+          label: primaryLabel,
+          child: FilledButton(
+            key: primaryKey,
+            onPressed: busy ? null : onPrimary,
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('md')),
+              ),
             ),
+            child: busy
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(primaryLabel),
           ),
-          child: busy
-              ? const SizedBox(
-                  height: 22,
-                  width: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(primaryLabel),
         ),
         if (secondaryLabel != null && onSecondary != null) ...[
           SizedBox(height: CloudityDesignTokens.spacing('sm')),

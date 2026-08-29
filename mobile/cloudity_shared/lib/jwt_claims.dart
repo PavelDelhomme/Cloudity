@@ -33,3 +33,12 @@ int? tenantIdFromAccessToken(String token) {
   if (tid is num) return tid.toInt();
   return null;
 }
+
+/// Extrait `role` du JWT d'accès (`admin` / `user`).
+String? roleFromAccessToken(String token) {
+  final payload = decodeJwtPayload(token);
+  if (payload == null) return null;
+  final role = payload['role']?.toString().trim().toLowerCase();
+  if (role == null || role.isEmpty) return null;
+  return role;
+}

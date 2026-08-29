@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ import '../passkey_login.dart';
 import '../webauthn_client.dart';
 import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
+import '../suite_gateway_config.dart';
 import 'auth_client.dart';
 import 'login_screen_shell.dart';
 import 'session_store.dart';
@@ -30,7 +33,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
     this.supportingText,
   });
 
-  final void Function(CloudityUserSession<T> session) onLoggedIn;
+  final FutureOr<void> Function(CloudityUserSession<T> session) onLoggedIn;
   final T Function(String gateway) createApi;
   final ClouditySuiteApp suiteApp;
   final String keyPrefix;
@@ -220,13 +223,18 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       );
     }
     if (!mounted) return;
-    widget.onLoggedIn(
-      CloudityUserSession<T>(
-        api: api,
-        accessToken: access,
-        refreshToken: refresh,
-      ),
-    );
+    try {
+      await widget.onLoggedIn(
+        CloudityUserSession<T>(
+          api: api,
+          accessToken: access,
+          refreshToken: refresh,
+        ),
+      );
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+      rethrow;
+    }
   }
 
   Future<void> _maybeOfferPasskeyRegistration({
@@ -342,29 +350,175 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _busy = true;
     });
     try {
-      final api = widget.createApi(account.gatewayUrl);
-      if (!await api.authHealth()) {
-        throw AuthException('Gateway Cloudity introuvable pour ce compte.');
+      var candidates = await _brokerCandidatesFor(account);
+      final triedRefresh = <String>{};
+      AuthException? lastAuthError;
+      Object? lastOtherError;
+
+      for (var attempt = 0; attempt < 8; attempt++) {
+        CloudityAuthAccount? cand;
+        for (final c in candidates) {
+          if (triedRefresh.add(c.refreshToken)) {
+            cand = c;
+            break;
+          }
+        }
+        if (cand == null) {
+          await Future<void>.delayed(const Duration(milliseconds: 450));
+          candidates = await _brokerCandidatesFor(account);
+          for (final c in candidates) {
+            if (!triedRefresh.contains(c.refreshToken)) {
+              triedRefresh.add(c.refreshToken);
+              cand = c;
+              break;
+            }
+          }
+        }
+        if (cand == null) break;
+
+        try {
+          // Broker peut encore porter une URL LAN/USB (127.0.0.1:6080) alors
+          // que l’APK prod pointe vers api.cloudity.* — essayer les deux.
+          final gateways = await _gatewaysForBrokerContinue(cand);
+          Object? gatewayError;
+          for (final gateway in gateways) {
+            try {
+              final api = widget.createApi(gateway);
+              if (!await api.authHealth()) {
+                gatewayError = AuthException(
+                  'Gateway Cloudity introuvable pour ce compte.',
+                );
+                continue;
+              }
+              final pair = await api
+                  .ensureValidTokens(
+                    accessToken: cand.accessToken,
+                    refreshToken: cand.refreshToken,
+                  )
+                  .timeout(const Duration(seconds: 10));
+              await _finishAuthSuccess(
+                api: api,
+                access: pair.access,
+                refresh: pair.refresh,
+                email: cand.email,
+              );
+              await _refreshBrokerAccounts();
+              return;
+            } on AuthException catch (e) {
+              lastAuthError = e;
+              // 401 refresh : inutile de retenter d’autres gateways avec le même jeton.
+              if (e.message.toLowerCase().contains('refresh') ||
+                  e.message.contains('401')) {
+                break;
+              }
+              gatewayError = e;
+            } catch (e) {
+              gatewayError = e;
+              lastOtherError = e;
+            }
+          }
+          if (gatewayError != null && lastAuthError == null) {
+            lastOtherError = gatewayError;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 350));
+          candidates = await _brokerCandidatesFor(account);
+        } on AuthException catch (e) {
+          lastAuthError = e;
+          await Future<void>.delayed(const Duration(milliseconds: 350));
+          candidates = await _brokerCandidatesFor(account);
+        } catch (e) {
+          lastOtherError = e;
+        }
       }
-      final pair = await api
-          .ensureValidTokens(
-            accessToken: account.accessToken,
-            refreshToken: account.refreshToken,
-          )
-          .timeout(const Duration(seconds: 10));
-      await _finishAuthSuccess(
-        api: api,
-        access: pair.access,
-        refresh: pair.refresh,
-        email: account.email,
-      );
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = friendlyNetworkMessage(e, action: 'reprendre la session'));
+
+      if (mounted) await _refreshBrokerAccounts();
+      if (lastAuthError != null) {
+        final msg = lastAuthError.message;
+        if (msg.toLowerCase().contains('refresh') || msg.contains('401')) {
+          setState(() {
+            _error =
+                'Session à renouveler une fois. '
+                'Connecte-toi avec e-mail / mot de passe ou passkey — '
+                'ensuite les autres apps Cloudity se connecteront toutes seules.';
+            _brokerPickerHidden = true;
+            _emailCtrl.text = account.email;
+          });
+        } else {
+          setState(() => _error = msg);
+        }
+      } else if (lastOtherError != null) {
+        setState(() {
+          _error = friendlyNetworkMessage(
+            lastOtherError!,
+            action: 'reprendre la session',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Gateways à tenter pour un compte broker (prod dart-define en tête si URL locale).
+  Future<List<String>> _gatewaysForBrokerContinue(
+    CloudityAuthAccount cand,
+  ) async {
+    final broker = cand.gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
+    final out = <String>[];
+    final seen = <String>{};
+
+    void add(String? raw) {
+      final g = (raw ?? '').trim().replaceAll(RegExp(r'/$'), '');
+      if (g.isEmpty) return;
+      if (seen.add(g)) out.add(g);
+    }
+
+    final brokerIsLocal = _isDevOrLoopbackGateway(broker);
+    if (SessionStore.hasBuildGateway && brokerIsLocal) {
+      add(SuiteGatewayConfig.fromDartDefine);
+      add(broker);
+    } else {
+      add(broker);
+      if (SessionStore.hasBuildGateway) add(SuiteGatewayConfig.fromDartDefine);
+    }
+    for (final g in await SessionStore.gatewayCandidates()) {
+      add(g);
+    }
+    return out;
+  }
+
+  bool _isDevOrLoopbackGateway(String gateway) {
+    final g = gateway.toLowerCase();
+    if (g.isEmpty) return true;
+    return g.contains('127.0.0.1') ||
+        g.contains('localhost') ||
+        g.contains('10.0.2.2') ||
+        g.contains('10.0.3.2') ||
+        g.contains(':6002') ||
+        g.contains(':6080');
+  }
+
+  /// Meilleure copie + autres refresh distincts pour le même e-mail.
+  Future<List<CloudityAuthAccount>> _brokerCandidatesFor(
+    CloudityAuthAccount account,
+  ) async {
+    final copies = await CloudityAuthBroker.listAllAccountCopies();
+    final sameEmail = copies
+        .where((a) => a.email.toLowerCase() == account.email.toLowerCase())
+        .toList();
+    if (sameEmail.isEmpty) return [account];
+    // Tri : updated_at desc, puis access encore valide en tête.
+    sameEmail.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final out = <CloudityAuthAccount>[];
+    final seenRefresh = <String>{};
+    for (final a in sameEmail) {
+      if (seenRefresh.add(a.refreshToken)) out.add(a);
+    }
+    // Garantit que le compte tapé est essayé (même si doublon).
+    if (seenRefresh.add(account.refreshToken)) {
+      out.insert(0, account);
+    }
+    return out;
   }
 
   Future<void> _submit() async {

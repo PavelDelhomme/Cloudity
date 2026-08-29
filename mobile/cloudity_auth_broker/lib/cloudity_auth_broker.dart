@@ -11,6 +11,7 @@ class CloudityAuthAccount {
     required this.refreshToken,
     this.tenantId = 1,
     this.sourcePackage,
+    this.updatedAt = 0,
   });
 
   final String email;
@@ -19,6 +20,7 @@ class CloudityAuthAccount {
   final String refreshToken;
   final int tenantId;
   final String? sourcePackage;
+  final int updatedAt;
 
   factory CloudityAuthAccount.fromMap(Map<dynamic, dynamic> m) {
     return CloudityAuthAccount(
@@ -28,6 +30,7 @@ class CloudityAuthAccount {
       refreshToken: '${m['refresh_token'] ?? ''}',
       tenantId: (m['tenant_id'] as num?)?.toInt() ?? 1,
       sourcePackage: m['source_package'] as String?,
+      updatedAt: (m['updated_at'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -48,6 +51,7 @@ class CloudityAuthBroker {
 
   static bool get isSupported => Platform.isAndroid;
 
+  /// Une entrée par e-mail (copie la plus fraîche parmi les peers).
   static Future<List<CloudityAuthAccount>> listAccounts() async {
     if (!isSupported) return [];
     final raw = await _channel.invokeMethod<List<dynamic>>('listAccounts');
@@ -56,6 +60,24 @@ class CloudityAuthBroker {
         .map((e) => CloudityAuthAccount.fromMap(Map<dynamic, dynamic>.from(e as Map)))
         .where((a) => a.email.isNotEmpty && a.refreshToken.isNotEmpty)
         .toList();
+  }
+
+  /// Toutes les copies brutes (tous les ContentProviders) — pour retry SSO.
+  static Future<List<CloudityAuthAccount>> listAllAccountCopies() async {
+    if (!isSupported) return [];
+    try {
+      final raw =
+          await _channel.invokeMethod<List<dynamic>>('listAllAccountCopies');
+      if (raw == null) return [];
+      return raw
+          .map((e) => CloudityAuthAccount.fromMap(Map<dynamic, dynamic>.from(e as Map)))
+          .where((a) => a.email.isNotEmpty && a.refreshToken.isNotEmpty)
+          .toList();
+    } on MissingPluginException {
+      return listAccounts();
+    } on PlatformException {
+      return listAccounts();
+    }
   }
 
   static Future<void> saveSession(CloudityAuthAccount account) async {

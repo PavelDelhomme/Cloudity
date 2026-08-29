@@ -944,10 +944,23 @@ class _TimelineScreenState extends State<TimelineScreen>
           : _items.isEmpty
           ? ListView(
               padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 80),
+              children: [
+                const SizedBox(height: 48),
                 Text(
-                  'Aucune image. Activez la sauvegarde galerie ou téléversez depuis le web.',
+                  'Aucune photo dans le cloud',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sauvegarde ta galerie depuis l’onglet Appareil, ou importe depuis le web.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => _setTab(_PhotosTab.device),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Ouvrir la galerie'),
                 ),
               ],
             )

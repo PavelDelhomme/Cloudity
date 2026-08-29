@@ -39,12 +39,43 @@ class SuiteProductApi {
   }
 
   Future<dynamic> _getJson(String path) async {
+    return _request('GET', path, ok: const {200});
+  }
+
+  Future<dynamic> _request(
+    String method,
+    String path, {
+    Map<String, dynamic>? jsonBody,
+    required Set<int> ok,
+  }) async {
     var token = accessToken;
     for (var attempt = 0; attempt < 2; attempt++) {
       final uri = Uri.parse('$_base$path');
-      final res = await http
-          .get(uri, headers: authHeaders(token))
-          .timeout(const Duration(seconds: 15));
+      final headers = authHeaders(token, json: jsonBody != null);
+      final body = jsonBody == null ? null : jsonEncode(jsonBody);
+      late http.Response res;
+      switch (method) {
+        case 'POST':
+          res = await http
+              .post(uri, headers: headers, body: body)
+              .timeout(const Duration(seconds: 15));
+        case 'PUT':
+          res = await http
+              .put(uri, headers: headers, body: body)
+              .timeout(const Duration(seconds: 15));
+        case 'PATCH':
+          res = await http
+              .patch(uri, headers: headers, body: body)
+              .timeout(const Duration(seconds: 15));
+        case 'DELETE':
+          res = await http
+              .delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
+        default:
+          res = await http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
+      }
       if (res.statusCode == 401 && onTokenRefresh != null && attempt == 0) {
         final refreshed = await onTokenRefresh!();
         if (refreshed != null && refreshed.isNotEmpty) {
@@ -53,13 +84,13 @@ class SuiteProductApi {
           continue;
         }
       }
-      if (res.statusCode != 200) {
+      if (!ok.contains(res.statusCode)) {
         throw SuiteApiException(
-          'HTTP $path → ${res.statusCode}: ${res.body.isEmpty ? "erreur" : res.body}',
+          'HTTP $method $path → ${res.statusCode}: ${res.body.isEmpty ? "erreur" : res.body}',
         );
       }
-      final body = res.body.isEmpty ? '[]' : res.body;
-      return jsonDecode(body);
+      if (res.body.isEmpty) return null;
+      return jsonDecode(res.body);
     }
     throw SuiteApiException('Non autorisé');
   }
@@ -81,6 +112,174 @@ class SuiteProductApi {
   Future<List<Map<String, dynamic>>> fetchTasks({int? listId}) {
     final path = listId != null ? '/tasks?list_id=$listId' : '/tasks';
     return fetchJsonList(path);
+  }
+
+  Future<Map<String, dynamic>> createNote({
+    required String title,
+    String content = '',
+  }) async {
+    final data = await _request(
+      'POST',
+      '/notes',
+      jsonBody: {'title': title, 'content': content},
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> updateNote({
+    required int id,
+    String? title,
+    String? content,
+  }) async {
+    await _request(
+      'PUT',
+      '/notes/$id',
+      jsonBody: {
+        if (title != null) 'title': title,
+        if (content != null) 'content': content,
+      },
+      ok: const {200, 204},
+    );
+  }
+
+  Future<void> deleteNote(int id) async {
+    await _request('DELETE', '/notes/$id', ok: const {200, 204});
+  }
+
+  Future<Map<String, dynamic>> createContact({
+    required String name,
+    String email = '',
+    String phone = '',
+  }) async {
+    final data = await _request(
+      'POST',
+      '/contacts',
+      jsonBody: {'name': name, 'email': email, 'phone': phone},
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> updateContact({
+    required int id,
+    String? name,
+    String? email,
+    String? phone,
+  }) async {
+    await _request(
+      'PATCH',
+      '/contacts/$id',
+      jsonBody: {
+        if (name != null) 'name': name,
+        if (email != null) 'email': email,
+        if (phone != null) 'phone': phone,
+      },
+      ok: const {200, 204},
+    );
+  }
+
+  Future<void> deleteContact(int id) async {
+    await _request('DELETE', '/contacts/$id', ok: const {200, 204});
+  }
+
+  Future<Map<String, dynamic>> createTask({
+    required String title,
+    int? listId,
+    String? notes,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/tasks',
+      jsonBody: {
+        'title': title,
+        if (listId != null) 'list_id': listId,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+      },
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> updateTask({
+    required int id,
+    String? title,
+    String? notes,
+    bool? completed,
+  }) async {
+    await _request(
+      'PUT',
+      '/tasks/$id',
+      jsonBody: {
+        if (title != null) 'title': title,
+        if (notes != null) 'notes': notes,
+        if (completed != null) 'completed': completed,
+      },
+      ok: const {200, 204},
+    );
+  }
+
+  Future<void> deleteTask(int id) async {
+    await _request('DELETE', '/tasks/$id', ok: const {200, 204});
+  }
+
+  Future<Map<String, dynamic>> createTaskList(String name) async {
+    final data = await _request(
+      'POST',
+      '/tasks/lists',
+      jsonBody: {'name': name},
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<Map<String, dynamic>> createCalendarEvent({
+    required String title,
+    required String startAt,
+    required String endAt,
+    String? location,
+    String? description,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/calendar/events',
+      jsonBody: {
+        'title': title,
+        'start_at': startAt,
+        'end_at': endAt,
+        if (location != null && location.isNotEmpty) 'location': location,
+        if (description != null && description.isNotEmpty)
+          'description': description,
+      },
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> updateCalendarEvent({
+    required int id,
+    String? title,
+    String? startAt,
+    String? endAt,
+    String? location,
+    String? description,
+  }) async {
+    await _request(
+      'PUT',
+      '/calendar/events/$id',
+      jsonBody: {
+        if (title != null) 'title': title,
+        if (startAt != null) 'start_at': startAt,
+        if (endAt != null) 'end_at': endAt,
+        if (location != null) 'location': location,
+        if (description != null) 'description': description,
+      },
+      ok: const {200, 204},
+    );
+  }
+
+  Future<void> deleteCalendarEvent(int id) async {
+    await _request('DELETE', '/calendar/events/$id', ok: const {200, 204});
   }
 }
 

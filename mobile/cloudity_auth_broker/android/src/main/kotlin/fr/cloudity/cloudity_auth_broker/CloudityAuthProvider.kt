@@ -58,7 +58,15 @@ class CloudityAuthProvider : ContentProvider() {
         sortOrder: String?,
     ): Cursor? {
         val ctx = context ?: return null
-        val cols = arrayOf(COL_EMAIL, COL_GATEWAY, COL_ACCESS, COL_REFRESH, COL_TENANT, COL_SOURCE)
+        val cols = arrayOf(
+            COL_EMAIL,
+            COL_GATEWAY,
+            COL_ACCESS,
+            COL_REFRESH,
+            COL_TENANT,
+            COL_SOURCE,
+            COL_UPDATED_AT,
+        )
         val cursor = MatrixCursor(cols)
         val accounts = loadAll(ctx)
         val filterEmail = uri.pathSegments.getOrNull(1)
@@ -72,6 +80,7 @@ class CloudityAuthProvider : ContentProvider() {
                     obj.optString(COL_REFRESH, ""),
                     obj.optInt(COL_TENANT, 1),
                     ctx.packageName,
+                    obj.optLong(COL_UPDATED_AT, 0L),
                 ),
             )
         }
@@ -90,6 +99,8 @@ class CloudityAuthProvider : ContentProvider() {
         obj.put(COL_ACCESS, values?.getAsString(COL_ACCESS).orEmpty())
         obj.put(COL_REFRESH, values?.getAsString(COL_REFRESH).orEmpty())
         obj.put(COL_TENANT, values?.getAsInteger(COL_TENANT) ?: 1)
+        val updated = values?.getAsLong(COL_UPDATED_AT) ?: System.currentTimeMillis()
+        obj.put(COL_UPDATED_AT, updated)
         accounts[email] = obj
         saveAll(ctx, accounts)
         return Uri.parse("content://${ctx.packageName}.cloudity.auth/accounts/$email")
@@ -129,5 +140,6 @@ class CloudityAuthProvider : ContentProvider() {
         const val COL_REFRESH = "refresh_token"
         const val COL_TENANT = "tenant_id"
         const val COL_SOURCE = "source_package"
+        const val COL_UPDATED_AT = "updated_at"
     }
 }
