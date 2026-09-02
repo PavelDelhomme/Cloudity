@@ -20,6 +20,12 @@ def test_health_returns_200():
     assert "admin-service" in data.get("service", "")
 
 
+def test_admin_health_alias_via_gateway_path():
+    r = client.get("/admin/health")
+    assert r.status_code == 200
+    assert r.json().get("status") == "healthy"
+
+
 def test_health_returns_json():
     r = client.get("/health")
     assert r.headers.get("content-type", "").startswith("application/json")

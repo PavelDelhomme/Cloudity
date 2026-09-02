@@ -192,6 +192,23 @@ func TestAdminAPI_RejectsDisallowedOrigin(t *testing.T) {
 	}
 }
 
+func TestAdminHealth_IsPublicNoAuth(t *testing.T) {
+	if adminAPIRequiresSession("/admin/health", http.MethodGet) {
+		t.Fatal("/admin/health must not require admin session")
+	}
+	if !adminAPIRequiresSession("/admin/tenants", http.MethodGet) {
+		t.Fatal("/admin/tenants must require admin session")
+	}
+	handler := NewHandler()
+	req := httptest.NewRequest(http.MethodGet, "/admin/health", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	// Sans backend admin up : 502/503 possible, mais jamais 401 auth required
+	if w.Code == http.StatusUnauthorized {
+		t.Fatalf("GET /admin/health must be public, got 401: %s", w.Body.String())
+	}
+}
+
 func TestAdminAPI_AllowsNativeClientWithoutOrigin(t *testing.T) {
 	t.Setenv("CORS_ALLOW_LAN", "false")
 	_, edPriv := withTestKeys(t)

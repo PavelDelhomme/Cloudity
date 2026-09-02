@@ -50,7 +50,11 @@ services:
   db-migrate:
     image: ghcr.io/${REGISTRY_OWNER:-paveldelhomme}/cloudity-db-migrate:${TAG:-latest}
     container_name: cloudity-db-migrate
+    # One-shot : Exited (0) = terminé avec succès (PAS une erreur Portainer).
     restart: "no"
+    labels:
+      cloudity.oneshot: "true"
+      com.centurylinklabs.watchtower.enable: "false"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -66,7 +70,11 @@ services:
   auth-keys-init:
     image: alpine:3.20
     container_name: cloudity-auth-keys-init
+    # One-shot : Exited (0) = chown OK (PAS une erreur).
     restart: "no"
+    labels:
+      cloudity.oneshot: "true"
+      com.centurylinklabs.watchtower.enable: "false"
     user: "0:0"
     volumes:
       - cloudity_auth_keys:/keys
@@ -77,7 +85,11 @@ services:
   mobile-releases-init:
     image: alpine:3.20
     container_name: cloudity-mobile-releases-init
+    # One-shot : Exited (0) = permissions OK (PAS une erreur).
     restart: "no"
+    labels:
+      cloudity.oneshot: "true"
+      com.centurylinklabs.watchtower.enable: "false"
     user: "0:0"
     volumes:
       - cloudity_mobile_data:/data
@@ -339,15 +351,22 @@ services:
       retries: 5
       start_period: 30s
 
+# external:true — volumes créés hors Portainer (SSH / cloudity-build).
+# Évite le warning « created for project cloudity-build (expected cloudity) »
+# et empêche Portainer de recréer / écraser la DB.
 volumes:
   cloudity_postgres_data:
     name: cloudity_postgres_data
+    external: true
   cloudity_redis_data:
     name: cloudity_redis_data
+    external: true
   cloudity_auth_keys:
     name: cloudity_auth_keys
+    external: true
   cloudity_mobile_data:
     name: cloudity_mobile_data
+    external: true
 
 networks:
   cloudity-data:
