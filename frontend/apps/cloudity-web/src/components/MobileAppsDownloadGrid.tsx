@@ -77,7 +77,7 @@ export function MobileAppsDownloadGrid() {
         </ul>
       )}
       <p className="mt-3 text-xs text-gray-500 dark:text-slate-500">
-        Après installation, ouvre l’app et connecte-toi avec le même compte que sur le web.
+        Après installation, ouvre l’app et connecte-toi.
       </p>
     </section>
   )

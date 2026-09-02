@@ -76,42 +76,93 @@ except Exception:
 def adb(*args):
     subprocess.run(["adb", "-s", serial, *args], check=False, capture_output=True)
 
+def center(bounds):
+    m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds or "")
+    if not m:
+        return None
+    x1, y1, x2, y2 = map(int, m.groups())
+    return ((x1 + x2) // 2, (y1 + y2) // 2)
+
 edits = []
 connect_btn = None
-login_title = False
+broker_btn = None
+login_screen = False
 for node in root.iter("node"):
     cls = node.attrib.get("class", "")
-    text = node.attrib.get("text", "")
-    desc = node.attrib.get("content-desc", "")
+    text = (node.attrib.get("text") or "").strip()
+    desc = (node.attrib.get("content-desc") or "").strip()
     bounds = node.attrib.get("bounds", "")
-    if "Connexion —" in text or "Connexion —" in desc:
-        login_title = True
+    label = f"{text} {desc}".strip()
+    if "Se connecter" in label or "Créer un compte" in label or "passkey" in label.lower() or "empreinte" in label.lower():
+        login_screen = True
+    if "Continuer avec un compte" in label or "@" in desc and "cloudity" in desc.lower():
+        login_screen = True
     if cls.endswith("EditText") and bounds:
-        m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
-        if m:
-            x1, y1, x2, y2 = map(int, m.groups())
-            edits.append(((x1 + x2) // 2, (y1 + y2) // 2))
-    if text == "Se connecter" and bounds:
-        m = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds)
-        if m:
-            x1, y1, x2, y2 = map(int, m.groups())
-            connect_btn = ((x1 + x2) // 2, (y1 + y2) // 2)
+        c = center(bounds)
+        if c:
+            edits.append(c)
+    # Bouton principal (text OU content-desc Semantics)
+    if ("Se connecter" == text or "Se connecter" == desc) and bounds:
+        c = center(bounds)
+        if c:
+            connect_btn = c
+    # Compte broker déjà connu (même email) — un tap suffit
+    if email.lower() in label.lower() and bounds and "Button" not in cls:
+        c = center(bounds)
+        if c and broker_btn is None:
+            broker_btn = c
+    if "Continuer" in label and email.split("@")[0].lower() in label.lower() and bounds:
+        c = center(bounds)
+        if c:
+            broker_btn = c
 
-if not login_title and len(edits) < 2:
+if not login_screen and len(edits) < 2:
     print("SKIP: pas d'écran login (session restaurée ?)")
     sys.exit(2)
 
+# Préférer reprendre le compte broker (SSO suite) si visible
+if broker_btn and len(edits) < 2:
+    print(f"TAP broker account @ {broker_btn}")
+    adb("shell", "input", "tap", str(broker_btn[0]), str(broker_btn[1]))
+    sys.exit(0)
+
 if len(edits) >= 2:
+    print(f"FILL email/password edits={len(edits)} btn={connect_btn}")
+
+    def input_text(s: str):
+        # argv list → pas d’échappement shell ; @ via KEYCODE_AT (77)
+        if "@" in s:
+            local, _, domain = s.partition("@")
+            if local:
+                adb("shell", "input", "text", local.replace(" ", "%s"))
+            adb("shell", "input", "keyevent", "77")
+            if domain:
+                adb("shell", "input", "text", domain.replace(" ", "%s"))
+            return
+        adb("shell", "input", "text", s.replace(" ", "%s"))
+
     adb("shell", "input", "tap", str(edits[0][0]), str(edits[0][1]))
-    adb("shell", "cmd", "clipboard", "set-text", email)
-    adb("shell", "input", "keyevent", "279")  # paste
-    adb("shell", "input", "tap", str(edits[1][0]), str(edits[1][1]))
-    adb("shell", "cmd", "clipboard", "set-text", password)
-    adb("shell", "input", "keyevent", "279")
-    if connect_btn:
+    adb("shell", "input", "keyevent", "KEYCODE_MOVE_END")
+    for _ in range(40):
+        adb("shell", "input", "keyevent", "67")
+    input_text(email)
+    # Ne pas KEYCODE_BACK (ouvre parfois réglages Gboard) — TAB vers mot de passe
+    adb("shell", "input", "keyevent", "61")  # TAB
+    for _ in range(40):
+        adb("shell", "input", "keyevent", "67")
+    input_text(password)
+    # Fermer clavier sans quitter l’app
+    adb("shell", "input", "keyevent", "111")  # ESCAPE
+    if connect_btn and (connect_btn[1] > edits[-1][1] + 20):
+        # Ignorer les nœuds Semantics à hauteur ~0
         adb("shell", "input", "tap", str(connect_btn[0]), str(connect_btn[1]))
     else:
+        # Bouton sous le 2e champ (~ +120 px)
+        y = edits[-1][1] + 140
+        adb("shell", "input", "tap", str(edits[-1][0]), str(y))
         adb("shell", "input", "keyevent", "66")  # ENTER
+else:
+    print("WARN: pas assez de champs EditText")
 PY
 
   sleep 18
@@ -119,14 +170,19 @@ PY
   adb -s "$SERIAL" pull /sdcard/cloudity_ui_after.xml /tmp/cloudity_ui_after.xml >/dev/null 2>&1 || true
 
   local err=""
-  err="$(adb -s "$SERIAL" logcat -d -t 200 2>/dev/null | rg -i 'AuthException|Connexion impossible|non administrateur|FATAL EXCEPTION|flutter.*Error' | tail -3 || true)"
+  err="$(adb -s "$SERIAL" logcat -d -t 200 2>/dev/null | rg -i 'flutter.*AuthException|Connexion impossible|non administrateur|FATAL EXCEPTION|FlutterError' | tail -3 || true)"
   local still_login=""
   still_login="$(python3 -c "
 import xml.etree.ElementTree as ET
 try:
   r=ET.parse('/tmp/cloudity_ui_after.xml').getroot()
-  texts=' '.join(n.attrib.get('text','') for n in r.iter('node'))
-  print('1' if 'Se connecter' in texts and 'Connexion —' in texts else '0')
+  labels=[]
+  for n in r.iter('node'):
+    labels.append(n.attrib.get('text','') or '')
+    labels.append(n.attrib.get('content-desc','') or '')
+  blob=' '.join(labels)
+  # encore login si bouton Se connecter + champs email visibles
+  print('1' if ('Se connecter' in blob and ('Créer un compte' in blob or 'passkey' in blob.lower() or 'empreinte' in blob.lower())) else '0')
 except: print('0')
 " 2>/dev/null || echo 0)"
 

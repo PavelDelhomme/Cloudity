@@ -76,9 +76,6 @@ export default function Login() {
             </Button>
           </form>
         </div>
-        <p className="text-center text-slate-500 text-sm mt-6">
-          Même compte que le web — le tenant est détecté automatiquement depuis votre email.
-        </p>
       </div>
     </div>
   )

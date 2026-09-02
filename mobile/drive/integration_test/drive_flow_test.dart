@@ -19,7 +19,7 @@ const Key kTenant = ValueKey('cloudity_drive_login_tenant');
 const Key kSubmit = ValueKey('cloudity_drive_login_submit');
 
 bool _onLogin(WidgetTester tester) =>
-    find.text('Connexion — Cloudity Drive').evaluate().isNotEmpty;
+    find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _onFiles(WidgetTester tester) => find.byKey(kFiles).evaluate().isNotEmpty;
 

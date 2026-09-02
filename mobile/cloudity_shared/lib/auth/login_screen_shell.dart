@@ -30,9 +30,8 @@ class CloudityLoginScreenShell extends StatelessWidget {
     final accent = CloudityDesignTokens.seedColor(suiteApp);
     final accentDark = CloudityDesignTokens.accentDark(suiteApp);
     final radius = CloudityDesignTokens.radius('lg');
-    final headline = twoFactor
-        ? 'Vérification 2FA — $productTitle'
-        : 'Connexion — $productTitle';
+    // Headline carte retiré — l’en-tête gradient suffit (Cloudity + nom d’app).
+    // Gardé pour Semantics / lecteurs d’écran uniquement via l’en-tête.
 
     return Scaffold(
       body: DecoratedBox(
@@ -83,18 +82,9 @@ class CloudityLoginScreenShell extends StatelessWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Semantics(
-                                  header: true,
-                                  child: Text(
-                                    headline,
-                                    style: theme.textTheme.titleLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ),
+                                // Pas de titre « Connexion — … » ni blabla « même compte… ».
+                                // L’en-tête (Cloudity + app) + le formulaire suffisent.
                                 if (supportingText != null && supportingText!.isNotEmpty) ...[
-                                  SizedBox(height: CloudityDesignTokens.spacing('sm')),
                                   Text(
                                     supportingText!,
                                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -102,8 +92,8 @@ class CloudityLoginScreenShell extends StatelessWidget {
                                       height: 1.35,
                                     ),
                                   ),
+                                  SizedBox(height: CloudityDesignTokens.spacing('xl')),
                                 ],
-                                SizedBox(height: CloudityDesignTokens.spacing('xl')),
                                 form,
                               ],
                             ),
@@ -256,22 +246,27 @@ class CloudityLoginActions extends StatelessWidget {
         Semantics(
           button: true,
           label: primaryLabel,
-          child: FilledButton(
-            key: primaryKey,
-            onPressed: busy ? null : onPrimary,
-            style: FilledButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('md')),
+          container: true,
+          child: SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton(
+              key: primaryKey,
+              onPressed: busy ? null : onPrimary,
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('md')),
+                ),
               ),
+              child: busy
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(primaryLabel),
             ),
-            child: busy
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(primaryLabel),
           ),
         ),
         if (secondaryLabel != null && onSecondary != null) ...[

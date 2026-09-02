@@ -436,10 +436,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         final msg = lastAuthError.message;
         if (msg.toLowerCase().contains('refresh') || msg.contains('401')) {
           setState(() {
-            _error =
-                'Session à renouveler une fois. '
-                'Connecte-toi avec e-mail / mot de passe ou passkey — '
-                'ensuite les autres apps Cloudity se connecteront toutes seules.';
+            _error = 'Session expirée — reconnecte-toi (email, mot de passe ou empreinte).';
             _brokerPickerHidden = true;
             _emailCtrl.text = account.email;
           });
@@ -692,10 +689,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       suiteApp: widget.suiteApp,
       productTitle: widget.effectiveProductTitle,
       supportingText: _twoFactorRequired
-          ? 'Saisis le code à 6 chiffres de ton authenticator (TOTP) ou un code de '
-              'récupération de 12 caractères.'
-          : (widget.supportingText ??
-              'Même compte que sur le web. La gateway est détectée automatiquement.'),
+          ? 'Code à 6 chiffres (authenticator) ou code de récupération.'
+          : widget.supportingText,
       twoFactor: _twoFactorRequired,
       form: _twoFactorRequired ? _build2FAForm(context) : _buildLoginForm(context),
     );

@@ -134,9 +134,6 @@ class _PassRootState extends State<_PassRoot> {
         productTitle: 'Cloudity Pass',
         keyPrefix: 'cloudity_pass',
         createApi: PassApi.new,
-        supportingText:
-            'Compte Cloudity (le même que sur le web). Le coffre reste verrouillé '
-            'tant que vous n\'aurez pas saisi votre mot de passe maître à l\'étape suivante.',
         onLoggedIn: (s) => unawaited(_onLoggedIn(s)),
       );
     }
