@@ -431,6 +431,10 @@ func adminAPIRequiresSession(path string, method string) bool {
 	if method == http.MethodOptions {
 		return false
 	}
+	// Health public (comme /notes/health, /auth/health) — pas de JWT.
+	if path == "/admin/health" {
+		return false
+	}
 	return strings.HasPrefix(path, "/admin")
 }
 
@@ -556,6 +560,7 @@ func authMiddleware(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
 			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
+			r.URL.Path == "/admin/health" ||
 			r.URL.Path == "/health" ||
 			r.URL.Path == "/csp-report" ||
 			(r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/deploy/")) ||

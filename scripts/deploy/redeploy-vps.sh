@@ -54,11 +54,36 @@ wait_for_ghcr_build() {
 redeploy_ssh() {
   local target="${DEPLOY_SSH:-}"
   [[ -n "$target" ]] || return 1
-  # Défaut : stack Git/compose sur le VPS (volumes cloudity_* conservés).
-  local cmd="${DEPLOY_SSH_CMD:-cd /tmp/cloudity-build && docker compose -p cloudity -f docker-compose.ghcr.yml --env-file .env pull && docker compose -p cloudity -f docker-compose.ghcr.yml --env-file .env up -d --remove-orphans}"
+  # Défaut : pull GHCR avec retries (TLS flaky) puis up. SKIP_PULL=1 = images locales seulement.
+  # Ne jamais laisser un pull échoué bloquer un up si les images :latest sont déjà là.
+  local cmd="${DEPLOY_SSH_CMD:-}"
+  if [[ -z "$cmd" ]]; then
+    cmd='set -euo pipefail
+cd /tmp/cloudity-build
+COMPOSE="docker compose -p cloudity -f docker-compose.ghcr.yml --env-file .env"
+if [[ "${SKIP_PULL:-0}" != "1" ]]; then
+  echo "==> Pull GHCR (3 tentatives, ignore échec partiel si images locales)…"
+  ok=0
+  for i in 1 2 3; do
+    if $COMPOSE pull; then ok=1; break; fi
+    echo "   pull tentative $i échouée — pause 8s"
+    sleep 8
+  done
+  if [[ "$ok" != "1" ]]; then
+    echo "⚠️  Pull GHCR en timeout TLS — on continue avec les images déjà présentes"
+  fi
+else
+  echo "==> SKIP_PULL=1 — pas de pull GHCR"
+fi
+$COMPOSE up -d --remove-orphans
+docker ps --filter name=cloudity --format "{{.Names}}\t{{.Status}}" | sort
+'
+  fi
   echo "==> Redeploy SSH → $target"
+  # SKIP_PULL est local : l’injecter côté distant (le bloc remote est en quotes simples).
   # shellcheck disable=SC2029
-  ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$target" "$cmd"
+  ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$target" \
+    "export SKIP_PULL=${SKIP_PULL:-0}; $cmd"
 }
 
 redeploy_portainer_api() {
