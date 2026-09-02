@@ -90,7 +90,7 @@ services:
       - DEV_QUICK_LOGIN_ADMIN_EMAIL=${DEV_QUICK_LOGIN_ADMIN_EMAIL:-}
       - DEV_QUICK_LOGIN_USER_EMAIL=${DEV_QUICK_LOGIN_USER_EMAIL:-user@cloudity.local}
       # Durée du JWT d’accès (minutes). Refresh token 30 j + rotation ; le front rafraîchit aussi au retour sur l’onglet.
-      - ACCESS_TOKEN_DURATION_MINUTES=${ACCESS_TOKEN_DURATION_MINUTES:-60}
+      - ACCESS_TOKEN_DURATION_MINUTES=${ACCESS_TOKEN_DURATION_MINUTES:-720}
     volumes:
       - ./backend/auth-service:/app:cached
       # internalsec sous /app pour le replace `./internalsec` dans go.mod (Air hot reload).

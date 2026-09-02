@@ -116,6 +116,7 @@ type Event struct {
 	AllDay      bool    `json:"all_day"`
 	Location    *string `json:"location,omitempty"`
 	Description *string `json:"description,omitempty"`
+	RepeatRule  *string `json:"repeat_rule,omitempty"`
 	CreatedAt   string  `json:"created_at"`
 	UpdatedAt   string  `json:"updated_at"`
 }
@@ -254,7 +255,7 @@ func (h *Handler) listEvents(c *gin.Context) {
 	ctx := c.Request.Context()
 	calQ := strings.TrimSpace(c.Query("calendar_id"))
 	base := `
-		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, created_at::text, COALESCE(updated_at::text, '')
+		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
 		FROM calendar_events WHERE user_id = current_setting('app.current_user_id', true)::INTEGER`
 	var rows *sql.Rows
 	var err error
@@ -276,10 +277,10 @@ func (h *Handler) listEvents(c *gin.Context) {
 	list := make([]Event, 0)
 	for rows.Next() {
 		var e Event
-		var loc, desc sql.NullString
+		var loc, desc, rr sql.NullString
 		var cal sql.NullInt64
 		var uat string
-		if err := rows.Scan(&e.ID, &e.TenantID, &e.UserID, &cal, &e.Title, &e.StartAt, &e.EndAt, &e.AllDay, &loc, &desc, &e.CreatedAt, &uat); err != nil {
+		if err := rows.Scan(&e.ID, &e.TenantID, &e.UserID, &cal, &e.Title, &e.StartAt, &e.EndAt, &e.AllDay, &loc, &desc, &rr, &e.CreatedAt, &uat); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -292,6 +293,10 @@ func (h *Handler) listEvents(c *gin.Context) {
 		}
 		if desc.Valid {
 			e.Description = &desc.String
+		}
+		if rr.Valid && strings.TrimSpace(rr.String) != "" {
+			s := strings.TrimSpace(rr.String)
+			e.RepeatRule = &s
 		}
 		e.UpdatedAt = uat
 		list = append(list, e)
@@ -312,6 +317,7 @@ func (h *Handler) createEvent(c *gin.Context) {
 		Location    *string `json:"location"`
 		Description *string `json:"description"`
 		CalendarID  *int    `json:"calendar_id"`
+		RepeatRule  *string `json:"repeat_rule"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Title == "" || body.StartAt == "" || body.EndAt == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title, start_at, end_at required"})
@@ -344,11 +350,20 @@ func (h *Handler) createEvent(c *gin.Context) {
 			return
 		}
 	}
+	var rr any
+	if body.RepeatRule != nil {
+		s := strings.TrimSpace(*body.RepeatRule)
+		if s == "" {
+			rr = nil
+		} else {
+			rr = s
+		}
+	}
 	var id int
 	err := h.dbex(ctx).QueryRow(`
-		INSERT INTO calendar_events (tenant_id, user_id, calendar_id, title, start_at, end_at, all_day, location, description)
-		VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9) RETURNING id
-	`, tenantID, userID, calID, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description).Scan(&id)
+		INSERT INTO calendar_events (tenant_id, user_id, calendar_id, title, start_at, end_at, all_day, location, description, repeat_rule)
+		VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9, $10) RETURNING id
+	`, tenantID, userID, calID, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, rr).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -367,13 +382,14 @@ func (h *Handler) updateEvent(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title        *string `json:"title"`
-		StartAt      *string `json:"start_at"`
-		EndAt        *string `json:"end_at"`
-		AllDay       *bool   `json:"all_day"`
-		Location     *string `json:"location"`
-		Description  *string `json:"description"`
-		CalendarID   *int    `json:"calendar_id"`
+		Title       *string `json:"title"`
+		StartAt     *string `json:"start_at"`
+		EndAt       *string `json:"end_at"`
+		AllDay      *bool   `json:"all_day"`
+		Location    *string `json:"location"`
+		Description *string `json:"description"`
+		CalendarID  *int    `json:"calendar_id"`
+		RepeatRule  *string `json:"repeat_rule"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -391,6 +407,19 @@ func (h *Handler) updateEvent(c *gin.Context) {
 			return
 		}
 	}
+	var rr any
+	if body.RepeatRule != nil {
+		s := strings.TrimSpace(*body.RepeatRule)
+		if s == "" {
+			rr = nil
+		} else {
+			rr = s
+		}
+	} else {
+		// leave unchanged — use subquery trick via COALESCE on a sentinel
+		rr = nil
+	}
+	// When RepeatRule is omitted, keep existing value via CASE.
 	res, err := h.dbex(ctx).Exec(`
 		UPDATE calendar_events SET
 			title = COALESCE($1, title),
@@ -400,9 +429,11 @@ func (h *Handler) updateEvent(c *gin.Context) {
 			location = $5,
 			description = $6,
 			calendar_id = COALESCE($7, calendar_id),
+			repeat_rule = CASE WHEN $8::boolean THEN $9::varchar ELSE repeat_rule END,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $8 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, body.CalendarID, id)
+		WHERE id = $10 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, body.CalendarID,
+		body.RepeatRule != nil, rr, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -1,6 +1,7 @@
 # Vision suite Cloudity — ordre produit & alignement dépôt
 
-> **Rôle** : définir Cloudity comme une **suite cohérente** (pas une liste d’apps indépendantes), avec un **ordre stratégique** de valeur et de dépendances techniques. Ce document **complète** — ne remplace pas — **[SECURITE.md](../securite/SECURITE.md)** (confiance), **[PERFORMANCES.md](../operations/PERFORMANCES.md)** (diagnostic / TR-06), **[ROADMAP.md](ROADMAP.md)** (fiches APP-xx), **[STATUS.md](../../STATUS.md)** (fait / en cours) et **[BACKLOG.md](../../BACKLOG.md)** (actions).
+> **Rôle** : définir Cloudity comme une **suite cohérente** (pas une liste d’apps indépendantes), avec un **ordre stratégique** de valeur et de dépendances techniques. Ce document **complète** — ne remplace pas — **[SECURITE.md](../securite/SECURITE.md)** (confiance), **[PERFORMANCES.md](../operations/PERFORMANCES.md)** (diagnostic / TR-06), **[ROADMAP.md](ROADMAP.md)** (fiches APP-xx), **[STATUS.md](../../STATUS.md)** (fait / en cours) et **[BACKLOG.md](../../BACKLOG.md)** (actions).  
+> **Exécution en 3 étapes (août 2026)** : **[TROIS-ETAPES.md](TROIS-ETAPES.md)** — suite quotidienne → plateforme souveraine → suite complète.
 
 ## 1. Trois couches produit
 

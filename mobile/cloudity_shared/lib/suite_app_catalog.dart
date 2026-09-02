@@ -52,6 +52,19 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.admin => '/4dm1n',
       };
 
+  /// Package Android (broker / deep-link intents).
+  String get androidPackage => switch (this) {
+        ClouditySuiteApp.mail => 'fr.cloudity.cloudity_mail',
+        ClouditySuiteApp.drive => 'fr.cloudity.cloudity_drive',
+        ClouditySuiteApp.photos => 'fr.cloudity.cloudity_photos',
+        ClouditySuiteApp.calendar => 'fr.cloudity.cloudity_calendar',
+        ClouditySuiteApp.contacts => 'fr.cloudity.cloudity_contacts',
+        ClouditySuiteApp.notes => 'fr.cloudity.cloudity_notes',
+        ClouditySuiteApp.tasks => 'fr.cloudity.cloudity_tasks',
+        ClouditySuiteApp.pass => 'com.cloudity.cloudity_pass',
+        ClouditySuiteApp.admin => 'fr.cloudity.admin_app',
+      };
+
   /// Slug manifeste OTA (`version-cloudity_mail.json`).
   String get otaAppSlug => switch (this) {
         ClouditySuiteApp.mail => 'cloudity_mail',

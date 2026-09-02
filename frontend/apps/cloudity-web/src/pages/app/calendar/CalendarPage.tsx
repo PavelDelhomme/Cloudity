@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ListTodo, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight, ListTodo, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react'
 import { Card } from '@cloudity/ui'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
@@ -13,6 +13,8 @@ import {
   createUserCalendar,
   deleteCalendarEvent,
   fetchTasks,
+  createTask,
+  createNote,
   type CalendarEvent,
   type UserCalendar,
 } from '../../../api'
@@ -37,6 +39,11 @@ import {
   saveCalendarViewState,
   type CalView,
 } from './calendarAppPreferences'
+import {
+  CALENDAR_REPEAT_OPTIONS,
+  expandCalendarEvents,
+  type CalendarRepeatRule,
+} from '../../../lib/calendarRepeat'
 
 const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
 const MINI_WEEK_HEADERS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
@@ -131,6 +138,7 @@ export default function CalendarPage() {
   const [title, setTitle] = useState('')
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
+  const [repeatRule, setRepeatRule] = useState<'' | CalendarRepeatRule>('')
   const [newCalName, setNewCalName] = useState('')
   const [newCalColor, setNewCalColor] = useState('#ea4335')
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
@@ -197,26 +205,69 @@ export default function CalendarPage() {
     return m
   }, [calendars])
 
-  const sortedEvents = useMemo(
-    () => [...events].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()),
-    [events]
-  )
+  const sortedEvents = useMemo(() => {
+    const rangeStart = addDays(anchor, -14)
+    rangeStart.setHours(0, 0, 0, 0)
+    const rangeEnd = addDays(anchor, calView === 'year' || calView === '12weeks' ? 120 : 90)
+    rangeEnd.setHours(23, 59, 59, 999)
+    return expandCalendarEvents(events, rangeStart, rangeEnd)
+  }, [events, anchor, calView])
+
+  const agendaGroups = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const groups: { key: string; label: string; day: Date; items: CalendarEvent[] }[] = []
+    const map = new Map<string, CalendarEvent[]>()
+    const dayOrder: Date[] = []
+    for (const e of sortedEvents) {
+      const d = new Date(e.start_at)
+      const day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+      const key = dayKey(day)
+      if (!map.has(key)) {
+        map.set(key, [])
+        dayOrder.push(day)
+      }
+      map.get(key)!.push(e)
+    }
+    const formatLabel = (day: Date) => {
+      const t = today.getTime()
+      const dt = day.getTime()
+      if (dt === t) return "Aujourd'hui"
+      if (dt === t + 86400000) return 'Demain'
+      if (dt === t - 86400000) return 'Hier'
+      return day.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      })
+    }
+    for (const day of dayOrder) {
+      const key = dayKey(day)
+      groups.push({
+        key,
+        label: formatLabel(day),
+        day,
+        items: map.get(key) ?? [],
+      })
+    }
+    return groups
+  }, [sortedEvents])
 
   const monthCells = useMemo(() => getMonthGridCells(anchor), [anchor])
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>()
+    const map = new Map<string, typeof sortedEvents>()
     for (const cell of monthCells) {
       const key = dayKey(cell)
-      const list = events.filter((e) => eventTouchesDay(e.start_at, e.end_at, cell))
+      const list = sortedEvents.filter((e) => eventTouchesDay(e.start_at, e.end_at, cell))
       if (list.length) map.set(key, list)
     }
     return map
-  }, [events, monthCells])
+  }, [sortedEvents, monthCells])
 
   const eventsOnDay = useCallback(
-    (d: Date) => events.filter((e) => eventTouchesDay(e.start_at, e.end_at, d)),
-    [events]
+    (d: Date) => sortedEvents.filter((e) => eventTouchesDay(e.start_at, e.end_at, d)),
+    [sortedEvents]
   )
 
   const navPrev = useCallback(() => {
@@ -308,15 +359,17 @@ export default function CalendarPage() {
         end_at: endAt || new Date(Date.now() + 3600000).toISOString(),
         all_day: false,
         calendar_id: selectedCalendarId ?? undefined,
+        repeat_rule: repeatRule || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] })
       setTitle('')
       setStartAt('')
       setEndAt('')
+      setRepeatRule('')
       setPickedDay(null)
       setComposeOpen(false)
-      toast.success('Événement créé')
+      toast.success(repeatRule ? 'Événement récurrent créé' : 'Événement créé')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -337,6 +390,43 @@ export default function CalendarPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] })
       toast.success('Événement supprimé')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const dueIsoForPickedDay = () => {
+    const d = pickedDay ? new Date(pickedDay) : new Date()
+    d.setHours(9, 0, 0, 0)
+    return d.toISOString()
+  }
+
+  const createTaskFromFab = useMutation({
+    mutationFn: () =>
+      createTask(accessToken!, {
+        title: 'Nouvelle tâche',
+        due_at: dueIsoForPickedDay(),
+      }),
+    onSuccess: () => {
+      setFabMenuOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      toast.success('Tâche créée')
+      navigate('/app/tasks')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const createNoteFromFab = useMutation({
+    mutationFn: () =>
+      createNote(accessToken!, {
+        title: pickedDay
+          ? `Note — ${pickedDay.toLocaleDateString('fr-FR')}`
+          : 'Note',
+        content: '',
+      }),
+    onSuccess: () => {
+      setFabMenuOpen(false)
+      toast.success('Note créée')
+      navigate('/app/notes')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -408,19 +498,21 @@ export default function CalendarPage() {
     setTitle('')
     setStartAt('')
     setEndAt('')
+    setRepeatRule('')
   }
 
-  const renderEventPill = (ev: CalendarEvent) => {
+  const renderEventPill = (ev: CalendarEvent & { occurrence_key?: string }) => {
     const cal = ev.calendar_id != null ? calMap.get(ev.calendar_id) : undefined
     const bg = cal?.color_hex ?? '#1a73e8'
+    const label = ev.repeat_rule ? `↻ ${ev.title}` : ev.title
     return (
       <span
-        key={ev.id}
+        key={ev.occurrence_key ?? String(ev.id)}
         className="truncate block rounded border-l-[3px] border-white/50 pl-1.5 pr-1 py-0.5 text-left text-[11px] leading-tight font-medium text-white shadow-sm"
         style={{ backgroundColor: bg, borderLeftColor: 'rgba(255,255,255,0.35)' }}
-        title={ev.title}
+        title={ev.repeat_rule ? `${ev.title} (récurrent)` : ev.title}
       >
-        {ev.title}
+        {label}
       </span>
     )
   }
@@ -834,35 +926,82 @@ export default function CalendarPage() {
 
           {calView === 'agenda' && (
             <>
-              <div className="shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#3c4043] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">Événements à venir</div>
-              {sortedEvents.length === 0 ? (
+              <div className="shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#3c4043] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
+                Agenda
+              </div>
+              {agendaGroups.length === 0 ? (
                 <p className="p-6 text-sm text-[#5f6368] dark:text-slate-400">Aucun événement sur la période filtrée.</p>
               ) : (
-                <ul className="min-h-0 flex-1 divide-y divide-[#dadce0] overflow-y-auto overscroll-contain dark:divide-slate-700">
-                  {sortedEvents.map((e) => {
-                    const cal = e.calendar_id != null ? calMap.get(e.calendar_id) : undefined
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                  {agendaGroups.map((group) => {
+                    const isToday = dayKey(group.day) === dayKey(new Date())
                     return (
-                      <li key={e.id} className="flex items-center gap-3 px-4 py-3 hover:bg-[#f8f9fa] dark:hover:bg-slate-800/50">
-                        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cal?.color_hex ?? '#1a73e8' }} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-[#3c4043] dark:text-slate-100">{e.title}</p>
-                          <p className="text-xs text-[#5f6368] dark:text-slate-400">
-                            {new Date(e.start_at).toLocaleString('fr-FR')} → {new Date(e.end_at).toLocaleString('fr-FR')}
-                            {cal ? ` · ${cal.name}` : ''}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => deleteMutation.mutate(e.id)}
-                          className="rounded-lg p-2 text-[#5f6368] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
-                          aria-label="Supprimer"
+                      <section key={group.key} className="border-b border-[#dadce0] dark:border-slate-700">
+                        <div
+                          className={`sticky top-0 z-10 flex items-center gap-3 border-b border-[#dadce0]/px-4 py-2 backdrop-blur dark:border-slate-700 ${
+                            isToday
+                              ? 'bg-[#e8f0fe]/text-[#1a73e8] dark:bg-blue-950/50 dark:text-blue-300'
+                              : 'bg-[#f8f9fa]/text-[#3c4043] dark:bg-slate-800/90 dark:text-slate-200'
+                          }`}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </li>
+                          <span
+                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
+                              isToday ? 'bg-[#1a73e8] text-white' : 'bg-transparent'
+                            }`}
+                          >
+                            {group.day.getDate()}
+                          </span>
+                          <span className="text-sm font-semibold capitalize">{group.label}</span>
+                        </div>
+                        <ul className="divide-y divide-[#dadce0] dark:divide-slate-700">
+                          {group.items.map((e) => {
+                            const cal = e.calendar_id != null ? calMap.get(e.calendar_id) : undefined
+                            const start = new Date(e.start_at)
+                            const end = new Date(e.end_at)
+                            const allDay =
+                              start.getHours() === 0 &&
+                              start.getMinutes() === 0 &&
+                              (end.getTime() - start.getTime() >= 23 * 3600 * 1000 ||
+                                (end.getHours() === 0 && end.getMinutes() === 0))
+                            const timeLabel = allDay
+                              ? 'Toute la journée'
+                              : `${start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} – ${end.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                            return (
+                              <li
+                                key={e.id}
+                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-[#f8f9fa] dark:hover:bg-slate-800/50"
+                              >
+                                <div className="w-16 shrink-0 pt-0.5 text-xs font-semibold text-[#5f6368] dark:text-slate-400">
+                                  {allDay ? 'Journée' : start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                                <span
+                                  className="mt-1 w-1 shrink-0 rounded-full"
+                                  style={{ backgroundColor: cal?.color_hex ?? '#1a73e8' }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-[#3c4043] dark:text-slate-100">{e.title}</p>
+                                  <p className="text-xs text-[#5f6368] dark:text-slate-400">
+                                    {timeLabel}
+                                    {cal ? ` · ${cal.name}` : ''}
+                                    {e.location ? ` · ${e.location}` : ''}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteMutation.mutate(e.id)}
+                                  className="rounded-lg p-2 text-[#5f6368] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                                  aria-label="Supprimer"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </section>
                     )
                   })}
-                </ul>
+                </div>
               )}
             </>
           )}
@@ -892,6 +1031,19 @@ export default function CalendarPage() {
               />
               <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              <select
+                value={repeatRule}
+                onChange={(e) => setRepeatRule(e.target.value as '' | CalendarRepeatRule)}
+                className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                title="Répétition"
+                aria-label="Répétition"
+              >
+                {CALENDAR_REPEAT_OPTIONS.map((o) => (
+                  <option key={o.value || 'none'} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => createMutation.mutate()}
@@ -923,13 +1075,21 @@ export default function CalendarPage() {
                 type="button"
                 role="menuitem"
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-[#3c4043] hover:bg-[#f1f3f4] dark:text-slate-100 dark:hover:bg-slate-800"
-                onClick={() => {
-                  setFabMenuOpen(false)
-                  navigate('/app/tasks')
-                }}
+                onClick={() => createTaskFromFab.mutate()}
+                disabled={createTaskFromFab.isPending}
               >
                 <ListTodo className="h-4 w-4 shrink-0 text-[#5f6368] dark:text-slate-400" aria-hidden />
                 Tâche
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-[#3c4043] hover:bg-[#f1f3f4] dark:text-slate-100 dark:hover:bg-slate-800"
+                onClick={() => createNoteFromFab.mutate()}
+                disabled={createNoteFromFab.isPending}
+              >
+                <StickyNote className="h-4 w-4 shrink-0 text-[#5f6368] dark:text-slate-400" aria-hidden />
+                Note
               </button>
             </div>
           ) : null}

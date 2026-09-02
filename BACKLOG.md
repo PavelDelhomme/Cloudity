@@ -2,7 +2,8 @@
 
 **Rôle** : liste **actionnable** des prochaines livraisons et dettes connues. **Suivi court** (correctifs doc, mini-tâches) : **[TODOS.md](./TODOS.md)**. Pour le détail sync / mobile / session / archivage mail, voir **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)**. Pour les fiches par application (**APP-01** … **TR-07**), voir **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)**. **Sécurité & confiance (vision, phases, Zero Trust, signatures, WAF)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)**. **Suivi quotidien** : **[STATUS.md](./STATUS.md)**. **Tests** : **[docs/operations/TESTS.md](docs/operations/TESTS.md)**.
 
-**Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).
+**Vision suite (ordre stratégique + décisions produit)** — ne remplace pas ce fichier : **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** (couches P0–P7, phases A–F, lien avec **PERFORMANCES.md** et l’état réel Mail / Photos / Pass).  
+**Exécution en 3 étapes** : **[docs/produit/TROIS-ETAPES.md](docs/produit/TROIS-ETAPES.md)** (suite quotidienne → plateforme souveraine → suite complète).
 
 **Convention** : cocher ici ou dans **TESTS.md** §4 quand une ligne est livrée ; garder **STATUS.md** à jour (**une** ligne *Dernière mise à jour* + section *À faire maintenant* ; le journal long va dans **[docs/operations/STATUS-JOURNAL-ARCHIVE.md](docs/operations/STATUS-JOURNAL-ARCHIVE.md)**). **Git / agent** : **[docs/GIT.md](docs/GIT.md)** + **[docs/INSTRUCTIONS-IA.md](docs/INSTRUCTIONS-IA.md)** + **[docs/LOGS.md](docs/LOGS.md)** (sauf `NPNLD` en tête de message).
 

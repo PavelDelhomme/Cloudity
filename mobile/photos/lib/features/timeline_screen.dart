@@ -440,6 +440,56 @@ class _TimelineScreenState extends State<TimelineScreen>
     }
   }
 
+  Future<void> _createAlbum() async {
+    final nameCtrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nouvel album'),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Nom de l’album',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
+            child: const Text('Créer'),
+          ),
+        ],
+      ),
+    );
+    nameCtrl.dispose();
+    if (name == null || name.isEmpty || !mounted) return;
+    try {
+      await widget.session.refreshIfNeeded();
+      final drive = DriveApi(widget.session.api.baseUrl);
+      final created =
+          await drive.createFolder(widget.session.accessToken, null, name);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Album « $name » créé')),
+      );
+      await _loadAlbums();
+      if (!mounted) return;
+      await _openAlbum(created);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Échec création album : $e')),
+      );
+    }
+  }
+
   Future<void> _openAlbum(Map<String, dynamic> album) async {
     setState(() {
       _selectedAlbum = album;
@@ -1050,10 +1100,16 @@ class _TimelineScreenState extends State<TimelineScreen>
       child: _rootFolders.isEmpty
           ? ListView(
               padding: const EdgeInsets.all(24),
-              children: const [
-                SizedBox(height: 80),
-                Text(
-                  'Aucun album Drive pour l’instant. Le dossier Photos sera créé à la première sauvegarde.',
+              children: [
+                const SizedBox(height: 80),
+                const Text(
+                  'Aucun album pour l’instant. Crée un album ou laisse la sauvegarde créer le dossier Photos.',
+                ),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _albumsLoading ? null : _createAlbum,
+                  icon: const Icon(Icons.create_new_folder_outlined),
+                  label: const Text('Créer un album'),
                 ),
               ],
             )
@@ -1468,12 +1524,18 @@ class _TimelineScreenState extends State<TimelineScreen>
                 tooltip: 'Rafraîchir',
                 onPressed: _loading ? null : () => _reload(silent: true),
               ),
-            if (_tab == _PhotosTab.albums)
+            if (_tab == _PhotosTab.albums) ...[
+              IconButton(
+                icon: const Icon(Icons.create_new_folder_outlined),
+                tooltip: 'Nouvel album',
+                onPressed: _albumsLoading ? null : _createAlbum,
+              ),
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Rafraîchir les albums',
                 onPressed: _albumsLoading ? null : _loadAlbums,
               ),
+            ],
             if (_tab == _PhotosTab.trash)
               IconButton(
                 icon: const Icon(Icons.refresh),

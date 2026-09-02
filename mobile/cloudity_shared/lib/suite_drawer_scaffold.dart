@@ -1,7 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'cloudity_design_tokens.dart';
 import 'suite_app_catalog.dart';
+import 'suite_bottom_sheet.dart';
+
+/// Base web Cloudity à partir de l’URL gateway (`api.` → apex).
+String suitePublicWebBase(String gatewayUrl) {
+  final raw = gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
+  final uri = Uri.tryParse(raw);
+  if (uri == null || uri.host.isEmpty) return 'https://cloudity.delhomme.ovh';
+  final host = uri.host.startsWith('api.')
+      ? uri.host.substring(4)
+      : uri.host;
+  return '${uri.scheme}://$host';
+}
+
+Future<void> suiteLaunchWebPath(String gatewayUrl, String webPath) async {
+  final base = suitePublicWebBase(gatewayUrl);
+  final path = webPath.startsWith('/') ? webPath : '/$webPath';
+  final uri = Uri.parse('$base$path');
+  await launchUrl(uri, mode: LaunchMode.externalApplication);
+}
 
 /// En-tête drawer Cloudity (compte + accent produit).
 class SuiteDrawerHeader extends StatelessWidget {
@@ -71,10 +91,12 @@ class SuiteAppSwitcher extends StatelessWidget {
   const SuiteAppSwitcher({
     super.key,
     required this.currentApp,
+    this.gatewayUrl,
     this.onOtherAppTap,
   });
 
   final ClouditySuiteApp currentApp;
+  final String? gatewayUrl;
   final void Function(ClouditySuiteApp app)? onOtherAppTap;
 
   @override
@@ -122,11 +144,11 @@ class SuiteAppSwitcher extends StatelessWidget {
   }
 
   void _showOtherAppHint(BuildContext context, ClouditySuiteApp app) {
-    showModalBottomSheet<void>(
+    final gateway = gatewayUrl ?? 'https://api.cloudity.delhomme.ovh';
+    showSuiteModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.all(CloudityDesignTokens.spacing('xl')),
+        padding: suiteBottomSheetPadding(ctx, top: 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,13 +162,22 @@ class SuiteAppSwitcher extends StatelessWidget {
             ),
             SizedBox(height: CloudityDesignTokens.spacing('md')),
             Text(
-              'Chaque app Cloudity s’installe séparément (comme Google Photos ou Drive). '
-              'Lancez-la avec make run-mobile APP=${app.runMobileName} ou ouvrez ${app.webPath} sur le web.',
+              'Ouvre ${app.title} sur le web, ou lance l’app mobile si elle est installée '
+              '(même compte Cloudity — session partagée).',
             ),
             SizedBox(height: CloudityDesignTokens.spacing('lg')),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await suiteLaunchWebPath(gateway, app.webPath);
+              },
+              icon: const Icon(Icons.open_in_browser),
+              label: Text('Ouvrir ${app.title} sur le web'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Fermer'),
             ),
           ],
         ),
@@ -281,7 +312,10 @@ class SuiteDrawerScaffold extends StatelessWidget {
                   const Divider(height: 1),
                   ...navItems,
                   const Divider(height: 1),
-                  SuiteAppSwitcher(currentApp: currentApp),
+                  SuiteAppSwitcher(
+                    currentApp: currentApp,
+                    gatewayUrl: gatewayUrl,
+                  ),
                 ],
               ),
             ),

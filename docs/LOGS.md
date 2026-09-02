@@ -15,6 +15,27 @@
 
 ---
 
+### 2026-08-31 — Récurrence Agenda + parité mobile suite
+
+- Branche : `chore/restructure-platform`.
+- Migration `53-calendar-repeat-rule.sql` ; `calendar-service` champ `repeat_rule`.
+- Web : `calendarRepeat.ts` expansion + select répétition dans compose Agenda.
+- Mobile : éditeurs Notes (couleur/pin/rappel), Tasks (dates/étoile/répétition), Contacts (profile), Calendar (all_day + répétition) ; expansion liste agenda.
+- APK Calendar/Notes/Tasks/Contacts installés Samsung.
+- **Prod** : nécessite `make migrate` / redeploy calendar-service pour la colonne.
+- Liens : [TROIS-ETAPES.md](produit/TROIS-ETAPES.md).
+
+---
+
+
+- Branche : `chore/restructure-platform`.
+- Fichiers : `docs/produit/TROIS-ETAPES.md` ; index `docs/README.md`, `docs/produit/README.md`, `STATUS.md`, `TODOS.md`, `BACKLOG.md`, `VISION-SUITE.md`.
+- Contenu : Étape 1 suite quotidienne · Étape 2 plateforme (mail/pass/drive) · Étape 3 Office/desktop/distribution.
+- Code Étape 1.A : Tâches/Contacts → Agenda ; Agenda FAB crée Tâche + Note.
+- Liens doc : [TROIS-ETAPES.md](produit/TROIS-ETAPES.md).
+
+---
+
 ### 2026-07-27 — ZoneForge cadré dans Pilotage Cloudity
 
 - Doc `ZONEFORGE-CLOUDITY.md` ; tâches `ZF-01`…`05` ; bandeau Pilotage + `VITE_ZONEFORGE_URL`.

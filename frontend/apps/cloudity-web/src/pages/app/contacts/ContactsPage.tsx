@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock } from 'lucide-react'
+import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock, Calendar } from 'lucide-react'
 import { AppLockedGate } from '../AppLockedGate'
 import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
 import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
@@ -28,6 +28,7 @@ import {
   updateContact,
   deleteContact,
   importContacts,
+  createCalendarEvent,
   type ContactResponse,
 } from '../../../api'
 import { clearAppVaultKey, importAppVaultKeyB64u } from '../appVaultKeySession'
@@ -262,6 +263,24 @@ export default function ContactsPage() {
       toast.success('Contact supprimé')
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : 'Erreur'),
+  })
+
+  const toAgendaMutation = useMutation({
+    mutationFn: async (c: ContactResponse) => {
+      const start = new Date()
+      start.setMinutes(0, 0, 0)
+      start.setHours(start.getHours() + 1)
+      const end = new Date(start.getTime() + 60 * 60 * 1000)
+      const bits = [c.email, c.phone].filter((x) => x && x !== 'locked@vault.local')
+      return createCalendarEvent(accessToken!, {
+        title: `RDV — ${c.name.trim() || 'Contact'}`,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        description: bits.length ? bits.join(' · ') : undefined,
+      })
+    },
+    onSuccess: () => toast.success('Rendez-vous créé dans Agenda'),
+    onError: (e) => toast.error(e instanceof Error ? e.message : 'Échec création événement'),
   })
 
   const requestDelete = (id: number, label: string) => {
@@ -756,6 +775,15 @@ export default function ContactsPage() {
                         <Mail className="h-4 w-4" /> Envoyer un mail
                       </Link>
                     ) : null}
+                    <button
+                      type="button"
+                      onClick={() => toAgendaMutation.mutate(selected)}
+                      disabled={toAgendaMutation.isPending}
+                      className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white disabled:opacity-40 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                    >
+                      <Calendar className="h-4 w-4" />
+                      {toAgendaMutation.isPending ? 'Création…' : 'Rendez-vous Agenda'}
+                    </button>
                     <button
                       type="button"
                       onClick={() => startEdit(selected)}

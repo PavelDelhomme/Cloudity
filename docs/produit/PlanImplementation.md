@@ -4,6 +4,7 @@
 
 **Référence au quotidien** : [STATUS.md](../../STATUS.md) (suivi détaillé, checklist, ports 60XX, § 0b monorepo front).  
 **Vision suite & priorités P0–P7** : [VISION-SUITE.md](VISION-SUITE.md) (complète ce plan sans le remplacer).  
+**3 étapes d’exécution** : [TROIS-ETAPES.md](TROIS-ETAPES.md).  
 **Catalogue produits & chantiers transverses** : [ROADMAP.md](ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  
 **Mobile (web vs natif, admin mobile)** : [MOBILES.md](MOBILES.md).  
 **Tests** : [TESTS.md](../operations/TESTS.md).  

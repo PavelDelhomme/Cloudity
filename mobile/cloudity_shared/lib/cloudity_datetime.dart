@@ -23,14 +23,64 @@ String formatCloudityTimeLocal(String? raw) {
 String formatCloudityDayHeader(String? raw) {
   final d = parseCloudityDateTime(raw);
   if (d == null) return 'Sans date';
+  return formatCloudityDayHeaderFromDate(d);
+}
+
+String formatCloudityDayHeaderFromDate(DateTime d) {
   final now = DateTime.now();
   final today = DateTime(now.year, now.month, now.day);
   final day = DateTime(d.year, d.month, d.day);
   if (day == today) return "Aujourd'hui";
   if (day == today.add(const Duration(days: 1))) return 'Demain';
-  const weekdays = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+  if (day == today.subtract(const Duration(days: 1))) return 'Hier';
+  const weekdays = [
+    'Lundi',
+    'Mardi',
+    'Mercredi',
+    'Jeudi',
+    'Vendredi',
+    'Samedi',
+    'Dimanche',
+  ];
+  const months = [
+    'janv.',
+    'févr.',
+    'mars',
+    'avr.',
+    'mai',
+    'juin',
+    'juil.',
+    'août',
+    'sept.',
+    'oct.',
+    'nov.',
+    'déc.',
+  ];
   final wd = weekdays[d.weekday - 1];
-  return '$wd ${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  return '$wd ${d.day} ${months[d.month - 1]}';
+}
+
+bool cloudityIsAllDay(String? startRaw, String? endRaw) {
+  final start = parseCloudityDateTime(startRaw);
+  final end = parseCloudityDateTime(endRaw);
+  if (start == null) return false;
+  if (start.hour == 0 &&
+      start.minute == 0 &&
+      (end == null ||
+          (end.hour == 0 && end.minute == 0) ||
+          end.difference(start).inHours >= 23)) {
+    return true;
+  }
+  return false;
+}
+
+bool cloudityIsPastDay(String? raw) {
+  final d = parseCloudityDateTime(raw);
+  if (d == null) return false;
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(d.year, d.month, d.day);
+  return day.isBefore(today);
 }
 
 String formatCloudityDateTimeLocal(String? raw) {

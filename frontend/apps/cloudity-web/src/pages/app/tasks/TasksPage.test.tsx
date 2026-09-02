@@ -16,6 +16,7 @@ vi.mock('../../../api', () => ({
   updateTask: vi.fn(),
   updateTaskCompleted: vi.fn(),
   deleteTask: vi.fn(),
+  createCalendarEvent: vi.fn(),
 }))
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

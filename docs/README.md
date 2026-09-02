@@ -4,6 +4,7 @@
 
 | Priorité | Fichier | Rôle |
 |----------|---------|------|
+| **0** | **[`produit/TROIS-ETAPES.md`](produit/TROIS-ETAPES.md)** | **Les 3 grandes étapes** du projet complet |
 | **1** | **[`TODOS.md`](../TODOS.md)** (racine) | Fil de session / « maintenant » |
 | **2** | **[`architecture/MULTI-APPS-WEB-MOBILE.md`](architecture/MULTI-APPS-WEB-MOBILE.md)** | Hub web + DA Flutter |
 | **2a** | **[`architecture/STRUCTURE-CIBLE.md`](architecture/STRUCTURE-CIBLE.md)** | **Restructure** : web-mail, backend plateforme/produit, phases |
@@ -14,9 +15,9 @@
 Tout le reste de `docs/` est une **référence** : tu n’ouvres un fichier que quand DEPLOIEMENT_PROCEDURE ou TODOS te le demande.
 
 ```text
-TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage FE-HUB / H19
-                      │
-                      └──► DEPLOIEMENT_PROCEDURE.md (prod Portainer / NPM)
+TROIS-ETAPES.md  ──►  TODOS.md  ──►  MULTI-APPS-WEB-MOBILE.md  ──►  Pilotage
+                            │
+                            └──► DEPLOIEMENT_PROCEDURE.md (prod Portainer / NPM)
 ```
 
 ---

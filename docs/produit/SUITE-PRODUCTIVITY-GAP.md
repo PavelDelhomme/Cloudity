@@ -1,6 +1,7 @@
 # Suite productivité — écart produit (Contacts / Tasks / Notes)
 
 > **Pilotage** : **APP-08-OPEN** (Contacts), **APP-07-OPEN** (Tasks), **APP-06-OPEN** (Notes) — cycle `cycle-web-apps`.  
+> **Étape 1** du projet : **[TROIS-ETAPES.md](TROIS-ETAPES.md)** § 1.A.  
 > **Ordre** : finir Focus **MOBILE-DA-01** (structure) → puis ces apps **web d’abord** ; mobile Flutter = même API ensuite.  
 > **Déploiement** : [`docs/operations/DEPLOIEMENT-PAR-SERVICE.md`](../operations/DEPLOIEMENT-PAR-SERVICE.md) § 2bis (migrate → service → `deploy-web`).  
 > Index : [`ROADMAP.md`](ROADMAP.md).
@@ -47,7 +48,7 @@ make deploy-web
 - API create/update/list + UI `/app/tasks` : sous-tâches (1 niveau), notes, début/échéance, étoile.
 
 ### Reste
-1. Lien / sync **Calendar**.
+1. Lien / sync **Calendar**. **Vers Agenda** web livré (2026-08-31).
 2. **Mobile** Flutter aligné.
 3. Profondeur sous-tâches > 1 si besoin produit.
 
@@ -72,7 +73,7 @@ make deploy-web
 ### Reste
 1. Caméra / galerie natives (Flutter).
 2. Notifications push pour rappels.
-3. Liens Calendar / Tasks / Contacts.
+3. Liens vers Tâche + Agenda ; rappels visibles dans Agenda le jour J. **Vers Agenda** web livré (2026-08-31).
 
 ### Déploiement (local)
 ```bash
