@@ -54,7 +54,8 @@ wait_for_ghcr_build() {
 redeploy_ssh() {
   local target="${DEPLOY_SSH:-}"
   [[ -n "$target" ]] || return 1
-  local cmd="${DEPLOY_SSH_CMD:-docker compose -f /opt/cloudity/docker-compose.yml pull && docker compose -f /opt/cloudity/docker-compose.yml up -d}"
+  # Défaut : stack Git/compose sur le VPS (volumes cloudity_* conservés).
+  local cmd="${DEPLOY_SSH_CMD:-cd /tmp/cloudity-build && docker compose -p cloudity -f docker-compose.ghcr.yml --env-file .env pull && docker compose -p cloudity -f docker-compose.ghcr.yml --env-file .env up -d --remove-orphans}"
   echo "==> Redeploy SSH → $target"
   # shellcheck disable=SC2029
   ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "$target" "$cmd"
