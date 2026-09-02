@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import {
   Archive,
   Bold,
+  Calendar,
   Camera,
   CheckSquare,
   FileText,
@@ -24,6 +25,7 @@ import {
   createNote,
   updateNote,
   deleteNote,
+  createCalendarEvent,
   type Note,
   type NoteColor,
   type NoteExtras,
@@ -964,10 +966,12 @@ function NoteEditorPanel({
   titleId?: string
   initialMode?: 'note' | 'list' | 'image' | 'draw'
 }) {
+  const { accessToken } = useAuth()
   const contentRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [drawingOpen, setDrawingOpen] = useState(initialMode === 'draw')
   const [checklistInput, setChecklistInput] = useState('')
+  const [creatingEvent, setCreatingEvent] = useState(false)
 
   useEffect(() => {
     if (initialMode === 'image') {
@@ -1036,6 +1040,30 @@ function NoteEditorPanel({
       toast.error(e instanceof Error ? e.message : 'Échec de l’ajout d’image')
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const createAgendaFromNote = async () => {
+    if (!accessToken) return
+    const plain = stripHtml(draft.content).trim()
+    const title = draft.title.trim() || plain.slice(0, 80) || 'Sans titre'
+    const start = new Date()
+    start.setMinutes(0, 0, 0)
+    start.setHours(start.getHours() + 1)
+    const end = new Date(start.getTime() + 60 * 60 * 1000)
+    setCreatingEvent(true)
+    try {
+      await createCalendarEvent(accessToken, {
+        title,
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        description: plain ? plain.slice(0, 2000) : undefined,
+      })
+      toast.success('Événement créé dans Agenda')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Échec création événement')
+    } finally {
+      setCreatingEvent(false)
+    }
   }
 
   return (
@@ -1338,18 +1366,28 @@ function NoteEditorPanel({
           </button>
         </div>
         <div className="mt-4 flex items-center justify-between gap-2">
-          {onDelete ? (
+          <div className="flex flex-wrap items-center gap-1">
+            {onDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={saving}
+                className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-950/30"
+              >
+                <Trash2 className="h-4 w-4" /> Supprimer
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={onDelete}
-              disabled={saving}
-              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40 dark:hover:bg-red-950/30"
+              onClick={() => void createAgendaFromNote()}
+              disabled={creatingEvent || saving}
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm text-slate-700 hover:bg-black/5 disabled:opacity-40 dark:text-slate-200 dark:hover:bg-white/10"
+              title="Créer un événement Agenda à partir de cette note"
             >
-              <Trash2 className="h-4 w-4" /> Supprimer
+              <Calendar className="h-4 w-4" />
+              {creatingEvent ? 'Création…' : 'Vers Agenda'}
             </button>
-          ) : (
-            <span />
-          )}
+          </div>
           <button
             type="button"
             onClick={onSave}

@@ -1,6 +1,7 @@
 # CLOUDITY — Suivi court (micro-tâches)
 
-**Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.
+**Rôle** : cases rapides et liens ; le détail produit reste dans **[BACKLOG.md](./BACKLOG.md)**, le fil quotidien dans **[STATUS.md](./STATUS.md)**.  
+**3 grandes étapes (projet complet)** : **[docs/produit/TROIS-ETAPES.md](docs/produit/TROIS-ETAPES.md)** — focus actuel = **Étape 1**.
 
 > ## Point d’entrée UNIQUE (ops / deploy / Pilotage)
 > **Index doc** → [`docs/README.md`](docs/README.md)  

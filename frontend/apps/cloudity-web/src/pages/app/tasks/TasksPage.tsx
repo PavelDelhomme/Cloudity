@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { ResponsivePage } from '@cloudity/ui'
 import {
   CalendarClock,
+  Calendar,
   ListTodo,
   Plus,
   Trash2,
@@ -29,6 +30,7 @@ import {
   updateTask,
   updateTaskCompleted,
   deleteTask,
+  createCalendarEvent,
   type Task,
 } from '../../../api'
 
@@ -230,6 +232,30 @@ export default function TasksPage() {
     onError: (e: Error) => toast.error(e.message),
   })
 
+  const toAgendaMutation = useMutation({
+    mutationFn: async (t: Task) => {
+      const start = t.start_at
+        ? new Date(t.start_at)
+        : t.due_at
+          ? new Date(t.due_at)
+          : (() => {
+              const d = new Date()
+              d.setMinutes(0, 0, 0)
+              d.setHours(d.getHours() + 1)
+              return d
+            })()
+      const end = new Date(start.getTime() + 60 * 60 * 1000)
+      return createCalendarEvent(accessToken!, {
+        title: t.title.trim() || 'Tâche',
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        description: t.notes?.trim() || undefined,
+      })
+    },
+    onSuccess: () => toast.success('Événement créé dans Agenda'),
+    onError: (e: Error) => toast.error(e.message),
+  })
+
   const sortOpenTasks = useCallback((a: Task, b: Task) => {
     if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1
     const da = a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER
@@ -320,8 +346,14 @@ export default function TasksPage() {
           onRepeatChange={(rule) => patchMutation.mutate({ id: t.id, repeat_rule: rule })}
           onStarToggle={() => patchMutation.mutate({ id: t.id, starred: !t.starred })}
           onAddSubtask={() => createMutation.mutate({ parent_id: t.id, title: 'Sous-tâche' })}
+          onToAgenda={() => toAgendaMutation.mutate(t)}
           onDelete={() => deleteMutation.mutate(t.id)}
-          disableActions={patchMutation.isPending || deleteMutation.isPending || createMutation.isPending}
+          disableActions={
+            patchMutation.isPending ||
+            deleteMutation.isPending ||
+            createMutation.isPending ||
+            toAgendaMutation.isPending
+          }
           muted={muted}
         />
         {children.length > 0 ? (
@@ -341,8 +373,11 @@ export default function TasksPage() {
                   onDueChange={(iso) => patchMutation.mutate({ id: c.id, due_at: iso })}
                   onRepeatChange={(rule) => patchMutation.mutate({ id: c.id, repeat_rule: rule })}
                   onStarToggle={() => patchMutation.mutate({ id: c.id, starred: !c.starred })}
+                  onToAgenda={() => toAgendaMutation.mutate(c)}
                   onDelete={() => deleteMutation.mutate(c.id)}
-                  disableActions={patchMutation.isPending || deleteMutation.isPending}
+                  disableActions={
+                    patchMutation.isPending || deleteMutation.isPending || toAgendaMutation.isPending
+                  }
                   muted={muted || c.completed}
                 />
               </li>
@@ -629,6 +664,7 @@ function TaskRow({
   onRepeatChange,
   onStarToggle,
   onAddSubtask,
+  onToAgenda,
   onDelete,
   disableActions,
   muted,
@@ -643,6 +679,7 @@ function TaskRow({
   onRepeatChange: (rule: string | null) => void
   onStarToggle: () => void
   onAddSubtask?: () => void
+  onToAgenda?: () => void
   onDelete: () => void
   disableActions?: boolean
   muted?: boolean
@@ -740,6 +777,18 @@ function TaskRow({
               title="Ajouter une sous-tâche"
             >
               + sous-tâche
+            </button>
+          ) : null}
+          {onToAgenda ? (
+            <button
+              type="button"
+              onClick={onToAgenda}
+              disabled={disableActions}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700"
+              title="Créer un événement Agenda à partir de cette tâche"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              Agenda
             </button>
           ) : null}
           <button

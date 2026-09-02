@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../auth_2fa.dart';
 import '../http_helpers.dart';
+import '../jwt_claims.dart';
 import 'auth_exception.dart';
 
 export 'auth_exception.dart';
@@ -192,8 +193,13 @@ class CloudityAuthClient {
     required String accessToken,
     required String refreshToken,
   }) async {
-    final v = await validate(accessToken);
-    if (v) return (access: accessToken, refresh: refreshToken);
+    // Renouvellement silencieux avant expiration (comme Google) — évite les 401
+    // dès qu’une app revient au premier plan après quelques heures.
+    if (accessToken.isNotEmpty &&
+        !isAccessTokenExpiringSoon(accessToken) &&
+        await validate(accessToken)) {
+      return (access: accessToken, refresh: refreshToken);
+    }
     if (refreshToken.isEmpty) {
       throw AuthException('Session expirée. Reconnectez-vous.');
     }

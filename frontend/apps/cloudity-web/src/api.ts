@@ -1699,6 +1699,7 @@ export type CalendarEvent = {
   all_day: boolean
   location?: string | null
   description?: string | null
+  repeat_rule?: string | null
   created_at: string
   updated_at: string
 }
@@ -1719,6 +1720,7 @@ export async function createCalendarEvent(
     location?: string
     description?: string
     calendar_id?: number
+    repeat_rule?: string | null
   }
 ): Promise<{ id: number; title: string; calendar_id?: number }> {
   return apiJson<{ id: number; title: string; calendar_id?: number }>(
@@ -1740,6 +1742,7 @@ export async function updateCalendarEvent(
     location: string | null
     description: string | null
     calendar_id: number
+    repeat_rule: string | null
   }>
 ): Promise<{ id: number }> {
   return apiJson<{ id: number }>(

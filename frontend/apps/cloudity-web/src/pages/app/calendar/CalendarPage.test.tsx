@@ -14,6 +14,8 @@ vi.mock('../../../api', () => ({
   fetchUserCalendars: vi.fn().mockResolvedValue([]),
   createUserCalendar: vi.fn(),
   deleteCalendarEvent: vi.fn(),
+  createTask: vi.fn(),
+  createNote: vi.fn(),
 }))
 
 function wrap(ui: React.ReactElement) {

@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'app_theme.dart';
 import 'http_helpers.dart';
+import 'suite_drawer_scaffold.dart';
 import 'suite_feedback_screen.dart';
 
 /// Client HTTP minimal pour les apps suite (Calendar, Contacts, Notes, Tasks).
@@ -117,11 +118,22 @@ class SuiteProductApi {
   Future<Map<String, dynamic>> createNote({
     required String title,
     String content = '',
+    String color = 'default',
+    bool pinned = false,
+    String? remindAt,
+    List<String>? labels,
   }) async {
     final data = await _request(
       'POST',
       '/notes',
-      jsonBody: {'title': title, 'content': content},
+      jsonBody: {
+        'title': title,
+        'content': content,
+        'color': color,
+        'pinned': pinned,
+        if (remindAt != null && remindAt.isNotEmpty) 'remind_at': remindAt,
+        if (labels != null && labels.isNotEmpty) 'labels': labels,
+      },
       ok: const {200, 201},
     );
     return Map<String, dynamic>.from(data as Map);
@@ -131,6 +143,11 @@ class SuiteProductApi {
     required int id,
     String? title,
     String? content,
+    String? color,
+    bool? pinned,
+    String? remindAt,
+    bool clearRemindAt = false,
+    List<String>? labels,
   }) async {
     await _request(
       'PUT',
@@ -138,6 +155,11 @@ class SuiteProductApi {
       jsonBody: {
         if (title != null) 'title': title,
         if (content != null) 'content': content,
+        if (color != null) 'color': color,
+        if (pinned != null) 'pinned': pinned,
+        if (clearRemindAt) 'remind_at': '',
+        if (!clearRemindAt && remindAt != null) 'remind_at': remindAt,
+        if (labels != null) 'labels': labels,
       },
       ok: const {200, 204},
     );
@@ -151,11 +173,17 @@ class SuiteProductApi {
     required String name,
     String email = '',
     String phone = '',
+    Map<String, dynamic>? profile,
   }) async {
     final data = await _request(
       'POST',
       '/contacts',
-      jsonBody: {'name': name, 'email': email, 'phone': phone},
+      jsonBody: {
+        'name': name,
+        'email': email,
+        'phone': phone,
+        if (profile != null) 'profile': profile,
+      },
       ok: const {200, 201},
     );
     return Map<String, dynamic>.from(data as Map);
@@ -166,6 +194,7 @@ class SuiteProductApi {
     String? name,
     String? email,
     String? phone,
+    Map<String, dynamic>? profile,
   }) async {
     await _request(
       'PATCH',
@@ -174,6 +203,7 @@ class SuiteProductApi {
         if (name != null) 'name': name,
         if (email != null) 'email': email,
         if (phone != null) 'phone': phone,
+        if (profile != null) 'profile': profile,
       },
       ok: const {200, 204},
     );
@@ -187,6 +217,10 @@ class SuiteProductApi {
     required String title,
     int? listId,
     String? notes,
+    String? startAt,
+    String? dueAt,
+    String? repeatRule,
+    bool starred = false,
   }) async {
     final data = await _request(
       'POST',
@@ -195,6 +229,10 @@ class SuiteProductApi {
         'title': title,
         if (listId != null) 'list_id': listId,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (startAt != null && startAt.isNotEmpty) 'start_at': startAt,
+        if (dueAt != null && dueAt.isNotEmpty) 'due_at': dueAt,
+        if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
+        'starred': starred,
       },
       ok: const {200, 201},
     );
@@ -206,6 +244,13 @@ class SuiteProductApi {
     String? title,
     String? notes,
     bool? completed,
+    String? startAt,
+    String? dueAt,
+    bool clearStartAt = false,
+    bool clearDueAt = false,
+    String? repeatRule,
+    bool clearRepeatRule = false,
+    bool? starred,
   }) async {
     await _request(
       'PUT',
@@ -214,6 +259,13 @@ class SuiteProductApi {
         if (title != null) 'title': title,
         if (notes != null) 'notes': notes,
         if (completed != null) 'completed': completed,
+        if (clearStartAt) 'start_at': '',
+        if (!clearStartAt && startAt != null) 'start_at': startAt,
+        if (clearDueAt) 'due_at': '',
+        if (!clearDueAt && dueAt != null) 'due_at': dueAt,
+        if (clearRepeatRule) 'repeat_rule': '',
+        if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
+        if (starred != null) 'starred': starred,
       },
       ok: const {200, 204},
     );
@@ -239,6 +291,9 @@ class SuiteProductApi {
     required String endAt,
     String? location,
     String? description,
+    bool allDay = false,
+    int? calendarId,
+    String? repeatRule,
   }) async {
     final data = await _request(
       'POST',
@@ -247,9 +302,12 @@ class SuiteProductApi {
         'title': title,
         'start_at': startAt,
         'end_at': endAt,
+        'all_day': allDay,
         if (location != null && location.isNotEmpty) 'location': location,
         if (description != null && description.isNotEmpty)
           'description': description,
+        if (calendarId != null) 'calendar_id': calendarId,
+        if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
       },
       ok: const {200, 201},
     );
@@ -263,6 +321,9 @@ class SuiteProductApi {
     String? endAt,
     String? location,
     String? description,
+    bool? allDay,
+    String? repeatRule,
+    bool clearRepeatRule = false,
   }) async {
     await _request(
       'PUT',
@@ -273,6 +334,9 @@ class SuiteProductApi {
         if (endAt != null) 'end_at': endAt,
         if (location != null) 'location': location,
         if (description != null) 'description': description,
+        if (allDay != null) 'all_day': allDay,
+        if (clearRepeatRule) 'repeat_rule': '',
+        if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
       },
       ok: const {200, 204},
     );
@@ -311,7 +375,7 @@ class SuiteSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final webUrl = '$gatewayUrl$webAppPath';
+    final webUrl = '${suitePublicWebBase(gatewayUrl)}$webAppPath';
     final themeState = CloudityThemedAppScope.maybeOf(context);
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -348,13 +412,29 @@ class SuiteSettingsPanel extends StatelessWidget {
             leading: const Icon(Icons.open_in_browser),
             title: Text('Ouvrir $appName sur le web'),
             subtitle: Text(webUrl, maxLines: 2, overflow: TextOverflow.ellipsis),
+            onTap: () async {
+              await suiteLaunchWebPath(gatewayUrl, webAppPath);
+            },
           ),
         ),
         Card(
           child: ListTile(
             leading: const Icon(Icons.settings_outlined),
             title: const Text('Paramètres suite'),
-            subtitle: Text('$gatewayUrl/app/settings'),
+            subtitle: Text('${suitePublicWebBase(gatewayUrl)}/app/settings'),
+            onTap: () async {
+              await suiteLaunchWebPath(gatewayUrl, '/app/settings');
+            },
+          ),
+        ),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.apps_outlined),
+            title: const Text('Hub Cloudity'),
+            subtitle: const Text('Mail, Drive, Agenda, Notes…'),
+            onTap: () async {
+              await suiteLaunchWebPath(gatewayUrl, '/app');
+            },
           ),
         ),
         if (onLogout != null) ...[

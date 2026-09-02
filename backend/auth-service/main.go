@@ -33,13 +33,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// accessTokenDuration est fixé au démarrage (voir init) : défaut 60 min, surcharge ACCESS_TOKEN_DURATION_MINUTES (5–1440).
+// accessTokenDuration est fixé au démarrage (voir init) : défaut **720 min (12 h)**,
+// surcharge ACCESS_TOKEN_DURATION_MINUTES (5–1440). Le refresh reste long (30 j) ;
+// le client renouvelle silencieusement avant expiration (modèle type Google).
 var accessTokenDuration time.Duration
 
-const refreshTokenDuration = 30 * 24 * time.Hour // 30 jours : session longue, sécurisée par rotation à chaque refresh
+// refreshTokenDuration : session longue device ; rotation soft à chaque refresh.
+var refreshTokenDuration = 30 * 24 * time.Hour
+
 // Après rotation, l’ancien refresh reste valide brièvement pour les apps suite
 // qui refreshent en parallèle (Notes/Drive/Mail…) — sinon 401 en rafale.
-const refreshRotationGrace = 2 * time.Minute
+const refreshRotationGrace = 5 * time.Minute
 
 // newRedisClient construit le client Redis. Si REDIS_TLS=1 (ou true/on),
 // connexion TLS vers Redis avec vérification de la CA (fichier REDIS_TLS_CA,
@@ -101,19 +105,33 @@ func padLoginResponse(start time.Time) {
 
 func init() {
 	accessTokenDuration = parseAccessTokenDurationMinutes()
+	refreshTokenDuration = parseRefreshTokenDurationDays()
 }
 
 func parseAccessTokenDurationMinutes() time.Duration {
 	v := strings.TrimSpace(os.Getenv("ACCESS_TOKEN_DURATION_MINUTES"))
 	if v == "" {
-		return 60 * time.Minute
+		return 12 * time.Hour // défaut « Google-like » : journée de travail + marge
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil || n < 5 || n > 24*60 {
-		log.Printf("auth-service: ACCESS_TOKEN_DURATION_MINUTES=%q invalide (entier 5–1440), utilisation de 60 min", v)
-		return 60 * time.Minute
+		log.Printf("auth-service: ACCESS_TOKEN_DURATION_MINUTES=%q invalide (entier 5–1440), utilisation de 720 min", v)
+		return 12 * time.Hour
 	}
 	return time.Duration(n) * time.Minute
+}
+
+func parseRefreshTokenDurationDays() time.Duration {
+	v := strings.TrimSpace(os.Getenv("REFRESH_TOKEN_DURATION_DAYS"))
+	if v == "" {
+		return 30 * 24 * time.Hour
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 || n > 365 {
+		log.Printf("auth-service: REFRESH_TOKEN_DURATION_DAYS=%q invalide (1–365), utilisation de 30 j", v)
+		return 30 * 24 * time.Hour
+	}
+	return time.Duration(n) * 24 * time.Hour
 }
 
 // UserStore abstrait l'accès aux utilisateurs (pour tests).

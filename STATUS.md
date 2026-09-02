@@ -1,15 +1,16 @@
 # CLOUDITY — Suivi d'avancement et référence projet
 
-**Dernière mise à jour** : 2026-07-27 — Pilotage catalogue ~155 tâches + Sync docs (TODOS/BACKLOG) ; active **H14**.
+**Dernière mise à jour** : 2026-09-02 — Sessions 12 h + refresh proactif ; Photos albums créables ; récurrence Agenda ; deploy en cours.
 
 ## À faire maintenant
 
-**Checklist du jour** : **[TODOS.md](./TODOS.md)** § 2026-07-27 — Pilotage (blocages/pré-prod) → **Sync docs** → enchaîner **H14** (LAN OK local ; reste HTTPS prod).
+**Boussole** : **[docs/produit/TROIS-ETAPES.md](docs/produit/TROIS-ETAPES.md)** · **Sessions / Bitwarden** : **[docs/produit/SESSION-ET-BITWARDEN.md](docs/produit/SESSION-ET-BITWARDEN.md)**.  
+**Ops** : `make push-prod WAIT=1` (migration 53 + auth-service ACCESS_TOKEN=720 + calendar-service).
 
 ### Rituel (avant chaque session)
 
-1. **Git** : branche `feat/app-vault-drive-upload-pin-rotation` — **[docs/GIT.md](docs/GIT.md)**.
-2. **Pilotage** : **`/4dm1n/pilotage`** puis **[TODOS.md](./TODOS.md)** / **[BACKLOG.md](./BACKLOG.md)**.
+1. **Git** : branche courante (`chore/restructure-platform`) — **[docs/GIT.md](docs/GIT.md)**.
+2. **3 étapes** : **[TROIS-ETAPES.md](docs/produit/TROIS-ETAPES.md)** puis **[TODOS.md](./TODOS.md)** / **[BACKLOG.md](./BACKLOG.md)**.
 3. **Vérifs** : **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 0 · `make test` si merge.
 
 ### Priorités (résumé — détail dans TODOS)

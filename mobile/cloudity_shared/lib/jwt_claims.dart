@@ -42,3 +42,30 @@ String? roleFromAccessToken(String token) {
   if (role == null || role.isEmpty) return null;
   return role;
 }
+
+/// Instant d’expiration du JWT d’accès (claim `exp`), ou null si illisible.
+DateTime? accessTokenExpiresAt(String token) {
+  final payload = decodeJwtPayload(token);
+  if (payload == null) return null;
+  final exp = payload['exp'];
+  int? seconds;
+  if (exp is int) {
+    seconds = exp;
+  } else if (exp is num) {
+    seconds = exp.toInt();
+  } else if (exp is String) {
+    seconds = int.tryParse(exp);
+  }
+  if (seconds == null) return null;
+  return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+}
+
+/// Vrai si le token est déjà expiré ou expire dans [within].
+bool isAccessTokenExpiringSoon(
+  String token, {
+  Duration within = const Duration(minutes: 10),
+}) {
+  final exp = accessTokenExpiresAt(token);
+  if (exp == null) return true;
+  return !exp.isAfter(DateTime.now().toUtc().add(within));
+}

@@ -4,6 +4,8 @@ Index : **[`../README.md`](../README.md)** · Ops : **[`../operations/DEPLOIEMEN
 
 | Fichier | Rôle |
 |---------|------|
+| **[TROIS-ETAPES.md](TROIS-ETAPES.md)** | **Les 3 grandes étapes** (suite quotidienne → plateforme → suite complète) |
+| **[SESSION-ET-BITWARDEN.md](SESSION-ET-BITWARDEN.md)** | Sessions longues (Google-like) + Bitwarden / passkeys |
 | **[MAIL-ALIAS.md](MAIL-ALIAS.md)** | **Fiche unique** alias mail (vision, démarrage, checklist, réception, redirection, MTA) |
 | [MAIL-GMAIL-OAUTH.md](MAIL-GMAIL-OAUTH.md) | OAuth Google / Gmail |
 | [MAIL-STOCKAGE-CACHE.md](MAIL-STOCKAGE-CACHE.md) | Cache / stockage mail |
@@ -19,4 +21,4 @@ Index : **[`../README.md`](../README.md)** · Ops : **[`../operations/DEPLOIEMEN
 
 Anciens `MAIL-ALIAS-*.md` (VISION, DEMARRAGE, …) = **stubs** → MAIL-ALIAS.md.
 
-*2026-07-29.*
+*2026-08-31.*
