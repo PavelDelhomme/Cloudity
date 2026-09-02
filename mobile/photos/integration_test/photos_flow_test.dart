@@ -33,7 +33,7 @@ const Key kTenant = ValueKey('cloudity_photos_login_tenant');
 const Key kSubmit = ValueKey('cloudity_photos_login_submit');
 
 bool _onLogin(WidgetTester tester) =>
-    find.text('Connexion — Cloudity Photos').evaluate().isNotEmpty;
+    find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _onTimeline(WidgetTester tester) =>
     find.byKey(kTimeline).evaluate().isNotEmpty;

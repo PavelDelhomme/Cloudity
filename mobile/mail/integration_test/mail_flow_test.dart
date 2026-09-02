@@ -17,7 +17,7 @@ const Key kPassword = ValueKey('cloudity_mail_login_password');
 const Key kSubmit = ValueKey('cloudity_mail_login_submit');
 
 bool _onLogin(WidgetTester tester) =>
-    find.text('Connexion — Cloudity Mail').evaluate().isNotEmpty;
+    find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _onInbox(WidgetTester tester) => find.byKey(kInbox).evaluate().isNotEmpty;
 

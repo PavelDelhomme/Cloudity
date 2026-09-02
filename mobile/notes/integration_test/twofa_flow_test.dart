@@ -40,7 +40,7 @@ const Key k2faCode = ValueKey('cloudity_mail_login_2fa_code');
 const Key k2faSubmit = ValueKey('cloudity_mail_login_2fa_submit');
 
 bool _onLogin(WidgetTester tester) =>
-    find.text('Connexion — Cloudity Mail').evaluate().isNotEmpty;
+    find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _on2FA(WidgetTester tester) =>
     find.text('Vérification 2FA — Cloudity Mail').evaluate().isNotEmpty;
