@@ -971,7 +971,7 @@ make mobile-upload-apk APP=Mail        # build + OTA une app
 make mobile-upload-all                 # OTA toutes apps mobiles
 ```
 
-Docs : [`DEPLOY-MATRIX.md`](docs/operations/DEPLOY-MATRIX.md) · [`DISTRIBUTION-CHANNELS.md`](docs/operations/DISTRIBUTION-CHANNELS.md) · [`MOBILES.md`](docs/produit/MOBILES.md)
+Docs : [`DEPLOY-MATRIX.md`](docs/operations/DEPLOY-MATRIX.md) · [`DISTRIBUTION.md`](docs/operations/DISTRIBUTION.md) · [`MOBILE-PLATEFORME.md`](docs/produit/MOBILE-PLATEFORME.md)
 
 
 ---
@@ -1429,7 +1429,7 @@ Tout le reste (MTA, mobile, Office) s’appuie sur cette stack `cloudity` stable
 
 **Lire d’abord** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](DEPLOIEMENT-ENVIRONNEMENTS.md)** (local vs VPS, socle obligatoire, mobile).
 
-Voir aussi : **[RELEASE-AND-DISTRIBUTION.md](RELEASE-AND-DISTRIBUTION.md)** · **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** · **[PORTAINER-VPS.md](PORTAINER-VPS.md)**.
+Voir aussi : **[DISTRIBUTION.md](DISTRIBUTION.md)** · **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](DEPLOIEMENT-VPS-PORTAINER-NPM.md)** · **[PORTAINER-VPS.md](PORTAINER-VPS.md)**.
 
 ---
 
@@ -1549,7 +1549,7 @@ Le navigateur ne parle qu’à **Nginx Proxy Manager**. Les microservices resten
 
 | App | Build | Distribution |
 |-----|-------|----------------|
-| Mail | `cd mobile/mail && flutter build apk --release` | APK signé + **[RELEASE-AND-DISTRIBUTION.md](RELEASE-AND-DISTRIBUTION.md)** § 4 |
+| Mail | `cd mobile/mail && flutter build apk --release` | APK signé + **[DISTRIBUTION.md](DISTRIBUTION.md)** § 4 |
 | Drive / Photos / Pass | idem chemins `mobile/*` | Même canal `version.json` (backlog **REL-01**) |
 
 Le mobile consomme la **même API** (gateway) : une mise à jour **backend** peut exiger une mise à jour **app** si le contrat API change.

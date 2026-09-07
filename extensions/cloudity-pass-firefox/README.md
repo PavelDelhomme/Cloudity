@@ -29,4 +29,4 @@ Sortie : `extensions/cloudity-pass-firefox/dist/`
 
 ## Safari
 
-Reste hors scope MP-08 initial — wrapper Xcode / Web Extensions API (voir `MULTI-PLATEFORME.md`).
+Reste hors scope MP-08 initial — wrapper Xcode / Web Extensions API (voir `MOBILE-PLATEFORME.md`).

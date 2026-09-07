@@ -31,7 +31,7 @@ Tests hôte : `cd mobile/mail && flutter test`. E2E device : `integration_test/m
 |---|---|---|
 | `android/` | ✅ | cible primaire actuelle |
 | `ios/` | 🟡 | scaffold Flutter présent, jamais testé sur device |
-| `linux/` | ❌ **manquant** | à scaffolder par `flutter create --platforms=linux .` quand on démarre l'app desktop Linux Mail (cf. [`docs/produit/MULTI-PLATEFORME.md`](../../docs/produit/MULTI-PLATEFORME.md) MP-03) |
+| `linux/` | ❌ **manquant** | à scaffolder par `flutter create --platforms=linux .` quand on démarre l'app desktop Linux Mail (cf. [`docs/produit/MOBILE-PLATEFORME.md`](../../docs/produit/MOBILE-PLATEFORME.md) MP-03) |
 | `macos/` / `windows/` | ❌ | hors scope court terme |
 
 ## Sécurité — flow 2FA mobile

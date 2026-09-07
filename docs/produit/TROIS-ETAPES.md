@@ -78,7 +78,7 @@ MTA/DKIM, archivage mail PG, Drive desktop, Photos coffre/albums avancés, Offic
 
 ### Docs liées
 
-[SUITE-PRODUCTIVITY-GAP.md](SUITE-PRODUCTIVITY-GAP.md) · [MOBILES.md](MOBILES.md) · [SYNC-BACKLOG.md](SYNC-BACKLOG.md) § Calendar/Contacts
+[SUITE-PRODUCTIVITY-GAP.md](SUITE-PRODUCTIVITY-GAP.md) · [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md) · [SYNC-BACKLOG.md](SYNC-BACKLOG.md) § Calendar/Contacts
 
 ---
 
@@ -107,13 +107,13 @@ Cloudity **porte** l’identité mail (alias + réception), un **Pass** au nivea
 - [ ] Threads, snooze, sous-dossiers IMAP CREATE.
 - [ ] Anti-spam : AS-1 complet, AS-2 rate-limits granulaires.
 
-Détail : [MAIL-ALIAS.md](MAIL-ALIAS.md) · BACKLOG `MAIL-ALIAS-*` / `AS-*`.
+Détail : [MAIL.md](MAIL.md) · BACKLOG `MAIL-ALIAS-*` / `AS-*`.
 
 #### 2.B — Pass (niveau quotidien + mobile)
 
 - [ ] Édition mobile (si non fini en 1.B) + **PASS-AUTOFILL-ANDROID**.
 - [ ] Bouton extension « Alias pour ce site » (**MAIL-ALIAS-04**).
-- [ ] Backup coffre [PASS-BACKUP.md](PASS-BACKUP.md) ; passkeys pour *unlock* coffre (pas seulement login compte).
+- [ ] Backup coffre [PASS.md](PASS.md) ; passkeys pour *unlock* coffre (pas seulement login compte).
 
 #### 2.C — Drive & Photos
 
@@ -134,7 +134,7 @@ Office collab multi-curseurs, client sync bureau, Play/F-Droid, réseau décentr
 
 ### Docs liées
 
-[MAIL-ALIAS.md](MAIL-ALIAS.md) · [PHOTOS.md](PHOTOS.md) · [FRONTEND-LAYOUT.md](../architecture/FRONTEND-LAYOUT.md) · [SECURITE.md](../securite/SECURITE.md)
+[MAIL.md](MAIL.md) · [PHOTOS.md](PHOTOS.md) · [FRONTENDS.md](../architecture/FRONTENDS.md) · [SECURITE.md](../securite/SECURITE.md)
 
 ---
 
@@ -184,7 +184,7 @@ Wallet / HSM / Kubernetes / Kong / Mongo — le README racine historique les cit
 
 ## Ordre de travail *dans* une étape
 
-1. **Web d’abord** pour tout nouveau flux (contrat API) — [MOBILES.md](MOBILES.md) § 0.  
+1. **Web d’abord** pour tout nouveau flux (contrat API) — [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md) § 0.  
 2. **Mobile** ensuite, même API, `cloudity_shared`.  
 3. **Prod** : `make push-prod` seulement quand le palier est smoke-testé en local / device.  
 4. **Mail prod / DNS / MTA** : pas avant l’étape 2 (sauf correctif d’urgence).

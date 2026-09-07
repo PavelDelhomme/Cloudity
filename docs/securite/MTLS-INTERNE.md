@@ -1,6 +1,6 @@
 # mTLS interne — Zero Trust **cible** entre microservices Cloudity
 
-> **Rôle** : décrire la **topologie cible** (Zero Trust) entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 5. État actuel : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** « Inter-services HTTP plain ». Audit transverse : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)**. Cible **post-quantique** : **[STATUS.md](../../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
+> **Rôle** : décrire la **topologie cible** (Zero Trust) entre l’`api-gateway` et les services Go (`auth-service`, `passwords-service`, `mail-directory-service`, `drive-service`, `photos-service`, …) **et** Python (`admin-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 5. État actuel : **[SECURITE.md](SECURITE.md)** « Inter-services HTTP plain ». Audit transverse : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)**. Cible **post-quantique** : **[STATUS.md](../../STATUS.md)** § 2.3 (lignes mTLS interne / certs hybrides).
 
 **Pourquoi avant le PQ** : le mTLS classique est un **prérequis**. On stabilise la **PKI interne**, la **rotation**, l’**audit** et les **patterns de code** d’abord ; on bascule en **certs hybrides ML-DSA + ECDSA** ensuite, quand la chaîne (`crypto/x509`, `tls`, `step-ca`, OpenSSL) supporte les algos PQ.
 

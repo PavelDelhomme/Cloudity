@@ -22,8 +22,8 @@
 | Fonctionnalité / domaine | Branche de travail typique | Fichiers / docs de référence |
 |----------------------------|----------------------------|------------------------------|
 | **Photos** — galerie web, **`photos-service`**, `/photos/timeline`, mobile | `feat/photos-gallery-mobile-sync-security` (ou scinder `feat/photos-*`) | `docs/produit/PHOTOS.md`, `backend/photos-service`, `PhotosPage.tsx`, `mobile/photos` |
-| **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/produit/MOBILES.md`, `docs/produit/PHOTOS.md` § 5 |
-| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` | `docs/securite/SECURITE-DONNEES.md`, ROADMAP **TR-01** |
+| **Photos** — app mobile Flutter, WorkManager, batterie | Même branche ou `feat/photos-mobile` après merge partiel web | `docs/produit/MOBILE-PLATEFORME.md`, `docs/produit/PHOTOS.md` § 5 |
+| **Photos** — sécurité (auth, ACL, chiffrement au repos futur) | `feat/photos-gallery-mobile-sync-security` ou `feat/security-photos` | `docs/securite/SECURITE.md`, ROADMAP **TR-01** |
 | **Mail** | `feat/mail-*` | `docs/produit/SYNC-BACKLOG.md`, ROADMAP **APP-01** |
 | **Contacts / Pass / Calendar** | `feat/contacts-*`, `feat/pass-*`, `feat/calendar-*` | ROADMAP APP-xx |
 | **Drive** (hors Photos) | `feat/drive-*` | ROADMAP **APP-02**, `docs/produit/SYNC-BACKLOG.md` § 3b |

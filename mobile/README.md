@@ -121,4 +121,4 @@ make run-mobile APP=Admin
 | `run-mobile.sh` | Gateway + ADB + flutter run |
 | `mobile-device-resolve.sh` | Choix serial ADB via profil |
 
-Voir aussi **`docs/produit/MOBILES.md`** et **`docs/architecture/UI-CROSS-PLATFORM.md`**.
+Voir aussi **`docs/produit/MOBILE-PLATEFORME.md`** et **`docs/architecture/FRONTENDS.md`**.

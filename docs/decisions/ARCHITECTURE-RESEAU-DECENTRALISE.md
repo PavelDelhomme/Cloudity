@@ -24,4 +24,4 @@
 ## Liens
 
 - Sécurité actuelle : `docs/securite/SECURITE.md`, `MTLS-INTERNE.md`
-- Mail centralisé actuel : `mail_messages` + sync IMAP — voir **`MAIL-STOCKAGE-CACHE.md`** (cache local + rétention)
+- Mail centralisé actuel : `mail_messages` + sync IMAP — voir **`MAIL.md`** (cache local + rétention)

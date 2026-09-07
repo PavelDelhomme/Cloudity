@@ -16,7 +16,7 @@ Profil Argon2id : en **première utilisation**, le profil **Desktop (compatible 
 - **Mode hors ligne** : si la gateway est injoignable, lecture depuis la sauvegarde locale + mot de passe maître.
 - **Biométrie** : déverrouillage rapide après activation (`PassBiometricStore`).
 
-Doc complète : [`docs/produit/PASS-BACKUP.md`](../../docs/produit/PASS-BACKUP.md).
+Doc complète : [`docs/produit/PASS.md`](../../docs/produit/PASS.md).
 
 ```bash
 dart analyze lib/

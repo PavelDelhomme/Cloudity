@@ -1,6 +1,6 @@
 # Cloudity Pass — format de chiffrement (cible **hybride post-quantique**)
 
-> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/passwords-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. Court terme produit : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)**.
+> **Rôle** : figer **dès la v1** le format de stockage des coffres / items du **password manager** Cloudity, de sorte qu’il soit déjà **PQ-safe** (résistant *harvest now, decrypt later*) et n’oblige **pas** à une migration de tous les coffres ensuite. Ce document est la **référence d’implémentation** côté client (Flutter / extension) et côté serveur (`backend/passwords-service`). Vision globale : **[SECURITE.md](SECURITE.md)** § 8. Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. Court terme produit : **[SECURITE.md](SECURITE.md)**.
 
 **État repo** : `pass_items.ciphertext` est aujourd’hui une **chaîne opaque** côté serveur (`backend/passwords-service/main.go`). Le serveur **ne chiffre / déchiffre rien** — toute la crypto vit côté **client**.
 
@@ -240,7 +240,7 @@ Endpoint actuel `pass_items` :
 | **v0.2** | Enrôlement multi-device **hybride X25519 + ML-KEM-768**. | Lib PQ : Go = `circl/kem/mlkem` (Cloudflare) ; Dart = `pqcrypto_dart` ou binding `liboqs` ; TS/Web = `@noble/post-quantum`. |
 | **v1.0** | Recherche locale chiffrée (IK + tokens HMAC) ; export OPVault-like ; CLI admin (statut formats). | Phase 2 SECURITE. |
 
-> **Sauvegarde v1 (livré)** : format `cloudity-pass-backup-v1`, export/import web, cache local + biométrie mobile — voir [PASS-BACKUP.md](../produit/PASS-BACKUP.md).
+> **Sauvegarde v1 (livré)** : format `cloudity-pass-backup-v1`, export/import web, cache local + biométrie mobile — voir [PASS.md](../produit/PASS.md).
 | **v2.0** | Partage E2EE (groupes), signatures hybrides **Ed25519 + ML-DSA-65**. | Phase 3 SECURITE. |
 
 ---
@@ -260,8 +260,8 @@ Endpoint actuel `pass_items` :
 
 - **[SECURITE.md](SECURITE.md)** § 8 — vision PQ globale.  
 - **[STATUS.md](../../STATUS.md)** § 2.3 — tableau d’algos + cible PQ par couche.  
-- **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** — état actuel + pistes priorisées.  
+- **[SECURITE.md](SECURITE.md)** — état actuel + pistes priorisées.  
 - **[ROADMAP.md](../produit/ROADMAP.md)** — fiche **APP-04 Pass** (livraison produit).  
-- **[MOBILES.md](../produit/MOBILES.md)** — pendant Flutter du client Pass.
+- **[MOBILE-PLATEFORME.md](../produit/MOBILE-PLATEFORME.md)** — pendant Flutter du client Pass.
 
 *Document à figer **avant** la première migration publique du Vault Pass. Toute modification du format = bump de `v:` + plan de migration lazy.*

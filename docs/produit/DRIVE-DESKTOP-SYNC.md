@@ -2,7 +2,7 @@
 
 **Statut** : **à faire** (pas encore de daemon / app de sync dossier).  
 **Pilotage** : `DRIVE-DESKTOP-01` … `DRIVE-DESKTOP-05` · cycle *Desktop Drive sync*.  
-**Liens** : [ROADMAP APP-02](ROADMAP.md) · [MULTI-PLATEFORME.md](MULTI-PLATEFORME.md) · [BACKLOG.md](../../BACKLOG.md).
+**Liens** : [ROADMAP APP-02](ROADMAP.md) · [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md) · [BACKLOG.md](../../BACKLOG.md).
 
 ---
 

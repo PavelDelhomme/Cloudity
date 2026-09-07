@@ -1,6 +1,6 @@
 # Reverse-proxy edge — TLS 1.3 strict, HSTS, CSP, **hybride post-quantique**
 
-> **Rôle** : configuration **prête à coller** pour la couche **edge** entre Internet et la stack Cloudity (gateway sur `:6080`, web sur `:6001`). Vise un **A+ SSL Labs / Mozilla Observatory** dès la mise en service, en gardant un chemin **propre** vers le **post-quantique**. Vision globale : **[SECURITE.md](SECURITE.md)** § 4–6 (signatures, Zero Trust, WAF) et § 8 (PQ). Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. État actuel + dettes : **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)**. Pendant interne : **[MTLS-INTERNE.md](MTLS-INTERNE.md)**.
+> **Rôle** : configuration **prête à coller** pour la couche **edge** entre Internet et la stack Cloudity (gateway sur `:6080`, web sur `:6001`). Vise un **A+ SSL Labs / Mozilla Observatory** dès la mise en service, en gardant un chemin **propre** vers le **post-quantique**. Vision globale : **[SECURITE.md](SECURITE.md)** § 4–6 (signatures, Zero Trust, WAF) et § 8 (PQ). Tableau d’algos : **[STATUS.md](../../STATUS.md)** § 2.3. État actuel + dettes : **[SECURITE.md](SECURITE.md)**. Pendant interne : **[MTLS-INTERNE.md](MTLS-INTERNE.md)**.
 
 **Choix par défaut** : **Caddy 2.8+** en prod (TLS automatique, HTTP/3, support PQ tôt). Alternatives valables : **nginx + OpenSSL 3.5+**, **Traefik 3+**. Les trois gabarits sont fournis pour rester portable.
 
@@ -8,7 +8,7 @@
 
 > **Déploiement chez un hébergeur (VPS + Portainer + Nginx Proxy Manager)** — sans confondre avec le dev local : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**.
 
-### Décisions produit (cf. `docs/decisions/multi-repo/REPONSES.md`)
+### Décisions produit (cf. `docs/decisions/multi-repo/MULTI-REPO.md`)
 
 | Code | Décision | Statut |
 |------|----------|--------|
@@ -265,7 +265,7 @@ server {
 
 ## 4 bis. nginx-proxy-manager (NPM, scénario actuel VPS — Q23=A)
 
-> **Statut** : c'est le scénario **actuellement déployé** sur l'instance NPM partagée du VPS (`<NPM_HOST>`). Il partage déjà Let's Encrypt + le réseau Docker `<EDGE_NETWORK>` avec les autres applications du VPS. Décisions actées : **Q21=B** (GHCR), **Q22=A** (réutiliser le bridge external NPM), **Q23=A** (`cloudity.<DOMAIN>` + `api.` / `admin.`), **Q24=A** (GHA matrice). Placeholders : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § 0](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**. Détails : **[REPONSES.md bloc 4](../decisions/multi-repo/REPONSES.md)** + procédure end-to-end : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) § 7–10**.
+> **Statut** : c'est le scénario **actuellement déployé** sur l'instance NPM partagée du VPS (`<NPM_HOST>`). Il partage déjà Let's Encrypt + le réseau Docker `<EDGE_NETWORK>` avec les autres applications du VPS. Décisions actées : **Q21=B** (GHCR), **Q22=A** (réutiliser le bridge external NPM), **Q23=A** (`cloudity.<DOMAIN>` + `api.` / `admin.`), **Q24=A** (GHA matrice). Placeholders : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md § 0](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**. Détails : **[MULTI-REPO.md bloc 4](../decisions/multi-repo/MULTI-REPO.md)** + procédure end-to-end : **[../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](../operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md) § 7–10**.
 
 NPM est un nginx + une UI : la stratégie de durcissement reste celle de § 4 (TLS 1.3, HSTS, headers, etc.) mais on la **pose via la GUI** + l'onglet **« Advanced »** de chaque Proxy Host. Concrètement :
 
@@ -452,7 +452,7 @@ labels:
 
 - **[SECURITE.md](SECURITE.md)** — vision et § 8 PQ.  
 - **[STATUS.md](../../STATUS.md)** § 2.3 — algorithmes cibles et plan PQ.  
-- **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** — état actuel et pistes priorisées.  
+- **[SECURITE.md](SECURITE.md)** — état actuel et pistes priorisées.  
 - **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — pendant interne (mTLS step-ca).  
 - `frontend/apps/cloudity-web/nginx.conf` — image **applicative** (sert juste les bundles ; en-têtes minimaux + gabarits HSTS/CSP commentés).
 

@@ -55,4 +55,4 @@ Depuis la timeline : icône **nuage** → activer la sauvegarde, options **Wi‑
 
 ## Suite Cloudity (mobile)
 
-Les clés de stockage **`cloudity_suite_*`** (`lib/storage_keys.dart`) sont prévues pour **partager** gateway et jetons avec les futures apps **Drive**, **Mail**, etc. La **détection** des autres apps installées reste à implémenter (voir **`docs/produit/MOBILES.md`**).
+Les clés de stockage **`cloudity_suite_*`** (`lib/storage_keys.dart`) sont prévues pour **partager** gateway et jetons avec les futures apps **Drive**, **Mail**, etc. La **détection** des autres apps installées reste à implémenter (voir **`docs/produit/MOBILE-PLATEFORME.md`**).

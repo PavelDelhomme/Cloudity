@@ -27,12 +27,12 @@
 
 | Phase | Objectif | Pistes dans le dépôt |
 |-------|-----------|----------------------|
-| **A — Pass** | Migration réelle + confiance utilisateur | **[SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, extension MP-06/MP-07 livrée). |
+| **A — Pass** | Migration réelle + confiance utilisateur | **[PASS.md](docs/produit/PASS.md)** § 3 bis + critères § 5 ; puis L2 **BACKLOG** (`mobile/pass` édition, extension MP-06/MP-07 livrée). |
 | **B — Qualité transverse** | Barrière merge stable | **`make test`**, **`make test-dashboard`**, E2E **TESTS.md** ; mobile **`make test-mobile-suite`** (Mail / Drive / Photos) + variables **`CLOUDITY_E2E_*`** pour device. |
-| **C — Mail « complet »** | Messagerie + **alias créés dans Cloudity** (sans panneau OVH) | **[MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** (cible) ; MVP § 2 **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** ; **MAIL-ALIAS-01…06** + **AS-1** (MTA/DKIM) dans **BACKLOG** ; admin **`/mail/domains*`** pour couche domaine. |
+| **C — Mail « complet »** | Messagerie + **alias créés dans Cloudity** (sans panneau OVH) | **[MAIL.md](docs/produit/MAIL.md)** (cible) ; MVP § 2 **[SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** ; **MAIL-ALIAS-01…06** + **AS-1** (MTA/DKIM) dans **BACKLOG** ; admin **`/mail/domains*`** pour couche domaine. |
 | **D — Drive & Photos** | Parité produit + perf | **ROADMAP** **APP-02** / **PHOTOS.md** ; **sync bureau type Nextcloud** : **[DRIVE-DESKTOP-SYNC.md](docs/produit/DRIVE-DESKTOP-SYNC.md)** (`DRIVE-DESKTOP-*`, ❌ pas encore démarré) ; gros fichiers front : **REFACTOR-FE-03** / **FE-02**. |
 | **E — Prod** | Publier | Q15 vert → **TODOS** § Prod VPS + stacks Portainer. |
-| **F — Releases & distribution** | Mises à jour **service par service** ; **OTA Android** ; comptes & secrets | **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** (`make deploy-web`, `deploy-mail`, …) · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)** · **ENV** : **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** |
+| **F — Releases & distribution** | Mises à jour **service par service** ; **OTA Android** ; comptes & secrets | **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** (`make deploy-web`, `deploy-mail`, …) · **[DISTRIBUTION.md](docs/operations/DISTRIBUTION.md)** · **ENV** : **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** |
 
 **Mobile Mail** : déjà **MVP** (login multi-gateway, 2FA, dossiers, PJ, composer — voir **`mobile/mail/README.md`**). « Complètement opérationnel » = **ROADMAP APP-01** + **SYNC-BACKLOG** (sync, brouillons serveur, **alias** : création côté fournisseur + enregistrement Cloudity pour filtres / traçabilité, voir **SYNC-BACKLOG § 2**) plutôt que tout réécrire d’un bloc.
 
@@ -50,7 +50,7 @@
 
 **Sprint Pass L1** : J1→J7 ter **livrés** (voir archive). **Gel multi-repo** jusqu’après la deadline Pass.
 
-**Docs récentes** : [ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md) · [MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md) · [URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md).
+**Docs récentes** : [ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md) · [../produit/MAIL.md](docs/../produit/MAIL.md) · [URL-CAPABILITIES.md](docs/securite/URL-CAPABILITIES.md).
 
 **Branches** : **`main`** = stable ; **`dev`** = intégration ; **`feat/<sujet>`** = chantiers. Détail : **[docs/GIT.md](docs/GIT.md)** · tableau domaines **[docs/operations/BRANCHES.md](docs/operations/BRANCHES.md)**.
 
@@ -64,9 +64,9 @@
 
 **Backlog condensé (démarrage / priorités)** : **[BACKLOG.md](./BACKLOG.md)** — point d’entrée avant le détail **SYNC-BACKLOG** / **ROADMAP**.
 
-**Catalogue produit & mobile** : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** — ordre suite & décisions (P0–P7) + **état réel** vs roadmap externe. **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)** — matrice **web / mobile** + **admin mobile** (ADM-02) + **§0** (règle **web avant mobile** pour chaque app, puis Flutter / `make run-mobile`). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)**. **Performances & diagnostic** (stack actuelle, leviers d’optimisation, alternatives, sans sacrifier **SECURITE** ni l’UX) : **[docs/operations/PERFORMANCES.md](docs/operations/PERFORMANCES.md)** ; exports **React Profiler** / **Chrome Performance** (`profiling-data*.json`, `Trace-*.json` / `.tgz`) : **ne pas versionner** (voir **PERFORMANCES §8** et `.gitignore`).
+**Catalogue produit & mobile** : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** — applications et **transversal** (sécurité, infra, API, monorepo) ; **[docs/produit/VISION-SUITE.md](docs/produit/VISION-SUITE.md)** — ordre suite & décisions (P0–P7) + **état réel** vs roadmap externe. **[docs/produit/MOBILE-PLATEFORME.md](docs/produit/MOBILE-PLATEFORME.md)** — matrice **web / mobile** + **admin mobile** (ADM-02) + **§0** (règle **web avant mobile** pour chaque app, puis Flutter / `make run-mobile`). **Sync Mail/Drive/Calendar, archivage mail serveur, session longue, `make run-mobile`** : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)**. **Performances & diagnostic** (stack actuelle, leviers d’optimisation, alternatives, sans sacrifier **SECURITE** ni l’UX) : **[docs/operations/PERFORMANCES.md](docs/operations/PERFORMANCES.md)** ; exports **React Profiler** / **Chrome Performance** (`profiling-data*.json`, `Trace-*.json` / `.tgz`) : **ne pas versionner** (voir **PERFORMANCES §8** et `.gitignore`).
 
-**Sécurité & confiance (vision suite Google + niveau Proton, phases, signatures requêtes, Zero Trust, WAF)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** — complète **[docs/securite/SECURITE-DONNEES.md](docs/securite/SECURITE-DONNEES.md)** (chiffrement, durcissement HTTP, TR-01).
+**Sécurité & confiance (vision suite Google + niveau Proton, phases, signatures requêtes, Zero Trust, WAF)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** — complète **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** (chiffrement, durcissement HTTP, TR-01).
 
 **Pourquoi mocker l'API dans les tests ?** Les tests unitaires / applicatifs (Vitest) **mockent l'API** pour être rapides, reproductibles et sans dépendance à la stack (Docker, gateway, DB). On vérifie ainsi le comportement du front (rendu, clics, appels API avec bons paramètres) sans lancer les vrais services. L'objectif est la pratique standard (tests isolés). L'avancement **réel** du projet se fait en **ajoutant des fonctionnalités** (Drive, éditeur, corbeille) **et** les tests associés. Voir section **« Drive, éditeur, corbeille »** (§ 1b) pour les prochaines évolutions concrètes. **Tests** : **Docker d’abord** pour Vitest / ESLint (**`make test`**, **`make test-dashboard`**, **`make test-dashboard-one FILE=…`**, **`make test-dashboard-lint`**) — pas d’obligation d’installer Node sur l’hôte pour la barrière de merge ; **Playwright** pilote le navigateur sur l’**hôte** contre la stack **`make up`** (**`make test-e2e-playwright`**, **`make test-e2e-playwright-mail`** pour Mail / § **4.8**). Détail : **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **1**.
 
@@ -76,7 +76,7 @@
 
 **Ordre lecture** : **[BACKLOG.md](./BACKLOG.md)** (priorités + liens) → **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** (cadre confiance / phases) → ce §0 pour les commandes → **[docs/operations/TESTS.md](docs/operations/TESTS.md)** avant merge.
 
-**Cartographie « tout tourne »** : **dev local** = ce §0 + **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** + **[TODOS.md](./TODOS.md)** + **[BACKLOG.md](./BACKLOG.md)** ; **VPS / Portainer / NPM / HTTPS** = **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (après décision **[HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** / Q15) + secrets **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)** ; **releases / mises à jour** = **[docs/operations/RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
+**Cartographie « tout tourne »** : **dev local** = ce §0 + **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** + **[TODOS.md](./TODOS.md)** + **[BACKLOG.md](./BACKLOG.md)** ; **VPS / Portainer / NPM / HTTPS** = **[docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** (après décision **[HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)** / Q15) + secrets **[docs/securite/SECRETS.md](docs/securite/SECRETS.md)** ; **releases / mises à jour** = **[docs/operations/DISTRIBUTION.md](docs/operations/DISTRIBUTION.md)**.
 
 | Action | Commande |
 |--------|----------|
@@ -87,11 +87,11 @@
 | **Première fois** | **`make setup`** puis **`make up-ready`** (rapide) ou **`make up-full`** (+ tests) |
 | **Migrations SQL** | **`make migrate`** (racine, Docker) — applique **`infrastructure/postgresql/migrations/`**. Inclus aussi dans **`make rebuild`** / chaîne **`make up`** via le service **`db-migrate`**. Détail **[docs/operations/TESTS.md](docs/operations/TESTS.md)** (Migrations). |
 | **Nettoyer coffres Pass « e2e-* » (restes Playwright)** | **`make clean-pass-e2e-vaults`** — supprime en Postgres les **`pass_vaults`** dont le nom commence par **`e2e-`** pour l’utilisateur seed (**`SEED_ADMIN_EMAIL`**, ou surcharge **`PASS_E2E_CLEAN_EMAIL`**). Prérequis : **`make up`**. Ne pas nommer un coffre réel **`e2e-…`**. Voir **[docs/operations/TESTS.md](docs/operations/TESTS.md)** § **3.5**. |
-| **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)** § 5 |
+| **App mobile (Flutter)** | **`make run-mobile APP=Admin`**, **`APP=Photos`**, **`APP=Drive`**, **`APP=Mail`** (prérequis : Flutter) — détail **[docs/produit/MOBILE-PLATEFORME.md](docs/produit/MOBILE-PLATEFORME.md)** § 5 |
 | **Réparation dev rapide (mail + extension)** | **`make doctor`** ou **`make stack-heal`** — clé **`MAIL_PASSWORD_ENCRYPTION_KEY`**, recréation **`mail-directory-service`**, build extension Pass ; **`ensure-alias-encryption-key`** inclus. Sortie **✅** = OK ; sync IMAP KO après rotation de clé → ré-enregistrer le MDP boîte — **[DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md)** § 2.c, **[TODOS.md](./TODOS.md)** |
 | **Env public / Portainer** | **`make sync-public-urls`** · **`make env-prod DOMAIN=…`** · **`make env-preprod`** · **`make portainer-env`** — **[ENV-GENERATION.md](docs/operations/ENV-GENERATION.md)** · **[deploy/portainer/README.md](deploy/portainer/README.md)** |
-| **Surveillance ressources (CLI)** | **`make perf-watch`** (boucle), **`make perf-snapshot LABEL=…`**, **`make perf-diff`**, **`make perf-budgets`** — détail **[docs/operations/PERFORMANCES-MONITORING.md](docs/operations/PERFORMANCES-MONITORING.md)** ; **rituel** : snapshot **avant** ET **après** chaque feature non triviale, puis `make perf-diff` (exit 1 = régression). |
-| **Anti-spam / anti-abus (doc)** | Vision **multi-couches** (edge → gateway → auth → MTA **Rspamd** ; option ML plus tard) + **mail vs chiffrement Pass** (pas de confusion) : **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)**, **[docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** ; sync Mail : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 0e. |
+| **Surveillance ressources (CLI)** | **`make perf-watch`** (boucle), **`make perf-snapshot LABEL=…`**, **`make perf-diff`**, **`make perf-budgets`** — détail **[docs/operations/PERFORMANCES.md](docs/operations/PERFORMANCES.md)** ; **rituel** : snapshot **avant** ET **après** chaque feature non triviale, puis `make perf-diff` (exit 1 = régression). |
+| **Anti-spam / anti-abus (doc)** | Vision **multi-couches** (edge → gateway → auth → MTA **Rspamd** ; option ML plus tard) + **mail vs chiffrement Pass** (pas de confusion) : **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)**, **[docs/../produit/MAIL.md](docs/../produit/MAIL.md)** ; sync Mail : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** § 0e. |
 | **Avant chaque reprise** | **[docs/operations/DEV-VERIFICATION.md](docs/operations/DEV-VERIFICATION.md) § 0** — `docker info` → **`make test`** → (optionnel) E2E Playwright, `flutter test` Pass, `compose config`. **État stack + URLs** : **`make status`** (`CLOUDITY_STATUS_HOST` pour le LAN). |
 
 **URLs (dev, HTTP)** : App principale http://localhost:6001 | **Back-office** http://localhost:6001/4dm1n (le chemin UI **`/admin`** est **volontairement absent** : pas de redirection ni d’alias vers `/4dm1n` — anti-énumération ; les API restent **`/admin/*`** sur la gateway) | API http://localhost:6080 | Adminer http://localhost:6083 | Redis Commander http://localhost:6084 — **HTTPS en production** (terminaison TLS sur LB / ingress) : voir **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** et **§ TLS & scans** ci-dessous. **HTTPS dev local optionnel** : **`make dev-https`** (mkcert + Vite, https://localhost:5173 — `scripts/dev/dev-https.sh`). **Récap à l’écran (services + URLs copiables, ports depuis `.env`)** : **`make status`** — variables **`CLOUDITY_STATUS_HOST`** (ex. IP LAN pour smartphone) et **`CLOUDITY_STATUS_PROTO`** (`http` par défaut) ; détail **`scripts/dev/status.sh`**.
@@ -135,7 +135,7 @@
 
 **État des tests** : lancer **`make test`** (Docker) avant merge ; smokes rapides **`make test-auth`** ou **`make test-go-one SERVICE=…`** ; **CI** : **`.github/workflows/docker-unit-tests.yml`** rejoue **`make test`** sur push / PR (`main`, `master`). Chiffres et détail : **TESTS.md**. E2E Playwright : `make up` + `make seed-admin` puis **`make test-e2e-playwright`**. **Mobile (Photos, Drive, Mail)** : **`make test-mobile-suite`** (phase 5 de **`make tests`**) ou **`make test-mobile-mail`** / **`make test-mobile-drive`** / **`make test-mobile-photos`** — ADB + variables **`CLOUDITY_E2E_*`** pour un parcours login réel sur appareil ; si le message **« SDK Flutter non inscriptible »** apparaît, les **`integration_test`** device sont ignorées alors que **`flutter test`** (hôte) reste **OK** : corriger les droits sur le SDK (ex. `sudo chown -R "$(whoami)" /usr/lib/flutter` ou installer Flutter dans **`$HOME`**), voir **TESTS.md** § 1b. Pour rejouer les tests **dans les conteneurs déjà démarrés** : **`make test-docker`**.
 
-**Ordre produit (boussole)** : voir **`docs/produit/VISION-SUITE.md`** — suite type Workspace : fondation transverse (**[PERFORMANCES.md](docs/operations/PERFORMANCES.md)**, **SECURITE**, recherche) puis **Mail → Alias → Pass → Photos → Drive → Contacts/Calendar profonds → Office** ; **Photos** reste un produit **distinct** de Drive (pipeline + UX dédiés). **Exécution dépôt (parallèle réel)** : **Mail** est très avancé (règles, FTS, sync UI, batch…) ; **Photos** (timeline, web, mobile, albums partiels) et **Drive** (recherche, tableau) progressent en parallèle ; **Pass** MVP ; chantiers listés § 1b et **`docs/operations/TODO.md`**. La règle **web puis mobile** par produit reste dans **`docs/produit/MOBILES.md`** § 0.
+**Ordre produit (boussole)** : voir **`docs/produit/VISION-SUITE.md`** — suite type Workspace : fondation transverse (**[PERFORMANCES.md](docs/operations/PERFORMANCES.md)**, **SECURITE**, recherche) puis **Mail → Alias → Pass → Photos → Drive → Contacts/Calendar profonds → Office** ; **Photos** reste un produit **distinct** de Drive (pipeline + UX dédiés). **Exécution dépôt (parallèle réel)** : **Mail** est très avancé (règles, FTS, sync UI, batch…) ; **Photos** (timeline, web, mobile, albums partiels) et **Drive** (recherche, tableau) progressent en parallèle ; **Pass** MVP ; chantiers listés § 1b et **`docs/operations/TODO.md`**. La règle **web puis mobile** par produit reste dans **`docs/produit/MOBILE-PLATEFORME.md`** § 0.
 
 **Prochaine étape (en cours)** :  
 1. **Administration opérationnelle (priorité immédiate)** — socle UI renforcé (`Users`, `Domaines`, Dashboard perf, CVE, Passkeys, Settings). Suite : vrai reset 2FA utilisateur avec step-up admin + audit log (**TODOS U9**) et exploration perf par service.  
@@ -205,7 +205,7 @@ Cocher au fur et à mesure ; l’ordre recommandé est indicatif (migration **pr
 
 **Rappel** : les backends et routes gateway (`/mail/*`, `/drive/*`, …) **restent** tels quels au début ; on ajoute surtout de la **structure front** et du **partage de code**.
 
-**Périmètre fonctionnel des apps** (Mail domaines perso, transferts, alias, Drive, Office, mobile, etc.) : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** ; **mobile** : **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)**.
+**Périmètre fonctionnel des apps** (Mail domaines perso, transferts, alias, Drive, Office, mobile, etc.) : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** ; **mobile** : **[docs/produit/MOBILE-PLATEFORME.md](docs/produit/MOBILE-PLATEFORME.md)**.
 
 ---
 
@@ -222,7 +222,7 @@ Section pour **avancer concrètement** : cocher au fur et à mesure. **Backlog c
 | 3 | **Éditeur** : export PDF, tableur / .pptx, barre Office §1c E* | **editeur-docs.md**, **TESTS** §4.7 |
 | 4 | **Drive** : ZIP live + extract (Z1–Z3), PDF.js aperçu | **TESTS** §4.7 |
 | 5 | **Recherche** : API arborescente / cross-apps (au-delà du MVP `?q=` + palette) | **BACKLOG**, **TESTS** §4.0 |
-| 6 | **Sécurité** : suivre phases **docs/securite/SECURITE.md** + durcissement **SECURITE-DONNEES.md** | **SECURITE.md** |
+| 6 | **Sécurité** : suivre phases **docs/securite/SECURITE.md** + durcissement **SECURITE.md** | **SECURITE.md** |
 
 ### Extensions applicatives (vision elargie, sans doublons coeur)
 
@@ -596,7 +596,7 @@ Actuellement, cette app unique couvre :
 
 **Design** : Tailwind CSS, palette brand/slate, typo DM Sans, sidebar claire pour l’app et l'admin.
 
-**Applications web comme modules** : Drive, Pass, Mail, Office, Agenda, Notes, Tâches, Contacts, Photos et Admin sont des **modules** dans **`@cloudity/web`** (`/app/*`, **`/4dm1n`** pour l’UI admin), chacun derrière la gateway (`/drive/*`, `/mail/*`, `/photos/*`, …). Le shell fournit auth, layout, **recherche MVP** (palette globale) et notifications. Pour étendre : route + page (+ service + préfixe gateway si nouveau domaine). Clients **Flutter** / PWA réutilisent les mêmes APIs — voir **MOBILES.md**. *Cible long terme* : extraire le hub utilisateur et le back-office en apps dédiées — voir **docs/architecture/ARCHITECTURE-FRONTENDS.md** (**`@cloudity/shared`** déjà en place).
+**Applications web comme modules** : Drive, Pass, Mail, Office, Agenda, Notes, Tâches, Contacts, Photos et Admin sont des **modules** dans **`@cloudity/web`** (`/app/*`, **`/4dm1n`** pour l’UI admin), chacun derrière la gateway (`/drive/*`, `/mail/*`, `/photos/*`, …). Le shell fournit auth, layout, **recherche MVP** (palette globale) et notifications. Pour étendre : route + page (+ service + préfixe gateway si nouveau domaine). Clients **Flutter** / PWA réutilisent les mêmes APIs — voir **MOBILE-PLATEFORME.md**. *Cible long terme* : extraire le hub utilisateur et le back-office en apps dédiées — voir **docs/architecture/FRONTENDS.md** (**`@cloudity/shared`** déjà en place).
 
 | App / cible | Stack | Statut | Détail |
 |-------------|--------|--------|--------|
@@ -694,16 +694,16 @@ Les phases ci-dessous sont alignées avec la vision “Proton Mail + Pass + Gmai
 ## 7. Références croisées
 
 - **Roadmap produits & transversal** : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** (applications, sécurité, infra, API, template nouvelle app).
-- **Mobile (web vs app, admin mobile)** : **[docs/produit/MOBILES.md](docs/produit/MOBILES.md)**.
+- **Mobile (web vs app, admin mobile)** : **[docs/produit/MOBILE-PLATEFORME.md](docs/produit/MOBILE-PLATEFORME.md)**.
 - **Tests** : **[docs/operations/TESTS.md](docs/operations/TESTS.md)** (référence unique des commandes et de la couverture).
-- **Sécurité & confiance (cadre produit)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** ; chiffrement / durcissement : **[docs/securite/SECURITE-DONNEES.md](docs/securite/SECURITE-DONNEES.md)**.
+- **Sécurité & confiance (cadre produit)** : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)** ; chiffrement / durcissement : **[docs/securite/SECURITE.md](docs/securite/SECURITE.md)**.
 - **Backlog condensé** : **[BACKLOG.md](./BACKLOG.md)** (racine).
 - **Plan long terme** : **[docs/produit/PlanImplementation.md](docs/produit/PlanImplementation.md)** (phases 1–6, métriques, ressources).
 - **Index du dossier documentation** : **[docs/README.md](./docs/README.md)** (éditeur, architecture front, évolution plateforme, sécurité, TODO dev).
 - **Sync & mobile & session + mail serveur** : **[docs/produit/SYNC-BACKLOG.md](docs/produit/SYNC-BACKLOG.md)** (priorités de travail ; détail ROADMAP **TR-07**).
-- **Mail — OAuth Google (Gmail)** : **[docs/produit/MAIL-GMAIL-OAUTH.md](docs/produit/MAIL-GMAIL-OAUTH.md)**.
+- **Mail — OAuth Google (Gmail)** : **[docs/produit/MAIL.md](docs/produit/MAIL.md)**.
 - **Vision détaillée** : **[docs/produit/ROADMAP.md](docs/produit/ROADMAP.md)** et **[docs/produit/PlanImplementation.md](docs/produit/PlanImplementation.md)** ; historique de demande / contexte produit dans les échanges du projet.
-- **Architecture technique** : `README.md` (vue d’ensemble) ; approfondissements **docs/** (ex. **[docs/architecture/ARCHITECTURE-FRONTENDS.md](docs/architecture/ARCHITECTURE-FRONTENDS.md)**, **[docs/architecture/EVOLUTION-PLATEFORME.md](docs/architecture/EVOLUTION-PLATEFORME.md)**).
+- **Architecture technique** : `README.md` (vue d’ensemble) ; approfondissements **docs/** (ex. **[docs/architecture/FRONTENDS.md](docs/architecture/FRONTENDS.md)**, **[docs/architecture/EVOLUTION-PLATEFORME.md](docs/architecture/EVOLUTION-PLATEFORME.md)**).
 - **Docker** : `docker-compose.yml` (dev complet), `docker-compose.services.yml` (services seuls).
 
 ---

@@ -3,7 +3,7 @@
 Crypto client Cloudity Pass : **Argon2id + XChaCha20-Poly1305 + HKDF-SHA-256** + format `EnvelopeV1`.
 
 > **Spec normative** : **[../../../docs/securite/PASS-CRYPTO.md](../../../docs/securite/PASS-CRYPTO.md)**.
-> **Sprint** : **[../../../docs/produit/SPRINT-PASS-2026-05.md](../../../docs/produit/SPRINT-PASS-2026-05.md)**.
+> **Sprint** : **[../../../docs/produit/PASS.md](../../../docs/produit/PASS.md)**.
 
 ## Garanties zero-access
 

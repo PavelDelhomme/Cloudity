@@ -2,7 +2,7 @@
 
 **Rôle** : définir un **moteur UI partagé** pour toutes les applications web Cloudity (suite `/app/*`, admin `/4dm1n`, futures apps Vite séparées), distinct des helpers **API/auth** déjà dans `@cloudity/shared`.
 
-**Liens** : **[ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md)** · **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 5 · **STATUS.md** § 0b (**A4**) · **TODOS.md** § MAINTENANT.
+**Liens** : **[FRONTENDS.md](FRONTENDS.md)** · **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 5 · **STATUS.md** § 0b (**A4**) · **TODOS.md** § MAINTENANT.
 
 ---
 

@@ -2,7 +2,7 @@
 
 Toutes les modifications notables de la lib TS/React `@cloudity/shared` sont consignées ici. Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versionnage : [SemVer](https://semver.org/lang/fr/).
 
-> Convention : tant que la lib n'est pas publiée sur l'org npm définitive (cf. **REPONSES.md** Q4=B), `"private": true` reste actif et aucun tag Git `cloudity-shared/v*` n'est poussé. Les versions sont déclarées ici et appliquées en tags + `npm publish` **dès que l'org cible est fixée**.
+> Convention : tant que la lib n'est pas publiée sur l'org npm définitive (cf. **MULTI-REPO.md** Q4=B), `"private": true` reste actif et aucun tag Git `cloudity-shared/v*` n'est poussé. Les versions sont déclarées ici et appliquées en tags + `npm publish` **dès que l'org cible est fixée**.
 
 ## [0.1.0] — 2026-05-12
 

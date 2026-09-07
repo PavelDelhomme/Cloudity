@@ -4,7 +4,7 @@
 
 **Documents liés** :
 - **[STATUS.md](../../STATUS.md)** — suivi au jour le jour, checklist technique, § 0b (monorepo front).
-- **[MOBILES.md](MOBILES.md)** — matrice **web vs mobile** par produit + **admin mobile**.
+- **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)** — matrice **web vs mobile** par produit + **admin mobile**.
 - **[TESTS.md](../operations/TESTS.md)** — toute entrée marquée « livré » doit idéalement avoir des tests (`make test` / E2E).
 - **[PlanImplementation.md](PlanImplementation.md)** — phases long terme, métriques, ressources.
 - **[README.md](../README.md)** (ce dossier) — index des guides thématiques (éditeur, architecture front, évolution plateforme, sécurité approfondie, TODO dev).
@@ -98,7 +98,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 | **Calendar / Contacts (web)** | **Fait (MVP)** : `refetchInterval` 60 s (calendriers + événements ; tâches overlay 90 s) + `refetchOnWindowFocus` — liste / grille à jour sans recharger comme le mail. **À faire** : rappels, invitations, CalDAV ; push mobile (FCM/APNs). **Photos (web)** : **`photos-service`** + `GET /photos/timeline`, `PhotosPage` — voir [PHOTOS.md](PHOTOS.md). **Drive** : focus produit APP-02. |
 | **Pass** | E2E client ; sync coffres via API existante ; alias mail depuis Pass → lien APP-01 + API alias. |
 | **Statut** | Partiel (Mail web avancé ; reste documenté ici pour implémentation progressive). |
-| **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](SYNC-BACKLOG.md), [MOBILES.md](MOBILES.md) § 5–6. |
+| **Liens** | `MailPage.tsx`, services `*-service`, [SYNC-BACKLOG.md](SYNC-BACKLOG.md), [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md) § 5–6. |
 
 ---
 
@@ -110,7 +110,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Client mail web (et plus tard mobile) : boîtes externes IMAP/SMTP + fonctions hébergées Cloudity (domaines, alias, transferts). |
 | **Objectif** | Remplacer ou compléter Gmail/Proton pour les utilisateurs Cloudity, avec contrôle tenant sur le mail. |
-| **Plateformes visées** | Web (actuel `MailPage`) ; mobile (voir MOBILES.md). |
+| **Plateformes visées** | Web (actuel `MailPage`) ; mobile (voir MOBILE-PLATEFORME.md). |
 | **À quoi ça sert** | Lire, envoyer, organiser ; recevoir sur ses domaines ; protéger l’identité avec alias. |
 | **Fonctionnement (résumé)** | Sync IMAP → métadonnées + corps en base à l’ouverture du message (évolution : **pré-télécharger / archiver** plus de messages côté serveur — voir ci-dessous) ; envoi SMTP/OAuth ; API `mail-directory-service` + gateway `/mail/*`. |
 | **Fonctionnalités — déjà / en cours** | Multi-comptes ; sync dossiers INBOX / Sent / Drafts / Spam (backend) ; **UI** : rafraîchissement liste sans recharger la page pour le **dossier affiché** (polling + invalidateQueries) ; envoi ; alias par compte ; page Domaines admin ; détection auto IMAP/SMTP. |
@@ -124,7 +124,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Stockage fichiers et dossiers hiérarchiques, partage interne (cible). |
 | **Objectif** | Équivalent usage quotidien type Google Drive / Nextcloud — **y compris client sync bureau** (dossier local Linux/Windows/macOS). |
-| **Plateformes** | Web ; mobile (MOBILES.md) ; **desktop sync** — **[DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md)** (à faire). |
+| **Plateformes** | Web ; mobile (MOBILE-PLATEFORME.md) ; **desktop sync** — **[DRIVE-DESKTOP-SYNC.md](DRIVE-DESKTOP-SYNC.md)** (à faire). |
 | **Fonctionnalités** | Upload, download, arborescence, corbeille ; **aperçu** PDF/médias/texte/Office (modale) ; **vue Récents** ; **à faire** : PDF.js, archives zip, recherche, partage, quotas, chiffrement client optionnel (TR-01), **sync dossier OS type Nextcloud** (`DRIVE-DESKTOP-*`). |
 | **Backend** | `drive-service`, `/drive/*`. |
 | **Statut** | MVP. |
@@ -135,7 +135,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Éditeurs maison intégrés au Drive : document riche, tableur, slides. |
 | **Objectif** | Produire et éditer sans dépendre d’un éditeur tiers (OnlyOffice, etc.). |
-| **Plateformes** | Web ; mobile édition limitée ou viewer (MOBILES.md). |
+| **Plateformes** | Web ; mobile édition limitée ou viewer (MOBILE-PLATEFORME.md). |
 | **Fonctionnalités** | TipTap / Luckysheet / slides ; export PDF, docx, xlsx, pptx ; menus type Office ; corbeille depuis l’éditeur. |
 | **Statut** | En cours. |
 | **Liens** | [editeur-docs.md](editeur-docs.md), STATUS § 1b. |
@@ -146,7 +146,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Coffres et entrées ; chiffrement E2E côté client (ciphertext côté serveur). |
 | **Objectif** | Gestionnaire de secrets de confiance. |
-| **Plateformes** | Web ; extension navigateur ; mobile (MOBILES.md). |
+| **Plateformes** | Web ; extension navigateur ; mobile (MOBILE-PLATEFORME.md). |
 | **Fonctionnalités** | CRUD vaults/items ; **à faire** : auto-fill extension ; **création d’alias mail** depuis Pass (lien APP-01). |
 | **Backend** | `passwords-service`, `/pass/*`. |
 | **Statut** | MVP web. |
@@ -246,7 +246,7 @@ Ces blocs concernent **toute la plateforme** (backend, gateway, données, ops). 
 |--------|---------|
 | **Description** | Client mobile pour ADM-01 (actions courantes : utilisateurs, santé, alertes). |
 | **Objectif** | Réagir depuis mobile sans poste fixe. |
-| **Plateformes** | iOS, Android (Flutter ou natif — voir MOBILES.md). |
+| **Plateformes** | iOS, Android (Flutter ou natif — voir MOBILE-PLATEFORME.md). |
 | **Fonctionnalités** | Login admin ; liste tenants/users ; notifications critiques ; **à préciser** selon besoins ops. |
 | **Statut** | Non démarré. |
 

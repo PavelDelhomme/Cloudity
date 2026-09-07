@@ -2,7 +2,7 @@
 
 **Rôle** : cadrer une défense **multi-couches et progressive** (chaque couche réduit le volume avant la suivante), en **séparant clairement** le trafic **HTTP** (apps Cloudity, API) du trafic **SMTP/IMAP** (messagerie Internet). Évite les pièges « tout ML » ou « tout WAF » qui cassent l’envoi légitime ou les intégrations IMAP.
 
-**Documents liés** : **[../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** (chiffrement mail vs Pass + principes « ne pas bloquer l’envoi légitime ») · **[../securite/SECURITE.md](../securite/SECURITE.md)** (WAF, Zero Trust) · **[../produit/SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § 0e · **[../operations/PERFORMANCES-MONITORING.md](../operations/PERFORMANCES-MONITORING.md)** (surveillance ressources) · **[../../BACKLOG.md](../../BACKLOG.md)** (lignes AS-*) · **[../../STATUS.md](../../STATUS.md)** (priorités Mail / stack MTA).
+**Documents liés** : **[../../produit/MAIL.md](../../produit/MAIL.md)** (chiffrement mail vs Pass + principes « ne pas bloquer l’envoi légitime ») · **[../securite/SECURITE.md](../securite/SECURITE.md)** (WAF, Zero Trust) · **[../produit/SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** § 0e · **[../operations/PERFORMANCES.md](../operations/PERFORMANCES.md)** (surveillance ressources) · **[../../BACKLOG.md](../../BACKLOG.md)** (lignes AS-*) · **[../../STATUS.md](../../STATUS.md)** (priorités Mail / stack MTA).
 
 ---
 
@@ -77,7 +77,7 @@ Côté **réputation sortante** et lutte anti-spoofing : politique DNS correcte 
 
 ### 4.3 Lien avec le chiffrement
 
-Le **chiffrement des secrets IMAP/SMTP** en base (clé `MAIL_PASSWORD_ENCRYPTION_KEY`) est documenté dans **[SECURITE-DONNEES.md](../securite/SECURITE-DONNEES.md)**. Ce n’est **pas** le même problème que le **chiffrement du corps des mails** (S/MIME, OpenPGP) — voir **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**.
+Le **chiffrement des secrets IMAP/SMTP** en base (clé `MAIL_PASSWORD_ENCRYPTION_KEY`) est documenté dans **[SECURITE.md](../securite/SECURITE.md)**. Ce n’est **pas** le même problème que le **chiffrement du corps des mails** (S/MIME, OpenPGP) — voir **[../produit/MAIL.md](../../produit/MAIL.md)**.
 
 ---
 
@@ -110,7 +110,7 @@ Réserver aux volumes **très** élevés ; complexité ops + surface d’attaque
 
 | Phase | Quand | Quoi |
 |-------|--------|------|
-| **AS-0** | **Maintenant (doc)** | Ce fichier + **MAIL-CHIFFREMENT-ET-ANTI-SPAM.md** + liens STATUS/BACKLOG/SYNC — **aucun code obligatoire**. |
+| **AS-0** | **Maintenant (doc)** | Ce fichier + **../produit/MAIL.md** + liens STATUS/BACKLOG/SYNC — **aucun code obligatoire**. |
 | **AS-1** | **Pendant / après Mail Core MVP** | Stack **Postfix + Dovecot + Rspamd** ; dossier Spam UI (**ROADMAP M7**) ; SPF/DKIM/DMARC minimal. |
 | **AS-2** | **Après** gateway stable | Rate limits **granulaires** sur `api-gateway` (Redis, clés documentées) ; alignement avec **SECURITE.md** § WAF edge. |
 | **AS-3** | **Post sprint Pass** (ou parallèle si ressource) | WAF / ModSecurity en **mode détection** ; fail2ban sur **hôte** VPS (pas dans le conteneur app). |
@@ -123,7 +123,7 @@ Réserver aux volumes **très** élevés ; complexité ops + surface d’attaque
 
 ## 7. Cohabitation avec le chiffrement Pass
 
-Le **Pass** (coffre, **E2EE client** selon **PASS-CRYPTO.md**) et la **messagerie** (interop SMTP/IMAP) n’ont **pas** le même modèle de menace. Le filtrage anti-spam sur **contenu** doit respecter la politique de confidentialité : si un jour le corps est E2EE côté client, le **serveur** ne pourra pas en faire de l’ML classique — il restera sur **métadonnées**, **réputation**, et **signaux transport**. Ce point est explicite dans **MAIL-CHIFFREMENT-ET-ANTI-SPAM.md**.
+Le **Pass** (coffre, **E2EE client** selon **PASS-CRYPTO.md**) et la **messagerie** (interop SMTP/IMAP) n’ont **pas** le même modèle de menace. Le filtrage anti-spam sur **contenu** doit respecter la politique de confidentialité : si un jour le corps est E2EE côté client, le **serveur** ne pourra pas en faire de l’ML classique — il restera sur **métadonnées**, **réputation**, et **signaux transport**. Ce point est explicite dans **../produit/MAIL.md**.
 
 ---
 

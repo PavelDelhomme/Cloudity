@@ -1,23 +1,27 @@
 # Operations (`docs/operations/`)
 
-**Chemin unique** → **[DEPLOIEMENT.md](DEPLOIEMENT.md)**  
-Index global → [`../README.md`](../README.md)
+**Déploiement** → **[`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)**  
+Index → [`../README.md`](../README.md)
 
-| Fichier | Rôle |
-|---------|------|
-| **[DEPLOIEMENT.md](DEPLOIEMENT.md)** | Dev · LAN · prod VPS · Pilotage H14 |
-| [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md) | Formulaire Portainer Git |
-| [DEPLOY-MATRIX.md](DEPLOY-MATRIX.md) | **Qui déploie quoi** : web · API · OTA mobile · UI `/4dm1n` |
-| [DISTRIBUTION-CHANNELS.md](DISTRIBUTION-CHANNELS.md) | OTA APK · F-Droid · Play · TestFlight |
+| Fiche | Rôle |
+|-------|------|
+| **[MAIL-MTA.md](MAIL-MTA.md)** | MTA alias : DNS, deploy, tests, preprod |
+| **[DISTRIBUTION.md](DISTRIBUTION.md)** | OTA APK in-app, stores, Linux, releases |
+| [PERFORMANCES.md](PERFORMANCES.md) | Perf + surveillance CLI |
+| [DEPLOY-MATRIX.md](DEPLOY-MATRIX.md) | Qui déploie quoi |
 | [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) | Gateway mobile |
-
-| [DEPLOIEMENT-PAR-SERVICE.md](DEPLOIEMENT-PAR-SERVICE.md) | Un service à la fois |
-| [ENV-GENERATION.md](ENV-GENERATION.md) | `.env` / Portainer env |
-| [PILOTAGE.md](PILOTAGE.md) | Board admin |
+| [ENV-GENERATION.md](ENV-GENERATION.md) | `.env` / Portainer |
+| [PILOTAGE.md](PILOTAGE.md) | Board `/4dm1n/pilotage` |
 | [VERSIONS-PROJET.md](VERSIONS-PROJET.md) | Versions |
-| [TESTS.md](TESTS.md) | Tests |
-| [ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md) | ZoneForge (plus tard) |
+| [TESTS.md](TESTS.md) | Batterie de tests |
+| [PORTS-HOTES.md](PORTS-HOTES.md) | Ports 60XX |
+| [DEVELOPMENT-HOST.md](DEVELOPMENT-HOST.md) | Hôte de dev |
+| [DEV-VERIFICATION.md](DEV-VERIFICATION.md) | Vérifs dev |
+| [BRANCHES.md](BRANCHES.md) | Branches |
+| [ZONEFORGE-CLOUDITY.md](ZONEFORGE-CLOUDITY.md) | ZoneForge |
+| [PLAN.md](PLAN.md) · [TODO.md](TODO.md) | Plans ops historiques |
+| [STATUS-JOURNAL-ARCHIVE.md](STATUS-JOURNAL-ARCHIVE.md) | Archive journal |
 
-Stubs → DEPLOIEMENT : `SUIVRE-ICI`, `GUIDE-COMPLET-…`, `DEPLOY-PORTAINER-NPM-CLOUDITY`, `DEPLOIEMENT-ENVIRONNEMENTS`, `DEPLOIEMENT-SUIVI`.
+Produit Mail : **[`../produit/MAIL.md`](../produit/MAIL.md)**.
 
-*2026-07-29.*
+*2026-09-07.*

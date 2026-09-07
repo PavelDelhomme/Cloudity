@@ -1,6 +1,6 @@
 # Checklist sécurité mobile (H6c)
 
-**Branche** : `feat/security-mobile-audit` · **Référence** : `docs/produit/MOBILES.md` § 4.1, `TODOS.md` H6b/H6c.
+**Branche** : `feat/security-mobile-audit` · **Référence** : `docs/produit/MOBILE-PLATEFORME.md` § 4.1, `TODOS.md` H6b/H6c.
 
 Audit récurrent avant release APK ou feature auth mobile.
 

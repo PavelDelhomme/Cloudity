@@ -1,6 +1,6 @@
 # Cloudity — découpage multi-repos GitHub (plan d’architecture)
 
-> **Gel calendrier (2026-05-13)** : la **scission effective** des dépôts GitHub est **reportée** le temps du **sprint Pass** (migration Proton ~20 mai). Le monorepo actuel reste **canonique** ; ce document reste la **vision** et la **checklist** pour plus tard. Voir **[../produit/SPRINT-PASS-2026-05.md](../produit/SPRINT-PASS-2026-05.md)** et **[../../BACKLOG.md](../../BACKLOG.md)** § *Architecture multi-repos*.
+> **Gel calendrier (2026-05-13)** : la **scission effective** des dépôts GitHub est **reportée** le temps du **sprint Pass** (migration Proton ~20 mai). Le monorepo actuel reste **canonique** ; ce document reste la **vision** et la **checklist** pour plus tard. Voir **[../produit/PASS.md](../produit/PASS.md)** et **[../../BACKLOG.md](../../BACKLOG.md)** § *Architecture multi-repos*.
 
 **Rôle** : décrire **comment** transformer Cloudity (monorepo unique aujourd’hui) en **suite de dépôts GitHub indépendants** réunis sous un **dépôt parent** (« meta-repo »), tout en gardant :
 
@@ -11,7 +11,7 @@
 
 > Ce document est un **plan**. Aucune scission de repo n’a encore eu lieu : il faut d’abord trancher les options en bas du fichier.
 
-Voir aussi : **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)**, **[FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md)**, **[REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)**, **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)**, **[ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md)**.
+Voir aussi : **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)**, **[FRONTENDS.md](FRONTENDS.md)**, **[REVERSE-PROXY.md](../securite/REVERSE-PROXY.md)**, **[MTLS-INTERNE.md](../securite/MTLS-INTERNE.md)**, **[FRONTENDS.md](FRONTENDS.md)**.
 
 ---
 
@@ -179,7 +179,7 @@ Pour qu’un fix UI sur **Mail** ne casse pas **Calendar** mais que les composan
 
 - Tous les composants UI **génériques** (`Button`, `PageLayout`, `Card`, `PaginationControls`, `GlobalSearchPalette` *non Mail-spécifique*, etc.) vivent dans **`@cloudity/shared`** (`packages/cloudity-shared/` aujourd’hui).
 - Les composants **spécifiques** à un domaine (ex. `MailPageChrome`) restent dans **`pages/app/mail/`** ou **`features/mail/`**.
-- Cible (**ARCHITECTURE-FRONTENDS.md**) : passer le shell `cloudity-web` à un layout par feature : `src/features/<domaine>/` au lieu de `src/pages/app/<domaine>/`.
+- Cible (**FRONTENDS.md**) : passer le shell `cloudity-web` à un layout par feature : `src/features/<domaine>/` au lieu de `src/pages/app/<domaine>/`.
 - En **polyrepo** : `@cloudity/shared` doit être **versionné** (semver) ; un changement breaking → bump majeur ; les apps mettent à jour à leur rythme.
 
 ---
@@ -279,7 +279,7 @@ Même chose pour la **résilience** (réplication PG, multi-instances services G
 
 ## 10. Questions à trancher (avant exécution)
 
-> **Questionnaire à choix multiple** (une option par question + court texte libre en fin) : **[MULTI-REPO-QUESTIONNAIRE.md](../decisions/multi-repo/QUESTIONNAIRE.md)**.  
+> **Questionnaire à choix multiple** (une option par question + court texte libre en fin) : **[MULTI-REPO-MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)**.  
 > Renseigne les Q1–Q10 (ou la ligne « Synthèse rapide » du questionnaire), puis on enchaîne avec la **Phase 0** § 4.
 
 Résumé des thèmes couverts : stratégie de scission (A/B/C/D), granularité backend / mobile, registry packages, emplacement `infrastructure/`, CI, Portainer/NPM, backups, extension Pass + desktop Linux (quand + Tauri/Electron), calendrier Phase 0.
@@ -303,4 +303,4 @@ Résumé des thèmes couverts : stratégie de scission (A/B/C/D), granularité b
 
 ---
 
-*Document à mettre à jour quand le **[MULTI-REPO-QUESTIONNAIRE.md](../decisions/multi-repo/QUESTIONNAIRE.md)** est rempli ou quand une phase change.*
+*Document à mettre à jour quand le **[MULTI-REPO-MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)** est rempli ou quand une phase change.*

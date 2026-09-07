@@ -12,7 +12,7 @@
 **Lectures liées** :
 - **[MTLS-INTERNE.md](MTLS-INTERNE.md)** — état interne + **cibles** Zero Trust (TLS/mTLS, Postgres, Redis, PKI `step-ca`)
 - **[CRYPTO-NORME.md](CRYPTO-NORME.md)** — obligations crypto + trajectoire post-quantique pragmatique
-- **[SECURITE.md](SECURITE.md)**, **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)**, **[REVERSE-PROXY.md](REVERSE-PROXY.md)**, **[PASS-CRYPTO.md](PASS-CRYPTO.md)**, **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)**
+- **[SECURITE.md](SECURITE.md)**, **[SECURITE.md](SECURITE.md)**, **[REVERSE-PROXY.md](REVERSE-PROXY.md)**, **[PASS-CRYPTO.md](PASS-CRYPTO.md)**, **[WEBAUTHN-PLAN.md](WEBAUTHN-PLAN.md)**
 
 ---
 

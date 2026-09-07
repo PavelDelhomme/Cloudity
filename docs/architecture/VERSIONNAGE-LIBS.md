@@ -2,7 +2,7 @@
 
 **Rôle** : décrire la convention de versionnage **SemVer** appliquée aux bibliothèques partagées Cloudity (`internalsec`, `pkg/dbpin`, `@cloudity/shared`, `cloudity_shared` Dart) et la logique d'évolution **avant et après publication publique**.
 
-> Décision actée : **REPONSES.md Q4=B** (publication publique sur npm.org / pub.dev / Go publics) et **Q10=A** (Phase 0 immédiate).
+> Décision actée : **MULTI-REPO.md Q4=B** (publication publique sur npm.org / pub.dev / Go publics) et **Q10=A** (Phase 0 immédiate).
 > Plan global : **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 4 (Phase 0).
 
 ---
@@ -36,7 +36,7 @@ Cloudity suit **strictement** [SemVer 2.0.0](https://semver.org/lang/fr/) pour c
 
 ## 3. Statut **avant publication publique** (aujourd'hui)
 
-> **Aucune** lib n'est publiée tant que l'**organisation GitHub finale** n'est pas fixée (cf. **REPONSES.md** texte libre § 1).
+> **Aucune** lib n'est publiée tant que l'**organisation GitHub finale** n'est pas fixée (cf. **MULTI-REPO.md** texte libre § 1).
 
 Conséquences concrètes :
 
@@ -165,9 +165,9 @@ Cibles Make :
 ## 7. Références croisées
 
 - Plan multi-repo et phases : **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)**.
-- Décisions versionnage / publication : **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** § Q4 (publication publique), § Q10 (Phase 0 immédiate).
+- Décisions versionnage / publication : **[../decisions/multi-repo/MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)** § Q4 (publication publique), § Q10 (Phase 0 immédiate).
 - Conventions backend Go + statut `pkg/dbpin` : **[BACKEND-LAYOUT.md](BACKEND-LAYOUT.md)** § 4.
-- Conventions frontend : **[FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md)**.
+- Conventions frontend : **[FRONTENDS.md](FRONTENDS.md)**.
 - Index versions projet + Portainer : **[../operations/VERSIONS-PROJET.md](../operations/VERSIONS-PROJET.md)** · **[../operations/PORTAINER-STACK-GIT-COMPLET.md](../operations/PORTAINER-STACK-GIT-COMPLET.md)**.
 
 ---

@@ -2,7 +2,7 @@
 
 Toutes les modifications notables de la lib TS `@cloudity/pass-crypto` sont consignées ici. Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versionnage : [SemVer](https://semver.org/lang/fr/).
 
-> **Statut** : `private: true` pendant le sprint Pass (échéance ~20 mai 2026). Publication conditionnelle à la stabilisation et à l'org npm cible (cf. **[../../../docs/decisions/multi-repo/REPONSES.md](../../../docs/decisions/multi-repo/REPONSES.md)** Q4=B).
+> **Statut** : `private: true` pendant le sprint Pass (échéance ~20 mai 2026). Publication conditionnelle à la stabilisation et à l'org npm cible (cf. **[../../../docs/decisions/multi-repo/MULTI-REPO.md](../../../docs/decisions/multi-repo/MULTI-REPO.md)** Q4=B).
 >
 > **Spécification** : **[../../../docs/securite/PASS-CRYPTO.md](../../../docs/securite/PASS-CRYPTO.md)** (référence d'implémentation, format `EnvelopeV1`).
 
