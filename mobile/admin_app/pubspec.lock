@@ -48,6 +48,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  cloudity_ota_installer:
+    dependency: transitive
+    description:
+      path: "../cloudity_ota_installer"
+      relative: true
+    source: path
+    version: "0.1.0"
   cloudity_shared:
     dependency: "direct main"
     description:
