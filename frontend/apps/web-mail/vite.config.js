@@ -36,6 +36,7 @@ export default defineConfig({
     proxy: {
       '/auth': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/mail': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/contacts': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/admin/': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/health': { target: 'http://api-gateway:8000', changeOrigin: true },
     },

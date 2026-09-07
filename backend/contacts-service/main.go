@@ -243,7 +243,18 @@ func (h *Handler) createContact(c *gin.Context) {
 		RETURNING id
 	`, tenantID, userID, name, email, phone, string(profileToJSON(profile)), body.VaultEncrypted, body.VaultCiphertext).Scan(&id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		msg := err.Error()
+		if strings.Contains(msg, "contacts_user_id_fkey") {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "session invalide — reconnectez-vous",
+			})
+			return
+		}
+		if strings.Contains(msg, "value too long") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "téléphone trop long (64 car. max)"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "création contact impossible"})
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{"id": id, "name": name, "email": email, "profile": profile})

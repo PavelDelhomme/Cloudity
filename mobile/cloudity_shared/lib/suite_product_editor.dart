@@ -392,8 +392,10 @@ Future<bool> _editContact(
                         : () async {
                             final name = nameCtrl.text.trim();
                             final email = emailCtrl.text.trim();
-                            if (name.isEmpty && email.isEmpty) {
-                              setLocal(() => error = 'Nom ou e-mail requis');
+                            final phone = phoneCtrl.text.trim();
+                            if (name.isEmpty && email.isEmpty && phone.isEmpty) {
+                              setLocal(() =>
+                                  error = 'Nom, e-mail ou téléphone requis');
                               return;
                             }
                             setLocal(() {
@@ -414,22 +416,24 @@ Future<bool> _editContact(
                                   'emails': [
                                     {'label': 'work', 'value': email},
                                   ],
-                                if (phoneCtrl.text.trim().isNotEmpty)
+                                if (phone.isNotEmpty)
                                   'phones': [
                                     {
                                       'label': 'mobile',
-                                      'value': phoneCtrl.text.trim(),
+                                      'value': phone,
                                     },
                                   ],
                               };
                               final id =
                                   existing == null ? null : suiteItemId(existing);
-                              final display = name.isEmpty ? email : name;
+                              final display = name.isNotEmpty
+                                  ? name
+                                  : (email.isNotEmpty ? email : phone);
                               if (id == null) {
                                 await api.createContact(
                                   name: display,
                                   email: email,
-                                  phone: phoneCtrl.text.trim(),
+                                  phone: phone,
                                   profile: profilePayload,
                                 );
                               } else {
@@ -437,7 +441,7 @@ Future<bool> _editContact(
                                   id: id,
                                   name: display,
                                   email: email,
-                                  phone: phoneCtrl.text.trim(),
+                                  phone: phone,
                                   profile: profilePayload,
                                 );
                               }

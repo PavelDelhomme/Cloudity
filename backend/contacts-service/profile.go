@@ -150,6 +150,9 @@ func normalizeContactFields(name, email, phone string, profile ContactProfile) (
 	outProfile = profile
 	outEmail = primaryEmailFromProfile(profile, email)
 	outPhone = primaryPhoneFromProfile(profile, phone)
+	if len(outPhone) > 64 {
+		outPhone = strings.TrimSpace(outPhone[:64])
+	}
 	outName = strings.TrimSpace(name)
 	if outName == "" {
 		outName = composeDisplayName(profile, outEmail)

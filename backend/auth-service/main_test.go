@@ -572,11 +572,13 @@ func TestValidateTokenHandler_NoAuth(t *testing.T) {
 func TestRefreshTokenHandler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := newTestAuthService()
+	mockUsers := svc.userStore.(*mockUserStore)
+	uid, _ := mockUsers.CreateUser("r@test.com", "hash", "1") // typically "1"
 	mockSess := svc.sessionStore.(*mockSessionStore)
 	ctx := context.Background()
 	refreshToken := generateRandomToken()
 	refreshHash := hashRefreshToken(refreshToken)
-	_ = mockSess.SetRefresh(ctx, refreshHash, "1", "1", "r@test.com", time.Hour)
+	_ = mockSess.SetRefresh(ctx, refreshHash, uid, "1", "r@test.com", time.Hour)
 
 	r := gin.New()
 	r.POST("/auth/refresh", svc.RefreshToken)
@@ -615,6 +617,33 @@ func TestRefreshTokenHandler(t *testing.T) {
 		if w3.Code != http.StatusOK {
 			t.Errorf("New refresh token should be valid, got %d body %s", w3.Code, w3.Body.String())
 		}
+	}
+}
+
+func TestRefreshTokenHandler_OrphanUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newTestAuthService()
+	mockSess := svc.sessionStore.(*mockSessionStore)
+	ctx := context.Background()
+	refreshToken := generateRandomToken()
+	refreshHash := hashRefreshToken(refreshToken)
+	// Refresh Redis pour un user_id qui n’existe plus en DB
+	_ = mockSess.SetRefresh(ctx, refreshHash, "119", "1", "paul@delhomme.ovh", time.Hour)
+
+	r := gin.New()
+	r.POST("/auth/refresh", svc.RefreshToken)
+	body := `{"refresh_token":"` + refreshToken + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("orphan refresh: got %d want 401 body %s", w.Code, w.Body.String())
+	}
+	// Session Redis doit être invalidée
+	if _, _, _, err := mockSess.GetRefresh(ctx, refreshHash); err == nil {
+		t.Error("orphan refresh hash should be deleted")
 	}
 }
 
