@@ -4,7 +4,7 @@
 
 **Branche de travail actuelle (galerie optimisée, mobile, sync, sécurité)** : `feat/photos-gallery-mobile-sync-security` (ouverte depuis `dev`). Voir [BRANCHES.md](../operations/BRANCHES.md).
 
-**Documents liés** : [ROADMAP.md](ROADMAP.md) (**APP-09**, **TR-07**), [SYNC-BACKLOG.md](SYNC-BACKLOG.md) § 3, [MOBILES.md](MOBILES.md).
+**Documents liés** : [ROADMAP.md](ROADMAP.md) (**APP-09**, **TR-07**), [SYNC-BACKLOG.md](SYNC-BACKLOG.md) § 3, [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md).
 
 ---
 
@@ -87,13 +87,13 @@ Google Photos s’appuie sur des **jobs système** (iOS BGProcessing, Android Wo
 - **Batching** : upload par petits lots ; marquage local des assets déjà envoyés ; pas de re-téléchargement des miniatures déjà en cache (ETag / `updated_at` côté futur index).
 - **Pas de wake lock** prolongé ; reprise après `FAILED` réseau.
 
-Ces règles seront détaillées dans **MOBILES.md** au fur et à mesure de l’implémentation.
+Ces règles seront détaillées dans **MOBILE-PLATEFORME.md** au fur et à mesure de l’implémentation.
 
 ---
 
 ## 6. Ordre de livraison (priorité produit actuelle)
 
-Règle transversale **Cloudity** : **web d’abord, mobile ensuite** (toutes les apps) — **[MOBILES.md](MOBILES.md)** § **0**.
+Règle transversale **Cloudity** : **web d’abord, mobile ensuite** (toutes les apps) — **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)** § **0**.
 
 1. **API** timeline + filtres image (**fait** : timeline de base).
 2. **Web** galerie + upload + lightbox (**MVP en cours**).

@@ -37,7 +37,7 @@ Les handlers doivent passer par **`h.dbex(ctx)`** (connexion PostgreSQL **éping
 
 ## 4. `backend/pkg/dbpin` — module Go partagé (Phase 0)
 
-Depuis la **Phase 0 multi-repo** (cf. **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 4 et **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** Q10=A), il existe un module Go partagé :
+Depuis la **Phase 0 multi-repo** (cf. **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 4 et **[../decisions/multi-repo/MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)** Q10=A), il existe un module Go partagé :
 
 ```
 backend/pkg/dbpin/

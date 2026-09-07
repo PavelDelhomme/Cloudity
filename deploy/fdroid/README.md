@@ -19,4 +19,4 @@ flutter build apk --release --dart-define=CLOUDITY_GATEWAY_URL=https://api.cloud
 
 Aucune pub Google Play Services requise pour le MVP mail.
 
-Voir aussi [DISTRIBUTION-CHANNELS.md](../../docs/operations/DISTRIBUTION-CHANNELS.md).
+Voir aussi [DISTRIBUTION.md](../../docs/operations/DISTRIBUTION.md).

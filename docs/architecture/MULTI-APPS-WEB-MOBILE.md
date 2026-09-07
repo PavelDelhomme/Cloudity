@@ -1,7 +1,7 @@
 # Multi-apps — Hub web + DA Flutter commune
 
 **Priorité immédiate** (avant Portainer / H14 HTTPS VPS).  
-Index : [`../README.md`](../README.md) · Ops : [`../operations/DEPLOIEMENT.md`](../operations/DEPLOIEMENT.md) · Pilotage : **FE-HUB-01**, **FE-SPLIT-01**, **H19**, **MOBILE-DA-01**.
+Index : [`../README.md`](../README.md) · Ops : [`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md) · Pilotage : **FE-HUB-01**, **FE-SPLIT-01**, **H19**, **MOBILE-DA-01**.
 
 ---
 
@@ -172,7 +172,7 @@ Mesures dépôt (octets sources, hors `node_modules`). Catalogue runtime :
 
 Déploiement interim : **un** conteneur nginx peut encore servir plusieurs builds sous des chemins, ou plusieurs services Compose plus tard.
 
-Réf. historique : [ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md) · [FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md) · [CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md).
+Réf. historique : [FRONTENDS.md](FRONTENDS.md) · [FRONTENDS.md](FRONTENDS.md) · [CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md).
 
 ---
 
@@ -205,7 +205,7 @@ Réf. historique : [ARCHITECTURE-FRONTENDS.md](ARCHITECTURE-FRONTENDS.md) · [FR
 - Refaire login / session / drawer / theme from scratch dans l’app
 - Forker `cloudity_shared` « pour aller plus vite »
 
-Voir aussi : [`../../mobile/README.md`](../../mobile/README.md) · [`../produit/MOBILES.md`](../produit/MOBILES.md).
+Voir aussi : [`../../mobile/README.md`](../../mobile/README.md) · [`../produit/MOBILE-PLATEFORME.md`](../produit/MOBILE-PLATEFORME.md).
 
 ---
 
@@ -236,9 +236,9 @@ Validation : `/4dm1n/pilotage` → Sync docs → cocher **H19** → Focus **MOBI
 
 | Sujet | Doc |
 |-------|-----|
-| Layout pages actuelles | [FRONTEND-LAYOUT.md](FRONTEND-LAYOUT.md) |
+| Layout pages actuelles | [FRONTENDS.md](FRONTENDS.md) |
 | Design system web | [CLOUDITY-UI-DESIGN-SYSTEM.md](CLOUDITY-UI-DESIGN-SYSTEM.md) |
 | Versions packages | [../operations/VERSIONS-PROJET.md](../operations/VERSIONS-PROJET.md) |
-| Chemin ops | [../operations/DEPLOIEMENT.md](../operations/DEPLOIEMENT.md) |
+| Chemin ops | [../../DEPLOIEMENT_PROCEDURE.md](../../DEPLOIEMENT_PROCEDURE.md) |
 
 *2026-07-29 — priorité produit structurelle.*

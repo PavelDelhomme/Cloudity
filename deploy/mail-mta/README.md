@@ -8,9 +8,9 @@ Deux modes :
 | `docker-compose.maddy.yml` | **VPS / Portainer** — ports **25**, **587**, **993** |
 | `docker-compose.yml` | Postfix + OpenDKIM (expérimental) |
 
-DNS : **[docs/operations/MAIL-ALIAS-DNS-MADDY.md](../../docs/operations/MAIL-ALIAS-DNS-MADDY.md)**  
-Déploiement : **[docs/operations/MAIL-ALIAS-MTA-DEPLOY.md](../../docs/operations/MAIL-ALIAS-MTA-DEPLOY.md)**  
-Test local : **[docs/operations/MAIL-MTA-LOCAL-TEST.md](../../docs/operations/MAIL-MTA-LOCAL-TEST.md)**
+DNS : **[docs/operations/MAIL-MTA.md](../../docs/operations/MAIL-MTA.md)**  
+Déploiement : **[docs/operations/MAIL-MTA.md](../../docs/operations/MAIL-MTA.md)**  
+Test local : **[docs/operations/MAIL-MTA.md](../../docs/operations/MAIL-MTA.md)**
 
 **Ne pas committer** de FQDN réels, IP VPS ni clés DKIM. Copier `.env.local.example` ou `.env.example` → `.env` (gitignored).
 
@@ -94,6 +94,6 @@ Ouvrir pare-feu : **25**, **587**. Aligner MX `@` → `mail.<domaine-alias>.` (v
 
 ## Liens
 
-- `docs/produit/MAIL-ALIAS-RECEPTION.md`
-- `docs/produit/MAIL-ALIAS-CHECKLIST.md`
-- `docs/operations/PORTAINER-MAIL-ALIAS.md`
+- `docs/produit/MAIL.md`
+- `docs/produit/MAIL.md`
+- `docs/operations/PORTAINER-MAIL.md`

@@ -15,7 +15,7 @@
 | **D1 — secrets d’authentification** | mots de passe, refresh tokens, secrets API | **Argon2id** (cf. § 3) / secrets forts + rotation + **jamais** en logs |
 | **D2 — secrets de transport** | clés TLS, CA internes, PSK WireGuard | stockage restreint + rotation + procédure break-glass |
 | **D3 — E2EE client-side** | coffre Pass | AEAD + KDF + versioning (cf. `PASS-CRYPTO.md`) |
-| **D4 — données métier serveur** | index mail, métadonnées drive | TLS + chiffrement au repos + ACL DB (cf. `SECURITE-DONNEES.md`) |
+| **D4 — données métier serveur** | index mail, métadonnées drive | TLS + chiffrement au repos + ACL DB (cf. `SECURITE.md`) |
 | **D5 — diagnostics** | logs, traces perf | minimisation + rétention + anonymisation |
 
 ### 1.0.1 Post-quantique : obligatoire, mais sans « ML-DSA géant » par défaut

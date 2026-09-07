@@ -1,8 +1,57 @@
-# Cloudity — Backup distribué offsite (architecture)
+# Backups Cloudity (fiche unique)
+
+## Sommaire
+
+1. [Homelab](#1-homelab)
+2. [Offsite](#2-offsite)
+
+---
+
+# 1. Homelab
+
+## Backup homelab — roadmap (phase tardive)
+
+**Statut** : cadrage — **pas de implémentation** dans le sprint alias mail.  
+**Règle** : aucune IP, hostname VPS réel ou chemin personnel dans Git.
+
+## Objectif
+
+Sauvegardes **chiffrées** et **hors VPS** (ex. Raspberry Pi sur LAN), pilotables depuis l’admin Cloudity plus tard.
+
+## Architecture cible (résumé)
+
+| Composant | Rôle |
+|-----------|------|
+| **Restic** | Snapshots incrémentaux, chiffrement repo (AES-256 / ChaCha20-Poly1305) |
+| **WireGuard** ou **Headscale** | Tunnel VPS ↔ homelab sans exposer le backup sur Internet |
+| **Volumes** | Postgres, mail, drive, photos, pass (selon politique) |
+| **UI** | Panel `/4dm1n/backups` + agent local (cf. décisions existantes) |
+
+## Déjà documenté dans le monorepo
+
+- **[BACKUP.md](BACKUP.md)** — agent backup distribué, panel admin
+- **[HOMELAB-SECURITE.md](HOMELAB-SECURITE.md)** — phases H0/H1, WireGuard, Q15 (prod après backup RPi)
+- **MULTI-REPO.md** § Q10, Q14 — Restic, procédure disques
+
+## Backlog
+
+- **BACKLOG** : aligner un ticket dédié si besoin (`BACKUP-HOMELAB-01`) — sinon réutiliser les entrées backup / homelab existantes.
+- **Post-quantique** : à l’étude (Kyber pour échange de clés VPN) — **ne pas** bloquer le MVP mail.
+
+## Priorité
+
+Après : checklist alias **C1–C7**, PR `dev`, MTA (**AS-1**), déploiement VPS documenté.
+
+
+---
+
+# 2. Offsite
+
+## Cloudity — Backup distribué offsite (architecture)
 
 **Rôle** : décrire le système de **sauvegardes** Cloudity quand le service tournera en production, avec une **machine de backup tierce** (raspberry pi, ordinateur fixe perso, NAS — **pas** sur le VPS de production), pilotable depuis le panel admin **et** depuis un petit panel local sur la machine de backup.
 
-> Décision de référence : **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** § Q8 (réponse libre).  
+> Décision de référence : **[../decisions/multi-repo/MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)** § Q8 (réponse libre).  
 > **Cadre matériel + réseau (homelab)** : **[HOMELAB-SECURITE.md](HOMELAB-SECURITE.md)** — décrit la Raspberry Pi cible, le branchement des 2 disques USB (1 To + 500 Go), le nettoyage préalable, la topologie réseau (3 scénarios A/B/C), le VPN WireGuard, la DMZ, et le monitoring.  
 > Plan multi-repo qui contextualise ce module : **[MULTI-REPO-LAYOUT.md](MULTI-REPO-LAYOUT.md)** § 8.3.  
 > Vision sécurité (chiffrement, mTLS, post-quantique) : **[../securite/SECURITE.md](../securite/SECURITE.md)**.
@@ -123,10 +172,10 @@ Cible : 1 commande sur la raspberry / PC.
 
 ```bash
 curl -sSL https://cloudity.example.com/get-backup.sh | sudo sh
-# - télécharge le binaire cloudity-backup-runner
-# - crée un user système, un service systemd
-# - génère une keypair, demande au VPS un certificat client (mTLS bootstrap one-shot)
-# - propose une URL pour le panel local (http://<host>:7080)
+## - télécharge le binaire cloudity-backup-runner
+## - crée un user système, un service systemd
+## - génère une keypair, demande au VPS un certificat client (mTLS bootstrap one-shot)
+## - propose une URL pour le panel local (http://<host>:7080)
 ```
 
 Le binaire sera publié comme **release GitHub** (cf. Q4=B publication publique) sur le futur dépôt `cloudity-backup-runner`. Image alternative : `docker run` pour Linux conteneurisés.
@@ -147,3 +196,4 @@ Le binaire sera publié comme **release GitHub** (cf. Q4=B publication publique)
 ---
 
 *Document à mettre à jour quand le POC démarre. Pour les choix de TLS / signatures / post-quantique, rester aligné avec **[../securite/SECURITE.md](../securite/SECURITE.md)** § 8.*
+

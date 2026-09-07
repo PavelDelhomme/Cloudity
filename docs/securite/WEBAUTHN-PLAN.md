@@ -2,7 +2,7 @@
 
 **Décision** : Q17=A — activer **WebAuthn (FIDO2 / passkeys)** pour **`/4dm1n` web en priorité**, puis étendre aux utilisateurs après validation.
 
-**Références** : [SECURITE.md](SECURITE.md) § 2–3, [CRYPTO-NORME.md](CRYPTO-NORME.md) § 1.3 (asymétrique), [SECURITE-DONNEES.md](SECURITE-DONNEES.md).
+**Références** : [SECURITE.md](SECURITE.md) § 2–3, [CRYPTO-NORME.md](CRYPTO-NORME.md) § 1.3 (asymétrique), [SECURITE.md](SECURITE.md).
 
 ---
 
@@ -77,7 +77,7 @@
 ## 5. Suivi
 
 - Tâches détaillées : **[BACKLOG.md](../../BACKLOG.md)** § Crypto / perf (WebAuthn).
-- Après livraison W1 : mettre à jour **STATUS.md** § 2.3 et **SECURITE-DONNEES.md**.
+- Après livraison W1 : mettre à jour **STATUS.md** § 2.3 et **SECURITE.md**.
 
 ---
 

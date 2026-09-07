@@ -136,5 +136,5 @@ Voir aussi :
 
 Suivi : [`BACKLOG.md`](../../BACKLOG.md) (entrée
 *Sprint Pass — L2 extension*) et
-[`docs/produit/MULTI-PLATEFORME.md`](../../docs/produit/MULTI-PLATEFORME.md)
+[`docs/produit/MOBILE-PLATEFORME.md`](../../docs/produit/MOBILE-PLATEFORME.md)
 (matrice multiplateforme).

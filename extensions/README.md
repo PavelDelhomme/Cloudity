@@ -10,7 +10,7 @@ son `manifest.json` (MV3) et son build (esbuild ou Vite).
 | `cloudity-pass-firefox/` | 🟡 MP-08 initial | Firefox | Build dérivé Chrome + `manifest.firefox.json` (`make build-pass-extension-firefox`) |
 | `cloudity-pass-safari/` | ❌ non démarré | Safari | Wrapper Xcode (Web Extensions API) — chantier mois suivant |
 
-Voir [`docs/produit/MULTI-PLATEFORME.md`](../docs/produit/MULTI-PLATEFORME.md)
+Voir [`docs/produit/MOBILE-PLATEFORME.md`](../docs/produit/MOBILE-PLATEFORME.md)
 pour la matrice transversale apps × plateformes.
 
 ## Conventions communes

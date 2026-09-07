@@ -202,7 +202,7 @@
 - Mobile/desktop : ajout `make test-mobile-desktop-linux` (`scripts/mobile/test-mobile-desktop-linux.sh`) pour valider `mobile/drive` et `mobile/photos`.
 - Correctif : CMake Linux Drive/Photos conserve `-Werror` mais ajoute `-Wno-error=deprecated-literal-operator` pour le `json.hpp` de `flutter_secure_storage_linux` avec Clang/Arch récents.
 - Checks : `make test-mobile-desktop-linux` ✅ (`flutter test` + `flutter build linux --debug` pour Drive et Photos).
-- Docs : `BACKLOG.md` MP-04 ☑, `docs/operations/TESTS.md`, `docs/produit/MULTI-PLATEFORME.md`, `TODOS.md`, `STATUS.md`.
+- Docs : `BACKLOG.md` MP-04 ☑, `docs/operations/TESTS.md`, `docs/produit/MOBILE-PLATEFORME.md`, `TODOS.md`, `STATUS.md`.
 
 ---
 
@@ -229,7 +229,7 @@
 - Branche : `feat/mail-mta-alias-delivery` depuis `dev` après fusion de `feat/mail-alias-prod` (`dev` poussé à `0a31874a`).
 - MTA : ajout `deploy/mail-mta/alias-router` (Go) ; Maddy livre vers `alias-router:2527` via target SMTP nommé, plus de `deliver_to dummy`.
 - Compose : `docker-compose.local.yml` et `docker-compose.maddy.yml` démarrent `alias-router` + Maddy ; env `RELAY_SMTP_*` ajouté aux exemples Portainer/local.
-- Docs : `deploy/mail-mta/README.md`, `MAIL-MTA-LOCAL-TEST.md`, `PORTAINER-MAIL-ALIAS.md`, `TODOS.md`, `STATUS.md`.
+- Docs : `deploy/mail-mta/README.md`, `MAIL-MTA.md`, `PORTAINER-MAIL.md`, `TODOS.md`, `STATUS.md`.
 - Checks : `GOWORK=off go test ./...` (`alias-router`) ✅ ; compose config local/prod avec exemples ✅ ; `make mail-mta-local-up` ✅ ; `make test-mail-mta-local` ✅ (alias absent : 404 API + 550 SMTP attendu).
 
 ---
@@ -239,7 +239,7 @@
 - Branche : `feat/mail-alias-prod`.
 - Scripts : `sync-mail-mta-env.sh`, `test-mail-mta-local.sh` ; Makefile `sync-mail-mta-env`, `test-mail-mta-local`, `mail-mta-local-up|down|logs`.
 - Admin `/4dm1n/domaines` : bloc enregistrements DNS (MX/SPF/DKIM/DMARC) avec boutons Copier pour domaines rôle alias.
-- Docs : `MAIL-MTA-LOCAL-TEST.md`, `deploy/mail-mta/README.md`, `TODOS.md` #6 🟡.
+- Docs : `MAIL-MTA.md`, `deploy/mail-mta/README.md`, `TODOS.md` #6 🟡.
 - Checks : `make test-mail-mta-local` ✅ health + Maddy:2526 ; `make test-go-one SERVICE=mail-directory-service` ✅.
 
 ---
@@ -346,7 +346,7 @@
 - Branche : `feat/mail-alias-checklist`.
 - Config : `MAIL_ALIAS_DOMAIN` est accepté comme suffixe alias en dev si `MAIL_ALIAS_SUBDOMAIN` est vide ; `MAIL_ALIAS_PORT=2525` documenté pour la stack locale.
 - Outils : ajout `make ensure-mta-internal-token` et intégration dans `make doctor` / `stack-heal`.
-- Docs : `MAIL-ALIAS-MTA.md`, `MAIL-MTA-LOCAL-TEST.md`, `ENV-GENERATION.md`, `DEPLOIEMENT-SUIVI.md`.
+- Docs : `MAIL.md`, `MAIL-MTA.md`, `ENV-GENERATION.md`, `DEPLOIEMENT-SUIVI.md`.
 
 ---
 
@@ -355,7 +355,7 @@
 - Branche : `feat/mail-alias-checklist`.
 - DB/API : migration `41-mail-domain-mta-config.sql` ; `mail_domains` suit rôle domaine, MTA activé, hostname, MX, SPF, DKIM, DMARC.
 - Front admin : `/4dm1n/domaines` permet d’éditer la configuration MTA/DNS attendue sans exposer secrets/IP/clés privées.
-- Docs : ajout `MAIL-ALIAS-MTA.md` et rappel que `MAIL_ALIAS_SUBDOMAIN` + `MTA_INTERNAL_TOKEN` doivent être décommentés localement.
+- Docs : ajout `MAIL.md` et rappel que `MAIL_ALIAS_SUBDOMAIN` + `MTA_INTERNAL_TOKEN` doivent être décommentés localement.
 
 ---
 
@@ -522,14 +522,14 @@
 
 ---
 
-- **Doc** : **[RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** — § 7 (tableau A–**F**) ; § 8 sans liste dupliquée (suivi = **BACKLOG**) ; **[TODOS.md](../TODOS.md)** — § Prod VPS : paragraphe complet restauré + lien RELEASE ; **[LOGS.md](LOGS.md)** — entrées orphelines regroupées sous *Feuille de route Mail + alias*.
+- **Doc** : **[DISTRIBUTION.md](operations/DISTRIBUTION.md)** — § 7 (tableau A–**F**) ; § 8 sans liste dupliquée (suivi = **BACKLOG**) ; **[TODOS.md](../TODOS.md)** — § Prod VPS : paragraphe complet restauré + lien RELEASE ; **[LOGS.md](LOGS.md)** — entrées orphelines regroupées sous *Feuille de route Mail + alias*.
 - **Code** : aucun.
 
 ---
 
 ### 2026-05-16 — RELEASE-AND-DISTRIBUTION : prod partielle, OTA Android, Pass/alias
 
-- **Doc** : nouveau **[RELEASE-AND-DISTRIBUTION.md](operations/RELEASE-AND-DISTRIBUTION.md)** ; **[docs/README.md](README.md)** ; **[STATUS.md](../STATUS.md)** phase **F** ; **[BACKLOG.md](../BACKLOG.md)** — REL-01..03, PASS-ALIAS-UI, PASS-AUTOFILL-ANDROID ; **[TODOS.md](../TODOS.md)** § Prod VPS.
+- **Doc** : nouveau **[DISTRIBUTION.md](operations/DISTRIBUTION.md)** ; **[docs/README.md](README.md)** ; **[STATUS.md](../STATUS.md)** phase **F** ; **[BACKLOG.md](../BACKLOG.md)** — REL-01..03, PASS-ALIAS-UI, PASS-AUTOFILL-ANDROID ; **[TODOS.md](../TODOS.md)** § Prod VPS.
 - **Code** : aucun.
 
 ---
@@ -579,7 +579,7 @@
 ### 2026-05-15 — Q23 prod : `cloudity.<DOMAIN>` shell SPA, DNS+NPM, healthchecks, TODOS/STATUS
 
 - **Doc** : **[DEPLOIEMENT-VPS-PORTAINER-NPM.md](operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)** — § 1 (pattern, healthchecks internes vs URLs publiques), **§ 1 bis** DNS registrar + NPM, **§ 1 ter** chemins `/app/…` vs sous-domaines ; § 2 schéma ; § 3 table ; § 8 + **§ 8 bis** ; CORS / smoke / § 11 ; pied de page.
-- **Décisions** : **[REPONSES.md](decisions/multi-repo/REPONSES.md)** (Q23), **[QUESTIONNAIRE.md](decisions/multi-repo/QUESTIONNAIRE.md)** (Q23 A — lien déploiement).
+- **Décisions** : **[MULTI-REPO.md](decisions/multi-repo/MULTI-REPO.md)** (Q23), **[MULTI-REPO.md](decisions/multi-repo/MULTI-REPO.md)** (Q23 A — lien déploiement).
 - **Script** : **`scripts/ops/smoke-prod.sh`** — défaut `SMOKE_APP_URL` = `https://cloudity.example.org`.
 - **Suivi** : **[TODOS.md](../TODOS.md)** § « Prod VPS », **[STATUS.md](../STATUS.md)** en-tête.
 

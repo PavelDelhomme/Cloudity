@@ -7,7 +7,7 @@
 > **Index doc** → [`docs/README.md`](docs/README.md)  
 > **Priorité code** → **[`docs/architecture/MULTI-APPS-WEB-MOBILE.md`](docs/architecture/MULTI-APPS-WEB-MOBILE.md)**  
 > **Priorité sécu front** → **[`docs/architecture/FRONTEND-SUPPLY-CHAIN.md`](docs/architecture/FRONTEND-SUPPLY-CHAIN.md)** · Pilotage **FE-SEC-SUPPLY-01…07**  
-> **Chemin ops** → [`docs/operations/DEPLOIEMENT.md`](docs/operations/DEPLOIEMENT.md) (§0 d’abord, §B VPS après)  
+> **Chemin ops** → [`DEPLOIEMENT_PROCEDURE.md`](DEPLOIEMENT_PROCEDURE.md) (§0 d’abord, §B VPS après)  
 > Valide dans **`/4dm1n/pilotage`** : **FE-SEC-SUPPLY** (durcir npm) + **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA → **H14**.  
 
 ### Session 2026-08-11 — FE-SEC-SUPPLY-02 done + 03 amorcé
@@ -128,8 +128,8 @@
 | Sujet | État | Détail |
 |-------|------|--------|
 | **docs/README.md** | ☑ | Index unique de toute la doc |
-| **DEPLOIEMENT.md** | ☑ | Remplace SUIVRE-ICI (+ §0 priorité structure) |
-| **MAIL-ALIAS.md** | ☑ | 6 fiches alias fusionnées + stubs |
+| **../../DEPLOIEMENT_PROCEDURE.md** | ☑ | Remplace SUIVRE-ICI (+ §0 priorité structure) |
+| **MAIL.md** | ☑ | 6 fiches alias fusionnées + stubs |
 | **Stubs ops** | ☑ | GUIDE-COMPLET, DEPLOY-PORTAINER-NPM, ENVIRONNEMENTS, SUIVI → DEPLOIEMENT |
 
 ---
@@ -314,7 +314,7 @@
 | **Ports hôte séquentiels** | ☑ | Série 6001–6012 · `make ports-sequential` · `make check-ports` · **docs/operations/PORTS-HOTES.md** |
 | **Validation branche vault/drive** | 🟡 | Checklist manuelle ci-dessous (post `make up-full` OK run `20260622-192608`) |
 | **Mail — login = email boîte** | ☑ | Relier une boîte `@cloudity.local` → aligne `users.email` sur l’IMAP (ex. `paul@delhomme.ovh`) ; `SEED_ADMIN_EMAIL` pour seed direct |
-| **Mail — Gmail OAuth (UI)** | ☑ | « Continuer avec Google » en premier (modal + état vide) — prérequis admin : `GOOGLE_OAUTH_*` dans `.env` · **docs/produit/MAIL-GMAIL-OAUTH.md** |
+| **Mail — Gmail OAuth (UI)** | ☑ | « Continuer avec Google » en premier (modal + état vide) — prérequis admin : `GOOGLE_OAUTH_*` dans `.env` · **docs/produit/MAIL.md** |
 | **Mail — mode conversations** | ☑ | Liste toujours groupée par fil (plus de bascule liste plate) |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
 | **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
@@ -392,7 +392,7 @@
 
 ### Mail — anti-spam / indésirables (M7 · AS-*)
 
-> **Docs** : **[ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** · **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** · **BACKLOG AS-0..AS-5** · **SYNC-BACKLOG § 0e**.
+> **Docs** : **[ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** · **[../produit/MAIL.md](docs/../produit/MAIL.md)** · **BACKLOG AS-0..AS-5** · **SYNC-BACKLOG § 0e**.
 
 | # | Sujet | État | Suite |
 |---|--------|------|-------|
@@ -603,7 +603,7 @@ Décisions / correctifs :
 - **Court terme dev** : champs e-mail/mot de passe préremplis en debug via `SEED_ADMIN_*` (`.env` → `run-mobile.sh`), gateway auto via `adb reverse`, `tenant_id` masqué (défaut `1`). Pas de secret embarqué en release.
 - **Court terme code** : aligner Photos + Drive sur Mail (gateway candidates, health-check auth, tenant optionnel, timeouts).
 - **Vrai partage inter-app** : `flutter_secure_storage` est isolé par package Android ; les noms `cloudity_suite_*` ne partagent pas réellement les jetons. À implémenter ensuite : **Cloudity Auth Broker / Android AccountManager** + iOS Keychain Access Group, avec écran « Continuer avec ce compte / Ajouter un compte / Créer un compte ».
-- Référence : `docs/produit/MOBILES.md` § **4.1 Auth suite mobile**.
+- Référence : `docs/produit/MOBILE-PLATEFORME.md` § **4.1 Auth suite mobile**.
 
 ---
 
@@ -649,9 +649,9 @@ Le **mail local** (docker, tests, admin checklist) peut servir de régression sa
 | **4** | **Admin Domaines + checklist C1–C7** | C1–C6 ☑ ; C6 couvert par Vitest + Playwright Mail (`from_email` alias actif, alias désactivé exclu) ; C7 🟡 (Maddy local accepte RCPT, livraison IMAP réelle/redirection fournisseur non rejouée) | 🟡 |
 | **5** | **J8 Pass / extension** | **MP-06 + MP-07** : autofill + E2E Chromium ; **popup L3** : liste onglet actif, copie, remplir (v0.2.1) ; prochain : icônes PNG, **MP-08** Firefox/Safari | 🟡 |
 | **5b** | **2FA locale compte démo** | Web + mobile ADB automatisés (`test-mobile-2fa`). Optionnel : scan QR manuel authenticator (hors CI) | ☑ |
-| **6** | **DNS + Maddy prod** | **[MAIL-ALIAS-DNS-MADDY.md](./docs/operations/MAIL-ALIAS-DNS-MADDY.md)** · Admin Domaines : bloc DNS copiable · `make test-mail-mta-local` / `make mail-mta-local-up` · MX/SPF/DKIM sur VPS (manuel) | 🟡 |
+| **6** | **DNS + Maddy prod** | **[MAIL-MTA.md](./docs/operations/MAIL-MTA.md)** · Admin Domaines : bloc DNS copiable · `make test-mail-mta-local` / `make mail-mta-local-up` · MX/SPF/DKIM sur VPS (manuel) | 🟡 |
 | **7** | **Registry + Portainer** | GHCR · webhook — **[DEPLOIEMENT-SUIVI.md](./docs/operations/DEPLOIEMENT-SUIVI.md)** § B | ☐ |
-| **8** | **Linux / mobile / stores** | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** | ☐ |
+| **8** | **Linux / mobile / stores** | **[DISTRIBUTION.md](./docs/operations/DISTRIBUTION.md)** | ☐ |
 
 ### Barrière qualité avant reprise mail prod — PAUSE
 
@@ -716,7 +716,7 @@ Il n’y a **pas** de `TODO.md` à la racine : seulement **`TODOS.md`** (avec un
 
 ## Périmètre obligatoire — état réel (web + mobile + extension)
 
-Source détaillée : **[MULTI-PLATEFORME.md](./docs/produit/MULTI-PLATEFORME.md)** · index `docs/` : **[docs/README.md](./docs/README.md)** (58 fiches).
+Source détaillée : **[MOBILE-PLATEFORME.md](./docs/produit/MOBILE-PLATEFORME.md)** · index `docs/` : **[docs/README.md](./docs/README.md)** (58 fiches).
 
 | Produit | Web | Mobile Android | Extension | Prochaine brique code |
 |---------|-----|----------------|-----------|------------------------|
@@ -774,7 +774,7 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** · **
 
 ## Alias mail — cible produit (Pass ↔ Mail)
 
-**Doc maître** : **[MAIL-ALIAS-VISION.md](./docs/produit/MAIL-ALIAS-VISION.md)** · pratique : **[MAIL-ALIAS-DEMARRAGE.md](./docs/produit/MAIL-ALIAS-DEMARRAGE.md)**.
+**Doc maître** : **[MAIL.md](./docs/produit/MAIL.md)** · pratique : **[MAIL.md](./docs/produit/MAIL.md)**.
 
 | Priorité | Tâche | État |
 |----------|--------|------|
@@ -795,11 +795,11 @@ Référence : **[ENV-GENERATION.md](./docs/operations/ENV-GENERATION.md)** · **
 |-------|----------|-------------|
 | **A** | Local monorepo | SUIVI § 2 |
 | **B** | Git → GHCR → Portainer | SUIVI § 3 |
-| **C** | Stacks Cloudity vs Maddy | **[PORTAINER-MAIL-ALIAS.md](./docs/operations/PORTAINER-MAIL-ALIAS.md)** |
+| **C** | Stacks Cloudity vs Maddy | **[PORTAINER-MAIL.md](./docs/operations/PORTAINER-MAIL.md)** |
 | **D** | NPM + DNS + HTTPS (web) | SUIVI § 5 |
-| **E** | Android APK + `version.json` | **[RELEASE-AND-DISTRIBUTION.md](./docs/operations/RELEASE-AND-DISTRIBUTION.md)** |
+| **E** | Android APK + `version.json` | **[DISTRIBUTION.md](./docs/operations/DISTRIBUTION.md)** |
 | **F** | Mise à jour un service | `make deploy-web`, `deploy-mail` |
-| **G** | Linux desktop (.deb, Flatpak, Snap) | **[DISTRIBUTION-LINUX-DESKTOP.md](./docs/operations/DISTRIBUTION-LINUX-DESKTOP.md)** |
+| **G** | Linux desktop (.deb, Flatpak, Snap) | **[DISTRIBUTION.md](./docs/operations/DISTRIBUTION.md)** |
 
 ### Registry Docker → Portainer
 

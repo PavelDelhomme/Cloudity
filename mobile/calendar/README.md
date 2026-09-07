@@ -6,4 +6,4 @@ App Flutter **MVP** : connexion suite, liste agendas/événements (`GET /calenda
 make run-mobile APP=Calendar
 ```
 
-Édition et rappels natifs = prochaines itérations (voir `docs/produit/MOBILES.md`).
+Édition et rappels natifs = prochaines itérations (voir `docs/produit/MOBILE-PLATEFORME.md`).

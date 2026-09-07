@@ -5,7 +5,7 @@
 **UI** : http://localhost:6001/4dm1n/pilotage
 
 > **Par où commencer (ops / deploy)** :  
-> **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** — un seul chemin ops.  
+> **[`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)** — un seul chemin ops.  
 > **Priorité code** : [`MULTI-APPS-WEB-MOBILE.md`](../architecture/MULTI-APPS-WEB-MOBILE.md) · coches **FE-HUB-01** → FE-SPLIT → H19 → MOBILE-DA ; **H14** ensuite.
 
 ---
@@ -14,12 +14,12 @@
 
 | Source | Rôle |
 |--------|------|
-| **[`DEPLOIEMENT.md`](DEPLOIEMENT.md)** | Ordre des actions (dev + prod) — **lire en premier** |
+| **[`../../DEPLOIEMENT_PROCEDURE.md`](../../DEPLOIEMENT_PROCEDURE.md)** | Ordre des actions (dev + prod) — **lire en premier** |
 | **`docs/operations/pilotage-catalog.json`** | Catalogue (~170 tâches) — seed du board |
 | **`TODOS.md` / `BACKLOG.md`** | Statuts lus au **Sync docs** |
 | **Postgres `cloudity_pilotage_board`** | État interactif (checklists, notes, décisions) |
 
-Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand **DEPLOIEMENT.md** le demande.
+Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **approfondissement** quand **../../DEPLOIEMENT_PROCEDURE.md** le demande.
 
 ---
 
@@ -42,7 +42,7 @@ Les Markdown détaillés (`PORTAINER-STACK-GIT-COMPLET`, `VERSIONS-*`, …) = **
 
 **Signaux ops** : `GET /admin/pilotage/ops-signals` — logs Docker via **socket** monté sur admin-service + crashes lus dans `/mobile-crashes` (plus d’appel fragile `/mobile/crashes` depuis le board). Attacher à la tâche ou inbox.
 
-**H14** (après §0 structure) : suis **[DEPLOIEMENT.md](DEPLOIEMENT.md)** · [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · Portainer [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).  
+**H14** (après §0 structure) : suis **[../../DEPLOIEMENT_PROCEDURE.md](../../DEPLOIEMENT_PROCEDURE.md)** · [H14-GATEWAY-MOBILE.md](H14-GATEWAY-MOBILE.md) · Portainer [PORTAINER-STACK-GIT-COMPLET.md](PORTAINER-STACK-GIT-COMPLET.md).  
 **Multi-apps** : [MULTI-APPS-WEB-MOBILE.md](../architecture/MULTI-APPS-WEB-MOBILE.md).
 
 **CLI local** : `make logs` · `make status-watch` · `make portainer-env` (entrée ZoneForge / interim).

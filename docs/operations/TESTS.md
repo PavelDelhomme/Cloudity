@@ -56,7 +56,7 @@ Les scénarios Playwright (**`e2e/*.spec.ts`**) utilisent le **même chemin** qu
 
 **`make test`** (Vitest, Go, pytest) **ne rejoue pas** les fichiers SQL de migration : il valide le **code**. Le schéma est supposé à jour grâce à **`make migrate`**, **`make rebuild`**, ou le **`db-migrate`** déclenché au **`make up`**. Pour vérifier manuellement : après migrate, contrôler les tables / colonnes (ex. Adminer sur le port 6083). **Idée backlog** : outil CLI ou écran **admin** (web + mobile admin) listant version / état des migrations — voir **STATUS.md**, **TODO.md**, **SYNC-BACKLOG §0d**, **PLAN §11**.
 
-**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](../produit/ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILES.md](../produit/MOBILES.md)**.
+**Lien roadmap** : le périmètre fonctionnel des applications et des chantiers transverses (sécurité, infra, gateway) est décrit dans **[ROADMAP.md](../produit/ROADMAP.md)**. Lorsqu’une entrée ROADMAP passe en « livré » ou « MVP », prévoir les tests correspondants ici (Vitest, Go `*_test.go`, pytest, Playwright). **Mobile** : **`make test-mobile-suite`** (Photos → **Drive** → **Mail**) et la **phase 5** de **`make tests`** — détail § **1b** ; cibles **`*-photos|drive|mail`** pour une app seule ; guide **[MOBILE-PLATEFORME.md](../produit/MOBILE-PLATEFORME.md)**.
 
 **Performances** : **`make test`** reste la barrière **fonctionnelle** (régression). Les **mesures de perf** (Web Vitals, charge API, profils Go/Flutter) sont cadrées dans **[PERFORMANCES.md](PERFORMANCES.md)** et **ROADMAP TR-06** ; à terme, budgets ou scénarios de charge pourront compléter cette page sans remplacer les tests unitaires.
 
@@ -467,7 +467,7 @@ Cocher au fil de l’eau. Tout doit rester exécutable via **`make test`** (ou `
 - [ ] **mTLS ou tokens service** : tests ou doc de non-régression pour appels inter-services (gateway → backends).
 - [ ] **Audit log** : tests API (écriture + lecture filtrée) quand le schéma est livré.
 - [ ] **WAF** : tests infra ou checklist manuelle (mode détection → blocage ciblé) — hors `make test` classique si le WAF n’est pas dans le même compose.
-- [ ] **SAST / DAST** : intégration CI (forge) — voir aussi **SECURITE-DONNEES.md**.
+- [ ] **SAST / DAST** : intégration CI (forge) — voir aussi **SECURITE.md**.
 
 ### 4.7 À faire (reprise demain) — ZIP et éditeur (STATUS.md § 1c)
 

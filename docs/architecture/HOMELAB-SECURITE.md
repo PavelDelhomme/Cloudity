@@ -1,10 +1,10 @@
 # Cloudity — Homelab & sécurité résidentielle (cadre)
 
-**Rôle** : décrire le **cadre matériel + réseau + sécurité côté domicile** qui héberge la **machine de backup offsite** Cloudity (cf. **[BACKUP-OFFSITE.md](BACKUP-OFFSITE.md)**), permet l'**accès distant chiffré** (web admin + app mobile admin) au LAN, et, à terme, sert de **routeur de sécurité** filtrant le trafic du foyer (hors flux explicitement écartés type Netflix / PC fixe perso).
+**Rôle** : décrire le **cadre matériel + réseau + sécurité côté domicile** qui héberge la **machine de backup offsite** Cloudity (cf. **[BACKUP.md](BACKUP.md)**), permet l'**accès distant chiffré** (web admin + app mobile admin) au LAN, et, à terme, sert de **routeur de sécurité** filtrant le trafic du foyer (hors flux explicitement écartés type Netflix / PC fixe perso).
 
 > Statut : **plan à mettre en œuvre AVANT la mise en production** Cloudity (déploiement VPS public). **Q15=A acté** : la phase H1 de ce document est **bloquante** pour le passage Cloudity sur VPS public.
 
-> Décisions actées (cf. **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)** Q11–Q15) :
+> Décisions actées (cf. **[../decisions/multi-repo/MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)** Q11–Q15) :
 >
 > | Q | Choix |
 > |---|-------|
@@ -19,7 +19,7 @@
 ## 0. Vision
 
 > Une **Raspberry Pi à la maison** qui sert simultanément :
-> 1. de **runner backup offsite** pour Cloudity (cf. BACKUP-OFFSITE.md) ;
+> 1. de **runner backup offsite** pour Cloudity (cf. BACKUP.md) ;
 > 2. de **routeur / pare-feu / VPN** pour le LAN — filtre tout sauf des exceptions (Netflix, PC fixe perso) ;
 > 3. de **point d'accès distant** (web + mobile admin) pour piloter Cloudity depuis l'extérieur ;
 > 4. de **brique de monitoring** remontée vers le panel admin Cloudity (`/4dm1n`).
@@ -451,4 +451,4 @@ Cocher selon scénario retenu :
 
 ## 10. Suite
 
-> Une fois Q11–Q15 répondues dans **[../decisions/multi-repo/REPONSES.md](../decisions/multi-repo/REPONSES.md)**, ce document devient un plan d'action concret : on écrira les scripts, configs WireGuard / nftables, Dockerfile du runner, et la todo détaillée dans **[../../BACKLOG.md](../../BACKLOG.md)** § « Homelab / Sécurité résidentielle ».
+> Une fois Q11–Q15 répondues dans **[../decisions/multi-repo/MULTI-REPO.md](../decisions/multi-repo/MULTI-REPO.md)**, ce document devient un plan d'action concret : on écrira les scripts, configs WireGuard / nftables, Dockerfile du runner, et la todo détaillée dans **[../../BACKLOG.md](../../BACKLOG.md)** § « Homelab / Sécurité résidentielle ».

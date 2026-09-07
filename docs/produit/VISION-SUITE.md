@@ -20,7 +20,7 @@ Numérotation **P0–P7** : ordre **logique** pour maximiser valeur marché et c
 | Id | Priorité | Contenu |
 |----|----------|---------|
 | **P0** | **Fondation obligatoire** | Auth unifiée, MFA, sessions ; coffre de secrets / audit ; notifications centralisées ; **recherche & indexation** (y compris cross-apps — voir **[BACKLOG.md](../../BACKLOG.md)** recherche) ; jobs / files ; **PERFORMANCES.md** + **TR-06** ; UI design system ; observabilité (logs, erreurs). |
-| **P1** | **Mail complet web + mobile** | Multi-boîtes, IMAP fiable, cache, inbox unifiée / par compte, threads, dossiers + sous-dossiers, labels, archive / spam / corbeille, **recherche** (dont FTS mail côté Cloudity), PJ, règles, sécurité affichage ; mobile au pas du web une fois contrats stables (**[MOBILES.md](MOBILES.md)** § 0). |
+| **P1** | **Mail complet web + mobile** | Multi-boîtes, IMAP fiable, cache, inbox unifiée / par compte, threads, dossiers + sous-dossiers, labels, archive / spam / corbeille, **recherche** (dont FTS mail côté Cloudity), PJ, règles, sécurité affichage ; mobile au pas du web une fois contrats stables (**[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)** § 0). |
 | **P2** | **Alias mail (produit / routage)** | Domaine dédié, création / désactivation / suppression, rattachement boîte cible, usage depuis Mail + Pass ; **pas** une simple feature locale si le produit vise l’anti-relay et la traçabilité — **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** § 2, **ROADMAP APP-04**. |
 | **P3** | **Password Manager** | Coffre, vaults, générateur, **lien alias** — alignement **[ROADMAP.md](ROADMAP.md)** Pass. |
 | **P4** | **Photos mobile + sync** | Produit **autonome** (timeline, albums, métadonnées, pipeline miniatures) ; stockage bas niveau peut mutualiser une couche objet avec Drive, **sans** fusionner l’expérience « dossier Drive » — **[PHOTOS.md](PHOTOS.md)**. |
@@ -54,7 +54,7 @@ Les phases **A–F** sont un **guidage**, pas un contrat date à date. Le dépô
 
 ## 5. Rapport avec « web puis mobile »
 
-La règle **[MOBILES.md](MOBILES.md)** § **0** (*stabiliser les flux et API sur le web avant de figer le mobile*) reste **valable par produit**. Elle ne contredit pas § 2 : on peut prioriser **stratégiquement** Mail (P1) tout en ayant déjà une app Photos Flutter — les chantiers **parallèles** sont explicités dans **STATUS** et **TODO**.
+La règle **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)** § **0** (*stabiliser les flux et API sur le web avant de figer le mobile*) reste **valable par produit**. Elle ne contredit pas § 2 : on peut prioriser **stratégiquement** Mail (P1) tout en ayant déjà une app Photos Flutter — les chantiers **parallèles** sont explicités dans **STATUS** et **TODO**.
 
 ## 6. État du dépôt (avril 2026) — où on en est par rapport à § 2
 
@@ -78,7 +78,7 @@ Ce tableau évite de **réécrire** l’historique : la vision § 2 est la **bou
 | Détail technique sync / mail serveur | **[SYNC-BACKLOG.md](SYNC-BACKLOG.md)** |
 | Dépannage dev Mail / console | **[PLAN.md](../operations/PLAN.md)** |
 | Tests | **[TESTS.md](../operations/TESTS.md)** |
-| Anti-spam / abus / chiffrement mail vs Pass | **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**, **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** |
+| Anti-spam / abus / chiffrement mail vs Pass | **[ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**, **[../produit/MAIL.md](../../produit/MAIL.md)** |
 | Suivi détaillé par app | **[STATUS.md](../../STATUS.md)** |
 
 ---

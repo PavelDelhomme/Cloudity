@@ -6,7 +6,7 @@
 **Vision suite & priorités P0–P7** : [VISION-SUITE.md](VISION-SUITE.md) (complète ce plan sans le remplacer).  
 **3 étapes d’exécution** : [TROIS-ETAPES.md](TROIS-ETAPES.md).  
 **Catalogue produits & chantiers transverses** : [ROADMAP.md](ROADMAP.md) (fiches par application : Mail, Drive, Office, Pass, etc. + sécurité, infra, API ; template pour nouvelles apps).  
-**Mobile (web vs natif, admin mobile)** : [MOBILES.md](MOBILES.md).  
+**Mobile (web vs natif, admin mobile)** : [MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md).  
 **Tests** : [TESTS.md](../operations/TESTS.md).  
 **Index des guides** (ce dossier) : [README.md](../README.md).  
 
@@ -25,7 +25,7 @@
 
 **À faire (priorité)** — le détail à jour est dans **[STATUS.md](../../STATUS.md)** et **[TODO.md](../operations/TODO.md)** ; l’ordre **stratégique** (Mail → Alias → Pass → Photos → Drive → …) est dans **[VISION-SUITE.md](VISION-SUITE.md)**. Ce fichier historique listait encore Office, Contacts, Photos, alias : plusieurs de ces chantiers sont **désormais partiellement ou fortement livrés** — ne pas se fier uniquement au paragraphe ci-dessous sans relire **STATUS**.
 
-**Détail par produit** : voir **[ROADMAP.md](ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](../operations/PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILES.md](MOBILES.md)**.
+**Détail par produit** : voir **[ROADMAP.md](ROADMAP.md)** (APP-01 à APP-10, ADM-01/02, TR-01 à TR-07). **Performances & diagnostic** : **[PERFORMANCES.md](../operations/PERFORMANCES.md)** (stack, leviers, exports Profiler / Chrome). **Mobile** : **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)**.
 
 ---
 
@@ -45,7 +45,7 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 | **Contacts** | Carnet d’adresses web + mobile | App mobile Contacts | Contacts ↔ Mail, Calendar |
 | **Photos** | Galerie, stockage photos (timeline `/drive/photos/timeline`, voir **PHOTOS.md**) | App mobile Photos | Sync, partage, albums, batterie |
 
-**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. **Liste structurée et exhaustive par app** : **[ROADMAP.md](ROADMAP.md)** ; suivi court : **[STATUS.md](../../STATUS.md)** ; tests : **[TESTS.md](../operations/TESTS.md)** ; **[MOBILES.md](MOBILES.md)** pour le déploiement iOS/Android.
+**À faire (référence)** : **Alias email** (API + UI), API alias temp/permanent, extension Pass « Créer alias », **éditeurs documents maison** (TipTap, Luckysheet, intégrés au front), stack Postfix/Dovecot, mail-client-api, E2E mail OpenPGP, apps Flutter/natives, prod TLS/backups. **Liste structurée et exhaustive par app** : **[ROADMAP.md](ROADMAP.md)** ; suivi court : **[STATUS.md](../../STATUS.md)** ; tests : **[TESTS.md](../operations/TESTS.md)** ; **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)** pour le déploiement iOS/Android.
 
 ---
 
@@ -179,7 +179,7 @@ Suite complète auto-hébergée avec applications web + mobiles, interconnection
 
 # Conclusion
 
-**Documents complémentaires** : la granularité fonctionnelle (domaines mail personnalisés, transferts automatiques, alias, chiffrement, monorepo front, etc.) est maintenue dans **[ROADMAP.md](ROADMAP.md)** ; les clients mobiles dans **[MOBILES.md](MOBILES.md)**.
+**Documents complémentaires** : la granularité fonctionnelle (domaines mail personnalisés, transferts automatiques, alias, chiffrement, monorepo front, etc.) est maintenue dans **[ROADMAP.md](ROADMAP.md)** ; les clients mobiles dans **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)**.
 
 Ce document technique fournit une base solide pour le développement de l'écosystème CLOUDITY. L'architecture proposée garantit scalabilité, sécurité et performance tout en maintenant l'indépendance totale vis-à-vis des services cloud externes. La stratégie de développement par phases permet une mise en production progressive avec validation continue des fonctionnalités.
 Les technologies choisies représentent l'état de l'art actuel en matière de développement cloud, avec un focus particulier sur la sécurité (zero-knowledge, HSM, mTLS) et la collaboration temps réel (CRDT, WebSockets). L'approche multitenant avec PostgreSQL RLS assure une isolation stricte des données tout en maintenant l'efficacité opérationnelle.

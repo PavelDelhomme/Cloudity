@@ -1,8 +1,8 @@
 # Sécurité & confiance — vision Cloudity (Google + Proton + Zero Trust)
 
-**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service, mail admin-only Zero Trust).
+**Rôle** : cadrage **produit et architecture** pour viser une suite **type Google** (UX, sync, recherche, galerie) tout en montant en **niveau Proton** (confidentialité, E2EE / zero-access là où c’est choisi). Complète **[SECURITE.md](SECURITE.md)** (chiffrement au repos, durcissement HTTP, TR-01 court terme) et **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01, TR-07). **Performances** : toute optimisation doit rester **compatible** avec ce cadre — voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** §6. **Tests** : **[TESTS.md](../operations/TESTS.md)** (`make test-security` + §4). **Vérifs post-modif** : **[DEV-VERIFICATION.md](../operations/DEV-VERIFICATION.md)**. **Admin / API** : **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** (UI `/4dm1n`, gateway `/admin/*`, admin-service, mail admin-only Zero Trust).
 
-**Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass). **Menaces offensives IA + défense/PQC (planification)** : **[MENACES-IA-ET-DEFENSE.md](MENACES-IA-ET-DEFENSE.md)**. **Messagerie** : **[MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)** (secrets boîte vs corps E2E vs anti-spam) ; **anti-abus multi-couches** : **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** (HTTP vs SMTP, Rspamd, gateway, option ML).
+**Documents d’implémentation associés** : **[REVERSE-PROXY.md](REVERSE-PROXY.md)** (edge TLS 1.3 + HSTS + CSP + PQ hybride), **[MTLS-INTERNE.md](MTLS-INTERNE.md)** (mTLS services internes, step-ca), **[PASS-CRYPTO.md](PASS-CRYPTO.md)** (format hybride PQ du Vault Pass). **Menaces offensives IA + défense/PQC (planification)** : **[MENACES-IA-ET-DEFENSE.md](MENACES-IA-ET-DEFENSE.md)**. **Messagerie** : **[../produit/MAIL.md](../produit/MAIL.md)** (secrets boîte vs corps E2E vs anti-spam) ; **anti-abus multi-couches** : **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)** (HTTP vs SMTP, Rspamd, gateway, option ML).
 
 **Branche de référence** (fin 2025 / 2026) : `feat/photos-gallery-mobile-sync-security` — l’état **réel** du code reste la source de vérité ; ce document fixe les **objectifs** et l’**ordre d’implémentation**.
 
@@ -14,7 +14,7 @@
 |-----|-------------------------|----------------------|-------------------|
 | **Disponibilité** | Sync transparente, multi-appareils, recherche puissante | Moins d’index « magique » sur le contenu en clair | **Hybride** : espaces *standard* (performant) vs *privés* (chiffrement renforcé) |
 | **Confiance** | Tout passe par leur cloud | E2EE, zero-access, clés côté client | **Transparence** : l’utilisateur sait ce que le serveur peut ou ne peut pas voir |
-| **Mobile** | Backup photo, UX fluide | Apps orientées confidentialité | **Même barre UX** (backup, timeline) + règles batterie / Wi‑Fi — **MOBILES.md**, **PHOTOS.md** |
+| **Mobile** | Backup photo, UX fluide | Apps orientées confidentialité | **Même barre UX** (backup, timeline) + règles batterie / Wi‑Fi — **MOBILE-PLATEFORME.md**, **PHOTOS.md** |
 
 **Formulation produit** : *« Tes données sont disponibles partout, rapides à retrouver, faciles à partager — et **illisibles pour l’infrastructure** dans les espaces que tu marques comme privés. »*
 
@@ -25,7 +25,7 @@
 1. **Moteur de sync** — delta, reprise après coupure, files d’attente, conflits, versioning ; observable (progression, ETA). Sans sync fiable, le reste ne tient pas.
 2. **Plateforme fichiers** (Drive) — arborescence, corbeille, partage, quotas, prévisualisation ; aligné **SYNC-BACKLOG**, **ROADMAP** Drive.
 3. **Plateforme Photos** — timeline, albums, métadonnées, mobile en arrière-plan — **PHOTOS.md**.
-4. **Plateforme sécurité / privacy** — auth, clés, audit, détection d’abus, politiques — ce fichier + **SECURITE-DONNEES.md**.
+4. **Plateforme sécurité / privacy** — auth, clés, audit, détection d’abus, politiques — ce fichier + **SECURITE.md**.
 
 **Architecture cible (services logiques)** — même si le dépôt reste modulaire monorepo : identité ; gestion de clés *client-centric* pour espaces privés ; métadonnées ; blobs ; moteur de sync ; partage ; pipeline photo ; index / recherche (avec compromis clair si E2EE) ; audit / sécurité.
 
@@ -38,7 +38,7 @@
 - Sync **fiable** (reprise, idempotence, corbeille, versioning minimal).
 - Partage par **lien** simple + permissions de base.
 - Backup photo mobile **MVP** (déjà amorcé côté Photos).
-- Chiffrement **transport** (TLS) + **au repos** serveur où pertinent — **SECURITE-DONNEES.md**.
+- Chiffrement **transport** (TLS) + **au repos** serveur où pertinent — **SECURITE.md**.
 - Architecture prête à brancher **E2EE** (enveloppes de clés, séparation métadonnées / blobs) sans tout refondre le jour J.
 
 ### Phase 2 — Confiance & produit
@@ -114,7 +114,7 @@ Zero Trust n’est **pas** un produit unique : c’est un **modèle** (IAM, PEP/
 | **Credential stuffing / bruteforce login** | Rate limit **global** sur la gateway + **fenêtre plus stricte** sur `POST /auth/login` et `POST /auth/register` ; en prod compléter par **WAF / reverse proxy** (limite par IP, captcha, géo) — §6. |
 | **Énumération d’emails à l’inscription** | Conflit d’unicité (email déjà pris) : réponse **409** avec message **générique** (`registration could not be completed`) — ne pas renvoyer « email déjà enregistré » qui confirme l’existence du compte. |
 | **Énumération login** (utilisateur inconnu vs mauvais mot de passe) | Déjà : même message **`invalid credentials`** et même code **401** ; **normalisation grossière du temps de réponse** sur `/auth/login` (plancher ~70 ms) pour réduire un canal **timing** (pas une garantie absolue — le réseau domine souvent). |
-| **Fuites via en-têtes** | Gateway : **`X-Content-Type-Options: nosniff`**, **`X-Frame-Options: DENY`**, **`Referrer-Policy`**, **`Permissions-Policy`** sur les réponses API ; le reste (HSTS, CSP strict) reste au **reverse proxy** — **REVERSE-PROXY.md**, **SECURITE-DONNEES.md**. |
+| **Fuites via en-têtes** | Gateway : **`X-Content-Type-Options: nosniff`**, **`X-Frame-Options: DENY`**, **`Referrer-Policy`**, **`Permissions-Policy`** sur les réponses API ; le reste (HSTS, CSP strict) reste au **reverse proxy** — **REVERSE-PROXY.md**, **SECURITE.md**. |
 | **Fuite via cache HTTP / bfcache** (tokens & secrets persistés par un proxy ou par le navigateur) | Gateway : **`Cache-Control: no-store` + `Pragma: no-cache`** posés sur tous les chemins sensibles (`/auth/*`, `/pass/*`, `/admin/*`) — vérifié par `TestSensitivePath_NoStoreCacheControl` (api-gateway). |
 | **Crawl public** (Googlebot indexant `/4dm1n`) | **`/robots.txt`** servi par le bundle web : `Disallow: /4dm1n`, `/admin`, `/auth/`, `/api/`, `/pass/`, `/admin.html` — bonne foi du crawler, **pas un contrôle d’accès**. |
 | **UI admin servie depuis le bundle utilisateur** | `/4dm1n` est servi par un **bundle séparé** (`admin.html`) : la navigation utilisateur → admin (et inverse) **force `window.location.assign`** plutôt qu’un `Link` react-router, pour qu’un attaquant ou un script ne se retrouve jamais avec une URL `/4dm1n` rendue par le shell utilisateur (et inversement). |
@@ -222,7 +222,7 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../ST
 
 | Document | Contenu |
 |----------|---------|
-| **[SECURITE-DONNEES.md](SECURITE-DONNEES.md)** | TLS, cookies, CSP, chiffrement au repos, Pass/Mail long terme |
+| **[SECURITE.md](SECURITE.md)** | TLS, cookies, CSP, chiffrement au repos, Pass/Mail long terme |
 | **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** | Sync, mobile, session, archivage |
 | **[BACKLOG.md](../../BACKLOG.md)** | Cases à cocher priorisées racine |
 | **[TESTS.md](../operations/TESTS.md)** | `make test-security`, dettes tests sécurité |
@@ -232,3 +232,61 @@ Tableau d’algorithmes (« best of the best ») unique : **[STATUS.md](../../ST
 ---
 
 *Document d’alignement équipe / produit. À mettre à jour quand une phase est livrée (STATUS + BACKLOG).*
+
+---
+
+# Sécurité des données
+
+## Sécurité et chiffrement des données — Cloudity
+
+> **Vision longue** (suite Google + confiance Proton, phases, signatures, Zero Trust, WAF, **post-quantique**) : **[SECURITE.md](SECURITE.md)** (§ 8 PQ).
+> **Référence produit** : chantier transversal détaillé dans **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01). Tableau algorithmes (incluant **cible post-quantique**) dans **[STATUS.md](../../STATUS.md)** (§ 2.3). Tests sécurité → **[TESTS.md](../operations/TESTS.md)** (`make test-security`). Index → **[README.md](../README.md)**.
+
+## Déjà en place (rappel — état réel du code)
+
+- **Transport** : HTTPS en production (terminaison **TLS 1.3** cible au reverse-proxy ou load balancer). En **dev local**, possibilité de basculer en HTTPS via **`make dev-https`** (mkcert + Vite — `scripts/dev/dev-https.sh`).
+- **Authentification** : JWT signés en **EdDSA (Ed25519)** côté `auth-service` (`kid="ed25519-1"`) ; **rétrocompat RS256** acceptée par la gateway tant que des refresh tokens RS256 historiques expirent (cf. **[CRYPTO-NORME.md](CRYPTO-NORME.md)** § 5). **Refresh tokens** aléatoires 256 bits stockés **hashés en SHA-256** dans Redis (TTL 30 j, rotation à chaque refresh) ; session côté client en `localStorage` aujourd’hui — à durcir avec **cookies httpOnly + Secure + SameSite=strict**.
+- **Renouvellement JWT (UX liée)** : le front rafraîchit le token au focus ; les **aperçus Drive** (PDF, médias) utilisent une **ref** sur le token dans les effets de chargement pour ne pas **révoquer/recharger** le blob à chaque rotation d’accès si le fichier affiché est inchangé.
+- **Hashing mots de passe utilisateur** : **Argon2id** paramètres explicites **m=64 MiB / t=3 / p=4** (override via `ARGON2_MEMORY_KB` / `ARGON2_TIME` / `ARGON2_PARALLELISM`) ; fallback **bcrypt cost 12** pour rétrocompatibilité ; détection automatique selon préfixe du hash.
+- **Chiffrement applicatif au repos (Mail)** : `password_encrypted` IMAP/SMTP et `oauth_refresh_token_encrypted` Gmail OAuth chiffrés en **AES-256-GCM** (clé 32 octets via `MAIL_PASSWORD_ENCRYPTION_KEY`, nonce 96 bits, format stocké `nonce|ciphertext` base64 — `backend/mail-directory-service/main.go`). **À ne pas confondre** avec le chiffrement **E2EE du corps des mails** (S/MIME, OpenPGP — long terme) ni avec le **coffre Pass** : tableau et principes « envoi toujours possible » dans **[../produit/MAIL.md](../produit/MAIL.md)** ; filtrage spam **multi-couches** (edge, gateway, MTA Rspamd, option ML) dans **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**.
+- **Vault Pass** : la table `pass_items` ne stocke qu’un **`ciphertext`** opaque (chiffrement client à figer en hybride PQ — voir **[PASS-CRYPTO.md](PASS-CRYPTO.md)**).
+- **Sessions admin (gateway)** : **Origin** strict + **JWT EdDSA + rôle admin** sur tout `/admin/*` ; **`POST /admin/performance/pipeline-run`** exige aussi **`X-Cloudity-Perf-Ingest`** (`PERFORMANCE_INGEST_TOKEN` configuré côté gateway **et** admin-service ; sinon **503**) — cf. **[AUDIT-SECURITE.md](AUDIT-SECURITE.md)** § 2-3.
+- **Sanitisation headers de confiance** : la gateway **strippe** systématiquement `X-User-ID`, `X-Tenant-ID`, `X-Admin-Role` avant ré-injection après vérif JWT (`stripInternalTrustHeaders` — empêche un client de pré-positionner ces valeurs).
+- **Mail admin-only en defense in depth** : `mail-directory-service` revérifie **`X-Admin-Role: admin`** sur `/mail/{domains,mailboxes,aliases}*` (rejet 403 même si la requête contourne la gateway) — `requireAdminRoleForMailDirectory`.
+- **CORS** : limité par l’API Gateway (`CORS_ORIGINS`, réseau local en dev), durci en prod (liste explicite, `CORS_ALLOW_LAN=false`).
+- **En-têtes HTTP** :
+  - **Gateway** : `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` minimal, **`Cache-Control: no-store`** sur `/auth/*`, `/pass/*`, `/admin/*`.
+  - **Image nginx web** : `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, **refus explicite `/admin*`** ; **HSTS** et **CSP** : gabarits commentés dans **`frontend/apps/cloudity-web/nginx.conf`** (à activer derrière TLS).
+- **Inter-services (réalité dev)** : HTTP plain sur le réseau Docker `cloudity-network`, Postgres en **`sslmode=disable`**, Redis avec mot de passe sans TLS — **mTLS interne** documenté en cible (**[MTLS-INTERNE.md](MTLS-INTERNE.md)**).
+
+## Pistes d’amélioration (priorisées)
+
+### Court terme
+
+- **Cookies httpOnly + SameSite=strict** pour les tokens (nécessite adaptation gateway et frontend).
+- **CSP** (Content-Security-Policy) sur le HTML, testée progressivement pour ne pas casser les intégrations (ex. mail HTML).
+- **HSTS** au reverse-proxy une fois TLS 1.3 strict en place.
+- **Rotation des secrets** : `make secrets` pour générer (POSTGRES, REDIS, JWT_SECRET, PERFORMANCE_INGEST_TOKEN) ; viser un **secrets manager** (Vault / SOPS) en prod.
+- **mTLS interne** (step-ca / cert-manager) — **prérequis** à toute brique post-quantique inter-services. Plan **[MTLS-INTERNE.md](MTLS-INTERNE.md)**.
+- **Postgres `sslmode=verify-full`** + **Redis `rediss://`** : à enchaîner avec mTLS interne pour fermer le périmètre Zero Trust.
+
+### Moyen terme
+
+- **Chiffrement au repos** pour Postgres / volumes (disques chiffrés, TDE ou colonnes sensibles en `pgcrypto` pour champs critiques).  
+- **Audit** des accès admin et des actions sensibles (export, suppression masse).  
+- **TLS 1.3 hybride post-quantique** (`X25519MLKEM768`) au reverse-proxy quand la chaîne TLS le supporte (Caddy 2.8+, nginx + OpenSSL 3.5+, AWS-LC, BoringSSL).  
+- **JWT** : palier **Ed25519** avant cible **ML-DSA-65** ou JWT hybride.
+
+### Long terme (mail / pass « au top »)
+
+- **Pass** : chiffrement côté client (clé dérivée du mot de passe utilisateur) + coffre chiffré côté serveur (modèle type Bitwarden) — **figer dès le MVP** un format **hybride post-quantique** : contenu en `ChaCha20-Poly1305` + clé encapsulée en **`X25519 ⊕ ML-KEM-768`**, KDF **Argon2id** + **HKDF-SHA-256**.  
+- **Mail** : chiffrement E2E type S/MIME ou **OpenPGP** côté client, cible **PQ/T hybrid OpenPGP** (drafts IETF) — incompatible avec une simple synchronisation IMAP classique sans adaptation.  
+- **Drive / Photos privés** : chunks **AES-256-GCM** ou **XChaCha20-Poly1305** + clé fichier par destinataire en **`X25519 + ML-KEM-768`**.
+
+## Tests
+
+- **Unitaires / intégration** (Vitest) : règles métier, navigation, formulaires.  
+- **E2E** (Playwright) : parcours critiques contre une stack réelle (`BASE_URL=http://localhost:6001`).  
+- **Sécurité** : dépendances (`npm audit`, `govulncheck`), scans SAST/DAST en CI quand le dépôt est branché sur une forge.
+
+Ce document complète **[TODO.md](../operations/TODO.md)** (notes dev) et **[EVOLUTION-PLATEFORME.md](../architecture/EVOLUTION-PLATEFORME.md)** (infra). Les **décisions produit** et le périmètre sécurité par app sont dans **[ROADMAP.md](../produit/ROADMAP.md)** (TR-01). Cible **post-quantique** détaillée dans **[SECURITE.md](SECURITE.md)** § 8 et **[STATUS.md](../../STATUS.md)** § 2.3.

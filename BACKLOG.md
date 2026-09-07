@@ -17,7 +17,7 @@
 
 **Décision 2026-05-13** : **gel de la scission multi-repo GitHub** — le monorepo reste la source de vérité jusqu’à fin du sprint (pas de extraction de dépôts ni de submodules tant que L1 Pass n’est pas vert).
 
-**Fiche détaillée** (état des lieux, L1/L2/L3, jalons jour par jour, critères d’acceptation) : **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)**.
+**Fiche détaillée** (état des lieux, L1/L2/L3, jalons jour par jour, critères d’acceptation) : **[docs/produit/PASS.md](docs/produit/PASS.md)**.
 
 ### L1 — bloquant avant migration
 
@@ -43,7 +43,7 @@
 ### L2 — après le 20 mai (J+1..J+5)
 
 - [ ] **`mobile/pass` Flutter ÉDITION** : création / modif / suppression d’items, générateur, sync optimiste, gestion conflits.
-- [x] **Extension navigateur Pass — squelette MV3 livré (J7 ter, 2026-05-13)** : `extensions/cloudity-pass/` (manifest MV3, popup, background service worker avec auto-lock 5 min via `chrome.alarms`, content script avec badge passif, page options pour gateway URL, build esbuild). `npm run build` ✅, `tsc --noEmit` ✅. **L'autofill réel et l'intégration `@cloudity/pass-crypto` arrivent en MP-06** (cf. `docs/produit/MULTI-PLATEFORME.md`).
+- [x] **Extension navigateur Pass — squelette MV3 livré (J7 ter, 2026-05-13)** : `extensions/cloudity-pass/` (manifest MV3, popup, background service worker avec auto-lock 5 min via `chrome.alarms`, content script avec badge passif, page options pour gateway URL, build esbuild). `npm run build` ✅, `tsc --noEmit` ✅. **L'autofill réel et l'intégration `@cloudity/pass-crypto` arrivent en MP-06** (cf. `docs/produit/MOBILE-PLATEFORME.md`).
 - [x] **MP-06 — Extension navigateur Pass autofill réel (initial)** : `@cloudity/pass-crypto` branché dans le service worker (MK en RAM, auto-lock conservé), appels `/pass/vaults` + `/pass/vaults/:id/items`, déchiffrement `EnvelopeV1`, filtrage strict par domaine (`hostMatchesEntry`), menu content-script sur badge Cloudity et remplissage username/password uniquement après clic utilisateur. `make test-pass-extension` ✅.
 - [x] **Pass L3 (partiel) — Popup extension avancée** : liste des entrées login pour le domaine de l’onglet actif (filtre, copie identifiant/mot de passe, « Remplir l’onglet » via `fill-active-tab` + message content `fill-login`). Permission `tabs`. Reste L3 : icônes PNG, hardening Firefox/Safari (**MP-08**).
 - [x] **MP-07 — Tests Playwright extension** : Chromium headless avec `--load-extension=extensions/cloudity-pass/dist` via `make test-e2e-playwright-pass-extension` ; crée une entrée Pass via l’UI web, charge l’extension MV3, déverrouille le service worker, liste un candidat par domaine et vérifie l’autofill username/password après clic utilisateur. CORS `chrome-extension://` couvert côté gateway.
@@ -61,11 +61,11 @@
 > capture un **snapshot avant** et un **snapshot après**, on lance
 > `make perf-diff`, on colle le tableau dans la description du commit ou
 > de la PR. Pas dans une UI : tout en CLI. Détail :
-> **[docs/operations/PERFORMANCES-MONITORING.md](docs/operations/PERFORMANCES-MONITORING.md)**.
+> **[docs/operations/PERFORMANCES.md](docs/operations/PERFORMANCES.md)**.
 
 - [x] **PERF-CLI-01 — 4 scripts `scripts/dev/perf-*.sh`** : `perf-watch.sh` (TTY temps réel, couleurs vert/jaune/rouge selon budgets), `perf-snapshot.sh` (JSON horodaté dans `reports/perf/`, capture conteneurs + images + volumes + latences `/health` + DB Postgres), `perf-diff.sh` (diff humain ou `--json`, exit 1 si régression > seuil), `perf-budgets.sh` (gate one-shot, exit 0/1, `--json` pour ingestion).
 - [x] **PERF-CLI-02 — 6 cibles Makefile** : `make perf-watch`, `perf-watch-once`, `perf-snapshot LABEL=…`, `perf-diff [BEFORE=… AFTER=…]`, `perf-budgets`, `perf-budgets-json`. Liste dans `make help` et dans le tableau **§ 0 Démarrage** de **STATUS.md**.
-- [x] **PERF-CLI-03 — `docs/operations/PERFORMANCES-MONITORING.md`** : guide complet (10 sections) — outils, rituel checkpoint, template à coller dans la PR, budgets configurables, intégration CI/cron/pré-commit, anti-patterns, cas concrets.
+- [x] **PERF-CLI-03 — `docs/operations/PERFORMANCES.md`** : guide complet (10 sections) — outils, rituel checkpoint, template à coller dans la PR, budgets configurables, intégration CI/cron/pré-commit, anti-patterns, cas concrets.
 - [ ] **PERF-CLI-04 — Pré-commit soft-fail** : ajouter un hook `.git/hooks/pre-commit` (ou `pre-push`) qui appelle `make perf-budgets` en mode warning (n'échoue pas le commit, mais affiche les violations). À cadrer après usage du rituel pendant 2-3 sprints.
 - [ ] **PERF-CLI-05 — Ingestion CI** : dans le job e2e GitHub Actions, lancer `make perf-budgets-json` puis `POST /admin/performance/pipeline-run` (header `X-Cloudity-Perf-Ingest`) — la table `cloudity_performance_pipeline_runs` est déjà prête. Permet d'historiser la perf des PR.
 
@@ -75,14 +75,14 @@
 
 ### Anti-spam, anti-abus et messagerie (phasage AS-*)
 
-> **Cadre** : filtrage **multi-couches** (edge → **api-gateway** → auth → services ; **et** MTA **Rspamd** pour le courrier Internet). **Chiffrement** : secrets boîte (AES-GCM) et **Pass** (E2EE client) **ne remplacent pas** le filtrage SMTP ni le MIME standard — voir **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** et **[docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](docs/securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**. Pistes externes (River, Chantilly, MLflow, Redis Streams) = **optionnel**, **après** Rspamd + UX Spam (M7).
+> **Cadre** : filtrage **multi-couches** (edge → **api-gateway** → auth → services ; **et** MTA **Rspamd** pour le courrier Internet). **Chiffrement** : secrets boîte (AES-GCM) et **Pass** (E2EE client) **ne remplacent pas** le filtrage SMTP ni le MIME standard — voir **[docs/architecture/ANTI-SPAM-ET-ABUS.md](docs/architecture/ANTI-SPAM-ET-ABUS.md)** et **[docs/../produit/MAIL.md](docs/../produit/MAIL.md)**. Pistes externes (River, Chantilly, MLflow, Redis Streams) = **optionnel**, **après** Rspamd + UX Spam (M7).
 
-- [x] **AS-0 — Documentation d’architecture** (2026-05-15) : `ANTI-SPAM-ET-ABUS.md` + `MAIL-CHIFFREMENT-ET-ANTI-SPAM.md` + liens **STATUS** / **SYNC-BACKLOG § 0e** / **SECURITE** / **DEV-VERIFICATION § 5** / **docs/README**.
+- [x] **AS-0 — Documentation d’architecture** (2026-05-15) : `ANTI-SPAM-ET-ABUS.md` + `../produit/MAIL.md` + liens **STATUS** / **SYNC-BACKLOG § 0e** / **SECURITE** / **DEV-VERIFICATION § 5** / **docs/README**.
 - [ ] **MAIL-ALIAS-KEY-01 — `ALIAS_ENCRYPTION_KEY` côté Go** : la variable est dans **`.env.example`**, **`gen-secrets.sh`**, **`docker-compose`** (mail-directory) et **Portainer** (doc VPS) ; le service **ne l’utilise pas encore** pour chiffrer des colonnes alias — brancher quand un schéma sensible le exige (aligner **SECRETS.md** / migrations).
 
 ### Alias mail « vrais » (Pass → Mail, sans panneau OVH)
 
-> **Vision** : **[docs/produit/MAIL-ALIAS-VISION.md](docs/produit/MAIL-ALIAS-VISION.md)** — ex. `hellowork@alias.<domaine-principal>`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
+> **Vision** : **[docs/produit/MAIL.md](docs/produit/MAIL.md)** — ex. `hellowork@alias.<domaine-principal>`, réception triée dans Mail, envoi avec `From` alias, **pas de catch-all**. **MVP livré** : enregistrement + filtre + envoi partiel (**PASS-ALIAS-UI**).
 
 > **Phase 2 en cours** : MTA auto-hébergé (`deploy/mail-mta`, API `/mail/internal/alias-resolve`, filtre `delivered_to` + `raw_headers`). Redirection fournisseur = secours. **MAIL-ALIAS-05** partiellement livré (lookup + stack squelette).
 
@@ -90,9 +90,9 @@
 - [x] **MAIL-ALIAS-02** — À la création : règle filtre `recipient_pattern` = alias (dossier `inbox`, `rule_order` 900) — `ensureAliasInboundRule` au POST alias.
 - [x] **MAIL-ALIAS-03** — `MAIL_ALIAS_SUBDOMAIN` / `MAIL_PRIMARY_DOMAIN` + GET `/mail/me/alias-config` + validation `*@alias.<domaine>` ; UI domaine (Mail/Pass) + saisie local-part.
 - [ ] **ARCH-DHT-01** — **Phase tardive** : réseau décentralisé (DHT, relais chiffré, pairs sans IP exposée) — cadrage **[docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md](docs/decisions/ARCHITECTURE-RESEAU-DECENTRALISE.md)** ; hors MVP.
-- [ ] **MAIL-STOR-01** — Cache mail PostgreSQL + politique rétention + purge IMAP optionnelle (quota fournisseur) — **[docs/produit/MAIL-STOCKAGE-CACHE.md](docs/produit/MAIL-STOCKAGE-CACHE.md)**.
+- [ ] **MAIL-STOR-01** — Cache mail PostgreSQL + politique rétention + purge IMAP optionnelle (quota fournisseur) — **[docs/produit/MAIL.md](docs/produit/MAIL.md)**.
 - [ ] **MAIL-ALIAS-04** — Extension / Pass : bouton « Alias pour ce site » (localpart depuis hostname).
-- [ ] **MAIL-ALIAS-05** — MTA Cloudity : lookup alias livré (`/mail/internal/alias-resolve`) ; reste prod hardening (Maddy conf, injection IMAP directe, **5a** API OVH optionnelle). Guide : **[MAIL-ALIAS-RECEPTION.md](docs/produit/MAIL-ALIAS-RECEPTION.md)** · **[MAIL-MTA-LOCAL-TEST.md](docs/operations/MAIL-MTA-LOCAL-TEST.md)**.
+- [ ] **MAIL-ALIAS-05** — MTA Cloudity : lookup alias livré (`/mail/internal/alias-resolve`) ; reste prod hardening (Maddy conf, injection IMAP directe, **5a** API OVH optionnelle). Guide : **[MAIL.md](docs/produit/MAIL.md)** · **[MAIL-MTA.md](docs/operations/MAIL-MTA.md)**.
 - [ ] **MAIL-ALIAS-06** — Envoi : destinataire voit l’alias en `From` + DKIM/SPF cohérents sur `alias.*`.
 - [ ] **AS-1 — Stack MTA + Rspamd + M7 UI Spam** : **partiel** — triage Cloudity post-sync + apprentissage expéditeur (M6) + Rspamd dans `deploy/mail-mta` local ; reste Postfix/Dovecot prod, SPF/DKIM/DMARC (**MAIL-ALIAS-06**).
 - [ ] **AS-2 — Rate limits gateway granulaires** : Redis (préfixes `ratelimit:`), limites par route (`/auth/login`, `/mail/me/send`, …), alignement **SECURITE.md** / **BACKLOG** (WAF edge complémentaire).
@@ -106,19 +106,19 @@
 > (2191 l), `DocumentEditorPage.tsx` (1388 l). Ces tailles freinent la
 > maintenance et la revue de PR. Découpe **un fichier par PR**, validé
 > par typecheck + Vitest + Playwright + smoke navigateur. Plan complet :
-> **[docs/architecture/FRONTEND-LAYOUT.md § 5](docs/architecture/FRONTEND-LAYOUT.md)**.
+> **[docs/architecture/FRONTENDS.md § 5](docs/architecture/FRONTENDS.md)**.
 
 - [ ] **REFACTOR-FE-01 — `api.ts` (2191 l) → `src/api/<domaine>.ts`** : auth, drive, mail, pass, photos, calendar, notes, tasks, contacts, office, admin, performance, webauthn + `index.ts` qui ré-exporte (compat). Purement mécanique, pas de logique UI touchée. **À faire en premier** (impact transverse, mais risque maîtrisé).
 - [ ] **REFACTOR-FE-02 — `MailPage.tsx` (6576 l)** : extraire `MailListPanel` / `MailReadingPanel` / `MailComposer` / `MailFolderTree` + dossier `pages/app/mail/hooks/`. À faire **après** stabilisation conversation 2FA / Pass (impact UI fort).
 - [ ] **REFACTOR-FE-03 — `DrivePage.tsx` (3228 l)** : `DriveBrowser` / `DriveBreadcrumbs` / `DriveContextMenu` / `DriveUploadOverlay` + hooks dédiés.
 - [ ] **REFACTOR-FE-04 — `DocumentEditorPage.tsx` (1388 l)** : sous-modules `office/word/`, `office/spreadsheet/`, `office/presentation/` (déjà mentionné FRONTEND-LAYOUT § 2).
 
-### Surfaces clientes manquantes (matrice MULTI-PLATEFORME.md)
+### Surfaces clientes manquantes (matrice MOBILE-PLATEFORME.md)
 
-> **Cadre** : décision 2026-05-13 — l'utilisateur a explicitement demandé de **lister et préparer** toutes les surfaces clientes attendues (extension navigateur Pass, app Linux Pass, app mobile Calendar, apps Linux desktop pour Drive/Photos/Mail). Le squelette extension MV3 et le placeholder `mobile/calendar/` sont livrés ce jour. Les autres restent à scaffolder selon l'ordre rentable (cf. **[MULTI-PLATEFORME.md § 3](docs/produit/MULTI-PLATEFORME.md)**).
+> **Cadre** : décision 2026-05-13 — l'utilisateur a explicitement demandé de **lister et préparer** toutes les surfaces clientes attendues (extension navigateur Pass, app Linux Pass, app mobile Calendar, apps Linux desktop pour Drive/Photos/Mail). Le squelette extension MV3 et le placeholder `mobile/calendar/` sont livrés ce jour. Les autres restent à scaffolder selon l'ordre rentable (cf. **[MOBILE-PLATEFORME.md § 3](docs/produit/MOBILE-PLATEFORME.md)**).
 
 - [x] **MP-01 — Extension navigateur Pass MV3** : squelette livré (cf. L2).
-- [x] **MP-02 — `mobile/calendar/` placeholder** : README + `pubspec.yaml` stub livrés. Pas de scaffold `flutter create` tant que le backend `calendar-service` et la page web Calendar ne sont pas amorcés (cf. règle « web avant mobile » MOBILES.md § 0).
+- [x] **MP-02 — `mobile/calendar/` placeholder** : README + `pubspec.yaml` stub livrés. Pas de scaffold `flutter create` tant que le backend `calendar-service` et la page web Calendar ne sont pas amorcés (cf. règle « web avant mobile » MOBILE-PLATEFORME.md § 0).
 - [ ] **MP-03 — Cible `linux/` Flutter pour `mobile/mail`** : aujourd'hui Mail n'a que `android/` + `ios/`. À scaffolder par `flutter create --platforms=linux .` quand le chantier desktop Mail démarre. Drive / Photos / Pass ont déjà leurs cibles `linux/` (mais seul Pass a été testé).
 - [x] **MP-04 — Validation Linux desktop Drive/Photos** : `make test-mobile-desktop-linux` ajouté ; `flutter test` + `flutter build linux --debug` OK pour `mobile/drive` et `mobile/photos`. Correctif ciblé CMake : `-Wno-error=deprecated-literal-operator` pour le `json.hpp` de `flutter_secure_storage_linux` avec Clang/Arch récents.
 - [ ] **MP-05 — Service backend `calendar-service` + page web Calendar** : pré-requis avant de scaffolder l'app mobile (cf. ROADMAP APP-05). Estim. 5-7 j. Embarque migrations DB events/recurrences + endpoints REST + interop iCal/CalDAV.
@@ -128,7 +128,7 @@
 
 ### Release & distribution (prod partielle, OTA mobile, NPM)
 
-> **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-VPS.md](docs/operations/PORTAINER-VPS.md)** · **[RELEASE-AND-DISTRIBUTION.md](docs/operations/RELEASE-AND-DISTRIBUTION.md)**.
+> **Cadre complet** : **[DEPLOIEMENT-ENVIRONNEMENTS.md](docs/operations/DEPLOIEMENT-ENVIRONNEMENTS.md)** (hub) · **[DEPLOIEMENT-PAR-SERVICE.md](docs/operations/DEPLOIEMENT-PAR-SERVICE.md)** · **[PORTAINER-VPS.md](docs/operations/PORTAINER-VPS.md)** · **[DISTRIBUTION.md](docs/operations/DISTRIBUTION.md)**.
 
 - [ ] **DEPLOY-SUIVI-01** — Suivre **[DEPLOIEMENT-SUIVI.md](docs/operations/DEPLOIEMENT-SUIVI.md)** : Phase A local → B PR/CI → C stacks Portainer (dev/preprod/prod).
 - [ ] **DEPLOY-DOC-01** — Templates Compose dans **`deploy/portainer/`** (infra, identity, web, mail, pass) pour Portainer CE.
@@ -161,7 +161,7 @@
 - [ ] **DRIVE-DESKTOP-04** — Fichiers virtuels / on-demand (VFS, CfAPI, File Provider) — après MVP mirror.
 - [ ] **DRIVE-DESKTOP-05** — Packaging (AUR/flatpak, winget, dmg) + auto-update.
 
-> **Anti-pattern à éviter** (documenté MULTI-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
+> **Anti-pattern à éviter** (documenté MOBILE-PLATEFORME.md § 5) : ne **pas** scaffolder `mobile/notes`, `mobile/tasks`, `mobile/contacts` tant qu'il n'y a pas de backend ni de parcours utilisateur réel. Un scaffold flutter-create vide n'est **pas** un livrable.
 
 ### Reportés post-20 mai (5 chantiers infra évalués 2026-05-13)
 
@@ -198,15 +198,15 @@
 
 | # | Sujet | Détail / lien |
 |---|--------|----------------|
-| **0** | **Pass (sprint ~20 mai)** | **Priorité absolue** — **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** + **BACKLOG** § sprint ; **ROADMAP APP-04** |
+| **0** | **Pass (sprint ~20 mai)** | **Priorité absolue** — **[docs/produit/PASS.md](docs/produit/PASS.md)** + **BACKLOG** § sprint ; **ROADMAP APP-04** |
 | 1 | **Photos** | API timeline, galerie web, **mobile/photos**, sync sobre — **docs/produit/PHOTOS.md** |
 | 2 | **Mail** | Dossiers IMAP §0b SYNC-BACKLOG (dont **logs** probes / gateway), recherche §9, PJ, archivage §1 |
 | 3 | **Contacts** | Groupes, import/export ; **lien Mail ↔ fiches** (liaison riche, règles) **après MVP Mail web** — l’ouverture contact depuis un message existe déjà côté UI |
 | 4 | **Recherche** | **Livré (MVP web)** : palette **Ctrl+K**, `?q=` : filtre **client** dans le dossier courant **ou** recherche **API** sur **tout le Drive** si `q` non vide (`GET /drive/nodes/search`) + lien Contacts ; **À faire** : recherche cross-apps (Mail, Pass…) — **TESTS.md** §4.0 |
 | 5 | **Architecture front** | Monorepo multi-apps — **STATUS.md** §0b (**A1** ✅ ; **A4** `@cloudity/ui` **en cours** ; **A2/A3** API) |
 | 5b | **UI-DS-01** — Design system | **UI-1…UI-3** ✅ package + admin + Pass/Settings utilisateur sur `@cloudity/ui` — suite UI-4+ — **[CLOUDITY-UI-DESIGN-SYSTEM.md](docs/architecture/CLOUDITY-UI-DESIGN-SYSTEM.md)** |
-| 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILES.md** |
-| 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE-DONNEES.md** ; pas de doublon avec ROADMAP TR-01 |
+| 6 | **Drive mobile** | MVP **`mobile/drive`** (liste) + tests **`make test-mobile-drive`** ; alignement barre (loupe, notif) — **MOBILE-PLATEFORME.md** |
+| 7 | **Sécurité transverse** | Phases §3 **SECURITE.md** + durcissement **SECURITE.md** ; pas de doublon avec ROADMAP TR-01 |
 | 8 | **Observabilité & performances** | Mesure détaillée (web, gateway, services Go, Flutter) ; budgets / p95 ; pistes d’optimisation **sans** rogner **SECURITE.md** ni l’UX — **docs/operations/PERFORMANCES.md**, **ROADMAP TR-06** |
 
 ### Suite « Google + Proton » (rappel)
@@ -217,14 +217,14 @@ Ordre **must-have** : sync/versioning/corbeille → partage propre → backup ph
 
 ## Architecture multi-repos GitHub (**gelée depuis 2026-05-13**)
 
-**Statut** : la **scission en plusieurs dépôts GitHub** est **mise en pause** le temps du **sprint Pass** (échéance ~20 mai 2026). Le **monorepo actuel** reste canonique ; les travaux Phase 0 (versionnage libs, `check-versioning`, GHCR, NPM) **continuent** dans ce dépôt. Reprise du split **après** critères verts dans **[docs/produit/SPRINT-PASS-2026-05.md](docs/produit/SPRINT-PASS-2026-05.md)** § 5.
+**Statut** : la **scission en plusieurs dépôts GitHub** est **mise en pause** le temps du **sprint Pass** (échéance ~20 mai 2026). Le **monorepo actuel** reste canonique ; les travaux Phase 0 (versionnage libs, `check-versioning`, GHCR, NPM) **continuent** dans ce dépôt. Reprise du split **après** critères verts dans **[docs/produit/PASS.md](docs/produit/PASS.md)** § 5.
 
 Cible historique (inchangée sur le fond) : casser le monorepo en **dépôts GitHub indépendants** (un par service / app / lib partagée) regroupés sous un **meta-repo** `cloudity` qui garde `docker-compose.yml`, `infrastructure/`, docs transverses, E2E.
 
 **Plan détaillé** : **[docs/architecture/MULTI-REPO-LAYOUT.md](docs/architecture/MULTI-REPO-LAYOUT.md)** — couvre : carte des dépôts (~17–25), trois options techniques (submodules / subtrees / manifeste / monorepo + CODEOWNERS), prérequis Phase 0 (extraire **`backend/pkg/dbpin`**, versionner **`internalsec`**, **`@cloudity/shared`**, **`cloudity_shared`** Dart), intégrations cross-app (Mail ↔ Contacts, Pass ↔ Mail aliases, Drive ↔ Mail PJ) **via le gateway** + contrats **OpenAPI**, tests par niveau (unit / contract / E2E), et production **Portainer + nginx-proxy-manager** (mono-stack vs stacks par domaine, NPM TLS / hostnames, backup **Restic** + résilience UI).
 
-**Questionnaire** : **[docs/decisions/multi-repo/QUESTIONNAIRE.md](docs/decisions/multi-repo/QUESTIONNAIRE.md)** — détail des options.  
-**Réponses** : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md)** (Q1=A, Q2=D, Q3=A, Q4=B, Q5=A, Q6=B, Q7=C, Q8=archi custom, Q9=D+T3, Q10=A).
+**Questionnaire** : **[docs/decisions/multi-repo/MULTI-REPO.md](docs/decisions/multi-repo/MULTI-REPO.md)** — détail des options.  
+**Réponses** : **[docs/decisions/multi-repo/MULTI-REPO.md](docs/decisions/multi-repo/MULTI-REPO.md)** (Q1=A, Q2=D, Q3=A, Q4=B, Q5=A, Q6=B, Q7=C, Q8=archi custom, Q9=D+T3, Q10=A).
 
 Décisions actées (résumé exécutable) :
 
@@ -236,8 +236,8 @@ Décisions actées (résumé exécutable) :
 | Q4 | **Publication publique** des libs partagées | `@cloudity/shared` sur npm.org, `cloudity_shared` sur pub.dev, modules Go publics. ⇒ aucun secret, schéma DB, ou logique métier sensible dans ces libs. |
 | Q5 | `infrastructure/` reste dans le meta-repo | Migrations SQL, reverse-proxy, step-ca centralisés. |
 | Q6 | CI principalement meta-repo | Workflow `make test` global qui clone les sous-dépôts ; CI unitaire dans chaque sous-dépôt en complément. |
-| Q7 | **Stacks Portainer par domaine produit** | Mail / Drive / Pass / Photos / Identity / Comm / Web / Infra / Backup en stacks séparées (cf. REPONSES.md § Q7). |
-| Q8 | **Agent backup distribué offsite** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**) | Pas de conteneur backup co-localisé sur le VPS — runner sur machine tierce (raspberry / PC perso). |
+| Q7 | **Stacks Portainer par domaine produit** | Mail / Drive / Pass / Photos / Identity / Comm / Web / Infra / Backup en stacks séparées (cf. MULTI-REPO.md § Q7). |
+| Q8 | **Agent backup distribué offsite** (cf. **[docs/architecture/BACKUP.md](docs/architecture/BACKUP.md)**) | Pas de conteneur backup co-localisé sur le VPS — runner sur machine tierce (raspberry / PC perso). |
 | Q9 | Extension Pass + desktop Linux : **plus tard**, stack à arbitrer | POC Tauri vs Electron quand le chantier deviendra actionnable. |
 | Q10 | **Phase 0 immédiate** | Extraction `backend/pkg/dbpin` + versionnage libs **maintenant**. |
 
@@ -254,18 +254,18 @@ Décisions actées (résumé exécutable) :
 
 - [ ] **Stacks Portainer** : éclater le `docker-compose.yml` actuel en fichiers Compose **par domaine** (`compose/identity.yml`, `compose/mail.yml`, …) avec réseaux Docker partagés ; documenter dans `docs/operations/STACKS-PORTAINER.md`.
 - [x] **Reverse proxy NPM (2026-05-12)** : section **§ 4 bis** ajoutée à **REVERSE-PROXY.md** — table des 3 Proxy Hosts, blocs « Advanced » prêts à coller (`api.` / `app.` / `admin.cloudity.<DOMAIN>`), table des limites NPM (HTTP/3 et PQ Q18/Q19 à activer plus tard via bascule Caddy / nginx natif), tests rapides via **`make smoke-prod`**. Aligné avec Q22=A (réutiliser `<EDGE_NETWORK>`) et Q23=A (`cloudity.<DOMAIN>` + sous-domaines). **Hygiène** : valeurs réelles hors Git (Portainer Stack Variables ou `.env.deploy.local` git-ignored) ; placeholders neutres dans tous les `.md`.
-- [ ] **Backup offsite** : POC tunnel + agent VPS + runner local (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)** § 7) — démarrage **après** stabilisation Mail / Photos / Pass.
+- [ ] **Backup offsite** : POC tunnel + agent VPS + runner local (cf. **[docs/architecture/BACKUP.md](docs/architecture/BACKUP.md)** § 7) — démarrage **après** stabilisation Mail / Photos / Pass.
 - [ ] **Extension Pass + desktop Linux** : POC stack Tauri vs Electron + bootstrap des dépôts dédiés (cf. Q9 = D, **après** stabilisation produit).
 
 ---
 
 ## Homelab / sécurité résidentielle (**bloquant pour la mise en production** — Q15=A)
 
-Cible : **Raspberry Pi à la maison** + 2 disques USB (1 To, 500 Go) ; sert de **runner backup offsite Cloudity** (cf. **[docs/architecture/BACKUP-OFFSITE.md](docs/architecture/BACKUP-OFFSITE.md)**) + **point d'accès distant** (web `/4dm1n` + mobile admin) via VPN.
+Cible : **Raspberry Pi à la maison** + 2 disques USB (1 To, 500 Go) ; sert de **runner backup offsite Cloudity** (cf. **[docs/architecture/BACKUP.md](docs/architecture/BACKUP.md)**) + **point d'accès distant** (web `/4dm1n` + mobile admin) via VPN.
 
 **Cadre détaillé** : **[docs/architecture/HOMELAB-SECURITE.md](docs/architecture/HOMELAB-SECURITE.md)**.
 
-**Décisions actées** (REPONSES.md § Q11–Q15) :
+**Décisions actées** (MULTI-REPO.md § Q11–Q15) :
 
 | Q | Choix | Conséquence |
 |---|-------|-------------|
@@ -309,7 +309,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 | Bloc | Web | Mobile | Notes |
 |------|-----|--------|-------|
 | **Photos** (galerie + sync) | Timeline, albums web + mobile, upload web | `mobile/photos` : **WorkManager** initial (sauvegarde galerie → Drive `Photos`, Wi‑Fi / charge, lots 12) — reprise curseur / SQLite · iOS sync ☐ — **PHOTOS.md** § 4–5 |
-| **Mail** (dont alias) | Très avancé ; alias boîte **MVP** ; alias domaine (**`/4dm1n`** → Domaines) | `mobile/mail` : envoi, PJ, dossiers ; **reste** : brouillon serveur, push — **MOBILES.md** § 5 |
+| **Mail** (dont alias) | Très avancé ; alias boîte **MVP** ; alias domaine (**`/4dm1n`** → Domaines) | `mobile/mail` : envoi, PJ, dossiers ; **reste** : brouillon serveur, push — **MOBILE-PLATEFORME.md** § 5 |
 | **Drive** | Récents, corbeille, recherche `?q=` | `mobile/drive` : navigation dossiers ; vérifier **upload** / téléchargement vs besoin Proton |
 | **Pass** | MVP coffre web + **`mobile/pass` Flutter LECTURE SEULE** (J7 sprint Pass : crypto Dart interop bit-à-bit web, écrans login/unlock/vaults/items/détail, copie auto-clear 30 s, auto-lock 5 min, lock à chaque pause/background) | **Édition mobile = L2** ; **extension navigateur** : chantier **non démarré** (cible **MV3**, dossier type `extensions/cloudity-pass/`) — **ROADMAP APP-04** |
 
@@ -357,7 +357,7 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 - [ ] **Signatures applicatives** : spec canonical request + nonces pour **exports**, **admin critique**, webhooks ; pas sur toute l’API.
 - [ ] **Zero Trust incrémental** : scopes JWT par route ; mTLS ou tokens service inter-microservices documentés.
 - [ ] **WAF** : eval NGINX + ModSecurity + CRS (mode détection) devant gateway ; tuning faux positifs.
-- [ ] **Audit log** utilisateur / admin (actions sensibles) — lié **SECURITE-DONNEES.md** moyen terme.
+- [ ] **Audit log** utilisateur / admin (actions sensibles) — lié **SECURITE.md** moyen terme.
 
 ### Crypto / perf — chantiers à valider (cf. **[docs/securite/CRYPTO-NORME.md](docs/securite/CRYPTO-NORME.md)** § 9)
 
@@ -374,14 +374,14 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 > Cible générique : un VPS Portainer + une instance NPM partagée hébergent déjà plusieurs applications. Cloudity vient s'y greffer en réutilisant le bridge `external: true` (Q22=A → `<EDGE_NETWORK>`) déjà branché à NPM. Les valeurs concrètes (TLD, hostname NPM, owner registry, noms des autres apps) sont **hors Git** : Portainer Stack Variables ou `.env.deploy.local` git-ignored — placeholders dans tous les `.md` (cf. **[fiche déploiement § 0](docs/operations/DEPLOIEMENT-VPS-PORTAINER-NPM.md)**).
 
-- [x] **Q21 / Q22 / Q23 / Q24 actés (2026-05-12)** — Q21=B GHCR, Q22=A réutiliser `<EDGE_NETWORK>`, Q23=A `cloudity.<DOMAIN>` + sous-domaines `api.` / `admin.`, Q24=A GHA matrice livrée. Détails et conséquences concrètes : **[docs/decisions/multi-repo/REPONSES.md](docs/decisions/multi-repo/REPONSES.md) bloc 4**.
+- [x] **Q21 / Q22 / Q23 / Q24 actés (2026-05-12)** — Q21=B GHCR, Q22=A réutiliser `<EDGE_NETWORK>`, Q23=A `cloudity.<DOMAIN>` + sous-domaines `api.` / `admin.`, Q24=A GHA matrice livrée. Détails et conséquences concrètes : **[docs/decisions/multi-repo/MULTI-REPO.md](docs/decisions/multi-repo/MULTI-REPO.md) bloc 4**.
 - [ ] **Dockerfile.prod** par service (12 fichiers : 11 backends + cloudity-web). Multi-stage, image finale minimale (alpine / distroless). Différent des `Dockerfile.dev` actuels.
 - [ ] **`frontend/apps/cloudity-web/nginx.conf`** : config nginx pour servir le bundle SPA (fallback `/index.html` pour le router, headers cache long sur `/assets/*`, cache off sur `/index.html`).
 - [ ] **GitHub Actions** `docker-publish.yml` (cf. fiche § 9) avec matrice 12 services + secrets `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` (selon Q24=A).
 - [ ] **Stacks Portainer** : 8 fichiers Compose (`cloudity-infra`, `cloudity-identity`, `cloudity-mail`, `cloudity-drive`, `cloudity-photos`, `cloudity-pass`, `cloudity-comm`, `cloudity-web`) à versionner dans `infrastructure/portainer/` et tagger ensemble lors d'une release.
 - [ ] **NPM** : 3 Proxy Hosts à créer (`api.cloudity.<DOMAIN>`, `app.cloudity.<DOMAIN>`, `admin.cloudity.<DOMAIN>`) avec Force SSL + HSTS + headers durcis (cf. fiche § 8).
 - [ ] **DNS `<DOMAIN>`** (selon Q23=A) : ajouter CNAME `cloudity`, `api.cloudity`, `admin.cloudity` → IP du VPS (chez ton registrar, hors Git).
-- [x] **Volume `cloudity_auth_keys` persistant (2026-05-12)** : `auth-service` accepte désormais `AUTH_KEYS_DIR` (helper `keyDir()` + `keyPath()`) et écrit/relit les paires `public.pem`/`private.pem` (RSA legacy) + `public_ed25519.pem`/`private_ed25519.pem` (clé courante) dans ce répertoire. `docker-compose.prod.yml` monte le volume nommé `cloudity_auth_keys` à `/var/lib/cloudity/auth-keys` côté `auth-service` (RW) et le même volume en RO côté `api-gateway` avec `JWT_PUBLIC_KEY_PATH` / `JWT_ED25519_PUBLIC_KEY_PATH`. Tests `TestKeyDirOverrideWritesAndReloadsEd25519` / `TestKeyDirOverrideWritesAndReloadsRSA` / `TestKeyPathCreatesDirectory` (suite `auth-service` 2.8 s ✅). À sauvegarder via le runner backup offsite (cf. BACKUP-OFFSITE.md).
+- [x] **Volume `cloudity_auth_keys` persistant (2026-05-12)** : `auth-service` accepte désormais `AUTH_KEYS_DIR` (helper `keyDir()` + `keyPath()`) et écrit/relit les paires `public.pem`/`private.pem` (RSA legacy) + `public_ed25519.pem`/`private_ed25519.pem` (clé courante) dans ce répertoire. `docker-compose.prod.yml` monte le volume nommé `cloudity_auth_keys` à `/var/lib/cloudity/auth-keys` côté `auth-service` (RW) et le même volume en RO côté `api-gateway` avec `JWT_PUBLIC_KEY_PATH` / `JWT_ED25519_PUBLIC_KEY_PATH`. Tests `TestKeyDirOverrideWritesAndReloadsEd25519` / `TestKeyDirOverrideWritesAndReloadsRSA` / `TestKeyPathCreatesDirectory` (suite `auth-service` 2.8 s ✅). À sauvegarder via le runner backup offsite (cf. BACKUP.md).
 - [x] **Smoke test post-deploy (2026-05-12)** : `scripts/ops/smoke-prod.sh` + cible `make smoke-prod`. Vérifie : `GET /health` 200, `GET /auth/validate` 401 sans Bearer, front SPA 200, TLS handshake (proto + cipher), HSTS + `X-Content-Type-Options: nosniff`. Si `SMOKE_USER`/`SMOKE_PASS` fournis : login + `/auth/validate` Bearer + `/mail/me/accounts` + `/drive/nodes/recent` + `/contacts` (200 / 204 / 404 acceptables). Variables : `SMOKE_API_URL`, `SMOKE_APP_URL`, `SMOKE_TIMEOUT`, `SMOKE_VERBOSE`. Aucun secret embarqué.
 - [ ] **Procédure rollback** : pour rollback `v0.5.0 → v0.4.x`, mettre à jour `TAG=` dans Portainer et redéployer la stack ciblée. Documenter dans la fiche § 10.
 
@@ -417,9 +417,9 @@ Objectif : usages **quotidiens** **web + mobile** pour **Mail**, **Drive**, **Ph
 
 ### Mobile
 
-- [x] **Drive** Flutter (`mobile/drive`) : liste fichiers — **`make test-mobile-drive`** / suite — **MOBILES.md**.
+- [x] **Drive** Flutter (`mobile/drive`) : liste fichiers — **`make test-mobile-drive`** / suite — **MOBILE-PLATEFORME.md**.
 - [x] **Photos** Flutter : **`make test-mobile-photos`** / suite.
-- [x] **Mail** Flutter (`mobile/mail`) : multi-boîtes, dossiers, lu, **PJ téléchargeable / partage**, **envoi minimal** (`POST /mail/me/send`), tests `mail_validation` — **`make test-mobile-mail`** ; à poursuivre : brouillon **serveur**, PJ inline, push — **MOBILES.md** §5.
+- [x] **Mail** Flutter (`mobile/mail`) : multi-boîtes, dossiers, lu, **PJ téléchargeable / partage**, **envoi minimal** (`POST /mail/me/send`), tests `mail_validation` — **`make test-mobile-mail`** ; à poursuivre : brouillon **serveur**, PJ inline, push — **MOBILE-PLATEFORME.md** §5.
 - [ ] Aligner barre d’app (loupe, notifications) avec le web — rappel dans **GlobalSearchPalette** (texte d’aide UI).
 
 ### Backend / infra

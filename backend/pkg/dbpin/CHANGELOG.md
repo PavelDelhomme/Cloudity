@@ -2,7 +2,7 @@
 
 Toutes les modifications notables du module Go `github.com/pavel/cloudity/pkg/dbpin` sont consignées ici. Format : [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), versionnage : [SemVer](https://semver.org/lang/fr/).
 
-> Convention : tant que la lib n'est pas publiée sur l'org GitHub définitive (cf. **REPONSES.md** Q4=B), aucun tag Git `pkg/dbpin/v*` n'est poussé. Les versions sont déclarées ici et appliquées en tags **dès que l'org cible est fixée**.
+> Convention : tant que la lib n'est pas publiée sur l'org GitHub définitive (cf. **MULTI-REPO.md** Q4=B), aucun tag Git `pkg/dbpin/v*` n'est poussé. Les versions sont déclarées ici et appliquées en tags **dès que l'org cible est fixée**.
 
 ## [0.1.0] — 2026-05-12
 

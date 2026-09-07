@@ -173,7 +173,7 @@ make ensure-alias-encryption-key
 | Sync IMAP « secret illisible » | Clé mail tournée | `make ensure-mail-encryption-key` puis MDP boîte dans Mail |
 | `make secrets` refuse | `.env` existe | `make ensure-*` ou `--force` en connaissance de cause |
 | Perf ingest 503 | `PERFORMANCE_INGEST_TOKEN` vide | Renseigner + redémarrer gateway + admin |
-| Pass OK mais alias ne reçoivent rien | Pas de MX / pas d’alias chez hébergeur | **[MAIL-ALIAS-DEMARRAGE.md](../produit/MAIL-ALIAS-DEMARRAGE.md)** |
+| Pass OK mais alias ne reçoivent rien | Pas de MX / pas d’alias chez hébergeur | **[MAIL.md](../produit/MAIL.md)** |
 
 ---
 

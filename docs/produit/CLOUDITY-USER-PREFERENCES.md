@@ -40,7 +40,7 @@ Table PostgreSQL : `user_preferences` (migration `47-user-preferences.sql`).
 - **`pass.clipboardEnabled`** : autorise la copie presse-papier (identifiants, TOTP).
 - **`pass.clipboardClearMs`** : délai avant effacement auto (0 = jamais).
 - **`pass.totpAutoCopy`** : copie automatique du TOTP à chaque rotation (sous-option clipboard).
-- **`pass.digitalAssetLinksEnabled`** : préférence Android DAL (cf. [PASS-DIGITAL-ASSET-LINKS.md](PASS-DIGITAL-ASSET-LINKS.md)).
+- **`pass.digitalAssetLinksEnabled`** : préférence Android DAL (cf. [PASS.md](PASS.md)).
 - **`pass.autoLockMs`** : verrouillage auto du coffre Pass (0 = jamais).
 
 Le `PUT` **fusionne** récursivement les objets (patch partiel accepté).

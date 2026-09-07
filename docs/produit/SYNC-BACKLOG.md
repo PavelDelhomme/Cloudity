@@ -2,7 +2,7 @@
 
 **Priorités globales et tableau condensé** : voir d’abord **[../BACKLOG.md](../../BACKLOG.md)** à la racine du dépôt. **Confiance / E2EE / sync / Zero Trust (cadre)** : **[SECURITE.md](../securite/SECURITE.md)**.
 
-Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). **Ordre suite & priorités** (sans remplacer ce fichier) : **[VISION-SUITE.md](VISION-SUITE.md)**. Mobile : **[MOBILES.md](MOBILES.md)**. Tests : **[TESTS.md](../operations/TESTS.md)**.
+Document de **travail** : tout ce que nous voulons faire sur la sync (web + mobile), les apps Flutter à scaffold, la session longue durée, et l’**archivage mail côté serveur**. Détail produit : **[ROADMAP.md](ROADMAP.md)** (**APP-01** … **APP-10**, **TR-07**). **Ordre suite & priorités** (sans remplacer ce fichier) : **[VISION-SUITE.md](VISION-SUITE.md)**. Mobile : **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)**. Tests : **[TESTS.md](../operations/TESTS.md)**.
 
 **Branches Git** : intégration **`dev`**, chantiers **`feat/<sujet>`** (ex. `feat/photos-gallery-mobile-sync-security`), stable **`main`** — tableau domaine → branche : **[BRANCHES.md](../operations/BRANCHES.md)**.
 
@@ -25,7 +25,7 @@ La **boussole** long terme (Mail → Alias → Pass → Photos → Drive → …
 | **Mail** | **Mobile** (`mobile/mail`) : multi-boîtes, dossiers, liste/détail, **PJ** (tap → fichier + **partage OS**), **envoi** minimal (`POST /mail/me/send`), **lu**, tests validation. **Brouillon IMAP sync** = backlog. Web : §0b, §8–10, §9 ; suite : **PJ** (liste/tailles/téléchargement fiable multi-boîtes), archivage §1, sous-dossiers IMAP **CREATE**. |
 | **Pass** | MVP coffre + génération + alias (§2, **APP-04**) + tests API / web. |
 | **Contacts** | §10, import / export, groupes ; **lien Mail ↔ fiches** (liaison produit complète) **après MVP Mail web** — accès contact depuis un message déjà partiel côté dashboard. |
-| **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILES.md** § 5. |
+| **Tests & mobile** | `make test` inclut **contacts-service** (`go test`). Vitest dashboard ; **`make tests`** phase 5 = **`test-mobile-suite`** (Flutter **Photos + Drive + Mail**). ADB + SDK inscriptible pour `integration_test` device — sinon **OK** après tests hôte (**TESTS.md** § 1b). **`CLOUDITY_SKIP_MOBILE_DRIVE`** / **`CLOUDITY_SKIP_MOBILE_MAIL`**. **`make run-mobile APP=Photos|Drive|Mail`**. Voir **MOBILE-PLATEFORME.md** § 5. |
 | **Perf / observabilité** | **Base livrée** : `/admin/performance/overview` + dashboard admin (snapshot CPU/Mémoire/IO). Suite : métriques historiques multi-services + tests/E2E/mobile tracés et comparables ; voir **[PERFORMANCES.md](../operations/PERFORMANCES.md)** et **TR-06**. |
 
 ## Extensions apps — impacts sync/mobile a anticiper
@@ -64,7 +64,7 @@ Rappel priorite: ce bloc vient **apres** Drive/Mail/Photos/Pass puis Calendar/No
 
 **Principe** : filtrage **progressif** — chaque couche réduit le bruit avant la suivante. Détails, schémas séparés **chemin API** vs **chemin messagerie**, phasage **AS-0..AS-5**, options ML (River, Redis Streams, MLflow), et **corrections** par rapport aux brouillons externes (ex. *Prometheus/Grafana* **non** présents dans le `docker-compose` actuel — métriques fines = backlog **TR-06**) : **[../architecture/ANTI-SPAM-ET-ABUS.md](../architecture/ANTI-SPAM-ET-ABUS.md)**.
 
-**Chiffrement mail vs Pass vs envoi fiable** (éviter « tout chiffré donc plus d’envoi ») : **[../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md](../securite/MAIL-CHIFFREMENT-ET-ANTI-SPAM.md)**.
+**Chiffrement mail vs Pass vs envoi fiable** (éviter « tout chiffré donc plus d’envoi ») : **[../../produit/MAIL.md](../../produit/MAIL.md)**.
 
 **Priorité produit** : **Rspamd + dossier Spam (M7)** et stack **Postfix/Dovecot** avant un microservice **`antispam-service`** ML — cf. **ROADMAP** Mail, **STATUS** § Mail Core.
 
@@ -160,7 +160,7 @@ Voir **APP-01** dans ROADMAP (« Stockage serveur étendu »).
 
 ## 2. Pass ↔ alias mail
 
-**Vision cible (parcours HelloWork, `@alias.<domaine-principal>`, sans panneau OVH)** : **[MAIL-ALIAS-VISION.md](MAIL-ALIAS-VISION.md)** — à lire avant tout chantier alias.
+**Vision cible (parcours HelloWork, `@alias.<domaine-principal>`, sans panneau OVH)** : **[MAIL.md](MAIL.md)** — à lire avant tout chantier alias.
 
 | Niveau | Résumé |
 |--------|--------|
@@ -212,7 +212,7 @@ Stratégie unifiée : **TR-07** dans ROADMAP.
 | **Backend / API** | Modèle de données dédié (ex. `photos_vault_items`, flag `storage_tier=vault`, ou dossier Drive réservé **chiffré** côté client — selon choix E2EE). **`GET /photos/timeline`** : exclure par défaut les IDs du coffre ; endpoint ou scope **`/photos/vault/...`** après authentification renforcée. **Sync mobile** : même exclusion dans les jobs de vignettes / WorkManager tant que le coffre n’est pas déverrouillé. |
 | **Sécurité** | Chiffrement au repos, politique de **verrouillage** (timeout), pas de miniatures sensibles en cache disque non chiffré sans consentement — alignement **TR-01** / **SECURITE.md**. |
 
-**Documents liés** : **[PHOTOS.md](PHOTOS.md)**, **[MOBILES.md](MOBILES.md)**, **[SECURITE.md](../securite/SECURITE.md)** ; à référencer dans **ROADMAP** (ex. entrée **APP-Photos** ou extension **APP-01**) lorsque la conception sera priorisée.
+**Documents liés** : **[PHOTOS.md](PHOTOS.md)**, **[MOBILE-PLATEFORME.md](MOBILE-PLATEFORME.md)**, **[SECURITE.md](../securite/SECURITE.md)** ; à référencer dans **ROADMAP** (ex. entrée **APP-Photos** ou extension **APP-01**) lorsque la conception sera priorisée.
 
 ---
 
@@ -273,7 +273,7 @@ Implémentation : **`scripts/run-mobile.sh`**.
 
 ## 7. Migration monorepo / multi-apps front
 
-Toujours d’actualité : **[STATUS.md](../../STATUS.md)** § **0b**, **[ARCHITECTURE-FRONTENDS.md](../architecture/ARCHITECTURE-FRONTENDS.md)**.
+Toujours d’actualité : **[STATUS.md](../../STATUS.md)** § **0b**, **[FRONTENDS.md](../architecture/FRONTENDS.md)**.
 
 ---
 
@@ -288,7 +288,7 @@ Toujours d’actualité : **[STATUS.md](../../STATUS.md)** § **0b**, **[ARCHITE
 | **Règles / tri automatique** | À faire | Job + table de règles ; exécution après sync IMAP. |
 | **Envoi planifié** | À faire | Table `scheduled_outbound_mail` + worker (cron/goroutine) + rester en brouillon jusqu’à l’heure. |
 | **Notifications push Web** | À faire | Service Worker + Web Push (VAPID) + abonnements en base ; voir `docs/operations/TODO.md`. |
-| **App mobile Mail** | Scaffold | `make run-mobile APP=Mail` après `flutter create` ; voir `docs/produit/MOBILES.md`. |
+| **App mobile Mail** | Scaffold | `make run-mobile APP=Mail` après `flutter create` ; voir `docs/produit/MOBILE-PLATEFORME.md`. |
 | **Pièces jointes (réception)** | Partiel (MVP) | Migration `21-mail-attachments-threads.sql` : `mail_message_attachments`, extraction au premier chargement du corps (RFC822), stockage **≤ 512 Ko** par PJ en base, sinon relecture IMAP au téléchargement. `GET …/messages/:msgId/attachments/:attId`. |
 | **Conversations / fils** | Partiel | `thread_key` depuis `References` / `In-Reply-To` / `Message-ID` ; filtre liste `thread_key=` ; sync renseigne `internet_msg_id` / `in_reply_to`. **À faire** : vue thread unifiée type Gmail, résolution chaîne complète de parents, dédup cross-dossiers. |
 | **Prévisualisation PJ** | À faire | Images/PDF inline dans l’UI ; bac à sable MIME ; **antivirus** avant stockage ou à la volée ; quotas par tenant. |

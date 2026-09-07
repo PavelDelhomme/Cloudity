@@ -8,7 +8,7 @@
 |---------|----------------|
 | **[TODO.md](TODO.md)** | Priorités dev, rappels techniques, lien vers ce PLAN ; § **Ordre de livraison** (web puis mobile) |
 | **[VISION-SUITE.md](../produit/VISION-SUITE.md)** | Ordre produit **long terme** (Mail → Alias → Pass → …) + **état réel** du dépôt ; complète TODO/BACKLOG sans les remplacer |
-| **[MOBILES.md](../produit/MOBILES.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
+| **[MOBILE-PLATEFORME.md](../produit/MOBILE-PLATEFORME.md)** | § **0** : règle **web avant mobile** ; matrice produit × plateforme, `make run-mobile` |
 | **[../BACKLOG.md](../../BACKLOG.md)** | Cases à cocher produit condensées |
 | **[STATUS.md](../../STATUS.md)** | Suivi détaillé apps, §1c Mail/Drive/… |
 | **[SYNC-BACKLOG.md](../produit/SYNC-BACKLOG.md)** | IMAP, mobile, archivage mail, session |
