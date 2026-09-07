@@ -607,12 +607,22 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 		return
 	}
 
+	// User recréé (seed / redeploy) → l’ancien user_id Redis ne doit plus
+	// produire de JWT orphelin (FK contacts / RLS vide).
+	role, roleErr := a.userStore.GetUserRoleByID(userID)
+	if roleErr != nil {
+		_ = a.sessionStore.DeleteRefresh(ctx, refreshHash)
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "session invalide — reconnectez-vous (compte introuvable)",
+		})
+		return
+	}
+
 	// Soft-rotate : garder l’ancien hash ~2 min (multi-apps Android broker).
 	// Un DEL immédiat provoquait des 401 en chaîne dès qu’une 2ᵉ app
 	// présentait le même refresh pendant que la 1ʳᵉ propagait le nouveau.
 	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, tenantID, email, refreshRotationGrace)
 
-	role, _ := a.userStore.GetUserRoleByID(userID)
 	accessToken, _ := a.generateAccessToken(userID, tenantID, email, role)
 	newRefresh := generateRandomToken()
 	newHash := hashRefreshToken(newRefresh)
