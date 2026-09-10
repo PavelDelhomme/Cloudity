@@ -46,10 +46,11 @@ describe('TasksPage', () => {
     vi.mocked(api.fetchTasks).mockResolvedValue([])
   })
 
-  it('renders Tâches title and breadcrumb', () => {
+  it('renders Tâches title and list sidebar', () => {
     render(wrap(<TasksPage />))
     expect(screen.getByRole('heading', { name: 'Tâches' })).toBeTruthy()
-    expect(screen.getByText(/productivité/)).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: 'Listes de tâches' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Toutes les tâches' })).toBeTruthy()
   })
 
   it('affiche le bouton Paramètres Tâches', () => {

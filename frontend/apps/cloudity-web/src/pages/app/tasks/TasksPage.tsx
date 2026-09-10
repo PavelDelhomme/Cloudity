@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { ResponsivePage } from '@cloudity/ui'
+import { Button, EmptyState, ResponsivePage } from '@cloudity/ui'
 import {
   CalendarClock,
   Calendar,
@@ -391,23 +391,23 @@ export default function TasksPage() {
   return (
     <ResponsivePage
       title="Tâches"
-      description="Listes, sous-tâches, notes et échéances — pensé pour le quotidien et la productivité."
+      description="Listes, sous-tâches, notes et échéances."
       action={
-        <button
-          type="button"
+        <Button
+          variant="secondary"
           onClick={() => {
             setSettingsDraft(tasksSettings)
             setShowTasksSettings(true)
           }}
-          className="inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
           title="Paramètres Tâches"
           aria-label="Paramètres Tâches"
+          className="!px-2.5"
         >
           <Settings className="h-4 w-4" aria-hidden />
-        </button>
+        </Button>
       }
     >
-      <div className="flex min-h-0 flex-col gap-5">
+      <div className="flex min-h-0 flex-col gap-4">
         {showTasksSettings && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60"
@@ -417,17 +417,17 @@ export default function TasksPage() {
             onClick={() => setShowTasksSettings(false)}
           >
             <div
-              className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
+              className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-600 dark:bg-slate-900"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 id="tasks-settings-title" className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                <h2 id="tasks-settings-title" className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   Paramètres Tâches
                 </h2>
                 <button
                   type="button"
                   onClick={() => setShowTasksSettings(false)}
-                  className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-slate-800"
+                  className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
                   aria-label="Fermer les paramètres Tâches"
                 >
                   <X className="h-5 w-5" aria-hidden />
@@ -435,102 +435,102 @@ export default function TasksPage() {
               </div>
               <div className="space-y-4 text-sm">
                 <label className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-neutral-800 dark:text-slate-200">Regrouper par échéance</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">Regrouper par échéance</span>
                   <input
                     type="checkbox"
                     checked={settingsDraft.groupByDueDate}
                     onChange={(e) =>
                       setSettingsDraft((prev) => ({ ...prev, groupByDueDate: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-neutral-300"
+                    className="h-4 w-4 rounded border-slate-300"
                   />
                 </label>
                 <label className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-neutral-800 dark:text-slate-200">Afficher les tâches terminées</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">Afficher les tâches terminées</span>
                   <input
                     type="checkbox"
                     checked={settingsDraft.showCompletedSection}
                     onChange={(e) =>
                       setSettingsDraft((prev) => ({ ...prev, showCompletedSection: e.target.checked }))
                     }
-                    className="h-4 w-4 rounded border-neutral-300"
+                    className="h-4 w-4 rounded border-slate-300"
                   />
                 </label>
               </div>
               <div className="mt-5 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSettingsDraft(DEFAULT_TASKS_APP_SETTINGS)}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm dark:border-slate-600"
-                >
+                <Button variant="secondary" onClick={() => setSettingsDraft(DEFAULT_TASKS_APP_SETTINGS)}>
                   Réinitialiser
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
                   onClick={() => {
                     setTasksSettings(settingsDraft)
                     saveTasksAppSettings(settingsDraft)
                     setShowTasksSettings(false)
                     toast.success('Paramètres Tâches enregistrés')
                   }}
-                  className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                 >
                   Enregistrer
-                </button>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedListId(null)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-              selectedListId == null
-                ? 'bg-brand-600 text-white dark:bg-brand-500'
-                : 'border border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-            }`}
-          >
-            Toutes les tâches
-          </button>
-          {lists.map((l) => (
-            <button
-              key={l.id}
-              type="button"
-              onClick={() => setSelectedListId(l.id)}
-              className={`max-w-[10rem] truncate rounded-full px-3 py-1.5 text-sm font-medium ${
-                selectedListId === l.id
-                  ? 'bg-brand-600 text-white dark:bg-brand-500'
-                  : 'border border-slate-300 bg-white text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-              }`}
-            >
-              {l.name}
-            </button>
-          ))}
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 p-1 dark:border-slate-600 dark:bg-slate-800/80">
-            <input
-              type="text"
-              placeholder="Nouvelle liste…"
-              value={newListName}
-              onChange={(e) => setNewListName(e.target.value)}
-              className="w-32 rounded border-0 bg-transparent px-2 py-1 text-xs text-slate-800 placeholder:text-slate-400 focus:ring-0 dark:text-slate-100 sm:w-40"
-              onKeyDown={(e) => e.key === 'Enter' && newListName.trim() && createListMutation.mutate()}
-            />
-            <button
-              type="button"
-              disabled={!newListName.trim() || createListMutation.isPending}
-              onClick={() => createListMutation.mutate()}
-              className="inline-flex items-center gap-1 rounded-md bg-slate-200 px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-300 disabled:opacity-50 dark:bg-slate-600 dark:text-slate-100 dark:hover:bg-slate-500"
-            >
-              <FolderPlus className="h-3.5 w-3.5" />
-              Créer
-            </button>
-          </div>
-        </div>
+        <div className="flex min-h-[28rem] flex-col gap-4 lg:flex-row lg:items-stretch">
+          <aside className="flex w-full shrink-0 flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-600 dark:bg-slate-900 lg:w-56">
+            <p className="px-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Listes
+            </p>
+            <nav className="flex flex-col gap-0.5" aria-label="Listes de tâches">
+              <button
+                type="button"
+                onClick={() => setSelectedListId(null)}
+                className={`rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                  selectedListId == null
+                    ? 'bg-brand-600 text-white dark:bg-brand-500'
+                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                }`}
+              >
+                Toutes les tâches
+              </button>
+              {lists.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => setSelectedListId(l.id)}
+                  className={`truncate rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                    selectedListId === l.id
+                      ? 'bg-brand-600 text-white dark:bg-brand-500'
+                      : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  {l.name}
+                </button>
+              ))}
+            </nav>
+            <div className="mt-auto space-y-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+              <input
+                type="text"
+                placeholder="Nouvelle liste…"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                onKeyDown={(e) => e.key === 'Enter' && newListName.trim() && createListMutation.mutate()}
+              />
+              <Button
+                variant="secondary"
+                disabled={!newListName.trim() || createListMutation.isPending}
+                onClick={() => createListMutation.mutate()}
+                className="w-full"
+              >
+                <FolderPlus className="h-3.5 w-3.5" />
+                Créer la liste
+              </Button>
+            </div>
+          </aside>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-800">
-          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/80">
+          <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-900">
+          <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50/60 px-4 py-3 dark:border-slate-700 dark:bg-slate-800/50">
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
               <input
                 type="text"
@@ -538,7 +538,7 @@ export default function TasksPage() {
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && createMutation.mutate(undefined)}
-                className="min-w-[12rem] flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400"
+                className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
               />
               <button
                 type="button"
@@ -546,21 +546,16 @@ export default function TasksPage() {
                 className={`rounded-lg border px-2.5 py-2 ${
                   newStarred
                     ? 'border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700 dark:bg-amber-950/40'
-                    : 'border-slate-300 text-slate-400 dark:border-slate-600'
+                    : 'border-slate-200 text-slate-400 dark:border-slate-600'
                 }`}
                 title="Étoile / priorité"
                 aria-pressed={newStarred}
               >
                 <Star className={`h-4 w-4 ${newStarred ? 'fill-current' : ''}`} />
               </button>
-              <button
-                type="button"
-                onClick={() => createMutation.mutate(undefined)}
-                disabled={createMutation.isPending}
-                className="inline-flex items-center gap-1 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 dark:bg-brand-500 dark:hover:bg-brand-600"
-              >
+              <Button onClick={() => createMutation.mutate(undefined)} disabled={createMutation.isPending}>
                 <Plus className="h-4 w-4" /> Ajouter
-              </button>
+              </Button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
@@ -615,12 +610,11 @@ export default function TasksPage() {
                 </div>
               </div>
             ) : tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="rounded-full bg-slate-100 p-4 dark:bg-slate-700">
-                  <ListTodo className="h-10 w-10 text-slate-400" />
-                </div>
-                <p className="mt-4 text-slate-600 dark:text-slate-300">Aucune tâche.</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Ajoutez une tâche ci-dessus pour commencer.</p>
+              <div className="py-8">
+                <EmptyState
+                  title="Aucune tâche"
+                  description="Ajoutez une tâche ci-dessus pour commencer."
+                />
               </div>
             ) : (
               <div className="space-y-8">
@@ -646,6 +640,7 @@ export default function TasksPage() {
                 )}
               </div>
             )}
+          </div>
           </div>
         </div>
       </div>
@@ -696,7 +691,11 @@ function TaskRow({
   }, [t.notes])
 
   return (
-    <div className={`flex flex-col gap-2 py-3 ${muted ? 'opacity-70' : ''}`}>
+    <div
+      className={`group rounded-xl border border-transparent px-2.5 py-2.5 transition-colors hover:border-slate-200 hover:bg-slate-50/80 dark:hover:border-slate-600 dark:hover:bg-slate-800/60 ${
+        muted ? 'opacity-70' : ''
+      } ${depth > 0 ? 'ml-1' : ''}`}
+    >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-2">
           {depth > 0 ? <CornerDownRight className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden /> : null}
@@ -704,14 +703,14 @@ function TaskRow({
             type="checkbox"
             checked={t.completed}
             onChange={() => onToggle(!t.completed)}
-            className="mt-1 rounded border-slate-300 dark:border-slate-500"
+            className="mt-1 h-4 w-4 rounded-md border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-500"
             aria-label={t.completed ? 'Marquer non terminée' : 'Marquer terminée'}
           />
           <button
             type="button"
             onClick={onStarToggle}
             disabled={disableActions}
-            className={`mt-0.5 shrink-0 rounded p-0.5 ${
+            className={`mt-0.5 shrink-0 rounded-md p-0.5 ${
               t.starred ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400 dark:text-slate-600'
             }`}
             aria-label={t.starred ? 'Retirer l’étoile' : 'Mettre en priorité'}
@@ -729,14 +728,14 @@ function TaskRow({
             }`}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 opacity-100 sm:opacity-80 sm:group-hover:opacity-100 sm:shrink-0">
           <label className="flex items-center gap-1 text-[10px] text-slate-500">
             Début
             <input
               type="datetime-local"
               value={toDatetimeLocalValue(t.start_at)}
               onChange={(e) => onStartChange(fromDatetimeLocalToISO(e.target.value))}
-              className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
               disabled={disableActions}
             />
           </label>
@@ -744,14 +743,14 @@ function TaskRow({
             type="datetime-local"
             value={toDatetimeLocalValue(t.due_at)}
             onChange={(e) => onDueChange(fromDatetimeLocalToISO(e.target.value))}
-            className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
             disabled={disableActions}
             title="Échéance"
           />
           <select
             value={(t.repeat_rule as string) || ''}
             onChange={(e) => onRepeatChange(e.target.value || null)}
-            className="max-w-[10rem] rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            className="max-w-[10rem] rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
             disabled={disableActions}
             title={repeatLabel(t.repeat_rule as string)}
           >
@@ -764,7 +763,7 @@ function TaskRow({
           <button
             type="button"
             onClick={() => setShowNotes((v) => !v)}
-            className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
+            className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700"
           >
             Notes
           </button>
@@ -773,7 +772,7 @@ function TaskRow({
               type="button"
               onClick={onAddSubtask}
               disabled={disableActions}
-              className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700"
+              className="rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700"
               title="Ajouter une sous-tâche"
             >
               + sous-tâche
@@ -784,7 +783,7 @@ function TaskRow({
               type="button"
               onClick={onToAgenda}
               disabled={disableActions}
-              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700"
               title="Créer un événement Agenda à partir de cette tâche"
             >
               <Calendar className="h-3.5 w-3.5" />
@@ -795,7 +794,7 @@ function TaskRow({
             type="button"
             onClick={onDelete}
             disabled={disableActions}
-            className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-900/20"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-900/20"
             aria-label="Supprimer la tâche"
           >
             <Trash2 className="h-4 w-4" />
@@ -809,8 +808,8 @@ function TaskRow({
           onBlur={() => onNotesBlur(notesDraft)}
           rows={2}
           placeholder="Notes…"
-          className={`w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
-            depth > 0 ? 'ml-6' : 'ml-8'
+          className={`mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 ${
+            depth > 0 ? 'ml-2' : 'ml-8'
           }`}
           disabled={disableActions}
         />

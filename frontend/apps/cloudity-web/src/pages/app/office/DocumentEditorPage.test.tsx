@@ -330,3 +330,31 @@ describe('DocumentEditorPage helpers', () => {
     expect(isOfficeIframePreviewName('archive.zip')).toBe(false)
   })
 })
+
+describe('DocumentEditorPage list toolbar', () => {
+  it('exposes bullet and numbered list controls for rich docs', async () => {
+    const { getDriveNodeContentAsText, fetchDriveNodes } = await import('../../../api')
+    vi.mocked(getDriveNodeContentAsText).mockResolvedValue('<p>Hello</p>')
+    vi.mocked(fetchDriveNodes)
+      .mockResolvedValueOnce([{ id: 1, name: 'Test.html', is_folder: false, parent_id: null, size: 0, tenant_id: 1, user_id: 1, created_at: '', updated_at: '', mime_type: null }])
+      .mockResolvedValue([])
+
+    render(wrap(<DocumentEditorPage />, '1'))
+    await screen.findByRole('button', { name: /Enregistrer/ }, { timeout: 3000 })
+
+    const bullet = screen.getByTitle('Liste à puces')
+    const numbered = screen.getByTitle('Liste numérotée')
+    expect(bullet).toBeTruthy()
+    expect(numbered).toBeTruthy()
+
+    const editor = document.querySelector('[contenteditable="true"]') as HTMLElement | null
+    expect(editor?.className).toMatch(/\[&_ul]:list-disc/)
+    expect(editor?.className).toMatch(/\[&_ol]:list-decimal/)
+    expect(screen.getByText(/Page A4/)).toBeTruthy()
+    expect(screen.getByTitle('Insérer une image')).toBeTruthy()
+
+    fireEvent.mouseDown(bullet)
+    fireEvent.click(bullet)
+    expect(document.execCommand).toHaveBeenCalledWith('insertUnorderedList', false, undefined)
+  })
+})

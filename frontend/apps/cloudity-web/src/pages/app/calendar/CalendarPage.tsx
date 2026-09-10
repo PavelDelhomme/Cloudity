@@ -140,7 +140,7 @@ export default function CalendarPage() {
   const [endAt, setEndAt] = useState('')
   const [repeatRule, setRepeatRule] = useState<'' | CalendarRepeatRule>('')
   const [newCalName, setNewCalName] = useState('')
-  const [newCalColor, setNewCalColor] = useState('#ea4335')
+  const [newCalColor, setNewCalColor] = useState('text-red-500')
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
@@ -503,7 +503,7 @@ export default function CalendarPage() {
 
   const renderEventPill = (ev: CalendarEvent & { occurrence_key?: string }) => {
     const cal = ev.calendar_id != null ? calMap.get(ev.calendar_id) : undefined
-    const bg = cal?.color_hex ?? '#1a73e8'
+    const bg = cal?.color_hex ?? 'var(--color-brand-600, #2563eb)'
     const label = ev.repeat_rule ? `↻ ${ev.title}` : ev.title
     return (
       <span
@@ -521,7 +521,7 @@ export default function CalendarPage() {
     const n = days.length
     return (
       <div
-        className={`grid overflow-y-auto overscroll-contain border-t border-[#dadce0] dark:border-slate-600 bg-white dark:bg-slate-900 ${fillVertical ? 'min-h-0 flex-1' : ''}`}
+        className={`grid overflow-y-auto overscroll-contain border-t border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 ${fillVertical ? 'min-h-0 flex-1' : ''}`}
         style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}
       >
         {days.map((cell) => {
@@ -533,16 +533,16 @@ export default function CalendarPage() {
               key={key}
               type="button"
               onClick={() => pickDayAndForm(cell)}
-              className={`border-r border-[#dadce0] dark:border-slate-700 last:border-r-0 p-2 text-left align-top hover:bg-[#f1f3f4] dark:hover:bg-slate-800/80 ${minCellH} ${
-                isToday ? 'bg-[#e8f0fe] dark:bg-blue-950/40 ring-1 ring-inset ring-[#1a73e8]/40' : ''
+              className={`border-r border-slate-200 dark:border-slate-700 last:border-r-0 p-2 text-left align-top hover:bg-slate-100 dark:hover:bg-slate-800/80 ${minCellH} ${
+                isToday ? 'bg-brand-50 dark:bg-blue-950/40 ring-1 ring-inset ring-brand-600/40' : ''
               }`}
             >
-              <span className={`text-xs font-medium ${isToday ? 'text-[#1a73e8]' : 'text-[#3c4043] dark:text-slate-200'}`}>
+              <span className={`text-xs font-medium ${isToday ? 'text-brand-600' : 'text-slate-700 dark:text-slate-200'}`}>
                 {cell.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
               </span>
               <div className="mt-2 flex flex-col gap-1 overflow-hidden">
                 {dayEvents.slice(0, 5).map((ev) => renderEventPill(ev))}
-                {dayEvents.length > 5 ? <span className="text-[10px] text-[#5f6368] dark:text-slate-500">+{dayEvents.length - 5}</span> : null}
+                {dayEvents.length > 5 ? <span className="text-[10px] text-slate-500 dark:text-slate-500">+{dayEvents.length - 5}</span> : null}
               </div>
             </button>
           )
@@ -561,32 +561,32 @@ export default function CalendarPage() {
   const showComposePanel = composeOpen || pickedDay != null
 
   return (
-    <div className="-m-6 flex h-[calc(100dvh-6.25rem)] min-h-[28rem] max-h-[calc(100dvh-6.25rem)] flex-col gap-0 overflow-hidden bg-[#f1f3f4] dark:bg-slate-950 lg:flex-row">
-      <aside className="w-full shrink-0 border-b border-[#dadce0] bg-white dark:border-slate-700 dark:bg-slate-900 lg:w-[17rem] lg:border-b-0 lg:border-r p-3 lg:min-h-0 lg:overflow-y-auto">
-        <div className="flex items-center gap-2 text-sm font-semibold text-[#3c4043] dark:text-slate-100">
-          <Calendar className="h-4 w-4 text-[#5f6368] dark:text-slate-400" />
+    <div className="-m-6 flex h-[calc(100dvh-6.25rem)] min-h-[28rem] max-h-[calc(100dvh-6.25rem)] flex-col gap-0 overflow-hidden bg-slate-100 dark:bg-slate-950 lg:flex-row">
+      <aside className="w-full shrink-0 border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 lg:w-[17rem] lg:border-b-0 lg:border-r p-3 lg:min-h-0 lg:overflow-y-auto">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
+          <Calendar className="h-4 w-4 text-slate-500 dark:text-slate-400" />
           Mes agendas
         </div>
         <div
-          className="mt-3 rounded-lg border border-[#dadce0] bg-[#fafafa] p-2 dark:border-slate-600 dark:bg-slate-800/50"
+          className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-600 dark:bg-slate-800/50"
           aria-label={`Mini-calendrier, ${anchor.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`}
         >
-          <div className="mb-1 flex items-center justify-between gap-0.5 border-b border-[#e8eaed] pb-1 dark:border-slate-600/80">
+          <div className="mb-1 flex items-center justify-between gap-0.5 border-b border-slate-200 pb-1 dark:border-slate-600/80">
             <button
               type="button"
               onClick={miniCalendarPrevMonth}
-              className="rounded-full p-1 text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+              className="rounded-full p-1 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
               aria-label="Mois précédent"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-center text-[10px] font-semibold tabular-nums text-[#70757a] dark:text-slate-500">
+            <span className="min-w-0 flex-1 truncate text-center text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-500">
               {anchor.toLocaleDateString('fr-FR', { month: 'numeric', year: 'numeric' })}
             </span>
             <button
               type="button"
               onClick={miniCalendarNextMonth}
-              className="rounded-full p-1 text-[#5f6368] hover:bg-[#e8eaed] dark:text-slate-400 dark:hover:bg-slate-700"
+              className="rounded-full p-1 text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-slate-700"
               aria-label="Mois suivant"
             >
               <ChevronRight className="h-4 w-4" />
@@ -594,7 +594,7 @@ export default function CalendarPage() {
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center">
             {MINI_WEEK_HEADERS.map((h) => (
-              <div key={h} className="py-0.5 text-[10px] font-medium text-[#80868b] dark:text-slate-500">
+              <div key={h} className="py-0.5 text-[10px] font-medium text-slate-400 dark:text-slate-500">
                 {h}
               </div>
             ))}
@@ -612,16 +612,16 @@ export default function CalendarPage() {
                   onClick={() => miniCalendarPickDay(cell)}
                   className={`flex min-h-[1.75rem] flex-col items-center justify-center rounded-md text-[11px] leading-tight transition-colors ${
                     isSelected
-                      ? 'bg-[#1a73e8] font-semibold text-white dark:bg-blue-600'
+                      ? 'bg-brand-600 font-semibold text-white dark:bg-blue-600'
                       : inMonth
-                        ? 'text-[#3c4043] hover:bg-[#e8f0fe] dark:text-slate-100 dark:hover:bg-slate-700'
-                        : 'text-[#b0b6bc] hover:bg-[#e8eaed]/80 dark:text-slate-600 dark:hover:bg-slate-700/50'
-                  } ${isTodayCell && !isSelected ? 'ring-1 ring-inset ring-[#1a73e8]/50 dark:ring-blue-500/50' : ''}`}
+                        ? 'text-slate-700 hover:bg-brand-50 dark:text-slate-100 dark:hover:bg-slate-700'
+                        : 'text-slate-400 hover:bg-slate-200/80 dark:text-slate-600 dark:hover:bg-slate-700/50'
+                  } ${isTodayCell && !isSelected ? 'ring-1 ring-inset ring-brand-600/50 dark:ring-blue-500/50' : ''}`}
                 >
                   <span>{cell.getDate()}</span>
                   {hasEvents ? (
                     <span
-                      className={`mt-0.5 h-1 w-1 shrink-0 rounded-full ${isSelected ? 'bg-white/90' : 'bg-[#1a73e8] dark:bg-blue-400'}`}
+                      className={`mt-0.5 h-1 w-1 shrink-0 rounded-full ${isSelected ? 'bg-white/90' : 'bg-brand-600 dark:bg-blue-400'}`}
                       aria-hidden
                     />
                   ) : (
@@ -636,7 +636,7 @@ export default function CalendarPage() {
           type="button"
           onClick={() => setSelectedCalendarId(null)}
           className={`mt-2 w-full rounded-lg px-2 py-2 text-left text-sm ${
-            selectedCalendarId == null ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-blue-950/50 dark:text-blue-200' : 'hover:bg-[#f1f3f4] dark:hover:bg-slate-800'
+            selectedCalendarId == null ? 'bg-brand-50 text-brand-800 dark:bg-blue-950/50 dark:text-blue-200' : 'hover:bg-slate-100 dark:hover:bg-slate-800'
           }`}
         >
           Tous les agendas
@@ -648,29 +648,29 @@ export default function CalendarPage() {
               type="button"
               onClick={() => setSelectedCalendarId(c.id)}
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm ${
-                selectedCalendarId === c.id ? 'bg-[#f1f3f4] ring-1 ring-[#1a73e8]/30 dark:bg-slate-800 dark:ring-blue-500/40' : 'hover:bg-[#f8f9fa] dark:hover:bg-slate-800/80'
+                selectedCalendarId === c.id ? 'bg-slate-100 ring-1 ring-brand-600/30 dark:bg-slate-800 dark:ring-blue-500/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800/80'
               }`}
             >
               <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color_hex }} aria-hidden />
-              <span className="truncate text-[#3c4043] dark:text-slate-200">{c.name}</span>
+              <span className="truncate text-slate-700 dark:text-slate-200">{c.name}</span>
             </button>
           ))}
         </div>
-        <div className="mt-3 space-y-2 border-t border-[#dadce0] pt-3 dark:border-slate-700">
-          <Card className="p-3 border-[#dadce0] dark:border-slate-600 bg-[#fafafa] dark:bg-slate-800/50 shadow-none">
-          <p className="text-xs font-medium text-[#5f6368] dark:text-slate-400">Nouvel agenda</p>
+        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <Card className="p-3 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 shadow-none">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Nouvel agenda</p>
           <input
             value={newCalName}
             onChange={(e) => setNewCalName(e.target.value)}
             placeholder="Travail, Perso…"
-            className="w-full rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+            className="w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
           <input type="color" value={newCalColor} onChange={(e) => setNewCalColor(e.target.value)} className="h-8 w-full cursor-pointer rounded-lg" title="Couleur" />
           <button
             type="button"
             disabled={!newCalName.trim() || createCalMutation.isPending}
             onClick={() => createCalMutation.mutate()}
-            className="w-full rounded-lg bg-[#1a73e8] py-2 text-xs font-medium text-white hover:bg-[#1557b0] disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
+            className="w-full rounded-lg bg-brand-600 py-2 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
           >
             {createCalMutation.isPending ? '…' : 'Créer'}
           </button>
@@ -679,10 +679,10 @@ export default function CalendarPage() {
       </aside>
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2 pb-2 pt-1 sm:px-3 sm:pb-3 lg:pr-4">
-        <div className="mb-1 flex min-h-[2.75rem] shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-[#e8eaed] pb-2 dark:border-slate-700/80">
+        <div className="mb-1 flex min-h-[2.75rem] shrink-0 flex-wrap items-center gap-x-2 gap-y-2 border-b border-slate-200 pb-2 dark:border-slate-700/80">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5 sm:flex-nowrap sm:items-center sm:gap-3">
             <h1
-              className="shrink-0 text-[1.35rem] font-normal leading-none tracking-tight text-[#3c4043] dark:text-slate-100"
+              className="shrink-0 text-[1.35rem] font-normal leading-none tracking-tight text-slate-700 dark:text-slate-100"
               style={{ fontFamily: 'Google Sans, system-ui, sans-serif' }}
             >
               Calendrier
@@ -690,28 +690,28 @@ export default function CalendarPage() {
             <button
               type="button"
               onClick={goToday}
-              className="shrink-0 rounded-full border border-[#dadce0] bg-white px-3 py-1.5 text-sm font-medium text-[#3c4043] hover:bg-[#f1f3f4] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
               Aujourd&apos;hui
             </button>
             <div className="flex min-w-0 max-w-full flex-1 items-center justify-center gap-0 sm:justify-start sm:gap-0.5">
               <button
                 type="button"
-                className="shrink-0 rounded-full p-2 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
+                className="shrink-0 rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={navPrev}
                 aria-label="Période précédente"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <p
-                className="min-w-0 max-w-[min(72vw,20rem)] truncate px-1 text-center text-sm font-medium text-[#3c4043] dark:text-slate-100 sm:max-w-[min(28rem,40vw)] sm:text-left sm:text-base"
+                className="min-w-0 max-w-[min(72vw,20rem)] truncate px-1 text-center text-sm font-medium text-slate-700 dark:text-slate-100 sm:max-w-[min(28rem,40vw)] sm:text-left sm:text-base"
                 aria-live="polite"
               >
                 {navTitle}
               </p>
               <button
                 type="button"
-                className="shrink-0 rounded-full p-2 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-300 dark:hover:bg-slate-700"
+                className="shrink-0 rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
                 onClick={navNext}
                 aria-label="Période suivante"
               >
@@ -729,17 +729,17 @@ export default function CalendarPage() {
               aria-controls="cal-view-menu"
               id="cal-view-trigger"
               onClick={() => setViewMenuOpen((o) => !o)}
-              className="inline-flex h-9 min-w-[7.5rem] items-center justify-between gap-2 rounded border border-[#dadce0] bg-white px-3 text-sm font-medium text-[#3c4043] hover:bg-[#f8f9fa] dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="inline-flex h-9 min-w-[7.5rem] items-center justify-between gap-2 rounded border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
             >
               <span aria-hidden>{currentViewShortLabel(calView)}</span>
-              <ChevronDown className={`h-4 w-4 shrink-0 text-[#5f6368] transition-transform ${viewMenuOpen ? 'rotate-180' : ''}`} aria-hidden />
+              <ChevronDown className={`h-4 w-4 shrink-0 text-slate-500 transition-transform ${viewMenuOpen ? 'rotate-180' : ''}`} aria-hidden />
             </button>
             {viewMenuOpen ? (
               <ul
                 id="cal-view-menu"
                 role="listbox"
                 aria-labelledby="cal-view-trigger"
-                className="absolute right-0 z-40 mt-1 min-w-[14rem] overflow-hidden rounded-lg border border-[#dadce0] bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800"
+                className="absolute right-0 z-40 mt-1 min-w-[14rem] overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800"
               >
                 {VIEW_MENU_ITEMS.map((item) => (
                   <li key={item.id} role="presentation">
@@ -748,8 +748,8 @@ export default function CalendarPage() {
                       role="option"
                       aria-label={item.label}
                       aria-selected={calView === item.id}
-                      className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-[#f1f3f4] dark:hover:bg-slate-700/80 ${
-                        calView === item.id ? 'bg-[#e8f0fe] text-[#174ea6] dark:bg-blue-950/40 dark:text-blue-200' : 'text-[#3c4043] dark:text-slate-200'
+                      className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700/80 ${
+                        calView === item.id ? 'bg-brand-50 text-brand-800 dark:bg-blue-950/40 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'
                       }`}
                       onClick={() => {
                         setViewMenuOpen(false)
@@ -758,7 +758,7 @@ export default function CalendarPage() {
                       }}
                     >
                       <span className="font-medium">{item.label}</span>
-                      {item.hint ? <span className="text-xs font-normal text-[#5f6368] dark:text-slate-400">{item.hint}</span> : null}
+                      {item.hint ? <span className="text-xs font-normal text-slate-500 dark:text-slate-400">{item.hint}</span> : null}
                     </button>
                   </li>
                 ))}
@@ -768,18 +768,18 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-[#dadce0] bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-600 dark:bg-slate-900">
           {loading ? (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/80 dark:bg-slate-900/70">
-              <Loader2 className="h-10 w-10 animate-spin text-[#1a73e8]" />
+              <Loader2 className="h-10 w-10 animate-spin text-brand-600" />
             </div>
           ) : null}
 
           {calView === 'month' && (
             <>
-              <div className="grid shrink-0 grid-cols-7 border-b border-[#dadce0] bg-[#f8f9fa] text-center text-[11px] font-medium uppercase tracking-wide text-[#5f6368] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
+              <div className="grid shrink-0 grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-400">
                 {WEEKDAYS.map((d) => (
-                  <div key={d} className="border-r border-[#dadce0] py-2 last:border-r-0 dark:border-slate-600">
+                  <div key={d} className="border-r border-slate-200 py-2 last:border-r-0 dark:border-slate-600">
                     {d}
                   </div>
                 ))}
@@ -795,20 +795,20 @@ export default function CalendarPage() {
                       key={key}
                       type="button"
                       onClick={() => pickDayAndForm(cell)}
-                      className={`min-h-[4.5rem] border-b border-r border-[#dadce0] p-1.5 text-left align-top hover:bg-[#f8f9fa] dark:border-slate-700 dark:hover:bg-slate-800/50 ${
-                        !inMonth ? 'bg-[#f8f9fa]/80 text-[#9aa0a6] dark:bg-slate-900/50 dark:text-slate-500' : ''
-                      } ${isToday ? 'ring-1 ring-inset ring-[#1a73e8]/50' : ''}`}
+                      className={`min-h-[4.5rem] border-b border-r border-slate-200 p-1.5 text-left align-top hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800/50 ${
+                        !inMonth ? 'bg-slate-50/80 text-slate-400 dark:bg-slate-900/50 dark:text-slate-500' : ''
+                      } ${isToday ? 'ring-1 ring-inset ring-brand-600/50' : ''}`}
                     >
                       <span
                         className={`inline-flex h-7 min-w-[1.75rem] items-center justify-center rounded-full text-xs font-medium ${
-                          isToday ? 'bg-[#1a73e8] text-white' : inMonth ? 'text-[#3c4043] dark:text-slate-100' : ''
+                          isToday ? 'bg-brand-600 text-white' : inMonth ? 'text-slate-700 dark:text-slate-100' : ''
                         }`}
                       >
                         {cell.getDate()}
                       </span>
                       <div className="mt-1 flex flex-col gap-0.5 overflow-hidden">
                         {dayEvents.slice(0, 3).map((ev) => renderEventPill(ev))}
-                        {dayEvents.length > 3 ? <span className="text-[10px] text-[#5f6368] dark:text-slate-500">+{dayEvents.length - 3}</span> : null}
+                        {dayEvents.length > 3 ? <span className="text-[10px] text-slate-500 dark:text-slate-500">+{dayEvents.length - 3}</span> : null}
                       </div>
                     </button>
                   )
@@ -821,24 +821,24 @@ export default function CalendarPage() {
             <>
               {calView !== '12weeks' && (
                 <div
-                  className="grid shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] text-center text-[11px] font-medium text-[#5f6368] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300 sm:text-xs"
+                  className="grid shrink-0 border-b border-slate-200 bg-slate-50 text-center text-[11px] font-medium text-slate-500 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-300 sm:text-xs"
                   style={{
                     gridTemplateColumns: `${TIME_GUTTER_PX}px repeat(${headerDaysRow().length}, minmax(0, 1fr))`,
                   }}
                 >
                   <div
-                    className="border-r border-[#dadce0] bg-[#f8f9fa] dark:border-slate-600 dark:bg-slate-800/80"
+                    className="border-r border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/80"
                     aria-hidden
                   />
                   {headerDaysRow().map((d) => (
                     <div
                       key={dayKey(d)}
-                      className="flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 truncate border-r border-[#dadce0] px-1 py-1.5 last:border-r-0 dark:border-slate-600 sm:min-h-[3rem] sm:py-2"
+                      className="flex min-h-[2.75rem] flex-col items-center justify-center gap-0.5 truncate border-r border-slate-200 px-1 py-1.5 last:border-r-0 dark:border-slate-600 sm:min-h-[3rem] sm:py-2"
                     >
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-[#70757a] dark:text-slate-500 sm:text-[11px]">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500 sm:text-[11px]">
                         {d.toLocaleDateString('fr-FR', { weekday: 'short' })}
                       </span>
-                      <span className="text-xs font-medium text-[#3c4043] dark:text-slate-100 sm:text-sm">
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-100 sm:text-sm">
                         {d.toLocaleDateString('fr-FR', { day: 'numeric', month: calView === 'day' ? 'long' : 'short' })}
                       </span>
                     </div>
@@ -886,10 +886,10 @@ export default function CalendarPage() {
                 />
               )}
               {calView === '12weeks' && (
-                <div className="min-h-0 flex-1 divide-y divide-[#dadce0] overflow-y-auto overscroll-contain dark:divide-slate-700">
+                <div className="min-h-0 flex-1 divide-y divide-slate-200 overflow-y-auto overscroll-contain dark:divide-slate-700">
                   {getTwelveWeeksGrid(anchor).map((weekDays, wi) => (
                     <div key={wi} className="px-1 py-2">
-                      <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-[#5f6368] dark:text-slate-500">
+                      <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-500">
                         Semaine {wi + 1} · {weekDays[0].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                       </p>
                       {multiDayColumnGrid(weekDays, 'min-h-[3.5rem]', false)}
@@ -908,16 +908,16 @@ export default function CalendarPage() {
                   return t.getFullYear() === m.getFullYear() && t.getMonth() === m.getMonth()
                 })
                 return (
-                  <div key={m.getMonth()} className="min-h-[6rem] rounded-lg border border-[#dadce0] bg-[#f8f9fa] p-2 dark:border-slate-600 dark:bg-slate-800/50">
-                    <p className="mb-1 text-xs font-semibold capitalize text-[#3c4043] dark:text-slate-100">{m.toLocaleDateString('fr-FR', { month: 'long' })}</p>
+                  <div key={m.getMonth()} className="min-h-[6rem] rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-600 dark:bg-slate-800/50">
+                    <p className="mb-1 text-xs font-semibold capitalize text-slate-700 dark:text-slate-100">{m.toLocaleDateString('fr-FR', { month: 'long' })}</p>
                     <ul className="space-y-0.5">
                       {monthEv.slice(0, 4).map((ev) => (
-                        <li key={ev.id} className="truncate text-[10px] text-[#5f6368] dark:text-slate-400" title={ev.title}>
+                        <li key={ev.id} className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={ev.title}>
                           {new Date(ev.start_at).getDate()} — {ev.title}
                         </li>
                       ))}
                     </ul>
-                    {monthEv.length > 4 ? <p className="mt-1 text-[9px] text-[#9aa0a6]">+{monthEv.length - 4}</p> : null}
+                    {monthEv.length > 4 ? <p className="mt-1 text-[9px] text-slate-400">+{monthEv.length - 4}</p> : null}
                   </div>
                 )
               })}
@@ -926,34 +926,34 @@ export default function CalendarPage() {
 
           {calView === 'agenda' && (
             <>
-              <div className="shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] px-4 py-2 text-sm font-medium text-[#3c4043] dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
+              <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-800/80 dark:text-slate-200">
                 Agenda
               </div>
               {agendaGroups.length === 0 ? (
-                <p className="p-6 text-sm text-[#5f6368] dark:text-slate-400">Aucun événement sur la période filtrée.</p>
+                <p className="p-6 text-sm text-slate-500 dark:text-slate-400">Aucun événement sur la période filtrée.</p>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   {agendaGroups.map((group) => {
                     const isToday = dayKey(group.day) === dayKey(new Date())
                     return (
-                      <section key={group.key} className="border-b border-[#dadce0] dark:border-slate-700">
+                      <section key={group.key} className="border-b border-slate-200 dark:border-slate-700">
                         <div
-                          className={`sticky top-0 z-10 flex items-center gap-3 border-b border-[#dadce0]/px-4 py-2 backdrop-blur dark:border-slate-700 ${
+                          className={`sticky top-0 z-10 flex items-center gap-3 border-b border-slate-200/px-4 py-2 backdrop-blur dark:border-slate-700 ${
                             isToday
-                              ? 'bg-[#e8f0fe]/text-[#1a73e8] dark:bg-blue-950/50 dark:text-blue-300'
-                              : 'bg-[#f8f9fa]/text-[#3c4043] dark:bg-slate-800/90 dark:text-slate-200'
+                              ? 'bg-brand-50/text-brand-600 dark:bg-blue-950/50 dark:text-blue-300'
+                              : 'bg-slate-50/text-slate-700 dark:bg-slate-800/90 dark:text-slate-200'
                           }`}
                         >
                           <span
                             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                              isToday ? 'bg-[#1a73e8] text-white' : 'bg-transparent'
+                              isToday ? 'bg-brand-600 text-white' : 'bg-transparent'
                             }`}
                           >
                             {group.day.getDate()}
                           </span>
                           <span className="text-sm font-semibold capitalize">{group.label}</span>
                         </div>
-                        <ul className="divide-y divide-[#dadce0] dark:divide-slate-700">
+                        <ul className="divide-y divide-slate-200 dark:divide-slate-700">
                           {group.items.map((e) => {
                             const cal = e.calendar_id != null ? calMap.get(e.calendar_id) : undefined
                             const start = new Date(e.start_at)
@@ -969,18 +969,18 @@ export default function CalendarPage() {
                             return (
                               <li
                                 key={e.id}
-                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-[#f8f9fa] dark:hover:bg-slate-800/50"
+                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50"
                               >
-                                <div className="w-16 shrink-0 pt-0.5 text-xs font-semibold text-[#5f6368] dark:text-slate-400">
+                                <div className="w-16 shrink-0 pt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                   {allDay ? 'Journée' : start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                                 <span
                                   className="mt-1 w-1 shrink-0 rounded-full"
-                                  style={{ backgroundColor: cal?.color_hex ?? '#1a73e8' }}
+                                  style={{ backgroundColor: cal?.color_hex ?? 'var(--color-brand-600, #2563eb)' }}
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <p className="truncate font-medium text-[#3c4043] dark:text-slate-100">{e.title}</p>
-                                  <p className="text-xs text-[#5f6368] dark:text-slate-400">
+                                  <p className="truncate font-medium text-slate-700 dark:text-slate-100">{e.title}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
                                     {timeLabel}
                                     {cal ? ` · ${cal.name}` : ''}
                                     {e.location ? ` · ${e.location}` : ''}
@@ -989,7 +989,7 @@ export default function CalendarPage() {
                                 <button
                                   type="button"
                                   onClick={() => deleteMutation.mutate(e.id)}
-                                  className="rounded-lg p-2 text-[#5f6368] hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                                  className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                                   aria-label="Supprimer"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -1008,13 +1008,13 @@ export default function CalendarPage() {
         </div>
 
         {showComposePanel ? (
-          <div className="mt-2 shrink-0 rounded-xl border border-[#dadce0] bg-white p-3 shadow-[0_1px_2px_rgba(60,64,67,.3),0_1px_3px_1px_rgba(60,64,67,.15)] dark:border-slate-600 dark:bg-slate-900">
+          <div className="mt-2 shrink-0 rounded-xl border border-slate-200 bg-white p-3 shadow-[0_1px_2px_rgba(60,64,67,.3),0_1px_3px_1px_rgba(60,64,67,.15)] dark:border-slate-600 dark:bg-slate-900">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 text-sm font-semibold text-[#3c4043] dark:text-slate-100">
-                <Plus className="h-4 w-4 text-[#1a73e8]" aria-hidden />
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
+                <Plus className="h-4 w-4 text-brand-600" aria-hidden />
                 {pickedDay ? `Nouvel événement — ${pickedDay.toLocaleDateString('fr-FR')}` : 'Nouvel événement'}
               </h2>
-              <button type="button" className="rounded-full p-1.5 text-[#5f6368] hover:bg-[#f1f3f4] dark:text-slate-400 dark:hover:bg-slate-800" onClick={closeCompose} aria-label="Fermer le formulaire">
+              <button type="button" className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" onClick={closeCompose} aria-label="Fermer le formulaire">
                 <span className="sr-only">Fermer</span>
                 <span className="text-lg leading-none" aria-hidden>
                   ×
@@ -1027,14 +1027,14 @@ export default function CalendarPage() {
                 placeholder="Titre"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="min-w-[140px] flex-1 rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="min-w-[140px] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
-              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
-              <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               <select
                 value={repeatRule}
                 onChange={(e) => setRepeatRule(e.target.value as '' | CalendarRepeatRule)}
-                className="rounded-lg border border-[#dadce0] bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 title="Répétition"
                 aria-label="Répétition"
               >
@@ -1048,7 +1048,7 @@ export default function CalendarPage() {
                 type="button"
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending}
-                className="rounded-lg bg-[#1a73e8] px-4 py-2 text-sm font-medium text-white hover:bg-[#1557b0] disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
+                className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50 dark:bg-blue-600 dark:hover:bg-blue-500"
               >
                 {createMutation.isPending ? '…' : 'Enregistrer'}
               </button>
@@ -1060,35 +1060,35 @@ export default function CalendarPage() {
           {fabMenuOpen ? (
             <div
               role="menu"
-              className="mb-1 w-[13.5rem] overflow-hidden rounded-xl border border-[#dadce0] bg-white py-1 shadow-[0_1px_2px_rgba(60,64,67,.3),0_2px_6px_2px_rgba(60,64,67,.15)] dark:border-slate-600 dark:bg-slate-900"
+              className="mb-1 w-[13.5rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-[0_1px_2px_rgba(60,64,67,.3),0_2px_6px_2px_rgba(60,64,67,.15)] dark:border-slate-600 dark:bg-slate-900"
             >
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-[#3c4043] hover:bg-[#f1f3f4] dark:text-slate-100 dark:hover:bg-slate-800"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
                 onClick={openCreateFromFab}
               >
-                <Calendar className="h-4 w-4 shrink-0 text-[#5f6368] dark:text-slate-400" aria-hidden />
+                <Calendar className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
                 Événement
               </button>
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-[#3c4043] hover:bg-[#f1f3f4] dark:text-slate-100 dark:hover:bg-slate-800"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
                 onClick={() => createTaskFromFab.mutate()}
                 disabled={createTaskFromFab.isPending}
               >
-                <ListTodo className="h-4 w-4 shrink-0 text-[#5f6368] dark:text-slate-400" aria-hidden />
+                <ListTodo className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
                 Tâche
               </button>
               <button
                 type="button"
                 role="menuitem"
-                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-[#3c4043] hover:bg-[#f1f3f4] dark:text-slate-100 dark:hover:bg-slate-800"
+                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
                 onClick={() => createNoteFromFab.mutate()}
                 disabled={createNoteFromFab.isPending}
               >
-                <StickyNote className="h-4 w-4 shrink-0 text-[#5f6368] dark:text-slate-400" aria-hidden />
+                <StickyNote className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" aria-hidden />
                 Note
               </button>
             </div>
@@ -1098,7 +1098,7 @@ export default function CalendarPage() {
             onClick={() => setFabMenuOpen((o) => !o)}
             aria-expanded={fabMenuOpen}
             aria-haspopup="menu"
-            className="flex h-14 items-center gap-2 rounded-full bg-[#1a73e8] pl-4 pr-4 text-sm font-medium text-white shadow-[0_1px_2px_rgba(60,64,67,.3),0_2px_6px_2px_rgba(60,64,67,.15)] transition hover:bg-[#1557b0] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a73e8] dark:bg-blue-600 dark:hover:bg-blue-500 sm:pr-5"
+            className="flex h-14 items-center gap-2 rounded-full bg-brand-600 pl-4 pr-4 text-sm font-medium text-white shadow-[0_1px_2px_rgba(60,64,67,.3),0_2px_6px_2px_rgba(60,64,67,.15)] transition hover:bg-brand-700 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 dark:bg-blue-600 dark:hover:bg-blue-500 sm:pr-5"
             aria-label="Créer : ouvrir le menu"
           >
             <Plus className="h-6 w-6 shrink-0" strokeWidth={2.25} aria-hidden />
