@@ -154,6 +154,10 @@ export default function DocumentEditorPage() {
   const [markdownSource, setMarkdownSource] = useState('')
   const [openMenu, setOpenMenu] = useState<'fichier' | 'edition' | 'affichage' | 'insertion' | 'format' | null>(null)
   const editorRef = useRef<HTMLDivElement>(null)
+  const pageSheetRef = useRef<HTMLDivElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [selectedImage, setSelectedImage] = useState<HTMLImageElement | null>(null)
+  const [imageFrame, setImageFrame] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   /** Dernière sélection dans l’éditeur riche : restaurée avant execCommand quand le menu a volé le focus. */
   const savedEditorRangeRef = useRef<Range | null>(null)
   const menuBarRef = useRef<HTMLDivElement>(null)
@@ -377,6 +381,181 @@ export default function DocumentEditorPage() {
     setDirty(true)
   }, [rich])
 
+  const keepEditorFocus = (e: React.MouseEvent) => {
+    e.preventDefault()
+  }
+
+  const syncImageFrame = useCallback((img: HTMLImageElement | null) => {
+    const sheet = pageSheetRef.current
+    if (!img || !sheet) {
+      setImageFrame(null)
+      return
+    }
+    const sheetRect = sheet.getBoundingClientRect()
+    const r = img.getBoundingClientRect()
+    setImageFrame({
+      left: r.left - sheetRect.left,
+      top: r.top - sheetRect.top,
+      width: r.width,
+      height: r.height,
+    })
+  }, [])
+
+  const clearImageSelection = useCallback(() => {
+    setSelectedImage(null)
+    setImageFrame(null)
+  }, [])
+
+  useEffect(() => {
+    const ed = editorRef.current
+    if (!ed || !rich) return
+    ed.querySelectorAll('img').forEach((img) => {
+      const el = img as HTMLImageElement
+      el.setAttribute('data-cloudity-resizable', '1')
+      if (!el.style.maxWidth) el.style.maxWidth = '100%'
+      if (!el.style.height || el.style.height === 'auto') el.style.height = 'auto'
+      if (!el.style.width && el.getAttribute('width')) {
+        el.style.width = `${el.getAttribute('width')}px`
+        el.removeAttribute('width')
+        el.removeAttribute('height')
+      }
+    })
+  }, [content, rich, loading])
+
+  useEffect(() => {
+    if (!selectedImage) return
+    const onScrollOrResize = () => syncImageFrame(selectedImage)
+    const scroller = editorRef.current?.closest('.overflow-auto')
+    scroller?.addEventListener('scroll', onScrollOrResize)
+    window.addEventListener('resize', onScrollOrResize)
+    return () => {
+      scroller?.removeEventListener('scroll', onScrollOrResize)
+      window.removeEventListener('resize', onScrollOrResize)
+    }
+  }, [selectedImage, syncImageFrame])
+
+
+  const insertImageFromFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Choisissez un fichier image')
+      return
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Image trop lourde (max 8 Mo)')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const src = String(reader.result || '')
+      if (!src) return
+      const ed = editorRef.current
+      if (ed) ed.focus()
+      const html = `<img src="${src}" alt="" data-cloudity-resizable="1" style="max-width:100%;width:min(100%,420px);height:auto;display:block;margin:0.75rem auto;" />`
+      const ok = document.execCommand('insertHTML', false, html)
+      if (!ok && ed) {
+        ed.insertAdjacentHTML('beforeend', html)
+      }
+      if (ed) {
+        setContent(ed.innerHTML)
+        setDirty(true)
+        dirtyRef.current = true
+        const imgs = ed.querySelectorAll('img[data-cloudity-resizable="1"]')
+        const last = imgs[imgs.length - 1] as HTMLImageElement | undefined
+        if (last) {
+          setSelectedImage(last)
+          requestAnimationFrame(() => syncImageFrame(last))
+        }
+      }
+      toast.success('Image insérée — glissez le coin pour redimensionner')
+    }
+    reader.onerror = () => toast.error('Lecture de l’image impossible')
+    reader.readAsDataURL(file)
+  }
+
+  const onEditorMouseDown = (e: React.MouseEvent) => {
+    const t = e.target
+    if (t instanceof HTMLImageElement && editorRef.current?.contains(t)) {
+      e.preventDefault()
+      setSelectedImage(t)
+      requestAnimationFrame(() => syncImageFrame(t))
+      return
+    }
+    if (!(e.target as HTMLElement).closest?.('[data-img-resize-handle]')) {
+      clearImageSelection()
+    }
+  }
+
+  const startImageResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const img = selectedImage
+    if (!img) return
+    const startX = e.clientX
+    const startW = img.getBoundingClientRect().width
+    const natural = img.naturalWidth || startW
+    const onMove = (ev: MouseEvent) => {
+      const delta = ev.clientX - startX
+      const next = Math.max(48, Math.min(startW + delta, Math.max(natural, editorRef.current?.clientWidth ?? 800)))
+      img.style.width = `${Math.round(next)}px`
+      img.style.maxWidth = '100%'
+      img.style.height = 'auto'
+      syncImageFrame(img)
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      if (editorRef.current) {
+        setContent(editorRef.current.innerHTML)
+        setDirty(true)
+        dirtyRef.current = true
+      }
+      syncImageFrame(img)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+
+
+  const ensureListMarkup = (ordered: boolean) => {
+    const root = editorRef.current
+    if (!root) return
+    const sel = document.getSelection()
+    if (!sel || sel.rangeCount === 0 || !root.contains(sel.anchorNode)) return
+    const already = sel.anchorNode instanceof Element
+      ? sel.anchorNode.closest('ul,ol')
+      : sel.anchorNode?.parentElement?.closest('ul,ol')
+    if (already && root.contains(already)) return
+    let block: HTMLElement | null =
+      sel.anchorNode instanceof HTMLElement ? sel.anchorNode : sel.anchorNode?.parentElement ?? null
+    while (block && block !== root && !['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'].includes(block.tagName)) {
+      block = block.parentElement
+    }
+    if (!block || block === root) {
+      const list = document.createElement(ordered ? 'ol' : 'ul')
+      const li = document.createElement('li')
+      li.appendChild(document.createElement('br'))
+      list.appendChild(li)
+      root.appendChild(list)
+      const nr = document.createRange()
+      nr.selectNodeContents(li)
+      nr.collapse(true)
+      sel.removeAllRanges()
+      sel.addRange(nr)
+      return
+    }
+    if (block.tagName === 'LI') return
+    const list = document.createElement(ordered ? 'ol' : 'ul')
+    const li = document.createElement('li')
+    li.innerHTML = block.innerHTML || '<br>'
+    list.appendChild(li)
+    block.parentNode?.replaceChild(list, block)
+    const nr = document.createRange()
+    nr.selectNodeContents(li)
+    nr.collapse(false)
+    sel.removeAllRanges()
+    sel.addRange(nr)
+  }
+
   const execCommand = (cmd: string, value?: string) => {
     const ed = editorRef.current
     const saved = savedEditorRangeRef.current
@@ -401,6 +580,8 @@ export default function DocumentEditorPage() {
       } catch {
         savedEditorRangeRef.current = null
       }
+    } else if (ed) {
+      ed.focus()
     }
     const sel = document.getSelection()
     const isInlineFormat = ['bold', 'italic', 'underline', 'strikeThrough'].includes(cmd)
@@ -412,7 +593,10 @@ export default function DocumentEditorPage() {
         if (sel.rangeCount > 0 && sel.getRangeAt(0).collapsed) return
       }
     }
-    document.execCommand(cmd, false, value)
+    const ok = document.execCommand(cmd, false, value)
+    if (!ok && (cmd === 'insertUnorderedList' || cmd === 'insertOrderedList')) {
+      ensureListMarkup(cmd === 'insertOrderedList')
+    }
     /* formatBlock « h1 » etc. échoue parfois (focus menu, Chromium) : forcer le bloc courant. */
     if (cmd === 'formatBlock' && value && /^h[1-6]|p$/i.test(value) && editorRef.current) {
       const root = editorRef.current
@@ -991,8 +1175,8 @@ export default function DocumentEditorPage() {
                 <button type="button" onClick={openTableModal} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                   <Table className="h-4 w-4" /> Tableau
                 </button>
-                <button type="button" onClick={() => { toast('Insertion d’image à venir'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
-                  <ImagePlus className="h-4 w-4" /> Image
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => { setOpenMenu(null); imageInputRef.current?.click() }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
+                  <ImagePlus className="h-4 w-4" /> Image…
                 </button>
                 <button type="button" onClick={() => { insertHorizontalRule(); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">
                   <Minus className="h-4 w-4" /> Ligne horizontale
@@ -1021,8 +1205,8 @@ export default function DocumentEditorPage() {
                 <button type="button" onClick={() => { execCommand('formatBlock', 'h6'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><Heading6 className="h-4 w-4" /> Titre 6</button>
                 <button type="button" onClick={() => { execCommand('formatBlock', 'p'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><Pilcrow className="h-4 w-4" /> Paragraphe</button>
                 <hr className="my-1 border-slate-200 dark:border-slate-600" />
-                <button type="button" onClick={() => { execCommand('insertUnorderedList'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><List className="h-4 w-4" /> Liste à puces</button>
-                <button type="button" onClick={() => { execCommand('insertOrderedList'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><ListOrdered className="h-4 w-4" /> Liste numérotée</button>
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => { execCommand('insertUnorderedList'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><List className="h-4 w-4" /> Liste à puces</button>
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => { execCommand('insertOrderedList'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><ListOrdered className="h-4 w-4" /> Liste numérotée</button>
                 <hr className="my-1 border-slate-200 dark:border-slate-600" />
                 <button type="button" onClick={() => { execCommand('justifyLeft'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><AlignLeft className="h-4 w-4" /> Aligner à gauche</button>
                 <button type="button" onClick={() => { execCommand('justifyCenter'); setOpenMenu(null) }} className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"><AlignCenter className="h-4 w-4" /> Centrer</button>
@@ -1058,8 +1242,8 @@ export default function DocumentEditorPage() {
               </div>
               <span className="w-px h-5 bg-slate-300 dark:bg-slate-500" />
               <div className="flex items-center gap-0.5">
-                <button type="button" onClick={() => execCommand('insertUnorderedList')} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Liste à puces"><List className="h-4 w-4" /></button>
-                <button type="button" onClick={() => execCommand('insertOrderedList')} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Liste numérotée"><ListOrdered className="h-4 w-4" /></button>
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => execCommand('insertUnorderedList')} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Liste à puces"><List className="h-4 w-4" /></button>
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => execCommand('insertOrderedList')} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Liste numérotée"><ListOrdered className="h-4 w-4" /></button>
               </div>
               <span className="w-px h-5 bg-slate-300 dark:bg-slate-500" />
               <div className="flex items-center gap-0.5">
@@ -1072,6 +1256,7 @@ export default function DocumentEditorPage() {
               <div className="flex items-center gap-0.5">
                 <button type="button" onClick={openLinkModal} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Insérer un lien"><LinkIcon className="h-4 w-4" /></button>
                 <button type="button" onClick={() => execCommand('formatBlock', 'blockquote')} className={`p-2 rounded transition-colors ${formatState.formatBlock === 'blockquote' ? 'bg-brand-500 text-white shadow-sm hover:bg-brand-600' : 'hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'}`} title="Citation"><Quote className="h-4 w-4" /></button>
+                <button type="button" onMouseDown={keepEditorFocus} onClick={() => imageInputRef.current?.click()} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Insérer une image"><ImagePlus className="h-4 w-4" /></button>
                 <button type="button" onClick={insertHorizontalRule} className="p-2 rounded hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 transition-colors" title="Ligne horizontale"><Minus className="h-4 w-4" /></button>
               </div>
             </div>
@@ -1313,14 +1498,14 @@ export default function DocumentEditorPage() {
           </div>
           <div className="flex-1 flex items-center justify-center p-8 overflow-auto">
             <div
-              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-12 max-w-4xl w-full min-h-[50vh] prose dark:prose-invert prose-headings:font-semibold prose-lg"
+              className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl p-12 max-w-4xl w-full min-h-[50vh] prose dark:prose-invert prose-headings:font-semibold prose-lg [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_li]:my-0.5"
               dangerouslySetInnerHTML={{ __html: slides[slideIndex] ?? '<p></p>' }}
             />
           </div>
         </div>
       )}
 
-      <div className="flex-1 overflow-auto p-4 bg-slate-50 dark:bg-slate-900/50">
+      <div className="flex-1 overflow-auto p-4 bg-[#d5d8de] dark:bg-slate-950">
         {markdownMode && canUseMarkdownMode ? (
           <div className="max-w-3xl mx-auto">
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Mode Markdown — la sauvegarde convertit en document riche.</p>
@@ -1333,15 +1518,61 @@ export default function DocumentEditorPage() {
             />
           </div>
         ) : rich ? (
-          <div
-            ref={editorRef}
-            data-testid="document-editor-rich"
-            contentEditable
-            onInput={handleInput}
-            className="min-h-[300px] max-w-3xl mx-auto rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-6 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:focus:ring-brand-400 prose dark:prose-invert prose-headings:font-semibold prose-blockquote:border-l-brand-500 prose-blockquote:italic prose-blockquote:pl-4 prose-hr:my-6 prose-hr:border-slate-200 dark:prose-hr:border-slate-600 [&_hr]:block [&_hr]:w-full [&_hr]:min-h-[1px]"
-            data-placeholder="Saisissez votre texte…"
-            style={{ outline: 'none' }}
-          />
+          <div className="mx-auto w-full max-w-[calc(210mm+2rem)]">
+            <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Page A4 · 210 × 297 mm
+            </p>
+            <div
+              ref={pageSheetRef}
+              className="relative mx-auto bg-white text-slate-900 shadow-[0_12px_40px_rgba(15,23,42,0.18)] ring-1 ring-slate-300/80 dark:ring-slate-600"
+              style={{ width: 'min(100%, 210mm)', minHeight: '297mm' }}
+            >
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  e.target.value = ''
+                  if (f) insertImageFromFile(f)
+                }}
+              />
+              <div
+                ref={editorRef}
+                data-testid="document-editor-rich"
+                contentEditable
+                onInput={handleInput}
+                onMouseDown={onEditorMouseDown}
+                className="min-h-[297mm] box-border w-full bg-white text-[11pt] leading-[1.5] text-slate-900 focus:outline-none prose prose-headings:font-semibold prose-p:my-2 prose-blockquote:border-l-brand-500 prose-blockquote:italic prose-blockquote:pl-4 prose-hr:my-6 prose-hr:border-slate-300 [&_hr]:block [&_hr]:w-full [&_hr]:min-h-[1px] [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_li]:my-0.5 [&_li]:marker:text-slate-500 [&_img]:mx-auto [&_img]:my-3 [&_img]:block [&_img]:h-auto [&_img]:max-w-full [&_img]:cursor-pointer [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-300 [&_td]:p-2 [&_th]:border [&_th]:border-slate-300 [&_th]:p-2"
+                data-placeholder="Saisissez votre texte…"
+                style={{ outline: 'none', padding: '20mm 18mm', fontFamily: 'Georgia, "Times New Roman", Times, serif' }}
+              />
+              {selectedImage && imageFrame ? (
+                <div
+                  className="pointer-events-none absolute z-20 border-2 border-brand-500"
+                  style={{
+                    left: imageFrame.left,
+                    top: imageFrame.top,
+                    width: imageFrame.width,
+                    height: imageFrame.height,
+                  }}
+                >
+                  <button
+                    type="button"
+                    data-img-resize-handle
+                    aria-label="Redimensionner l’image"
+                    title="Redimensionner"
+                    onMouseDown={startImageResize}
+                    className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-se-resize rounded-sm border-2 border-white bg-brand-600 shadow"
+                  />
+                  <div className="pointer-events-none absolute -top-6 left-0 rounded bg-slate-900/80 px-1.5 py-0.5 text-[10px] text-white">
+                    {Math.round(imageFrame.width)} × {Math.round(imageFrame.height)} px
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
         ) : isSpreadsheet(name) ? (
           <div className="overflow-auto max-w-4xl mx-auto">
             <table className="border-collapse w-full bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-600">

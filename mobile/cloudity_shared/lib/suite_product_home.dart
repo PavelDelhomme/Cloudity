@@ -528,18 +528,31 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: _items.length,
                       itemBuilder: (context, index) {
+                        final theme = Theme.of(context);
                         final item = _items[index];
                         final sub = _itemSubtitle(item);
                         final done = item['completed'] == true;
                         return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
                           child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                             leading: widget.product == SuiteProduct.tasks
                                 ? IconButton(
                                     icon: Icon(
                                       done
                                           ? Icons.check_circle
                                           : Icons.radio_button_unchecked,
+                                      color: done
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.onSurfaceVariant,
                                     ),
                                     onPressed: () => _toggleTask(item),
                                   )
@@ -549,10 +562,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: done
-                                  ? const TextStyle(
+                                  ? TextStyle(
                                       decoration: TextDecoration.lineThrough,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                     )
-                                  : null,
+                                  : const TextStyle(fontWeight: FontWeight.w600),
                             ),
                             subtitle: sub != null
                                 ? Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis)

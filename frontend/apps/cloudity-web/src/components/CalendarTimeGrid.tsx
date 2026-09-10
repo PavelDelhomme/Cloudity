@@ -54,7 +54,7 @@ function timedItemsForDay(
       kind: 'event',
       ...seg,
       title: ev.title,
-      color: cal?.color_hex ?? '#1a73e8',
+      color: cal?.color_hex ?? '#2563eb',
       eventId: ev.id,
     })
   }
@@ -66,7 +66,7 @@ function timedItemsForDay(
       kind: 'task',
       ...seg,
       title: t.title,
-      color: '#188038',
+      color: '#16a34a',
       taskId: t.id,
     })
   }
@@ -103,16 +103,16 @@ export default function CalendarTimeGrid({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div
-        className="grid shrink-0 border-b border-[#dadce0] bg-[#f8f9fa] dark:border-slate-600 dark:bg-slate-800/90"
+        className="grid shrink-0 border-b border-slate-200 bg-slate-50 dark:border-slate-600 dark:bg-slate-800/90"
         style={{ gridTemplateColumns: `${TIME_GUTTER_PX}px repeat(${days.length}, minmax(0, 1fr))` }}
       >
-        <div className="flex items-center justify-end border-r border-[#dadce0] bg-[#f8f9fa] px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-[#5f6368] dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-500">
+        <div className="flex items-center justify-end border-r border-slate-200 bg-slate-50 px-1 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:bg-slate-800/90 dark:text-slate-500">
           Toute la journée
         </div>
         {days.map((day) => {
           const ads = allDayEventsForDay(events, day)
           return (
-            <div key={dayKey(day)} className="min-h-[2rem] border-l border-[#dadce0] px-0.5 py-0.5 dark:border-slate-600">
+            <div key={dayKey(day)} className="min-h-[2rem] border-l border-slate-200 px-0.5 py-0.5 dark:border-slate-600">
               <div className="flex flex-wrap gap-0.5">
                 {ads.map((ev) => {
                   const cal = ev.calendar_id != null ? calMap.get(ev.calendar_id) : undefined
@@ -120,7 +120,7 @@ export default function CalendarTimeGrid({
                     <span
                       key={ev.id}
                       className="max-w-full truncate rounded border-l-[3px] px-1 py-0.5 text-left text-[10px] font-medium text-white"
-                      style={{ backgroundColor: cal?.color_hex ?? '#1a73e8', borderLeftColor: 'rgba(255,255,255,0.35)' }}
+                      style={{ backgroundColor: cal?.color_hex ?? '#2563eb', borderLeftColor: 'rgba(255,255,255,0.35)' }}
                       title={ev.title}
                     >
                       {ev.title}
@@ -136,13 +136,13 @@ export default function CalendarTimeGrid({
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="flex" style={{ minHeight: totalH }}>
           <div
-            className="sticky left-0 z-10 shrink-0 border-r border-[#dadce0] bg-white dark:border-slate-600 dark:bg-slate-900"
+            className="sticky left-0 z-10 shrink-0 border-r border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-900"
             style={{ width: TIME_GUTTER_PX, height: totalH }}
           >
             {hours.map((h) => (
               <div
                 key={h}
-                className="box-border flex justify-end border-t border-transparent pr-1.5 pt-0.5 text-[11px] tabular-nums leading-none text-[#70757a] dark:text-slate-500"
+                className="box-border flex justify-end border-t border-transparent pr-1.5 pt-0.5 text-[11px] tabular-nums leading-none text-slate-500 dark:text-slate-500"
                 style={{ height: pxPerHour }}
               >
                 {`${String(h).padStart(2, '0')}:00`}
@@ -161,7 +161,7 @@ export default function CalendarTimeGrid({
               return (
                 <div
                   key={dayKey(day)}
-                  className="relative border-l border-[#dadce0] bg-white dark:border-slate-600 dark:bg-slate-900"
+                  className="relative border-l border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-900"
                   style={{ height: totalH }}
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest('[data-cal-block]')) return
@@ -177,11 +177,11 @@ export default function CalendarTimeGrid({
                   {hours.map((h) => (
                     <React.Fragment key={h}>
                       <div
-                        className="pointer-events-none absolute left-0 right-0 border-t border-[#e8eaed] dark:border-slate-700"
+                        className="pointer-events-none absolute left-0 right-0 border-t border-slate-200 dark:border-slate-700"
                         style={{ top: h * pxPerHour }}
                       />
                       <div
-                        className="pointer-events-none absolute left-0 right-0 border-t border-[#f1f3f4] dark:border-slate-800/90"
+                        className="pointer-events-none absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800/90"
                         style={{ top: h * pxPerHour + pxPerHour / 2 }}
                       />
                     </React.Fragment>
@@ -189,7 +189,7 @@ export default function CalendarTimeGrid({
                   {hours.map((h) => (
                     <div
                       key={`half-${h}`}
-                      className="pointer-events-none absolute left-0 right-0 border-t border-[#f1f3f4] dark:border-slate-800"
+                      className="pointer-events-none absolute left-0 right-0 border-t border-slate-100 dark:border-slate-800"
                       style={{ top: h * pxPerHour + pxPerHour / 2 }}
                     />
                   ))}
