@@ -164,8 +164,8 @@ Idem Gasoil (`prod` ou futur `dev`), JobbingTrack (`dev`), Cloudity (`chore/rest
 {
   "folders": [
     { "path": "products/cloudity", "name": "Cloudity" },
-    { "path": "products/fuel", "name": "Fuel-GasoilTracking" },
-    { "path": "products/music", "name": "PLM-YTMusic" },
+    { "path": "products/GasoilTracking", "name": "Fuel-GasoilTracking" },
+    { "path": "products/YTMusic", "name": "PLM-YTMusic" },
     { "path": "products/jobs", "name": "JobbingTrack" }
   ],
   "settings": { "files.exclude": { "**/node_modules": true } }

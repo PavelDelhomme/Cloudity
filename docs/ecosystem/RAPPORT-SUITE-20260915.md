@@ -88,8 +88,8 @@ Levier RAM : éteindre **JT preprod** hors usage (~15 conteneurs).
 ## 6. Prochaines étapes (propositions)
 
 1. Travailler JT via `products/jobbing-track` + workspace.  
-2. Quand stable : submodule Gasoil → `products/fuel` (même procédure).  
-3. Puis PLM → `products/music` (volume 20 Go intact).  
+2. Quand stable : submodule Gasoil → `products/GasoilTracking` (même procédure).  
+3. Puis PLM → `products/YTMusic` (volume 20 Go intact).  
 4. SSO Cloudity ID opt-in (platform/identity-sdk).  
 5. Maps plus tard.  
 6. Mises à jour : **par repo / par stack Portainer** ; éventuellement script « bump all submodules » sans redeploy forcé.

@@ -2,11 +2,11 @@
 	path = products/jobbing-track
 	url = git@github.com:PavelDelhomme/JobbingTrack.git
 	branch = dev
-[submodule "products/fuel"]
-	path = products/fuel
+[submodule "products/GasoilTracking"]
+	path = products/GasoilTracking
 	url = git@github.com:PavelDelhomme/GasoilTracking.git
 	branch = dev
-[submodule "products/music"]
-	path = products/music
+[submodule "products/YTMusic"]
+	path = products/YTMusic
 	url = git@github.com:PavelDelhomme/YTMusic.git
 	branch = dev

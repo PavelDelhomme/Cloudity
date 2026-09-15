@@ -11,8 +11,8 @@
 |---------|-------------|----------------------|---------------|-----------------|-----------------|----------------------|
 | Cloudity Suite | `PavelDelhomme/Cloudity` | `…/Cloudity/Cloudity` | (racine) | `dev` / `chore/restructure-platform` | `cloudity` | `cloudity_postgres_data`, `cloudity_mobile_data` |
 | JobbingTrack | `PavelDelhomme/JobbingTrack` | `…/Perso/JobbingTrack` | `products/jobbing-track` | `dev` | `jobbingtrack-prod` (+ `jobbingtrack-preprod`) | `jobbingtrack-prod_postgres_data` |
-| GasoilTracking | `PavelDelhomme/GasoilTracking` | `…/Perso/GasoilTracking` | `products/fuel` **actif** | `dev` (prod = `prod`) | `gasoil-tracking` | `gasoil_api_data` (~9 Go) |
-| YTMusic / PLM | `PavelDelhomme/YTMusic` | `…/Perso/YTMusic` | `products/music` **actif** | `dev` | `ytmusic` | `ytmusic_ytmusic_data` (~21 Go) |
+| GasoilTracking | `PavelDelhomme/GasoilTracking` | `…/Perso/GasoilTracking` | `products/GasoilTracking` **actif** | `dev` (prod = `prod`) | `gasoil-tracking` | `gasoil_api_data` (~9 Go) |
+| YTMusic / PLM | `PavelDelhomme/YTMusic` | `…/Perso/YTMusic` | `products/YTMusic` **actif** | `dev` | `ytmusic` | `ytmusic_ytmusic_data` (~21 Go) |
 
 **Règle** : un produit = un repo = une (ou deux) stack(s) = volumes **immuables en nom**.
 

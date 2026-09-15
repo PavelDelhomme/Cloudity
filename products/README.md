@@ -5,17 +5,31 @@ Chaque produit a son **propre repo Git** (submodule). Déployable seul (Portaine
 | Dossier | Statut | Produit | Repo |
 |---------|--------|---------|------|
 | `jobbing-track/` | **submodule actif** | JobbingTrack | `PavelDelhomme/JobbingTrack` (`dev`) |
-| `fuel/` | **submodule actif** | GasoilTracking | `PavelDelhomme/GasoilTracking` (`dev`) |
-| `music/` | **submodule actif** | PLM / YTMusic | `PavelDelhomme/YTMusic` (ou repo PLM) |
+| `GasoilTracking/` | **submodule actif** | GasoilTracking | `PavelDelhomme/GasoilTracking` (`dev`) |
+| `YTMusic/` | **submodule actif** | PLM / YTMusic | `PavelDelhomme/YTMusic` (`dev`) |
 | `maps/` | **placeholder** | Cloudity Maps | à créer (voir `maps/README.md`) |
 
 ## Ouvrir
 
 ```bash
+cd /home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity
 cursor Cloudity.code-workspace
 ```
 
+Chemins canoniques :
+
+- `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/GasoilTracking`
+- `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/YTMusic`
+- `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/jobbing-track`
+
+(Les clones historiques sous `/Perso/GasoilTracking`, `/Perso/YTMusic`, etc. = **même repo Git**.)
+
 Guide : [`docs/cursor/COMMENT-OUVRIR-CURSOR.md`](../docs/cursor/COMMENT-OUVRIR-CURSOR.md)
+
+## Identité
+
+SSO Cloudity ID ↔ PLM : [`docs/ecosystem/CLOUDITY-AUTH-PLM.md`](../docs/ecosystem/CLOUDITY-AUTH-PLM.md)  
+SDK squelette : [`platform/identity-sdk/`](../platform/identity-sdk/)
 
 ## Données
 

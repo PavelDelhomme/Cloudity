@@ -21,6 +21,7 @@ cursor Cloudity.code-workspace
 | [`docs/ecosystem/ECOSYSTEME-SUITE-MODULAIRE.md`](docs/ecosystem/ECOSYSTEME-SUITE-MODULAIRE.md) | Rapport long |
 | [`docs/ecosystem/RAPPORT-SUITE-20260915.md`](docs/ecosystem/RAPPORT-SUITE-20260915.md) | Synthèse lisible du jour |
 | [`products/README.md`](products/README.md) | Submodules / placeholders |
+| [`docs/ecosystem/CLOUDITY-AUTH-PLM.md`](docs/ecosystem/CLOUDITY-AUTH-PLM.md) | Unifier Cloudity Auth ↔ users PLM |
 | [`docs/INDEX.md`](docs/INDEX.md) | Index général |
 
-JobbingTrack → `products/jobbing-track/` · Gasoil → `products/fuel/` · Music → `products/music/` (submodules). Maps plus tard.
+JobbingTrack → `products/jobbing-track/` · Gasoil → `products/GasoilTracking/` · YTMusic → `products/YTMusic/` (submodules). Maps plus tard.

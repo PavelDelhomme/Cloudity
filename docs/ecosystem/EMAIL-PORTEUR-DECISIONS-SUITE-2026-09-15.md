@@ -34,8 +34,8 @@ Serveur : ~29 Go RAM (≈8 Go used), disque ~43 % (479 Go / 1,2 To). Portainer C
 |-----|--------|----------|
 | Cloudity (plateforme) | `…/Cloudity/Cloudity` | `cursor .` |
 | JobbingTrack | `…/Cloudity/Cloudity/products/jobbing-track` **ou** `…/Perso/JobbingTrack` | `cursor .` (même repo Git) |
-| Gasoil | `…/products/fuel` **ou** `…/Perso/GasoilTracking` | `cursor .` (même repo Git) |
-| YTMusic | `…/products/music` **ou** `…/Perso/YTMusic` | `cursor .` (même repo Git) |
+| Gasoil | `…/products/GasoilTracking` **ou** `…/Perso/GasoilTracking` | `cursor .` (même repo Git) |
+| YTMusic | `…/products/YTMusic` **ou** `…/Perso/YTMusic` | `cursor .` (même repo Git) |
 
 Commits = **dans le repo de l’app**. Branches `dev` (Gasoil a aussi `prod` / `preprod`).
 

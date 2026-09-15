@@ -1,6 +1,6 @@
 # Cloudity Maps — vision & intégration suite
 
-> 2026-09-15. Miroir de `products/fuel/docs/cloudity-maps-navigation.md`.
+> 2026-09-15. Miroir de `products/GasoilTracking/docs/cloudity-maps-navigation.md`.
 
 ## Verdict
 
