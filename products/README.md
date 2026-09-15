@@ -22,7 +22,21 @@ Chemins canoniques :
 - `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/YTMusic`
 - `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/jobbing-track`
 
-(Les clones historiques sous `/Perso/GasoilTracking`, `/Perso/YTMusic`, etc. = **même repo Git**.)
+Alias (symlinks, mêmes dossiers) : `products/fuel` → GasoilTracking, `products/music` → YTMusic.
+
+**Un seul lieu de vérité pour développer** = ces chemins sous Cloudity. Les clones `/Perso/JobbingTrack`, `/Perso/GasoilTracking`, `/Perso/YTMusic` sont optionnels (même remote) : après un `git pull` sur `dev`, ou arrête-les et n’ouvre plus que le submodule.
+
+## Cursor : tout fermer puis rouvrir
+
+```bash
+# 1. Fermer toutes les fenêtres Cursor
+# 2. Relancer la suite
+cd /home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity
+cursor Cloudity.code-workspace
+```
+
+Tu auras 4 racines : Cloudity · JobbingTrack · GasoilTracking · YTMusic.  
+Pour un seul produit : `cd products/YTMusic && cursor .` (idem GasoilTracking / jobbing-track).
 
 Guide : [`docs/cursor/COMMENT-OUVRIR-CURSOR.md`](../docs/cursor/COMMENT-OUVRIR-CURSOR.md)
 
