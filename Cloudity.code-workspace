@@ -1,0 +1,12 @@
+{
+  "folders": [
+    { "name": "Cloudity (suite)", "path": "." },
+    { "name": "JobbingTrack", "path": "products/jobbing-track" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git/objects": true
+    }
+  }
+}

@@ -7,7 +7,11 @@ Point d’entrée unique pour ne pas se perdre dans les `.md`.
 | Doc | Rôle |
 |-----|------|
 | [`../README.md`](../README.md) | Présentation & démarrage |
-| [`../ECOSYSTEME-SUITE-MODULAIRE.md`](../ECOSYSTEME-SUITE-MODULAIRE.md) | **Suite modulaire** (Maps, Fuel, PLM, Jobs, Cursor, Portainer, données) |
+| [`../ECOSYSTEME-SUITE-MODULAIRE.md`](../ECOSYSTEME-SUITE-MODULAIRE.md) | Pointeur court → rapport long + PDF |
+| [`ecosystem/ECOSYSTEME-SUITE-MODULAIRE.md`](ecosystem/ECOSYSTEME-SUITE-MODULAIRE.md) | **Suite modulaire** (rapport long) |
+| [`cursor/BRIEF-INTEGRATION-SUITE.md`](cursor/BRIEF-INTEGRATION-SUITE.md) | **Brief à coller dans Cursor** (JT / Fuel / PLM) |
+| [`../products/README.md`](../products/README.md) | Submodules `products/` |
+| [`../Cloudity.code-workspace`](../Cloudity.code-workspace) | Workspace multi-root |
 | [`../STATUS.md`](../STATUS.md) | État courant du monorepo Cloudity |
 | [`../TODOS.md`](../TODOS.md) | Checklist active |
 | [`../BACKLOG.md`](../BACKLOG.md) | Backlog long terme |

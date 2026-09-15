@@ -1,0 +1,4 @@
+[submodule "products/jobbing-track"]
+	path = products/jobbing-track
+	url = git@github.com:PavelDelhomme/JobbingTrack.git
+	branch = dev
