@@ -14,7 +14,7 @@
   - GasoilTracking → `products/fuel/` (**submodule actif**, branche `dev`)
   - PLM / YTMusic → `products/music/` (**submodule actif**)
   - Cloudity Maps → `products/maps/` (plus tard)
-  - YTMusic/PLM → `products/music/` (à venir, **ne pas casser** le volume ~20 Go)
+  - YTMusic/PLM → `products/music/` (**actif**, **ne pas casser** le volume ~20 Go)
 - On développe **soit** le produit seul, **soit** toute la suite via `Cloudity.code-workspace`.
 - Déploiement VPS = **Portainer Git**, stacks **séparées**, volumes Docker **noms stables**.
 - SSO « Cloudity ID » = **opt-in** plus tard ; auth locale de chaque app **reste**.

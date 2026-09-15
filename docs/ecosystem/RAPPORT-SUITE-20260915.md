@@ -24,8 +24,8 @@ Cloudity/
 ├── Cloudity.code-workspace
 ├── products/
 │   ├── jobbing-track/     ← submodule COMPLET (= repo JobbingTrack)
-│   ├── fuel/README.md     ← placeholder Gasoil (pas encore submodule)
-│   └── music/README.md    ← placeholder PLM (pas encore submodule)
+│   ├── fuel/             ← submodule GasoilTracking
+│   └── music/            ← submodule YTMusic/PLM
 ├── platform/
 │   └── identity-sdk/      ← squelette SSO
 ├── backend/ frontend/ …   ← cœur Cloudity inchangé
@@ -34,8 +34,7 @@ Cloudity/
     └── COMMENT-OUVRIR-CURSOR.md
 ```
 
-**Pourquoi seulement JobbingTrack dans products/ ?**  
-On intègre **un produit à la fois** pour ne pas risquer les volumes Gasoil (~9 Go) et YTMusic (~21 Go). JT est le pilote.
+**Submodules** : JT + Gasoil (`fuel`) + PLM (`music`) — stacks Portainer **toujours séparées**, volumes inchangés.
 
 Le code JobbingTrack sous `products/jobbing-track` **est bien le projet complet** (backend, frontend, mobile, docs…) — ce n’est pas un stub.
 
