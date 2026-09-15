@@ -2,7 +2,7 @@
 
 **Date :** 2026-09-15  
 **Pour :** lectures humaines + chats Cursor (JobbingTrack, GasoilTracking, PLM, Cloudity)  
-**Destinataires email :** [REDACTED] · dev@delhomme.ovh · [REDACTED]
+**Destinataires email :** non publiés (variables d’env locales uniquement — jamais en clair dans Git).
 
 ---
 

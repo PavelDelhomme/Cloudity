@@ -1,7 +1,7 @@
 # Écosystème Cloudity — organisation, données, Cursor, Portainer & migration
 
 > **Rapport de cadrage (v2 — 2026-09-15)**  
-> Destinataires : `[REDACTED]` · `dev@delhomme.ovh` · `[REDACTED]`  
+> Destinataires : **non publiés** (adresses perso / ops uniquement via variables d’env locales — jamais en repo).  
 > Statut : **analyse + recommandations** — **aucune migration destructive** tant que les décisions §17 ne sont pas tranchées.  
 > Index doc Cloudity : [`docs/INDEX.md`](docs/INDEX.md)
 
