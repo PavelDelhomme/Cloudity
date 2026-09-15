@@ -155,18 +155,27 @@ Recommandations Cursor/ops :
 | Fichier | Rôle |
 |---------|------|
 | `docs/ecosystem/ECOSYSTEME-SUITE-MODULAIRE.md` | Rapport long (aussi en PDF) |
+| `docs/ecosystem/OPS-SUITE-BACKUP-CI-RESEAU.md` | Backup volumes, rollback submodule, .env, CI, réseau, JWT |
+| `docs/ecosystem/CLOUDITY-AUTH-PLM.md` | SSO Cloudity ↔ PLM (opt-in) |
 | `products/README.md` | Carte des submodules |
 | `Cloudity.code-workspace` | Ouverture multi-root |
 | `docs/INDEX.md` | Index doc Cloudity |
 | `products/jobbing-track/docs/SUITE-ECOSYSTEM-LINK.md` | Fiche satellite JT |
 
+### Secrets multi-root (résumé)
+
+- **Un** `.env.example` versionné **par** satellite ; `.env` local **non** versionné.
+- Pas de `.env` unique Cloudity qui injecte les secrets JT/Gasoil/PLM dans Cursor.
+- Optionnel : `.env.suite` non versionné à la racine Cloudity (URLs locales seulement).
+
+Détail : [`OPS-SUITE-BACKUP-CI-RESEAU.md`](../ecosystem/OPS-SUITE-BACKUP-CI-RESEAU.md).
+
 ---
 
-## 9. Prochaine étape humaine (pas encore codée)
+## 9. Prochaine étape humaine
 
-- Décisions naming / SSO / Maps (voir rapport PDF).  
-- Submodule Gasoil + PLM quand JT est stable dans le workspace.  
-- Script VPS `backup-suite-volumes.sh`.  
-- identity-sdk réel.
+- Tester `backup-suite-volumes.sh` **dry-run puis --run** sur le VPS ; copie hors machine.
+- Brancher Nothing (USB/Wi‑Fi) pour `make adb-both` si install PROD manquante.
+- SSO phase 2 PLM quand flag prêt ; Maps / intégrations OSS (Trello…) = nouveaux `products/` isolés.
 
 **Fin du brief — garder ce fichier à jour si la structure `products/` évolue.**
