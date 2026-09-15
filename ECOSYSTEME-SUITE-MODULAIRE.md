@@ -23,6 +23,7 @@ cursor Cloudity.code-workspace
 | [`products/README.md`](products/README.md) | Submodules / placeholders |
 | [`docs/ecosystem/CLOUDITY-AUTH-PLM.md`](docs/ecosystem/CLOUDITY-AUTH-PLM.md) | Unifier Cloudity Auth ↔ users PLM |
 | [`docs/ecosystem/OPS-SUITE-BACKUP-CI-RESEAU.md`](docs/ecosystem/OPS-SUITE-BACKUP-CI-RESEAU.md) | Backup VPS, CI, .env, réseau, JWT |
+| [`docs/ecosystem/ETAT-SUITE-20260915-SOIR.md`](docs/ecosystem/ETAT-SUITE-20260915-SOIR.md) | État soir 15/09 + PDF release |
 | [`docs/INDEX.md`](docs/INDEX.md) | Index général |
 
 JobbingTrack → `products/jobbing-track/` · Gasoil → `products/GasoilTracking/` · YTMusic → `products/YTMusic/` (submodules). Maps plus tard.
