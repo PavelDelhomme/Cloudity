@@ -21,6 +21,9 @@
 
 ## 2. Comment ouvrir le projet dans Cursor
 
+> Guide dédié (plus clair) : [`COMMENT-OUVRIR-CURSOR.md`](COMMENT-OUVRIR-CURSOR.md)
+
+
 ### Unitaire (recommandé au quotidien)
 
 ```bash

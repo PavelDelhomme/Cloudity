@@ -1,8 +1,9 @@
-# platform/ — socle partagé Cloudity
+# platform/ — socle partagé suite
 
 | Dossier | Rôle |
 |---------|------|
-| `identity-sdk/` | Client OIDC / JWT Cloudity ID (JS + plus tard Dart) — *stub Phase 1* |
-| *(plus tard)* `design-tokens/`, `contracts/` | UI commune, OpenAPI events |
+| `identity-sdk/` | SSO Cloudity ID (squelette) |
+| *(plus tard)* `design-tokens/` | UI cohérente |
+| *(plus tard)* `contracts/` | OpenAPI / events |
 
-Ne pas y coller le code métier JobbingTrack / Fuel / PLM.
+Les **services** Cloudity restent dans `backend/` (pas déplacés ici pour l’instant).
