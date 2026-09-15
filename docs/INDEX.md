@@ -33,3 +33,9 @@ Point d’entrée unique pour ne pas se perdre dans les `.md`.
 - Ne **pas** supprimer `STATUS.md` / `TODOS.md` / `BACKLOG.md` : ce sont les sources de pilotage.
 - `DEPLOY.md` à la racine = **pointeur** vers `DEPLOIEMENT_PROCEDURE.md`.
 - Nouveaux rapports d’avancement : `reports/progress/` (pas à la racine).
+
+## Suite multi-produits (2026-09-15)
+
+- [Décisions porteur / email](ecosystem/EMAIL-PORTEUR-DECISIONS-SUITE-2026-09-15.md)
+- [Architecture Cursor + Portainer](ecosystem/ARCHITECTURE-CURSOR-PORTAINER-SUITE.md)
+- [Brief Cursor satellites](cursor/BRIEF-INTEGRATION-SUITE.md)

@@ -66,7 +66,22 @@ git push
 | SSO opt-in | Forcer migration comptes existants |
 | Améliorer Cloudity **en s’inspirant** du code JT (patterns, monitoring) | Copier-coller half-baked JT dans `backend/` Cloudity |
 
-### Volumes critiques (VPS Contabo)
+### Volumes critiques (VPS Contabo) — audit **2026-09-15**
+
+| Volume | Taille | Produit |
+|--------|-------:|---------|
+| `ytmusic_ytmusic_data` | **~20,6 Go** | PLM / YTMusic |
+| `gasoil_api_data` | **~8,9 Go** | GasoilTracking |
+| `jobbingtrack-prod_postgres_data` | ~537 Mo | JT prod |
+| `jobbingtrack-preprod_postgres_data` | ~465 Mo | JT preprod |
+| `jobbingtrack-prod_mobile_releases` | ~1,2 Go | OTA JT |
+| `cloudity_postgres_data` | ~49 Mo | Cloudity |
+| `cloudity_mobile_data` | ~678 Mo | Cloudity mobile |
+
+Détail décisions : [`../ecosystem/EMAIL-PORTEUR-DECISIONS-SUITE-2026-09-15.md`](../ecosystem/EMAIL-PORTEUR-DECISIONS-SUITE-2026-09-15.md).
+Ops Cursor/Portainer : [`../ecosystem/ARCHITECTURE-CURSOR-PORTAINER-SUITE.md`](../ecosystem/ARCHITECTURE-CURSOR-PORTAINER-SUITE.md).
+
+### Volumes critiques (VPS Contabo) — (ancien résumé)
 
 - JobbingTrack prod : `jobbingtrack-prod_postgres_data`
 - JobbingTrack preprod : `jobbingtrack-preprod_postgres_data`
