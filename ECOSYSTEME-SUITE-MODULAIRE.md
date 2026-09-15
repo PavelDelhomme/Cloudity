@@ -23,4 +23,4 @@ cursor Cloudity.code-workspace
 | [`products/README.md`](products/README.md) | Submodules / placeholders |
 | [`docs/INDEX.md`](docs/INDEX.md) | Index général |
 
-JobbingTrack est sous `products/jobbing-track/` (submodule). Fuel/Music = placeholders pour l’instant.
+JobbingTrack → `products/jobbing-track/` · Gasoil → `products/fuel/` · Music → `products/music/` (submodules). Maps plus tard.

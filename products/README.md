@@ -5,22 +5,18 @@ Chaque produit a son **propre repo Git** (submodule). Déployable seul (Portaine
 | Dossier | Statut | Produit | Repo |
 |---------|--------|---------|------|
 | `jobbing-track/` | **submodule actif** | JobbingTrack | `PavelDelhomme/JobbingTrack` (`dev`) |
-| `fuel/` | placeholder | GasoilTracking | à brancher (voir `fuel/README.md`) |
-| `music/` | placeholder | PLM / YTMusic | à brancher (voir `music/README.md`) |
+| `fuel/` | **submodule actif** | GasoilTracking | `PavelDelhomme/GasoilTracking` (`dev`) |
+| `music/` | **submodule actif** | PLM / YTMusic | `PavelDelhomme/YTMusic` (ou repo PLM) |
 | `maps/` | — | Cloudity Maps | plus tard |
 
 ## Ouvrir
 
 ```bash
-# Suite (Cloudity + JT dans le même Cursor)
 cursor Cloudity.code-workspace
-
-# JT seul
-cd products/jobbing-track && cursor .
 ```
 
-Guide détaillé : [`docs/cursor/COMMENT-OUVRIR-CURSOR.md`](../docs/cursor/COMMENT-OUVRIR-CURSOR.md)
+Guide : [`docs/cursor/COMMENT-OUVRIR-CURSOR.md`](../docs/cursor/COMMENT-OUVRIR-CURSOR.md)
 
 ## Données
 
-Les submodules **ne déplacent aucune donnée Docker**. Volumes VPS inchangés.
+Les submodules **ne déplacent aucune donnée Docker**. Volumes VPS inchangés (`gasoil_api_data`, JT postgres, `ytmusic_ytmusic_data`, etc.).

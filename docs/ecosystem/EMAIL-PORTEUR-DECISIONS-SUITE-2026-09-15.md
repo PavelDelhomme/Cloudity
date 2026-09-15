@@ -34,8 +34,8 @@ Serveur : ~29 Go RAM (≈8 Go used), disque ~43 % (479 Go / 1,2 To). Portainer C
 |-----|--------|----------|
 | Cloudity (plateforme) | `…/Cloudity/Cloudity` | `cursor .` |
 | JobbingTrack | `…/Cloudity/Cloudity/products/jobbing-track` **ou** `…/Perso/JobbingTrack` | `cursor .` (même repo Git) |
-| Gasoil | `…/Perso/GasoilTracking` (puis `products/fuel` quand submodule) | `cursor .` |
-| YTMusic | `…/Perso/YTMusic` (puis `products/music`) | `cursor .` |
+| Gasoil | `…/products/fuel` **ou** `…/Perso/GasoilTracking` | `cursor .` (même repo Git) |
+| YTMusic | `…/products/music` **ou** `…/Perso/YTMusic` | `cursor .` (même repo Git) |
 
 Commits = **dans le repo de l’app**. Branches `dev` (Gasoil a aussi `prod` / `preprod`).
 
@@ -46,7 +46,7 @@ cd /home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity
 cursor Cloudity.code-workspace
 ```
 
-Workspace actuel = Cloudity + JobbingTrack. Étendre quand `fuel/` et `music/` existent.
+Workspace = Cloudity + JobbingTrack + Gasoil (`fuel`) + PLM (`music`).
 
 Après commit dans un submodule :
 
@@ -84,14 +84,14 @@ cd ../.. && git add products/jobbing-track && git commit -m "chore: bump jobbing
 | # | Décision | Options | Reco agent | Ton choix |
 |---|----------|---------|------------|-----------|
 | D1 | Nom public de la suite | garder **Cloudity** / renommer (ex. Delhomme Suite) | Garder Cloudity pour l’instant | [ ] |
-| D2 | Ordre d’intégration submodules | JT → Gasoil → PLM / autre | **JT d’abord** (déjà fait), puis Gasoil, puis PLM | [ ] |
+| D2 | Ordre d’intégration submodules | JT → Gasoil → PLM / autre | **JT d’abord** (déjà fait), puis Gasoil, puis PLM | [x] JT→fuel→music **fait** |
 | D3 | Preprod JT 24/7 | garder / n’allumer qu’à la demande | **Éteindre hors usage** (RAM/CPU) | [ ] |
 | D4 | SSO Cloudity ID | jamais / opt-in / obligatoire | **Opt-in** ; auth locale inchangée | [ ] |
-| D5 | Gasoil → Cloudity Maps | nouveau repo `maps/` vs réutiliser gasoil | **Nouveau `products/maps`** plus tard ; Gasoil reste stack | [ ] |
-| D6 | PLM volume 20 Go | inchangé / migration stockage | **Inchangé** ; pas de copie parallèle | [ ] |
+| D5 | Gasoil → Cloudity Maps | nouveau repo `maps/` vs réutiliser gasoil | **Nouveau `products/maps`** plus tard ; Gasoil reste stack | [x] Maps plus tard (OSM) ; Fuel stack intacte |
+| D6 | PLM volume 20 Go | inchangé / migration stockage | **Inchangé** ; pas de copie parallèle | [x] |
 | D7 | Tags images JT | `latest` vs semver vs `prod` | **Semver / `prod`** + arrêt mix `dev` en prod | [ ] |
 | D8 | Watchtower | off / filtré par stack | **Filtré**, jamais global | [ ] |
-| D9 | Chemins locaux Perso/* | garder symlinks / n’utiliser que `products/` | Garde les deux jusqu’à stable, puis un seul | [ ] |
+| D9 | Chemins locaux Perso/* | garder symlinks / n’utiliser que `products/` | Garde les deux jusqu’à stable, puis un seul | [x] les deux OK |
 | D10 | Rename fichiers EN (JT) | maintenant / après tri structure | **Après** hygiene `.md` + triage | [ ] |
 
 ---
@@ -104,8 +104,8 @@ Cloudity/                          # meta-repo plateforme
 ├── backend/ … frontend/ …         # suite Cloudity
 ├── products/
 │   ├── jobbing-track/             # submodule → JobbingTrack.git (FAIT)
-│   ├── fuel/                      # submodule → GasoilTracking.git (À FAIRE)
-│   └── music/                     # submodule → YTMusic.git (À FAIRE)
+│   ├── fuel/                      # submodule → GasoilTracking.git (FAIT)
+│   └── music/                     # submodule → YTMusic.git (FAIT)
 └── docs/ecosystem/                # rapports + décisions (ce fichier)
 
 Perso/JobbingTrack                 # clone = même remote que products/jobbing-track

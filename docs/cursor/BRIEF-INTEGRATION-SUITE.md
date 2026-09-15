@@ -11,7 +11,9 @@
   Chemin monorepo : `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity`
 - **Satellites** (repos Git **dédiés**, aussi visibles sous `Cloudity/products/` en submodule) :
   - JobbingTrack → `products/jobbing-track/` (intégré en premier)
-  - GasoilTracking → `products/fuel/` (à venir)
+  - GasoilTracking → `products/fuel/` (**submodule actif**, branche `dev`)
+  - PLM / YTMusic → `products/music/` (**submodule actif**)
+  - Cloudity Maps → `products/maps/` (plus tard)
   - YTMusic/PLM → `products/music/` (à venir, **ne pas casser** le volume ~20 Go)
 - On développe **soit** le produit seul, **soit** toute la suite via `Cloudity.code-workspace`.
 - Déploiement VPS = **Portainer Git**, stacks **séparées**, volumes Docker **noms stables**.

@@ -1,7 +1,21 @@
 {
   "folders": [
-    { "name": "Cloudity (suite)", "path": "." },
-    { "name": "JobbingTrack", "path": "products/jobbing-track" }
+    {
+      "name": "Cloudity (suite)",
+      "path": "."
+    },
+    {
+      "name": "JobbingTrack",
+      "path": "products/jobbing-track"
+    },
+    {
+      "name": "GasoilTracking",
+      "path": "products/fuel"
+    },
+    {
+      "name": "PLM / YTMusic",
+      "path": "products/music"
+    }
   ],
   "settings": {
     "files.exclude": {
