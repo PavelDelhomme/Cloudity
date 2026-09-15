@@ -23,7 +23,7 @@ L’API est exposée sur le port **6080** (Chrome bloque le port 6000 — ERR_UN
 
 Première fois : `./scripts/dev/setup.sh` ou `make init` puis **`make up-ready`** (stack + compte démo) ou **`make up-full`** (+ tests). Si **`up-full` échoue** → **`make up-ready`**. (Index des scripts : `scripts/README.md`.)  
 
-**Convention documentation** : à la **racine** du dépôt, **`README.md`** (cette page), **`STATUS.md`** (suivi quotidien) et **`BACKLOG.md`** (priorités / backlog condensé). Tout le reste — **roadmap**, **tests**, **mobile**, **plan d’implémentation**, **OAuth Gmail**, guides thématiques — est sous **`docs/`** (voir **[docs/README.md](./docs/README.md)**).
+**Convention documentation** : à la **racine** — **`README.md`** (cette page), **`STATUS.md`**, **`TODOS.md`**, **`BACKLOG.md`**, **`DEPLOIEMENT_PROCEDURE.md`**, et **[`ECOSYSTEME-SUITE-MODULAIRE.md`](./ECOSYSTEME-SUITE-MODULAIRE.md)** (suite Maps / Fuel / PLM / Jobs, Cursor, Portainer, zéro perte données). **Index** : **[`docs/INDEX.md`](./docs/INDEX.md)**. Le reste (roadmap, tests, produit, sécu) est sous **`docs/`**. Anciens récaps → `reports/progress/archive/`.
 
 **Déploiement & tests (PC → mobile → prod VPS)** : **[docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md](docs/operations/GUIDE-COMPLET-DEPLOIEMENT-ET-TESTS.md)** — guide maître unique (local, LAN téléphone, Portainer + NPM).
 
