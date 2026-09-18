@@ -155,6 +155,7 @@ type SessionStore interface {
 type AuthService struct {
 	userStore    UserStore
 	sessionStore SessionStore
+	db           *sql.DB // optionnel — liens SSO identity_app_links
 	// e2eKV : stockage OTP bootstrap E2E/CI (TEST-AUTH-01). Nil en tests sans injection.
 	e2eKV e2eBootstrapKV
 	// privateKey/publicKey : RSA-2048 — conservés pour vérifier les tokens
@@ -203,6 +204,7 @@ func main() {
 	authService := &AuthService{
 		userStore:    &postgresUserStore{db: db},
 		sessionStore: &redisSessionStore{rdb: rdb},
+		db:           db,
 		e2eKV:        &redisE2EBootstrapKV{rdb: rdb},
 		privateKey:   privateKey,
 		publicKey:    publicKey,

@@ -5,12 +5,13 @@
 # Usage:
 #   ./scripts/ops/backup-suite-volumes.sh              # dry-run : liste volumes + tailles
 #   ./scripts/ops/backup-suite-volumes.sh --run        # tar.gz locaux dans BACKUP_DIR
-#   BACKUP_DIR=/var/backups/cloudity-suite ./scripts/ops/backup-suite-volumes.sh --run
+#   BACKUP_DIR=~/backups/cloudity-suite ./scripts/ops/backup-suite-volumes.sh --run
 #
 # Plus tard (non implémenté ici) : restic → S3 / stockage externe chiffré.
 set -euo pipefail
 
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/cloudity-suite}"
+# Défaut : $HOME (writable sans root). /var/backups nécessite sudo.
+BACKUP_DIR="${BACKUP_DIR:-${HOME}/backups/cloudity-suite}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RUN=0
 [[ "${1:-}" == "--run" ]] && RUN=1
@@ -62,11 +63,15 @@ echo
 
 if [[ "$RUN" -eq 0 ]]; then
   echo "Dry-run OK. Relancer avec --run pour créer des archives tar.gz."
-  echo "Exemple : BACKUP_DIR=/var/backups/cloudity-suite $0 --run"
+  echo "Exemple : BACKUP_DIR=\$HOME/backups/cloudity-suite $0 --run"
   exit 0
 fi
 
-mkdir -p "$BACKUP_DIR"
+mkdir -p "$BACKUP_DIR" || {
+  echo "❌ Impossible de créer BACKUP_DIR=$BACKUP_DIR (permissions ?)." >&2
+  echo "   Exemple : BACKUP_DIR=\$HOME/backups/cloudity-suite $0 --run" >&2
+  exit 1
+}
 MANIFEST="$BACKUP_DIR/manifest-$STAMP.txt"
 {
   echo "stamp=$STAMP"

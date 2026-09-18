@@ -38,4 +38,6 @@ Point d’entrée unique pour ne pas se perdre dans les `.md`.
 
 - [Décisions porteur / email](ecosystem/EMAIL-PORTEUR-DECISIONS-SUITE-2026-09-15.md)
 - [Architecture Cursor + Portainer](ecosystem/ARCHITECTURE-CURSOR-PORTAINER-SUITE.md)
+- [État sync suite + prochaines actions](ecosystem/SUITE-SYNC-ETAT.md)
+- [Vision Cloudity Maps](ecosystem/CLOUDITY-MAPS-VISION.md)
 - [Brief Cursor satellites](cursor/BRIEF-INTEGRATION-SUITE.md)

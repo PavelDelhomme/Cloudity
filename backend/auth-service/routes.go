@@ -27,6 +27,7 @@ func registerAuthHTTPRoutes(r *gin.Engine, auth *AuthService, db *sql.DB, rdb *r
 
 	registerE2EBootstrapRoutesIfEnabled(r, auth)
 	registerDevQuickLoginRoutesIfEnabled(r, auth)
+	registerIdentityLinkRoutes(r, auth)
 
 	webauthn.NewWebAuthnService(webauthn.LoadWebAuthnConfig(), db, rdb, auth.webauthnBridge()).RegisterRoutes(r)
 }
