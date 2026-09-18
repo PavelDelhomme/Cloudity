@@ -25,7 +25,13 @@ Volumes ciblés (noms stables) : `gasoil_api_data`, `ytmusic_ytmusic_data`, `job
 
 **Jamais** : `docker volume prune`, Remove de ces volumes, restore sans smoke login.
 
-Étape **suivante** : [`scripts/ops/restic-suite-s3.sh`](../../scripts/ops/restic-suite-s3.sh) — restic chiffré → S3 (credentials `RESTIC_*` + `AWS_*`). Dry-run sans secrets ; `--init` une fois puis `--run`. `INCLUDE_YTMUSIC=1` pour le volume ~22G hors heures.
+Étape **restic** : [`scripts/ops/restic-suite-s3.sh`](../../scripts/ops/restic-suite-s3.sh) (S3) + repo local VPS déjà initialisé :
+
+- Binaire : `~/bin/restic` (0.17.3)
+- Repo chiffré : `~/backups/restic-cloudity` (passphrase : `~/.config/cloudity/restic.password`)
+- Snapshot initial : archives `~/backups/cloudity-suite` (~4.7 GiB)
+- Env : `source scripts/ops/restic-vps-env.sh` puis `restic snapshots`
+- S3 plus tard : copier `~/.config/cloudity/restic-s3.env.example` → `restic-s3.env` (AWS keys) puis `restic copy` / changer `RESTIC_REPOSITORY`
 
 ---
 

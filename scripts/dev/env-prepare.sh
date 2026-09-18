@@ -232,6 +232,8 @@ case "$MODE" in
     apply_overlay WEBAUTHN_ORIGINS_EXTRA ""
     # Désactiver bootstrap E2E
     apply_overlay CLOUDITY_ALLOW_E2E_BOOTSTRAP ""
+    # SSO identity : OFF en prod tant que préprod non validée.
+    apply_overlay CLOUDITY_SSO_ENABLED 0
     ;;
   preprod)
     apply_overlay GO_ENV production
@@ -243,6 +245,8 @@ case "$MODE" in
     apply_overlay CLOUDITY_PUBLIC_OMIT_PORTS true
     apply_overlay CORS_ORIGINS_EXTRA ""
     apply_overlay WEBAUTHN_ORIGINS_EXTRA ""
+    # SSO identity links activés en préprod uniquement.
+    apply_overlay CLOUDITY_SSO_ENABLED 1
     ;;
   dev)
     apply_overlay GO_ENV development
@@ -250,6 +254,7 @@ case "$MODE" in
     apply_overlay BUILD_TARGET dev
     apply_overlay CORS_ALLOW_LAN true
     apply_overlay CLOUDITY_PUBLIC_PROTO http
+    apply_overlay CLOUDITY_SSO_ENABLED 1
     ;;
 esac
 
