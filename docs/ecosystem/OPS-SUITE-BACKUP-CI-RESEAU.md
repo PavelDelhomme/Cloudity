@@ -13,14 +13,19 @@ Script : [`scripts/ops/backup-suite-volumes.sh`](../../scripts/ops/backup-suite-
 cd /path/to/Cloudity   # ou copie du script seule
 chmod +x scripts/ops/backup-suite-volumes.sh
 ./scripts/ops/backup-suite-volumes.sh           # dry-run
-BACKUP_DIR=/var/backups/cloudity-suite ./scripts/ops/backup-suite-volumes.sh --run
+# Défaut writable : ~/backups/cloudity-suite (évite Permission denied sur /var/backups)
+./scripts/ops/backup-suite-volumes.sh --run
+# Ou explicite :
+BACKUP_DIR=$HOME/backups/cloudity-suite ./scripts/ops/backup-suite-volumes.sh --run
 ```
+
+Wrapper : `scripts/ops/vps-suite-prepare.sh` (crée `cloudity-bridge` + dry-run ; `--backup` pour archiver).
 
 Volumes ciblés (noms stables) : `gasoil_api_data`, `ytmusic_ytmusic_data`, `jobbingtrack-prod_postgres_data`, `cloudity_postgres_data`, `cloudity_mobile_data`.
 
 **Jamais** : `docker volume prune`, Remove de ces volumes, restore sans smoke login.
 
-Étape **non codée** (à noter) : restic chiffré → S3 / stockage externe.
+Étape **non codée** (à noter) : restic chiffré → S3 / stockage externe. Archive `ytmusic_ytmusic_data` (~22G) hors heures.
 
 ---
 

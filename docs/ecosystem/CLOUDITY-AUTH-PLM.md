@@ -56,14 +56,20 @@ CREATE TABLE IF NOT EXISTS identity_app_links (
 );
 ```
 
-### Phase 2 — Endpoint PLM « Lier Cloudity »
+### Phase 2 — Endpoint PLM « Lier Cloudity » (**fondation OK**, flag off)
 
-Côté `products/YTMusic` API (flag off par défaut) :
+Côté Cloudity `auth-service` (livré, défaut **404** si `CLOUDITY_SSO_ENABLED` off) :
+
+- `POST /auth/identity/link` — body `{ app_id, external_user_id, email }` + Bearer Cloudity
+- `GET /auth/identity/links` — liste des liens du user
+- Migration `infrastructure/postgresql/migrations/50-identity-app-links.sql`
+
+Côté `products/YTMusic` API (helper livré, no-op si flag off) :
 
 1. User déjà connecté PLM (session locale).
-2. `POST /api/auth/cloudity/link` avec Bearer Cloudity (ou code OAuth).
-3. Vérifier email Cloudity == email PLM (ou email_verified des deux côtés).
-4. Persister `users.cloudity_subject` (colonne additive) + enregistrer le lien côté Cloudity si API dispo.
+2. Appeler `linkCloudityAccount()` (`api/src/auth/cloudityLink.ts`) avec Bearer Cloudity.
+3. Vérifier email Cloudity == email PLM (côté auth-service).
+4. Brancher au login / settings PLM **uniquement en préprod** quand on active le flag.
 
 ### Phase 3 — Login « Continuer avec Cloudity »
 
@@ -85,10 +91,10 @@ Même schéma `app_id`, même SDK. Auth locale reste filet hors-ligne.
 
 | Fichier | Rôle |
 |---------|------|
-| `platform/identity-sdk/` | Types + client HTTP stub |
-| `infrastructure/postgresql/migrations/` | Future `NN-identity-app-links.sql` |
-| `products/YTMusic/api/src/auth/` | Future `cloudityLink.ts` (phase 2) |
-| `backend/auth-service/` | Future routes OIDC / link token |
+| `platform/identity-sdk/` | Types + client HTTP |
+| `infrastructure/postgresql/migrations/50-identity-app-links.sql` | Table `identity_app_links` |
+| `backend/auth-service/identity_link.go` | Routes link/list (flag `CLOUDITY_SSO_ENABLED`) |
+| `products/YTMusic/api/src/auth/cloudityLink.ts` | Helper PLM opt-in (no-op si flag off) |
 
 ## Smoke (quand phase 2+)
 
