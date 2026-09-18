@@ -96,9 +96,13 @@ Même schéma `app_id`, même SDK. Auth locale reste filet hors-ligne.
 | `backend/auth-service/identity_link.go` | Routes link/list (flag `CLOUDITY_SSO_ENABLED`) |
 | `products/YTMusic/api/src/auth/cloudityLink.ts` | Helper PLM opt-in (no-op si flag off) |
 
-## Smoke (quand phase 2+)
+## Smoke (Cloudity-only, sans toucher PLM)
 
-1. Compte PLM existant + même email Cloudity.
-2. Flag ON en **préprod uniquement**.
-3. Lier → déconnecter → « Continuer avec Cloudity » → même bibliothèque / prefs.
-4. Flag OFF → login local inchangé.
+```bash
+AUTH_BASE=http://127.0.0.1:6003 ./scripts/ops/sso-preprod-smoke.sh
+# 404 = flag off (sûr) · 401 = flag on, Bearer requis
+```
+
+Préprod : mettre `CLOUDITY_SSO_ENABLED=1` dans `.env.preprod` / Portainer stack-dev **uniquement**, appliquer migration `50-identity-app-links.sql`, relancer auth-service. Ne pas activer en prod.
+
+Branchement PLM / Gasoil : dans **leurs** repos, plus tard.

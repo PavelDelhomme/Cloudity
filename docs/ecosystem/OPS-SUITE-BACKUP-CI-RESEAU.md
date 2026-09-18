@@ -25,7 +25,7 @@ Volumes ciblés (noms stables) : `gasoil_api_data`, `ytmusic_ytmusic_data`, `job
 
 **Jamais** : `docker volume prune`, Remove de ces volumes, restore sans smoke login.
 
-Étape **non codée** (à noter) : restic chiffré → S3 / stockage externe. Archive `ytmusic_ytmusic_data` (~22G) hors heures.
+Étape **suivante** : [`scripts/ops/restic-suite-s3.sh`](../../scripts/ops/restic-suite-s3.sh) — restic chiffré → S3 (credentials `RESTIC_*` + `AWS_*`). Dry-run sans secrets ; `--init` une fois puis `--run`. `INCLUDE_YTMUSIC=1` pour le volume ~22G hors heures.
 
 ---
 

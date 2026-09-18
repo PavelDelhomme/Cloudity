@@ -1,36 +1,33 @@
 # Suite Cloudity — état sync & prochaines actions
 
-> MAJ 2026-09-18. Chemins sous `/home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity/products/`.
+> MAJ 2026-09-18. **Règle** : ne pas modifier `products/{GasoilTracking,YTMusic,jobbing-track}` depuis Cloudity (dev indépendant Perso).
 
-## Sync Git / GitHub
+## Sync
 
-| Produit | Dossier | Branche submodule | Notes |
-|---------|---------|-------------------|--------|
-| JobbingTrack | `jobbing-track/` | `dev` | OK |
-| GasoilTracking | `GasoilTracking/` (+ alias `fuel` →) | `dev` | deep links Waze/OsmAnd/Organic + catalogue API live |
-| YTMusic / PLM | `YTMusic/` (+ alias `music` →) | `dev` | `cloudityLink.ts` opt-in (flag off) ; WIP stream non commité |
-| Cloudity Maps | `maps/` | **placeholder** (pas de repo) | — |
-| Parent Cloudity | — | `chore/restructure-platform` | SSO identity_link + ops backup |
+| Produit | Dossier | Notes |
+|---------|---------|--------|
+| JobbingTrack | `jobbing-track/` | lecture seule côté Cloudity ; Perso = même SHA |
+| GasoilTracking | `GasoilTracking/` | Perso souvent sur `prod` / autre SHA — **ne pas bumper** |
+| YTMusic / PLM | `YTMusic/` | Perso sur branches stream — **ne pas bumper** |
+| **Cloudity Maps** | `maps/` | submodule `PavelDelhomme/CloudityMaps` (`main`) |
+| Parent Cloudity | — | `chore/restructure-platform` |
 
-## Fait récemment
+## Fait (Cloudity-only)
 
-1. **Gasoil** — préférence nav multi-apps (Compte) + FAB « Ouvrir dans… » (Waze / OsmAnd / Organic Maps, deep link).
-2. **Gasoil** — catalogue véhicules B/C live en prod (ETag + cache 7j).
-3. **Cloudity auth** — `POST/GET /auth/identity/link(s)` derrière `CLOUDITY_SSO_ENABLED` (défaut 404).
-4. **YTMusic** — helper `api/src/auth/cloudityLink.ts` (no-op si flag off).
-5. **Ops VPS** — `cloudity-bridge` créé ; backups → `$HOME/backups/cloudity-suite` (postgres + mobile + gasoil).
+1. Repo + submodule **CloudityMaps** (MVP Leaflet/OSRM).
+2. SSO auth-service : env `CLOUDITY_SSO_ENABLED` (compose + `.env.example`) ; smoke `scripts/ops/sso-preprod-smoke.sh`.
+3. **restic → S3** : `scripts/ops/restic-suite-s3.sh` (init/run/snapshots/check).
+4. Device : `scripts/dev/adb-blackview-only.sh` (BV9700Pro uniquement).
 
-## Encore ouvert (priorisé)
+## Encore ouvert
 
-1. **Maps** — créer `PavelDelhomme/CloudityMaps` + submodule (quand on démarre vraiment le produit).
-2. **SSO** — activer `CLOUDITY_SSO_ENABLED` en préprod seulement ; brancher le helper PLM au login.
-3. **Ops** — restic → S3 chiffré ; archive `ytmusic_ytmusic_data` (~22G) hors heures.
-4. **Gasoil** — phase **D** catalogue (import ADEME / data.gouv) si besoin de couverture auto.
-5. **Cloudity** — merger `chore/restructure-platform` → `dev`/`main` quand validé.
+1. Brancher credentials S3 VPS + premier `restic --init/--run`.
+2. Activer `CLOUDITY_SSO_ENABLED=1` sur **préprod** Cloudity seulement (migration 50 déjà dans le repo).
+3. Maps : Android / offline (dans repo CloudityMaps).
+4. Merger `chore/restructure-platform` quand validé.
 
 ## Ne pas faire
 
-- Fusionner les stacks Portainer / volumes (`gasoil_api_data`, etc.).
-- Embarquer un moteur Waze / cloner Google Maps.
-- Copier l’API Gasoil dans le gateway Go Cloudity.
-- `docker volume prune` / Remove des volumes critiques.
+- Commit / push / bump dans Gasoil, YTMusic, JobbingTrack depuis cette session Cloudity.
+- Fusionner stacks Portainer / volumes.
+- Activer SSO en **prod** sans validation préprod.
