@@ -253,6 +253,7 @@ func NewHandler() http.Handler {
 
 	// OTA Android self-hosted (HTTPS via api.* — manifests publics, upload admin/token).
 	r.HandleFunc("/deploy/mobile/manifest", handleGetMobileOTAManifest).Methods("GET")
+	r.HandleFunc("/deploy/mobile/legacy-status", handleHuberaLegacyStatus).Methods("GET")
 	r.HandleFunc("/deploy/apk/{app}", handleGetMobileAPK).Methods("GET", "HEAD")
 	r.HandleFunc("/deploy/apk/{app}/{version}", handleGetMobileAPK).Methods("GET", "HEAD")
 	r.HandleFunc("/admin/mobile/apk/upload", handleUploadMobileAPK).Methods("POST")
