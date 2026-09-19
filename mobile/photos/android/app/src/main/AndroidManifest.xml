@@ -13,7 +13,7 @@
     <uses-permission android:name="fr.cloudity.permission.READ_AUTH_BROKER" />
     <uses-permission android:name="fr.cloudity.permission.WRITE_AUTH_BROKER" />
     <application
-        android:label="Cloudity Photos"
+        android:label="Hubera Photos"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

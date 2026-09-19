@@ -1,5 +1,6 @@
-// identity_link.go — SSO opt-in : lien Cloudity user ↔ user app satellite (PLM / Gasoil / JT).
-// Activé uniquement si CLOUDITY_SSO_ENABLED=1 (défaut : routes répondent 404).
+// identity_link.go — SSO opt-in : lien Cloudity / Hubera ID ↔ user app satellite.
+// Login local de chaque app reste le défaut. Ces routes ne fusionnent rien.
+// CLOUDITY_SSO_ENABLED réserve un futur « remplacer le login local » (non implémenté).
 package main
 
 import (
@@ -23,16 +24,25 @@ func normalizeIdentityEmail(email string) string {
 func registerIdentityLinkRoutes(r *gin.Engine, auth *AuthService) {
 	r.POST("/auth/identity/link", auth.IdentityLink)
 	r.GET("/auth/identity/links", auth.IdentityListLinks)
+	r.GET("/auth/identity/sso-status", auth.IdentitySsoStatus)
+}
+
+// IdentitySsoStatus GET /auth/identity/sso-status — public, sans token.
+// link_opt_in : lier un compte satellite (email identique). force_replace_local_login : réservé.
+func (a *AuthService) IdentitySsoStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"link_opt_in":                 true,
+		"force_replace_local_login":   clouditySSOEnabled(),
+		"idp":                         "cloudity",
+		"hubera_id":                   "https://id.hubera.cloud",
+	})
 }
 
 // IdentityLink POST /auth/identity/link
 // Body: { "app_id": "ytmusic"|"gasoil"|"jobbingtrack", "external_user_id": "...", "email": "..." }
 // Header: Authorization: Bearer <access_token Cloudity>
 func (a *AuthService) IdentityLink(c *gin.Context) {
-	if !clouditySSOEnabled() {
-		c.JSON(http.StatusNotFound, gin.H{"error": "SSO désactivé (CLOUDITY_SSO_ENABLED)"})
-		return
-	}
+	// Opt-in public : Bearer Cloudity + email identique. Pas de fusion, pas de login forcé.
 	const prefix = "Bearer "
 	authz := c.GetHeader("Authorization")
 	if !strings.HasPrefix(authz, prefix) {
@@ -56,7 +66,7 @@ func (a *AuthService) IdentityLink(c *gin.Context) {
 	}
 	appID := strings.ToLower(strings.TrimSpace(req.AppID))
 	switch appID {
-	case "ytmusic", "gasoil", "jobbingtrack":
+	case "ytmusic", "gasoil", "jobbingtrack", "budget", "taskflow", "stream", "maps", "cloudity":
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "app_id invalide"})
 		return
@@ -122,10 +132,6 @@ func (a *AuthService) IdentityLink(c *gin.Context) {
 
 // IdentityListLinks GET /auth/identity/links
 func (a *AuthService) IdentityListLinks(c *gin.Context) {
-	if !clouditySSOEnabled() {
-		c.JSON(http.StatusNotFound, gin.H{"error": "SSO désactivé"})
-		return
-	}
 	const prefix = "Bearer "
 	authz := c.GetHeader("Authorization")
 	if !strings.HasPrefix(authz, prefix) {
