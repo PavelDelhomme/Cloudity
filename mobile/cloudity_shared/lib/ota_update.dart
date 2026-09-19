@@ -16,6 +16,7 @@ class CloudityOtaManifest {
     required this.apkUrl,
     required this.sha256,
     required this.publishedAt,
+    this.huberaMessage,
   });
 
   final String app;
@@ -24,8 +25,14 @@ class CloudityOtaManifest {
   final String apkUrl;
   final String sha256;
   final String publishedAt;
+  final String? huberaMessage;
 
   factory CloudityOtaManifest.fromJson(Map<String, dynamic> json) {
+    final hubera = json['hubera'];
+    String? message;
+    if (hubera is Map) {
+      message = (hubera['message'] as String?)?.trim();
+    }
     return CloudityOtaManifest(
       app: (json['app'] as String? ?? '').trim(),
       version: (json['version'] as String? ?? '').trim(),
@@ -33,6 +40,7 @@ class CloudityOtaManifest {
       apkUrl: (json['apk_url'] as String? ?? '').trim(),
       sha256: (json['sha256'] as String? ?? '').trim(),
       publishedAt: (json['published_at'] as String? ?? '').trim(),
+      huberaMessage: message,
     );
   }
 }
@@ -63,12 +71,20 @@ abstract final class CloudityOtaClient {
   static Future<CloudityOtaManifest?> fetchManifest({
     required String gatewayBase,
     required String appSlug,
+    String? currentVersion,
     http.Client? client,
   }) async {
     final base = gatewayBase.replaceAll(RegExp(r'/$'), '');
     if (base.isEmpty || appSlug.trim().isEmpty) return null;
+    final install = await _huberaInstallId();
     final uri = Uri.parse('$base/deploy/mobile/manifest').replace(
-      queryParameters: {'app': appSlug.trim()},
+      queryParameters: {
+        'app': appSlug.trim(),
+        if (currentVersion != null && currentVersion.isNotEmpty)
+          'clientVersion': currentVersion,
+        'install': install,
+        'huberaAware': '1',
+      },
     );
     final c = client ?? http.Client();
     try {
@@ -94,11 +110,29 @@ abstract final class CloudityOtaClient {
     final m = await fetchManifest(
       gatewayBase: gatewayBase,
       appSlug: appSlug,
+      currentVersion: currentVersion,
       client: client,
     );
     if (m == null || m.version.isEmpty || m.apkUrl.isEmpty) return null;
     if (cloudityCompareVersions(m.version, currentVersion) <= 0) return null;
     return m;
+  }
+}
+
+Future<String> _huberaInstallId() async {
+  try {
+    final dir = await getApplicationSupportDirectory();
+    final file = File('${dir.path}/hubera_install_id');
+    if (await file.exists()) {
+      final id = (await file.readAsString()).trim();
+      if (id.isNotEmpty) return id;
+    }
+    final id =
+        'c-${DateTime.now().microsecondsSinceEpoch}-${file.hashCode.abs()}';
+    await file.writeAsString(id);
+    return id;
+  } catch (_) {
+    return 'c-anon';
   }
 }
 
@@ -313,6 +347,10 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
             'Version ${m.version} (installée : ${widget.currentVersion}).\n'
             'La mise à jour se fait dans l’application — aucun navigateur.',
           ),
+          if ((m.huberaMessage ?? '').isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(m.huberaMessage!, style: Theme.of(context).textTheme.bodySmall),
+          ],
           if (_busy) ...[
             const SizedBox(height: 16),
             Text(_phase, style: Theme.of(context).textTheme.bodySmall),

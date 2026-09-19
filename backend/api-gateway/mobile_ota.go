@@ -21,13 +21,23 @@ var mobileAppSlugRe = regexp.MustCompile(`^[a-z][a-z0-9_]{1,64}$`)
 var mobileVersionRe = regexp.MustCompile(`^[0-9]+(\.[0-9]+){0,3}([-+][A-Za-z0-9._-]+)?$`)
 
 type mobileOTAManifest struct {
-	App          string `json:"app"`
-	Version      string `json:"version"`
-	MinSupported string `json:"min_supported"`
-	APKURL       string `json:"apk_url"`
-	SHA256       string `json:"sha256"`
-	PublishedAt  string `json:"published_at"`
-	Held         bool   `json:"held,omitempty"`
+	App          string        `json:"app"`
+	Version      string        `json:"version"`
+	MinSupported string        `json:"min_supported"`
+	APKURL       string        `json:"apk_url"`
+	SHA256       string        `json:"sha256"`
+	PublishedAt  string        `json:"published_at"`
+	Held         bool          `json:"held,omitempty"`
+	Hubera       *huberaNotice `json:"hubera,omitempty"`
+}
+
+type huberaNotice struct {
+	Brand        string `json:"brand"`
+	Message      string `json:"message"`
+	CanonicalURL string `json:"canonical_url"`
+	LegacyURL    string `json:"legacy_url"`
+	KeepPackage  bool   `json:"keep_package"`
+	Channel      string `json:"channel"`
 }
 
 func mobileReleaseDir() string {
@@ -120,6 +130,8 @@ func handleGetMobileOTAManifest(w http.ResponseWriter, r *http.Request) {
 		writeJSONObj(w, http.StatusNotFound, map[string]string{"error": "release held"})
 		return
 	}
+	recordHuberaPing(r, app, m.Version)
+	m.Hubera = huberaNoticeFor(app)
 	writeJSONObj(w, http.StatusOK, m)
 }
 
@@ -380,3 +392,105 @@ func handleHoldMobileRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSONObj(w, http.StatusOK, m)
 }
+
+func huberaNoticeFor(app string) *huberaNotice {
+	channel := strings.TrimPrefix(app, "cloudity_")
+	if channel == "" {
+		channel = app
+	}
+	return &huberaNotice{
+		Brand:        "Hubera",
+		Channel:      channel,
+		KeepPackage:  true,
+		CanonicalURL: "https://" + channel + ".hubera.cloud",
+		LegacyURL:    "https://" + channel + ".cloudity.delhomme.ovh",
+		Message: "Cette app Cloudity devient un produit Hubera. Tes comptes et fichiers restent. " +
+			"Nouveau domaine : " + channel + ".hubera.cloud — l’ancienne adresse Cloudity continue. " +
+			"Le package Android ne change pas : la prochaine MAJ s’installe par-dessus.",
+	}
+}
+
+type huberaPingFile struct {
+	Clients           map[string]huberaPing `json:"clients"`
+	ClearedMailSentAt *string               `json:"clearedMailSentAt"`
+}
+
+type huberaPing struct {
+	App         string `json:"app"`
+	Version     string `json:"version"`
+	HuberaAware bool   `json:"huberaAware"`
+	LastSeen    string `json:"lastSeen"`
+	UserAgent   string `json:"userAgent"`
+}
+
+func huberaPingPath() string {
+	return filepath.Join(mobileReleaseDir(), "hubera-legacy-pings.json")
+}
+
+func recordHuberaPing(r *http.Request, app, version string) {
+	q := r.URL.Query()
+	id := strings.TrimSpace(q.Get("install"))
+	if id == "" {
+		id = "anonymous"
+	}
+	aware := q.Get("huberaAware") == "1" || q.Get("huberaAware") == "true"
+	clientVer := strings.TrimSpace(q.Get("clientVersion"))
+	if clientVer == "" {
+		clientVer = version
+	}
+	b, _ := os.ReadFile(huberaPingPath())
+	var store huberaPingFile
+	if json.Unmarshal(b, &store) != nil || store.Clients == nil {
+		store.Clients = map[string]huberaPing{}
+	}
+	ua := strings.TrimSpace(r.UserAgent())
+	if len(ua) > 180 {
+		ua = ua[:180]
+	}
+	store.Clients[app+"/"+id] = huberaPing{
+		App:         app,
+		Version:     clientVer,
+		HuberaAware: aware,
+		LastSeen:    time.Now().UTC().Format(time.RFC3339),
+		UserAgent:   ua,
+	}
+	out, err := json.MarshalIndent(store, "", "  ")
+	if err != nil {
+		return
+	}
+	_ = os.MkdirAll(filepath.Dir(huberaPingPath()), 0o750)
+	_ = os.WriteFile(huberaPingPath(), append(out, '\n'), 0o640)
+}
+
+func handleHuberaLegacyStatus(w http.ResponseWriter, _ *http.Request) {
+	staleDays := 21
+	stale := time.Duration(staleDays) * 24 * time.Hour
+	b, _ := os.ReadFile(huberaPingPath())
+	var store huberaPingFile
+	_ = json.Unmarshal(b, &store)
+	now := time.Now().UTC()
+	active, legacy, aware := 0, 0, 0
+	for _, c := range store.Clients {
+		t, err := time.Parse(time.RFC3339, c.LastSeen)
+		if err != nil || now.Sub(t) > stale {
+			continue
+		}
+		active++
+		if c.HuberaAware {
+			aware++
+		} else {
+			legacy++
+		}
+	}
+	writeJSONObj(w, http.StatusOK, map[string]any{
+		"app":                   "cloudity",
+		"name":                  "Cloudity suite",
+		"stale_days":            staleDays,
+		"active_installs":       active,
+		"legacy_installs":       legacy,
+		"hubera_aware_installs": aware,
+		"cleared":               active > 0 && legacy == 0,
+		"cleared_mail_sent_at":  store.ClearedMailSentAt,
+	})
+}
+
