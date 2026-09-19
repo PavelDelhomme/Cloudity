@@ -1,0 +1,21 @@
+name: hubera_ota_installer
+description: >
+  Installation OTA in-app des APK Hubera (cache app + FileProvider),
+  sans ouvrir le navigateur ni laisser de fichier dans Téléchargements.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ^3.11.0
+  flutter: ">=3.3.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: cloud.hubera.hubera_ota_installer
+        pluginClass: HuberaOtaInstallerPlugin

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cloudity_ota_installer/cloudity_ota_installer.dart';
+import 'package:hubera_ota_installer/hubera_ota_installer.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -202,15 +202,15 @@ Future<void> cloudityDownloadAndInstallOta(
       }
     }
 
-    if (!await CloudityOtaInstaller.canInstallPackages()) {
-      await CloudityOtaInstaller.openInstallPermissionSettings();
+    if (!await HuberaOtaInstaller.canInstallPackages()) {
+      await HuberaOtaInstaller.openInstallPermissionSettings();
       throw StateError(
-        'Autorise l’installation d’apps pour Cloudity, puis réessaie la mise à jour.',
+        'Autorise l’installation d’apps pour Hubera, puis réessaie la mise à jour.',
       );
     }
 
     try {
-      await CloudityOtaInstaller.installApk(dest);
+      await HuberaOtaInstaller.installApk(dest);
     } catch (e) {
       await _safeDelete(dest);
       rethrow;
