@@ -1,42 +1,18 @@
-# products/ — applications satellites dans Cloudity
+# products/ — archive Cloudity
 
-Chaque produit a son **propre repo Git** (submodule). Déployable seul (Portainer).
+**Ce monorepo n’est plus le holding.** Hubera (`~/Documents/Dev/Perso/Hubera`, domaine `hubera.cloud`) porte le catalogue, la vitrine et les apps.
 
-| Dossier | Statut | Produit | Repo |
-|---------|--------|---------|------|
-| `jobbing-track/` | **submodule** (lecture) | JobbingTrack | `PavelDelhomme/JobbingTrack` (`dev`) |
-| `GasoilTracking/` | **submodule** (lecture) | GasoilTracking | `PavelDelhomme/GasoilTracking` (`dev`) |
-| `YTMusic/` | **submodule** (lecture) | PLM / YTMusic | `PavelDelhomme/YTMusic` (`dev`) |
-| `maps/` | **submodule actif** | Cloudity Maps | `PavelDelhomme/CloudityMaps` (`main`) |
+Les submodules satellites ont été **retirés** (JobbingTrack, GasoilTracking, YTMusic, Maps). Les clones Perso et leurs stacks Portainer / volumes Docker **n’ont pas bougé**.
 
-## Règle de développement (2026-09)
+| Ancien dossier | Où développer maintenant |
+|----------------|--------------------------|
+| `jobbing-track/` | `~/Documents/Dev/Perso/JobbingTrack` · Hubera `products/jobs` |
+| `GasoilTracking/` / `fuel/` | `~/Documents/Dev/Perso/GasoilTracking` · Hubera `products/fuel` |
+| `YTMusic/` / `music/` | `~/Documents/Dev/Perso/YTMusic` · Hubera `products/music` |
+| `maps/` | `~/Documents/Dev/Perso/Maps` · Hubera `products/maps` |
 
-**GasoilTracking, YTMusic et JobbingTrack se développent en indépendant** (clones Perso / leurs branches).  
-Dans le monorepo Cloudity : **ne pas modifier** `products/{GasoilTracking,YTMusic,jobbing-track}` ni bumper leurs SHA sauf demande explicite.
+Mail, Drive, Pass, ID, Calendar, Contacts, Notes, Photos, Office : extraction vers des repos **Hubera\*** (Git séparés). Le code ici reste une **archive / source** jusqu’à cutover greenfield.
 
-Travail Cloudity autorisé ici : `products/maps` (CloudityMaps), `backend/`, `platform/`, `scripts/ops/`, docs ecosystem, stacks Docker Cloudity.
+Workspace réduit : `Cloudity.code-workspace` n’ouvre plus que ce repo (archive).
 
-## Ouvrir
-
-```bash
-cd /home/pactivisme/Documents/Dev/Perso/Cloudity/Cloudity
-cursor Cloudity.code-workspace
-```
-
-Alias (symlinks) : `products/fuel` → GasoilTracking, `products/music` → YTMusic.
-
-## Maps
-
-```bash
-cd products/maps
-python3 -m http.server 8765 --directory web
-```
-
-## Identité
-
-SSO Cloudity ID (auth-service, flag préprod) : [`docs/ecosystem/CLOUDITY-AUTH-PLM.md`](../docs/ecosystem/CLOUDITY-AUTH-PLM.md)  
-SDK : [`platform/identity-sdk/`](../platform/identity-sdk/)
-
-## Données
-
-Les submodules **ne déplacent aucune donnée Docker**. Volumes VPS inchangés.
+Ne pas : bumper d’anciens submodules, `docker compose down -v`, fusionner ce Git avec Hubera.
