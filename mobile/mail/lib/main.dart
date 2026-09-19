@@ -18,7 +18,7 @@ Widget _mailShell() => SuiteAppShell<UserSession>(
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.mail,
-        productTitle: 'Cloudity Mail',
+        productTitle: 'Hubera Mail',
         keyPrefix: 'cloudity_mail',
         createApi: AuthApi.new,
         onLoggedIn: onLoggedIn,
@@ -30,7 +30,7 @@ Widget _mailShell() => SuiteAppShell<UserSession>(
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.mail,
-    title: 'Cloudity Mail',
+    title: 'Hubera Mail',
     home: _mailShell(),
   );
 }
@@ -42,7 +42,7 @@ class CloudityMailApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return clouditySuiteTestRoot(
-      title: 'Cloudity Mail',
+      title: 'Hubera Mail',
       suiteApp: ClouditySuiteApp.mail,
       home: _mailShell(),
     );

@@ -18,7 +18,7 @@ Widget _driveShell() => SuiteAppShell<UserSession>(
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.drive,
-        productTitle: 'Cloudity Drive',
+        productTitle: 'Hubera Drive',
         keyPrefix: 'cloudity_drive',
         createApi: AuthApi.new,
         onLoggedIn: onLoggedIn,
@@ -30,7 +30,7 @@ Widget _driveShell() => SuiteAppShell<UserSession>(
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.drive,
-    title: 'Cloudity Drive',
+    title: 'Hubera Drive',
     home: _driveShell(),
   );
 }
@@ -42,7 +42,7 @@ class CloudityDriveApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return clouditySuiteTestRoot(
-      title: 'Cloudity Drive',
+      title: 'Hubera Drive',
       suiteApp: ClouditySuiteApp.drive,
       home: _driveShell(),
     );

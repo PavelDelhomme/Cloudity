@@ -23,7 +23,7 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.photos,
-    title: 'Cloudity Photos',
+    title: 'Hubera Photos',
     appKey: _appKey,
     beforeRun: () async {
       if (Platform.isAndroid) {
@@ -44,7 +44,7 @@ class CloudityPhotosApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return clouditySuiteTestRoot(
-      title: 'Cloudity Photos',
+      title: 'Hubera Photos',
       suiteApp: ClouditySuiteApp.photos,
       home: const _PhotosShell(),
     );
@@ -64,7 +64,7 @@ class _PhotosShell extends StatelessWidget {
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.photos,
-        productTitle: 'Cloudity Photos',
+        productTitle: 'Hubera Photos',
         keyPrefix: 'cloudity_photos',
         createApi: AuthApi.new,
         onLoggedIn: (session) {

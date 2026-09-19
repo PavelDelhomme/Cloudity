@@ -17,7 +17,7 @@ Widget _calendarShell() => SuiteAppShell<UserSession>(
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.calendar,
-        productTitle: 'Cloudity Calendar',
+        productTitle: 'Hubera Calendar',
         keyPrefix: 'cloudity_calendar',
         createApi: AuthApi.new,
         onLoggedIn: onLoggedIn,
@@ -37,7 +37,7 @@ Widget _calendarShell() => SuiteAppShell<UserSession>(
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.calendar,
-    title: 'Cloudity Calendar',
+    title: 'Hubera Calendar',
     home: _calendarShell(),
   );
 }
@@ -49,7 +49,7 @@ class CloudityCalendarApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return clouditySuiteTestRoot(
-      title: 'Cloudity Calendar',
+      title: 'Hubera Calendar',
       suiteApp: ClouditySuiteApp.calendar,
       home: _calendarShell(),
     );

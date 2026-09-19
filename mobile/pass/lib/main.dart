@@ -13,7 +13,7 @@ import 'screens/vaults_screen.dart';
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.pass,
-    title: 'Cloudity Pass',
+    title: 'Hubera Pass',
     home: const _PassRoot(),
   );
 }
@@ -131,7 +131,7 @@ class _PassRootState extends State<_PassRoot> {
     if (session == null) {
       return CloudityLoginScreen<PassApi>(
         suiteApp: ClouditySuiteApp.pass,
-        productTitle: 'Cloudity Pass',
+        productTitle: 'Hubera Pass',
         keyPrefix: 'cloudity_pass',
         createApi: PassApi.new,
         onLoggedIn: (s) => unawaited(_onLoggedIn(s)),

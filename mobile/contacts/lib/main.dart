@@ -11,7 +11,7 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.contacts,
-    title: 'Cloudity Contacts',
+    title: 'Hubera Contacts',
     home: SuiteAppShell<UserSession>(
       suiteApp: ClouditySuiteApp.contacts,
       restoreSession: _restoreSession,
@@ -20,7 +20,7 @@ Future<void> main() async {
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.contacts,
-        productTitle: 'Cloudity Contacts',
+        productTitle: 'Hubera Contacts',
         keyPrefix: 'cloudity_contacts',
         createApi: AuthApi.new,
         onLoggedIn: onLoggedIn,

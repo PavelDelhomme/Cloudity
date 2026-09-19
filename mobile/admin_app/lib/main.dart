@@ -71,7 +71,7 @@ Future<void> _onLoggedIn(
 Future<void> main() async {
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.admin,
-    title: 'Cloudity Admin',
+    title: 'Hubera Admin',
     home: SuiteAppShell<UserSession>(
       suiteApp: ClouditySuiteApp.admin,
       restoreSession: _restoreSession,
@@ -80,7 +80,7 @@ Future<void> main() async {
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
         suiteApp: ClouditySuiteApp.admin,
-        productTitle: 'Cloudity Admin',
+        productTitle: 'Hubera Admin',
         keyPrefix: 'cloudity_admin',
         createApi: AuthApi.new,
         onLoggedIn: (s) => _onLoggedIn(s, onLoggedIn),
