@@ -36,8 +36,9 @@ backend/*/tmp/main
 test.html
 *.tmp.html
 
-# Préférences locales Cursor IDE (ne pas versionner)
+# Préférences locales IDE (ne pas versionner)
 .cursor/
+.vscode/
 
 # Env local (secrets, ne pas committer)
 .env
