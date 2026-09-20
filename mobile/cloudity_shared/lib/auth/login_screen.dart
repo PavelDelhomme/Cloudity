@@ -43,7 +43,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   final String? supportingText;
 
   String get effectiveProductTitle =>
-      productTitle ?? 'Cloudity ${suiteApp.title}';
+      productTitle ?? 'Hubera ${suiteApp.title}';
 
   @override
   State<CloudityLoginScreen<T>> createState() => _CloudityLoginScreenState<T>();
@@ -311,11 +311,11 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       final gateways = await SessionStore.gatewayCandidates();
       final gateway = _gatewayBase ?? (gateways.isNotEmpty ? gateways.first : null);
       if (gateway == null) {
-        throw AuthException('Gateway Cloudity introuvable.');
+        throw AuthException('Gateway Hubera introuvable.');
       }
       final api = widget.createApi(gateway);
       if (!await api.authHealth()) {
-        throw AuthException('Gateway Cloudity injoignable.');
+        throw AuthException('Gateway Hubera injoignable.');
       }
       final email = result.email ?? _emailCtrl.text.trim();
       await _finishAuthSuccess(
@@ -386,7 +386,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
               final api = widget.createApi(gateway);
               if (!await api.authHealth()) {
                 gatewayError = AuthException(
-                  'Gateway Cloudity introuvable pour ce compte.',
+                  'Gateway Hubera introuvable pour ce compte.',
                 );
                 continue;
               }
@@ -557,7 +557,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       if (selectedApi == null || tokens == null) {
         if (lastReachError != null) throw lastReachError;
         throw AuthException(
-          'Impossible de joindre Cloudity automatiquement. Vérifiez la stack (make up) et USB debug (make mobile-adb-authorize).',
+          'Impossible de joindre Hubera automatiquement. Vérifiez la connexion réseau.',
         );
       }
       final access = tokens['access_token']! as String;
@@ -660,7 +660,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       }
       if (selectedApi == null || tokens == null) {
         if (lastReachError != null) throw lastReachError;
-        throw AuthException('Inscription impossible: gateway Cloudity introuvable.');
+        throw AuthException('Inscription impossible: gateway Hubera introuvable.');
       }
       final access = tokens['access_token']! as String;
       final refresh = (tokens['refresh_token'] as String?) ?? '';
@@ -705,7 +705,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       children: [
         if (showBrokerPicker) ...[
           Text(
-            'Continuer avec un compte Cloudity',
+            'Continuer avec un compte Hubera',
             style: Theme.of(context).textTheme.titleSmall,
           ),
           SizedBox(height: CloudityDesignTokens.spacing('sm')),
@@ -961,8 +961,8 @@ class _BrokerAccountTile extends StatelessWidget {
                       ),
                       Text(
                         _sourceLabel != null
-                            ? 'Connecté sur Cloudity $_sourceLabel'
-                            : 'Compte Cloudity — appuyer pour continuer',
+                            ? 'Connecté sur Hubera $_sourceLabel'
+                            : 'Compte Hubera — appuyer pour continuer',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: cs.onSurfaceVariant,
                             ),

@@ -55,19 +55,19 @@ describe('getAppBreadcrumb', () => {
 describe('buildDocumentTitle', () => {
   it('sur Drive inclut section, marque et email', () => {
     expect(buildDocumentTitle('/app/drive', undefined, 'admin@cloudity.local')).toBe(
-      'Drive — Cloudity — admin@cloudity.local'
+      'Drive — Hubera — admin@cloudity.local'
     )
   })
 
   it('sur corbeille inclut Corbeille', () => {
     expect(buildDocumentTitle('/app/drive', 'view=trash', 'u@test.local')).toBe(
-      'Corbeille — Cloudity — u@test.local'
+      'Corbeille — Hubera — u@test.local'
     )
   })
 
-  it('sur tableau de bord reste Cloudity + email', () => {
+  it('sur tableau de bord reste Hubera + email', () => {
     expect(buildDocumentTitle('/app', undefined, 'admin@cloudity.local')).toBe(
-      'Cloudity — admin@cloudity.local'
+      'Hubera — admin@cloudity.local'
     )
   })
 })

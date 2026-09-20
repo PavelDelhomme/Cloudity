@@ -18,10 +18,17 @@ const defaultState: AuthState = {
   email: null,
 }
 
-function loadFromStorage(): AuthState {
+const HUBERA_SUITE_COOKIE = 'hubera_suite_auth'
+
+function onHuberaCloudHost(): boolean {
+  if (typeof window === 'undefined') return false
+  const h = window.location.hostname.toLowerCase()
+  return h === 'hubera.cloud' || h.endsWith('.hubera.cloud')
+}
+
+function parseAuthState(raw: string | null): AuthState | null {
+  if (!raw) return null
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultState
     const data = JSON.parse(raw) as AuthState
     if (data.accessToken && data.tenantId != null) {
       return {
@@ -30,6 +37,51 @@ function loadFromStorage(): AuthState {
         tenantId: data.tenantId,
         email: data.email ?? null,
       }
+    }
+  } catch {
+    /* ignore */
+  }
+  return null
+}
+
+function readSuiteCookie(): AuthState | null {
+  if (typeof document === 'undefined') return null
+  const parts = document.cookie.split(';')
+  for (const part of parts) {
+    const [k, ...rest] = part.trim().split('=')
+    if (k !== HUBERA_SUITE_COOKIE) continue
+    try {
+      return parseAuthState(decodeURIComponent(rest.join('=')))
+    } catch {
+      return null
+    }
+  }
+  return null
+}
+
+function writeSuiteCookie(state: AuthState): void {
+  if (typeof document === 'undefined' || !onHuberaCloudHost()) return
+  if (state.accessToken && state.tenantId != null) {
+    const payload = encodeURIComponent(JSON.stringify(state))
+    if (payload.length > 3500) return
+    document.cookie = `${HUBERA_SUITE_COOKIE}=${payload}; Domain=.hubera.cloud; Path=/; Secure; SameSite=Lax; Max-Age=1209600`
+  } else {
+    document.cookie = `${HUBERA_SUITE_COOKIE}=; Domain=.hubera.cloud; Path=/; Secure; SameSite=Lax; Max-Age=0`
+  }
+}
+
+function loadFromStorage(): AuthState {
+  try {
+    const fromLs = parseAuthState(localStorage.getItem(STORAGE_KEY))
+    if (fromLs) return fromLs
+    const fromCookie = readSuiteCookie()
+    if (fromCookie) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(fromCookie))
+      } catch {
+        /* ignore */
+      }
+      return fromCookie
     }
   } catch {
     // ignore
@@ -43,6 +95,7 @@ function saveToStorage(state: AuthState): void {
   } else {
     localStorage.removeItem(STORAGE_KEY)
   }
+  writeSuiteCookie(state)
 }
 
 function applyAuthState(

@@ -50,7 +50,7 @@ export function MobileAppsDownloadGrid() {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Applications Android</h2>
       </div>
       <p className="text-sm text-gray-600 dark:text-slate-400 mb-4">
-        Tu es sur un téléphone Android — tu peux installer une app Cloudity avant de te connecter.
+        Tu es sur un téléphone Android — tu peux installer une app Hubera avant de te connecter.
       </p>
       {loading ? (
         <p className="text-sm text-gray-500 dark:text-slate-500">Chargement des versions…</p>

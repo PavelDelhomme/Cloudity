@@ -189,10 +189,10 @@ export default function LoginPage() {
             to="/"
             className="inline-block text-2xl font-semibold text-gray-900 dark:text-slate-100 tracking-tight hover:text-gray-700 dark:hover:text-slate-300"
           >
-            Cloudity
+            Hubera
           </Link>
           <h1 className="mt-3 text-lg font-medium text-gray-600 dark:text-slate-400">
-            Connexion
+            Connexion Hubera
           </h1>
         </div>
 

@@ -138,7 +138,7 @@ function GlobalMailSyncWatcher({ disabled }: { disabled: boolean }) {
         if (!r) return
         void notifyNewMailMessages(notificationsRef.current, acc, r.synced, token, {
           title: r.synced === 1 ? 'Nouveau mail' : 'Nouveaux mails',
-          desktopTitle: 'Cloudity Mail',
+          desktopTitle: 'Hubera Mail',
         })
       } catch (e) {
         if (notifyMailSyncFailure(notificationsRef.current, acc, e, { desktopRequireHidden: true })) {
@@ -264,7 +264,7 @@ export function getAppBreadcrumb(pathname: string, search?: string): { label: st
   return segments
 }
 
-/** Titre d'onglet : « Drive — Cloudity — admin@… » (exporté pour les tests). */
+/** Titre d'onglet : « Drive — Hubera — admin@… » (exporté pour les tests). */
 export function buildDocumentTitle(
   pathname: string,
   search: string | undefined,
@@ -276,8 +276,8 @@ export function buildDocumentTitle(
     ? 'Tableau de bord'
     : crumbs.length > 1
       ? crumbs[crumbs.length - 1]!.label
-      : 'Cloudity'
-  const parts = section === 'Tableau de bord' ? ['Cloudity'] : [section, 'Cloudity']
+      : 'Hubera'
+  const parts = section === 'Tableau de bord' ? ['Hubera'] : [section, 'Hubera']
   const account = email?.trim()
   if (account) parts.push(account)
   return parts.join(' — ')
@@ -362,7 +362,7 @@ export default function AppLayout() {
         <div className={`flex flex-col flex-1 min-h-0 shrink-0 ${sidebarVisible ? 'w-56 flex' : 'hidden'}`}>
           <div className="p-4 border-b border-gray-100 dark:border-slate-700 shrink-0">
             <Link to="/app" className="flex items-center gap-2">
-              <span className="text-base font-semibold text-gray-900 dark:text-slate-100 whitespace-nowrap">Cloudity</span>
+              <span className="text-base font-semibold text-gray-900 dark:text-slate-100 whitespace-nowrap">Hubera</span>
             </Link>
             <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 whitespace-nowrap">Espace personnel</p>
           </div>

@@ -191,7 +191,7 @@ class _LoginHeader extends StatelessWidget {
               Icon(Icons.cloud_outlined, size: 22, color: Colors.white.withValues(alpha: 0.95)),
               const SizedBox(width: 6),
               Text(
-                'Cloudity',
+                'Hubera',
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,

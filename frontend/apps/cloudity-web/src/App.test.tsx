@@ -47,7 +47,7 @@ describe('App', () => {
         <UserAppRoutes />
       </TestWrapper>
     )
-    expect(screen.getByRole('link', { name: 'Cloudity' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Hubera' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Continuer' })).toBeTruthy()
   })
 

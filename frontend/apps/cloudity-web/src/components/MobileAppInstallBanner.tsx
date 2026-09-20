@@ -68,13 +68,13 @@ export function MobileAppInstallBanner({ app, className = '' }: Props) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-            Installer Cloudity {app.label} sur Android
+            Installer Hubera {app.label} sur Android
           </p>
           <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
             {loading
               ? 'Recherche d’une version Android…'
               : manifest
-                ? `Version ${manifest.version} disponible. Télécharge l’APK, autorise l’installation depuis le navigateur, puis connecte-toi avec ton compte Cloudity.`
+                ? `Version ${manifest.version} disponible. Télécharge l’APK, autorise l’installation depuis le navigateur, puis connecte-toi avec ton compte Hubera.`
                 : null}
           </p>
           {manifest ? (

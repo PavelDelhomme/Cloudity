@@ -41,11 +41,11 @@ export default function Login() {
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Cloudity</h1>
-          <p className="text-slate-400 mt-1">Espace d’administration</p>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Hubera</h1>
+          <p className="text-slate-400 mt-1">Administration Hubera</p>
         </div>
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200/50 p-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-6">Connexion</h2>
+          <h2 className="text-lg font-semibold text-slate-900 mb-6">Connexion Hubera</h2>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <Label htmlFor="email">Email</Label>

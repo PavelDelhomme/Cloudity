@@ -33,7 +33,7 @@ const adminNav = [
   { key: 'ui', name: 'Catalogue UI', href: adminUiPath('dev/ui'), icon: <Palette className="w-4 h-4 shrink-0" /> },
 ] as const
 
-/** Titre d'onglet back-office : « Tenants — Cloudity — admin@… » (exporté pour les tests). */
+/** Titre d'onglet back-office : « Tenants — Hubera — admin@… » (exporté pour les tests). */
 export function buildAdminDocumentTitle(
   pathname: string,
   email: string | null | undefined
@@ -49,7 +49,7 @@ export function buildAdminDocumentTitle(
       .find((n) => path.startsWith(n.href.replace(/\/+$/, '')))
     if (item) section = item.name
   }
-  const parts = [section, 'Cloudity']
+  const parts = [section, 'Hubera']
   const account = email?.trim()
   if (account) parts.push(account)
   return parts.join(' — ')
@@ -72,11 +72,11 @@ export default function AdminLayout() {
 
   return (
     <ResponsiveShell
-      brandTitle="Cloudity"
-      brandSubtitle={email?.trim() ? `Administration · ${email.trim()}` : 'Administration'}
+      brandTitle="Hubera"
+      brandSubtitle={email?.trim() ? `Administration Hubera · ${email.trim()}` : 'Administration Hubera'}
       brandLink={
         <Link to={ADMIN_UI_BASE_PATH} className="text-base font-semibold text-gray-900 dark:text-slate-100">
-          Cloudity
+          Hubera
         </Link>
       }
       pathname={location.pathname}

@@ -57,7 +57,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <Link to="/" className="text-xl font-semibold text-gray-900 dark:text-slate-100">
-            Cloudity
+            Hubera
           </Link>
           <p className="text-gray-600 dark:text-slate-400 text-sm mt-1">Créer un compte</p>
         </div>
