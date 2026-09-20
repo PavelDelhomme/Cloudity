@@ -5,6 +5,7 @@ import 'package:hubera_ota_installer/hubera_ota_installer.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// Manifeste OTA renvoyé par `GET /deploy/mobile/manifest?app=…`.
@@ -391,6 +392,22 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
   }
 }
 
+/// Version installée : dart-define, sinon `package_info` (évite un faux 0.0.0
+/// qui déclenchait le dialogue OTA alors que l’APK est déjà 1.0.0).
+Future<String> cloudityResolveInstalledVersion({String? currentVersion}) async {
+  var version = (currentVersion ??
+          const String.fromEnvironment('CLOUDITY_APP_VERSION', defaultValue: ''))
+      .trim();
+  if (version.isEmpty || version == '0.0.0') {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final fromPkg = info.version.trim();
+      if (fromPkg.isNotEmpty) version = fromPkg;
+    } catch (_) {}
+  }
+  return version.isEmpty ? '0.0.0' : version;
+}
+
 /// Lance un check OTA en arrière-plan après le 1er frame (best-effort, silencieux si KO).
 void cloudityScheduleOtaCheck(
   BuildContext context, {
@@ -398,21 +415,21 @@ void cloudityScheduleOtaCheck(
   required String appSlug,
   String? currentVersion,
 }) {
-  final version = (currentVersion ??
-          const String.fromEnvironment('CLOUDITY_APP_VERSION', defaultValue: '0.0.0'))
-      .trim();
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     await cloudityPurgeOtaCache();
+    final version = await cloudityResolveInstalledVersion(
+      currentVersion: currentVersion,
+    );
     final m = await CloudityOtaClient.checkUpdate(
       gatewayBase: gatewayBase,
       appSlug: appSlug,
-      currentVersion: version.isEmpty ? '0.0.0' : version,
+      currentVersion: version,
     );
     if (m == null || !context.mounted) return;
     await cloudityShowOtaDialog(
       context,
       manifest: m,
-      currentVersion: version.isEmpty ? '0.0.0' : version,
+      currentVersion: version,
     );
   });
 }
