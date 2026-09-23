@@ -65,7 +65,7 @@ class PassBiometricStore {
     if (!await deviceSupportsBiometric()) return false;
     final ok = await _auth.authenticate(
       localizedReason:
-          'Confirmez votre identité pour activer le déverrouillage biométrique Cloudity Pass.',
+          'Confirmez votre identité pour activer le déverrouillage biométrique Hubera Pass.',
       options: const AuthenticationOptions(
         biometricOnly: false,
         stickyAuth: true,
@@ -86,7 +86,7 @@ class PassBiometricStore {
     if (!await isEnabled()) return null;
     final ok = await _auth.authenticate(
       localizedReason:
-          'Déverrouillez Cloudity Pass avec votre empreinte, votre visage ou le code de l’appareil.',
+          'Déverrouillez Hubera Pass avec votre empreinte, votre visage ou le code de l’appareil.',
       options: const AuthenticationOptions(
         biometricOnly: false,
         stickyAuth: true,

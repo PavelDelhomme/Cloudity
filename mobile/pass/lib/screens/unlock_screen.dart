@@ -128,7 +128,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
       SnackBar(
         content: Text(
           ok
-              ? 'Biométrie activée pour Cloudity Pass.'
+              ? 'Biométrie activée pour Hubera Pass.'
               : 'Impossible d’activer la biométrie sur cet appareil.',
         ),
       ),
@@ -264,7 +264,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
           SnackBar(
             content: Text(
               _isFirstVault
-                  ? 'Coffre créé sur le serveur — mémorise ton mot de passe maître (Cloudity ne peut pas le réinitialiser).'
+                  ? 'Coffre créé sur le serveur — mémorise ton mot de passe maître (Hubera ne peut pas le réinitialiser).'
                   : _offlineMode
                       ? 'Coffre déverrouillé (mode hors ligne — sauvegarde locale).'
                       : 'Coffre déverrouillé.',
@@ -303,7 +303,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Text(
-                      'Compte Cloudity : ${widget.session.userEmail}',
+                      'Compte Hubera : ${widget.session.userEmail}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -337,7 +337,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
                 ],
                 Text(
                   _isFirstVault
-                      ? 'Tu es connecté avec ton compte Cloudity. Choisis un mot de passe maître '
+                      ? 'Tu es connecté avec ton compte Hubera. Choisis un mot de passe maître '
                           'pour chiffrer le coffre sur cet appareil — il n’est jamais envoyé au serveur. '
                           'En démo tu peux réutiliser le même mot de passe que la connexion ; en usage réel, '
                           'un maître distinct est recommandé (PASS-CRYPTO § 1.1).'
@@ -463,7 +463,7 @@ class _PassUnlockScreenState extends State<PassUnlockScreen> {
             Text('Parcours', style: Theme.of(context).textTheme.titleSmall),
             const SizedBox(height: 6),
             Text(
-              '1. Compte Cloudity (fait) → 2. Mot de passe maître + coffre serveur → 3. Entrées chiffrées',
+              '1. Compte Hubera (fait) → 2. Mot de passe maître + coffre serveur → 3. Entrées chiffrées',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87),
             ),
           ],

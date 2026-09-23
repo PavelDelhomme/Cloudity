@@ -146,7 +146,7 @@ class _PassVaultsScreenState extends State<PassVaultsScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Crée ton premier coffre ici — il sera visible aussi sur le web Cloudity Pass.',
+          'Crée ton premier coffre ici — il sera visible aussi sur le web Hubera Pass.',
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: cs.onSurfaceVariant,
