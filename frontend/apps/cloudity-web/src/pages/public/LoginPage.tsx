@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { login as apiLogin, verify2FA } from '../../api'
 import { isAdminUiReturnPath, normalizePostLoginPath, formatAuthError, tenantIdFromAccessToken } from '@cloudity/shared'
-import { navigateAfterAuth } from '../../postAuthNavigate'
+import { navigateAfterAuth, appHomeForHost } from '../../postAuthNavigate'
 import { isWebAuthnSupported, loginWithPasskey, loginWithPasskeyDiscoverable } from '../../webauthn'
 import { Eye, EyeOff, Key, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -36,7 +36,7 @@ export default function LoginPage() {
     const p = new URLSearchParams(q)
     const next = p.get('next')
     const stateRt = (location.state as { returnTo?: string })?.returnTo
-    const raw = next ?? stateRt ?? '/app'
+    const raw = next ?? stateRt ?? appHomeForHost()
     return raw.startsWith('/app') || isAdminUiReturnPath(raw) ? normalizePostLoginPath(raw) : '/app'
   }
 

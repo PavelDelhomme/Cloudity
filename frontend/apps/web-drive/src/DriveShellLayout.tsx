@@ -58,8 +58,8 @@ export default function DriveShellLayout() {
               }`}
             >
               <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between gap-2">
-                <a href="/app" className={`font-semibold truncate ${open ? '' : 'sr-only'}`}>
-                  Cloudity
+                <a href="/app/drive/" className={`font-semibold truncate ${open ? '' : 'sr-only'}`}>
+                  Hubera
                 </a>
                 <button
                   type="button"

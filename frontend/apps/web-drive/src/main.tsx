@@ -24,7 +24,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   }
   if (!isAuthenticated) {
     window.location.replace(`/login?next=${encodeURIComponent('/app/drive/')}`)
-    return <ServiceStatusPage title="Redirection…" message="Vers la page de connexion Cloudity." />
+    return <ServiceStatusPage title="Redirection…" message="Vers la page de connexion Hubera." />
   }
   return <>{children}</>
 }

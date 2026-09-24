@@ -85,10 +85,10 @@ export default function UnlockScreen({ userId, mode }: Props) {
           <p className="text-sm text-slate-600 dark:text-slate-400">
             {isSetup ? (
               <>
-                Tu es déjà connecté avec ton <strong>compte Cloudity</strong> (étape
+                Tu es déjà connecté avec ton <strong>compte Hubera</strong> (étape
                 d’authentification serveur). Ici, tu <strong>choisis</strong> un{' '}
                 <strong>mot de passe maître</strong> uniquement pour chiffrer le
-                coffre dans ton navigateur : Cloudity ne le reçoit ni ne le stocke. En
+                coffre dans ton navigateur : Hubera ne le reçoit ni ne le stocke. En
                 démo locale, tu peux reprendre le <strong>même</strong> mot de passe
                 que la connexion ; en usage réel, un maître <strong>distinct</strong>{' '}
                 est recommandé — voir <strong>PASS-CRYPTO</strong> § 1.1.
@@ -96,7 +96,7 @@ export default function UnlockScreen({ userId, mode }: Props) {
             ) : (
               <>
                 Entre le <strong>même</strong> mot de passe maître que celui avec lequel
-                tu as chiffré tes entrées. Cloudity ne le stocke jamais. Si tu ne
+                tu as chiffré tes entrées. Hubera ne le stocke jamais. Si tu ne
                 t’en souviens plus, aucune récupération côté serveur n’est possible
                 (zero-access).
               </>

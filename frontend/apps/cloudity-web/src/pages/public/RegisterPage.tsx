@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { register as apiRegister } from '../../api'
 import { tenantIdFromAccessToken } from '@cloudity/shared'
+import { appHomeForHost } from '../../postAuthNavigate'
 import toast from 'react-hot-toast'
 import { Label, Input, Button } from '@cloudity/shared'
 import { MobileAppInstallBanner } from '../../components/MobileAppInstallBanner'
@@ -44,7 +45,7 @@ export default function RegisterPage() {
         1
       setAuth(res.access_token!, res.refresh_token, tid, email.trim())
       toast.success('Compte créé. Bienvenue !')
-      navigate('/app', { replace: true })
+      navigate(appHomeForHost(), { replace: true })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l’inscription')
     } finally {

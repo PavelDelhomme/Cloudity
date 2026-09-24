@@ -64,7 +64,7 @@ class SuiteDrawerHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      userEmail?.trim().isNotEmpty == true ? userEmail!.trim() : 'Compte Cloudity',
+                      userEmail?.trim().isNotEmpty == true ? userEmail!.trim() : 'Compte Hubera',
                       style: Theme.of(context).textTheme.titleMedium,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

@@ -1,18 +1,18 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../../authContext'
-import { Navigate } from 'react-router-dom'
+import { appHomeForHost } from '../../postAuthNavigate'
 import { MobileAppsDownloadGrid } from '../../components/MobileAppsDownloadGrid'
 
 export default function Landing() {
   const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <Navigate to="/app" replace />
+  if (isAuthenticated) return <Navigate to={appHomeForHost()} replace />
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-900">
       <header className="border-b border-gray-200 dark:border-slate-700">
         <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <span className="text-lg font-semibold text-gray-900 dark:text-slate-100">Cloudity</span>
+          <span className="text-lg font-semibold text-gray-900 dark:text-slate-100">Hubera</span>
           <nav className="flex items-center gap-6">
             <Link to="/login" className="text-gray-700 dark:text-slate-300 hover:text-gray-900 dark:hover:text-white">
               Connexion
@@ -60,7 +60,7 @@ export default function Landing() {
 
       <footer className="border-t border-gray-200 dark:border-slate-700 mt-16 py-6">
         <div className="max-w-4xl mx-auto px-4 text-center text-sm text-gray-500 dark:text-slate-400">
-          © Cloudity — Auto-hébergé, open source
+          © Hubera — Auto-hébergé, open source
         </div>
       </footer>
     </div>

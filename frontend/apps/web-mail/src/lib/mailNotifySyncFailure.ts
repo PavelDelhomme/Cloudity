@@ -53,7 +53,7 @@ export function notifyMailSyncFailure(
     href,
   })
   showMailDesktopNotification(
-    'Cloudity — Mail',
+    'Hubera — Mail',
     {
       body: `${name} : ${message}`,
       tag: `cloudity-mail-sync-${account.id}`,

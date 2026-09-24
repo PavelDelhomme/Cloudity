@@ -14,7 +14,7 @@ import AppHub from './pages/app/hub/AppHub'
 import SettingsRedirect from './pages/app/settings/SettingsRedirect'
 
 import { isAdminUiReturnPath, normalizePostLoginPath } from '@cloudity/shared'
-import { FullPageRedirect, isAdminUiSpaPath } from './postAuthNavigate'
+import { FullPageRedirect, isAdminUiSpaPath, appHomeForHost } from './postAuthNavigate'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { StackHealthGate } from './components/StackHealthGate'
 import { ServiceStatusPage } from './components/ServiceStatusPage'
@@ -74,9 +74,10 @@ function RequireAuth({ children, to = '/login' }: { children: React.ReactNode; t
   return <>{children}</>
 }
 
-function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; to?: string }) {
+function RedirectIfAuth({ children, to }: { children: React.ReactNode; to?: string }) {
   const { isAuthenticated, sessionReady } = useAuth()
   const location = useLocation()
+  const home = to ?? appHomeForHost()
   if (!sessionReady) {
     return (
       <ServiceStatusPage
@@ -89,9 +90,9 @@ function RedirectIfAuth({ children, to = '/app' }: { children: React.ReactNode; 
     const q = typeof window !== 'undefined' ? window.location.search : location.search
     const nextParam = new URLSearchParams(q).get('next')
     const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo
-    const target = nextParam ?? stateReturnTo ?? to
+    const target = nextParam ?? stateReturnTo ?? home
     const safeTarget =
-      target.startsWith('/app') || isAdminUiReturnPath(target) ? normalizePostLoginPath(target) : to
+      target.startsWith('/app') || isAdminUiReturnPath(target) ? normalizePostLoginPath(target) : home
     if (isAdminUiSpaPath(safeTarget)) {
       return <FullPageRedirect href={safeTarget} />
     }

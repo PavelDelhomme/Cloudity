@@ -620,7 +620,7 @@ function extraFolderStatSubtitle(
 ): string {
   const stat = summary?.extra?.find((e) => e.folder === imapPath)
   const parts: string[] = []
-  if (row.user_created) parts.push('Créé dans Cloudity')
+  if (row.user_created) parts.push('Créé dans Hubera')
   else if (row.imap_special_use?.trim()) parts.push(`Rôle IMAP : ${row.imap_special_use.trim()}`)
   else parts.push('Récupéré depuis le serveur')
   if (stat) {
@@ -2519,7 +2519,7 @@ export default function MailPage() {
       ) {
         setAuthSession(accessToken, refreshToken ?? undefined, tenantId, created.user_login_email)
         toast.success(
-          `Compte Cloudity aligné sur ${created.user_login_email}. Utilisez cet email pour vous reconnecter (même mot de passe).`
+          `Compte Hubera aligné sur ${created.user_login_email}. Utilisez cet email pour vous reconnecter (même mot de passe).`
         )
       }
       setShowConnectEmail(false)
@@ -4949,7 +4949,7 @@ export default function MailPage() {
             {activeFolder === 'spam' ? (
               <div className="px-4 py-2 border-b border-orange-100 dark:border-orange-900/40 bg-orange-50/60 dark:bg-orange-950/20">
                 <p className="text-xs text-orange-900/90 dark:text-orange-100/90 leading-relaxed">
-                  Dossier <strong>Spam</strong> : messages classés par <strong>Cloudity</strong> (score heuristique + règles expéditeur après « Signaler spam » / « Pas indésirable ») et synchronisés depuis le Junk IMAP fournisseur.
+                  Dossier <strong>Spam</strong> : messages classés par <strong>Hubera</strong> (score heuristique + règles expéditeur après « Signaler spam » / « Pas indésirable ») et synchronisés depuis le Junk IMAP fournisseur.
                   Le MTA local (<strong>Rspamd</strong> via <code>make mail-mta-local-up</code>) enrichit les en-têtes pour les alias <code>@alias.*</code>.
                 </p>
               </div>
@@ -5667,7 +5667,7 @@ export default function MailPage() {
                                           )
                                         }
                                         className="inline-flex items-center gap-1 rounded-md border border-emerald-300 dark:border-emerald-700 px-2 py-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/25"
-                                        title="Ajouter au calendrier Cloudity"
+                                        title="Ajouter au calendrier Hubera"
                                       >
                                         <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
                                         Ajouter
@@ -5846,10 +5846,10 @@ export default function MailPage() {
                           <button
                             type="button"
                             disabled={isMailboxSameAsLoginEmail(acc.email, authLoginEmail)}
-                            title={isMailboxSameAsLoginEmail(acc.email, authLoginEmail) ? 'Compte Cloudity' : undefined}
+                            title={isMailboxSameAsLoginEmail(acc.email, authLoginEmail) ? 'Compte Hubera' : undefined}
                             onClick={() => {
                               if (
-                                window.confirm(`Retirer « ${acc.email} » de Cloudity ? Cette action est définitive.`)
+                                window.confirm(`Retirer « ${acc.email} » de Hubera ? Cette action est définitive.`)
                               ) {
                                 handleDisconnectAccount(acc.id, acc.email)
                                 setShowMailSettings(false)

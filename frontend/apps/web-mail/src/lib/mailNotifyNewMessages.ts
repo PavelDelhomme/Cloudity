@@ -8,7 +8,7 @@ type NotificationsCtx = ReturnType<typeof useNotifications>
 export type NotifyNewMailOptions = {
   /** Titre in-app (défaut : « Nouveau courrier »). */
   title?: string
-  /** Préfixe notification bureau (défaut : « Cloudity — Courrier »). */
+  /** Préfixe notification bureau (défaut : « Hubera — Courrier »). */
   desktopTitle?: string
   /** Ne notifier le bureau que si l’onglet est en arrière-plan. */
   desktopRequireHidden?: boolean
@@ -39,7 +39,7 @@ export async function notifyNewMailMessages(
     href,
   })
   showMailDesktopNotification(
-    opts?.desktopTitle ?? 'Cloudity — Courrier',
+    opts?.desktopTitle ?? 'Hubera — Courrier',
     {
       body: synced === 1 ? `${name} : 1 nouveau message` : `${name} : ${synced} nouveaux messages`,
       tag: `cloudity-mail-${account.id}`,

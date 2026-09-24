@@ -75,7 +75,7 @@ export function StackHealthGate({ children }: Props) {
   if (phase === 'timeout') {
     return (
       <ServiceStatusPage
-        title="Cloudity ne répond pas"
+        title="Hubera ne répond pas"
         message="La stack met trop de temps à démarrer ou un service est en échec."
         detail={detail ?? 'Vérifiez make logs (auth-service, photos-service, passwords-service).'}
         onRetry={() => {
@@ -88,7 +88,7 @@ export function StackHealthGate({ children }: Props) {
 
   return (
     <ServiceStatusPage
-      title="Démarrage de Cloudity…"
+      title="Démarrage de Hubera…"
       message="Connexion à l'API en cours. Normal pendant make up ou un redémarrage."
       detail={
         detail ??

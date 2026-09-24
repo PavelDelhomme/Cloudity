@@ -10,7 +10,7 @@ type Props = {
 
 /** Écran plein page pour indisponibilité temporaire (stack en démarrage, API hors ligne). */
 export function ServiceStatusPage({
-  title = 'Cloudity indisponible',
+  title = 'Hubera indisponible',
   message,
   detail,
   onRetry,
