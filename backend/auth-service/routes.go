@@ -25,4 +25,7 @@ func registerAuthHTTPRoutes(r *gin.Engine, auth *AuthService, db *sql.DB, rdb *r
 	registerE2EBootstrapRoutesIfEnabled(r, auth)
 
 	NewWebAuthnService(loadWebAuthnConfig(), db, rdb, auth).RegisterRoutes(r)
+
+	// SSO cross-app Hubera ID
+	registerIdentityLinkRoutes(r, auth, db)
 }
