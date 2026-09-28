@@ -12,6 +12,7 @@ import {
   fetchUserCalendars,
   createUserCalendar,
   deleteCalendarEvent,
+  updateCalendarEvent,
   fetchTasks,
   createTask,
   createNote,
@@ -47,6 +48,14 @@ import {
 
 const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
 const MINI_WEEK_HEADERS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
+
+function toDatetimeLocalValue(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 export type { CalView }
 
@@ -138,9 +147,13 @@ export default function CalendarPage() {
   const [title, setTitle] = useState('')
   const [startAt, setStartAt] = useState('')
   const [endAt, setEndAt] = useState('')
+  const [location, setLocation] = useState('')
+  const [description, setDescription] = useState('')
+  const [allDay, setAllDay] = useState(false)
+  const [editingEventId, setEditingEventId] = useState<number | null>(null)
   const [repeatRule, setRepeatRule] = useState<'' | CalendarRepeatRule>('')
   const [newCalName, setNewCalName] = useState('')
-  const [newCalColor, setNewCalColor] = useState('text-red-500')
+  const [newCalColor, setNewCalColor] = useState('#ea4335')
   const [viewMenuOpen, setViewMenuOpen] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
@@ -352,24 +365,35 @@ export default function CalendarPage() {
   }, [fabMenuOpen])
 
   const createMutation = useMutation({
-    mutationFn: () =>
-      createCalendarEvent(accessToken!, {
+    mutationFn: () => {
+      const payload = {
         title: title || 'Sans titre',
         start_at: startAt || new Date().toISOString(),
         end_at: endAt || new Date(Date.now() + 3600000).toISOString(),
-        all_day: false,
+        all_day: allDay,
+        location: location.trim() ? location.trim() : editingEventId != null ? null : undefined,
+        description: description.trim() ? description.trim() : editingEventId != null ? null : undefined,
         calendar_id: selectedCalendarId ?? undefined,
         repeat_rule: repeatRule || null,
-      }),
+      }
+      if (editingEventId != null) {
+        return updateCalendarEvent(accessToken!, editingEventId, payload)
+      }
+      return createCalendarEvent(accessToken!, payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar', 'events'] })
       setTitle('')
       setStartAt('')
       setEndAt('')
+      setLocation('')
+      setDescription('')
+      setAllDay(false)
       setRepeatRule('')
+      setEditingEventId(null)
       setPickedDay(null)
       setComposeOpen(false)
-      toast.success(repeatRule ? 'Événement récurrent créé' : 'Événement créé')
+      toast.success(editingEventId != null ? 'Événement enregistré' : repeatRule ? 'Événement récurrent créé' : 'Événement créé')
     },
     onError: (e: Error) => toast.error(e.message),
   })
@@ -455,6 +479,12 @@ export default function CalendarPage() {
   const navTitle = viewNavLabel(calView, anchor)
 
   const pickDayWithMinute = (cell: Date, minuteFromMidnight: number) => {
+    setEditingEventId(null)
+    setLocation('')
+    setDescription('')
+    setAllDay(false)
+    setTitle('')
+    setRepeatRule('')
     setComposeOpen(true)
     setPickedDay(cell)
     const y = cell.getFullYear()
@@ -474,6 +504,12 @@ export default function CalendarPage() {
 
   const openCreateFromFab = () => {
     setFabMenuOpen(false)
+    setEditingEventId(null)
+    setLocation('')
+    setDescription('')
+    setAllDay(false)
+    setTitle('')
+    setRepeatRule('')
     setComposeOpen(true)
     if (calView === 'agenda' || calView === 'month' || calView === 'year' || calView === '12weeks' || pickedDay == null) {
       pickDayAndForm(new Date())
@@ -498,7 +534,26 @@ export default function CalendarPage() {
     setTitle('')
     setStartAt('')
     setEndAt('')
+    setLocation('')
+    setDescription('')
+    setAllDay(false)
     setRepeatRule('')
+    setEditingEventId(null)
+  }
+
+  const openEditEvent = (ev: CalendarEvent) => {
+    setEditingEventId(ev.id)
+    setTitle(ev.title || '')
+    setStartAt(toDatetimeLocalValue(ev.start_at))
+    setEndAt(toDatetimeLocalValue(ev.end_at))
+    setLocation(ev.location || '')
+    setDescription(ev.description || '')
+    setAllDay(Boolean(ev.all_day))
+    const rr = ev.repeat_rule
+    setRepeatRule(rr === 'daily' || rr === 'weekly' || rr === 'monthly' || rr === 'yearly' ? rr : '')
+    const start = new Date(ev.start_at)
+    setPickedDay(Number.isNaN(start.getTime()) ? null : start)
+    setComposeOpen(true)
   }
 
   const renderEventPill = (ev: CalendarEvent & { occurrence_key?: string }) => {
@@ -506,14 +561,19 @@ export default function CalendarPage() {
     const bg = cal?.color_hex ?? 'var(--color-brand-600, #2563eb)'
     const label = ev.repeat_rule ? `↻ ${ev.title}` : ev.title
     return (
-      <span
+      <button
+        type="button"
         key={ev.occurrence_key ?? String(ev.id)}
-        className="truncate block rounded border-l-[3px] border-white/50 pl-1.5 pr-1 py-0.5 text-left text-[11px] leading-tight font-medium text-white shadow-sm"
+        className="truncate block w-full rounded border-l-[3px] border-white/50 pl-1.5 pr-1 py-0.5 text-left text-[11px] leading-tight font-medium text-white shadow-sm"
         style={{ backgroundColor: bg, borderLeftColor: 'rgba(255,255,255,0.35)' }}
         title={ev.repeat_rule ? `${ev.title} (récurrent)` : ev.title}
+        onClick={(e) => {
+          e.stopPropagation()
+          openEditEvent(ev)
+        }}
       >
         {label}
-      </span>
+      </button>
     )
   }
 
@@ -853,6 +913,7 @@ export default function CalendarPage() {
                   calMap={calMap}
                   onDeleteEvent={(id) => deleteMutation.mutate(id)}
                   onPickDay={(d, mins) => (mins != null ? pickDayWithMinute(d, mins) : pickDayAndForm(d))}
+                  onSelectEvent={openEditEvent}
                 />
               )}
               {calView === '3day' && (
@@ -863,6 +924,7 @@ export default function CalendarPage() {
                   calMap={calMap}
                   onDeleteEvent={(id) => deleteMutation.mutate(id)}
                   onPickDay={(d, mins) => (mins != null ? pickDayWithMinute(d, mins) : pickDayAndForm(d))}
+                  onSelectEvent={openEditEvent}
                 />
               )}
               {calView === '5day' && (
@@ -873,6 +935,7 @@ export default function CalendarPage() {
                   calMap={calMap}
                   onDeleteEvent={(id) => deleteMutation.mutate(id)}
                   onPickDay={(d, mins) => (mins != null ? pickDayWithMinute(d, mins) : pickDayAndForm(d))}
+                  onSelectEvent={openEditEvent}
                 />
               )}
               {calView === 'week' && (
@@ -883,6 +946,7 @@ export default function CalendarPage() {
                   calMap={calMap}
                   onDeleteEvent={(id) => deleteMutation.mutate(id)}
                   onPickDay={(d, mins) => (mins != null ? pickDayWithMinute(d, mins) : pickDayAndForm(d))}
+                  onSelectEvent={openEditEvent}
                 />
               )}
               {calView === '12weeks' && (
@@ -969,7 +1033,8 @@ export default function CalendarPage() {
                             return (
                               <li
                                 key={e.id}
-                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                                onClick={() => openEditEvent(e)}
                               >
                                 <div className="w-16 shrink-0 pt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                                   {allDay ? 'Journée' : start.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -988,7 +1053,10 @@ export default function CalendarPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => deleteMutation.mutate(e.id)}
+                                  onClick={(ev) => {
+                                    ev.stopPropagation()
+                                    deleteMutation.mutate(e.id)
+                                  }}
                                   className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                                   aria-label="Supprimer"
                                 >
@@ -1012,7 +1080,11 @@ export default function CalendarPage() {
             <div className="mb-2 flex items-center justify-between gap-2">
               <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-100">
                 <Plus className="h-4 w-4 text-brand-600" aria-hidden />
-                {pickedDay ? `Nouvel événement — ${pickedDay.toLocaleDateString('fr-FR')}` : 'Nouvel événement'}
+                {editingEventId != null
+                  ? 'Modifier l’événement'
+                  : pickedDay
+                    ? `Nouvel événement — ${pickedDay.toLocaleDateString('fr-FR')}`
+                    : 'Nouvel événement'}
               </h2>
               <button type="button" className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" onClick={closeCompose} aria-label="Fermer le formulaire">
                 <span className="sr-only">Fermer</span>
@@ -1031,6 +1103,24 @@ export default function CalendarPage() {
               />
               <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
               <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+              <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100">
+                <input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+                Journée entière
+              </label>
+              <input
+                type="text"
+                placeholder="Lieu"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="min-w-[120px] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
+              <input
+                type="text"
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="min-w-[160px] flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              />
               <select
                 value={repeatRule}
                 onChange={(e) => setRepeatRule(e.target.value as '' | CalendarRepeatRule)}

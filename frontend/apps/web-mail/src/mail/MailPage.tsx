@@ -78,6 +78,7 @@ import {
   type MailListSortOrder,
 } from './mailAccountOrderPreferences'
 import { notifyMailSyncFailure } from '../lib/mailNotifySyncFailure'
+import { allContactEmails } from '../lib/contactEmails'
 import { useNotifications } from '@cloudity/web-shell/notificationsContext'
 import {
   apiUrl,
@@ -645,6 +646,7 @@ export type ComposeSlot = {
   /** Compte d’envoi (réponse depuis une autre boîte, ex. vue unifiée). */
   sendAccountId?: number
   to: string
+  cc?: string
   subject: string
   body: string
   minimized: boolean
@@ -1993,7 +1995,9 @@ export default function MailPage() {
     () => Array.from(new Set(messages.map((m) => m.from).filter((e): e is string => !!e && e.trim() !== ''))),
     [messages]
   )
-  const recipientSuggestions = Array.from(new Set([...recentRecipients, ...contacts.map((c) => c.email), ...sendersFromMessages]))
+  const recipientSuggestions = Array.from(
+    new Set([...recentRecipients, ...contacts.flatMap((c) => allContactEmails(c)), ...sendersFromMessages])
+  )
 
   const composeFromOptions = useMemo(() => {
     const p = accounts.find((a) => a.id === effectiveAccountId)?.email ?? ''
@@ -2200,7 +2204,7 @@ export default function MailPage() {
   const activeSlot = composeSlots.find((s) => s.id === activeComposeId) ?? composeSlots[composeSlots.length - 1] ?? null
 
   const openNewCompose = useCallback(
-    (initial?: { to?: string; subject?: string; body?: string; fromAddress?: string; accountId?: number; title?: string }) => {
+    (initial?: { to?: string; cc?: string; subject?: string; body?: string; fromAddress?: string; accountId?: number; title?: string }) => {
       const composeAccountId = initial?.accountId ?? effectiveAccountId
       const primary = accounts.find((a) => a.id === composeAccountId)?.email ?? ''
       const allowedFrom = new Set<string>()
@@ -2231,6 +2235,7 @@ export default function MailPage() {
           fromAddress,
           sendAccountId: initial?.accountId,
           to: initial?.to ?? draft?.to ?? '',
+          cc: initial?.cc ?? '',
           subject: initial?.subject ?? draft?.subject ?? '',
           body: initial?.body ?? draft?.body ?? '',
           minimized: false,
@@ -3117,7 +3122,7 @@ export default function MailPage() {
   const contactsByEmail = useMemo(() => {
     const m = new Map<string, ContactResponse>()
     for (const c of contacts) {
-      m.set(c.email.trim().toLowerCase(), c)
+      for (const email of allContactEmails(c)) m.set(email, c)
     }
     return m
   }, [contacts])
@@ -3883,6 +3888,7 @@ export default function MailPage() {
         await sendMailMessage(accessToken, {
           account_id: sendAcc,
           to: slot.to.trim(),
+          cc: slot.cc?.trim() || undefined,
           subject: slot.subject,
           body,
           from_email: slot.fromAddress.trim() || undefined,
@@ -6700,11 +6706,27 @@ export default function MailPage() {
                   {recipientSuggestions.map((email) => (
                     <option key={email} value={email} />
                   ))}
-                  {contacts.map((c) => (
-                    <option key={`c-${c.id}`} value={c.email}>{c.name ? `${c.name} <${c.email}>` : c.email}</option>
-                  ))}
+                  {contacts.flatMap((c) =>
+                    allContactEmails(c).map((email) => (
+                      <option key={`c-${c.id}-${email}`} value={email}>
+                        {c.name ? `${c.name} <${email}>` : email}
+                      </option>
+                    ))
+                  )}
                 </datalist>
               </div>
+                <div>
+                  <label htmlFor={`mail-cc-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Cc</label>
+                  <input
+                    id={`mail-cc-${slot.id}`}
+                    type="text"
+                    value={slot.cc ?? ''}
+                    onChange={(e) => updateSlot(slot.id, { cc: e.target.value })}
+                    list="mail-recent-recipients"
+                    placeholder="copie@exemple.fr (séparés par des virgules)"
+                    className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  />
+                </div>
                 <div>
                   <label htmlFor={`mail-subject-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Objet</label>
                   <input

@@ -59,23 +59,23 @@ class SuiteProductApi {
         case 'POST':
           res = await http
               .post(uri, headers: headers, body: body)
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: 20));
         case 'PUT':
           res = await http
               .put(uri, headers: headers, body: body)
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: 20));
         case 'PATCH':
           res = await http
               .patch(uri, headers: headers, body: body)
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: 20));
         case 'DELETE':
           res = await http
               .delete(uri, headers: headers)
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: 20));
         default:
           res = await http
               .get(uri, headers: headers)
-              .timeout(const Duration(seconds: 15));
+              .timeout(const Duration(seconds: 20));
       }
       if (res.statusCode == 401 && onTokenRefresh != null && attempt == 0) {
         final refreshed = await onTokenRefresh!();
@@ -430,7 +430,7 @@ class SuiteSettingsPanel extends StatelessWidget {
         Card(
           child: ListTile(
             leading: const Icon(Icons.apps_outlined),
-            title: const Text('Hub Cloudity'),
+            title: const Text('Hubera'),
             subtitle: const Text('Mail, Drive, Agenda, Notes…'),
             onTap: () async {
               await suiteLaunchWebPath(gatewayUrl, '/app');

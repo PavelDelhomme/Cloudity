@@ -426,8 +426,8 @@ func (h *Handler) updateEvent(c *gin.Context) {
 			start_at = COALESCE($2::timestamptz, start_at),
 			end_at = COALESCE($3::timestamptz, end_at),
 			all_day = COALESCE($4, all_day),
-			location = $5,
-			description = $6,
+			location = COALESCE($5, location),
+			description = COALESCE($6, description),
 			calendar_id = COALESCE($7, calendar_id),
 			repeat_rule = CASE WHEN $8::boolean THEN $9::varchar ELSE repeat_rule END,
 			updated_at = CURRENT_TIMESTAMP
@@ -443,7 +443,34 @@ func (h *Handler) updateEvent(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": id})
+	var e Event
+	var loc, desc, rrOut sql.NullString
+	var cal sql.NullInt64
+	var uat string
+	qerr := h.dbex(ctx).QueryRow(`
+		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, repeat_rule, created_at::text, COALESCE(updated_at::text, '')
+		FROM calendar_events WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+	`, id).Scan(&e.ID, &e.TenantID, &e.UserID, &cal, &e.Title, &e.StartAt, &e.EndAt, &e.AllDay, &loc, &desc, &rrOut, &e.CreatedAt, &uat)
+	if qerr != nil {
+		c.JSON(http.StatusOK, gin.H{"id": id})
+		return
+	}
+	if cal.Valid {
+		v := int(cal.Int64)
+		e.CalendarID = &v
+	}
+	if loc.Valid {
+		e.Location = &loc.String
+	}
+	if desc.Valid {
+		e.Description = &desc.String
+	}
+	if rrOut.Valid && strings.TrimSpace(rrOut.String) != "" {
+		s := strings.TrimSpace(rrOut.String)
+		e.RepeatRule = &s
+	}
+	e.UpdatedAt = uat
+	c.JSON(http.StatusOK, e)
 }
 
 func (h *Handler) deleteEvent(c *gin.Context) {

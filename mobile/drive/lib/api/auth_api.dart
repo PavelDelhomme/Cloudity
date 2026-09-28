@@ -9,7 +9,7 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 
 export 'package:cloudity_shared/auth/auth_exception.dart';
 
-const _httpTimeout = Duration(seconds: 8);
+const _httpTimeout = Duration(seconds: 20);
 const _uploadTimeout = Duration(minutes: 2);
 
 /// Auth H19 + appels Drive métier.
@@ -143,6 +143,37 @@ class AuthApi extends CloudityAuthClient {
       throw AuthException('Réponse récents Drive invalide');
     }
     return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  /// Renomme un nœud (fichier ou dossier).
+  Future<void> renameDriveNode({
+    required String accessToken,
+    required int nodeId,
+    required String name,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw AuthException('Nom vide');
+    }
+    final uri = Uri.parse('$baseUrl/drive/nodes/$nodeId');
+    final res = await http
+        .put(
+          uri,
+          headers: authHeaders(accessToken),
+          body: jsonEncode({'name': trimmed}),
+        )
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      final body = res.body.isEmpty ? '{}' : res.body;
+      final decoded = jsonDecode(body);
+      final msg = decoded is Map
+          ? (decoded['error'] ?? decoded['message'])?.toString()
+          : null;
+      throw AuthException(msg ?? 'Renommage Drive HTTP ${res.statusCode}');
+    }
   }
 
   /// Déplace un nœud vers [parentId] (`null` ou `0` = racine).

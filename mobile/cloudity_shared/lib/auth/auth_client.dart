@@ -39,7 +39,7 @@ class CloudityAuthClient {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(payload),
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 20));
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -99,7 +99,7 @@ class CloudityAuthClient {
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(payload),
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 20));
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 201) {
@@ -152,7 +152,7 @@ class CloudityAuthClient {
             'tenant_id': tenantId,
           }),
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 20));
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {

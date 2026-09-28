@@ -83,7 +83,7 @@ Future<StorageUsageSummary> fetchStorageUsage({
           Uri.parse('$base/drive/storage/summary'),
           headers: authHeaders(accessToken, json: false),
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 20));
     if (res.statusCode != 200) {
       throw StorageUsageException('Quota stockage HTTP ${res.statusCode}');
     }
@@ -176,7 +176,7 @@ Future<List<Map<String, dynamic>>> _fetchNodes(
         Uri.parse('$gatewayBase$path'),
         headers: authHeaders(accessToken, json: false),
       )
-      .timeout(const Duration(seconds: 8));
+      .timeout(const Duration(seconds: 20));
   if (res.statusCode != 200) {
     throw StorageUsageException('Liste Drive HTTP ${res.statusCode}');
   }

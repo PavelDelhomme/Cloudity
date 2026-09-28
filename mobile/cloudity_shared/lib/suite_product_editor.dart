@@ -298,6 +298,27 @@ Future<bool> _editContact(
   final notesCtrl = TextEditingController(
     text: profileMap['notes']?.toString() ?? '',
   );
+  final extraEmailCtrl = TextEditingController(
+    text: () {
+      final emails = profileMap['emails'];
+      if (emails is! List) return '';
+      final primary = (existing?['email']?.toString() ?? '').trim().toLowerCase();
+      final extras = <String>[];
+      for (final e in emails) {
+        String? v;
+        if (e is String) {
+          v = e;
+        } else if (e is Map) {
+          v = e['value']?.toString();
+        }
+        final t = (v ?? '').trim();
+        if (t.isEmpty) continue;
+        if (t.toLowerCase() == primary) continue;
+        extras.add(t);
+      }
+      return extras.join(', ');
+    }(),
+  );
   final birthdayCtrl = TextEditingController(
     text: profileMap['birthday']?.toString() ?? '',
   );
@@ -335,6 +356,16 @@ Future<bool> _editContact(
                     keyboardType: TextInputType.emailAddress,
                     decoration: const InputDecoration(
                       labelText: 'E-mail',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: extraEmailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'E-mails secondaires',
+                      hintText: 'séparés par des virgules',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -403,6 +434,18 @@ Future<bool> _editContact(
                               error = null;
                             });
                             try {
+                              final extraEmails = extraEmailCtrl.text
+                                  .split(RegExp(r'[,;]'))
+                                  .map((s) => s.trim())
+                                  .where((s) => s.contains('@'))
+                                  .toList();
+                              final emailEntries = <Map<String, String>>[
+                                if (email.isNotEmpty)
+                                  {'label': 'work', 'value': email},
+                                for (final extra in extraEmails)
+                                  if (extra.toLowerCase() != email.toLowerCase())
+                                    {'label': 'other', 'value': extra},
+                              ];
                               final profilePayload = <String, dynamic>{
                                 if (orgCtrl.text.trim().isNotEmpty)
                                   'organization': orgCtrl.text.trim(),
@@ -412,10 +455,7 @@ Future<bool> _editContact(
                                   'birthday': birthdayCtrl.text.trim(),
                                 if (notesCtrl.text.trim().isNotEmpty)
                                   'notes': notesCtrl.text.trim(),
-                                if (email.isNotEmpty)
-                                  'emails': [
-                                    {'label': 'work', 'value': email},
-                                  ],
+                                if (emailEntries.isNotEmpty) 'emails': emailEntries,
                                 if (phone.isNotEmpty)
                                   'phones': [
                                     {
@@ -465,6 +505,7 @@ Future<bool> _editContact(
   );
   nameCtrl.dispose();
   emailCtrl.dispose();
+  extraEmailCtrl.dispose();
   phoneCtrl.dispose();
   orgCtrl.dispose();
   jobCtrl.dispose();

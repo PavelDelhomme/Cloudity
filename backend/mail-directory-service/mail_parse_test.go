@@ -58,3 +58,13 @@ func TestParseRFC822Mail_HTMLAsAttachmentDisposition(t *testing.T) {
 		t.Fatalf("expected HTML body, got plain=%q html=%q", res.Plain, res.HTML)
 	}
 }
+
+func TestParseMailAddrList(t *testing.T) {
+	got := parseMailAddrList("Paul@Delhomme.ovh,  copie@x.fr;paul@delhomme.ovh,")
+	if len(got) != 2 || got[0] != "paul@delhomme.ovh" || got[1] != "copie@x.fr" {
+		t.Fatalf("unexpected: %#v", got)
+	}
+	if len(parseMailAddrList("  ")) != 0 {
+		t.Fatal("empty should yield nothing")
+	}
+}

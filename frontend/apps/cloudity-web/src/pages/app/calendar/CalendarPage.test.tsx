@@ -14,6 +14,7 @@ vi.mock('../../../api', () => ({
   fetchUserCalendars: vi.fn().mockResolvedValue([]),
   createUserCalendar: vi.fn(),
   deleteCalendarEvent: vi.fn(),
+  updateCalendarEvent: vi.fn(),
   createTask: vi.fn(),
   createNote: vi.fn(),
 }))

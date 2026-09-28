@@ -3201,6 +3201,7 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		AccountID int    `json:"account_id" binding:"required"`
 		Password  string `json:"password"`
 		To        string `json:"to" binding:"required"`
+		Cc        string `json:"cc"`
 		Subject   string `json:"subject"`
 		Body      string `json:"body"`
 		SmtpHost  string `json:"smtp_host"`
@@ -3212,18 +3213,34 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id et to requis"})
 		return
 	}
-	if err := h.sendMessageSMTPWithPayload(ctx, body.AccountID, body.Password, body.To, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, body.AccountID, body.Password, body.To, body.Cc, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "message envoyé"})
 }
 
-func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int, passwordInput, toInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
-	to := strings.TrimSpace(strings.ToLower(toInput))
-	if to == "" || !strings.Contains(to, "@") {
+func parseMailAddrList(s string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, p := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ';' }) {
+		a := strings.TrimSpace(strings.ToLower(p))
+		if a == "" || !strings.Contains(a, "@") || seen[a] {
+			continue
+		}
+		seen[a] = true
+		out = append(out, a)
+	}
+	return out
+}
+
+func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int, passwordInput, toInput, ccInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
+	toList := parseMailAddrList(toInput)
+	if len(toList) == 0 {
 		return fmt.Errorf("destinataire invalide")
 	}
+	to := strings.Join(toList, ", ")
+	ccList := parseMailAddrList(ccInput)
 	var email string
 	var passwordEnc, oauthRefreshEnc sql.NullString
 	var dbSmtpHost sql.NullString
@@ -3303,8 +3320,13 @@ func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int,
 		subject = "(sans objet)"
 	}
 	messageID := generateOutboundMessageID(displayFrom)
+	ccHeader := ""
+	if len(ccList) > 0 {
+		ccHeader = "Cc: " + strings.Join(ccList, ", ") + "\r\n"
+	}
 	msg := []byte("From: " + displayFrom + "\r\n" +
 		"To: " + to + "\r\n" +
+		ccHeader +
 		"Message-ID: " + messageID + "\r\n" +
 		"Date: " + time.Now().Format(time.RFC1123Z) + "\r\n" +
 		"Subject: " + subject + "\r\n" +
@@ -3313,7 +3335,8 @@ func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int,
 		"Content-Transfer-Encoding: 8bit\r\n" +
 		"\r\n" + bodyInput)
 	// Enveloppe SMTP : compte authentifié (évite les rejets si l’alias n’est pas autorisé comme MAIL FROM).
-	if err := smtp.SendMail(addr, auth, email, []string{to}, msg); err != nil {
+	rcpt := append(append([]string{}, toList...), ccList...)
+	if err := smtp.SendMail(addr, auth, email, rcpt, msg); err != nil {
 		log.Printf("[mail] SMTP send: %v", err)
 		return fmt.Errorf("envoi SMTP échoué: %w", err)
 	}
@@ -3472,7 +3495,7 @@ func (h *Handler) sendOneScheduledMessage(ctx context.Context, messageID, accoun
 	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
 		return err
 	}
-	if err := h.sendMessageSMTPWithPayload(ctx, accountID, "", toAddrs, subject, bodyPlain, "", 0, fromAddr); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, accountID, "", toAddrs, "", subject, bodyPlain, "", 0, fromAddr); err != nil {
 		return err
 	}
 	_, _ = h.dbex(ctx).Exec(`

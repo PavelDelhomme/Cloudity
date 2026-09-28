@@ -74,6 +74,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _taskLists = [];
   int? _selectedTaskListId;
+  String _contactQuery = '';
   late SuiteProductApi _api;
   late DateTime _calFocusDay;
   bool _calDayFilter = false;
@@ -192,9 +193,26 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       case SuiteProduct.contacts:
         final profile = item['profile'];
         String? org;
+        final extraMails = <String>[];
         if (profile is Map) {
           org = profile['organization']?.toString();
           if (org != null && org.trim().isEmpty) org = null;
+          final emails = profile['emails'];
+          if (emails is List) {
+            final primary = (item['email']?.toString() ?? '').trim().toLowerCase();
+            for (final e in emails) {
+              String? v;
+              if (e is String) {
+                v = e;
+              } else if (e is Map) {
+                v = e['value']?.toString();
+              }
+              final t = (v ?? '').trim();
+              if (t.isEmpty) continue;
+              if (t.toLowerCase() == primary) continue;
+              extraMails.add(t);
+            }
+          }
         }
         final email = item['email']?.toString();
         final phone = item['phone']?.toString();
@@ -202,6 +220,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           if (org != null) org,
           if (email != null && email.isNotEmpty && email != 'locked@vault.local')
             email,
+          ...extraMails,
           if (phone != null && phone.isNotEmpty) phone,
         ];
         return bits.isEmpty ? null : bits.join(' · ');
@@ -332,7 +351,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   String _emptySubtitle() => switch (widget.product) {
         SuiteProduct.calendar =>
-          'Ajoute un rendez-vous — synchronisé avec le web Cloudity Agenda.',
+          'Ajoute un rendez-vous — synchronisé avec le web Hubera Agenda.',
+        SuiteProduct.notes =>
+          'Écris une note — elle apparaît aussi sur Notes web.',
+        SuiteProduct.tasks =>
+          'Crée une tâche — partagée avec Tasks web.',
+        SuiteProduct.contacts =>
+          'Ajoute un contact — synchronisé avec Contacts web.',
         SuiteProduct.notes =>
           'Écris une note — elle apparaît aussi sur Notes web.',
         SuiteProduct.tasks =>
@@ -458,6 +483,20 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
   }
 
+  List<Map<String, dynamic>> get _visibleItems {
+    final q = _contactQuery.trim().toLowerCase();
+    if (q.isEmpty || widget.product != SuiteProduct.contacts) return _items;
+    return _items.where((item) {
+      final hay = [
+        _itemTitle(item),
+        _itemSubtitle(item) ?? '',
+        item['email']?.toString() ?? '',
+        item['phone']?.toString() ?? '',
+      ].join(' ').toLowerCase();
+      return hay.contains(q);
+    }).toList();
+  }
+
   Widget _buildListBody() {
     return RefreshIndicator(
       onRefresh: _reload,
@@ -526,10 +565,29 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       ? _buildCalendarList()
                       : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _items.length,
+                      itemCount: _visibleItems.length +
+                          (widget.product == SuiteProduct.contacts ? 1 : 0),
                       itemBuilder: (context, index) {
+                        if (widget.product == SuiteProduct.contacts) {
+                          if (index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                              child: TextField(
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.search),
+                                  hintText: 'Rechercher un contact',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: (v) =>
+                                    setState(() => _contactQuery = v),
+                              ),
+                            );
+                          }
+                          index -= 1;
+                        }
                         final theme = Theme.of(context);
-                        final item = _items[index];
+                        final item = _visibleItems[index];
                         final sub = _itemSubtitle(item);
                         final done = item['completed'] == true;
                         return Card(
@@ -640,7 +698,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Ajoute un rendez-vous — il apparaît aussi sur le web Cloudity Agenda.',
+                          'Ajoute un rendez-vous — il apparaît aussi sur le web Hubera Agenda.',
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 16),

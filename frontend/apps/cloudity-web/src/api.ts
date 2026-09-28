@@ -935,8 +935,8 @@ export async function verify2FA(body: {
   const payload: Record<string, string> = {
     email: body.email,
     code: body.code,
+    tenant_id: String(body.tenant_id ?? 1),
   }
-  if (body.tenant_id != null) payload.tenant_id = String(body.tenant_id)
   const res = await apiFetch(null, '/auth/2fa/verify', {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -1030,8 +1030,8 @@ export async function login(body: LoginBody): Promise<LoginResponse> {
   const payload: Record<string, string> = {
     email: body.email,
     password: body.password,
+    tenant_id: String(body.tenant_id ?? 1),
   }
-  if (body.tenant_id != null) payload.tenant_id = String(body.tenant_id)
   const res = await apiFetch(null, '/auth/login', {
     method: 'POST',
     body: JSON.stringify(payload),

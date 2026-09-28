@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../api/auth_api.dart';
+import 'compose_mail_screen.dart';
+import 'html_to_readable.dart';
 import '../auth/user_session.dart';
 
 class MessageDetailScreen extends StatefulWidget {
@@ -202,6 +204,33 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
       key: const ValueKey('cloudity_mail_message_detail'),
       appBar: AppBar(
         title: const Text('Message'),
+        actions: [
+          IconButton(
+            tooltip: 'Répondre',
+            icon: const Icon(Icons.reply),
+            onPressed: _detail == null
+                ? null
+                : () {
+                    final d = _detail!;
+                    final from = d['from']?.toString() ?? '';
+                    final subj = d['subject']?.toString() ?? '';
+                    final fromEmail = from.contains('<') && from.contains('>')
+                        ? from.substring(from.indexOf('<') + 1, from.indexOf('>')).trim()
+                        : from.trim();
+                    final re = subj.toLowerCase().startsWith('re:') ? subj : 'Re: $subj';
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ComposeMailScreen(
+                          session: widget.session,
+                          accountId: widget.accountId,
+                          initialTo: fromEmail,
+                          initialSubject: re,
+                        ),
+                      ),
+                    );
+                  },
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -230,7 +259,9 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     final date = d['date_at']?.toString() ?? '';
     final body = d['body_plain']?.toString() ?? '';
     final html = d['body_html']?.toString() ?? '';
-    final textBody = body.isNotEmpty ? body : (html.isNotEmpty ? '(HTML — voir sur le web)' : '(aucun corps)');
+    final textBody = body.isNotEmpty
+        ? body
+        : (html.isNotEmpty ? htmlToReadable(html) : '(aucun corps)');
     final rawAtt = d['attachments'];
     final attachments = rawAtt is List
         ? rawAtt.map((e) => Map<String, dynamic>.from(e as Map)).toList()

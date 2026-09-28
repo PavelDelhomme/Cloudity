@@ -7,6 +7,8 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 
 export 'package:cloudity_shared/auth/auth_exception.dart';
 
+const _httpTimeout = Duration(seconds: 20);
+
 /// Appels HTTP gateway (auth partagée H19 + mail métier).
 class AuthApi extends CloudityAuthClient {
   AuthApi(super.gatewayBase);
@@ -15,10 +17,12 @@ class AuthApi extends CloudityAuthClient {
     String accessToken,
   ) async {
     final uri = Uri.parse('$baseUrl/mail/me/accounts');
-    final res = await http.get(
-      uri,
-      headers: authHeaders(accessToken, json: false),
-    );
+    final res = await http
+        .get(
+          uri,
+          headers: authHeaders(accessToken, json: false),
+        )
+        .timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }
@@ -256,6 +260,7 @@ class AuthApi extends CloudityAuthClient {
     required String accessToken,
     required int accountId,
     required String to,
+    String cc = '',
     String subject = '',
     String body = '',
     String? password,
@@ -267,14 +272,17 @@ class AuthApi extends CloudityAuthClient {
       'subject': subject,
       'body': body,
     };
+    if (cc.trim().isNotEmpty) payload['cc'] = cc.trim();
     if (password != null && password.isNotEmpty) {
       payload['password'] = password;
     }
-    final res = await http.post(
-      uri,
-      headers: authHeaders(accessToken),
-      body: jsonEncode(payload),
-    );
+    final res = await http
+        .post(
+          uri,
+          headers: authHeaders(accessToken),
+          body: jsonEncode(payload),
+        )
+        .timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }

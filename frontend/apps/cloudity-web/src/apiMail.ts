@@ -793,6 +793,7 @@ export async function sendMailMessage(
     account_id: number
     password?: string
     to: string
+    cc?: string
     subject: string
     body: string
     smtp_host?: string

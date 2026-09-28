@@ -1183,6 +1183,14 @@ class _FilesScreenState extends State<FilesScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Renommer'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _renameNode(id, name);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.delete_outline),
                   title: const Text('Mettre à la corbeille'),
                   onTap: () {
@@ -1196,6 +1204,45 @@ class _FilesScreenState extends State<FilesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _renameNode(int id, String name) async {
+    final ctrl = TextEditingController(text: name);
+    final next = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Renommer'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Nouveau nom'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (next == null || next.isEmpty || next == name || !mounted) return;
+    await _runDriveAction(() async {
+      await widget.session.api.renameDriveNode(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+        name: next,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Renommé en « $next ».')));
+    });
   }
 
   Future<void> _moveNode(int id, String name, bool isFolder) async {

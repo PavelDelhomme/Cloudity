@@ -23,6 +23,7 @@ export type CalendarTimeGridProps = {
   pxPerHour?: number
   onDeleteEvent: (id: number) => void
   onPickDay: (day: Date, minuteFromMidnight?: number) => void
+  onSelectEvent?: (ev: CalendarEvent) => void
 }
 
 function allDayEventsForDay(events: CalendarEvent[] | null | undefined, day: Date): CalendarEvent[] {
@@ -81,6 +82,7 @@ export default function CalendarTimeGrid({
   pxPerHour = DEFAULT_PX_PER_HOUR,
   onDeleteEvent,
   onPickDay,
+  onSelectEvent,
 }: CalendarTimeGridProps) {
   const navigate = useNavigate()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -117,14 +119,19 @@ export default function CalendarTimeGrid({
                 {ads.map((ev) => {
                   const cal = ev.calendar_id != null ? calMap.get(ev.calendar_id) : undefined
                   return (
-                    <span
+                    <button
+                      type="button"
                       key={ev.id}
                       className="max-w-full truncate rounded border-l-[3px] px-1 py-0.5 text-left text-[10px] font-medium text-white"
                       style={{ backgroundColor: cal?.color_hex ?? '#2563eb', borderLeftColor: 'rgba(255,255,255,0.35)' }}
                       title={ev.title}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSelectEvent?.(ev)
+                      }}
                     >
                       {ev.title}
-                    </span>
+                    </button>
                   )
                 })}
               </div>
@@ -218,7 +225,13 @@ export default function CalendarTimeGrid({
                           backgroundColor: seg.color,
                           color: '#fff',
                         }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (seg.kind === 'event' && seg.eventId != null) {
+                            const ev = (events ?? []).find((x) => x.id === seg.eventId)
+                            if (ev) onSelectEvent?.(ev)
+                          }
+                        }}
                       >
                         <div className="flex items-start justify-between gap-0.5">
                           <div className="min-w-0 flex-1">
@@ -237,7 +250,10 @@ export default function CalendarTimeGrid({
                               type="button"
                               className="shrink-0 rounded p-0.5 hover:bg-white/20"
                               aria-label="Supprimer"
-                              onClick={() => onDeleteEvent(seg.eventId!)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onDeleteEvent(seg.eventId!)
+                              }}
                             >
                               <Trash2 className="h-3 w-3" />
                             </button>

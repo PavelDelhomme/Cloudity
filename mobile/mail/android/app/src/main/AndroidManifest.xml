@@ -33,6 +33,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="cloudity.delhomme.ovh" />
+                <data android:scheme="https" android:host="mail.hubera.cloud" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

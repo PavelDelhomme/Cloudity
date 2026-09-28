@@ -10,10 +10,16 @@ class ComposeMailScreen extends StatefulWidget {
     super.key,
     required this.session,
     required this.accountId,
+    this.initialTo,
+    this.initialSubject,
+    this.initialBody,
   });
 
   final UserSession session;
   final int accountId;
+  final String? initialTo;
+  final String? initialSubject;
+  final String? initialBody;
 
   @override
   State<ComposeMailScreen> createState() => _ComposeMailScreenState();
@@ -21,6 +27,7 @@ class ComposeMailScreen extends StatefulWidget {
 
 class _ComposeMailScreenState extends State<ComposeMailScreen> {
   final _toCtrl = TextEditingController();
+  final _ccCtrl = TextEditingController();
   final _subjectCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -28,8 +35,17 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _toCtrl.text = widget.initialTo ?? '';
+    _subjectCtrl.text = widget.initialSubject ?? '';
+    _bodyCtrl.text = widget.initialBody ?? '';
+  }
+
+  @override
   void dispose() {
     _toCtrl.dispose();
+    _ccCtrl.dispose();
     _subjectCtrl.dispose();
     _bodyCtrl.dispose();
     _passwordCtrl.dispose();
@@ -53,6 +69,7 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
         accessToken: widget.session.accessToken,
         accountId: widget.accountId,
         to: to,
+        cc: _ccCtrl.text.trim(),
         subject: _subjectCtrl.text.trim(),
         body: _bodyCtrl.text,
         password: pwd.isEmpty ? null : pwd,
@@ -116,6 +133,14 @@ class _ComposeMailScreenState extends State<ComposeMailScreen> {
             key: const ValueKey('cloudity_mail_compose_to'),
             controller: _toCtrl,
             decoration: const InputDecoration(labelText: 'À', hintText: 'destinataire@domaine.tld'),
+            keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey('cloudity_mail_compose_cc'),
+            controller: _ccCtrl,
+            decoration: const InputDecoration(labelText: 'Cc', hintText: 'copie@domaine.tld'),
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
           ),

@@ -2,7 +2,7 @@ name: cloudity_mail
 description: "Cloudity Mail — app mobile (boîtes, dossiers, PJ, envoi minimal, tests)."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.11.4
