@@ -92,6 +92,7 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
       context,
       gatewayBase: gw,
       appSlug: app.otaAppSlug,
+      huberaHost: app.huberaHost,
     );
   }
 

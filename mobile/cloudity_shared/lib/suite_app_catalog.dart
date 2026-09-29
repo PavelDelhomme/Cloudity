@@ -65,6 +65,19 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.admin => 'fr.cloudity.admin_app',
       };
 
+  /// Hôte Hubera pour le feed OTA `https://<host>/updates.json` (comme Maps).
+  String get huberaHost => switch (this) {
+        ClouditySuiteApp.mail => 'mail.hubera.cloud',
+        ClouditySuiteApp.drive => 'drive.hubera.cloud',
+        ClouditySuiteApp.photos => 'photos.hubera.cloud',
+        ClouditySuiteApp.calendar => 'calendar.hubera.cloud',
+        ClouditySuiteApp.contacts => 'contacts.hubera.cloud',
+        ClouditySuiteApp.notes => 'notes.hubera.cloud',
+        ClouditySuiteApp.tasks => 'tasks.hubera.cloud',
+        ClouditySuiteApp.pass => 'pass.hubera.cloud',
+        ClouditySuiteApp.admin => 'cloudity.delhomme.ovh',
+      };
+
   /// Slug manifeste OTA (`version-cloudity_mail.json`).
   String get otaAppSlug => switch (this) {
         ClouditySuiteApp.mail => 'cloudity_mail',

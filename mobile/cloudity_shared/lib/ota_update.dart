@@ -38,7 +38,7 @@ class CloudityOtaManifest {
       app: (json['app'] as String? ?? '').trim(),
       version: (json['version'] as String? ?? '').trim(),
       minSupported: (json['min_supported'] as String? ?? '').trim(),
-      apkUrl: (json['apk_url'] as String? ?? '').trim(),
+      apkUrl: (json['apk_url'] as String? ?? json['apk'] as String? ?? '').trim(),
       sha256: (json['sha256'] as String? ?? '').trim(),
       publishedAt: (json['published_at'] as String? ?? '').trim(),
       huberaMessage: message,
@@ -101,6 +101,39 @@ abstract final class CloudityOtaClient {
     }
   }
 
+  /// Feed Maps-like : `https://notes.hubera.cloud/updates.json`.
+  static Future<CloudityOtaManifest?> fetchHuberaUpdates({
+    required String host,
+    http.Client? client,
+  }) async {
+    final h = host.trim().replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), '');
+    if (h.isEmpty) return null;
+    final uri = Uri.parse('https://$h/updates.json');
+    final c = client ?? http.Client();
+    try {
+      final res = await c.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return null;
+      final map = jsonDecode(res.body);
+      if (map is! Map<String, dynamic>) return null;
+      final version = (map['version'] as String? ?? '').trim();
+      final apk = (map['apk_url'] as String? ?? map['apk'] as String? ?? '').trim();
+      if (version.isEmpty || apk.isEmpty) return null;
+      return CloudityOtaManifest.fromJson({
+        ...map,
+        'apk_url': apk,
+        'min_supported': (map['min_supported'] as String? ?? version).trim(),
+        'published_at': (map['published_at'] as String? ?? map['generated'] as String? ?? '').trim(),
+        'hubera': {
+          'message': (map['notes'] as String? ?? '').trim(),
+        },
+      });
+    } catch (_) {
+      return null;
+    } finally {
+      if (client == null) c.close();
+    }
+  }
+
   /// Retourne le manifeste si une version plus récente que [currentVersion] est publiée.
   static Future<CloudityOtaManifest?> checkUpdate({
     required String gatewayBase,
@@ -117,6 +150,30 @@ abstract final class CloudityOtaClient {
     if (m == null || m.version.isEmpty || m.apkUrl.isEmpty) return null;
     if (cloudityCompareVersions(m.version, currentVersion) <= 0) return null;
     return m;
+  }
+
+  /// Préfère le feed produit Hubera, sinon le manifeste gateway Cloudity.
+  static Future<CloudityOtaManifest?> checkHuberaOrGateway({
+    required String gatewayBase,
+    required String appSlug,
+    required String currentVersion,
+    String? huberaHost,
+    http.Client? client,
+  }) async {
+    if (huberaHost != null && huberaHost.trim().isNotEmpty) {
+      final hosted = await fetchHuberaUpdates(host: huberaHost, client: client);
+      if (hosted != null &&
+          hosted.apkUrl.isNotEmpty &&
+          cloudityCompareVersions(hosted.version, currentVersion) > 0) {
+        return hosted;
+      }
+    }
+    return checkUpdate(
+      gatewayBase: gatewayBase,
+      appSlug: appSlug,
+      currentVersion: currentVersion,
+      client: client,
+    );
   }
 }
 
@@ -414,16 +471,18 @@ void cloudityScheduleOtaCheck(
   required String gatewayBase,
   required String appSlug,
   String? currentVersion,
+  String? huberaHost,
 }) {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     await cloudityPurgeOtaCache();
     final version = await cloudityResolveInstalledVersion(
       currentVersion: currentVersion,
     );
-    final m = await CloudityOtaClient.checkUpdate(
+    final m = await CloudityOtaClient.checkHuberaOrGateway(
       gatewayBase: gatewayBase,
       appSlug: appSlug,
       currentVersion: version,
+      huberaHost: huberaHost,
     );
     if (m == null || !context.mounted) return;
     await cloudityShowOtaDialog(

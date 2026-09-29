@@ -75,6 +75,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _taskLists = [];
   int? _selectedTaskListId;
   String _contactQuery = '';
+  bool _notesShowArchived = false;
   late SuiteProductApi _api;
   late DateTime _calFocusDay;
   bool _calDayFilter = false;
@@ -291,6 +292,18 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  Future<void> _toggleNotePin(Map<String, dynamic> item) async {
+    final id = suiteItemId(item);
+    if (id == null) return;
+    try {
+      await _api.updateNote(id: id, pinned: item['pinned'] != true);
+      if (mounted) await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   Future<void> _toggleTask(Map<String, dynamic> item) async {
     final id = suiteItemId(item);
     if (id == null) return;
@@ -315,10 +328,35 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           setState(() => _showSettings = false);
         },
       ),
-      if (widget.product == SuiteProduct.tasks && _taskLists.isNotEmpty) ...[
+      if (widget.product == SuiteProduct.notes)
+        SwitchListTile(
+          title: const Text('Archives'),
+          secondary: const Icon(Icons.archive_outlined),
+          value: _notesShowArchived,
+          onChanged: (v) {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _notesShowArchived = v;
+            });
+          },
+        ),
+      if (widget.product == SuiteProduct.tasks) ...[
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Text('Listes'),
+        ),
+        ListTile(
+          title: const Text('Toutes les tâches'),
+          selected: _selectedTaskListId == null,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _selectedTaskListId = null;
+            });
+            _reload();
+          },
         ),
         ..._taskLists.map((list) {
           final id = list['id'];
@@ -353,15 +391,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         SuiteProduct.calendar =>
           'Ajoute un rendez-vous — synchronisé avec le web Hubera Agenda.',
         SuiteProduct.notes =>
-          'Écris une note — elle apparaît aussi sur Notes web.',
+          'Écris une note — couleurs, épingles et listes, comme sur Notes web.',
         SuiteProduct.tasks =>
-          'Crée une tâche — partagée avec Tasks web.',
-        SuiteProduct.contacts =>
-          'Ajoute un contact — synchronisé avec Contacts web.',
-        SuiteProduct.notes =>
-          'Écris une note — elle apparaît aussi sur Notes web.',
-        SuiteProduct.tasks =>
-          'Crée une tâche — partagée avec Tasks web.',
+          'Crée une tâche — listes et échéances, comme Google Tasks.',
         SuiteProduct.contacts =>
           'Ajoute un contact — synchronisé avec Contacts web.',
       };
@@ -484,14 +516,33 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   List<Map<String, dynamic>> get _visibleItems {
+    var items = _items;
+    if (widget.product == SuiteProduct.notes) {
+      items = items.where((n) {
+        final archived = n['archived'] == true;
+        return _notesShowArchived ? archived : !archived;
+      }).toList();
+      items.sort((a, b) {
+        final pa = a['pinned'] == true ? 0 : 1;
+        final pb = b['pinned'] == true ? 0 : 1;
+        return pa.compareTo(pb);
+      });
+    }
     final q = _contactQuery.trim().toLowerCase();
-    if (q.isEmpty || widget.product != SuiteProduct.contacts) return _items;
-    return _items.where((item) {
+    if (q.isEmpty) return items;
+    if (widget.product != SuiteProduct.contacts &&
+        widget.product != SuiteProduct.notes &&
+        widget.product != SuiteProduct.tasks) {
+      return items;
+    }
+    return items.where((item) {
       final hay = [
         _itemTitle(item),
         _itemSubtitle(item) ?? '',
         item['email']?.toString() ?? '',
         item['phone']?.toString() ?? '',
+        item['body']?.toString() ?? '',
+        item['content']?.toString() ?? '',
       ].join(' ').toLowerCase();
       return hay.contains(q);
     }).toList();
@@ -561,12 +612,17 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         ),
                       ],
                     )
+                  : widget.product == SuiteProduct.notes
+                      ? _buildNotesKeepBody()
                   : widget.product == SuiteProduct.calendar
                       ? _buildCalendarList()
                       : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: _visibleItems.length +
-                          (widget.product == SuiteProduct.contacts ? 1 : 0),
+                          (widget.product == SuiteProduct.contacts ||
+                                  widget.product == SuiteProduct.tasks
+                              ? 1
+                              : 0),
                       itemBuilder: (context, index) {
                         if (widget.product == SuiteProduct.contacts) {
                           if (index == 0) {
@@ -583,6 +639,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                                     setState(() => _contactQuery = v),
                               ),
                             );
+                          }
+                          index -= 1;
+                        }
+                        if (widget.product == SuiteProduct.tasks) {
+                          if (index == 0) {
+                            return _buildTasksHeader();
                           }
                           index -= 1;
                         }
@@ -638,6 +700,333 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         );
                       },
                     ),
+    );
+  }
+
+  Widget _buildTasksHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Rechercher une tâche',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) => setState(() => _contactQuery = v),
+          ),
+          if (_taskLists.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                FilterChip(
+                  label: const Text('Toutes'),
+                  selected: _selectedTaskListId == null,
+                  onSelected: (_) {
+                    setState(() => _selectedTaskListId = null);
+                    _reload();
+                  },
+                ),
+                ..._taskLists.map((list) {
+                  final id = list['id'];
+                  final listId =
+                      id is int ? id : int.tryParse(id?.toString() ?? '');
+                  final name = list['name']?.toString() ?? 'Liste';
+                  return FilterChip(
+                    label: Text(name),
+                    selected: _selectedTaskListId == listId,
+                    onSelected: (_) {
+                      setState(() => _selectedTaskListId = listId);
+                      _reload();
+                    },
+                  );
+                }),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _keepNoteColor(String? id, Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return switch (id) {
+      'yellow' => dark ? const Color(0xFF635D19) : const Color(0xFFFFF475),
+      'green' => dark ? const Color(0xFF345920) : const Color(0xFFCCFF90),
+      'blue' => dark ? const Color(0xFF2A4B5C) : const Color(0xFFCBF0F8),
+      'pink' => dark ? const Color(0xFF5C2B43) : const Color(0xFFFDCFE8),
+      'purple' => dark ? const Color(0xFF47325C) : const Color(0xFFD7AEFB),
+      'orange' => dark ? const Color(0xFF614A19) : const Color(0xFFFBBC04),
+      'teal' => dark ? const Color(0xFF1D4A44) : const Color(0xFFA7FFEB),
+      'red' => dark ? const Color(0xFF5C2B28) : const Color(0xFFF28B82),
+      'gray' => dark ? const Color(0xFF3C4043) : const Color(0xFFE8EAED),
+      _ => dark ? const Color(0xFF2D2E30) : const Color(0xFFFFFFFF),
+    };
+  }
+
+  Widget _keepNoteCard(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
+    final pinned = item['pinned'] == true;
+    final colorId = item['color']?.toString();
+    final bg = _keepNoteColor(colorId, theme.brightness);
+    final title = item['title']?.toString() ?? '';
+    final body =
+        item['body']?.toString() ?? item['content']?.toString() ?? '';
+    final remind = item['remind_at']?.toString();
+    final labels = item['labels'];
+    final labelBits = <String>[];
+    if (labels is List) {
+      for (final l in labels) {
+        if (l is String && l.trim().isNotEmpty) labelBits.add(l.trim());
+        if (l is Map) {
+          final n = (l['name'] ?? l['label'] ?? l['title'])?.toString();
+          if (n != null && n.trim().isNotEmpty) labelBits.add(n.trim());
+        }
+      }
+    }
+    return Card(
+      color: bg,
+      elevation: pinned ? 1.5 : 0.6,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openEditor(existing: item),
+        onLongPress: () => _deleteItem(item),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 4, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      title.isEmpty ? 'Note' : title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: pinned ? 'Désépingler' : 'Épingler',
+                    icon: Icon(
+                      pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                      size: 18,
+                    ),
+                    onPressed: () => _toggleNotePin(item),
+                  ),
+                ],
+              ),
+              if (body.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  body.trim(),
+                  maxLines: 8,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+              if (remind != null && remind.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  avatar: const Icon(Icons.alarm, size: 14),
+                  label: Text(
+                    formatCloudityDateTimeLocal(remind),
+                    style: theme.textTheme.labelSmall,
+                  ),
+                ),
+              ],
+              if (labelBits.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (final lab in labelBits.take(6))
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text(lab, style: theme.textTheme.labelSmall),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _keepMasonry(List<Map<String, dynamic>> notes) {
+    final left = <Widget>[];
+    final right = <Widget>[];
+    for (var i = 0; i < notes.length; i++) {
+      final card = _keepNoteCard(notes[i]);
+      (i.isEven ? left : right).add(card);
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Column(children: left)),
+          const SizedBox(width: 8),
+          Expanded(child: Column(children: right)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotesKeepBody() {
+    final theme = Theme.of(context);
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return CloudityErrorBody(
+        message: _error!,
+        onRetry: _reload,
+        onReport: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => SuiteFeedbackScreen(
+                screenName: widget.product.title,
+              ),
+            ),
+          );
+        },
+      );
+    }
+    final items = _visibleItems;
+    final pinned = items.where((n) => n['pinned'] == true).toList();
+    final others = items.where((n) => n['pinned'] != true).toList();
+    return RefreshIndicator(
+      onRefresh: _reload,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 88),
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Material(
+              color: theme.colorScheme.surface,
+              elevation: 1,
+              borderRadius: BorderRadius.circular(28),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                onTap: () => _openEditor(),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Prendre une note…',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Liste',
+                        icon: const Icon(Icons.check_box_outlined),
+                        onPressed: () => _openEditor(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: TextField(
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: _notesShowArchived
+                    ? 'Rechercher dans les archives'
+                    : 'Rechercher dans les notes',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _contactQuery = v),
+            ),
+          ),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
+              child: Column(
+                children: [
+                  Icon(
+                    _notesShowArchived
+                        ? Icons.archive_outlined
+                        : Icons.sticky_note_2_outlined,
+                    size: 48,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.55),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _notesShowArchived ? 'Aucune archive' : _emptyTitle(),
+                    style: theme.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _notesShowArchived
+                        ? 'Les notes archivées apparaissent ici.'
+                        : _emptySubtitle(),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            if (pinned.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+                child: Text(
+                  'ÉPINGLÉES',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    letterSpacing: 0.8,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              _keepMasonry(pinned),
+            ],
+            if (others.isNotEmpty) ...[
+              if (pinned.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+                  child: Text(
+                    'AUTRES',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      letterSpacing: 0.8,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              _keepMasonry(others),
+            ],
+          ],
+        ],
+      ),
     );
   }
 
