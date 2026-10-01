@@ -8,11 +8,12 @@ import {
 } from './appsCatalog'
 
 describe('appsCatalog (FE-HUB-01 inventaire)', () => {
-  it('liste les 11 apps launcher avec href /app/*', () => {
-    expect(HUB_LAUNCHER_APPS).toHaveLength(11)
+  it('liste les apps launcher', () => {
+    expect(HUB_LAUNCHER_APPS.length).toBeGreaterThanOrEqual(11)
     for (const app of HUB_LAUNCHER_APPS) {
-      expect(app.href.startsWith('/app/')).toBe(true)
+      expect(app.href.startsWith('/app/') || app.href.startsWith('https://')).toBe(true)
     }
+    expect(HUB_LAUNCHER_APPS.some((a) => a.id === 'cook')).toBe(true)
   })
 
   it('inventaire routes couvre Drive → Photos + settings', () => {

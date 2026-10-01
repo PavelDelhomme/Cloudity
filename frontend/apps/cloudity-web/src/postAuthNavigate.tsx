@@ -18,6 +18,7 @@ const HOST_APP_HOME: Record<string, string> = {
   contacts: '/app/contacts',
   photos: '/app/photos',
   office: '/app/office',
+  cook: '/app/',
 }
 
 /** Sur mail.hubera.cloud (etc.) on ouvre l’app, pas le tableau de bord `/app`. */

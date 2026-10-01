@@ -7,6 +7,7 @@ import '../api/auth_api.dart';
 import 'add_mail_account_screen.dart';
 import 'compose_mail_screen.dart';
 import 'mail_account_helpers.dart';
+import 'mail_contacts.dart';
 import 'mail_imap_password_screen.dart';
 import 'mail_settings_screen.dart';
 import 'message_detail_screen.dart';
@@ -47,6 +48,8 @@ class _InboxScreenState extends State<InboxScreen> {
   int _lastBackgroundSyncAtMs = 0;
   bool _backgroundSyncing = false;
   bool _showSettings = false;
+  bool _searchOpen = false;
+  List<Map<String, dynamic>> _contacts = [];
   final Set<int> _syncIssueNotifiedAccountIds = {};
 
   static const int _mailBackgroundSyncIntervalMs = 25000;
@@ -122,8 +125,6 @@ class _InboxScreenState extends State<InboxScreen> {
   Future<void> _syncAllAccountsInBackground() async {
     if (!mounted || _backgroundSyncing || _accounts.isEmpty) return;
     _backgroundSyncing = true;
-    int totalSynced = 0;
-    String? firstAccountName;
     var anySyncFailure = false;
     try {
       await widget.session.refreshIfNeeded();
@@ -132,15 +133,11 @@ class _InboxScreenState extends State<InboxScreen> {
         final id = rawId is int ? rawId : int.tryParse(rawId?.toString() ?? '');
         if (id == null) continue;
         try {
-          final synced = await widget.session.api.syncMailAccount(
+          await widget.session.api.syncMailAccount(
             accessToken: widget.session.accessToken,
             accountId: id,
           );
           _syncIssueNotifiedAccountIds.remove(id);
-          if (synced > 0) {
-            totalSynced += synced;
-            firstAccountName ??= mailAccountLabel(acc);
-          }
         } on AuthException catch (e) {
           anySyncFailure = true;
           if (e.message != 'non_autorisé') {
@@ -159,15 +156,7 @@ class _InboxScreenState extends State<InboxScreen> {
         await _refreshAccountsFromServer();
       }
       _lastBackgroundSyncAtMs = DateTime.now().millisecondsSinceEpoch;
-      if (totalSynced > 0 && mounted) {
-        final who = (firstAccountName ?? 'Mail').trim();
-        final msg = totalSynced == 1
-            ? '$who — 1 nouveau message'
-            : '$who — $totalSynced nouveaux messages';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-        );
-      }
+      // Pas de snackbar « N nouveaux » : 0 → rien ; déjà vu → rien. La liste se rafraîchit.
       if (mounted) {
         await _reloadSummary();
         await _reloadMessages();
@@ -253,6 +242,7 @@ class _InboxScreenState extends State<InboxScreen> {
         _accounts = acc;
         _loading = false;
       });
+      unawaited(_loadContacts());
       if (_accountId != null) {
         await _reloadSummaryAndMessages();
       } else {
@@ -287,6 +277,17 @@ class _InboxScreenState extends State<InboxScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _loadContacts() async {
+    try {
+      await widget.session.refreshIfNeeded();
+      final list = await widget.session.api.fetchContacts(widget.session.accessToken);
+      if (!mounted) return;
+      setState(() => _contacts = list);
+    } catch (_) {
+      /* carnet optionnel */
     }
   }
 
@@ -428,6 +429,7 @@ class _InboxScreenState extends State<InboxScreen> {
           session: widget.session,
           accountId: id,
           messageId: messageId,
+          contacts: _contacts,
         ),
       ),
     );
@@ -504,8 +506,11 @@ class _InboxScreenState extends State<InboxScreen> {
     if (id == null) return;
     final sent = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (ctx) =>
-            ComposeMailScreen(session: widget.session, accountId: id),
+        builder: (ctx) => ComposeMailScreen(
+          session: widget.session,
+          accountId: id,
+          contacts: _contacts,
+        ),
       ),
     );
     if (!mounted) return;
@@ -546,10 +551,31 @@ class _InboxScreenState extends State<InboxScreen> {
   String _messageDisplayDate(Map<String, dynamic> m) {
     final folder = m['folder']?.toString().trim().toLowerCase() ?? '';
     final scheduled = m['scheduled_send_at']?.toString();
-    if (folder == MailStandardFolders.scheduled && scheduled != null && scheduled.isNotEmpty) {
-      return formatCloudityDateTimeLocal(scheduled);
+    final raw = folder == MailStandardFolders.scheduled && scheduled != null && scheduled.isNotEmpty
+        ? scheduled
+        : m['date_at']?.toString();
+    final parsed = parseCloudityDateTime(raw);
+    if (parsed == null) return formatCloudityDateTimeLocal(raw);
+    final now = DateTime.now();
+    final local = parsed.toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(local.year, local.month, local.day);
+    if (day == today) {
+      final h = local.hour.toString().padLeft(2, '0');
+      final min = local.minute.toString().padLeft(2, '0');
+      return '$h:$min';
     }
-    return formatCloudityDateTimeLocal(m['date_at']?.toString());
+    if (today.difference(day).inDays < 7) {
+      const days = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
+      return days[local.weekday - 1];
+    }
+    return '${local.day} ${_shortMonth(local.month)}';
+  }
+
+  String _shortMonth(int m) {
+    const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    if (m < 1 || m > 12) return '';
+    return months[m - 1];
   }
 
   Future<void> _openImapPasswordScreen(Map<String, dynamic> acc) async {
@@ -661,36 +687,9 @@ class _InboxScreenState extends State<InboxScreen> {
             )
           : ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+              padding: const EdgeInsets.only(bottom: 88),
               children: [
                 if (showSyncBanner) _buildSyncIssueBanner(currentAccount),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: Text('${_folderTitle()} ($_total)', style: Theme.of(context).textTheme.titleSmall),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Recherche (2+ car., FR+EN, tri pertinence)',
-                      prefixIcon: const Icon(Icons.search, size: 22),
-                      suffixIcon: _searchController.text.isEmpty
-                          ? null
-                          : IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                _searchDebounce?.cancel();
-                                _reloadMessages();
-                              },
-                            ),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onChanged: _onSearchFieldChanged,
-                  ),
-                ),
                 if (_loading && _messages.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(32),
@@ -705,69 +704,128 @@ class _InboxScreenState extends State<InboxScreen> {
                   ..._messages.map((m) {
                     final sub = m['subject']?.toString() ?? '(sans objet)';
                     final from = m['from']?.toString() ?? '';
+                    final snippet = (m['snippet'] ?? m['preview'] ?? m['body_plain'])
+                            ?.toString()
+                            .replaceAll(RegExp(r'\s+'), ' ')
+                            .trim() ??
+                        '';
                     final att = m['attachment_count'];
                     final nAtt = att is int ? att : (att is num ? att.toInt() : 0);
                     final read = m['is_read'];
                     final isRead = read == true;
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      clipBehavior: Clip.antiAlias,
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        title: Text(
-                          sub,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.w600),
-                        ),
-                        subtitle: Column(
+                    final person = MailContactBook(_contacts).resolve(from);
+                    final seed = colorForEmail(
+                      person.email.isNotEmpty ? person.email : person.primary,
+                    );
+                    final dateStr = _messageDisplayDate(m);
+                    final weight = isRead ? FontWeight.w400 : FontWeight.w700;
+                    return InkWell(
+                      onTap: () => _openMessage(m),
+                      onLongPress: () => _setMessageReadState(m, !isRead),
+                      child: Container(
+                        color: isRead
+                            ? null
+                            : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.18),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(from, maxLines: 1, overflow: TextOverflow.ellipsis),
-                            Text(
-                              _messageDisplayDate(m),
-                              style: Theme.of(context).textTheme.bodySmall,
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Color(seed.value),
+                              foregroundColor: Colors.white,
+                              child: Text(person.initial, style: const TextStyle(fontWeight: FontWeight.w600)),
                             ),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (nAtt > 0)
-                              Tooltip(
-                                message: '$nAtt pièce(s) jointe(s)',
-                                child: const Icon(Icons.attach_file, size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      if (!isRead)
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          margin: const EdgeInsets.only(right: 6),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).colorScheme.primary,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      Expanded(
+                                        child: Text(
+                                          person.primary,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(fontWeight: weight, fontSize: 15),
+                                        ),
+                                      ),
+                                      Text(
+                                        dateStr,
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              fontWeight: isRead ? FontWeight.w400 : FontWeight.w600,
+                                            ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        padding: EdgeInsets.zero,
+                                        icon: const Icon(Icons.more_vert, size: 20),
+                                        onSelected: (value) {
+                                          if (value == 'toggle-read') {
+                                            _setMessageReadState(m, !isRead);
+                                          } else if (value == 'move-spam') {
+                                            _moveMessageToFolder(m, 'spam', 'Spam');
+                                          } else if (value == 'move-trash') {
+                                            _moveMessageToFolder(m, 'trash', 'Corbeille');
+                                          } else if (value == 'move-archive') {
+                                            _moveMessageToFolder(m, 'archive', 'Archive');
+                                          } else if (value == 'move-inbox') {
+                                            _moveMessageToFolder(m, 'inbox', 'Réception');
+                                          }
+                                        },
+                                        itemBuilder: (ctx) => [
+                                          PopupMenuItem<String>(
+                                            value: 'toggle-read',
+                                            child: Text(isRead ? 'Marquer comme non lu' : 'Marquer comme lu'),
+                                          ),
+                                          const PopupMenuItem<String>(value: 'move-spam', child: Text('Signaler spam')),
+                                          const PopupMenuItem<String>(value: 'move-trash', child: Text('Mettre en corbeille')),
+                                          const PopupMenuItem<String>(value: 'move-archive', child: Text('Archiver')),
+                                          const PopupMenuItem<String>(value: 'move-inbox', child: Text('Déplacer vers réception')),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    sub,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(fontWeight: weight, fontSize: 14),
+                                  ),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          snippet.isEmpty ? (person.secondary ?? '') : snippet,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              ),
+                                        ),
+                                      ),
+                                      if (nAtt > 0)
+                                        const Padding(
+                                          padding: EdgeInsets.only(left: 4),
+                                          child: Icon(Icons.attach_file, size: 16),
+                                        ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                            PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert),
-                              onSelected: (value) {
-                                if (value == 'toggle-read') {
-                                  _setMessageReadState(m, !isRead);
-                                } else if (value == 'move-spam') {
-                                  _moveMessageToFolder(m, 'spam', 'Spam');
-                                } else if (value == 'move-trash') {
-                                  _moveMessageToFolder(m, 'trash', 'Corbeille');
-                                } else if (value == 'move-archive') {
-                                  _moveMessageToFolder(m, 'archive', 'Archive');
-                                } else if (value == 'move-inbox') {
-                                  _moveMessageToFolder(m, 'inbox', 'Réception');
-                                }
-                              },
-                              itemBuilder: (ctx) => [
-                                PopupMenuItem<String>(
-                                  value: 'toggle-read',
-                                  child: Text(isRead ? 'Marquer comme non lu' : 'Marquer comme lu'),
-                                ),
-                                const PopupMenuItem<String>(value: 'move-spam', child: Text('Signaler spam')),
-                                const PopupMenuItem<String>(value: 'move-trash', child: Text('Mettre en corbeille')),
-                                const PopupMenuItem<String>(value: 'move-archive', child: Text('Archiver')),
-                                const PopupMenuItem<String>(value: 'move-inbox', child: Text('Déplacer vers réception')),
-                              ],
                             ),
                           ],
                         ),
-                        onTap: () => _openMessage(m),
                       ),
                     );
                   }),
@@ -786,7 +844,7 @@ class _InboxScreenState extends State<InboxScreen> {
           children: [
             ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-              title: const Text('Compte Cloudity'),
+              title: const Text('Compte Hubera'),
               subtitle: Text(widget.session.api.baseUrl),
             ),
             const Divider(),
@@ -900,10 +958,35 @@ class _InboxScreenState extends State<InboxScreen> {
     return Scaffold(
       key: const ValueKey('cloudity_mail_inbox'),
       appBar: AppBar(
-        title: Text(_showSettings ? 'Paramètres' : _folderTitle()),
+        title: _searchOpen && !_showSettings
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher dans le courrier',
+                  border: InputBorder.none,
+                ),
+                onChanged: _onSearchFieldChanged,
+              )
+            : Text(_showSettings ? 'Paramètres' : '${_folderTitle()}${_total > 0 ? ' ($_total)' : ''}'),
         actions: [
-          if (!_showSettings)
+          if (!_showSettings) ...[
+            IconButton(
+              tooltip: _searchOpen ? 'Fermer la recherche' : 'Rechercher',
+              icon: Icon(_searchOpen ? Icons.close : Icons.search),
+              onPressed: () {
+                setState(() {
+                  _searchOpen = !_searchOpen;
+                  if (!_searchOpen) {
+                    _searchController.clear();
+                    _searchDebounce?.cancel();
+                    _reloadMessages();
+                  }
+                });
+              },
+            ),
             IconButton(icon: const Icon(Icons.refresh), onPressed: _loading ? null : _reloadAccounts),
+          ],
         ],
       ),
       drawer: _buildDrawer(),

@@ -50,7 +50,7 @@ export default function MailNotificationsSection() {
       return
     }
     try {
-      new Notification('Cloudity Mail', {
+      new Notification('Hubera Mail', {
         body: 'Notification de test : nouveaux mails visibles ici.',
         tag: 'cloudity-mail-test',
       })

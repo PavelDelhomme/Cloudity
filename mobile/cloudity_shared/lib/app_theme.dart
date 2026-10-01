@@ -23,6 +23,7 @@ class CloudityThemePrefs {
       ClouditySuiteApp.notes => CloudityAppId.notes,
       ClouditySuiteApp.tasks => CloudityAppId.tasks,
       ClouditySuiteApp.pass => CloudityAppId.pass,
+      ClouditySuiteApp.cook => CloudityAppId.cook,
       ClouditySuiteApp.admin => CloudityAppId.hub,
     };
   }

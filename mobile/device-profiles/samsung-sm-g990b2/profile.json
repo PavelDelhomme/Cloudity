@@ -26,7 +26,17 @@
     "fr.cloudity.cloudity_mail",
     "fr.cloudity.cloudity_notes",
     "fr.cloudity.cloudity_photos",
-    "fr.cloudity.cloudity_tasks"
+    "fr.cloudity.cloudity_tasks",
+    "cloud.hubera.mail",
+    "cloud.hubera.drive",
+    "cloud.hubera.photos",
+    "cloud.hubera.pass",
+    "cloud.hubera.calendar",
+    "cloud.hubera.contacts",
+    "cloud.hubera.notes",
+    "cloud.hubera.tasks",
+    "cloud.hubera.cook",
+    "cloud.hubera.admin"
   ],
   "getprop_fingerprint": {
     "ro.product.manufacturer": "samsung",

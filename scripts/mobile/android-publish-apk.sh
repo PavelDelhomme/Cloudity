@@ -13,15 +13,16 @@ OUT_DIR="${OUT_DIR:-$ROOT/dist/mobile-apk}"
 MANIFEST_DIR="${MANIFEST_DIR:-$ROOT/dist/mobile-manifests}"
 
 case "$APP" in
-  Mail|mail) APP_DIR="$ROOT/mobile/mail"; PKG="cloudity_mail"; ANDROID_PKG="fr.cloudity.cloudity_mail" ;;
-  Drive|drive) APP_DIR="$ROOT/mobile/drive"; PKG="cloudity_drive"; ANDROID_PKG="fr.cloudity.cloudity_drive" ;;
-  Photos|photos) APP_DIR="$ROOT/mobile/photos"; PKG="cloudity_photos"; ANDROID_PKG="fr.cloudity.cloudity_photos" ;;
-  Pass|pass) APP_DIR="$ROOT/mobile/pass"; PKG="cloudity_pass"; ANDROID_PKG="com.cloudity.cloudity_pass" ;;
-  Calendar|calendar) APP_DIR="$ROOT/mobile/calendar"; PKG="cloudity_calendar"; ANDROID_PKG="fr.cloudity.cloudity_calendar" ;;
-  Contacts|contacts) APP_DIR="$ROOT/mobile/contacts"; PKG="cloudity_contacts"; ANDROID_PKG="fr.cloudity.cloudity_contacts" ;;
-  Notes|notes) APP_DIR="$ROOT/mobile/notes"; PKG="cloudity_notes"; ANDROID_PKG="fr.cloudity.cloudity_notes" ;;
-  Tasks|tasks) APP_DIR="$ROOT/mobile/tasks"; PKG="cloudity_tasks"; ANDROID_PKG="fr.cloudity.cloudity_tasks" ;;
-  Admin|admin) APP_DIR="$ROOT/mobile/admin_app"; PKG="cloudity_admin"; ANDROID_PKG="fr.cloudity.admin_app" ;;
+  Mail|mail) APP_DIR="$ROOT/mobile/mail"; PKG="cloudity_mail"; ANDROID_PKG="cloud.hubera.mail" ;;
+  Drive|drive) APP_DIR="$ROOT/mobile/drive"; PKG="cloudity_drive"; ANDROID_PKG="cloud.hubera.drive" ;;
+  Photos|photos) APP_DIR="$ROOT/mobile/photos"; PKG="cloudity_photos"; ANDROID_PKG="cloud.hubera.photos" ;;
+  Pass|pass) APP_DIR="$ROOT/mobile/pass"; PKG="cloudity_pass"; ANDROID_PKG="cloud.hubera.pass" ;;
+  Calendar|calendar) APP_DIR="$ROOT/mobile/calendar"; PKG="cloudity_calendar"; ANDROID_PKG="cloud.hubera.calendar" ;;
+  Contacts|contacts) APP_DIR="$ROOT/mobile/contacts"; PKG="cloudity_contacts"; ANDROID_PKG="cloud.hubera.contacts" ;;
+  Notes|notes) APP_DIR="$ROOT/mobile/notes"; PKG="cloudity_notes"; ANDROID_PKG="cloud.hubera.notes" ;;
+  Tasks|tasks) APP_DIR="$ROOT/mobile/tasks"; PKG="cloudity_tasks"; ANDROID_PKG="cloud.hubera.tasks" ;;
+  Cook|cook) APP_DIR="$ROOT/mobile/cook"; PKG="cloudity_cook"; ANDROID_PKG="cloud.hubera.cook" ;;
+  Admin|admin) APP_DIR="$ROOT/mobile/admin_app"; PKG="cloudity_admin"; ANDROID_PKG="cloud.hubera.admin" ;;
   *)
     echo "APP inconnu : $APP (Mail|Drive|Photos|Pass|Calendar|Contacts|Notes|Tasks|Admin)" >&2
     exit 1

@@ -907,6 +907,16 @@ class _BrokerAccountTile extends StatelessWidget {
     final pkg = sourcePackage;
     if (pkg == null || pkg.isEmpty) return null;
     const labels = {
+      'cloud.hubera.mail': 'Mail',
+      'cloud.hubera.drive': 'Drive',
+      'cloud.hubera.photos': 'Photos',
+      'cloud.hubera.pass': 'Pass',
+      'cloud.hubera.calendar': 'Calendar',
+      'cloud.hubera.contacts': 'Contacts',
+      'cloud.hubera.notes': 'Notes',
+      'cloud.hubera.tasks': 'Tasks',
+      'cloud.hubera.cook': 'Cook',
+      'cloud.hubera.admin': 'Admin',
       'fr.cloudity.cloudity_mail': 'Mail',
       'fr.cloudity.cloudity_drive': 'Drive',
       'fr.cloudity.cloudity_photos': 'Photos',
@@ -915,6 +925,7 @@ class _BrokerAccountTile extends StatelessWidget {
       'fr.cloudity.cloudity_contacts': 'Contacts',
       'fr.cloudity.cloudity_notes': 'Notes',
       'fr.cloudity.cloudity_tasks': 'Tasks',
+      'fr.cloudity.cloudity_cook': 'Cook',
       'fr.cloudity.admin_app': 'Admin',
     };
     return labels[pkg];

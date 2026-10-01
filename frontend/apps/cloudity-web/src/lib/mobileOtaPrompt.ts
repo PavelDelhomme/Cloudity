@@ -19,6 +19,7 @@ export const MOBILE_OTA_CATALOG: MobileOtaAppMeta[] = [
   { hubId: 'contacts', slug: 'cloudity_contacts', label: 'Contacts', webPathPrefix: '/app/contacts' },
   { hubId: 'notes', slug: 'cloudity_notes', label: 'Notes', webPathPrefix: '/app/notes' },
   { hubId: 'tasks', slug: 'cloudity_tasks', label: 'Tâches', webPathPrefix: '/app/tasks' },
+  { hubId: 'cook', slug: 'cloudity_cook', label: 'Cook', webPathPrefix: '/app/cook' },
 ]
 
 export type MobileOtaManifest = {

@@ -110,10 +110,10 @@ class SuiteAppSwitcher extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Apps Cloudity',
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
+            Text(
+              'Apps Hubera',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
           SizedBox(height: CloudityDesignTokens.spacing('sm')),
           GridView.count(
             crossAxisCount: 4,
@@ -144,7 +144,6 @@ class SuiteAppSwitcher extends StatelessWidget {
   }
 
   void _showOtherAppHint(BuildContext context, ClouditySuiteApp app) {
-    final gateway = gatewayUrl ?? 'https://api.cloudity.delhomme.ovh';
     showSuiteModalBottomSheet<void>(
       context: context,
       builder: (ctx) => Padding(
@@ -163,13 +162,16 @@ class SuiteAppSwitcher extends StatelessWidget {
             SizedBox(height: CloudityDesignTokens.spacing('md')),
             Text(
               'Ouvre ${app.title} sur le web, ou lance l’app mobile si elle est installée '
-              '(même compte Cloudity — session partagée).',
+              '(même compte Hubera ID — session partagée).',
             ),
             SizedBox(height: CloudityDesignTokens.spacing('lg')),
             FilledButton.icon(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await suiteLaunchWebPath(gateway, app.webPath);
+                await launchUrl(
+                  Uri.parse('https://${app.huberaHost}${app.webPath}'),
+                  mode: LaunchMode.externalApplication,
+                );
               },
               icon: const Icon(Icons.open_in_browser),
               label: Text('Ouvrir ${app.title} sur le web'),

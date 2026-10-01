@@ -149,6 +149,98 @@ class DriveApi {
       throw DriveApiException('Upload HTTP ${res.statusCode}: ${res.body}');
     }
   }
+
+  Future<List<Map<String, dynamic>>> fetchPhotosArchive(String accessToken) {
+    return _fetchList('/drive/photos/archive', accessToken, 'Archive photos');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchPhotosLocked(String accessToken) {
+    return _fetchList('/drive/photos/locked', accessToken, 'Photos verrouillées');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchShared(String accessToken) {
+    return _fetchList('/drive/nodes/shared', accessToken, 'Albums partagés');
+  }
+
+  Future<void> archivePhotos(String accessToken, List<int> ids) {
+    return _mutateIds('/drive/photos/archive', accessToken, ids, 'Archivage');
+  }
+
+  Future<void> unarchivePhotos(String accessToken, List<int> ids) {
+    return _mutateIds('/drive/photos/unarchive', accessToken, ids, 'Désarchivage');
+  }
+
+  Future<void> lockPhotos(String accessToken, List<int> ids) {
+    return _mutateIds('/drive/photos/lock', accessToken, ids, 'Verrouillage');
+  }
+
+  Future<void> unlockPhotos(String accessToken, List<int> ids) {
+    return _mutateIds('/drive/photos/unlock', accessToken, ids, 'Déverrouillage');
+  }
+
+  Future<String> createShare(String accessToken, int nodeId) async {
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId/share');
+    final res = await http
+        .post(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw DriveApiException('Partage HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(res.body);
+    if (data is! Map) throw DriveApiException('Réponse partage invalide');
+    final token = (data['token'] ?? data['share_token'] ?? '').toString();
+    if (token.isEmpty) throw DriveApiException('Lien de partage vide');
+    final url = (data['url'] as String?)?.trim();
+    if (url != null && url.startsWith('http')) return url;
+    return '$_base/drive/share/$token';
+  }
+
+  Future<void> revokeShare(String accessToken, int nodeId) async {
+    final uri = Uri.parse('$_base/drive/nodes/$nodeId/share');
+    final res = await http
+        .delete(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw DriveApiException('Révocation partage HTTP ${res.statusCode}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchList(
+    String path,
+    String accessToken,
+    String label,
+  ) async {
+    final uri = Uri.parse('$_base$path');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode != 200) {
+      throw DriveApiException('$label HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(res.body);
+    if (data is! List) return [];
+    return data.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> _mutateIds(
+    String path,
+    String accessToken,
+    List<int> ids,
+    String label,
+  ) async {
+    if (ids.isEmpty) return;
+    final uri = Uri.parse('$_base$path');
+    final res = await http
+        .post(
+          uri,
+          headers: authHeaders(accessToken),
+          body: jsonEncode({'ids': ids}),
+        )
+        .timeout(_httpTimeout);
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw DriveApiException('$label HTTP ${res.statusCode}');
+    }
+  }
 }
 
 String _mimeFromFileName(String name) {

@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Cloudity Mail</string>
+	<string>Hubera Contacts</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSContactsUsageDescription</key>
+	<string>Hubera Contacts synchronise vos contacts Hubera sur l’iPhone.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Hubera Contacts peut déverrouiller l’app avec Face ID.</string>
 </dict>
 </plist>

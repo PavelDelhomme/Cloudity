@@ -26,6 +26,9 @@ type ContactProfile struct {
 	Websites     []labeledValue      `json:"websites,omitempty"`
 	Relations    []labeledValue      `json:"relations,omitempty"`
 	Labels       []string            `json:"labels,omitempty"`
+	Ims          []labeledValue      `json:"ims,omitempty"`
+	Events       []labeledValue      `json:"events,omitempty"`
+	Extra        map[string]string   `json:"extra,omitempty"`
 }
 
 type labeledValue struct {

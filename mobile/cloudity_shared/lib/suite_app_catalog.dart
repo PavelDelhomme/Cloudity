@@ -10,6 +10,7 @@ enum ClouditySuiteApp {
   notes,
   tasks,
   pass,
+  cook,
   admin,
 }
 
@@ -25,6 +26,7 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => 'Notes',
         ClouditySuiteApp.tasks => 'Tâches',
         ClouditySuiteApp.pass => 'Pass',
+        ClouditySuiteApp.cook => 'Cook',
         ClouditySuiteApp.admin => 'Admin',
       };
 
@@ -37,6 +39,7 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => 'Notes',
         ClouditySuiteApp.tasks => 'Tasks',
         ClouditySuiteApp.pass => 'Pass',
+        ClouditySuiteApp.cook => 'Cook',
         ClouditySuiteApp.admin => 'Admin',
       };
 
@@ -49,20 +52,22 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => '/app/notes',
         ClouditySuiteApp.tasks => '/app/tasks',
         ClouditySuiteApp.pass => '/app/pass',
+        ClouditySuiteApp.cook => '/app/',
         ClouditySuiteApp.admin => '/4dm1n',
       };
 
   /// Package Android (broker / deep-link intents).
   String get androidPackage => switch (this) {
-        ClouditySuiteApp.mail => 'fr.cloudity.cloudity_mail',
-        ClouditySuiteApp.drive => 'fr.cloudity.cloudity_drive',
-        ClouditySuiteApp.photos => 'fr.cloudity.cloudity_photos',
-        ClouditySuiteApp.calendar => 'fr.cloudity.cloudity_calendar',
-        ClouditySuiteApp.contacts => 'fr.cloudity.cloudity_contacts',
-        ClouditySuiteApp.notes => 'fr.cloudity.cloudity_notes',
-        ClouditySuiteApp.tasks => 'fr.cloudity.cloudity_tasks',
-        ClouditySuiteApp.pass => 'com.cloudity.cloudity_pass',
-        ClouditySuiteApp.admin => 'fr.cloudity.admin_app',
+        ClouditySuiteApp.mail => 'cloud.hubera.mail',
+        ClouditySuiteApp.drive => 'cloud.hubera.drive',
+        ClouditySuiteApp.photos => 'cloud.hubera.photos',
+        ClouditySuiteApp.calendar => 'cloud.hubera.calendar',
+        ClouditySuiteApp.contacts => 'cloud.hubera.contacts',
+        ClouditySuiteApp.notes => 'cloud.hubera.notes',
+        ClouditySuiteApp.tasks => 'cloud.hubera.tasks',
+        ClouditySuiteApp.pass => 'cloud.hubera.pass',
+        ClouditySuiteApp.cook => 'cloud.hubera.cook',
+        ClouditySuiteApp.admin => 'cloud.hubera.admin',
       };
 
   /// Hôte Hubera pour le feed OTA `https://<host>/updates.json` (comme Maps).
@@ -75,6 +80,7 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => 'notes.hubera.cloud',
         ClouditySuiteApp.tasks => 'tasks.hubera.cloud',
         ClouditySuiteApp.pass => 'pass.hubera.cloud',
+        ClouditySuiteApp.cook => 'cook.hubera.cloud',
         ClouditySuiteApp.admin => 'cloudity.delhomme.ovh',
       };
 
@@ -88,6 +94,7 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => 'cloudity_notes',
         ClouditySuiteApp.tasks => 'cloudity_tasks',
         ClouditySuiteApp.pass => 'cloudity_pass',
+        ClouditySuiteApp.cook => 'cloudity_cook',
         ClouditySuiteApp.admin => 'cloudity_admin',
       };
 
@@ -100,6 +107,7 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes => Icons.sticky_note_2_outlined,
         ClouditySuiteApp.tasks => Icons.check_circle_outline,
         ClouditySuiteApp.pass => Icons.lock_outline,
+        ClouditySuiteApp.cook => Icons.restaurant_outlined,
         ClouditySuiteApp.admin => Icons.admin_panel_settings_outlined,
       };
 
@@ -113,5 +121,6 @@ extension ClouditySuiteAppMeta on ClouditySuiteApp {
         ClouditySuiteApp.notes,
         ClouditySuiteApp.tasks,
         ClouditySuiteApp.pass,
+        ClouditySuiteApp.cook,
       ];
 }

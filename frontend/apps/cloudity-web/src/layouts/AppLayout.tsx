@@ -16,6 +16,7 @@ import {
   FileSpreadsheet,
   Users,
   Image,
+  UtensilsCrossed,
   Bell,
   Menu,
   X,
@@ -224,6 +225,7 @@ const appNav = [
   { name: 'Tasks', href: '/app/tasks', icon: ListTodo, end: false },
   { name: 'Contacts', href: '/app/contacts', icon: Users, end: false },
   { name: 'Photos', href: '/app/photos', icon: Image, end: false },
+  { name: 'Cook', href: 'https://cook.hubera.cloud/app/', icon: UtensilsCrossed, end: false },
 ] as const
 
 /** Segments du fil d'Ariane pour la barre du haut (Tableau de bord > Section). Exporté pour les tests. */
@@ -374,6 +376,7 @@ export default function AppLayout() {
               const SubIcon = hasSub ? item.subItem.icon : null
               const mailExternal = item.href === '/app/mail' && !import.meta.env.DEV
               const driveExternal = item.href === '/app/drive' && !import.meta.env.DEV
+              const absExternal = item.href.startsWith('http')
               const linkClass = `flex items-center gap-2 px-3 py-2 rounded text-sm font-medium ${
                 active && !(hasSub && location.pathname.startsWith(item.subItem.href))
                   ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300'
@@ -381,9 +384,9 @@ export default function AppLayout() {
               }`
               return (
                 <div key={item.name}>
-                  {mailExternal || driveExternal ? (
+                  {mailExternal || driveExternal || absExternal ? (
                     <a
-                      href={mailExternal ? '/app/mail/' : '/app/drive/'}
+                      href={mailExternal ? '/app/mail/' : driveExternal ? '/app/drive/' : item.href}
                       onClick={() => setSidebarVisible(false)}
                       className={linkClass}
                       title={!sidebarVisible ? item.name : undefined}

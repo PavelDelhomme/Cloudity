@@ -1,0 +1,5 @@
+package cloud.hubera.drive
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()

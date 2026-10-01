@@ -105,7 +105,10 @@ class SuiteProductApi {
   Future<List<Map<String, dynamic>>> fetchContacts() =>
       fetchJsonList('/contacts');
 
-  Future<List<Map<String, dynamic>>> fetchNotes() => fetchJsonList('/notes');
+  Future<List<Map<String, dynamic>>> fetchNotes({bool archived = false}) {
+    final q = archived ? '/notes?archived=1' : '/notes';
+    return fetchJsonList(q);
+  }
 
   Future<List<Map<String, dynamic>>> fetchTaskLists() =>
       fetchJsonList('/tasks/lists');
@@ -122,6 +125,7 @@ class SuiteProductApi {
     bool pinned = false,
     String? remindAt,
     List<String>? labels,
+    Map<String, dynamic>? extras,
   }) async {
     final data = await _request(
       'POST',
@@ -133,6 +137,7 @@ class SuiteProductApi {
         'pinned': pinned,
         if (remindAt != null && remindAt.isNotEmpty) 'remind_at': remindAt,
         if (labels != null && labels.isNotEmpty) 'labels': labels,
+        if (extras != null) 'extras': extras,
       },
       ok: const {200, 201},
     );
@@ -145,9 +150,11 @@ class SuiteProductApi {
     String? content,
     String? color,
     bool? pinned,
+    bool? archived,
     String? remindAt,
     bool clearRemindAt = false,
     List<String>? labels,
+    Map<String, dynamic>? extras,
   }) async {
     await _request(
       'PUT',
@@ -157,9 +164,11 @@ class SuiteProductApi {
         if (content != null) 'content': content,
         if (color != null) 'color': color,
         if (pinned != null) 'pinned': pinned,
+        if (archived != null) 'archived': archived,
         if (clearRemindAt) 'remind_at': '',
         if (!clearRemindAt && remindAt != null) 'remind_at': remindAt,
         if (labels != null) 'labels': labels,
+        if (extras != null) 'extras': extras,
       },
       ok: const {200, 204},
     );
@@ -294,6 +303,7 @@ class SuiteProductApi {
     bool allDay = false,
     int? calendarId,
     String? repeatRule,
+    List<String>? attendees,
   }) async {
     final data = await _request(
       'POST',
@@ -308,6 +318,7 @@ class SuiteProductApi {
           'description': description,
         if (calendarId != null) 'calendar_id': calendarId,
         if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
+        if (attendees != null) 'attendees': attendees,
       },
       ok: const {200, 201},
     );
@@ -324,6 +335,7 @@ class SuiteProductApi {
     bool? allDay,
     String? repeatRule,
     bool clearRepeatRule = false,
+    List<String>? attendees,
   }) async {
     await _request(
       'PUT',
@@ -337,6 +349,7 @@ class SuiteProductApi {
         if (allDay != null) 'all_day': allDay,
         if (clearRepeatRule) 'repeat_rule': '',
         if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
+        if (attendees != null) 'attendees': attendees,
       },
       ok: const {200, 204},
     );

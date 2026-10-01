@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:local_auth/local_auth.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
@@ -17,7 +17,19 @@ import '../auth/user_session.dart';
 
 const _pageSize = 48;
 
-enum _PhotosTab { timeline, device, albums, archive, trash, locked, settings }
+enum _PhotosTab {
+  timeline,
+  device,
+  albums,
+  sharing,
+  archive,
+  trash,
+  locked,
+  settings,
+  more,
+}
+
+const _huberaAccent = Color(0xFFFF0033);
 
 const _monthsFr = [
   'janvier',
@@ -105,6 +117,15 @@ class _TimelineScreenState extends State<TimelineScreen>
   bool _trashLoading = false;
   String? _trashError;
   List<Map<String, dynamic>> _trashItems = [];
+  bool _archiveLoading = false;
+  String? _archiveError;
+  List<Map<String, dynamic>> _archiveItems = [];
+  bool _lockedLoading = false;
+  List<Map<String, dynamic>> _lockedItems = [];
+  bool _sharedLoading = false;
+  String? _sharedError;
+  List<Map<String, dynamic>> _sharedItems = [];
+  final Map<int, int> _albumCoverById = {};
   bool _lockedUnlocked = false;
   String? _lockedError;
   bool _backupEnabled = false;
@@ -291,6 +312,12 @@ class _TimelineScreenState extends State<TimelineScreen>
         }
         _hasMore = more;
         _error = null;
+        if (reset &&
+            photos.isEmpty &&
+            _tab == _PhotosTab.timeline &&
+            !_loadingMore) {
+          _tab = _PhotosTab.device;
+        }
       });
     } on AuthException catch (e) {
       if (e.message == 'non_autorisé') {
@@ -348,11 +375,29 @@ class _TimelineScreenState extends State<TimelineScreen>
     if (mounted) setState(() => _loadingMore = false);
   }
 
+  bool get _isMoreSubpage =>
+      _tab == _PhotosTab.device ||
+      _tab == _PhotosTab.archive ||
+      _tab == _PhotosTab.trash ||
+      _tab == _PhotosTab.locked ||
+      _tab == _PhotosTab.settings;
+
+  int get _bottomNavIndex => switch (_tab) {
+        _PhotosTab.timeline => 0,
+        _PhotosTab.albums => 1,
+        _PhotosTab.sharing => 2,
+        _ => 3,
+      };
+
   void _setTab(_PhotosTab tab) {
     setState(() {
       _tab = tab;
       _selectionMode = false;
       _selectedIds.clear();
+      if (tab != _PhotosTab.albums) {
+        _selectedAlbum = null;
+        _albumItems = [];
+      }
     });
     if (tab == _PhotosTab.albums && _rootFolders.isEmpty && !_albumsLoading) {
       _loadAlbums();
@@ -360,9 +405,27 @@ class _TimelineScreenState extends State<TimelineScreen>
     if (tab == _PhotosTab.trash && _trashItems.isEmpty && !_trashLoading) {
       _loadTrash();
     }
+    if (tab == _PhotosTab.archive && _archiveItems.isEmpty && !_archiveLoading) {
+      _loadArchive();
+    }
+    if (tab == _PhotosTab.sharing && _sharedItems.isEmpty && !_sharedLoading) {
+      _loadShared();
+    }
+    if (tab == _PhotosTab.locked && _lockedUnlocked) {
+      _loadLockedPhotos();
+    }
     if (tab != _PhotosTab.locked && _lockedUnlocked) {
       setState(() => _lockedUnlocked = false);
     }
+  }
+
+  void _onBottomNav(int index) {
+    _setTab(switch (index) {
+      0 => _PhotosTab.timeline,
+      1 => _PhotosTab.albums,
+      2 => _PhotosTab.sharing,
+      _ => _PhotosTab.more,
+    });
   }
 
   Future<void> _loadThemeMode() async {
@@ -431,6 +494,7 @@ class _TimelineScreenState extends State<TimelineScreen>
         _rootFolders = nodes.where((n) => n['is_folder'] == true).toList();
         _albumsLoading = false;
       });
+      _prefetchAlbumCovers();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -524,6 +588,92 @@ class _TimelineScreenState extends State<TimelineScreen>
     });
   }
 
+  Future<void> _prefetchAlbumCovers() async {
+    final drive = DriveApi(widget.session.api.baseUrl);
+    final token = widget.session.accessToken;
+    for (final folder in _rootFolders.take(24)) {
+      final id = folder['id'] is num ? (folder['id'] as num).toInt() : null;
+      if (id == null || _albumCoverById.containsKey(id)) continue;
+      try {
+        final nodes = await drive.fetchNodes(token, id);
+        final photos = nodes.where(_isPhotoNode).toList();
+        if (photos.isEmpty) continue;
+        final coverId = _itemId(photos.first);
+        if (!mounted || coverId == null) continue;
+        setState(() => _albumCoverById[id] = coverId);
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _loadArchive() async {
+    setState(() {
+      _archiveLoading = true;
+      _archiveError = null;
+    });
+    try {
+      await widget.session.refreshIfNeeded();
+      final nodes = await DriveApi(
+        widget.session.api.baseUrl,
+      ).fetchPhotosArchive(widget.session.accessToken);
+      if (!mounted) return;
+      setState(() {
+        _archiveItems = nodes.where(_isPhotoNode).toList();
+        _archiveLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _archiveError = e.toString();
+        _archiveLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadLockedPhotos() async {
+    setState(() => _lockedLoading = true);
+    try {
+      await widget.session.refreshIfNeeded();
+      final nodes = await DriveApi(
+        widget.session.api.baseUrl,
+      ).fetchPhotosLocked(widget.session.accessToken);
+      if (!mounted) return;
+      setState(() {
+        _lockedItems = nodes.where(_isPhotoNode).toList();
+        _lockedLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _lockedError = e.toString();
+        _lockedLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadShared() async {
+    setState(() {
+      _sharedLoading = true;
+      _sharedError = null;
+    });
+    try {
+      await widget.session.refreshIfNeeded();
+      final nodes = await DriveApi(
+        widget.session.api.baseUrl,
+      ).fetchShared(widget.session.accessToken);
+      if (!mounted) return;
+      setState(() {
+        _sharedItems = nodes;
+        _sharedLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sharedError = e.toString();
+        _sharedLoading = false;
+      });
+    }
+  }
+
   Future<void> _loadTrash() async {
     setState(() {
       _trashLoading = true;
@@ -555,7 +705,7 @@ class _TimelineScreenState extends State<TimelineScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Mettre à la corbeille ?'),
         content: const Text(
-          'La photo sera retirée de Cloudity Photos et restaurable depuis la corbeille. '
+          'La photo sera retirée de Hubera Photos et restaurable depuis la corbeille. '
           'La photo locale du téléphone n’est pas supprimée.',
         ),
         actions: [
@@ -668,9 +818,6 @@ class _TimelineScreenState extends State<TimelineScreen>
     _selectItems(items);
   }
 
-  List<Map<String, dynamic>> get _timelinePhotos =>
-      _items.where(_isPhotoNode).toList();
-
   void _scrollToPhotoId(int? photoId) {
     if (photoId == null) return;
     final key = _photoKeys[photoId];
@@ -694,7 +841,7 @@ class _TimelineScreenState extends State<TimelineScreen>
       builder: (ctx) => AlertDialog(
         title: Text('Mettre ${ids.length} photo(s) à la corbeille ?'),
         content: const Text(
-          'Les photos seront retirées de Cloudity Photos et restaurables depuis la corbeille. '
+          'Les photos seront retirées de Hubera Photos et restaurables depuis la corbeille. '
           'Les fichiers locaux du téléphone ne seront pas supprimés.',
         ),
         actions: [
@@ -735,6 +882,110 @@ class _TimelineScreenState extends State<TimelineScreen>
     }
   }
 
+  Future<void> _mutateSelected({
+    required Future<void> Function(DriveApi drive, List<int> ids) action,
+    required String success,
+  }) async {
+    final ids = _selectedIds.toList();
+    if (ids.isEmpty) return;
+    try {
+      await widget.session.refreshIfNeeded();
+      await action(DriveApi(widget.session.api.baseUrl), ids);
+      if (!mounted) return;
+      _clearSelection();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success)));
+      await _reload(silent: true);
+      if (_tab == _PhotosTab.archive) await _loadArchive();
+      if (_tab == _PhotosTab.locked && _lockedUnlocked) await _loadLockedPhotos();
+      if (_selectedAlbum != null) await _openAlbum(_selectedAlbum!);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _archiveSelected() {
+    return _mutateSelected(
+      action: (drive, ids) => drive.archivePhotos(widget.session.accessToken, ids),
+      success: 'Photo(s) archivée(s).',
+    );
+  }
+
+  Future<void> _lockSelected() {
+    return _mutateSelected(
+      action: (drive, ids) => drive.lockPhotos(widget.session.accessToken, ids),
+      success: 'Photo(s) déplacée(s) dans le dossier sécurisé.',
+    );
+  }
+
+  Future<void> _unarchivePhoto(Map<String, dynamic> item) async {
+    final id = _itemId(item);
+    if (id == null) return;
+    try {
+      await widget.session.refreshIfNeeded();
+      await DriveApi(
+        widget.session.api.baseUrl,
+      ).unarchivePhotos(widget.session.accessToken, [id]);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo restaurée dans la bibliothèque.')),
+      );
+      await _loadArchive();
+      await _reload(silent: true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  Future<void> _shareNode(Map<String, dynamic> node) async {
+    final id = _itemId(node);
+    if (id == null) return;
+    try {
+      await widget.session.refreshIfNeeded();
+      final url = await DriveApi(
+        widget.session.api.baseUrl,
+      ).createShare(widget.session.accessToken, id);
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) return;
+      await _loadShared();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lien copié : $url')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Partage impossible : $e')),
+      );
+    }
+  }
+
+  Future<void> _shareSelected() async {
+    if (_selectedIds.length != 1) {
+      final album = _selectedAlbum;
+      if (album != null) {
+        await _shareNode(album);
+        return;
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sélectionne une photo, ou ouvre un album pour le partager.'),
+        ),
+      );
+      return;
+    }
+    final id = _selectedIds.first;
+    Map<String, dynamic> item = {'id': id, 'name': 'Photo'};
+    for (final n in [..._items, ..._albumItems, ..._sharedItems]) {
+      if (_itemId(n) == id) {
+        item = n;
+        break;
+      }
+    }
+    await _shareNode(item);
+  }
+
   Future<void> _unlockLocked() async {
     setState(() {
       _lockedError = null;
@@ -752,7 +1003,7 @@ class _TimelineScreenState extends State<TimelineScreen>
       }
       final ok = await auth.authenticate(
         localizedReason:
-            'Déverrouille Cloudity Photos Verrouillé avec l’empreinte, le visage ou le code du téléphone.',
+            'Déverrouille le dossier sécurisé Hubera Photos avec l’empreinte, le visage ou le code du téléphone.',
         biometricOnly: false,
         persistAcrossBackgrounding: true,
       );
@@ -761,6 +1012,7 @@ class _TimelineScreenState extends State<TimelineScreen>
         _lockedUnlocked = ok;
         _lockedError = ok ? null : 'Déverrouillage annulé.';
       });
+      if (ok) await _loadLockedPhotos();
     } catch (e) {
       if (!mounted) return;
       setState(() => _lockedError = 'Déverrouillage impossible : $e');
@@ -805,9 +1057,11 @@ class _TimelineScreenState extends State<TimelineScreen>
 
   Future<void> _openPhoto(
     Map<String, dynamic> item, {
+    required List<Map<String, dynamic>> source,
     bool fromTrash = false,
+    Future<void> Function(Map<String, dynamic>)? onRestore,
   }) async {
-    final items = fromTrash ? _trashItems : _timelinePhotos;
+    final items = source;
     final initialIndex = items.indexWhere((e) => _itemId(e) == _itemId(item));
     if (initialIndex < 0) return;
     final returnedIndex = await Navigator.of(context).push<int>(
@@ -818,13 +1072,13 @@ class _TimelineScreenState extends State<TimelineScreen>
           initialIndex: initialIndex,
           baseUrl: widget.session.api.baseUrl,
           accessToken: widget.session.accessToken,
-          fromTrash: fromTrash,
-          onDelete: fromTrash ? null : _deletePhoto,
-          onRestore: fromTrash ? _restorePhoto : null,
+          fromTrash: fromTrash || onRestore != null,
+          onDelete: fromTrash || onRestore != null ? null : _deletePhoto,
+          onRestore: onRestore ?? (fromTrash ? _restorePhoto : null),
         ),
       ),
     );
-    if (!fromTrash && returnedIndex != null && mounted) {
+    if (!fromTrash && onRestore == null && returnedIndex != null && mounted) {
       final id = _itemId(items[returnedIndex]);
       _scrollToPhotoId(id);
     }
@@ -834,6 +1088,7 @@ class _TimelineScreenState extends State<TimelineScreen>
     List<Map<String, dynamic>> items,
     int index, {
     bool fromTrash = false,
+    Future<void> Function(Map<String, dynamic>)? onRestore,
   }) {
     final item = items[index];
     final id = _itemId(item);
@@ -851,7 +1106,12 @@ class _TimelineScreenState extends State<TimelineScreen>
           if (_selectionMode && !fromTrash) {
             _toggleSelected(item);
           } else {
-            _openPhoto(item, fromTrash: fromTrash);
+            _openPhoto(
+              item,
+              source: items,
+              fromTrash: fromTrash,
+              onRestore: onRestore,
+            );
           }
         },
         onLongPress: fromTrash ? null : () => _toggleSelected(item),
@@ -936,6 +1196,7 @@ class _TimelineScreenState extends State<TimelineScreen>
     List<Map<String, dynamic>> items, {
     bool fromTrash = false,
     bool horizontal = false,
+    Future<void> Function(Map<String, dynamic>)? onRestore,
   }) {
     if (horizontal) {
       return SizedBox(
@@ -946,7 +1207,12 @@ class _TimelineScreenState extends State<TimelineScreen>
           separatorBuilder: (context, index) => const SizedBox(width: 6),
           itemBuilder: (ctx, i) => SizedBox(
             width: 112,
-            child: _photoTile(items, i, fromTrash: fromTrash),
+            child: _photoTile(
+              items,
+              i,
+              fromTrash: fromTrash,
+              onRestore: onRestore,
+            ),
           ),
         ),
       );
@@ -961,7 +1227,12 @@ class _TimelineScreenState extends State<TimelineScreen>
         childAspectRatio: 1,
       ),
       itemCount: items.length,
-      itemBuilder: (ctx, i) => _photoTile(items, i, fromTrash: fromTrash),
+      itemBuilder: (ctx, i) => _photoTile(
+        items,
+        i,
+        fromTrash: fromTrash,
+        onRestore: onRestore,
+      ),
     );
   }
 
@@ -1003,7 +1274,7 @@ class _TimelineScreenState extends State<TimelineScreen>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Sauvegarde ta galerie depuis l’onglet Appareil, ou importe depuis le web.',
+                  'Active la sauvegarde pour envoyer tes photos vers Hubera, en arrière-plan.',
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -1011,6 +1282,12 @@ class _TimelineScreenState extends State<TimelineScreen>
                   onPressed: () => _setTab(_PhotosTab.device),
                   icon: const Icon(Icons.photo_library_outlined),
                   label: const Text('Ouvrir la galerie'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _openBackupSettings,
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  label: const Text('Activer la sauvegarde'),
                 ),
               ],
             )
@@ -1045,6 +1322,58 @@ class _TimelineScreenState extends State<TimelineScreen>
                 );
               },
             ),
+    );
+  }
+
+  Widget _albumCard(Map<String, dynamic> folder) {
+    final id = _itemId(folder);
+    final name = (folder['name'] as String?) ?? 'Album';
+    final childCount = folder['file_count'] ?? folder['child_count'];
+    final coverId = id == null ? null : _albumCoverById[id];
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => _openAlbum(folder),
+      onLongPress: () => _shareNode(folder),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: ColoredBox(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                child: coverId == null
+                    ? Center(
+                        child: Icon(
+                          Icons.photo_album_outlined,
+                          size: 42,
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                      )
+                    : _CloudityPhotoImage(
+                        url: _thumbUrl(coverId),
+                        headers: authHeaders(
+                          widget.session.accessToken,
+                          json: false,
+                        ),
+                        semanticLabel: name,
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          Text(
+            childCount is int ? '$childCount élément(s)' : 'Album',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1113,46 +1442,245 @@ class _TimelineScreenState extends State<TimelineScreen>
                 ),
               ],
             )
+          : GridView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 18,
+                crossAxisSpacing: 14,
+                childAspectRatio: 0.78,
+              ),
+              itemCount: _rootFolders.length,
+              itemBuilder: (context, i) => _albumCard(_rootFolders[i]),
+            ),
+    );
+  }
+
+  Widget _photoCollectionBody({
+    required bool loading,
+    required String? error,
+    required Future<void> Function() onRetry,
+    required List<Map<String, dynamic>> items,
+    required String emptyTitle,
+    required String emptySubtitle,
+    required IconData emptyIcon,
+    bool fromTrash = false,
+    Future<void> Function(Map<String, dynamic>)? onRestore,
+  }) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (error != null) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text(
+            error,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: onRetry, child: const Text('Réessayer')),
+        ],
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: onRetry,
+      child: items.isEmpty
+          ? ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                const SizedBox(height: 80),
+                Icon(emptyIcon, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  emptyTitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(emptySubtitle, textAlign: TextAlign.center),
+              ],
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+              children: [
+                _photosGrid(
+                  items,
+                  fromTrash: fromTrash,
+                  onRestore: onRestore,
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildArchiveBody() {
+    return _photoCollectionBody(
+      loading: _archiveLoading,
+      error: _archiveError,
+      onRetry: _loadArchive,
+      items: _archiveItems,
+      emptyTitle: 'Aucune photo archivée',
+      emptySubtitle:
+          'Les photos archivées quittent la chronologie sans être supprimées.',
+      emptyIcon: Icons.archive_outlined,
+      onRestore: _unarchivePhoto,
+    );
+  }
+
+  Widget _buildSharingBody() {
+    if (_sharedLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_sharedError != null) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          Text(
+            _sharedError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 16),
+          FilledButton(onPressed: _loadShared, child: const Text('Réessayer')),
+        ],
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadShared,
+      child: _sharedItems.isEmpty
+          ? ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                const SizedBox(height: 72),
+                const Icon(Icons.people_outline, size: 52),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucun album partagé',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ouvre un album, puis partage un lien. Les personnes qui l’ont pourront voir les photos.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => _setTab(_PhotosTab.albums),
+                  icon: const Icon(Icons.photo_album_outlined),
+                  label: const Text('Voir les albums'),
+                ),
+              ],
+            )
           : ListView.separated(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              itemCount: _rootFolders.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
+              itemCount: _sharedItems.length,
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
-                final folder = _rootFolders[i];
-                final name = (folder['name'] as String?) ?? 'Album';
-                final childCount =
-                    folder['file_count'] ?? folder['child_count'];
-                return ListTile(
-                  leading: const Icon(Icons.photo_album_outlined),
-                  title: Text(name),
-                  subtitle: childCount is int
-                      ? Text('$childCount élément(s)')
-                      : null,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _openAlbum(folder),
+                final node = _sharedItems[i];
+                final name = (node['name'] as String?) ?? 'Partage';
+                final folder = node['is_folder'] == true;
+                return Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    leading: Icon(
+                      folder ? Icons.photo_album_outlined : Icons.image_outlined,
+                    ),
+                    title: Text(name),
+                    subtitle: const Text('Lien de partage actif'),
+                    trailing: IconButton(
+                      tooltip: 'Copier le lien',
+                      icon: const Icon(Icons.link),
+                      onPressed: () => _shareNode(node),
+                    ),
+                    onTap: () {
+                      if (folder) {
+                        _setTab(_PhotosTab.albums);
+                        _openAlbum(node);
+                      } else {
+                        _openPhoto(node, source: _sharedItems);
+                      }
+                    },
+                  ),
                 );
               },
             ),
     );
   }
 
-  Widget _buildArchiveBody() {
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: const [
-        SizedBox(height: 80),
-        Icon(Icons.archive_outlined, size: 48),
-        SizedBox(height: 16),
-        Text(
-          'Archivé arrive ensuite.',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.w600),
+  Widget _buildMoreBody() {
+    Widget row({
+      required IconData icon,
+      required String title,
+      String? subtitle,
+      required VoidCallback onTap,
+    }) {
+      return ListTile(
+        leading: CircleAvatar(
+          backgroundColor: _huberaAccent.withValues(alpha: 0.12),
+          foregroundColor: _huberaAccent,
+          child: Icon(icon),
         ),
-        SizedBox(height: 8),
-        Text(
-          'Le web affiche déjà cette section comme fonctionnalité à venir. '
-          'Il faut un champ serveur dédié pour masquer une photo de la chronologie sans la supprimer.',
-          textAlign: TextAlign.center,
+        title: Text(title),
+        subtitle: subtitle == null ? null : Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 32),
+      children: [
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            leading: Icon(_backupIcon, color: _huberaAccent),
+            title: Text(
+              _backupUploading
+                  ? 'Sauvegarde en cours'
+                  : _backupEnabled
+                      ? 'Sauvegarde activée'
+                      : 'Sauvegarde désactivée',
+            ),
+            subtitle: Text(_backupStatusSummary),
+            trailing: TextButton(
+              onPressed: _openBackupSettings,
+              child: Text(_backupEnabled ? 'Gérer' : 'Activer'),
+            ),
+            onTap: _openBackupSettings,
+          ),
+        ),
+        const SizedBox(height: 12),
+        row(
+          icon: Icons.smartphone_outlined,
+          title: 'Cet appareil',
+          subtitle: 'Photos encore sur le téléphone',
+          onTap: () => _setTab(_PhotosTab.device),
+        ),
+        row(
+          icon: Icons.archive_outlined,
+          title: 'Archivé',
+          subtitle: 'Masquées de la chronologie',
+          onTap: () => _setTab(_PhotosTab.archive),
+        ),
+        row(
+          icon: Icons.delete_outline,
+          title: 'Corbeille',
+          subtitle: 'Photos retirées du cloud, restaurables',
+          onTap: () => _setTab(_PhotosTab.trash),
+        ),
+        row(
+          icon: Icons.lock_outline,
+          title: 'Dossier sécurisé',
+          subtitle: 'Verrouillé par empreinte, visage ou code',
+          onTap: () => _setTab(_PhotosTab.locked),
+        ),
+        const Divider(height: 28),
+        row(
+          icon: Icons.settings_outlined,
+          title: 'Paramètres',
+          subtitle: 'Synchronisation, stockage, thème',
+          onTap: () => _setTab(_PhotosTab.settings),
         ),
       ],
     );
@@ -1196,7 +1724,7 @@ class _TimelineScreenState extends State<TimelineScreen>
                 const Padding(
                   padding: EdgeInsets.fromLTRB(4, 8, 4, 12),
                   child: Text(
-                    'Photos supprimées côté Cloudity. Touchez une photo pour la restaurer.',
+                    'Photos retirées d’Hubera Photos. Touchez une photo pour la restaurer.',
                   ),
                 ),
                 _photosGrid(_trashItems, fromTrash: true),
@@ -1220,8 +1748,8 @@ class _TimelineScreenState extends State<TimelineScreen>
           ),
           const SizedBox(height: 8),
           const Text(
-            'Déverrouillage local par empreinte, visage ou code du téléphone. '
-            'Le coffre serveur chiffré dédié reste à implémenter.',
+            'Déverrouillage par empreinte, visage ou code du téléphone. '
+            'Les photos du dossier sécurisé sont masquées de la chronologie.',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -1242,24 +1770,35 @@ class _TimelineScreenState extends State<TimelineScreen>
       );
     }
 
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: const [
-        SizedBox(height: 72),
-        Icon(Icons.lock_open_outlined, size: 56),
-        SizedBox(height: 16),
-        Text(
-          'Coffre déverrouillé',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Aucune photo verrouillée pour l’instant. '
-          'Prochaine étape : déplacer des photos dans un album verrouillé serveur, chiffré et masqué de la timeline.',
-          textAlign: TextAlign.center,
-        ),
-      ],
+    if (_lockedLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_lockedItems.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(24),
+        children: const [
+          SizedBox(height: 72),
+          Icon(Icons.lock_open_outlined, size: 56),
+          SizedBox(height: 16),
+          Text(
+            'Dossier sécurisé vide',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          ),
+          SizedBox(height: 8),
+          Text(
+            'Sélectionne des photos dans la bibliothèque, puis verrouille-les depuis la barre du haut.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadLockedPhotos,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+        children: [_photosGrid(_lockedItems)],
+      ),
     );
   }
 
@@ -1331,7 +1870,7 @@ class _TimelineScreenState extends State<TimelineScreen>
         const Divider(),
         ListTile(
           leading: const Icon(Icons.link_outlined),
-          title: const Text('Gateway Cloudity'),
+          title: const Text('Passerelle Hubera'),
           subtitle: Text(widget.session.api.baseUrl),
         ),
         ListTile(
@@ -1374,107 +1913,21 @@ class _TimelineScreenState extends State<TimelineScreen>
     );
   }
 
-  Widget _buildDrawer() {
-    Widget destination({
-      required IconData icon,
-      required String label,
-      required _PhotosTab tab,
-    }) {
-      final selected = _tab == tab;
-      return ListTile(
-        leading: Icon(icon),
-        title: Text(label),
-        selected: selected,
-        onTap: () {
-          Navigator.pop(context);
-          _setTab(tab);
-        },
-      );
-    }
-
-    return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-              title: const Text('Compte Cloudity'),
-              subtitle: Text(widget.session.api.baseUrl),
-            ),
-            const Divider(),
-            destination(
-              icon: Icons.photo_library_outlined,
-              label: 'Cloud',
-              tab: _PhotosTab.timeline,
-            ),
-            destination(
-              icon: Icons.smartphone_outlined,
-              label: 'Cet appareil',
-              tab: _PhotosTab.device,
-            ),
-            destination(
-              icon: Icons.photo_album_outlined,
-              label: 'Albums',
-              tab: _PhotosTab.albums,
-            ),
-            destination(
-              icon: Icons.archive_outlined,
-              label: 'Archivé',
-              tab: _PhotosTab.archive,
-            ),
-            destination(
-              icon: Icons.delete_outline,
-              label: 'Corbeille',
-              tab: _PhotosTab.trash,
-            ),
-            destination(
-              icon: Icons.lock_outline,
-              label: 'Verrouillé',
-              tab: _PhotosTab.locked,
-            ),
-            const Divider(),
-            ListTile(
-              leading: Icon(_backupIcon),
-              title: Text(
-                _backupUploading
-                    ? 'Sauvegarde en cours'
-                    : _backupEnabled
-                    ? 'Synchronisation active'
-                    : 'Synchronisation arrêtée',
-              ),
-              subtitle: Text(
-                _backupEnabled ? _backupStatusSummary : 'Ouvrir les réglages',
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _openBackupSettings();
-              },
-            ),
-            destination(
-              icon: Icons.settings_outlined,
-              label: 'Paramètres',
-              tab: _PhotosTab.settings,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final title = switch (_tab) {
-      _PhotosTab.timeline => 'Cloud',
+      _PhotosTab.timeline => 'Photos',
       _PhotosTab.device => 'Cet appareil',
       _PhotosTab.albums =>
         _selectedAlbum == null
             ? 'Albums'
             : (_selectedAlbum!['name'] as String? ?? 'Album'),
+      _PhotosTab.sharing => 'Partagés',
       _PhotosTab.archive => 'Archivé',
       _PhotosTab.trash => 'Corbeille',
-      _PhotosTab.locked => 'Verrouillé',
+      _PhotosTab.locked => 'Dossier sécurisé',
       _PhotosTab.settings => 'Paramètres',
+      _PhotosTab.more => 'Plus',
     };
     final body = switch (_tab) {
       _PhotosTab.timeline => _buildTimelineBody(),
@@ -1484,32 +1937,59 @@ class _TimelineScreenState extends State<TimelineScreen>
         accessToken: widget.session.accessToken,
       ),
       _PhotosTab.albums => _buildAlbumsBody(),
+      _PhotosTab.sharing => _buildSharingBody(),
       _PhotosTab.archive => _buildArchiveBody(),
       _PhotosTab.trash => _buildTrashBody(),
       _PhotosTab.locked => _buildLockedBody(),
       _PhotosTab.settings => _buildSettingsBody(),
+      _PhotosTab.more => _buildMoreBody(),
     };
     return Scaffold(
       key: const ValueKey('cloudity_photos_timeline'),
-      drawer: _selectionMode ? null : _buildDrawer(),
       appBar: AppBar(
         leading: _selectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: _clearSelection,
               )
+            : _isMoreSubpage
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => _setTab(_PhotosTab.more),
+              )
+            : _tab == _PhotosTab.albums && _selectedAlbum != null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: _closeAlbum,
+              )
             : null,
+        automaticallyImplyLeading: false,
         title: Text(
           _selectionMode ? '${_selectedIds.length} sélectionnée(s)' : title,
         ),
         actions: [
-          if (_selectionMode)
+          if (_selectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.archive_outlined),
+              tooltip: 'Archiver',
+              onPressed: _archiveSelected,
+            ),
+            IconButton(
+              icon: const Icon(Icons.lock_outline),
+              tooltip: 'Dossier sécurisé',
+              onPressed: _lockSelected,
+            ),
+            IconButton(
+              icon: const Icon(Icons.share_outlined),
+              tooltip: 'Partager',
+              onPressed: _shareSelected,
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Mettre à la corbeille',
               onPressed: _deleteSelected,
-            )
-          else ...[
+            ),
+          ] else ...[
             IconButton(
               icon: _BackupAppBarIcon(
                 icon: _backupIcon,
@@ -1525,6 +2005,12 @@ class _TimelineScreenState extends State<TimelineScreen>
                 onPressed: _loading ? null : () => _reload(silent: true),
               ),
             if (_tab == _PhotosTab.albums) ...[
+              if (_selectedAlbum != null)
+                IconButton(
+                  icon: const Icon(Icons.share_outlined),
+                  tooltip: 'Partager l’album',
+                  onPressed: () => _shareNode(_selectedAlbum!),
+                ),
               IconButton(
                 icon: const Icon(Icons.create_new_folder_outlined),
                 tooltip: 'Nouvel album',
@@ -1536,16 +2022,84 @@ class _TimelineScreenState extends State<TimelineScreen>
                 onPressed: _albumsLoading ? null : _loadAlbums,
               ),
             ],
+            if (_tab == _PhotosTab.sharing)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Rafraîchir les partages',
+                onPressed: _sharedLoading ? null : _loadShared,
+              ),
             if (_tab == _PhotosTab.trash)
               IconButton(
                 icon: const Icon(Icons.refresh),
                 tooltip: 'Rafraîchir la corbeille',
                 onPressed: _trashLoading ? null : _loadTrash,
               ),
+            if (_tab == _PhotosTab.archive)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Rafraîchir l’archive',
+                onPressed: _archiveLoading ? null : _loadArchive,
+              ),
           ],
         ],
       ),
-      body: body,
+      body: Column(
+        children: [
+          if (_tab == _PhotosTab.timeline && !_selectionMode)
+            Material(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              child: ListTile(
+                dense: true,
+                leading: Icon(_backupIcon, color: _huberaAccent),
+                title: Text(
+                  _backupUploading
+                      ? 'Sauvegarde en cours…'
+                      : _backupEnabled
+                          ? 'Sauvegarde Hubera activée'
+                          : 'Sauvegarde désactivée',
+                ),
+                subtitle: Text(
+                  _backupStatusSummary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: TextButton(
+                  onPressed: _openBackupSettings,
+                  child: Text(_backupEnabled ? 'Gérer' : 'Activer'),
+                ),
+                onTap: _openBackupSettings,
+              ),
+            ),
+          Expanded(child: body),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _bottomNavIndex,
+        onDestinationSelected: _onBottomNav,
+        indicatorColor: _huberaAccent.withValues(alpha: 0.16),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.photo_outlined),
+            selectedIcon: Icon(Icons.photo),
+            label: 'Photos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.photo_album_outlined),
+            selectedIcon: Icon(Icons.photo_album),
+            label: 'Albums',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'Partagés',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.more_horiz),
+            selectedIcon: Icon(Icons.more_horiz),
+            label: 'Plus',
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1814,7 +2368,7 @@ class _PhotoViewerPageState extends State<_PhotoViewerPage> {
               subtitle: Text(_sizeLabel(item)),
             ),
             const Text(
-              'Mettre une photo à la corbeille agit côté Cloudity. '
+              'Mettre une photo à la corbeille agit côté Hubera. '
               'Arrêter la synchronisation se fait depuis Paramètres > Sauvegarde galerie et n’efface jamais les photos locales du téléphone.',
             ),
           ],

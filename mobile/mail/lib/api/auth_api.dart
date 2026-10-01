@@ -264,6 +264,7 @@ class AuthApi extends CloudityAuthClient {
     String subject = '',
     String body = '',
     String? password,
+    List<Map<String, String>> attachments = const [],
   }) async {
     final uri = Uri.parse('$baseUrl/mail/me/send');
     final payload = <String, dynamic>{
@@ -275,6 +276,9 @@ class AuthApi extends CloudityAuthClient {
     if (cc.trim().isNotEmpty) payload['cc'] = cc.trim();
     if (password != null && password.isNotEmpty) {
       payload['password'] = password;
+    }
+    if (attachments.isNotEmpty) {
+      payload['attachments'] = attachments;
     }
     final res = await http
         .post(
@@ -313,5 +317,20 @@ class AuthApi extends CloudityAuthClient {
       throw AuthException('PJ HTTP ${res.statusCode}');
     }
     return res.bodyBytes;
+  }
+
+  /// `GET /contacts` — carnet Hubera Contacts (noms d’expéditeur / autocomplete).
+  Future<List<Map<String, dynamic>>> fetchContacts(String accessToken) async {
+    final uri = Uri.parse('$baseUrl/contacts');
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) throw AuthException('non_autorisé');
+    if (res.statusCode != 200) {
+      throw AuthException('Contacts HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) return const [];
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 }

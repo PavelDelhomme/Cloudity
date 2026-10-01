@@ -1,1 +1,1 @@
-export type PhotosTab = 'timeline' | 'albums' | 'archive' | 'trash' | 'locked'
+export type PhotosTab = 'timeline' | 'albums' | 'sharing' | 'more' | 'archive' | 'trash' | 'locked'

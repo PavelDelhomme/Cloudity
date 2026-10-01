@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.cloudity.cloudity_notes"
+    namespace = "cloud.hubera.notes"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.cloudity.cloudity_notes"
+        applicationId = "cloud.hubera.notes"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -190,7 +190,7 @@ class _DriveFilePreviewPageState extends State<DriveFilePreviewPage> {
         icon: Icons.picture_as_pdf_outlined,
         title: 'PDF prêt à ouvrir',
         subtitle:
-            'Cloudity a téléchargé le fichier. Ouvre-le avec le lecteur PDF du téléphone.',
+            'Hubera a téléchargé le fichier. Ouvre-le avec le lecteur PDF du téléphone.',
         buttonLabel: 'Ouvrir le PDF',
         onOpen: _openExternal,
         busy: _openingExternal,

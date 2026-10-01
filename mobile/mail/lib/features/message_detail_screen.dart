@@ -8,6 +8,8 @@ import 'package:share_plus/share_plus.dart';
 import '../api/auth_api.dart';
 import 'compose_mail_screen.dart';
 import 'html_to_readable.dart';
+import 'mail_contacts.dart';
+import 'mail_html_body.dart';
 import '../auth/user_session.dart';
 
 class MessageDetailScreen extends StatefulWidget {
@@ -16,11 +18,13 @@ class MessageDetailScreen extends StatefulWidget {
     required this.session,
     required this.accountId,
     required this.messageId,
+    this.contacts = const [],
   });
 
   final UserSession session;
   final int accountId;
   final int messageId;
+  final List<Map<String, dynamic>> contacts;
 
   @override
   State<MessageDetailScreen> createState() => _MessageDetailScreenState();
@@ -30,6 +34,8 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
   Map<String, dynamic>? _detail;
   String? _error;
   bool _loading = true;
+
+  MailContactBook get _book => MailContactBook(widget.contacts);
 
   @override
   void initState() {
@@ -88,7 +94,6 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     }
   }
 
-  /// Non bloquant : aligne la base avec « lu » quand l’utilisateur ouvre le détail.
   Future<void> _markReadOnServerIfNeeded() async {
     final d = _detail;
     if (d == null) return;
@@ -136,6 +141,14 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     return s;
   }
 
+  String _sizeLabel(dynamic sz) {
+    final n = sz is int ? sz : (sz is num ? sz.toInt() : 0);
+    if (n <= 0) return '';
+    if (n < 1024) return '$n o';
+    if (n < 1024 * 1024) return '${(n / 1024).toStringAsFixed(0)} Ko';
+    return '${(n / (1024 * 1024)).toStringAsFixed(1)} Mo';
+  }
+
   Future<void> _shareAttachment(Map<String, dynamic> a) async {
     final attId = _attachmentId(a);
     if (attId == null || attId <= 0) return;
@@ -170,7 +183,7 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
       }
 
       final dir = await getTemporaryDirectory();
-      final path = '${dir.path}/cloudity_mail_${widget.messageId}_${attId}_$name';
+      final path = '${dir.path}/hubera_mail_${widget.messageId}_${attId}_$name';
       final f = File(path);
       await f.writeAsBytes(bytes, flush: true);
 
@@ -198,6 +211,48 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
     }
   }
 
+  Future<void> _move(String folder) async {
+    try {
+      await widget.session.refreshIfNeeded();
+      await widget.session.api.patchMessageFolder(
+        accessToken: widget.session.accessToken,
+        accountId: widget.accountId,
+        messageId: widget.messageId,
+        folder: folder,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  void _openReply({required bool all}) {
+    final d = _detail;
+    if (d == null) return;
+    final from = d['from']?.toString() ?? '';
+    final to = d['to']?.toString() ?? '';
+    final subj = d['subject']?.toString() ?? '';
+    final person = _book.resolve(from);
+    final re = subj.toLowerCase().startsWith('re:') ? subj : 'Re: $subj';
+    var dest = person.email.isNotEmpty ? person.email : from;
+    if (all && to.trim().isNotEmpty) {
+      dest = [dest, to].where((s) => s.trim().isNotEmpty).join(', ');
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ComposeMailScreen(
+          session: widget.session,
+          accountId: widget.accountId,
+          initialTo: dest,
+          initialSubject: re,
+          contacts: widget.contacts,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -206,32 +261,36 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
         title: const Text('Message'),
         actions: [
           IconButton(
-            tooltip: 'Répondre',
-            icon: const Icon(Icons.reply),
-            onPressed: _detail == null
-                ? null
-                : () {
-                    final d = _detail!;
-                    final from = d['from']?.toString() ?? '';
-                    final subj = d['subject']?.toString() ?? '';
-                    final fromEmail = from.contains('<') && from.contains('>')
-                        ? from.substring(from.indexOf('<') + 1, from.indexOf('>')).trim()
-                        : from.trim();
-                    final re = subj.toLowerCase().startsWith('re:') ? subj : 'Re: $subj';
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ComposeMailScreen(
-                          session: widget.session,
-                          accountId: widget.accountId,
-                          initialTo: fromEmail,
-                          initialSubject: re,
-                        ),
-                      ),
-                    );
-                  },
+            tooltip: 'Archiver',
+            icon: const Icon(Icons.archive_outlined),
+            onPressed: _detail == null ? null : () => _move('archive'),
+          ),
+          IconButton(
+            tooltip: 'Corbeille',
+            icon: const Icon(Icons.delete_outline),
+            onPressed: _detail == null ? null : () => _move('trash'),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'reply') _openReply(all: false);
+              if (v == 'reply-all') _openReply(all: true);
+              if (v == 'spam') _move('spam');
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: 'reply', child: Text('Répondre')),
+              PopupMenuItem(value: 'reply-all', child: Text('Répondre à tous')),
+              PopupMenuItem(value: 'spam', child: Text('Signaler spam')),
+            ],
           ),
         ],
       ),
+      floatingActionButton: _detail == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openReply(all: false),
+              icon: const Icon(Icons.reply),
+              label: const Text('Répondre'),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -254,47 +313,89 @@ class _MessageDetailScreenState extends State<MessageDetailScreen> {
 
   Widget _buildBody(BuildContext context) {
     final d = _detail!;
+    final theme = Theme.of(context);
     final subject = d['subject']?.toString() ?? '(sans objet)';
     final from = d['from']?.toString() ?? '';
+    final to = d['to']?.toString() ?? '';
     final date = d['date_at']?.toString() ?? '';
     final body = d['body_plain']?.toString() ?? '';
     final html = d['body_html']?.toString() ?? '';
-    final textBody = body.isNotEmpty
-        ? body
-        : (html.isNotEmpty ? htmlToReadable(html) : '(aucun corps)');
+    final person = _book.resolve(from);
+    final seed = colorForEmail(person.email.isNotEmpty ? person.email : person.primary);
     final rawAtt = d['attachments'];
     final attachments = rawAtt is List
         ? rawAtt.map((e) => Map<String, dynamic>.from(e as Map)).toList()
         : <Map<String, dynamic>>[];
+    final hasHtml = html.trim().isNotEmpty;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(subject, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Text(from, style: Theme.of(context).textTheme.bodyMedium),
-        if (date.isNotEmpty) Text(date, style: Theme.of(context).textTheme.bodySmall),
-        const Divider(height: 32),
-        SelectableText(textBody),
-        if (attachments.isNotEmpty) ...[
-          const SizedBox(height: 24),
-          Text('Pièces jointes', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ...attachments.map((a) {
-            final name = a['filename']?.toString() ?? 'fichier';
-            final ct = a['content_type']?.toString() ?? '';
-            final sz = a['size_bytes'];
-            final sizeStr = sz is int ? '$sz o' : (sz is num ? '${sz.toInt()} o' : '');
-            return ListTile(
-              dense: true,
-              leading: const Icon(Icons.attach_file),
-              title: Text(name),
-              subtitle: Text([ct, sizeStr].where((s) => s.isNotEmpty).join(' · ')),
-              trailing: const Icon(Icons.download_outlined),
-              onTap: () => _shareAttachment(a),
-            );
-          }),
-        ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            subject,
+            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          leading: CircleAvatar(
+            backgroundColor: Color(seed.value),
+            foregroundColor: Colors.white,
+            child: Text(person.initial),
+          ),
+          title: Text(person.primary, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (person.secondary != null)
+                Text(person.secondary!, maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (to.isNotEmpty)
+                Text('À $to', maxLines: 1, overflow: TextOverflow.ellipsis),
+              if (date.isNotEmpty) Text(date, style: theme.textTheme.bodySmall),
+            ],
+          ),
+          isThreeLine: true,
+        ),
+        if (attachments.isNotEmpty)
+          SizedBox(
+            height: 56,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              scrollDirection: Axis.horizontal,
+              itemCount: attachments.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final a = attachments[i];
+                final name = a['filename']?.toString() ?? 'fichier';
+                final sz = _sizeLabel(a['size_bytes']);
+                final ct = a['content_type']?.toString() ?? '';
+                final img = ct.startsWith('image/');
+                return ActionChip(
+                  avatar: Icon(img ? Icons.image_outlined : Icons.attach_file, size: 18),
+                  label: Text(sz.isEmpty ? name : '$name · $sz'),
+                  onPressed: () => _shareAttachment(a),
+                );
+              },
+            ),
+          ),
+        const Divider(height: 1),
+        Expanded(
+          child: hasHtml
+              ? MailHtmlBody(
+                  html: html,
+                  plainFallback: body,
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+                  child: SelectableText(
+                    body.isNotEmpty ? body : htmlToReadable(html).isEmpty
+                        ? '(aucun corps)'
+                        : htmlToReadable(html),
+                  ),
+                ),
+        ),
       ],
     );
   }

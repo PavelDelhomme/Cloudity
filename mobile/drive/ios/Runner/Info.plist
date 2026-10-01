@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Cloudity Drive</string>
+	<string>Hubera Drive</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -66,5 +66,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hubera Drive peut importer des photos dans vos fichiers.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hubera Drive peut photographier un document.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Hubera Drive peut déverrouiller l’app avec Face ID.</string>
 </dict>
 </plist>

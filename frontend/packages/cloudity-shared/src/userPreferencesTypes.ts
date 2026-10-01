@@ -9,6 +9,7 @@ export type CloudityAppId =
   | 'contacts'
   | 'notes'
   | 'tasks'
+  | 'cook'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
@@ -54,6 +55,7 @@ export const CLOUDITY_APP_IDS: readonly CloudityAppId[] = [
   'contacts',
   'notes',
   'tasks',
+  'cook',
 ] as const
 
 export const THEME_MODE_LABELS: Record<ThemeMode, string> = {
@@ -72,6 +74,7 @@ export const APP_LABELS: Record<CloudityAppId, string> = {
   contacts: 'Contacts',
   notes: 'Notes',
   tasks: 'Tâches',
+  cook: 'Cook',
 }
 
 export const USER_PREFERENCES_CACHE_KEY = 'cloudity.userPreferences.v1'

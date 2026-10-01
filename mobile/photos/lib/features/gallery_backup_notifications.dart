@@ -25,7 +25,7 @@ Future<void> ensureGalleryBackupNotifications() async {
     const AndroidNotificationChannel(
       _channelId,
       _channelName,
-      description: 'Progression de la sauvegarde galerie vers Cloudity',
+      description: 'Progression de la sauvegarde galerie vers Hubera Photos',
       importance: Importance.low,
     ),
   );
@@ -47,7 +47,7 @@ Future<void> showGalleryBackupNotification({
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
-        channelDescription: 'Sauvegarde galerie Cloudity',
+        channelDescription: 'Sauvegarde galerie Hubera Photos',
         importance: Importance.low,
         priority: Priority.low,
         ongoing: ongoing,
@@ -64,7 +64,7 @@ Future<void> clearGalleryBackupNotification() async {
 
 Future<void> notifyGalleryBackupStarted() => showGalleryBackupNotification(
   title: 'Sauvegarde Photos',
-  body: 'Envoi des photos vers Cloudity…',
+  body: 'Envoi des photos vers Hubera…',
   ongoing: true,
 );
 

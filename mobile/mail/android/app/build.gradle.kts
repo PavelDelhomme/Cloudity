@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.cloudity.cloudity_mail"
+    namespace = "cloud.hubera.mail"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.cloudity.cloudity_mail"
+        applicationId = "cloud.hubera.mail"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

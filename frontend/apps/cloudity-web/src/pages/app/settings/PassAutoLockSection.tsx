@@ -19,7 +19,7 @@ export default function PassAutoLockSection() {
     <Card>
       <div className="p-6 space-y-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Cloudity Pass</h3>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Hubera Pass</h3>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Verrouillage automatique du coffre après une période d&apos;inactivité sur cette session
             navigateur. Actuellement : <strong className="font-medium text-slate-700 dark:text-slate-200">{formatPassAutoLockLabel(autoLockMs)}</strong>.

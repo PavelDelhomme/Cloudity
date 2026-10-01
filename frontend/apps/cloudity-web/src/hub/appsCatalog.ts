@@ -25,6 +25,7 @@ export type HubAppId =
   | 'settings'
   | 'admin'
   | 'profile'
+  | 'cook'
 
 export type HubAppDefinition = {
   id: HubAppId
@@ -145,6 +146,14 @@ export const HUB_LAUNCHER_APPS: HubAppDefinition[] = [
     description: 'Galerie',
   },
   {
+    id: 'cook',
+    name: 'Cook',
+    href: 'https://cook.hubera.cloud/app/',
+    category: 'Productivité',
+    hosting: 'external',
+    description: 'Frigo, recettes et courses',
+  },
+  {
     id: 'settings',
     name: 'Paramètres',
     href: '/app/settings',
@@ -179,6 +188,7 @@ export const HUB_INVENTORY_ROUTES: { id: HubAppId; href: string; routePattern: s
   { id: 'tasks', href: '/app/tasks', routePattern: 'tasks' },
   { id: 'contacts', href: '/app/contacts', routePattern: 'contacts' },
   { id: 'photos', href: '/app/photos', routePattern: 'photos' },
+  { id: 'cook', href: 'https://cook.hubera.cloud/app/', routePattern: 'cook (externe cook.hubera.cloud)' },
   { id: 'settings', href: '/app/settings', routePattern: 'settings*' },
 ]
 

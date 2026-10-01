@@ -2646,7 +2646,9 @@ export default function MailPage() {
             })
           }
           const label = (acc?.label && acc.label.trim()) || acc?.email || 'Boîte'
-          toast.success(r.synced > 0 ? `${label} — ${r.synced} nouveau(x) message(s)` : r.message || 'Synchronisation terminée')
+          if (r.synced > 0 && typeof document !== 'undefined' && document.hidden) {
+            toast.success(`${label} — ${r.synced} nouveau(x) message(s)`)
+          }
           void queryClient.invalidateQueries({ queryKey: ['mail', 'accounts'] })
         } catch (e) {
           if (isMailSyncPasswordRequiredError(e)) {

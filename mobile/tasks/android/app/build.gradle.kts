@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.cloudity.cloudity_tasks"
+    namespace = "cloud.hubera.tasks"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.cloudity.cloudity_tasks"
+        applicationId = "cloud.hubera.tasks"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

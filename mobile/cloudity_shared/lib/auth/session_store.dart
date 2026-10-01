@@ -104,9 +104,7 @@ class SessionStore {
   static Future<String> gatewayOrDefault() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(CloudityStorageKeys.gatewayUrl) ??
-        (SuiteGatewayConfig.hasDartDefine
-            ? SuiteGatewayConfig.fromDartDefine
-            : CloudityStorageKeys.defaultGateway);
+        SuiteGatewayConfig.runtimeDefault;
   }
 
   static Future<List<String>> gatewayCandidates() async {
@@ -134,7 +132,7 @@ class SessionStore {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     var gateway =
-        prefs.getString(CloudityStorageKeys.gatewayUrl) ?? CloudityStorageKeys.defaultGateway;
+        prefs.getString(CloudityStorageKeys.gatewayUrl) ?? SuiteGatewayConfig.runtimeDefault;
     var refresh = await _secure.read(key: CloudityStorageKeys.refreshToken) ?? '';
     var access = await _secure.read(key: CloudityStorageKeys.accessToken) ?? '';
     if (refresh.isEmpty) {

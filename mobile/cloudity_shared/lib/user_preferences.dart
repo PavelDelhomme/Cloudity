@@ -13,6 +13,7 @@ enum CloudityAppId {
   contacts,
   notes,
   tasks,
+  cook,
 }
 
 /// Préférences Pass (sync compte + cache local).

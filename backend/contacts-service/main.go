@@ -260,8 +260,36 @@ func (h *Handler) createContact(c *gin.Context) {
 	c.JSON(http.StatusCreated, gin.H{"id": id, "name": name, "email": email, "profile": profile})
 }
 
-// importContacts : import en masse (export Google CSV, JSON, autre outil).
-// Body : { "contacts": [{ "name", "email", "phone" }], "on_duplicate": "skip" | "update" }
+func digitsOnly(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func importDedupeKey(email, phone, name string) string {
+	if email != "" && strings.Contains(email, "@") && !strings.HasSuffix(email, "@imported.hubera.local") {
+		return "e:" + email
+	}
+	d := digitsOnly(phone)
+	if len(d) >= 8 {
+		if len(d) > 9 {
+			d = d[len(d)-9:]
+		}
+		return "p:" + d
+	}
+	n := strings.ToLower(strings.TrimSpace(name))
+	if n != "" {
+		return "n:" + n
+	}
+	return ""
+}
+
+// importContacts : import en masse (Google / Android), fiche complète dans profile.
+// Body : { "contacts": [{ "name", "email", "phone", "profile": {...} }], "on_duplicate": "skip" | "update" }
 func (h *Handler) importContacts(c *gin.Context) {
 	if h.db == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not configured"})
@@ -269,9 +297,10 @@ func (h *Handler) importContacts(c *gin.Context) {
 	}
 	var body struct {
 		Contacts []struct {
-			Name  string `json:"name"`
-			Email string `json:"email"`
-			Phone string `json:"phone"`
+			Name    string          `json:"name"`
+			Email   string          `json:"email"`
+			Phone   string          `json:"phone"`
+			Profile json.RawMessage `json:"profile"`
 		} `json:"contacts"`
 		OnDuplicate string `json:"on_duplicate"`
 	}
@@ -300,21 +329,34 @@ func (h *Handler) importContacts(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
-	rows, err := h.dbex(ctx).Query(`SELECT id, email FROM contacts WHERE user_id = $1`, userID)
+	rows, err := h.dbex(ctx).Query(`SELECT id, email, COALESCE(phone, ''), name FROM contacts WHERE user_id = $1`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	emailToID := make(map[string]int)
+	phoneToID := make(map[string]int)
+	nameToID := make(map[string]int)
 	for rows.Next() {
 		var id int
-		var em string
-		if err := rows.Scan(&id, &em); err != nil {
+		var em, ph, nm string
+		if err := rows.Scan(&id, &em, &ph, &nm); err != nil {
 			rows.Close()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		emailToID[strings.ToLower(strings.TrimSpace(em))] = id
+		em = strings.ToLower(strings.TrimSpace(em))
+		if em != "" {
+			emailToID[em] = id
+		}
+		if k := importDedupeKey("", ph, ""); k != "" {
+			phoneToID[k] = id
+		}
+		if k := importDedupeKey("", "", nm); k != "" {
+			if _, exists := nameToID[k]; !exists {
+				nameToID[k] = id
+			}
+		}
 	}
 	rows.Close()
 
@@ -325,29 +367,50 @@ func (h *Handler) importContacts(c *gin.Context) {
 	batchSeen := make(map[string]bool)
 
 	for _, row := range body.Contacts {
-		email := strings.TrimSpace(strings.ToLower(row.Email))
-		if email == "" || !strings.Contains(email, "@") {
+		profile := parseProfileJSON(row.Profile)
+		name, email, phone, profile, errMsg := normalizeContactFields(row.Name, row.Email, row.Phone, profile)
+		if errMsg != "" {
 			invalid++
 			continue
 		}
-		if batchSeen[email] {
+		key := importDedupeKey(email, phone, name)
+		if key == "" {
+			invalid++
+			continue
+		}
+		if batchSeen[key] {
 			skipped++
 			continue
 		}
-		batchSeen[email] = true
+		batchSeen[key] = true
 
-		name := strings.TrimSpace(row.Name)
-		if name == "" {
-			name = email
+		existingID := 0
+		if email != "" {
+			if id, ok := emailToID[email]; ok {
+				existingID = id
+			}
 		}
-		phone := strings.TrimSpace(row.Phone)
+		if existingID == 0 {
+			if k := importDedupeKey("", phone, ""); k != "" {
+				if id, ok := phoneToID[k]; ok {
+					existingID = id
+				}
+			}
+		}
+		if existingID == 0 && email == "" {
+			if k := importDedupeKey("", "", name); k != "" {
+				if id, ok := nameToID[k]; ok {
+					existingID = id
+				}
+			}
+		}
 
-		if id, ok := emailToID[email]; ok {
+		if existingID > 0 {
 			if mode == "update" {
 				_, err := h.dbex(ctx).Exec(`
-					UPDATE contacts SET name = $1, phone = NULLIF($2, ''), updated_at = CURRENT_TIMESTAMP
-					WHERE id = $3 AND user_id = $4
-				`, name, phone, id, userID)
+					UPDATE contacts SET name = $1, email = $2, phone = NULLIF($3, ''), profile = $4::jsonb, updated_at = CURRENT_TIMESTAMP
+					WHERE id = $5 AND user_id = $6
+				`, name, email, phone, string(profileToJSON(profile)), existingID, userID)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 					return
@@ -361,16 +424,24 @@ func (h *Handler) importContacts(c *gin.Context) {
 
 		var newID int
 		err := h.dbex(ctx).QueryRow(`
-			INSERT INTO contacts (tenant_id, user_id, name, email, phone)
-			VALUES ($1, $2, $3, $4, NULLIF($5, ''))
+			INSERT INTO contacts (tenant_id, user_id, name, email, phone, profile)
+			VALUES ($1, $2, $3, $4, NULLIF($5, ''), $6::jsonb)
 			RETURNING id
-		`, tenantID, userID, name, email, phone).Scan(&newID)
+		`, tenantID, userID, name, email, phone, string(profileToJSON(profile))).Scan(&newID)
 		if err != nil {
 			skipped++
 			continue
 		}
 		imported++
-		emailToID[email] = newID
+		if email != "" {
+			emailToID[email] = newID
+		}
+		if k := importDedupeKey("", phone, ""); k != "" {
+			phoneToID[k] = newID
+		}
+		if k := importDedupeKey("", "", name); k != "" {
+			nameToID[k] = newID
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

@@ -566,6 +566,8 @@ func authMiddleware(next http.Handler) http.Handler {
 			r.URL.Path == "/csp-report" ||
 			(r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/deploy/")) ||
 			(r.Method == http.MethodHead && strings.HasPrefix(r.URL.Path, "/deploy/")) ||
+			(r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/drive/share/")) ||
+			(r.Method == http.MethodHead && strings.HasPrefix(r.URL.Path, "/drive/share/")) ||
 			(r.Method == http.MethodPost && r.URL.Path == "/deploy/mobile/upload") ||
 			(r.Method == http.MethodPost && r.URL.Path == "/mobile/crashes") {
 			next.ServeHTTP(w, r)

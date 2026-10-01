@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Cloudity Photos</string>
+	<string>Hubera Photos</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -66,5 +66,17 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Hubera Photos affiche et sauvegarde vos photos dans votre espace Hubera.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Hubera Photos peut enregistrer des photos dans votre bibliothèque.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hubera Photos utilise la caméra pour prendre des photos.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Hubera Photos peut enregistrer le son des vidéos.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Hubera Photos peut déverrouiller l’app avec Face ID.</string>
 </dict>
 </plist>

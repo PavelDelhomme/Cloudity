@@ -1,7 +1,7 @@
 name: cloudity_notes
-description: "Cloudity Cloudity Notes — app mobile suite."
+description: "Hubera Notes — notes, listes et rappels."
 publish_to: 'none'
-version: 0.1.2+3
+version: 0.1.5+6
 environment:
   sdk: ^3.11.4
 dependencies:

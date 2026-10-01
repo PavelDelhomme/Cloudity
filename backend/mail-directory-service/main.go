@@ -1216,7 +1216,7 @@ type UserEmailAccount struct {
 	LastSyncAt    *string `json:"last_sync_at,omitempty"`
 	LastSyncError *string `json:"last_sync_error,omitempty"`
 	CreatedAt     string  `json:"created_at"`
-	UpdatedAt     string `json:"updated_at"`
+	UpdatedAt     string  `json:"updated_at"`
 }
 
 func (h *Handler) listUserAccounts(c *gin.Context) {
@@ -3195,6 +3195,112 @@ func smtpHostPort(email string) (host string, port int) {
 	return "smtp.gmail.com", port
 }
 
+type outboundAttachment struct {
+	Filename string `json:"filename"`
+	Mime     string `json:"mime"`
+	Data     string `json:"data"`
+}
+
+func sanitizeAttachName(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' || r == '"' || r == '\\' {
+			return -1
+		}
+		return r
+	}, s)
+	if s == "" {
+		return "fichier"
+	}
+	if len(s) > 120 {
+		s = s[:120]
+	}
+	return s
+}
+
+func safeAttachMime(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ToLower(s)
+	if s == "" || strings.ContainsAny(s, "\r\n;") {
+		return "application/octet-stream"
+	}
+	return s
+}
+
+func buildOutboundMail(from, to, ccHeader, messageID, subject, body string, atts []outboundAttachment) ([]byte, error) {
+	headers := "From: " + from + "\r\n" +
+		"To: " + to + "\r\n" +
+		ccHeader +
+		"Message-ID: " + messageID + "\r\n" +
+		"Date: " + time.Now().Format(time.RFC1123Z) + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"MIME-Version: 1.0\r\n"
+	if len(atts) == 0 {
+		return []byte(headers +
+			"Content-Type: text/plain; charset=UTF-8\r\n" +
+			"Content-Transfer-Encoding: 8bit\r\n" +
+			"\r\n" + body), nil
+	}
+	if len(atts) > 5 {
+		return nil, fmt.Errorf("5 pièces jointes maximum")
+	}
+	type decodedAtt struct {
+		name string
+		mime string
+		raw  []byte
+	}
+	var decoded []decodedAtt
+	total := 0
+	for _, a := range atts {
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(a.Data))
+		if err != nil {
+			raw, err = base64.URLEncoding.DecodeString(strings.TrimSpace(a.Data))
+		}
+		if err != nil {
+			return nil, fmt.Errorf("pièce jointe invalide")
+		}
+		total += len(raw)
+		if total > 8<<20 {
+			return nil, fmt.Errorf("pièces jointes trop lourdes (8 Mo max)")
+		}
+		decoded = append(decoded, decodedAtt{
+			name: sanitizeAttachName(a.Filename),
+			mime: safeAttachMime(a.Mime),
+			raw:  raw,
+		})
+	}
+	nonce := make([]byte, 8)
+	if _, err := rand.Read(nonce); err != nil {
+		return nil, err
+	}
+	boundary := "Hubera" + hex.EncodeToString(nonce)
+	var b strings.Builder
+	b.WriteString(headers)
+	b.WriteString("Content-Type: multipart/mixed; boundary=" + boundary + "\r\n\r\n")
+	b.WriteString("--" + boundary + "\r\n")
+	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	b.WriteString("Content-Transfer-Encoding: 8bit\r\n\r\n")
+	b.WriteString(body)
+	b.WriteString("\r\n")
+	for _, a := range decoded {
+		b.WriteString("--" + boundary + "\r\n")
+		b.WriteString("Content-Type: " + a.mime + "; name=\"" + a.name + "\"\r\n")
+		b.WriteString("Content-Disposition: attachment; filename=\"" + a.name + "\"\r\n")
+		b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
+		enc := base64.StdEncoding.EncodeToString(a.raw)
+		for i := 0; i < len(enc); i += 76 {
+			end := i + 76
+			if end > len(enc) {
+				end = len(enc)
+			}
+			b.WriteString(enc[i:end])
+			b.WriteString("\r\n")
+		}
+	}
+	b.WriteString("--" + boundary + "--\r\n")
+	return []byte(b.String()), nil
+}
+
 func (h *Handler) sendMessageSMTP(c *gin.Context) {
 	ctx := c.Request.Context()
 	var body struct {
@@ -3207,13 +3313,14 @@ func (h *Handler) sendMessageSMTP(c *gin.Context) {
 		SmtpHost  string `json:"smtp_host"`
 		SmtpPort  int    `json:"smtp_port"`
 		// Adresse d’affichage « De » : compte principal ou alias enregistré pour ce compte.
-		FromEmail string `json:"from_email"`
+		FromEmail   string               `json:"from_email"`
+		Attachments []outboundAttachment `json:"attachments"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "account_id et to requis"})
 		return
 	}
-	if err := h.sendMessageSMTPWithPayload(ctx, body.AccountID, body.Password, body.To, body.Cc, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, body.AccountID, body.Password, body.To, body.Cc, body.Subject, body.Body, body.SmtpHost, body.SmtpPort, body.FromEmail, body.Attachments); err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
@@ -3234,7 +3341,7 @@ func parseMailAddrList(s string) []string {
 	return out
 }
 
-func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int, passwordInput, toInput, ccInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string) error {
+func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int, passwordInput, toInput, ccInput, subjectInput, bodyInput, smtpHostInput string, smtpPortInput int, fromEmailInput string, attachments []outboundAttachment) error {
 	toList := parseMailAddrList(toInput)
 	if len(toList) == 0 {
 		return fmt.Errorf("destinataire invalide")
@@ -3324,16 +3431,10 @@ func (h *Handler) sendMessageSMTPWithPayload(ctx context.Context, accountID int,
 	if len(ccList) > 0 {
 		ccHeader = "Cc: " + strings.Join(ccList, ", ") + "\r\n"
 	}
-	msg := []byte("From: " + displayFrom + "\r\n" +
-		"To: " + to + "\r\n" +
-		ccHeader +
-		"Message-ID: " + messageID + "\r\n" +
-		"Date: " + time.Now().Format(time.RFC1123Z) + "\r\n" +
-		"Subject: " + subject + "\r\n" +
-		"MIME-Version: 1.0\r\n" +
-		"Content-Type: text/plain; charset=UTF-8\r\n" +
-		"Content-Transfer-Encoding: 8bit\r\n" +
-		"\r\n" + bodyInput)
+	msg, err := buildOutboundMail(displayFrom, to, ccHeader, messageID, subject, bodyInput, attachments)
+	if err != nil {
+		return err
+	}
 	// Enveloppe SMTP : compte authentifié (évite les rejets si l’alias n’est pas autorisé comme MAIL FROM).
 	rcpt := append(append([]string{}, toList...), ccList...)
 	if err := smtp.SendMail(addr, auth, email, rcpt, msg); err != nil {
@@ -3495,7 +3596,7 @@ func (h *Handler) sendOneScheduledMessage(ctx context.Context, messageID, accoun
 	if _, err := h.dbex(ctx).Exec("SELECT set_config('app.current_user_id', $1, false)", strconv.Itoa(userID)); err != nil {
 		return err
 	}
-	if err := h.sendMessageSMTPWithPayload(ctx, accountID, "", toAddrs, "", subject, bodyPlain, "", 0, fromAddr); err != nil {
+	if err := h.sendMessageSMTPWithPayload(ctx, accountID, "", toAddrs, "", subject, bodyPlain, "", 0, fromAddr, nil); err != nil {
 		return err
 	}
 	_, _ = h.dbex(ctx).Exec(`

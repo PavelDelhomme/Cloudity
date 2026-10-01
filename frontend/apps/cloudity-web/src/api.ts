@@ -1181,6 +1181,7 @@ export type DriveNode = {
   is_vault_folder?: boolean
   /** Nom du dossier parent (recherche GET /drive/nodes/search). */
   parent_folder_name?: string
+  share_token?: string | null
 }
 
 export async function fetchDriveNodes(
@@ -1450,6 +1451,20 @@ export async function deleteDriveNode(token: string, id: number): Promise<void> 
 /** Liste les nœuds en corbeille. */
 export async function fetchDriveTrash(token: string): Promise<DriveNode[]> {
   return apiJson<DriveNode[]>(token, '/drive/nodes/trash', { json: false }, 'Trash')
+}
+
+/** Albums / fichiers avec un lien de partage actif. */
+export async function fetchDriveSharedNodes(token: string): Promise<DriveNode[]> {
+  return apiJson<DriveNode[]>(token, '/drive/nodes/shared', { json: false }, 'Drive shared')
+}
+
+export async function createDriveShare(
+  token: string,
+  nodeId: number
+): Promise<{ token: string; url: string; share_token?: string }> {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/share`, { method: 'POST', json: false })
+  if (!res.ok) throw new Error(`Partage Drive: ${res.status}`)
+  return res.json() as Promise<{ token: string; url: string; share_token?: string }>
 }
 
 /** Restaure un nœud depuis la corbeille. */

@@ -319,6 +319,88 @@ class AuthApi extends CloudityAuthClient {
       disposition: res.headers['content-disposition'],
     );
   }
+
+  Future<List<Map<String, dynamic>>> fetchDriveStarred({
+    required String accessToken,
+  }) async {
+    return _fetchDriveList('$baseUrl/drive/nodes/starred', accessToken, 'Favoris Drive');
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDriveShared({
+    required String accessToken,
+  }) async {
+    return _fetchDriveList('$baseUrl/drive/nodes/shared', accessToken, 'Partagés Drive');
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchDriveList(
+    String url,
+    String accessToken,
+    String label,
+  ) async {
+    final uri = Uri.parse(url);
+    final res = await http
+        .get(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) {
+      throw AuthException('non_autorisé');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('$label HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! List) {
+      throw AuthException('Réponse $label invalide');
+    }
+    return decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> setDriveStarred({
+    required String accessToken,
+    required int nodeId,
+    required bool starred,
+  }) async {
+    final uri = Uri.parse('$baseUrl/drive/nodes/$nodeId/star');
+    final res = starred
+        ? await http.post(uri, headers: authHeaders(accessToken, json: false)).timeout(_httpTimeout)
+        : await http.delete(uri, headers: authHeaders(accessToken, json: false)).timeout(_httpTimeout);
+    if (res.statusCode == 401) throw AuthException('non_autorisé');
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Favori Drive HTTP ${res.statusCode}');
+    }
+  }
+
+  Future<String> createDriveShare({
+    required String accessToken,
+    required int nodeId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/drive/nodes/$nodeId/share');
+    final res = await http
+        .post(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) throw AuthException('non_autorisé');
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Partage Drive HTTP ${res.statusCode}');
+    }
+    final decoded = jsonDecode(res.body);
+    if (decoded is! Map) throw AuthException('Réponse partage invalide');
+    final token = (decoded['token'] ?? decoded['share_token'] ?? '').toString();
+    if (token.isEmpty) throw AuthException('Lien de partage vide');
+    return '$baseUrl/drive/share/$token/content';
+  }
+
+  Future<void> revokeDriveShare({
+    required String accessToken,
+    required int nodeId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/drive/nodes/$nodeId/share');
+    final res = await http
+        .delete(uri, headers: authHeaders(accessToken, json: false))
+        .timeout(_httpTimeout);
+    if (res.statusCode == 401) throw AuthException('non_autorisé');
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthException('Révocation partage HTTP ${res.statusCode}');
+    }
+  }
 }
 
 class DriveFileDownload {

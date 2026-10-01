@@ -8,8 +8,18 @@ import org.json.JSONObject
 
 object CloudityAuthBrokerHelper {
 
-    /** Toutes les apps Cloudity signées avec la même clé (suite Android). */
+    /** Apps Hubera + anciens packages encore installés (SSO, même signature). */
     private val peerPackages = listOf(
+        "cloud.hubera.mail",
+        "cloud.hubera.drive",
+        "cloud.hubera.photos",
+        "cloud.hubera.pass",
+        "cloud.hubera.calendar",
+        "cloud.hubera.contacts",
+        "cloud.hubera.notes",
+        "cloud.hubera.tasks",
+        "cloud.hubera.cook",
+        "cloud.hubera.admin",
         "fr.cloudity.cloudity_mail",
         "fr.cloudity.cloudity_drive",
         "fr.cloudity.cloudity_photos",
@@ -18,6 +28,7 @@ object CloudityAuthBrokerHelper {
         "fr.cloudity.cloudity_contacts",
         "fr.cloudity.cloudity_notes",
         "fr.cloudity.cloudity_tasks",
+        "fr.cloudity.cloudity_cook",
         "fr.cloudity.admin_app",
     )
 

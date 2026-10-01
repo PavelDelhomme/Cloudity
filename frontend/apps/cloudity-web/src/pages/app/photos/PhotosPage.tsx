@@ -16,6 +16,8 @@ import {
   RotateCcw,
   Plus,
   Settings,
+  Smartphone,
+  Users,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
@@ -32,7 +34,9 @@ import {
   fetchDrivePhotosArchive,
   fetchDrivePhotosLocked,
   fetchDrivePhotosTimeline,
+  fetchDriveSharedNodes,
   fetchDriveTrash,
+  createDriveShare,
   lockDrivePhotos,
   putDriveNodeContentBlob,
   restoreDriveNode,
@@ -88,13 +92,23 @@ function schedulePhotoDownload<T>(job: () => Promise<T>): Promise<T> {
   })
 }
 
-const VALID_PHOTOS_TABS: readonly PhotosTab[] = ['timeline', 'albums', 'archive', 'trash', 'locked']
+const VALID_PHOTOS_TABS: readonly PhotosTab[] = [
+  'timeline',
+  'albums',
+  'sharing',
+  'more',
+  'archive',
+  'trash',
+  'locked',
+]
 
 const SECTION_LABELS: Record<Exclude<PhotosTab, 'timeline'>, string> = {
   albums: 'Albums',
+  sharing: 'Partagés',
+  more: 'Plus',
   archive: 'Archivé',
   trash: 'Corbeille',
-  locked: 'Verrouillé',
+  locked: 'Dossier sécurisé',
 }
 
 function localDayKey(iso: string): string {
@@ -549,6 +563,13 @@ export default function PhotosPage() {
     queryKey: ['drive', 'photos', 'album-folder', openAlbumId],
     queryFn: () => fetchDriveNodes(accessToken!, openAlbumId!),
     enabled: Boolean(accessToken) && tab === 'albums' && openAlbumId != null,
+    staleTime: 30_000,
+  })
+
+  const sharedQuery = useQuery({
+    queryKey: ['drive', 'photos', 'shared'],
+    queryFn: () => fetchDriveSharedNodes(accessToken!),
+    enabled: Boolean(accessToken) && tab === 'sharing',
     staleTime: 30_000,
   })
 
@@ -1634,20 +1655,22 @@ export default function PhotosPage() {
               ) : rootFolders.length === 0 ? (
                 <p className="text-sm text-neutral-600 dark:text-neutral-400">Aucun album pour l’instant.</p>
               ) : (
-                <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {rootFolders.map((f) => (
                     <li key={f.id}>
                       <Link
                         to={`/app/photos?tab=albums&album=${f.id}`}
-                        className="group flex items-center gap-3 rounded-xl border border-neutral-200/90 bg-white p-4 shadow-sm transition-all hover:border-blue-300/80 hover:shadow-md dark:border-slate-600 dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900 dark:shadow-[0_1px_0_0_rgba(255,255,255,0.06)_inset] dark:hover:border-slate-500 dark:hover:from-slate-800 dark:hover:to-slate-900"
+                        className="group block overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.06] transition hover:shadow-md dark:bg-slate-800 dark:ring-white/10"
                       >
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                          <FolderOpen className="h-6 w-6" aria-hidden />
+                        <span className="flex aspect-[4/3] items-center justify-center bg-gradient-to-br from-rose-100 to-amber-50 text-[#e5394a] dark:from-slate-700 dark:to-slate-800 dark:text-[#ff6b7a]">
+                          <FolderOpen className="h-10 w-10" aria-hidden />
                         </span>
-                        <div className="min-w-0 text-left">
-                          <p className="font-medium text-neutral-900 dark:text-slate-100 truncate">{f.name}</p>
-                          <p className="text-xs text-neutral-500 dark:text-slate-400">Voir les photos</p>
-                        </div>
+                        <span className="block px-3 py-2.5">
+                          <p className="truncate font-medium text-neutral-900 dark:text-slate-100">{f.name}</p>
+                          <p className="text-xs text-neutral-500 dark:text-slate-400">
+                            {typeof f.child_count === 'number' ? `${f.child_count} élément(s)` : 'Album'}
+                          </p>
+                        </span>
                       </Link>
                     </li>
                   ))}
@@ -1655,6 +1678,102 @@ export default function PhotosPage() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {tab === 'sharing' && accessToken && (
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Albums et photos avec un lien de partage. Touchez un élément pour copier le lien.
+          </p>
+          {sharedQuery.isPending ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+            </div>
+          ) : sharedQuery.isError ? (
+            <p className="text-sm text-red-600 dark:text-red-400">{(sharedQuery.error as Error).message}</p>
+          ) : (sharedQuery.data ?? []).length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-8 text-center text-sm text-gray-600 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-400">
+              <Users className="mx-auto mb-3 h-10 w-10 text-slate-400" aria-hidden />
+              Aucun album partagé pour l’instant. Ouvre un album puis crée un lien.
+            </div>
+          ) : (
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {(sharedQuery.data ?? []).map((node) => (
+                <li key={node.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-white p-4 text-left shadow-sm hover:border-rose-200 dark:border-slate-600 dark:bg-slate-800"
+                    onClick={async () => {
+                      try {
+                        const share = await createDriveShare(accessToken, node.id)
+                        const url = share.url?.startsWith('http')
+                          ? share.url
+                          : `${window.location.origin}${share.url || `/drive/share/${share.token || share.share_token}`}`
+                        await navigator.clipboard.writeText(url)
+                        toast.success('Lien copié')
+                      } catch (e) {
+                        toast.error(e instanceof Error ? e.message : 'Partage impossible')
+                      }
+                    }}
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+                      {node.is_folder ? <FolderOpen className="h-6 w-6" aria-hidden /> : <ImageIcon className="h-6 w-6" aria-hidden />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium text-neutral-900 dark:text-slate-100">{node.name}</span>
+                      <span className="text-xs text-neutral-500">Copier le lien</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {tab === 'more' && (
+        <div className="mx-auto max-w-lg space-y-2 pb-8">
+          {[
+            { tab: 'archive' as const, icon: Archive, title: 'Archivé', sub: 'Masquées de la chronologie' },
+            { tab: 'trash' as const, icon: Trash2, title: 'Corbeille', sub: 'Photos retirées du cloud, restaurables' },
+            { tab: 'locked' as const, icon: Lock, title: 'Dossier sécurisé', sub: 'Verrouillé par empreinte, PIN ou code' },
+          ].map((row) => (
+            <button
+              key={row.tab}
+              type="button"
+              onClick={() => setTab(row.tab)}
+              className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50 dark:bg-slate-800 dark:ring-white/10 dark:hover:bg-slate-700"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+                <row.icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-neutral-900 dark:text-slate-100">{row.title}</span>
+                <span className="block text-sm text-neutral-500 dark:text-slate-400">{row.sub}</span>
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsDraft(photosSettings)
+              setShowPhotosSettings(true)
+            }}
+            className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50 dark:bg-slate-800 dark:ring-white/10 dark:hover:bg-slate-700"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+              <Settings className="h-5 w-5" aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium text-neutral-900 dark:text-slate-100">Paramètres</span>
+              <span className="block text-sm text-neutral-500 dark:text-slate-400">Synchronisation, stockage, thème</span>
+            </span>
+          </button>
+          <p className="flex items-start gap-2 px-2 pt-3 text-xs text-neutral-500 dark:text-slate-400">
+            <Smartphone className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            La sauvegarde galerie en arrière-plan se gère dans l’app Hubera Photos sur le téléphone.
+          </p>
         </div>
       )}
 

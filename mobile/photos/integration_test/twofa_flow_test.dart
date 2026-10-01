@@ -45,7 +45,7 @@ bool _onLogin(WidgetTester tester) =>
     find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _on2FA(WidgetTester tester) =>
-    find.text('Vérification 2FA — Cloudity Photos').evaluate().isNotEmpty;
+    find.text('Vérification 2FA — Hubera Photos').evaluate().isNotEmpty;
 
 bool _onTimeline(WidgetTester tester) =>
     find.byKey(kTimeline).evaluate().isNotEmpty;

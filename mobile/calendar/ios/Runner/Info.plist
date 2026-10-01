@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Cloudity Mail</string>
+	<string>Hubera Calendar</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -66,5 +66,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Hubera Calendar affiche et crée vos événements.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Hubera Calendar affiche et crée vos événements.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Hubera Calendar peut déverrouiller l’app avec Face ID.</string>
 </dict>
 </plist>

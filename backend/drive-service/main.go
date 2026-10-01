@@ -140,10 +140,14 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	r.GET("/drive/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "drive"})
 	})
+	r.GET("/drive/share/:token", h.getPublicShare)
+	r.GET("/drive/share/:token/content", h.getPublicShareContent)
 	r.Use(h.requireUserID)
 	drive := r.Group("/drive")
 	{
 		drive.GET("/nodes", h.listNodes)
+		drive.GET("/nodes/starred", h.listStarredNodes)
+		drive.GET("/nodes/shared", h.listSharedNodes)
 		drive.GET("/nodes/search", h.searchNodes)
 		drive.GET("/photos/timeline", h.listPhotosTimeline)
 		drive.GET("/photos/system-folder", h.getPhotosSystemFolder)
@@ -170,6 +174,10 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		drive.PUT("/nodes/:id/content", h.putNodeContent)
 		drive.POST("/nodes/upload", h.uploadFile)
 		drive.POST("/nodes/archive", h.downloadArchiveZip)
+		drive.POST("/nodes/:id/star", h.starNode)
+		drive.DELETE("/nodes/:id/star", h.unstarNode)
+		drive.POST("/nodes/:id/share", h.createShare)
+		drive.DELETE("/nodes/:id/share", h.revokeShare)
 	}
 	r.GET("/drive/files", func(c *gin.Context) {
 		if h.db == nil {
@@ -202,6 +210,7 @@ func main() {
 		if err := db.Ping(); err != nil {
 			log.Fatal("Failed to ping database:", err)
 		}
+		ensureDriveShareSchema(db)
 	}
 
 	r := setupRouter(db)
@@ -218,7 +227,8 @@ type Handler struct {
 }
 
 func (h *Handler) requireUserID(c *gin.Context) {
-	if c.FullPath() == "/health" || c.FullPath() == "/drive/health" {
+	if c.FullPath() == "/health" || c.FullPath() == "/drive/health" ||
+		c.FullPath() == "/drive/share/:token" || c.FullPath() == "/drive/share/:token/content" {
 		c.Next()
 		return
 	}
@@ -251,27 +261,29 @@ func (h *Handler) requireUserID(c *gin.Context) {
 }
 
 type Node struct {
-	ID           int     `json:"id"`
-	TenantID     int     `json:"tenant_id"`
-	UserID       int     `json:"user_id"`
-	ParentID     *int    `json:"parent_id"`
-	Name         string  `json:"name"`
-	IsFolder     bool    `json:"is_folder"`
-	Size         int64   `json:"size"`
-	MimeType     *string `json:"mime_type,omitempty"`
-	TakenAt      string  `json:"taken_at,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
-	ChildCount   int     `json:"child_count,omitempty"`
-	ChildFolders int     `json:"child_folders,omitempty"`
-	ChildFiles   int     `json:"child_files,omitempty"`
-	DeletedAt        string `json:"deleted_at,omitempty"` // pour la corbeille
-	PhotoArchivedAt  string `json:"photo_archived_at,omitempty"`
-	PhotoLockedAt    string `json:"photo_locked_at,omitempty"`
-	VaultEncrypted   bool   `json:"vault_encrypted,omitempty"`
-	IsVaultFolder    bool   `json:"is_vault_folder,omitempty"`
+	ID              int     `json:"id"`
+	TenantID        int     `json:"tenant_id"`
+	UserID          int     `json:"user_id"`
+	ParentID        *int    `json:"parent_id"`
+	Name            string  `json:"name"`
+	IsFolder        bool    `json:"is_folder"`
+	Size            int64   `json:"size"`
+	MimeType        *string `json:"mime_type,omitempty"`
+	TakenAt         string  `json:"taken_at,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	UpdatedAt       string  `json:"updated_at"`
+	ChildCount      int     `json:"child_count,omitempty"`
+	ChildFolders    int     `json:"child_folders,omitempty"`
+	ChildFiles      int     `json:"child_files,omitempty"`
+	DeletedAt       string  `json:"deleted_at,omitempty"` // pour la corbeille
+	PhotoArchivedAt string  `json:"photo_archived_at,omitempty"`
+	PhotoLockedAt   string  `json:"photo_locked_at,omitempty"`
+	VaultEncrypted  bool    `json:"vault_encrypted,omitempty"`
+	IsVaultFolder   bool    `json:"is_vault_folder,omitempty"`
 	// Renseigné par GET /drive/nodes/search (dossier parent pour navigation).
 	ParentFolderName string `json:"parent_folder_name,omitempty"`
+	Starred          bool   `json:"starred,omitempty"`
+	ShareToken       string `json:"share_token,omitempty"`
 }
 
 const appVaultMime = "application/vnd.cloudity.vault+json;v=1"
@@ -439,7 +451,7 @@ func (h *Handler) listRecentNodes(c *gin.Context) {
 		       COALESCE(taken_at::text, ''), COALESCE(taken_at, created_at)::text, COALESCE(updated_at::text, '')
 		FROM drive_nodes n
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER AND deleted_at IS NULL
-		` + photosTreeExcludeSQL + `
+		`+photosTreeExcludeSQL+`
 		ORDER BY updated_at DESC NULLS LAST, id DESC
 		LIMIT $1
 	`, limit)
@@ -584,13 +596,13 @@ func (h *Handler) listPhotosArchive(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	rows, err := h.dbex(ctx).Query(`
-		SELECT `+photoNodeSelectSQL+`
+		SELECT ` + photoNodeSelectSQL + `
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
 		  AND photo_archived_at IS NOT NULL
 		  AND photo_locked_at IS NULL
-		`+photoImageFilterSQL+`
+		` + photoImageFilterSQL + `
 		ORDER BY photo_archived_at DESC NULLS LAST, id DESC
 	`)
 	if err != nil {
@@ -617,12 +629,12 @@ func (h *Handler) listPhotosLocked(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	rows, err := h.dbex(ctx).Query(`
-		SELECT `+photoNodeSelectSQL+`
+		SELECT ` + photoNodeSelectSQL + `
 		FROM drive_nodes
 		WHERE user_id = current_setting('app.current_user_id', true)::INTEGER
 		  AND deleted_at IS NULL
 		  AND photo_locked_at IS NOT NULL
-		`+photoImageFilterSQL+`
+		` + photoImageFilterSQL + `
 		ORDER BY photo_locked_at DESC NULLS LAST, id DESC
 	`)
 	if err != nil {

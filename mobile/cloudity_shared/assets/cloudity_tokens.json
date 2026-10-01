@@ -36,6 +36,10 @@
       "accent": "#059669",
       "accentDark": "#047857"
     },
+    "cook": {
+      "accent": "#ea580c",
+      "accentDark": "#c2410c"
+    },
     "admin": {
       "accent": "#475569",
       "accentDark": "#334155"

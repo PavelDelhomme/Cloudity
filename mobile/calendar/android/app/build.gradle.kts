@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.cloudity.cloudity_calendar"
+    namespace = "cloud.hubera.calendar"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.cloudity.cloudity_calendar"
+        applicationId = "cloud.hubera.calendar"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

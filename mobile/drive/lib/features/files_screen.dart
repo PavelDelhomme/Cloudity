@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloudity_shared/storage_usage.dart';
 import 'package:cloudity_shared/suite_product_api.dart';
 
@@ -44,10 +45,14 @@ class _FilesScreenState extends State<FilesScreen> {
   String get _folderTitle => switch (_section) {
     _DriveSection.trash => 'Corbeille',
     _DriveSection.recent => 'Récents',
+    _DriveSection.starred => 'Favoris',
+    _DriveSection.shared => 'Partagés',
     _DriveSection.home => _folderNameStack.last,
   };
   bool get _isTrashView => _section == _DriveSection.trash;
   bool get _isRecentView => _section == _DriveSection.recent;
+  bool get _isStarredView => _section == _DriveSection.starred;
+  bool get _isSharedView => _section == _DriveSection.shared;
   bool get _showFab => _section == _DriveSection.home;
   bool get _isSearchActive => _searchQuery.trim().isNotEmpty;
   List<Map<String, dynamic>> get _visibleItems =>
@@ -57,8 +62,11 @@ class _FilesScreenState extends State<FilesScreen> {
   @override
   void initState() {
     super.initState();
-    _reload();
-    _loadStorageUsage();
+    // Un seul refreshIfNeeded à la fois : parallèle reload + quota
+    // faisait sauter le timeout HTTP au cold start.
+    _reload().whenComplete(() {
+      if (mounted) _loadStorageUsage();
+    });
   }
 
   Future<void> _loadStorageUsage() async {
@@ -100,6 +108,12 @@ class _FilesScreenState extends State<FilesScreen> {
         _DriveSection.recent => await widget.session.api.fetchDriveRecent(
           accessToken: widget.session.accessToken,
         ),
+        _DriveSection.starred => await widget.session.api.fetchDriveStarred(
+          accessToken: widget.session.accessToken,
+        ),
+        _DriveSection.shared => await widget.session.api.fetchDriveShared(
+          accessToken: widget.session.accessToken,
+        ),
         _DriveSection.home => await widget.session.api.fetchDriveNodes(
           accessToken: widget.session.accessToken,
           parentId: _parentId,
@@ -122,6 +136,12 @@ class _FilesScreenState extends State<FilesScreen> {
               accessToken: widget.session.accessToken,
             ),
             _DriveSection.recent => await widget.session.api.fetchDriveRecent(
+              accessToken: widget.session.accessToken,
+            ),
+            _DriveSection.starred => await widget.session.api.fetchDriveStarred(
+              accessToken: widget.session.accessToken,
+            ),
+            _DriveSection.shared => await widget.session.api.fetchDriveShared(
               accessToken: widget.session.accessToken,
             ),
             _DriveSection.home => await widget.session.api.fetchDriveNodes(
@@ -213,6 +233,38 @@ class _FilesScreenState extends State<FilesScreen> {
       _folderNameStack
         ..clear()
         ..add('Mon Drive');
+    });
+    _reload();
+  }
+
+  void _openStarred() {
+    Navigator.of(context).maybePop();
+    setState(() {
+      _section = _DriveSection.starred;
+      _searchQuery = '';
+      _searchResults = [];
+      _parentStack
+        ..clear()
+        ..add(null);
+      _folderNameStack
+        ..clear()
+        ..add('Favoris');
+    });
+    _reload();
+  }
+
+  void _openShared() {
+    Navigator.of(context).maybePop();
+    setState(() {
+      _section = _DriveSection.shared;
+      _searchQuery = '';
+      _searchResults = [];
+      _parentStack
+        ..clear()
+        ..add(null);
+      _folderNameStack
+        ..clear()
+        ..add('Partagés');
     });
     _reload();
   }
@@ -601,7 +653,7 @@ class _FilesScreenState extends State<FilesScreen> {
   String _accountFromToken(String token) {
     try {
       final parts = token.split('.');
-      if (parts.length < 2) return 'Compte Cloudity';
+      if (parts.length < 2) return 'Compte Hubera';
       final payload = utf8.decode(
         base64Url.decode(base64Url.normalize(parts[1])),
       );
@@ -615,7 +667,7 @@ class _FilesScreenState extends State<FilesScreen> {
     } catch (_) {
       // Jeton opaque ou format inattendu : afficher un libellé neutre.
     }
-    return 'Compte Cloudity';
+    return 'Compte Hubera';
   }
 
   String _initials(String label) {
@@ -724,6 +776,8 @@ class _FilesScreenState extends State<FilesScreen> {
         : switch (_section) {
             _DriveSection.home => 0,
             _DriveSection.recent => 1,
+            _DriveSection.shared => 2,
+            _DriveSection.starred => 3,
             _DriveSection.trash => 4,
           };
     return NavigationDrawer(
@@ -735,21 +789,18 @@ class _FilesScreenState extends State<FilesScreen> {
         } else if (index == 1) {
           setState(() => _showSettings = false);
           _openRecent();
+        } else if (index == 2) {
+          setState(() => _showSettings = false);
+          _openShared();
+        } else if (index == 3) {
+          setState(() => _showSettings = false);
+          _openStarred();
         } else if (index == 4) {
           setState(() => _showSettings = false);
           _openTrash();
         } else if (index == 5) {
           setState(() => _showSettings = true);
           Navigator.of(context).maybePop();
-        } else {
-          Navigator.of(context).maybePop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Partagés et favoris arrivent avec le partage Drive côté serveur.',
-              ),
-            ),
-          );
         }
       },
       children: [
@@ -764,7 +815,7 @@ class _FilesScreenState extends State<FilesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Cloudity Drive',
+                      'Hubera Drive',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -1191,6 +1242,33 @@ class _FilesScreenState extends State<FilesScreen> {
                   },
                 ),
                 ListTile(
+                  leading: Icon(
+                    node['starred'] == true ? Icons.star : Icons.star_border,
+                  ),
+                  title: Text(
+                    node['starred'] == true
+                        ? 'Retirer des favoris'
+                        : 'Ajouter aux favoris',
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _toggleStar(id, node['starred'] == true);
+                  },
+                ),
+                if (node['is_folder'] != true)
+                  ListTile(
+                    leading: const Icon(Icons.link_outlined),
+                    title: Text(
+                      (node['share_token']?.toString() ?? '').isNotEmpty
+                          ? 'Copier le lien de partage'
+                          : 'Créer un lien de partage',
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareNode(id, name);
+                    },
+                  ),
+                ListTile(
                   leading: const Icon(Icons.delete_outline),
                   title: const Text('Mettre à la corbeille'),
                   onTap: () {
@@ -1204,6 +1282,52 @@ class _FilesScreenState extends State<FilesScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggleStar(int id, bool currentlyStarred) async {
+    try {
+      await widget.session.refreshIfNeeded();
+      await widget.session.api.setDriveStarred(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+        starred: !currentlyStarred,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            currentlyStarred ? 'Retiré des favoris.' : 'Ajouté aux favoris.',
+          ),
+        ),
+      );
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
+  Future<void> _shareNode(int id, String name) async {
+    try {
+      await widget.session.refreshIfNeeded();
+      final url = await widget.session.api.createDriveShare(
+        accessToken: widget.session.accessToken,
+        nodeId: id,
+      );
+      await Clipboard.setData(ClipboardData(text: url));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lien copié pour « $name ».')),
+      );
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 
   Future<void> _renameNode(int id, String name) async {
@@ -1393,6 +1517,10 @@ class _FilesScreenState extends State<FilesScreen> {
                 ? 'La corbeille est vide.'
                 : _isRecentView
                 ? 'Aucun fichier récent.'
+                : _isStarredView
+                ? 'Aucun favori.'
+                : _isSharedView
+                ? 'Aucun fichier partagé.'
                 : _isSearchActive
                 ? 'Aucun résultat pour cette recherche.'
                 : 'Ce dossier est vide.',
@@ -1405,6 +1533,10 @@ class _FilesScreenState extends State<FilesScreen> {
                 ? 'Les éléments supprimés apparaîtront ici.'
                 : _isRecentView
                 ? 'Les fichiers modifiés récemment s’afficheront ici.'
+                : _isStarredView
+                ? 'Ajoute un fichier aux favoris depuis le menu long.'
+                : _isSharedView
+                ? 'Crée un lien depuis le menu d’un fichier.'
                 : _isSearchActive
                 ? 'Essayez un autre nom de fichier ou dossier.'
                 : 'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
@@ -1548,7 +1680,7 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 }
 
-enum _DriveSection { home, recent, trash }
+enum _DriveSection { home, recent, starred, shared, trash }
 
 enum _ListLayout { list, grid }
 

@@ -184,7 +184,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
       return 'Active-la pour envoyer automatiquement les nouvelles photos.';
     }
     if (_running || _runInProgress) {
-      return 'Cloudity analyse les dossiers sélectionnés et envoie un lot de photos.';
+      return 'Hubera Photos analyse les dossiers sélectionnés et envoie un lot de photos.';
     }
     if (_pendingWork) {
       return 'Un lot reste à traiter — Android relancera la tâche dès que possible.';
@@ -341,7 +341,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
               const SizedBox(height: 8),
               Text(
                 'Envoie de nouvelles photos vers le dossier Drive « Photos ». '
-                'Si aucun dossier précis n’est choisi, Cloudity sauvegarde toutes les photos, dont Appareil photo / Camera.',
+                'Si aucun dossier précis n’est choisi, Hubera Photos sauvegarde toutes les photos, dont Appareil photo / Camera.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "fr.cloudity.cloudity_contacts"
+    namespace = "cloud.hubera.contacts"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "fr.cloudity.cloudity_contacts"
+        applicationId = "cloud.hubera.contacts"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

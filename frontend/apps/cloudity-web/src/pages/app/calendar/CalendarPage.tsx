@@ -18,6 +18,7 @@ import {
   createNote,
   type CalendarEvent,
   type UserCalendar,
+  type Task,
 } from '../../../api'
 import {
   addDays,
@@ -48,6 +49,16 @@ import {
 
 const WEEKDAYS = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.']
 const MINI_WEEK_HEADERS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
+const TASKS_CAL_COLOR = '#188038'
+
+function taskTouchesDay(t: Task, day: Date): boolean {
+  if (t.completed) return false
+  const iso = t.due_at || t.start_at
+  if (!iso) return false
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return sameDay(d, day)
+}
 
 function toDatetimeLocalValue(iso: string | null | undefined): string {
   if (!iso) return ''
@@ -277,6 +288,11 @@ export default function CalendarPage() {
     }
     return map
   }, [sortedEvents, monthCells])
+
+  const tasksOnDay = useCallback(
+    (d: Date) => tasks.filter((t) => taskTouchesDay(t, d)),
+    [tasks]
+  )
 
   const eventsOnDay = useCallback(
     (d: Date) => sortedEvents.filter((e) => eventTouchesDay(e.start_at, e.end_at, d)),
@@ -556,6 +572,17 @@ export default function CalendarPage() {
     setComposeOpen(true)
   }
 
+  const renderTaskPill = (t: Task) => (
+    <span
+      key={`task-${t.id}`}
+      className="truncate block w-full rounded border-l-[3px] border-white/50 pl-1.5 pr-1 py-0.5 text-left text-[11px] leading-tight font-medium text-white shadow-sm"
+      style={{ backgroundColor: TASKS_CAL_COLOR }}
+      title={`Tâche · ${t.title}`}
+    >
+      ✓ {t.title}
+    </span>
+  )
+
   const renderEventPill = (ev: CalendarEvent & { occurrence_key?: string }) => {
     const cal = ev.calendar_id != null ? calMap.get(ev.calendar_id) : undefined
     const bg = cal?.color_hex ?? 'var(--color-brand-600, #2563eb)'
@@ -587,6 +614,7 @@ export default function CalendarPage() {
         {days.map((cell) => {
           const key = dayKey(cell)
           const dayEvents = eventsOnDay(cell)
+          const dayTasks = tasksOnDay(cell)
           const isToday = sameDay(cell, new Date())
           return (
             <button
@@ -601,8 +629,13 @@ export default function CalendarPage() {
                 {cell.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })}
               </span>
               <div className="mt-2 flex flex-col gap-1 overflow-hidden">
-                {dayEvents.slice(0, 5).map((ev) => renderEventPill(ev))}
-                {dayEvents.length > 5 ? <span className="text-[10px] text-slate-500 dark:text-slate-500">+{dayEvents.length - 5}</span> : null}
+                {dayEvents.slice(0, 4).map((ev) => renderEventPill(ev))}
+                {dayTasks.slice(0, 2).map((t) => renderTaskPill(t))}
+                {dayEvents.length + dayTasks.length > 6 ? (
+                  <span className="text-[10px] text-slate-500 dark:text-slate-500">
+                    +{dayEvents.length + dayTasks.length - 6}
+                  </span>
+                ) : null}
               </div>
             </button>
           )
@@ -848,6 +881,7 @@ export default function CalendarPage() {
                 {monthCells.map((cell) => {
                   const key = dayKey(cell)
                   const dayEvents = eventsByDay.get(key) ?? []
+                  const dayTasks = tasksOnDay(cell)
                   const inMonth = isSameMonth(cell, anchor)
                   const isToday = sameDay(cell, new Date())
                   return (
@@ -867,8 +901,13 @@ export default function CalendarPage() {
                         {cell.getDate()}
                       </span>
                       <div className="mt-1 flex flex-col gap-0.5 overflow-hidden">
-                        {dayEvents.slice(0, 3).map((ev) => renderEventPill(ev))}
-                        {dayEvents.length > 3 ? <span className="text-[10px] text-slate-500 dark:text-slate-500">+{dayEvents.length - 3}</span> : null}
+                        {dayEvents.slice(0, 2).map((ev) => renderEventPill(ev))}
+                        {dayTasks.slice(0, 1).map((t) => renderTaskPill(t))}
+                        {dayEvents.length + dayTasks.length > 3 ? (
+                          <span className="text-[10px] text-slate-500 dark:text-slate-500">
+                            +{dayEvents.length + dayTasks.length - 3}
+                          </span>
+                        ) : null}
                       </div>
                     </button>
                   )
@@ -971,17 +1010,31 @@ export default function CalendarPage() {
                   const t = new Date(e.start_at)
                   return t.getFullYear() === m.getFullYear() && t.getMonth() === m.getMonth()
                 })
+                const monthTasks = tasks.filter((t) => {
+                  if (t.completed) return false
+                  const iso = t.due_at || t.start_at
+                  if (!iso) return false
+                  const d = new Date(iso)
+                  return d.getFullYear() === m.getFullYear() && d.getMonth() === m.getMonth()
+                })
                 return (
                   <div key={m.getMonth()} className="min-h-[6rem] rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-600 dark:bg-slate-800/50">
                     <p className="mb-1 text-xs font-semibold capitalize text-slate-700 dark:text-slate-100">{m.toLocaleDateString('fr-FR', { month: 'long' })}</p>
                     <ul className="space-y-0.5">
-                      {monthEv.slice(0, 4).map((ev) => (
+                      {monthEv.slice(0, 3).map((ev) => (
                         <li key={ev.id} className="truncate text-[10px] text-slate-500 dark:text-slate-400" title={ev.title}>
                           {new Date(ev.start_at).getDate()} — {ev.title}
                         </li>
                       ))}
+                      {monthTasks.slice(0, 2).map((t) => (
+                        <li key={`t-${t.id}`} className="truncate text-[10px] text-emerald-700 dark:text-emerald-400" title={t.title}>
+                          ✓ {t.title}
+                        </li>
+                      ))}
                     </ul>
-                    {monthEv.length > 4 ? <p className="mt-1 text-[9px] text-slate-400">+{monthEv.length - 4}</p> : null}
+                    {monthEv.length + monthTasks.length > 5 ? (
+                      <p className="mt-1 text-[9px] text-slate-400">+{monthEv.length + monthTasks.length - 5}</p>
+                    ) : null}
                   </div>
                 )
               })}
@@ -1062,6 +1115,35 @@ export default function CalendarPage() {
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </button>
+                              </li>
+                            )
+                          })}
+                          {tasksOnDay(group.day).map((t) => {
+                            const dueIso = t.due_at || t.start_at
+                            const due = dueIso ? new Date(dueIso) : null
+                            const timeOk = due && !Number.isNaN(due.getTime())
+                            return (
+                              <li
+                                key={`task-${t.id}`}
+                                className="flex items-stretch gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer"
+                                onClick={() => navigate('/app/tasks')}
+                              >
+                                <div className="w-16 shrink-0 pt-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                  Tâche
+                                </div>
+                                <span
+                                  className="mt-1 w-1 shrink-0 rounded-full"
+                                  style={{ backgroundColor: TASKS_CAL_COLOR }}
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-medium text-slate-700 dark:text-slate-100">✓ {t.title}</p>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Hubera Tasks
+                                    {timeOk
+                                      ? ` · ${due.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+                                      : ''}
+                                  </p>
+                                </div>
                               </li>
                             )
                           })}

@@ -6,7 +6,7 @@ description: |
   (J+1..J+5 après la migration Proton).
 publish_to: 'none'
 
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ^3.11.4

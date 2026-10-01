@@ -161,6 +161,7 @@ export function cloudityAppIdFromPath(pathname: string): CloudityAppId {
     'contacts',
     'notes',
     'tasks',
+    'cook',
   ]
   return app && known.includes(app) ? app : 'hub'
 }

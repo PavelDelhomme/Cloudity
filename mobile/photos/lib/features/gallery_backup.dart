@@ -72,6 +72,14 @@ Future<GalleryBackupResult> _runGalleryBackupJob() async {
   final paths = await PhotoManager.getAssetPathList(
     type: RequestType.image,
     hasAll: true,
+    filterOption: FilterOptionGroup(
+      imageOption: const FilterOption(
+        sizeConstraint: SizeConstraint(ignoreSize: true),
+      ),
+      orders: [
+        const OrderOption(type: OrderOptionType.createDate, asc: false),
+      ],
+    ),
   );
   if (paths.isEmpty) {
     await GallerySyncPrefs.saveLastRun(uploaded: 0, skipped: 0);

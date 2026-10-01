@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 import 'suite_defaults.dart';
 
-/// Résolution de l’URL gateway pour les apps Flutter (dart-define + fallbacks dev).
+/// Résolution de l’URL gateway pour les apps Flutter (dart-define + fallbacks).
 abstract final class SuiteGatewayConfig {
   static const String _buildGateway = String.fromEnvironment(
     'CLOUDITY_GATEWAY_URL',
@@ -19,14 +21,22 @@ abstract final class SuiteGatewayConfig {
 
   static bool get hasDartDefine => fromDartDefine.isNotEmpty;
 
-  /// Candidats à tester au login (USB, émulateur, LAN).
+  /// Release = Hubera ID (vraie app iPhone/Android). Debug = USB / émulateur.
+  static String get runtimeDefault => hasDartDefine
+      ? fromDartDefine
+      : (kReleaseMode
+          ? ClouditySuiteDefaults.defaultGatewayProduction
+          : ClouditySuiteDefaults.defaultGatewayUsb);
+
+  /// Candidats à tester au login.
   static List<String> candidates({String? savedGateway}) {
     final candidates = <String>[
       if (hasDartDefine) fromDartDefine,
-      ClouditySuiteDefaults.defaultGatewayUsb,
+      if (kReleaseMode) ClouditySuiteDefaults.defaultGatewayProduction,
       if (savedGateway != null && savedGateway.trim().isNotEmpty) savedGateway.trim(),
-      ClouditySuiteDefaults.defaultGatewayEmulator,
-      'http://10.0.3.2:6002',
+      if (kDebugMode) ClouditySuiteDefaults.defaultGatewayUsb,
+      if (kDebugMode) ClouditySuiteDefaults.defaultGatewayEmulator,
+      if (kDebugMode) 'http://10.0.3.2:6002',
     ];
     final seen = <String>{};
     final uniq = <String>[];

@@ -201,7 +201,7 @@ export async function registerPhotosLockedWebAuthn(scope: string): Promise<void>
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: 'Cloudity Photos', id: window.location.hostname },
+      rp: { name: 'Hubera Photos', id: window.location.hostname },
       user: {
         id: userId,
         name: `photos-locked-${scope}`,

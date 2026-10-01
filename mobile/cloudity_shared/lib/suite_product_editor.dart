@@ -42,10 +42,11 @@ Future<bool> showSuiteProductEditor({
   required SuiteProductApi api,
   Map<String, dynamic>? existing,
   int? taskListId,
+  bool noteAsChecklist = false,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
-      return _editNote(context, api, existing);
+      return _editNote(context, api, existing, asChecklist: noteAsChecklist);
     case SuiteProduct.contacts:
       return _editContact(context, api, existing);
     case SuiteProduct.tasks:
@@ -58,8 +59,9 @@ Future<bool> showSuiteProductEditor({
 Future<bool> _editNote(
   BuildContext context,
   SuiteProductApi api,
-  Map<String, dynamic>? existing,
-) async {
+  Map<String, dynamic>? existing, {
+  bool asChecklist = false,
+}) async {
   final titleCtrl = TextEditingController(
     text: existing?['title']?.toString() ?? '',
   );
@@ -68,7 +70,36 @@ Future<bool> _editNote(
   );
   var color = existing?['color']?.toString() ?? 'default';
   var pinned = existing?['pinned'] == true;
+  var archived = existing?['archived'] == true;
   var remindAt = parseCloudityDateTime(existing?['remind_at']?.toString());
+  final labelsCtrl = TextEditingController(
+    text: () {
+      final labels = existing?['labels'];
+      if (labels is! List) return '';
+      return labels
+          .map((e) {
+            if (e is String) return e.trim();
+            if (e is Map) {
+              return (e['name'] ?? e['label'] ?? e['title'])?.toString().trim() ?? '';
+            }
+            return '';
+          })
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+    }(),
+  );
+  final extrasIn = existing?['extras'];
+  final checklist = <({TextEditingController text, bool done})>[];
+  if (extrasIn is Map && extrasIn['checklist'] is List) {
+    for (final raw in extrasIn['checklist'] as List) {
+      if (raw is! Map) continue;
+      checklist.add((
+        text: TextEditingController(text: raw['text']?.toString() ?? ''),
+        done: raw['done'] == true,
+      ));
+    }
+  }
+  var showList = asChecklist || checklist.isNotEmpty;
 
   final saved = await showSuiteModalBottomSheet<bool>(
     context: context,
@@ -108,6 +139,61 @@ Future<bool> _editNote(
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Liste à cocher'),
+                    value: showList,
+                    onChanged: (v) {
+                      setLocal(() {
+                        showList = v;
+                        if (v && checklist.isEmpty) {
+                          checklist.add((
+                            text: TextEditingController(),
+                            done: false,
+                          ));
+                        }
+                      });
+                    },
+                  ),
+                  if (showList) ...[
+                    for (var i = 0; i < checklist.length; i++)
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: checklist[i].done,
+                            onChanged: (v) => setLocal(() {
+                              checklist[i] = (
+                                text: checklist[i].text,
+                                done: v ?? false,
+                              );
+                            }),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: checklist[i].text,
+                              decoration: const InputDecoration(
+                                hintText: 'Élément',
+                                isDense: true,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => setLocal(() => checklist.removeAt(i)),
+                          ),
+                        ],
+                      ),
+                    TextButton.icon(
+                      onPressed: () => setLocal(() {
+                        checklist.add((
+                          text: TextEditingController(),
+                          done: false,
+                        ));
+                      }),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Ajouter un élément'),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     // ignore: deprecated_member_use
@@ -129,6 +215,21 @@ Future<bool> _editNote(
                     title: const Text('Épinglée'),
                     value: pinned,
                     onChanged: (v) => setLocal(() => pinned = v),
+                  ),
+                  if (existing != null)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Archivée'),
+                      value: archived,
+                      onChanged: (v) => setLocal(() => archived = v),
+                    ),
+                  TextField(
+                    controller: labelsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Libellés',
+                      hintText: 'courses, idées, perso',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -176,6 +277,22 @@ Future<bool> _editNote(
                               error = null;
                             });
                             try {
+                              final extras = <String, dynamic>{
+                                'checklist': [
+                                  for (var i = 0; i < checklist.length; i++)
+                                    if (checklist[i].text.text.trim().isNotEmpty)
+                                      {
+                                        'id': 'cl-$i',
+                                        'text': checklist[i].text.text.trim(),
+                                        'done': checklist[i].done,
+                                      },
+                                ],
+                              };
+                              final labels = labelsCtrl.text
+                                  .split(RegExp(r'[,;]'))
+                                  .map((s) => s.trim())
+                                  .where((s) => s.isNotEmpty)
+                                  .toList();
                               final id =
                                   existing == null ? null : suiteItemId(existing);
                               if (id == null) {
@@ -186,6 +303,8 @@ Future<bool> _editNote(
                                   pinned: pinned,
                                   remindAt:
                                       remindAt == null ? null : _iso(remindAt!),
+                                  labels: labels,
+                                  extras: extras,
                                 );
                               } else {
                                 await api.updateNote(
@@ -194,9 +313,12 @@ Future<bool> _editNote(
                                   content: bodyCtrl.text,
                                   color: color,
                                   pinned: pinned,
+                                  archived: archived,
                                   remindAt:
                                       remindAt == null ? null : _iso(remindAt!),
                                   clearRemindAt: remindAt == null,
+                                  labels: labels,
+                                  extras: extras,
                                 );
                               }
                               if (ctx.mounted) Navigator.pop(ctx, true);
@@ -322,6 +444,20 @@ Future<bool> _editContact(
   final birthdayCtrl = TextEditingController(
     text: profileMap['birthday']?.toString() ?? '',
   );
+  Map<String, dynamic> firstAddress() {
+    final raw = profileMap['addresses'];
+    if (raw is List && raw.isNotEmpty && raw.first is Map) {
+      return Map<String, dynamic>.from(raw.first as Map);
+    }
+    return {};
+  }
+
+  final addr0 = firstAddress();
+  final streetCtrl = TextEditingController(text: addr0['street']?.toString() ?? '');
+  final postalCtrl = TextEditingController(
+    text: addr0['postal_code']?.toString() ?? '',
+  );
+  final cityCtrl = TextEditingController(text: addr0['city']?.toString() ?? '');
 
   final saved = await showSuiteModalBottomSheet<bool>(
     context: context,
@@ -404,6 +540,34 @@ Future<bool> _editContact(
                   ),
                   const SizedBox(height: 12),
                   TextField(
+                    controller: streetCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Adresse',
+                      hintText: 'Rue, numéro',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: postalCtrl,
+                    keyboardType: TextInputType.streetAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Code postal',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: cityCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: const InputDecoration(
+                      labelText: 'Ville',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
                     controller: notesCtrl,
                     minLines: 2,
                     maxLines: 4,
@@ -464,6 +628,19 @@ Future<bool> _editContact(
                                     },
                                   ],
                               };
+                              final street = streetCtrl.text.trim();
+                              final postal = postalCtrl.text.trim();
+                              final city = cityCtrl.text.trim();
+                              if (street.isNotEmpty || postal.isNotEmpty || city.isNotEmpty) {
+                                profilePayload['addresses'] = [
+                                  {
+                                    'label': 'home',
+                                    if (street.isNotEmpty) 'street': street,
+                                    if (postal.isNotEmpty) 'postal_code': postal,
+                                    if (city.isNotEmpty) 'city': city,
+                                  },
+                                ];
+                              }
                               final id =
                                   existing == null ? null : suiteItemId(existing);
                               final display = name.isNotEmpty
@@ -511,6 +688,9 @@ Future<bool> _editContact(
   jobCtrl.dispose();
   notesCtrl.dispose();
   birthdayCtrl.dispose();
+  streetCtrl.dispose();
+  postalCtrl.dispose();
+  cityCtrl.dispose();
   return saved == true;
 }
 
@@ -719,6 +899,10 @@ Future<bool> _editEvent(
   SuiteProductApi api,
   Map<String, dynamic>? existing,
 ) async {
+  List<Map<String, dynamic>> contactOpts = const [];
+  try {
+    contactOpts = await api.fetchContacts();
+  } catch (_) {}
   final titleCtrl = TextEditingController(
     text: existing?['title']?.toString() ?? '',
   );
@@ -739,6 +923,12 @@ Future<bool> _editEvent(
   var allDay = existing?['all_day'] == true;
   var repeatRule =
       normalizeCalendarRepeat(existing?['repeat_rule']?.toString()) ?? '';
+  final guestsRaw = existing?['attendees'];
+  final guestsCtrl = TextEditingController(
+    text: guestsRaw is List
+        ? guestsRaw.map((e) => e.toString()).where((s) => s.trim().isNotEmpty).join(', ')
+        : (guestsRaw?.toString() ?? ''),
+  );
 
   final saved = await showSuiteModalBottomSheet<bool>(
     context: context,
@@ -848,6 +1038,49 @@ Future<bool> _editEvent(
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Autocomplete<String>(
+                    optionsBuilder: (text) {
+                      final q = text.text.split(RegExp(r'[,;]')).last.trim().toLowerCase();
+                      if (q.isEmpty) return const Iterable<String>.empty();
+                      final out = <String>[];
+                      for (final c in contactOpts) {
+                        final name = (c['name'] ?? c['display_name'] ?? '').toString();
+                        final email = (c['email'] ?? '').toString();
+                        if (email.isEmpty || !email.contains('@')) continue;
+                        if (name.toLowerCase().contains(q) || email.toLowerCase().contains(q)) {
+                          out.add('$name <$email>'.trim());
+                        }
+                      }
+                      return out.take(8);
+                    },
+                    onSelected: (opt) {
+                      final m = RegExp(r'<([^>]+)>').firstMatch(opt);
+                      final email = m?.group(1) ?? opt;
+                      final bits = guestsCtrl.text.split(RegExp(r'[,;]'));
+                      bits.removeLast();
+                      final kept = bits.map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+                      kept.add(email.trim());
+                      guestsCtrl.text = kept.join(', ');
+                      guestsCtrl.selection = TextSelection.collapsed(offset: guestsCtrl.text.length);
+                    },
+                    fieldViewBuilder: (context, textCtrl, focus, onSubmit) {
+                      if (textCtrl.text.isEmpty && guestsCtrl.text.isNotEmpty) {
+                        textCtrl.text = guestsCtrl.text;
+                      }
+                      return TextField(
+                        controller: textCtrl,
+                        focusNode: focus,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Invités (Hubera Contacts)',
+                          hintText: 'nom ou e-mail',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (v) => guestsCtrl.text = v,
+                      );
+                    },
+                  ),
                   if (error != null) ...[
                     const SizedBox(height: 8),
                     Text(error!, style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
@@ -891,6 +1124,11 @@ Future<bool> _editEvent(
                                   allDay: allDay,
                                   repeatRule:
                                       repeatRule.isEmpty ? null : repeatRule,
+                                  attendees: guestsCtrl.text
+                                      .split(RegExp(r'[,;]'))
+                                      .map((x) => x.trim())
+                                      .where((x) => x.contains('@'))
+                                      .toList(),
                                 );
                               } else {
                                 await api.updateCalendarEvent(
@@ -903,6 +1141,11 @@ Future<bool> _editEvent(
                                   allDay: allDay,
                                   repeatRule: repeatRule,
                                   clearRepeatRule: repeatRule.isEmpty,
+                                  attendees: guestsCtrl.text
+                                      .split(RegExp(r'[,;]'))
+                                      .map((x) => x.trim())
+                                      .where((x) => x.contains('@'))
+                                      .toList(),
                                 );
                               }
                               if (ctx.mounted) Navigator.pop(ctx, true);
@@ -926,6 +1169,7 @@ Future<bool> _editEvent(
   titleCtrl.dispose();
   locCtrl.dispose();
   descCtrl.dispose();
+  guestsCtrl.dispose();
   return saved == true;
 }
 

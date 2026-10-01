@@ -13,6 +13,7 @@ import {
   Trash2,
   FolderOpen,
   Settings,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { hubAppsByCategory, type HubAppDefinition, hubAppUsesFullPageNav } from '../../../hub/appsCatalog'
 
@@ -28,6 +29,7 @@ const APP_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   tasks: ListTodo,
   contacts: Users,
   photos: Image,
+  cook: UtensilsCrossed,
   settings: Settings,
 }
 
@@ -42,6 +44,7 @@ const APP_COLORS: Record<string, string> = {
   tasks: 'text-teal-600 dark:text-teal-400',
   contacts: 'text-indigo-600 dark:text-indigo-400',
   photos: 'text-pink-600 dark:text-pink-400',
+  cook: 'text-orange-600 dark:text-orange-400',
   settings: 'text-slate-600 dark:text-slate-400',
 }
 
