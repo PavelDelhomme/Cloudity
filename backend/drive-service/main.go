@@ -6,14 +6,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"image"
-	"image/jpeg"
 	_ "image/png"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -131,7 +130,12 @@ func dispositionFilename(name string) string {
 }
 
 func setupRouter(db *sql.DB) *gin.Engine {
-	h := &Handler{db: db}
+	dir := strings.TrimSpace(os.Getenv("THUMB_CACHE_DIR"))
+	if dir == "" {
+		dir = filepath.Join(os.TempDir(), "hubera-drive-thumbs")
+	}
+	_ = os.MkdirAll(dir, 0o755)
+	h := &Handler{db: db, thumbDir: dir}
 	r := gin.Default()
 	r.SetTrustedProxies(nil)
 	r.GET("/health", func(c *gin.Context) {
@@ -223,7 +227,8 @@ func main() {
 }
 
 type Handler struct {
-	db *sql.DB
+	db       *sql.DB
+	thumbDir string
 }
 
 func (h *Handler) requireUserID(c *gin.Context) {
@@ -1156,104 +1161,6 @@ func (h *Handler) getNodeContent(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", disp+`; filename="`+dispositionFilename(name)+`"`)
 	c.Data(http.StatusOK, ct, content)
-}
-
-func (h *Handler) getNodeThumbnail(c *gin.Context) {
-	if h.db == nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-	size := 360
-	if s, err := strconv.Atoi(c.DefaultQuery("size", "360")); err == nil && s >= 96 && s <= 1024 {
-		size = s
-	}
-	ctx := c.Request.Context()
-	var name string
-	var content []byte
-	var mime sql.NullString
-	var vaultEncrypted bool
-	err = h.dbex(ctx).QueryRow(`
-		SELECT name, COALESCE(content, ''::bytea), mime_type, vault_encrypted FROM drive_nodes
-		WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER AND is_folder = false AND deleted_at IS NULL
-	`, id).Scan(&name, &content, &mime, &vaultEncrypted)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return
-	}
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if vaultEncrypted {
-		c.Header("X-Cloudity-Vault-Encrypted", "1")
-		c.JSON(http.StatusNotFound, gin.H{"error": "vault_encrypted", "code": "VAULT_ENCRYPTED"})
-		return
-	}
-	ct := "application/octet-stream"
-	if mime.Valid && strings.TrimSpace(mime.String) != "" {
-		ct = strings.TrimSpace(mime.String)
-	}
-	if ct == "application/octet-stream" || ct == "" {
-		if inf := mimeFromFileName(name); inf != "" {
-			ct = inf
-		}
-	}
-	c.Header("Cache-Control", "private, max-age=3600")
-	if isNonPhotoThumbnail(name, ct) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not_an_image"})
-		return
-	}
-	if len(content) == 0 {
-		c.Data(http.StatusOK, "image/jpeg", []byte{})
-		return
-	}
-	img, err := decodeThumbnailImage(name, ct, content)
-	if err != nil {
-		if isNonPhotoThumbnail(name, ct) || (len(content) >= 4 && string(content[0:4]) == "%PDF") {
-			c.JSON(http.StatusNotFound, gin.H{"error": "not_an_image"})
-			return
-		}
-		c.Header("Content-Disposition", `inline; filename="`+dispositionFilename(name)+`"`)
-		c.Data(http.StatusOK, ct, content)
-		return
-	}
-	thumb := resizeNearest(img, size)
-	var buf bytes.Buffer
-	if err := jpeg.Encode(&buf, thumb, &jpeg.Options{Quality: 78}); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "thumbnail encode failed"})
-		return
-	}
-	c.Header("Content-Disposition", `inline; filename="thumbnail.jpg"`)
-	c.Data(http.StatusOK, "image/jpeg", buf.Bytes())
-}
-
-func resizeNearest(src image.Image, maxSide int) image.Image {
-	b := src.Bounds()
-	w, h := b.Dx(), b.Dy()
-	if w <= 0 || h <= 0 || (w <= maxSide && h <= maxSide) {
-		return src
-	}
-	newW, newH := maxSide, maxSide
-	if w >= h {
-		newH = max(1, h*maxSide/w)
-	} else {
-		newW = max(1, w*maxSide/h)
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, newW, newH))
-	for y := 0; y < newH; y++ {
-		sy := b.Min.Y + y*h/newH
-		for x := 0; x < newW; x++ {
-			sx := b.Min.X + x*w/newW
-			dst.Set(x, y, src.At(sx, sy))
-		}
-	}
-	return dst
 }
 
 // getZipEntries retourne la liste des entrées d'un fichier ZIP (nœud fichier) sans extraire. GET /drive/nodes/:id/archive/entries
