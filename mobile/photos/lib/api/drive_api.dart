@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 
 import 'package:cloudity_shared/http_helpers.dart';
 
-const _httpTimeout = Duration(seconds: 8);
+const _httpTimeout = Duration(seconds: 30);
 const _uploadTimeout = Duration(minutes: 2);
 
 /// Appels Drive nécessaires à la sauvegarde galerie (dossier Photos + upload).

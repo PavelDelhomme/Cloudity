@@ -107,14 +107,7 @@ class _GallerySyncSettingsSheetState extends State<GallerySyncSettingsSheet> {
     if (mounted && autoAlbums != null && autoAlbums.isNotEmpty) {
       setState(() => _selectedAlbumIds = autoAlbums);
     }
-    await enqueueGalleryBackupNow();
-    if (mounted) {
-      setState(() {
-        _lastMessage = autoAlbums != null && autoAlbums.isNotEmpty
-            ? '${autoAlbums.length} dossier(s) détecté(s) (Camera, Captures, messagerie…). Sauvegarde planifiée.'
-            : 'Première sauvegarde planifiée (Wi‑Fi / charge selon options).';
-      });
-    }
+    await _runNow();
   }
 
   Future<void> _stopBackup() async {

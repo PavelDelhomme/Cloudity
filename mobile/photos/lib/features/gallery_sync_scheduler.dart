@@ -25,7 +25,6 @@ Future<void> applyGallerySyncSchedule() async {
     frequency: const Duration(minutes: 15),
     constraints: Constraints(
       networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
-      requiresBatteryNotLow: true,
       requiresCharging: requireCharging,
     ),
     existingWorkPolicy: ExistingPeriodicWorkPolicy.update,
@@ -45,7 +44,6 @@ Future<void> enqueueGalleryBackupNow() async {
     galleryBackupTaskName,
     constraints: Constraints(
       networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
-      requiresBatteryNotLow: true,
       requiresCharging: requireCharging,
     ),
     existingWorkPolicy: ExistingWorkPolicy.replace,

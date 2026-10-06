@@ -1,7 +1,7 @@
 name: admin_app
-description: "Cloudity Admin — app mobile administration (tenants, monitoring)."
+description: "Hubera Admin — administration (tenants, console web, Docs)."
 publish_to: 'none'
-version: 0.1.1+2
+version: 0.1.4+5
 
 environment:
   sdk: ^3.11.4
@@ -17,6 +17,8 @@ dependencies:
   http: ^1.2.2
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.3.3
+  url_launcher: ^6.3.1
+  webview_flutter: ^4.13.0
 
 dev_dependencies:
   flutter_test:

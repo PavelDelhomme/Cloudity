@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../api/admin_api.dart';
 import '../auth/user_session.dart';
+import 'docs_screen.dart';
 import 'tenants_screen.dart';
+
+const _adminWebUrl = 'https://cloudity.delhomme.ovh/4dm1n';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({
@@ -19,7 +23,7 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  int _tenantCount = 0;
+  List<Map<String, dynamic>> _tenants = [];
   String? _error;
   bool _loading = true;
 
@@ -35,7 +39,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _error = null;
     });
     try {
-      await widget.session.refreshIfNeeded();
+      await widget.session.refreshIfNeeded().timeout(const Duration(seconds: 15));
       final api = AdminApi(
         gatewayBase: widget.session.api.baseUrl,
         accessToken: widget.session.accessToken,
@@ -43,15 +47,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final tenants = await api.listTenants();
       if (!mounted) return;
       setState(() {
-        _tenantCount = tenants.length;
+        _tenants = tenants;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _open(String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Impossible d’ouvrir $url')),
+      );
     }
   }
 
@@ -59,7 +73,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Administration'),
+        title: const Text('Hubera Admin'),
         actions: [
           IconButton(
             tooltip: 'Actualiser',
@@ -80,16 +94,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           if (index == 1) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
+                builder: (_) => const DocsWebScreen(),
+              ),
+            );
+          } else if (index == 2) {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
                 builder: (_) => TenantsScreen(session: widget.session),
               ),
             );
+          } else if (index == 3) {
+            _open(_adminWebUrl);
           }
         },
         children: const [
           DrawerHeader(
             child: Align(
               alignment: Alignment.bottomLeft,
-              child: Text('Cloudity Admin', style: TextStyle(fontSize: 22)),
+              child: Text('Hubera Admin', style: TextStyle(fontSize: 22)),
             ),
           ),
           NavigationDrawerDestination(
@@ -98,36 +120,113 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             label: Text('Tableau de bord'),
           ),
           NavigationDrawerDestination(
+            icon: Icon(Icons.checklist_outlined),
+            selectedIcon: Icon(Icons.checklist),
+            label: Text('Tâches · Docs'),
+          ),
+          NavigationDrawerDestination(
             icon: Icon(Icons.business_outlined),
             selectedIcon: Icon(Icons.business),
             label: Text('Tenants'),
+          ),
+          NavigationDrawerDestination(
+            icon: Icon(Icons.open_in_browser),
+            selectedIcon: Icon(Icons.open_in_browser),
+            label: Text('Console web'),
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
                 children: [
                   if (_error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    Card(
+                      color: Theme.of(context).colorScheme.errorContainer,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _error!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onErrorContainer,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _load,
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.business),
                       title: const Text('Tenants actifs'),
                       subtitle: Text('Gateway : ${widget.session.api.baseUrl}'),
-                      trailing: Text('$_tenantCount', style: Theme.of(context).textTheme.headlineSmall),
+                      trailing: Text(
+                        '${_tenants.length}',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => TenantsScreen(session: widget.session),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Application mobile d’administration — MVP. Utilisez /4dm1n sur le web pour les opérations avancées.',
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.checklist_outlined),
+                      title: const Text('Tâches · Hubera Docs'),
+                      subtitle: const Text(
+                        'Kanban, PDF des mails, notes, .md — dans cette app.',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const DocsWebScreen(),
+                          ),
+                        );
+                      },
+                    ),
                   ),
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.admin_panel_settings_outlined),
+                      title: const Text('Console web'),
+                      subtitle: const Text('Opérations avancées (/4dm1n).'),
+                      trailing: const Icon(Icons.open_in_new),
+                      onTap: () => _open(_adminWebUrl),
+                    ),
+                  ),
+                  if (_tenants.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text('Aperçu tenants', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    ..._tenants.take(8).map((t) {
+                      final name = t['name']?.toString() ?? 'Tenant ${t['id'] ?? ''}';
+                      final slug = t['slug']?.toString() ?? '';
+                      return ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.apartment_outlined),
+                        title: Text(name),
+                        subtitle: slug.isEmpty ? null : Text(slug),
+                      );
+                    }),
+                  ],
                 ],
               ),
             ),

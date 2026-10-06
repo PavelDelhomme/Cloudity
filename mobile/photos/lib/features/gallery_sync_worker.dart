@@ -34,7 +34,6 @@ Future<void> _enqueueContinuation() async {
     initialDelay: const Duration(minutes: 1),
     constraints: Constraints(
       networkType: wifiOnly ? NetworkType.unmetered : NetworkType.connected,
-      requiresBatteryNotLow: true,
       requiresCharging: requireCharging,
     ),
     existingWorkPolicy: ExistingWorkPolicy.replace,

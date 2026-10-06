@@ -115,16 +115,47 @@ abstract final class CloudityOtaClient {
       if (res.statusCode != 200) return null;
       final map = jsonDecode(res.body);
       if (map is! Map<String, dynamic>) return null;
-      final version = (map['version'] as String? ?? '').trim();
-      final apk = (map['apk_url'] as String? ?? map['apk'] as String? ?? '').trim();
+      final mapped = Map<String, dynamic>.from(map);
+      try {
+        final info = await PackageInfo.fromPlatform();
+        final installed = info.packageName.trim();
+        final feedPkg = (mapped['package'] as String? ?? '').trim();
+        final canon = mapped['canonical'];
+        if (canon is Map &&
+            installed.isNotEmpty &&
+            (canon['package'] as String? ?? '').trim() == installed) {
+          final cv = (canon['version'] as String? ?? '').trim();
+          final capk = (canon['apk_url'] as String? ?? canon['apk'] as String? ?? '').trim();
+          if (cv.isNotEmpty && capk.isNotEmpty) {
+            mapped['version'] = cv;
+            mapped['apk_url'] = capk;
+            mapped['apk'] = capk;
+            mapped['package'] = installed;
+            mapped['sha256'] = (canon['sha256'] as String? ?? mapped['sha256'] as String? ?? '').trim();
+            mapped['versionCode'] = canon['versionCode'] ?? mapped['versionCode'];
+          }
+        } else if (feedPkg.isNotEmpty && installed.isNotEmpty && feedPkg != installed) {
+          return null;
+        }
+      } catch (_) {
+        /* package_info indisponible : on garde le manifeste brut */
+      }
+      final version = (mapped['version'] as String? ?? '').trim();
+      final apk = (mapped['apk_url'] as String? ?? mapped['apk'] as String? ?? '').trim();
       if (version.isEmpty || apk.isEmpty) return null;
+      final apkPath = Uri.tryParse(apk)?.path.toLowerCase() ?? apk.toLowerCase();
+      if (apkPath.endsWith('/install') ||
+          apkPath.endsWith('.html') ||
+          apkPath.endsWith('.htm')) {
+        return null;
+      }
       return CloudityOtaManifest.fromJson({
-        ...map,
+        ...mapped,
         'apk_url': apk,
-        'min_supported': (map['min_supported'] as String? ?? version).trim(),
-        'published_at': (map['published_at'] as String? ?? map['generated'] as String? ?? '').trim(),
+        'min_supported': (mapped['min_supported'] as String? ?? version).trim(),
+        'published_at': (mapped['published_at'] as String? ?? mapped['generated'] as String? ?? '').trim(),
         'hubera': {
-          'message': (map['notes'] as String? ?? '').trim(),
+          'message': (mapped['notes'] as String? ?? '').trim(),
         },
       });
     } catch (_) {
@@ -162,10 +193,13 @@ abstract final class CloudityOtaClient {
   }) async {
     if (huberaHost != null && huberaHost.trim().isNotEmpty) {
       final hosted = await fetchHuberaUpdates(host: huberaHost, client: client);
-      if (hosted != null &&
-          hosted.apkUrl.isNotEmpty &&
-          cloudityCompareVersions(hosted.version, currentVersion) > 0) {
-        return hosted;
+      if (hosted != null) {
+        if (hosted.apkUrl.isNotEmpty &&
+            cloudityCompareVersions(hosted.version, currentVersion) > 0) {
+          return hosted;
+        }
+        // Feed produit joignable : ne pas retomber sur un APK gateway obsolète / hash faux.
+        return null;
       }
     }
     return checkUpdate(
@@ -282,6 +316,24 @@ Future<void> cloudityDownloadAndInstallOta(
     }
 
     onProgress?.call(1.0);
+
+    final size = await dest.length();
+    if (size < 100 * 1024) {
+      await _safeDelete(dest);
+      throw StateError('APK trop petite ($size octets) — fichier invalide.');
+    }
+    final raf = await dest.open();
+    try {
+      final magic = await raf.read(4);
+      if (magic.length < 2 || magic[0] != 0x50 || magic[1] != 0x4b) {
+        await _safeDelete(dest);
+        throw StateError(
+          'Fichier téléchargé n’est pas une APK (page HTML / réseau).',
+        );
+      }
+    } finally {
+      await raf.close();
+    }
 
     final expected = manifest.sha256.trim().toLowerCase();
     if (expected.isNotEmpty) {

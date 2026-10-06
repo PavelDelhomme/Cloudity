@@ -8,9 +8,6 @@ abstract final class ClouditySuiteDefaults {
   /// Gateway production des apps installées (iPhone / Android), pas USB.
   static const defaultGatewayProduction = 'https://id.hubera.cloud';
 
-  /// Gateway production des apps installées (iPhone / Android), pas USB.
-  static const defaultGatewayProduction = 'https://id.hubera.cloud';
-
   /// Compte admin local après `make seed-admin` (surcharge `SEED_ADMIN_EMAIL` dans `.env`).
   static const devAdminEmail = 'admin@cloudity.local';
 
