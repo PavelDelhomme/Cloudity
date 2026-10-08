@@ -43,7 +43,7 @@ bool _onLogin(WidgetTester tester) =>
     find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _on2FA(WidgetTester tester) =>
-    find.text('Vérification 2FA — Cloudity Calendar').evaluate().isNotEmpty;
+    find.text('Vérification 2FA — Hubera Calendar').evaluate().isNotEmpty;
 
 bool _onInbox(WidgetTester tester) => find.byKey(kInbox).evaluate().isNotEmpty;
 

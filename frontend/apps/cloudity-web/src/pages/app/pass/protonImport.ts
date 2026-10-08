@@ -298,7 +298,7 @@ export function parseProtonExport(rawJson: string): ProtonExport {
   if (parsed.encrypted === true) {
     throw new ProtonImportError(
       'Export Proton chiffré.',
-      'Re-fais l\'export depuis Proton Pass en mode "JSON unencrypted" — Cloudity ne déchiffre pas le format Proton.'
+      'Re-fais l\'export depuis Proton Pass en mode "JSON unencrypted" — Hubera ne déchiffre pas le format Proton.'
     )
   }
   if (!isRecord(parsed.vaults)) {

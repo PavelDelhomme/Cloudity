@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 
 import 'calendar_repeat.dart';
+import 'calendar_time_grid.dart';
 import 'cloudity_crash_reporter.dart';
 import 'cloudity_datetime.dart';
 import 'cloudity_error_ui.dart';
+import 'hubera_scaffold.dart';
 import 'suite_app_catalog.dart';
 import 'suite_bottom_sheet.dart';
 import 'suite_drawer_scaffold.dart';
 import 'suite_feedback_screen.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
+
+/// Vues agenda quotidiennes (mois / semaine / jour / liste).
+enum CalendarHomeView { month, week, day, agenda }
 
 /// Produit suite affiché par l'écran d'accueil mobile.
 enum SuiteProduct { calendar, contacts, notes, tasks }
@@ -83,7 +88,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   late DateTime _calFocusDay;
   late DateTime _calMonthAnchor;
   bool _calDayFilter = false;
-  bool _calMonthView = true;
+  CalendarHomeView _calView = CalendarHomeView.month;
   final ScrollController _agendaScroll = ScrollController();
   final Map<String, GlobalKey> _agendaDayKeys = {};
 
@@ -211,12 +216,19 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         final start = item['start_at'] ?? item['starts_at'];
         final rr = normalizeCalendarRepeat(item['repeat_rule']?.toString());
         final when = formatCloudityDateTimeLocal(start?.toString());
-        if (rr == null) return when;
-        final label = kCalendarRepeatOptions
-            .where((o) => o.value == rr)
-            .map((o) => o.label)
-            .followedBy(const ['']).first;
-        return '$when · ${label.isEmpty ? rr : label}';
+        final bits = <String>[if (when.isNotEmpty) when];
+        if (rr != null) {
+          final label = kCalendarRepeatOptions
+              .where((o) => o.value == rr)
+              .map((o) => o.label)
+              .followedBy(const ['']).first;
+          bits.add(label.isEmpty ? rr : label);
+        }
+        final remind = normalizeCalendarReminder(item['reminder_minutes']);
+        if (remind != null) {
+          bits.add(remind == 0 ? 'rappel à l’heure' : 'rappel ${remind} min');
+        }
+        return bits.isEmpty ? null : bits.join(' · ');
       case SuiteProduct.contacts:
         final profile = item['profile'];
         String? org;
@@ -288,6 +300,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   Future<void> _openEditor({
     Map<String, dynamic>? existing,
     bool noteAsChecklist = false,
+    DateTime? seedStart,
   }) async {
     if (existing != null && existing['_hubera_task'] == true) {
       await _openCalendarTaskSheet(existing);
@@ -300,6 +313,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       existing: existing,
       taskListId: _selectedTaskListId,
       noteAsChecklist: noteAsChecklist,
+      seedStart: seedStart,
     );
     if (saved && mounted) await _reload();
   }
@@ -820,8 +834,6 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                             );
                           },
                         )
-                  : widget.product == SuiteProduct.calendar
-                  ? _buildCalendarList(                        )
                   : widget.product == SuiteProduct.calendar
                   ? _buildCalendarList()
                   : _items.isEmpty
@@ -1581,6 +1593,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 setState(() {
                   _calFocusDay = cell;
                   _calDayFilter = true;
+                  _calView = CalendarHomeView.day;
                 });
               },
               child: Container(
@@ -1719,8 +1732,85 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     final accent = theme.colorScheme.primary;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    if (_calMonthView) {
+    if (_calView == CalendarHomeView.month) {
       return _buildCalendarMonth(today, accent);
+    }
+    if (_calView == CalendarHomeView.week) {
+      return CalendarTimeGrid(
+        days: calendarWeekDays(_calFocusDay),
+        items: _items,
+        accent: accent,
+        itemTitle: _itemTitle,
+        isTask: _isHuberaTask,
+        onEventTap: (item) => _openEditor(existing: item),
+        onSlotTap: (start) => _openEditor(seedStart: start),
+      );
+    }
+    if (_calView == CalendarHomeView.day) {
+      return Column(
+        children: [
+          Expanded(
+            flex: 3,
+            child: CalendarTimeGrid(
+              days: [_calFocusDay],
+              items: _items,
+              accent: accent,
+              itemTitle: _itemTitle,
+              isTask: _isHuberaTask,
+              onEventTap: (item) => _openEditor(existing: item),
+              onSlotTap: (start) => _openEditor(seedStart: start),
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                formatCloudityDayHeaderFromDate(_calFocusDay),
+                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: _itemsOnDay(_calFocusDay).isEmpty
+                ? Center(
+                    child: Text(
+                      'Rien ce jour-là',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
+                    itemCount: _itemsOnDay(_calFocusDay).length,
+                    itemBuilder: (context, i) {
+                      final item = _itemsOnDay(_calFocusDay)[i];
+                      final isTask = _isHuberaTask(item);
+                      final start = (item['start_at'] ?? item['starts_at'])?.toString();
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: Icon(
+                            isTask ? Icons.check_circle_outline : Icons.event,
+                            color: isTask ? const Color(0xFF188038) : accent,
+                          ),
+                          title: Text(_itemTitle(item)),
+                          subtitle: Text(
+                            isTask
+                                ? 'Tâche Hubera Tasks · ${formatCloudityTimeLocal(start)}'
+                                : formatCloudityTimeLocal(start),
+                          ),
+                          onTap: () => _openEditor(existing: item),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      );
     }
 
     final rawEvents = _items.where((item) {
@@ -2094,10 +2184,21 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       navItems: _productNavItems(),
       appBarActions: [
         if (!_showSettings && widget.product == SuiteProduct.calendar) ...[
-          IconButton(
-            tooltip: _calMonthView ? 'Vue agenda' : 'Vue mois',
-            icon: Icon(_calMonthView ? Icons.view_agenda_outlined : Icons.calendar_view_month_outlined),
-            onPressed: () => setState(() => _calMonthView = !_calMonthView),
+          PopupMenuButton<CalendarHomeView>(
+            tooltip: 'Vue',
+            icon: Icon(switch (_calView) {
+              CalendarHomeView.month => Icons.calendar_view_month_outlined,
+              CalendarHomeView.week => Icons.view_week_outlined,
+              CalendarHomeView.day => Icons.view_day_outlined,
+              CalendarHomeView.agenda => Icons.view_agenda_outlined,
+            }),
+            onSelected: (v) => setState(() => _calView = v),
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(value: CalendarHomeView.day, child: Text('Jour')),
+              PopupMenuItem(value: CalendarHomeView.week, child: Text('Semaine')),
+              PopupMenuItem(value: CalendarHomeView.month, child: Text('Mois')),
+              PopupMenuItem(value: CalendarHomeView.agenda, child: Text('Agenda')),
+            ],
           ),
           IconButton(
             tooltip: 'Aujourd’hui',
@@ -2139,6 +2240,35 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         if (!_showSettings)
           IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
       ],
+      onAccountTap: () => setState(() => _showSettings = true),
+      versionLabel: 'Hubera ${widget.product.title}',
+      huberaProduct: widget.product.suiteApp.asHubera,
+      bottomDestinations: widget.product == SuiteProduct.calendar
+          ? const [
+              HuberaNavDest(id: 'month', label: 'Mois', icon: Icons.calendar_view_month_outlined),
+              HuberaNavDest(id: 'week', label: 'Semaine', icon: Icons.view_week_outlined),
+              HuberaNavDest(id: 'day', label: 'Jour', icon: Icons.view_day_outlined),
+              HuberaNavDest(id: 'agenda', label: 'Agenda', icon: Icons.view_agenda_outlined),
+            ]
+          : const [],
+      selectedBottomId: switch (_calView) {
+        CalendarHomeView.month => 'month',
+        CalendarHomeView.week => 'week',
+        CalendarHomeView.day => 'day',
+        CalendarHomeView.agenda => 'agenda',
+      },
+      onBottomSelected: widget.product == SuiteProduct.calendar
+          ? (id) {
+              setState(() {
+                _calView = switch (id) {
+                  'week' => CalendarHomeView.week,
+                  'day' => CalendarHomeView.day,
+                  'agenda' => CalendarHomeView.agenda,
+                  _ => CalendarHomeView.month,
+                };
+              });
+            }
+          : null,
       onOpenSettings: () => setState(() => _showSettings = true),
       onCloseSettings: () => setState(() => _showSettings = false),
       onLogout: widget.onLogout,

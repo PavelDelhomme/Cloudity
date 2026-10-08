@@ -5,6 +5,7 @@ import { Routes, Route } from 'react-router-dom'
 import { TestRouter } from '@cloudity/web-shell/test-utils'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import DrivePage, { renameBaseNameSelectionEnd } from './DrivePage'
+import DriveShellLayout from '../DriveShellLayout'
 import AppLayout from '@cloudity/web-shell/layouts/AppLayout'
 import { useAuth } from '@cloudity/web-shell/authContext'
 import { UploadProvider } from '@cloudity/web-shell/UploadProvider'
@@ -23,6 +24,13 @@ vi.mock('@cloudity/web-shell/api', () => ({
   fetchDriveSearch: vi.fn().mockResolvedValue([]),
   fetchDriveTrash: vi.fn().mockResolvedValue([]),
   fetchDriveRecentFiles: vi.fn().mockResolvedValue([]),
+  fetchDriveStarredNodes: vi.fn().mockResolvedValue([]),
+  fetchDriveSharedNodes: vi.fn().mockResolvedValue([]),
+  fetchDriveStorageSummary: vi.fn().mockResolvedValue({ drive: { bytes: 0, file_count: 0, label: 'Drive' }, photos: { bytes: 0, file_count: 0, label: 'Photos' } }),
+  createDriveShare: vi.fn().mockResolvedValue({ token: 'abc', url: '/drive/share/abc' }),
+  drivePublicShareUrl: vi.fn((t: string) => `https://drive.hubera.cloud/drive/share/${t}`),
+  setDriveStarred: vi.fn().mockResolvedValue(undefined),
+  revokeDriveShare: vi.fn().mockResolvedValue(undefined),
   createDriveFolder: vi.fn().mockResolvedValue({ id: 1 }),
   createDriveFile: vi.fn().mockResolvedValue({ id: 1, name: 'Sans titre.docx', is_folder: false }),
   createDriveFileWithUniqueName: vi.fn().mockResolvedValue({ id: 1, name: 'Sans titre.docx', is_folder: false }),
@@ -43,12 +51,26 @@ vi.mock('@cloudity/web-shell/api', () => ({
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 const realLocalStorage = window.localStorage
 
-function wrap(ui: React.ReactElement) {
+function wrap(ui: React.ReactElement, entry = '/') {
   return (
     <QueryClientProvider client={queryClient}>
       <UploadProvider>
-        <TestRouter>{ui}</TestRouter>
+        <TestRouter initialEntries={[entry]}>{ui}</TestRouter>
       </UploadProvider>
+    </QueryClientProvider>
+  )
+}
+
+function wrapShell(entry = '/') {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TestRouter initialEntries={[entry]}>
+        <Routes>
+          <Route element={<DriveShellLayout />}>
+            <Route index element={<DrivePage />} />
+          </Route>
+        </Routes>
+      </TestRouter>
     </QueryClientProvider>
   )
 }
@@ -107,8 +129,25 @@ describe('DrivePage', () => {
   it('renders Drive title et bouton Corbeille dans la barre d’outils', () => {
     render(wrap(<DrivePage />))
     expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Corbeille' })).toBeTruthy()
+  })
+
+  it('chrome Google Drive : Accueil / Favoris / Partagés / Fichiers + recherche + compte', async () => {
+    render(wrapShell())
+    expect(await screen.findByRole('navigation', { name: 'Navigation Drive' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Accueil' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Favoris' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Partagés' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Fichiers' })).toBeTruthy()
+    expect(screen.getByRole('searchbox', { name: 'Rechercher dans Drive' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Compte' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Ouvrir le menu' }))
+    expect(screen.getByRole('navigation', { name: 'Menu Drive' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Récents' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Importations' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Hors connexion' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Corbeille' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Spam' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Paramètres' })).toBeTruthy()
   })
 
   it('avec layout, le fil d’Ariane en haut contient Tableau de bord et Drive', () => {
@@ -119,8 +158,8 @@ describe('DrivePage', () => {
   })
 
   it('affiche le bouton Paramètres Drive', () => {
-    render(wrap(<DrivePage />))
-    expect(screen.getByRole('button', { name: 'Paramètres Drive' })).toBeTruthy()
+    render(wrap(<DrivePage />, '/?view=settings'))
+    expect(screen.getByRole('heading', { name: 'Paramètres Drive' })).toBeTruthy()
   })
 
   it('coffre local : bloque les fichiers avant déverrouillage puis charge après PIN', async () => {
@@ -172,9 +211,7 @@ describe('DrivePage', () => {
   })
 
   it('paramètres : enregistre le mode d’affichage par défaut', () => {
-    render(wrap(<DrivePage />))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Paramètres Drive' }))
+    render(wrap(<DrivePage />, '/?view=settings'))
     fireEvent.change(screen.getByLabelText('Affichage par défaut'), { target: { value: 'list' } })
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }))
 
@@ -337,7 +374,7 @@ describe('DrivePage', () => {
 
   it('toolbar and list render without throwing after multiple re-renders', async () => {
     const { rerender } = render(wrap(<DrivePage />))
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 5000 })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nouveau dossier' })).toBeTruthy(), { timeout: 5000 })
     expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
     for (let i = 0; i < 10; i++) {
       rerender(wrap(<DrivePage />))
@@ -348,8 +385,6 @@ describe('DrivePage', () => {
 
   it('shows empty state when no nodes', async () => {
     render(wrap(<DrivePage />))
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 5000 })
-    expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Nouveau dossier' })).toBeTruthy()
   })
 
@@ -750,9 +785,8 @@ describe('DrivePage', () => {
 
   describe('Récents', () => {
     it('affiche la section Récents à la racine avec toggle pour masquer/afficher', async () => {
-      render(wrap(<DrivePage />))
+      render(wrap(<DrivePage />, '/?view=home'))
       await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 3000 })
-      expect(screen.getByRole('button', { name: 'Récents' })).toBeTruthy()
       const toggle = screen.getByTestId('drive-recent-section-toggle')
       expect(toggle).toBeTruthy()
       expect(screen.getByLabelText(/Masquer la section Récents/)).toBeTruthy()
@@ -761,9 +795,7 @@ describe('DrivePage', () => {
     })
 
     it('clic sur Récents bascule en vue Récents (sous-catégorie comme Corbeille)', async () => {
-      render(wrap(<DrivePage />))
-      await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 3000 })
-      fireEvent.click(screen.getByRole('button', { name: 'Récents' }))
+      render(wrap(<DrivePage />, '/?view=recent'))
       await waitFor(() => expect(screen.getByRole('heading', { name: 'Récents' })).toBeTruthy())
       await waitFor(() => expect(screen.getByText(/Aucun élément récent/)).toBeTruthy(), { timeout: 3000 })
     })
@@ -782,7 +814,7 @@ describe('DrivePage', () => {
         updated_at: '2025-01-15T12:00:00Z',
       }
       vi.mocked(api.fetchDriveRecentFiles).mockResolvedValue([recentNode as never])
-      render(wrap(<DrivePage />))
+      render(wrap(<DrivePage />, '/?view=home'))
       await waitFor(() => expect(screen.getByRole('region', { name: 'Récents' })).toBeTruthy(), { timeout: 3000 })
       // La requête récents est asynchrone ; on vérifie au moins la section et que fetchDriveRecentFiles a été appelé
       expect(vi.mocked(api.fetchDriveRecentFiles).mock.calls.some((c) => c[0] === 'token' && c[1] === 24)).toBe(true)
@@ -816,10 +848,7 @@ describe('DrivePage', () => {
     }
 
     it('affiche le lien Corbeille et bascule en vue corbeille', async () => {
-      render(wrap(<DrivePage />))
-      expect(screen.getByRole('button', { name: 'Corbeille' })).toBeTruthy()
-      expect(screen.getByRole('heading', { name: 'Drive' })).toBeTruthy()
-      fireEvent.click(screen.getByRole('button', { name: 'Corbeille' }))
+      render(wrap(<DrivePage />, '/?view=trash'))
       await waitFor(() => expect(screen.getByRole('heading', { name: 'Corbeille' })).toBeTruthy())
       expect(screen.getByText(/Fichiers et dossiers supprimés/)).toBeTruthy()
     })
@@ -828,8 +857,7 @@ describe('DrivePage', () => {
       const { fetchDriveTrash } = await import('@cloudity/web-shell/api')
       vi.mocked(fetchDriveTrash).mockResolvedValue([mockTrashNode as never])
       localStorage.setItem('cloudity.drive.appSettings.v1', JSON.stringify({ displayMode: 'list', showRecentSection: true }))
-      render(wrap(<DrivePage />))
-      fireEvent.click(screen.getByRole('button', { name: 'Corbeille' }))
+      render(wrap(<DrivePage />, '/?view=trash'))
       await waitFor(() => expect(screen.getByRole('heading', { name: 'Corbeille' })).toBeTruthy())
       await waitFor(() => expect(screen.getByText('Supprimé.docx')).toBeTruthy(), { timeout: 3000 })
       expect(screen.getByText('Supprimé le')).toBeTruthy()

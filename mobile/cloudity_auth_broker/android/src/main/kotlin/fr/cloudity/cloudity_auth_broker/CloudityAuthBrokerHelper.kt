@@ -20,6 +20,20 @@ object CloudityAuthBrokerHelper {
         "cloud.hubera.tasks",
         "cloud.hubera.cook",
         "cloud.hubera.admin",
+        "cloud.hubera.id",
+        "cloud.hubera.music",
+        "cloud.hubera.music.dev",
+        "cloud.hubera.music.preprod",
+        "ovh.delhomme.ytmusic",
+        "cloud.hubera.docs",
+        "cloud.hubera.maps",
+        "ovh.delhomme.maps",
+        "cloud.hubera.fuel",
+        "cloud.hubera.jobs",
+        "cloud.hubera.office",
+        "cloud.hubera.row",
+        "cloud.hubera.office.docs",
+        "cloud.hubera.slides",
         "fr.cloudity.cloudity_mail",
         "fr.cloudity.cloudity_drive",
         "fr.cloudity.cloudity_photos",
@@ -34,8 +48,13 @@ object CloudityAuthBrokerHelper {
 
     fun authorityFor(packageName: String): String = "$packageName.cloudity.auth"
 
+    fun huberaAuthorityFor(packageName: String): String = "$packageName.hubera.id"
+
     fun accountsUri(packageName: String): Uri =
         Uri.parse("content://${authorityFor(packageName)}/accounts")
+
+    fun huberaAccountsUri(packageName: String): Uri =
+        Uri.parse("content://${huberaAuthorityFor(packageName)}/accounts")
 
     private fun allPackages(ctx: Context): List<String> =
         (peerPackages + ctx.packageName).distinct()
@@ -77,8 +96,8 @@ object CloudityAuthBrokerHelper {
                     while (cursor.moveToNext()) {
                         val email = if (emailIdx >= 0) cursor.getString(emailIdx).orEmpty() else ""
                         val refresh = if (refreshIdx >= 0) cursor.getString(refreshIdx).orEmpty() else ""
-                        if (email.isEmpty() || refresh.isEmpty()) continue
                         val access = if (accessIdx >= 0) cursor.getString(accessIdx).orEmpty() else ""
+                        if (email.isEmpty() || (refresh.isEmpty() && access.isEmpty())) continue
                         out.add(
                             Candidate(
                                 email = email,
@@ -99,6 +118,41 @@ object CloudityAuthBrokerHelper {
                 }
             } catch (_: Exception) {
                 // App absente ou non signée avec la même clé.
+            }
+            try {
+                ctx.contentResolver.query(huberaAccountsUri(pkg), null, null, null, null)?.use { cursor ->
+                    val emailIdx = cursor.getColumnIndex("email")
+                    val gwIdx = cursor.getColumnIndex("gateway_url")
+                    val accessIdx = cursor.getColumnIndex("access_token")
+                    val refreshIdx = cursor.getColumnIndex("refresh_token")
+                    val tenantIdx = cursor.getColumnIndex("tenant_id")
+                    val sourceIdx = cursor.getColumnIndex("source_package")
+                    val updatedIdx = cursor.getColumnIndex("updated_at")
+                    while (cursor.moveToNext()) {
+                        val email = if (emailIdx >= 0) cursor.getString(emailIdx).orEmpty() else ""
+                        val refresh = if (refreshIdx >= 0) cursor.getString(refreshIdx).orEmpty() else ""
+                        val access = if (accessIdx >= 0) cursor.getString(accessIdx).orEmpty() else ""
+                        if (email.isEmpty() || (refresh.isEmpty() && access.isEmpty())) continue
+                        out.add(
+                            Candidate(
+                                email = email,
+                                gatewayUrl = if (gwIdx >= 0) cursor.getString(gwIdx).orEmpty() else "",
+                                accessToken = access,
+                                refreshToken = refresh,
+                                tenantId = if (tenantIdx >= 0) cursor.getInt(tenantIdx) else 1,
+                                sourcePackage = if (sourceIdx >= 0) {
+                                    cursor.getString(sourceIdx).orEmpty().ifEmpty { pkg }
+                                } else {
+                                    pkg
+                                },
+                                updatedAt = if (updatedIdx >= 0) cursor.getLong(updatedIdx) else 0L,
+                                accessExp = jwtExpSeconds(access),
+                            ),
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                // Peer Hubera ID absent.
             }
         }
         return out
@@ -125,11 +179,25 @@ object CloudityAuthBrokerHelper {
             put(CloudityAuthProvider.COL_TENANT, tenantId)
             put(CloudityAuthProvider.COL_UPDATED_AT, System.currentTimeMillis())
         }
+        val huberaValues = ContentValues().apply {
+            put("email", email)
+            put("access_token", accessToken)
+            put("refresh_token", refreshToken)
+            put("gateway_url", gatewayUrl)
+            put("tenant_id", tenantId)
+            put("issuer", "cloudity")
+            put("updated_at", System.currentTimeMillis())
+        }
         for (pkg in allPackages(ctx)) {
             try {
                 ctx.contentResolver.insert(accountsUri(pkg), values)
             } catch (_: Exception) {
                 // Peer non installé / provider indisponible.
+            }
+            try {
+                ctx.contentResolver.insert(huberaAccountsUri(pkg), huberaValues)
+            } catch (_: Exception) {
+                // Peer Hubera ID absent.
             }
         }
     }
@@ -142,6 +210,11 @@ object CloudityAuthBrokerHelper {
                 ctx.contentResolver.delete(uri, null, null)
             } catch (_: Exception) {
                 // Peer absent.
+            }
+            try {
+                ctx.contentResolver.delete(huberaAccountsUri(pkg).buildUpon().appendPath(email).build(), null, null)
+            } catch (_: Exception) {
+                // Peer Hubera ID absent.
             }
         }
     }

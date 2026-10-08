@@ -28,6 +28,9 @@ func setupRouter(db *sql.DB) *gin.Engine {
 	r.POST("/calendar/calendars", h.createCalendar)
 	r.GET("/calendar/events", h.listEvents)
 	r.POST("/calendar/events", h.createEvent)
+	r.POST("/calendar/events/from-maps", h.fromMaps)
+	r.PUT("/calendar/events/:id/rsvp", h.rsvpEvent)
+	r.POST("/calendar/events/:id/rsvp", h.rsvpEvent)
 	r.PUT("/calendar/events/:id", h.updateEvent)
 	r.DELETE("/calendar/events/:id", h.deleteEvent)
 	return r
@@ -47,9 +50,7 @@ func main() {
 		if err := db.Ping(); err != nil {
 			log.Fatal("ping:", err)
 		}
-		if _, err := db.Exec(`ALTER TABLE calendar_events ADD COLUMN IF NOT EXISTS attendees TEXT`); err != nil {
-			log.Printf("calendar attendees schema: %v", err)
-		}
+		ensureCalendarSchema(db)
 	}
 	r := setupRouter(db)
 	port := os.Getenv("PORT")
@@ -109,20 +110,23 @@ type UserCalendar struct {
 }
 
 type Event struct {
-	ID          int      `json:"id"`
-	TenantID    int      `json:"tenant_id"`
-	UserID      int      `json:"user_id"`
-	CalendarID  *int     `json:"calendar_id,omitempty"`
-	Title       string   `json:"title"`
-	StartAt     string   `json:"start_at"`
-	EndAt       string   `json:"end_at"`
-	AllDay      bool     `json:"all_day"`
-	Location    *string  `json:"location,omitempty"`
-	Description *string  `json:"description,omitempty"`
-	RepeatRule  *string  `json:"repeat_rule,omitempty"`
-	Attendees   []string `json:"attendees,omitempty"`
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
+	ID              int      `json:"id"`
+	TenantID        int      `json:"tenant_id"`
+	UserID          int      `json:"user_id"`
+	CalendarID      *int     `json:"calendar_id,omitempty"`
+	Title           string   `json:"title"`
+	StartAt         string   `json:"start_at"`
+	EndAt           string   `json:"end_at"`
+	AllDay          bool     `json:"all_day"`
+	Location        *string  `json:"location,omitempty"`
+	Description     *string  `json:"description,omitempty"`
+	RepeatRule      *string           `json:"repeat_rule,omitempty"`
+	Attendees       []string          `json:"attendees,omitempty"`
+	Rsvps           map[string]string `json:"rsvps,omitempty"`
+	ReminderMinutes *int              `json:"reminder_minutes,omitempty"`
+	SourceKey       *string  `json:"source_key,omitempty"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
 }
 
 func (h *Handler) ensureDefaultCalendar(ctx context.Context, userID, tenantID int) (int, error) {
@@ -258,8 +262,7 @@ func (h *Handler) listEvents(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	calQ := strings.TrimSpace(c.Query("calendar_id"))
-	base := `
-		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, repeat_rule, COALESCE(attendees, ''), created_at::text, COALESCE(updated_at::text, '')
+	base := `SELECT ` + eventSelectCols + `
 		FROM calendar_events WHERE user_id = current_setting('app.current_user_id', true)::INTEGER`
 	var rows *sql.Rows
 	var err error
@@ -280,30 +283,11 @@ func (h *Handler) listEvents(c *gin.Context) {
 	defer rows.Close()
 	list := make([]Event, 0)
 	for rows.Next() {
-		var e Event
-		var loc, desc, rr, att sql.NullString
-		var cal sql.NullInt64
-		var uat string
-		if err := rows.Scan(&e.ID, &e.TenantID, &e.UserID, &cal, &e.Title, &e.StartAt, &e.EndAt, &e.AllDay, &loc, &desc, &rr, &att, &e.CreatedAt, &uat); err != nil {
+		e, err := scanEvent(rows)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		if cal.Valid {
-			v := int(cal.Int64)
-			e.CalendarID = &v
-		}
-		if loc.Valid {
-			e.Location = &loc.String
-		}
-		if desc.Valid {
-			e.Description = &desc.String
-		}
-		if rr.Valid && strings.TrimSpace(rr.String) != "" {
-			s := strings.TrimSpace(rr.String)
-			e.RepeatRule = &s
-		}
-		e.Attendees = splitAttendees(att.String)
-		e.UpdatedAt = uat
 		list = append(list, e)
 	}
 	c.JSON(http.StatusOK, list)
@@ -315,28 +299,43 @@ func (h *Handler) createEvent(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title       string   `json:"title"`
-		StartAt     string   `json:"start_at"`
-		EndAt       string   `json:"end_at"`
-		AllDay      bool     `json:"all_day"`
-		Location    *string  `json:"location"`
-		Description *string  `json:"description"`
-		CalendarID  *int     `json:"calendar_id"`
-		RepeatRule  *string  `json:"repeat_rule"`
-		Attendees   []string `json:"attendees"`
+		Title           string   `json:"title"`
+		StartAt         string   `json:"start_at"`
+		EndAt           string   `json:"end_at"`
+		AllDay          bool     `json:"all_day"`
+		Location        *string  `json:"location"`
+		Description     *string  `json:"description"`
+		CalendarID      *int     `json:"calendar_id"`
+		RepeatRule      *string  `json:"repeat_rule"`
+		Attendees       []string `json:"attendees"`
+		ReminderMinutes *int     `json:"reminder_minutes"`
+		SourceKey       *string  `json:"source_key"`
+		TripID          string   `json:"trip_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Title == "" || body.StartAt == "" || body.EndAt == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title, start_at, end_at required"})
 		return
 	}
 	userID, _ := strconv.Atoi(c.GetHeader("X-User-ID"))
-	tenantID := 1
-	if t := c.GetHeader("X-Tenant-ID"); t != "" {
-		if tid, err := strconv.Atoi(t); err == nil && tid > 0 {
-			tenantID = tid
+	tenantID := tenantFromHeader(c)
+	ctx := c.Request.Context()
+	src := ""
+	if body.SourceKey != nil {
+		src = mapsSourceKey(body.TripID, *body.SourceKey)
+	} else {
+		src = mapsSourceKey(body.TripID, "")
+	}
+	if src != "" {
+		existing, ok, err := h.loadEventBySourceKey(ctx, src)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if ok {
+			c.JSON(http.StatusOK, gin.H{"id": existing.ID, "created": false, "title": existing.Title, "source_key": src})
+			return
 		}
 	}
-	ctx := c.Request.Context()
 	calID := 0
 	if body.CalendarID != nil && *body.CalendarID > 0 {
 		var ok bool
@@ -356,25 +355,32 @@ func (h *Handler) createEvent(c *gin.Context) {
 			return
 		}
 	}
-	var rr any
+	rr := any(nil)
 	if body.RepeatRule != nil {
-		s := strings.TrimSpace(*body.RepeatRule)
-		if s == "" {
-			rr = nil
+		rr = normalizeRepeat(*body.RepeatRule)
+	}
+	var remind any
+	if body.ReminderMinutes != nil {
+		if *body.ReminderMinutes < 0 {
+			remind = nil
 		} else {
-			rr = s
+			remind = *body.ReminderMinutes
 		}
+	}
+	var srcVal any
+	if src != "" {
+		srcVal = src
 	}
 	var id int
 	err := h.dbex(ctx).QueryRow(`
-		INSERT INTO calendar_events (tenant_id, user_id, calendar_id, title, start_at, end_at, all_day, location, description, repeat_rule, attendees)
-		VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9, $10, $11) RETURNING id
-	`, tenantID, userID, calID, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, rr, joinAttendees(body.Attendees)).Scan(&id)
+		INSERT INTO calendar_events (tenant_id, user_id, calendar_id, title, start_at, end_at, all_day, location, description, repeat_rule, attendees, reminder_minutes, source_key)
+		VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9, $10, $11, $12, $13) RETURNING id
+	`, tenantID, userID, calID, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, rr, joinAttendeesWithRsvp(body.Attendees, nil), remind, srcVal).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": id, "title": body.Title, "calendar_id": calID})
+	c.JSON(http.StatusCreated, gin.H{"id": id, "title": body.Title, "calendar_id": calID, "created": true})
 }
 
 func (h *Handler) updateEvent(c *gin.Context) {
@@ -388,15 +394,16 @@ func (h *Handler) updateEvent(c *gin.Context) {
 		return
 	}
 	var body struct {
-		Title       *string  `json:"title"`
-		StartAt     *string  `json:"start_at"`
-		EndAt       *string  `json:"end_at"`
-		AllDay      *bool    `json:"all_day"`
-		Location    *string  `json:"location"`
-		Description *string  `json:"description"`
-		CalendarID  *int     `json:"calendar_id"`
-		RepeatRule  *string  `json:"repeat_rule"`
-		Attendees   []string `json:"attendees"`
+		Title           *string  `json:"title"`
+		StartAt         *string  `json:"start_at"`
+		EndAt           *string  `json:"end_at"`
+		AllDay          *bool    `json:"all_day"`
+		Location        *string  `json:"location"`
+		Description     *string  `json:"description"`
+		CalendarID      *int     `json:"calendar_id"`
+		RepeatRule      *string  `json:"repeat_rule"`
+		Attendees       []string `json:"attendees"`
+		ReminderMinutes *int     `json:"reminder_minutes"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid body"})
@@ -416,17 +423,16 @@ func (h *Handler) updateEvent(c *gin.Context) {
 	}
 	var rr any
 	if body.RepeatRule != nil {
-		s := strings.TrimSpace(*body.RepeatRule)
-		if s == "" {
-			rr = nil
-		} else {
-			rr = s
-		}
-	} else {
-		// leave unchanged — use subquery trick via COALESCE on a sentinel
-		rr = nil
+		rr = normalizeRepeat(*body.RepeatRule)
 	}
-	// When RepeatRule is omitted, keep existing value via CASE.
+	var remind any
+	if body.ReminderMinutes != nil {
+		if *body.ReminderMinutes < 0 {
+			remind = nil
+		} else {
+			remind = *body.ReminderMinutes
+		}
+	}
 	res, err := h.dbex(ctx).Exec(`
 		UPDATE calendar_events SET
 			title = COALESCE($1, title),
@@ -438,10 +444,12 @@ func (h *Handler) updateEvent(c *gin.Context) {
 			calendar_id = COALESCE($7, calendar_id),
 			repeat_rule = CASE WHEN $8::boolean THEN $9::varchar ELSE repeat_rule END,
 			attendees = CASE WHEN $10::boolean THEN $11::text ELSE attendees END,
+			reminder_minutes = CASE WHEN $12::boolean THEN $13::int ELSE reminder_minutes END,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $12 AND user_id = current_setting('app.current_user_id', true)::INTEGER
+		WHERE id = $14 AND user_id = current_setting('app.current_user_id', true)::INTEGER
 	`, body.Title, body.StartAt, body.EndAt, body.AllDay, body.Location, body.Description, body.CalendarID,
-		body.RepeatRule != nil, rr, body.Attendees != nil, joinAttendees(body.Attendees), id)
+		body.RepeatRule != nil, rr, body.Attendees != nil, joinAttendeesWithRsvp(body.Attendees, nil),
+		body.ReminderMinutes != nil, remind, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -451,34 +459,13 @@ func (h *Handler) updateEvent(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
-	var e Event
-	var loc, desc, rrOut, att sql.NullString
-	var cal sql.NullInt64
-	var uat string
-	qerr := h.dbex(ctx).QueryRow(`
-		SELECT id, tenant_id, user_id, calendar_id, title, start_at::text, end_at::text, all_day, location, description, repeat_rule, COALESCE(attendees, ''), created_at::text, COALESCE(updated_at::text, '')
-		FROM calendar_events WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER
-	`, id).Scan(&e.ID, &e.TenantID, &e.UserID, &cal, &e.Title, &e.StartAt, &e.EndAt, &e.AllDay, &loc, &desc, &rrOut, &att, &e.CreatedAt, &uat)
+	row := h.dbex(ctx).QueryRow(`SELECT `+eventSelectCols+`
+		FROM calendar_events WHERE id = $1 AND user_id = current_setting('app.current_user_id', true)::INTEGER`, id)
+	e, qerr := scanEvent(row)
 	if qerr != nil {
 		c.JSON(http.StatusOK, gin.H{"id": id})
 		return
 	}
-	if cal.Valid {
-		v := int(cal.Int64)
-		e.CalendarID = &v
-	}
-	if loc.Valid {
-		e.Location = &loc.String
-	}
-	if desc.Valid {
-		e.Description = &desc.String
-	}
-	if rrOut.Valid && strings.TrimSpace(rrOut.String) != "" {
-		s := strings.TrimSpace(rrOut.String)
-		e.RepeatRule = &s
-	}
-	e.Attendees = splitAttendees(att.String)
-	e.UpdatedAt = uat
 	c.JSON(http.StatusOK, e)
 }
 
@@ -507,19 +494,10 @@ func (h *Handler) deleteEvent(c *gin.Context) {
 }
 
 func splitAttendees(s string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, p := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || r == ';' || r == '\n' }) {
-		a := strings.TrimSpace(strings.ToLower(p))
-		if a == "" || !strings.Contains(a, "@") || seen[a] {
-			continue
-		}
-		seen[a] = true
-		out = append(out, a)
-	}
-	return out
+	emails, _ := parseAttendees(s)
+	return emails
 }
 
 func joinAttendees(list []string) string {
-	return strings.Join(splitAttendees(strings.Join(list, ",")), ", ")
+	return joinAttendeesWithRsvp(list, nil)
 }

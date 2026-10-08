@@ -2,6 +2,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="fr.cloudity.permission.READ_AUTH_BROKER" />
     <uses-permission android:name="fr.cloudity.permission.WRITE_AUTH_BROKER" />
+    <uses-permission android:name="cloud.hubera.permission.READ_ID_ACCOUNT" />
+    <uses-permission android:name="cloud.hubera.permission.WRITE_ID_ACCOUNT" />
     <application
         android:label="Hubera Drive"
         android:name="${applicationName}"

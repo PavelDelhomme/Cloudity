@@ -159,12 +159,12 @@ export default function Users() {
   return (
     <PageLayout
       title="Utilisateurs"
-      description="Comptes de connexion Cloudity (table users) — distincts des boîtes mail liées dans l’app Mail."
+      description="Comptes de connexion Hubera (table users) — distincts des boîtes mail liées dans l’app Mail."
     >
       <Card className="p-4 mb-4 border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40">
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Login vs boîtes mail</p>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          Un utilisateur ici possède un mot de passe Cloudity et peut se connecter. Les adresses comme{' '}
+          Un utilisateur ici possède un mot de passe Hubera et peut se connecter. Les adresses comme{' '}
           <span className="font-mono text-xs">candidatures@…</span> dans Mail sont des{' '}
           <strong>boîtes liées</strong> (IMAP) — elles ne doivent pas apparaître ici sauf si quelqu’un a créé un compte
           de connexion avec cette adresse par erreur. Les comptes <span className="font-mono text-xs">@cloudity.local</span>{' '}

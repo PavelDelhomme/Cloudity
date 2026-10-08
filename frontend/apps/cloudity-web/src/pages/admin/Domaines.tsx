@@ -259,7 +259,7 @@ export default function Domaines() {
       <Card className="p-4 mb-4 border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/20">
         <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">État opérationnel</p>
         <p className="mt-1 text-sm text-blue-900/90 dark:text-blue-100/90">
-          Cette page admin pilote l’annuaire mail Cloudity. Si le service renvoie une liste vide ou un corps nul pendant un
+          Cette page admin pilote l’annuaire mail Hubera. Si le service renvoie une liste vide ou un corps nul pendant un
           chargement, l’UI reste en état vide au lieu de casser la page.
         </p>
       </Card>

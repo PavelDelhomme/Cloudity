@@ -9,7 +9,7 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 import '../auth/user_session.dart';
 import '../features/vault_controller.dart';
 
-/// Après connexion Cloudity : sonde `GET /pass/vaults` pour distinguer
+/// Après connexion Hubera : sonde `GET /pass/vaults` pour distinguer
 /// **première initialisation** (liste vide) et **déverrouillage** d’un coffre
 /// existant — aligné sur le hub web (`PassPage` / `UnlockScreen`).
 class PassUnlockScreen extends StatefulWidget {

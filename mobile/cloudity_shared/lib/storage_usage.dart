@@ -18,16 +18,31 @@ class ServiceStorageUsage {
   final bool partial;
 }
 
+/// Quota Drive par défaut (15 Go) si l’API n’expose pas encore `quota_bytes`.
+const int kDefaultDriveQuotaBytes = 15 * 1024 * 1024 * 1024;
+
 class StorageUsageSummary {
   const StorageUsageSummary({
     required this.photos,
     required this.drive,
     this.mailNote,
+    this.quotaBytes = kDefaultDriveQuotaBytes,
+    this.usedBytes = 0,
   });
 
   final ServiceStorageUsage photos;
   final ServiceStorageUsage drive;
   final String? mailNote;
+  final int quotaBytes;
+  final int usedBytes;
+
+  int get effectiveUsedBytes {
+    if (usedBytes > 0) return usedBytes;
+    return photos.bytes + drive.bytes;
+  }
+
+  int get effectiveQuotaBytes =>
+      quotaBytes > 0 ? quotaBytes : kDefaultDriveQuotaBytes;
 }
 
 class StorageUsageException implements Exception {
@@ -63,10 +78,23 @@ StorageUsageSummary summaryFromApiResponse(Map<String, dynamic> raw) {
     );
   }
 
+  final photos = readService('photos', 'Photos');
+  final drive = readService('drive', 'Drive (hors dossier Photos)');
+  final mailBlock = raw['mail'];
+  var used = (raw['used_bytes'] as num?)?.toInt() ?? 0;
+  if (used <= 0) {
+    used = photos.bytes + drive.bytes;
+    if (mailBlock is Map) {
+      used += (mailBlock['bytes'] as num?)?.toInt() ?? 0;
+    }
+  }
+  final quota = (raw['quota_bytes'] as num?)?.toInt() ?? kDefaultDriveQuotaBytes;
   return StorageUsageSummary(
-    photos: readService('photos', 'Photos'),
-    drive: readService('drive', 'Drive (hors dossier Photos)'),
+    photos: photos,
+    drive: drive,
     mailNote: raw['note'] as String?,
+    quotaBytes: quota > 0 ? quota : kDefaultDriveQuotaBytes,
+    usedBytes: used,
   );
 }
 
@@ -160,6 +188,8 @@ Future<StorageUsageSummary> _fetchStorageUsageClient({
     ),
     mailNote:
         'Le détail Mail sera disponible quand l’API quota multi-service sera exposée.',
+    usedBytes: photosBytes + driveBytes,
+    quotaBytes: kDefaultDriveQuotaBytes,
   );
 }
 

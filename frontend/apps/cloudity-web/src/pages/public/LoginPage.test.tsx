@@ -41,8 +41,8 @@ describe('LoginPage', () => {
         <LoginPage />
       </TestRouter>
     )
-    expect(screen.getByRole('link', { name: 'Cloudity' })).toBeTruthy()
-    expect(screen.getByText('Connexion')).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'Hubera' })).toBeTruthy()
+    expect(screen.getByText('Connexion Hubera')).toBeTruthy()
     expect(screen.getByLabelText(/Email/i)).toBeTruthy()
     expect(screen.queryByLabelText(/Mot de passe/i)).toBeNull()
     expect(screen.queryByLabelText(/Tenant ID/i)).toBeNull()

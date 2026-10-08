@@ -161,7 +161,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
             <div>
               <h3 className="font-semibold text-slate-800 dark:text-slate-200">Alias mail</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Enregistrement côté Cloudity —{' '}
+                Enregistrement côté Hubera —{' '}
                 <Link to="/app/mail" className="text-brand-600 dark:text-brand-400 underline">
                   Ouvrir Mail
                 </Link>
@@ -250,7 +250,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                   value={newDeliverTarget}
                   onChange={(e) => setNewDeliverTarget(e.target.value)}
                 >
-                  <option value="">— Aucune (filtre Cloudity uniquement) —</option>
+                  <option value="">— Aucune (filtre Hubera uniquement) —</option>
                   {accounts.map((a) => (
                     <option key={`deliver-${a.id}`} value={a.email}>
                       {accountLabel(a)}
@@ -323,7 +323,7 @@ export default function PassMailAliasesPanel({ accessToken, logout }: Props) {
                             onClick={() => {
                               if (
                                 confirm(
-                                  `Retirer l’alias « ${al.alias_email} » de Cloudity ? (ne supprime pas l’adresse chez le fournisseur.)`
+                                  `Retirer l’alias « ${al.alias_email} » de Hubera ? (ne supprime pas l’adresse chez le fournisseur.)`
                                 )
                               ) {
                                 deleteMutation.mutate({ accountId: selectedAccountId, aliasId: al.id })

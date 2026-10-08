@@ -13,7 +13,7 @@ function statusLabel(status: MailDesktopNotificationStatus, enabled: boolean): s
   if (status === 'unsupported') return 'Non supporté par ce navigateur'
   if (status === 'denied') return 'Bloqué par le navigateur'
   if (status === 'default') return 'Autorisation non demandée'
-  return enabled ? 'Activé' : 'Autorisé, mais désactivé dans Cloudity'
+  return enabled ? 'Activé' : 'Autorisé, mais désactivé dans Hubera'
 }
 
 export default function MailNotificationsSection() {
@@ -66,7 +66,7 @@ export default function MailNotificationsSection() {
         <div>
           <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200">Notifications Mail</h3>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Active les notifications système de ce navigateur quand Cloudity synchronise de nouveaux mails.
+            Active les notifications système de ce navigateur quand Hubera synchronise de nouveaux mails.
             Elles fonctionnent sur cet ordinateur uniquement.
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function MailNotificationsSection() {
 
         {status === 'denied' ? (
           <p className="text-sm text-amber-700 dark:text-amber-300">
-            Le navigateur bloque les notifications. Ouvre les réglages du site Cloudity dans ton navigateur,
+            Le navigateur bloque les notifications. Ouvre les réglages du site Hubera dans ton navigateur,
             autorise les notifications, puis recharge la page.
           </p>
         ) : null}

@@ -43,6 +43,7 @@ Future<bool> showSuiteProductEditor({
   Map<String, dynamic>? existing,
   int? taskListId,
   bool noteAsChecklist = false,
+  DateTime? seedStart,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
@@ -52,7 +53,7 @@ Future<bool> showSuiteProductEditor({
     case SuiteProduct.tasks:
       return _editTask(context, api, existing, taskListId);
     case SuiteProduct.calendar:
-      return _editEvent(context, api, existing);
+      return _editEvent(context, api, existing, seedStart: seedStart);
   }
 }
 
@@ -897,8 +898,9 @@ Future<bool> _editTask(
 Future<bool> _editEvent(
   BuildContext context,
   SuiteProductApi api,
-  Map<String, dynamic>? existing,
-) async {
+  Map<String, dynamic>? existing, {
+  DateTime? seedStart,
+}) async {
   List<Map<String, dynamic>> contactOpts = const [];
   try {
     contactOpts = await api.fetchContacts();
@@ -915,6 +917,7 @@ Future<bool> _editEvent(
   var start = parseCloudityDateTime(
         (existing?['start_at'] ?? existing?['starts_at'])?.toString(),
       ) ??
+      seedStart ??
       DateTime.now();
   var end = parseCloudityDateTime(
         (existing?['end_at'] ?? existing?['ends_at'])?.toString(),
@@ -923,6 +926,7 @@ Future<bool> _editEvent(
   var allDay = existing?['all_day'] == true;
   var repeatRule =
       normalizeCalendarRepeat(existing?['repeat_rule']?.toString()) ?? '';
+  var reminderMinutes = normalizeCalendarReminder(existing?['reminder_minutes']) ?? -1;
   final guestsRaw = existing?['attendees'];
   final guestsCtrl = TextEditingController(
     text: guestsRaw is List
@@ -1021,6 +1025,20 @@ Future<bool> _editEvent(
                     onChanged: (v) => setLocal(() => repeatRule = v ?? ''),
                   ),
                   const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    // ignore: deprecated_member_use
+                    value: reminderMinutes,
+                    decoration: const InputDecoration(
+                      labelText: 'Rappel',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      for (final o in kCalendarReminderOptions)
+                        DropdownMenuItem(value: o.minutes, child: Text(o.label)),
+                    ],
+                    onChanged: (v) => setLocal(() => reminderMinutes = v ?? -1),
+                  ),
+                  const SizedBox(height: 12),
                   TextField(
                     controller: locCtrl,
                     decoration: const InputDecoration(
@@ -1114,6 +1132,11 @@ Future<bool> _editEvent(
                               }
                               final id =
                                   existing == null ? null : suiteItemId(existing);
+                              final emails = guestsCtrl.text
+                                  .split(RegExp(r'[,;]'))
+                                  .map((x) => x.trim())
+                                  .where((x) => x.contains('@'))
+                                  .toList();
                               if (id == null) {
                                 await api.createCalendarEvent(
                                   title: title,
@@ -1124,11 +1147,8 @@ Future<bool> _editEvent(
                                   allDay: allDay,
                                   repeatRule:
                                       repeatRule.isEmpty ? null : repeatRule,
-                                  attendees: guestsCtrl.text
-                                      .split(RegExp(r'[,;]'))
-                                      .map((x) => x.trim())
-                                      .where((x) => x.contains('@'))
-                                      .toList(),
+                                  attendees: emails,
+                                  reminderMinutes: reminderMinutes,
                                 );
                               } else {
                                 await api.updateCalendarEvent(
@@ -1141,13 +1161,16 @@ Future<bool> _editEvent(
                                   allDay: allDay,
                                   repeatRule: repeatRule,
                                   clearRepeatRule: repeatRule.isEmpty,
-                                  attendees: guestsCtrl.text
-                                      .split(RegExp(r'[,;]'))
-                                      .map((x) => x.trim())
-                                      .where((x) => x.contains('@'))
-                                      .toList(),
+                                  attendees: emails,
+                                  reminderMinutes: reminderMinutes,
                                 );
                               }
+                              await api.tryInviteEmails(
+                                title: title,
+                                whenLabel: formatCloudityDateTimeLocal(_iso(s)),
+                                location: locCtrl.text.trim(),
+                                emails: emails,
+                              );
                               if (ctx.mounted) Navigator.pop(ctx, true);
                             } catch (e) {
                               setLocal(() {
@@ -1158,6 +1181,33 @@ Future<bool> _editEvent(
                           },
                     child: Text(busy ? 'Enregistrement…' : 'Enregistrer'),
                   ),
+                  if (existing != null)
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () async {
+                              final id = suiteItemId(existing);
+                              if (id == null) return;
+                              final label = titleCtrl.text.trim().isEmpty
+                                  ? 'cet événement'
+                                  : titleCtrl.text.trim();
+                              if (!await confirmSuiteDelete(ctx, label)) return;
+                              setLocal(() {
+                                busy = true;
+                                error = null;
+                              });
+                              try {
+                                await api.deleteCalendarEvent(id);
+                                if (ctx.mounted) Navigator.pop(ctx, true);
+                              } catch (e) {
+                                setLocal(() {
+                                  busy = false;
+                                  error = e.toString();
+                                });
+                              }
+                            },
+                      child: const Text('Supprimer'),
+                    ),
                 ],
               ),
             ),

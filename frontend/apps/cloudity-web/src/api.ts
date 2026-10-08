@@ -1182,6 +1182,7 @@ export type DriveNode = {
   /** Nom du dossier parent (recherche GET /drive/nodes/search). */
   parent_folder_name?: string
   share_token?: string | null
+  starred?: boolean
 }
 
 export async function fetchDriveNodes(
@@ -1465,6 +1466,33 @@ export async function createDriveShare(
   const res = await apiFetch(token, `/drive/nodes/${nodeId}/share`, { method: 'POST', json: false })
   if (!res.ok) throw new Error(`Partage Drive: ${res.status}`)
   return res.json() as Promise<{ token: string; url: string; share_token?: string }>
+}
+
+export function drivePublicShareUrl(shareToken: string): string {
+  const token = shareToken.trim()
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  return `${origin}/drive/share/${token}`
+}
+
+export async function fetchDriveStarredNodes(token: string): Promise<DriveNode[]> {
+  return apiJson<DriveNode[]>(token, '/drive/nodes/starred', { json: false }, 'Drive starred')
+}
+
+export async function setDriveStarred(
+  token: string,
+  nodeId: number,
+  starred: boolean
+): Promise<void> {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/star`, {
+    method: starred ? 'POST' : 'DELETE',
+    json: false,
+  })
+  if (!res.ok) throw new Error(`Favori Drive: ${res.status}`)
+}
+
+export async function revokeDriveShare(token: string, nodeId: number): Promise<void> {
+  const res = await apiFetch(token, `/drive/nodes/${nodeId}/share`, { method: 'DELETE', json: false })
+  if (!res.ok) throw new Error(`Révocation partage: ${res.status}`)
 }
 
 /** Restaure un nœud depuis la corbeille. */

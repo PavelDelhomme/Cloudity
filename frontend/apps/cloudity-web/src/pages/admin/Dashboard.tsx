@@ -151,7 +151,7 @@ export default function Dashboard() {
   return (
     <PageLayout
       title="Tableau de bord"
-      description="Vue d’ensemble de votre instance Cloudity"
+      description="Vue d’ensemble de votre instance Hubera"
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {cards.map((c) => {

@@ -304,6 +304,9 @@ class SuiteProductApi {
     int? calendarId,
     String? repeatRule,
     List<String>? attendees,
+    int? reminderMinutes,
+    String? sourceKey,
+    String? tripId,
   }) async {
     final data = await _request(
       'POST',
@@ -319,6 +322,9 @@ class SuiteProductApi {
         if (calendarId != null) 'calendar_id': calendarId,
         if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
         if (attendees != null) 'attendees': attendees,
+        if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+        if (sourceKey != null && sourceKey.isNotEmpty) 'source_key': sourceKey,
+        if (tripId != null && tripId.isNotEmpty) 'trip_id': tripId,
       },
       ok: const {200, 201},
     );
@@ -336,6 +342,7 @@ class SuiteProductApi {
     String? repeatRule,
     bool clearRepeatRule = false,
     List<String>? attendees,
+    int? reminderMinutes,
   }) async {
     await _request(
       'PUT',
@@ -350,6 +357,7 @@ class SuiteProductApi {
         if (clearRepeatRule) 'repeat_rule': '',
         if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
         if (attendees != null) 'attendees': attendees,
+        if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
       },
       ok: const {200, 204},
     );
@@ -357,6 +365,61 @@ class SuiteProductApi {
 
   Future<void> deleteCalendarEvent(int id) async {
     await _request('DELETE', '/calendar/events/$id', ok: const {200, 204});
+  }
+
+  Future<Map<String, dynamic>> upsertFromMaps({
+    required String tripId,
+    required String title,
+    required String startAt,
+    String? endAt,
+    String? location,
+  }) async {
+    final data = await _request(
+      'POST',
+      '/calendar/events/from-maps',
+      jsonBody: {
+        'trip_id': tripId,
+        'title': title,
+        'start_at': startAt,
+        if (endAt != null && endAt.isNotEmpty) 'end_at': endAt,
+        if (location != null && location.isNotEmpty) 'location': location,
+      },
+      ok: const {200, 201},
+    );
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> tryInviteEmails({
+    required String title,
+    required String whenLabel,
+    String? location,
+    required List<String> emails,
+  }) async {
+    if (emails.isEmpty) return;
+    try {
+      final raw = await _request('GET', '/mail/me/accounts', ok: const {200});
+      final accounts = raw is List
+          ? raw
+          : (raw is Map ? (raw['accounts'] ?? raw['items'] ?? []) : []);
+      if (accounts is! List || accounts.isEmpty) return;
+      final first = accounts.first;
+      final id = first is Map ? first['id'] : null;
+      if (id == null) return;
+      await _request(
+        'POST',
+        '/mail/me/send',
+        jsonBody: {
+          'account_id': id,
+          'to': emails.join(', '),
+          'subject': 'Invitation Hubera Calendar : $title',
+          'body':
+              '$title\n$whenLabel\n${location ?? ''}\n\nhttps://calendar.hubera.cloud/app/\n(Pas de Meet.)',
+        },
+        ok: const {200, 201, 202},
+      );
+    } catch (_) {
+      /* invitations minimales */
+    }
   }
 }
 

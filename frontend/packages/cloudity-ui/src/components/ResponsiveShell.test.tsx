@@ -8,7 +8,7 @@ describe('ResponsiveShell', () => {
     render(
       <MemoryRouter initialEntries={['/4dm1n/dev/ui']}>
         <ResponsiveShell
-          brandTitle="Cloudity"
+          brandTitle="Hubera"
           brandSubtitle="Administration"
           navItems={[{ key: 'ui', label: 'Catalogue UI', href: '/4dm1n/dev/ui', end: true }]}
         >

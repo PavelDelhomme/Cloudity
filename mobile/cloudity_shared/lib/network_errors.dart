@@ -4,7 +4,7 @@ library;
 /// Transforme une exception HTTP/réseau brute en message utilisateur (français).
 String friendlyNetworkMessage(
   Object error, {
-  String action = 'joindre Cloudity',
+  String action = 'joindre Hubera',
 }) {
   final raw = error.toString().toLowerCase();
 
@@ -20,7 +20,7 @@ String friendlyNetworkMessage(
   }
 
   if (raw.contains('connection refused') || raw.contains('errno = 111')) {
-    return 'Cloudity ne répond pas sur cette adresse.\n'
+    return 'Hubera ne répond pas sur cette adresse.\n'
         'Lance `make up` sur le PC et vérifie l’URL gateway (réglages avancés).';
   }
 
@@ -42,6 +42,10 @@ String friendlyNetworkMessage(
 
   // Auth métier déjà formaté côté AuthApi.
   if (error.toString().startsWith('Connexion impossible') ||
+      error.toString().startsWith('Gateway Hubera') ||
+      error.toString().startsWith('Gateway Hubera') ||
+      error.toString().startsWith('Gateway Hubera') ||
+      error.toString().startsWith('Gateway Hubera') ||
       error.toString().startsWith('Gateway Cloudity')) {
     return error.toString();
   }

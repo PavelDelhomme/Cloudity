@@ -208,7 +208,7 @@ class _DeviceGalleryBodyState extends State<DeviceGalleryBody> {
             padding: EdgeInsets.fromLTRB(4, 8, 4, 12),
             child: Text(
               'Photos sur cet appareil. Les badges indiquent si elles sont déjà '
-              'sauvegardées sur Cloudity.',
+              'sauvegardées sur Hubera.',
             ),
           ),
           GridView.builder(

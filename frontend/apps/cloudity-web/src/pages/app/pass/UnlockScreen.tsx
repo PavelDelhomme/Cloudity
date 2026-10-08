@@ -53,7 +53,7 @@ export default function UnlockScreen({ userId, mode }: Props) {
       await unlock(pw, userId)
       toast.success(
         mode === 'setup'
-          ? 'Coffre initialisé — mémorise ce mot de passe maître (Cloudity ne peut pas le réinitialiser).'
+          ? 'Coffre initialisé — mémorise ce mot de passe maître (Hubera ne peut pas le réinitialiser).'
           : 'Coffre déverrouillé'
       )
       setPw('')

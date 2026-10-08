@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Identité produit Cloudity (une app Flutter = un membre de la suite).
+/// Identité produit Hubera (une app Flutter = un membre de la suite).
 enum ClouditySuiteApp {
   mail,
   drive,

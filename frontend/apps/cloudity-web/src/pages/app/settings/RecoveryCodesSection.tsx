@@ -55,13 +55,13 @@ export default function RecoveryCodesSection() {
       toast.error('Pop-up bloquée — autoriser pour imprimer.')
       return
     }
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Codes de récupération Cloudity</title>
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Codes de récupération Hubera</title>
       <style>body{font-family:-apple-system,sans-serif;padding:24px;color:#111}h1{font-size:18px}
       ul{list-style:none;padding:0;font-family:Menlo,monospace;font-size:14px;line-height:1.6}
       li{padding:4px 0;border-bottom:1px dashed #999}
       .warn{background:#fff7ed;border:1px solid #f59e0b;padding:8px 12px;margin-bottom:16px;font-size:12px}</style>
       </head><body>
-      <h1>Codes de récupération Cloudity</h1>
+      <h1>Codes de récupération Hubera</h1>
       <p class="warn">Conserver dans un endroit sûr. Chaque code n'est utilisable qu'UNE fois.</p>
       <ul>${freshCodes.map((c) => `<li>${c}</li>`).join('')}</ul>
       <p style="font-size:11px;color:#666;margin-top:16px">Généré le ${new Date().toLocaleString('fr-FR')}</p>

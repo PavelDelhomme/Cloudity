@@ -52,7 +52,7 @@ Future<void> _onLoggedIn(
   final isAdmin = await _adminRoleOrNull(session.api, session.accessToken);
   if (isAdmin == null) {
     throw AuthException(
-      'Gateway Cloudity injoignable. Vérifie la connexion puis réessaie.',
+      'Gateway Hubera injoignable. Vérifie la connexion puis réessaie.',
     );
   }
   if (!isAdmin) {
