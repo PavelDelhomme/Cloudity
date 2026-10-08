@@ -350,34 +350,40 @@ class SuiteDrawerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        centerTitle: false,
-        actions: [
-          ...appBarActions,
-          HuberaAccountAvatar(
-            onTap: onAccountTap ?? onOpenSettings,
-            email: userEmail,
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(context),
-      body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
-      floatingActionButton: showSettings ? null : floatingActionButton,
-      bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
-          ? null
-          : NavigationBar(
-              selectedIndex: () {
-                final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
-                return i < 0 ? 0 : i;
-              }(),
-              onDestinationSelected: (i) => onBottomSelected?.call(bottomDestinations[i].id),
-              destinations: [
-                for (final d in bottomDestinations)
-                  NavigationDestination(icon: Icon(d.icon), label: d.label),
-              ],
+    return MediaQuery(
+      data: huberaSafeMedia(context),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          centerTitle: false,
+          actions: [
+            ...appBarActions,
+            HuberaAccountAvatar(
+              onTap: onAccountTap ?? onOpenSettings,
+              email: userEmail,
             ),
+          ],
+        ),
+        drawer: _buildDrawer(context),
+        body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
+        floatingActionButton: showSettings ? null : floatingActionButton,
+        bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
+            ? null
+            : SafeArea(
+                top: false,
+                child: NavigationBar(
+                  selectedIndex: () {
+                    final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
+                    return i < 0 ? 0 : i;
+                  }(),
+                  onDestinationSelected: (i) => onBottomSelected?.call(bottomDestinations[i].id),
+                  destinations: [
+                    for (final d in bottomDestinations)
+                      NavigationDestination(icon: Icon(d.icon), label: d.label),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

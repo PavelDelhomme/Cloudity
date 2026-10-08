@@ -1,5 +1,24 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+MediaQueryData huberaSafeMedia(BuildContext context) {
+  final mq = MediaQuery.of(context);
+  final p = mq.padding;
+  final v = mq.viewPadding;
+  var bottom = math.max(p.bottom, v.bottom);
+  if (bottom < 8 && Theme.of(context).platform == TargetPlatform.android) {
+    bottom = 24;
+  }
+  return mq.copyWith(
+    padding: EdgeInsets.only(
+      left: math.max(p.left, v.left),
+      top: math.max(p.top, v.top),
+      right: math.max(p.right, v.right),
+      bottom: bottom,
+    ),
+  );
+}
 
 const Color huberaTeal = Color(0xFF0E4D5C);
 const Color huberaOrange = Color(0xFFC9782A);
@@ -268,38 +287,44 @@ class HuberaScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        centerTitle: false,
-        actions: [
-          ...appBarActions,
-          HuberaAccountAvatar(onTap: onAccountTap, email: userEmail),
-        ],
+    return MediaQuery(
+      data: huberaSafeMedia(context),
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(title),
+          centerTitle: false,
+          actions: [
+            ...appBarActions,
+            HuberaAccountAvatar(onTap: onAccountTap, email: userEmail),
+          ],
+        ),
+        drawer: HuberaDrawerBody(
+          current: current,
+          versionLabel: versionLabel,
+          onAccountTap: onAccountTap,
+          userEmail: userEmail,
+          navItems: navItems,
+          footer: drawerFooter,
+        ),
+        body: body,
+        floatingActionButton: floatingActionButton,
+        bottomNavigationBar: bottomDestinations.isEmpty
+            ? null
+            : SafeArea(
+                top: false,
+                child: NavigationBar(
+                  selectedIndex: () {
+                    final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
+                    return i < 0 ? 0 : i;
+                  }(),
+                  onDestinationSelected: (i) => onBottomSelected?.call(bottomDestinations[i].id),
+                  destinations: [
+                    for (final d in bottomDestinations)
+                      NavigationDestination(icon: Icon(d.icon), label: d.label),
+                  ],
+                ),
+              ),
       ),
-      drawer: HuberaDrawerBody(
-        current: current,
-        versionLabel: versionLabel,
-        onAccountTap: onAccountTap,
-        userEmail: userEmail,
-        navItems: navItems,
-        footer: drawerFooter,
-      ),
-      body: body,
-      floatingActionButton: floatingActionButton,
-      bottomNavigationBar: bottomDestinations.isEmpty
-          ? null
-          : NavigationBar(
-              selectedIndex: () {
-                final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
-                return i < 0 ? 0 : i;
-              }(),
-              onDestinationSelected: (i) => onBottomSelected?.call(bottomDestinations[i].id),
-              destinations: [
-                for (final d in bottomDestinations)
-                  NavigationDestination(icon: Icon(d.icon), label: d.label),
-              ],
-            ),
     );
   }
 }
