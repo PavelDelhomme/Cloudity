@@ -20,7 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.hubera.notes"
+        applicationId = if (project.hasProperty("legacyAppId")) {
+            "fr.cloudity.cloudity_notes"
+        } else {
+            "cloud.hubera.notes"
+        }
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

@@ -20,7 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.hubera.cook"
+        applicationId = if (project.hasProperty("legacyAppId")) {
+            "fr.cloudity.cloudity_cook"
+        } else {
+            "cloud.hubera.cook"
+        }
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

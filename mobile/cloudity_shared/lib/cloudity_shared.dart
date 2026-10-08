@@ -10,6 +10,8 @@ export 'auth/session_store.dart';
 export 'auth/user_session.dart';
 export 'calendar_repeat.dart';
 export 'calendar_time_grid.dart';
+export 'contact_fiche.dart';
+export 'contact_maps.dart';
 export 'cloudity_datetime.dart';
 export 'cloudity_crash_reporter.dart';
 export 'cloudity_design_tokens.dart';

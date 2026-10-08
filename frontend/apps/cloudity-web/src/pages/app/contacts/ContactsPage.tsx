@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock, Calendar } from 'lucide-react'
+import { Users, Plus, Mail, X, Upload, Loader2, Settings, Lock, Calendar, MapPin, Phone } from 'lucide-react'
 import { AppLockedGate } from '../AppLockedGate'
 import { AppLockedPinChangeSection } from '../AppLockedPinChangeSection'
 import { useAppLockedVaultAutoLock } from '../useAppLockedVaultAutoLock'
@@ -37,6 +37,8 @@ import { detectAndParseContacts, type ParsedImportContact } from '../../../lib/c
 import {
   composeDisplayName,
   emptyContactProfile,
+  formatContactAddress,
+  huberaMapsWebLink,
   mergeProfile,
   primaryEmail,
   primaryPhone,
@@ -750,6 +752,11 @@ export default function ContactsPage() {
                         <p className="text-sm text-slate-600 dark:text-slate-300 break-all">{selected.email}</p>
                       ) : null}
                       {selected.phone ? <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">{selected.phone}</p> : null}
+                      {formatContactAddress(selected.profile?.addresses?.[0]) ? (
+                        <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                          {formatContactAddress(selected.profile?.addresses?.[0])}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   {selected.profile?.notes ? (
@@ -774,6 +781,24 @@ export default function ContactsPage() {
                       >
                         <Mail className="h-4 w-4" /> Envoyer un mail
                       </Link>
+                    ) : null}
+                    {selected.phone ? (
+                      <a
+                        href={`tel:${selected.phone}`}
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <Phone className="h-4 w-4" /> Appeler
+                      </a>
+                    ) : null}
+                    {formatContactAddress(selected.profile?.addresses?.[0]) ? (
+                      <a
+                        href={huberaMapsWebLink(formatContactAddress(selected.profile?.addresses?.[0]))}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-white dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <MapPin className="h-4 w-4" /> Ouvrir dans Maps
+                      </a>
                     ) : null}
                     <button
                       type="button"

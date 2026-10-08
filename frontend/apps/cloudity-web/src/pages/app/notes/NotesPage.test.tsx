@@ -55,6 +55,41 @@ describe('NotesPage', () => {
     expect(screen.getByRole('button', { name: 'Paramètres Notes' })).toBeTruthy()
   })
 
+  it('filtre les dossiers (libellés) et les notes épinglées', async () => {
+    vi.mocked(api.fetchNotes).mockResolvedValue([
+      {
+        id: 1,
+        tenant_id: 1,
+        user_id: 1,
+        title: 'Courses',
+        content: 'lait',
+        pinned: true,
+        labels: ['courses'],
+        created_at: '2026-01-01T10:00:00.000Z',
+        updated_at: '2026-01-01T10:00:00.000Z',
+      },
+      {
+        id: 2,
+        tenant_id: 1,
+        user_id: 1,
+        title: 'Idée',
+        content: 'livre',
+        pinned: false,
+        labels: ['idées'],
+        created_at: '2026-01-01T10:00:00.000Z',
+        updated_at: '2026-01-01T10:00:00.000Z',
+      },
+    ])
+    render(wrap(<NotesPage />))
+    await screen.findByText('Courses')
+    expect(screen.getByText('Idée')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'courses' }))
+    expect(screen.getByText('Courses')).toBeTruthy()
+    expect(screen.queryByText('Idée')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Tous les dossiers' }))
+    expect(screen.getByText('Idée')).toBeTruthy()
+  })
+
   it('shows empty state when no notes', async () => {
     render(wrap(<NotesPage />))
     await screen.findByText(/Aucune note/)

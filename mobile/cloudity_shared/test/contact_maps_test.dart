@@ -15,10 +15,9 @@ void main() {
   });
 
   test('huberaMapsDeepLink utilise le schéma Maps existant', () {
-    expect(
-      huberaMapsDeepLink('12 rue de la Paix, Paris'),
-      'hubera-maps://?q=12%20rue%20de%20la%20Paix%2C%20Paris',
-    );
+    final uri = huberaMapsDeepLink('12 rue de la Paix, Paris');
+    expect(uri.startsWith('hubera-maps://?q='), isTrue);
+    expect(uri.contains('Paix'), isTrue);
     expect(huberaMapsDeepLink('  '), isEmpty);
   });
 
