@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../cloudity_design_tokens.dart';
 import '../suite_app_catalog.dart';
 
-/// Enveloppe visuelle commune des écrans de connexion Cloudity (H19).
+/// Enveloppe visuelle commune des écrans de connexion Hubera (H19).
 ///
 /// Même structure pour toutes les apps : en-tête dégradé + logo app, carte formulaire.
 /// Couleur et icône varient selon [suiteApp].
@@ -83,7 +83,7 @@ class CloudityLoginScreenShell extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 // Pas de titre « Connexion — … » ni blabla « même compte… ».
-                                // L’en-tête (Cloudity + app) + le formulaire suffisent.
+                                // L’en-tête (Hubera + app) + le formulaire suffisent.
                                 if (supportingText != null && supportingText!.isNotEmpty) ...[
                                   Text(
                                     supportingText!,
@@ -152,7 +152,7 @@ class _LoginHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final appName = suiteApp.title;
-    final shortProduct = productTitle.replaceFirst(RegExp(r'^Cloudity\s+'), '');
+    final shortProduct = productTitle.replaceFirst(RegExp(r'^(Cloudity|Hubera)\s+'), '');
 
     return Padding(
       padding: EdgeInsets.fromLTRB(

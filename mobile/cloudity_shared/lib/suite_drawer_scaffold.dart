@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'cloudity_design_tokens.dart';
+import 'hubera_scaffold.dart';
 import 'suite_app_catalog.dart';
 import 'suite_bottom_sheet.dart';
 
-/// Base web Cloudity à partir de l’URL gateway (`api.` → apex).
+/// Base web Hubera à partir de l’URL gateway (`api.` → apex).
 String suitePublicWebBase(String gatewayUrl) {
   final raw = gatewayUrl.trim().replaceAll(RegExp(r'/$'), '');
   final uri = Uri.tryParse(raw);
@@ -23,7 +24,7 @@ Future<void> suiteLaunchWebPath(String gatewayUrl, String webPath) async {
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
-/// En-tête drawer Cloudity (compte + accent produit).
+/// En-tête drawer Hubera (compte + accent produit).
 class SuiteDrawerHeader extends StatelessWidget {
   const SuiteDrawerHeader({
     super.key,
@@ -86,7 +87,7 @@ class SuiteDrawerHeader extends StatelessWidget {
   }
 }
 
-/// Grille « autres apps Cloudity » (schéma Google Photos / Drive / Keep…).
+/// Grille « autres apps Hubera » (schéma Google Photos / Drive / Keep…).
 class SuiteAppSwitcher extends StatelessWidget {
   const SuiteAppSwitcher({
     super.key,
@@ -282,6 +283,12 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.appBarActions = const [],
     this.settingsBody,
     this.floatingActionButton,
+    this.onAccountTap,
+    this.versionLabel,
+    this.bottomDestinations = const [],
+    this.selectedBottomId,
+    this.onBottomSelected,
+    this.huberaProduct,
   });
 
   final ClouditySuiteApp currentApp;
@@ -297,6 +304,12 @@ class SuiteDrawerScaffold extends StatelessWidget {
   final Future<void> Function() onLogout;
   final Widget? settingsBody;
   final Widget? floatingActionButton;
+  final VoidCallback? onAccountTap;
+  final String? versionLabel;
+  final List<HuberaNavDest> bottomDestinations;
+  final String? selectedBottomId;
+  final ValueChanged<String>? onBottomSelected;
+  final HuberaProduct? huberaProduct;
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
@@ -314,10 +327,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
                   const Divider(height: 1),
                   ...navItems,
                   const Divider(height: 1),
-                  SuiteAppSwitcher(
-                    currentApp: currentApp,
-                    gatewayUrl: gatewayUrl,
-                  ),
+                  HuberaAppSwitcher(current: huberaProduct ?? currentApp.asHubera),
                 ],
               ),
             ),
@@ -343,11 +353,46 @@ class SuiteDrawerScaffold extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        actions: appBarActions,
+        centerTitle: false,
+        actions: [
+          ...appBarActions,
+          HuberaAccountAvatar(
+            onTap: onAccountTap ?? onOpenSettings,
+            email: userEmail,
+          ),
+        ],
       ),
       drawer: _buildDrawer(context),
       body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
       floatingActionButton: showSettings ? null : floatingActionButton,
+      bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
+          ? null
+          : NavigationBar(
+              selectedIndex: () {
+                final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
+                return i < 0 ? 0 : i;
+              }(),
+              onDestinationSelected: (i) => onBottomSelected?.call(bottomDestinations[i].id),
+              destinations: [
+                for (final d in bottomDestinations)
+                  NavigationDestination(icon: Icon(d.icon), label: d.label),
+              ],
+            ),
     );
   }
+}
+
+extension ClouditySuiteAppHubera on ClouditySuiteApp {
+  HuberaProduct? get asHubera => switch (this) {
+        ClouditySuiteApp.mail => HuberaProduct.mail,
+        ClouditySuiteApp.drive => HuberaProduct.drive,
+        ClouditySuiteApp.calendar => HuberaProduct.calendar,
+        ClouditySuiteApp.pass => HuberaProduct.pass,
+        ClouditySuiteApp.photos => null,
+        ClouditySuiteApp.contacts => null,
+        ClouditySuiteApp.notes => null,
+        ClouditySuiteApp.tasks => null,
+        ClouditySuiteApp.cook => null,
+        ClouditySuiteApp.admin => HuberaProduct.id,
+      };
 }

@@ -28,8 +28,40 @@ const kNoteColorOptions = <({String id, String label})>[
   (id: 'gray', label: 'Gris'),
 ];
 
+const kCalendarReminderOptions = <({int minutes, String label})>[
+  (minutes: -1, label: 'Pas de rappel'),
+  (minutes: 0, label: 'À l’heure'),
+  (minutes: 5, label: '5 min avant'),
+  (minutes: 10, label: '10 min avant'),
+  (minutes: 15, label: '15 min avant'),
+  (minutes: 30, label: '30 min avant'),
+  (minutes: 60, label: '1 h avant'),
+];
+
+int? normalizeCalendarReminder(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is int) return raw < 0 ? null : raw;
+  return int.tryParse(raw.toString());
+}
+
+String mapsSourceKey(String? tripId, [String? explicit]) {
+  final e = explicit?.trim() ?? '';
+  if (e.isNotEmpty) {
+    return e.startsWith('maps:') ? e : 'maps:$e';
+  }
+  final id = tripId?.trim() ?? '';
+  if (id.isEmpty) return '';
+  return 'maps:trip:$id';
+}
+
+String testTripTitle(String? title) {
+  final t = (title ?? '').trim().isEmpty ? 'Trajet Hubera Maps' : title!.trim();
+  if (t.toUpperCase().startsWith('[TEST]')) return t;
+  return '[TEST] $t';
+}
+
 String? normalizeCalendarRepeat(String? raw) {
-  final s = raw?.trim();
+  final s = raw?.trim().toLowerCase();
   if (s == null || s.isEmpty) return null;
   if (s == 'daily' || s == 'weekdays' || s == 'weekly' || s == 'monthly') {
     return s;

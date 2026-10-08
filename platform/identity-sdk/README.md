@@ -1,6 +1,6 @@
-# platform/identity-sdk — Cloudity ID
+# platform/identity-sdk — Hubera ID
 
-Clients partagés pour lier **Cloudity Auth** aux apps satellites (YTMusic / PLM, GasoilTracking, JobbingTrack).
+Clients partagés pour lier **Hubera ID** aux apps satellites (YTMusic / PLM, GasoilTracking, JobbingTrack).
 
 **Statut** : squelette TypeScript (pas encore branché en prod).  
 Cadrage : [`docs/ecosystem/CLOUDITY-AUTH-PLM.md`](../../docs/ecosystem/CLOUDITY-AUTH-PLM.md)

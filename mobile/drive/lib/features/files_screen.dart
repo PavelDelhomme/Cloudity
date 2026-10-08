@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloudity_shared/auth/session_store.dart';
 import 'package:cloudity_shared/storage_usage.dart';
 import 'package:cloudity_shared/suite_product_api.dart';
 
@@ -32,14 +35,18 @@ class _FilesScreenState extends State<FilesScreen> {
   double? _uploadProgress;
   String? _error;
   _DriveSection _section = _DriveSection.home;
+  _DriveSection _bottomTab = _DriveSection.home;
   _ListLayout _layout = _ListLayout.list;
   String _searchQuery = '';
   List<Map<String, dynamic>> _searchResults = [];
+  List<Map<String, dynamic>> _suggested = [];
   bool _searchLoading = false;
   StorageUsageSummary? _storageUsage;
   bool _storageLoading = false;
   String? _storageError;
   bool _showSettings = false;
+  final _searchCtrl = TextEditingController();
+  List<CloudityAuthAccount> _brokerAccounts = [];
 
   int? get _parentId => _parentStack.last;
   String get _folderTitle => switch (_section) {
@@ -47,13 +54,19 @@ class _FilesScreenState extends State<FilesScreen> {
     _DriveSection.recent => 'Récents',
     _DriveSection.starred => 'Favoris',
     _DriveSection.shared => 'Partagés',
-    _DriveSection.home => _folderNameStack.last,
+    _DriveSection.home => 'Accueil',
+    _DriveSection.files => _folderNameStack.last,
+    _DriveSection.imports => 'Importations',
+    _DriveSection.offline => 'Hors connexion',
+    _DriveSection.spam => 'Spam',
   };
   bool get _isTrashView => _section == _DriveSection.trash;
   bool get _isRecentView => _section == _DriveSection.recent;
   bool get _isStarredView => _section == _DriveSection.starred;
   bool get _isSharedView => _section == _DriveSection.shared;
-  bool get _showFab => _section == _DriveSection.home;
+  bool get _isFilesView => _section == _DriveSection.files;
+  bool get _isHomeView => _section == _DriveSection.home;
+  bool get _showFab => _section == _DriveSection.files;
   bool get _isSearchActive => _searchQuery.trim().isNotEmpty;
   List<Map<String, dynamic>> get _visibleItems =>
       _isSearchActive ? _searchResults : _items;
@@ -67,6 +80,21 @@ class _FilesScreenState extends State<FilesScreen> {
     _reload().whenComplete(() {
       if (mounted) _loadStorageUsage();
     });
+    unawaited(_loadBrokerAccounts());
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadBrokerAccounts() async {
+    try {
+      final accounts = await SessionStore.listBrokerAccounts();
+      if (!mounted) return;
+      setState(() => _brokerAccounts = accounts);
+    } catch (_) {}
   }
 
   Future<void> _loadStorageUsage() async {
@@ -94,6 +122,65 @@ class _FilesScreenState extends State<FilesScreen> {
     }
   }
 
+  Future<List<Map<String, dynamic>>> _fetchSectionItems() async {
+    final token = widget.session.accessToken;
+    return switch (_section) {
+      _DriveSection.trash =>
+        await widget.session.api.fetchDriveTrash(accessToken: token),
+      _DriveSection.recent ||
+      _DriveSection.home ||
+      _DriveSection.imports =>
+        await widget.session.api.fetchDriveRecent(accessToken: token),
+      _DriveSection.starred =>
+        await widget.session.api.fetchDriveStarred(accessToken: token),
+      _DriveSection.shared =>
+        await widget.session.api.fetchDriveShared(accessToken: token),
+      _DriveSection.files => await widget.session.api.fetchDriveNodes(
+        accessToken: token,
+        parentId: _parentId,
+      ),
+      _DriveSection.offline || _DriveSection.spam => <Map<String, dynamic>>[],
+    };
+  }
+
+  Future<void> _loadSuggested() async {
+    if (_section != _DriveSection.home) return;
+    try {
+      final starred = await widget.session.api.fetchDriveStarred(
+        accessToken: widget.session.accessToken,
+      );
+      if (!mounted) return;
+      setState(() => _suggested = starred);
+    } catch (_) {
+      if (mounted) setState(() => _suggested = []);
+    }
+  }
+
+  void _openSection(
+    _DriveSection section, {
+    bool asBottomTab = false,
+    bool resetTree = true,
+  }) {
+    Navigator.of(context).maybePop();
+    setState(() {
+      _showSettings = false;
+      _section = section;
+      if (asBottomTab) _bottomTab = section;
+      _searchQuery = '';
+      _searchResults = [];
+      _searchCtrl.clear();
+      if (resetTree) {
+        _parentStack
+          ..clear()
+          ..add(null);
+        _folderNameStack
+          ..clear()
+          ..add('Mon Drive');
+      }
+    });
+    _reload();
+  }
+
   Future<void> _reload() async {
     setState(() {
       _loading = true;
@@ -101,29 +188,13 @@ class _FilesScreenState extends State<FilesScreen> {
     });
     try {
       await widget.session.refreshIfNeeded();
-      final raw = switch (_section) {
-        _DriveSection.trash => await widget.session.api.fetchDriveTrash(
-          accessToken: widget.session.accessToken,
-        ),
-        _DriveSection.recent => await widget.session.api.fetchDriveRecent(
-          accessToken: widget.session.accessToken,
-        ),
-        _DriveSection.starred => await widget.session.api.fetchDriveStarred(
-          accessToken: widget.session.accessToken,
-        ),
-        _DriveSection.shared => await widget.session.api.fetchDriveShared(
-          accessToken: widget.session.accessToken,
-        ),
-        _DriveSection.home => await widget.session.api.fetchDriveNodes(
-          accessToken: widget.session.accessToken,
-          parentId: _parentId,
-        ),
-      };
+      final raw = await _fetchSectionItems();
       if (!mounted) return;
       setState(() {
         _items = raw;
         _loading = false;
       });
+      await _loadSuggested();
       if (_isSearchActive) {
         await _runSearch(_searchQuery, showLoading: false);
       }
@@ -131,24 +202,7 @@ class _FilesScreenState extends State<FilesScreen> {
       if (e.message == 'non_autorisé') {
         try {
           await widget.session.refreshIfNeeded();
-          final raw = switch (_section) {
-            _DriveSection.trash => await widget.session.api.fetchDriveTrash(
-              accessToken: widget.session.accessToken,
-            ),
-            _DriveSection.recent => await widget.session.api.fetchDriveRecent(
-              accessToken: widget.session.accessToken,
-            ),
-            _DriveSection.starred => await widget.session.api.fetchDriveStarred(
-              accessToken: widget.session.accessToken,
-            ),
-            _DriveSection.shared => await widget.session.api.fetchDriveShared(
-              accessToken: widget.session.accessToken,
-            ),
-            _DriveSection.home => await widget.session.api.fetchDriveNodes(
-              accessToken: widget.session.accessToken,
-              parentId: _parentId,
-            ),
-          };
+          final raw = await _fetchSectionItems();
           if (!mounted) return;
           setState(() {
             _items = raw;
@@ -174,6 +228,8 @@ class _FilesScreenState extends State<FilesScreen> {
 
   void _openFolder(int id, String name) {
     setState(() {
+      _section = _DriveSection.files;
+      _bottomTab = _DriveSection.files;
       _parentStack.add(id);
       _folderNameStack.add(name);
     });
@@ -189,85 +245,27 @@ class _FilesScreenState extends State<FilesScreen> {
     _reload();
   }
 
-  void _goRoot() {
-    Navigator.of(context).maybePop();
-    setState(() {
-      _section = _DriveSection.home;
-      _searchQuery = '';
-      _searchResults = [];
-      _parentStack
-        ..clear()
-        ..add(null);
-      _folderNameStack
-        ..clear()
-        ..add('Mon Drive');
-    });
-    _reload();
-  }
+  void _goRoot() =>
+      _openSection(_DriveSection.home, asBottomTab: true);
 
-  void _openTrash() {
-    Navigator.of(context).maybePop();
-    setState(() {
-      _section = _DriveSection.trash;
-      _searchQuery = '';
-      _searchResults = [];
-      _parentStack
-        ..clear()
-        ..add(null);
-      _folderNameStack
-        ..clear()
-        ..add('Mon Drive');
-    });
-    _reload();
-  }
+  void _openFiles() =>
+      _openSection(_DriveSection.files, asBottomTab: true);
 
-  void _openRecent() {
-    Navigator.of(context).maybePop();
-    setState(() {
-      _section = _DriveSection.recent;
-      _searchQuery = '';
-      _searchResults = [];
-      _parentStack
-        ..clear()
-        ..add(null);
-      _folderNameStack
-        ..clear()
-        ..add('Mon Drive');
-    });
-    _reload();
-  }
+  void _openTrash() => _openSection(_DriveSection.trash);
 
-  void _openStarred() {
-    Navigator.of(context).maybePop();
-    setState(() {
-      _section = _DriveSection.starred;
-      _searchQuery = '';
-      _searchResults = [];
-      _parentStack
-        ..clear()
-        ..add(null);
-      _folderNameStack
-        ..clear()
-        ..add('Favoris');
-    });
-    _reload();
-  }
+  void _openRecent() => _openSection(_DriveSection.recent);
 
-  void _openShared() {
-    Navigator.of(context).maybePop();
-    setState(() {
-      _section = _DriveSection.shared;
-      _searchQuery = '';
-      _searchResults = [];
-      _parentStack
-        ..clear()
-        ..add(null);
-      _folderNameStack
-        ..clear()
-        ..add('Partagés');
-    });
-    _reload();
-  }
+  void _openStarred() =>
+      _openSection(_DriveSection.starred, asBottomTab: true);
+
+  void _openShared() =>
+      _openSection(_DriveSection.shared, asBottomTab: true);
+
+  void _openImports() => _openSection(_DriveSection.imports);
+
+  void _openOffline() => _openSection(_DriveSection.offline);
+
+  void _openSpam() => _openSection(_DriveSection.spam);
 
   Future<void> _runSearch(String query, {bool showLoading = true}) async {
     final q = query.trim();
@@ -293,7 +291,7 @@ class _FilesScreenState extends State<FilesScreen> {
       final raw = await widget.session.api.searchDriveNodes(
         accessToken: widget.session.accessToken,
         query: q,
-        parentId: _section == _DriveSection.home ? _parentId : null,
+        parentId: _section == _DriveSection.files ? _parentId : null,
       );
       if (!mounted) return;
       setState(() {
@@ -774,33 +772,30 @@ class _FilesScreenState extends State<FilesScreen> {
     final selectedIndex = _showSettings
         ? 5
         : switch (_section) {
-            _DriveSection.home => 0,
-            _DriveSection.recent => 1,
-            _DriveSection.shared => 2,
-            _DriveSection.starred => 3,
-            _DriveSection.trash => 4,
+            _DriveSection.recent => 0,
+            _DriveSection.imports => 1,
+            _DriveSection.offline => 2,
+            _DriveSection.trash => 3,
+            _DriveSection.spam => 4,
+            _ => null,
           };
     return NavigationDrawer(
       selectedIndex: selectedIndex,
       onDestinationSelected: (index) {
-        if (index == 0) {
-          setState(() => _showSettings = false);
-          _goRoot();
-        } else if (index == 1) {
-          setState(() => _showSettings = false);
-          _openRecent();
-        } else if (index == 2) {
-          setState(() => _showSettings = false);
-          _openShared();
-        } else if (index == 3) {
-          setState(() => _showSettings = false);
-          _openStarred();
-        } else if (index == 4) {
-          setState(() => _showSettings = false);
-          _openTrash();
-        } else if (index == 5) {
-          setState(() => _showSettings = true);
-          Navigator.of(context).maybePop();
+        switch (index) {
+          case 0:
+            _openRecent();
+          case 1:
+            _openImports();
+          case 2:
+            _openOffline();
+          case 3:
+            _openTrash();
+          case 4:
+            _openSpam();
+          case 5:
+            setState(() => _showSettings = true);
+            Navigator.of(context).maybePop();
         }
       },
       children: [
@@ -834,25 +829,24 @@ class _FilesScreenState extends State<FilesScreen> {
           ),
         ),
         const NavigationDrawerDestination(
-          icon: Icon(Icons.drive_folder_upload_outlined),
-          selectedIcon: Icon(Icons.drive_folder_upload),
-          label: Text('Mon Drive'),
-        ),
-        const NavigationDrawerDestination(
           icon: Icon(Icons.schedule_outlined),
           label: Text('Récents'),
         ),
         const NavigationDrawerDestination(
-          icon: Icon(Icons.people_alt_outlined),
-          label: Text('Partagés'),
+          icon: Icon(Icons.file_upload_outlined),
+          label: Text('Importations'),
         ),
         const NavigationDrawerDestination(
-          icon: Icon(Icons.star_border_outlined),
-          label: Text('Favoris'),
+          icon: Icon(Icons.cloud_off_outlined),
+          label: Text('Hors connexion'),
         ),
         const NavigationDrawerDestination(
           icon: Icon(Icons.delete_outline),
           label: Text('Corbeille'),
+        ),
+        const NavigationDrawerDestination(
+          icon: Icon(Icons.report_outlined),
+          label: Text('Spam'),
         ),
         const NavigationDrawerDestination(
           icon: Icon(Icons.settings_outlined),
@@ -910,17 +904,30 @@ class _FilesScreenState extends State<FilesScreen> {
                 )
               else ...[
                 Text(
+                  '${formatStorageBytes(_storageUsage!.effectiveUsedBytes)} / '
+                  '${formatStorageBytes(_storageUsage!.effectiveQuotaBytes)}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(99),
+                  child: LinearProgressIndicator(
+                    value: _storageUsage!.effectiveQuotaBytes <= 0
+                        ? 0
+                        : (_storageUsage!.effectiveUsedBytes /
+                                _storageUsage!.effectiveQuotaBytes)
+                            .clamp(0.0, 1.0),
+                    minHeight: 8,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
                   'Photos ${formatStorageBytes(_storageUsage!.photos.bytes)} · '
                   'Drive ${formatStorageBytes(_storageUsage!.drive.bytes)}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-                if (_storageUsage!.mailNote != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _storageUsage!.mailNote!,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
               ],
             ],
           ),
@@ -959,43 +966,6 @@ class _FilesScreenState extends State<FilesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Material(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(28),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(28),
-              onTap: _openSearch,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        _isSearchActive
-                            ? 'Recherche : $_searchQuery'
-                            : 'Rechercher dans Drive',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (_isSearchActive)
-                      IconButton(
-                        tooltip: 'Effacer la recherche',
-                        onPressed: () => _runSearch(''),
-                        icon: const Icon(Icons.close, size: 20),
-                      ),
-                    _accountAvatar(radius: 16),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
@@ -1031,8 +1001,8 @@ class _FilesScreenState extends State<FilesScreen> {
           Text(
             _isSearchActive
                 ? '${_visibleItems.length} résultat(s)'
-                : _isRecentView
-                ? '${_visibleItems.length} élément(s) récent(s)'
+                : _isRecentView || _section == _DriveSection.imports
+                ? '${_visibleItems.length} élément(s)'
                 : '$folderCount dossier(s) · $fileCount fichier(s)',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1042,7 +1012,7 @@ class _FilesScreenState extends State<FilesScreen> {
             const SizedBox(height: 10),
             const LinearProgressIndicator(),
           ],
-          if (_section == _DriveSection.home && _parentStack.length > 1) ...[
+          if (_isFilesView && _parentStack.length > 1) ...[
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
               onPressed: _goUp,
@@ -1083,7 +1053,8 @@ class _FilesScreenState extends State<FilesScreen> {
         ),
         subtitle: Text(
           [
-            if (_isSearchActive || _isRecentView) _parentPathLabel(node),
+            if (_isSearchActive || _isRecentView || _isHomeView || _section == _DriveSection.imports)
+              _parentPathLabel(node),
             _sizeLabel(node),
             if (date.isNotEmpty)
               _isTrashView ? 'Supprimé le $date' : 'Modifié le $date',
@@ -1111,11 +1082,15 @@ class _FilesScreenState extends State<FilesScreen> {
       _showNodeActions(node);
       return;
     }
-    if (_isRecentView && isFolder && id != null) {
+    if ((_isRecentView || _isHomeView || _section == _DriveSection.imports) &&
+        isFolder &&
+        id != null) {
       setState(() {
-        _section = _DriveSection.home;
+        _section = _DriveSection.files;
+        _bottomTab = _DriveSection.files;
         _searchQuery = '';
         _searchResults = [];
+        _searchCtrl.clear();
         _parentStack
           ..clear()
           ..add(null)
@@ -1132,7 +1107,9 @@ class _FilesScreenState extends State<FilesScreen> {
       setState(() {
         _searchQuery = '';
         _searchResults = [];
-        _section = _DriveSection.home;
+        _searchCtrl.clear();
+        _section = _DriveSection.files;
+        _bottomTab = _DriveSection.files;
         _parentStack
           ..clear()
           ..add(null)
@@ -1496,52 +1473,23 @@ class _FilesScreenState extends State<FilesScreen> {
         ],
       );
     }
+    if (_isHomeView && !_isSearchActive) {
+      return _buildHomeBody();
+    }
     if (_visibleItems.isEmpty) {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: [
           const SizedBox(height: 80),
-          Icon(
-            _isTrashView
-                ? Icons.delete_outline
-                : _isRecentView
-                ? Icons.schedule_outlined
-                : _isSearchActive
-                ? Icons.search_off_outlined
-                : Icons.folder_open_outlined,
-            size: 56,
-          ),
+          Icon(_emptyIcon, size: 56),
           const SizedBox(height: 16),
           Text(
-            _isTrashView
-                ? 'La corbeille est vide.'
-                : _isRecentView
-                ? 'Aucun fichier récent.'
-                : _isStarredView
-                ? 'Aucun favori.'
-                : _isSharedView
-                ? 'Aucun fichier partagé.'
-                : _isSearchActive
-                ? 'Aucun résultat pour cette recherche.'
-                : 'Ce dossier est vide.',
+            _emptyTitle,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
-          Text(
-            _isTrashView
-                ? 'Les éléments supprimés apparaîtront ici.'
-                : _isRecentView
-                ? 'Les fichiers modifiés récemment s’afficheront ici.'
-                : _isStarredView
-                ? 'Ajoute un fichier aux favoris depuis le menu long.'
-                : _isSharedView
-                ? 'Crée un lien depuis le menu d’un fichier.'
-                : _isSearchActive
-                ? 'Essayez un autre nom de fichier ou dossier.'
-                : 'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
-            textAlign: TextAlign.center,
-          ),
+          Text(_emptySubtitle, textAlign: TextAlign.center),
         ],
       );
     }
@@ -1626,26 +1574,317 @@ class _FilesScreenState extends State<FilesScreen> {
     );
   }
 
+  IconData get _emptyIcon => switch (_section) {
+        _DriveSection.trash => Icons.delete_outline,
+        _DriveSection.recent => Icons.schedule_outlined,
+        _DriveSection.starred => Icons.star_border_outlined,
+        _DriveSection.shared => Icons.people_alt_outlined,
+        _DriveSection.imports => Icons.file_upload_outlined,
+        _DriveSection.offline => Icons.cloud_off_outlined,
+        _DriveSection.spam => Icons.report_outlined,
+        _ => _isSearchActive
+            ? Icons.search_off_outlined
+            : Icons.folder_open_outlined,
+      };
+
+  String get _emptyTitle => switch (_section) {
+        _DriveSection.trash => 'La corbeille est vide.',
+        _DriveSection.recent => 'Aucun fichier récent.',
+        _DriveSection.starred => 'Aucun favori.',
+        _DriveSection.shared => 'Aucun fichier partagé.',
+        _DriveSection.imports => 'Aucune importation.',
+        _DriveSection.offline => 'Rien hors connexion.',
+        _DriveSection.spam => 'Aucun spam.',
+        _ => _isSearchActive
+            ? 'Aucun résultat pour cette recherche.'
+            : 'Ce dossier est vide.',
+      };
+
+  String get _emptySubtitle => switch (_section) {
+        _DriveSection.trash => 'Les éléments supprimés apparaîtront ici.',
+        _DriveSection.recent =>
+          'Les fichiers modifiés récemment s’afficheront ici.',
+        _DriveSection.starred =>
+          'Ajoute un fichier aux favoris depuis le menu long.',
+        _DriveSection.shared => 'Crée un lien depuis le menu d’un fichier.',
+        _DriveSection.imports =>
+          'Les fichiers importés depuis cet appareil apparaîtront ici.',
+        _DriveSection.offline =>
+          'La file hors-ligne commune Hubera ID arrive plus tard.',
+        _DriveSection.spam => 'Les fichiers signalés apparaîtront ici.',
+        _ => _isSearchActive
+            ? 'Essayez un autre nom de fichier ou dossier.'
+            : 'Utilisez le bouton Nouveau pour créer un dossier ou importer des fichiers.',
+      };
+
+  Widget _buildHomeBody() {
+    final recents = _items.take(12).toList();
+    final suggested = _suggested.take(8).toList();
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      children: [
+        Text(
+          'Accueil',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Suggérés, derniers ouverts, raccourcis — pas l’arborescence.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ActionChip(
+              avatar: const Icon(Icons.folder_outlined, size: 18),
+              label: const Text('Fichiers'),
+              onPressed: _openFiles,
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.star_border, size: 18),
+              label: const Text('Favoris'),
+              onPressed: _openStarred,
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.people_alt_outlined, size: 18),
+              label: const Text('Partagés'),
+              onPressed: _openShared,
+            ),
+            ActionChip(
+              avatar: const Icon(Icons.schedule_outlined, size: 18),
+              label: const Text('Récents'),
+              onPressed: _openRecent,
+            ),
+          ],
+        ),
+        if (suggested.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          Text(
+            'Suggérés',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 118,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: suggested.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, i) {
+                final node = suggested[i];
+                final name = node['name'] as String? ?? 'Sans nom';
+                return SizedBox(
+                  width: 140,
+                  child: Card(
+                    child: InkWell(
+                      onTap: () => _onNodeTap(
+                        node,
+                        node['id'] is num ? (node['id'] as num).toInt() : null,
+                        name,
+                        node['is_folder'] == true,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(_iconFor(node), color: _iconColor(context, node)),
+                            const Spacer(),
+                            Text(
+                              name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
+        Text(
+          'Derniers utilisés',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (recents.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Text('Aucun fichier récent pour le moment.'),
+          )
+        else
+          ...recents.map(_buildFileTile),
+      ],
+    );
+  }
+
+  Future<void> _openAccountPicker() async {
+    await _loadBrokerAccounts();
+    if (!mounted) return;
+    final current = _accountLabel.toLowerCase();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        final accounts = _brokerAccounts;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Compte Hubera ID',
+                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  leading: _accountAvatar(radius: 18),
+                  title: Text(_accountLabel),
+                  subtitle: const Text('Compte actuel'),
+                  selected: true,
+                ),
+                for (final acc in accounts)
+                  if (acc.email.trim().toLowerCase() != current)
+                    ListTile(
+                      leading: CircleAvatar(
+                        child: Text(
+                          acc.email.isEmpty
+                              ? '?'
+                              : acc.email[0].toUpperCase(),
+                        ),
+                      ),
+                      title: Text(acc.email),
+                      subtitle: const Text('Continuer avec ce compte'),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        await _switchToBrokerAccount(acc);
+                      },
+                    ),
+                if (accounts.where((a) => a.email.trim().toLowerCase() != current).isEmpty)
+                  const ListTile(
+                    leading: Icon(Icons.person_add_outlined),
+                    title: Text('Aucun autre compte sur cet appareil'),
+                    subtitle: Text('Connecte un compte dans une autre app Hubera pour le picker.'),
+                  ),
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text('Paramètres'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _showSettings = true);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.logout),
+                  title: const Text('Déconnexion'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _confirmLogout();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _switchToBrokerAccount(CloudityAuthAccount acc) async {
+    try {
+      await widget.session.refreshIfNeeded();
+      final api = AuthApi(acc.gatewayUrl);
+      final tokens = await api.ensureValidTokens(
+        accessToken: acc.accessToken,
+        refreshToken: acc.refreshToken,
+      );
+      widget.session.accessToken = tokens.access;
+      widget.session.refreshToken = tokens.refresh;
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: acc.gatewayUrl,
+        accessToken: tokens.access,
+        refreshToken: tokens.refresh,
+        email: acc.email,
+        tenantId: acc.tenantId,
+      );
+      if (!mounted) return;
+      setState(() {});
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Changement de compte impossible : $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bottomIndex = switch (_bottomTab) {
+      _DriveSection.home => 0,
+      _DriveSection.starred => 1,
+      _DriveSection.shared => 2,
+      _ => 3,
+    };
     return Scaffold(
       key: const ValueKey('cloudity_drive_files'),
       drawer: _buildDrawer(),
       appBar: AppBar(
-        title: Text(_showSettings ? 'Paramètres' : 'Drive'),
-        centerTitle: false,
-        leading: _parentStack.length > 1
-            ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: _goUp)
-            : null,
+        titleSpacing: 0,
+        title: _showSettings
+            ? const Text('Paramètres')
+            : Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(28),
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      hintText: 'Rechercher dans Drive',
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _isSearchActive
+                          ? IconButton(
+                              tooltip: 'Effacer',
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                _runSearch('');
+                              },
+                              icon: const Icon(Icons.close, size: 20),
+                            )
+                          : null,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onSubmitted: _runSearch,
+                  ),
+                ),
+              ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Actualiser',
-            onPressed: _loading ? null : _reload,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: _accountAvatar(),
+            tooltip: 'Compte Hubera ID',
+            onPressed: _openAccountPicker,
+            icon: _accountAvatar(radius: 16),
           ),
         ],
       ),
@@ -1670,6 +1909,45 @@ class _FilesScreenState extends State<FilesScreen> {
               onLogout: () => _confirmLogout(),
             )
           : RefreshIndicator(onRefresh: _reload, child: _buildBody()),
+      bottomNavigationBar: _showSettings
+          ? null
+          : NavigationBar(
+              selectedIndex: bottomIndex,
+              onDestinationSelected: (i) {
+                switch (i) {
+                  case 0:
+                    _openSection(_DriveSection.home, asBottomTab: true);
+                  case 1:
+                    _openStarred();
+                  case 2:
+                    _openShared();
+                  case 3:
+                    _openFiles();
+                }
+              },
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.home_outlined),
+                  selectedIcon: Icon(Icons.home),
+                  label: 'Accueil',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.star_border_outlined),
+                  selectedIcon: Icon(Icons.star),
+                  label: 'Favoris',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.people_alt_outlined),
+                  selectedIcon: Icon(Icons.people_alt),
+                  label: 'Partagés',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.folder_outlined),
+                  selectedIcon: Icon(Icons.folder),
+                  label: 'Fichiers',
+                ),
+              ],
+            ),
     );
   }
 
@@ -1680,7 +1958,17 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 }
 
-enum _DriveSection { home, recent, starred, shared, trash }
+enum _DriveSection {
+  home,
+  files,
+  starred,
+  shared,
+  recent,
+  imports,
+  offline,
+  trash,
+  spam,
+}
 
 enum _ListLayout { list, grid }
 

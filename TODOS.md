@@ -317,7 +317,7 @@
 | **Mail — Gmail OAuth (UI)** | ☑ | « Continuer avec Google » en premier (modal + état vide) — prérequis admin : `GOOGLE_OAUTH_*` dans `.env` · **docs/produit/MAIL.md** |
 | **Mail — mode conversations** | ☑ | Liste toujours groupée par fil (plus de bascule liste plate) |
 | **Config compose unifiée** | ☐ | Toute config conteneur via `docker-compose.yml` + overlays (`dev`, `https`, `preprod`, `prod`, `security`, `services`) + `.env` — pas de duplication |
-| **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Cloudity` (+ sous-pages) via `buildAdminDocumentTitle` |
+| **Titres d’onglet web** | ☑ | App : `Section — Cloudity — email` ; Admin : `Administration — Hubera` (+ sous-pages) via `buildAdminDocumentTitle` |
 | **2FA Paramètres** | ☑ | Détection via `is_2fa_enabled` API (plus le nombre de codes recovery) ; export `.txt` codes |
 | **Notifications Mail** | ☑ | Bouton « Activer » masqué une fois activé |
 | **Quota Drive/Photos web** | ☑ | Badge espace dans Drive + Photos + section Paramètres (tous users) |
@@ -489,7 +489,7 @@ cloudity-api-gateway            | POST /mail/me/accounts/N/sync -> 200
 | **Drive vault** | Créer coffre local, verrou PIN, déverrouiller | ☐ |
 | **Drive upload** | Téléverser fichier + dossier, barre progression | ☐ |
 | **Quota web** | Badge espace Drive + Photos + Paramètres | ☐ |
-| **Admin titres** | `/4dm1n` → `Administration — Cloudity` ; Tenants → `Tenants — Cloudity` | ☐ |
+| **Admin titres** | `/4dm1n` → `Administration — Hubera` ; Tenants → `Tenants — Cloudity` | ☐ |
 | **Ports** | `make status` → gateway `:6002`, web `:6001` | ☐ |
 | **Merge `dev`** | PR + revue après cases ci-dessus | ☐ |
 

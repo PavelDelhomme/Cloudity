@@ -29,11 +29,15 @@ import {
   LayoutGrid,
   List,
   MoreVertical,
-  ArrowLeft,
   Clock,
   Eye,
   Lock,
   Settings,
+  Share2,
+  Star,
+  Link2,
+  CloudOff,
+  Ban,
 } from 'lucide-react'
 import { AppLockedGate } from '@cloudity/web-shell/pages/app/AppLockedGate'
 import { AppLockedPinChangeSection } from '@cloudity/web-shell/pages/app/AppLockedPinChangeSection'
@@ -62,6 +66,8 @@ import {
   fetchDriveSearch,
   fetchDriveTrash,
   fetchDriveRecentFiles,
+  fetchDriveStarredNodes,
+  fetchDriveSharedNodes,
   createDriveFolder,
   createDriveFileWithUniqueName,
   putDriveNodeContentBlob,
@@ -75,6 +81,10 @@ import {
   downloadDriveArchive,
   getDriveNodeContentAsText,
   moveDriveNode,
+  createDriveShare,
+  drivePublicShareUrl,
+  setDriveStarred,
+  revokeDriveShare,
   type DriveNode,
   type DriveZipEntry,
 } from '@cloudity/web-shell/api'
@@ -82,7 +92,6 @@ import { getExtension, isOfficeIframePreviewName, isWordDocument } from '@cloudi
 import { parseCsvToGrid } from '@cloudity/web-shell/utils/csvGrid'
 import { markdownToHtml } from '@cloudity/web-shell/utils/htmlMarkdown'
 import { DrivePdfJsPreview } from '@cloudity/web-shell/components/DrivePdfJsPreview'
-import StorageUsageInline from '@cloudity/web-shell/components/StorageUsageInline'
 
 /** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
 const OFFICE_PREVIEW_MAX_ROWS = 5000
@@ -252,6 +261,18 @@ function folderContentLabel(node: DriveNode): string {
 /** State passé à l'éditeur pour savoir d'où on vient et où revenir à la fermeture. */
 export type EditorFromState = { from: 'drive'; parentId: number | null; breadcrumb: BreadcrumbItem[] } | { from: 'office' }
 
+type DriveBrowseView =
+  | 'home'
+  | 'drive'
+  | 'trash'
+  | 'recent'
+  | 'starred'
+  | 'shared'
+  | 'imports'
+  | 'offline'
+  | 'spam'
+  | 'settings'
+
 /** Position du menu Actions (bouton ⋮) ou clic droit. */
 type DriveItemMenuPosition =
   | { kind: 'button'; top: number; right: number }
@@ -275,6 +296,9 @@ type DriveItemContextMenuPortalProps = {
   onPurge?: (node: DriveNode) => void
   /** Vue Drive (hors corbeille) : aperçu pour les fichiers. */
   onPreviewClick?: (node: DriveNode) => void
+  onShare?: (node: DriveNode) => void
+  onRevokeShare?: (node: DriveNode) => void
+  onStar?: (node: DriveNode) => void
 }
 
 /** Menu contextuel / ⋮ — actions Télécharger, Renommer, Corbeille, etc. */
@@ -292,6 +316,9 @@ function DriveItemContextMenuPortal({
   onRestore,
   onPurge,
   onPreviewClick,
+  onShare,
+  onRevokeShare,
+  onStar,
 }: DriveItemContextMenuPortalProps) {
   if (!open || !position) return null
   const style: React.CSSProperties =
@@ -353,6 +380,48 @@ function DriveItemContextMenuPortal({
       >
         <Download className="h-4 w-4 shrink-0" /> {node.is_folder ? 'Télécharger (ZIP)' : 'Télécharger'}
       </button>
+      {!isTrashView && onStar && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onStar(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+        >
+          <Star className={`h-4 w-4 shrink-0 ${node.starred ? 'fill-amber-400 text-amber-500' : ''}`} />
+          {node.starred ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+        </button>
+      )}
+      {!isTrashView && onShare && (
+        <button
+          type="button"
+          role="menuitem"
+          data-testid="drive-share-menu"
+          onClick={() => {
+            onShare(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+        >
+          {node.share_token ? <Link2 className="h-4 w-4 shrink-0" /> : <Share2 className="h-4 w-4 shrink-0" />}
+          {node.share_token ? 'Copier le lien de partage' : 'Créer un lien de partage'}
+        </button>
+      )}
+      {!isTrashView && node.share_token && onRevokeShare && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            onRevokeShare(node)
+            onClose()
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-left"
+        >
+          <Link2 className="h-4 w-4 shrink-0" /> Arrêter le partage
+        </button>
+      )}
       {!isTrashView && onStartEdit && (
         <button
           type="button"
@@ -898,6 +967,9 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   editorLinkState,
   accessToken,
   fromGlobalSearch,
+  onShare,
+  onRevokeShare,
+  onStar,
 }: {
   node: DriveNode
   isSelected: boolean
@@ -918,6 +990,9 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
   editorLinkState?: EditorFromState
   accessToken: string | null
   fromGlobalSearch?: boolean
+  onShare?: (node: DriveNode) => void
+  onRevokeShare?: (node: DriveNode) => void
+  onStar?: (node: DriveNode) => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = React.useRef<HTMLDivElement>(null)
@@ -1122,6 +1197,9 @@ const DriveNodeCard = React.memo(function DriveNodeCard({
             onRestore={onRestore}
             onPurge={onPurge}
             onPreviewClick={!isTrashView ? onPreviewClick : undefined}
+            onShare={!isTrashView ? onShare : undefined}
+            onRevokeShare={!isTrashView ? onRevokeShare : undefined}
+            onStar={!isTrashView ? onStar : undefined}
           />
         </div>
       </div>
@@ -1154,6 +1232,9 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
   editorLinkState,
   onPreviewClick,
   fromGlobalSearch,
+  onShare,
+  onRevokeShare,
+  onStar,
 }: {
   node: DriveNode
   isEditing: boolean
@@ -1178,6 +1259,9 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
   editorLinkState?: EditorFromState
   onPreviewClick?: (node: DriveNode) => void
   fromGlobalSearch?: boolean
+  onShare?: (node: DriveNode) => void
+  onRevokeShare?: (node: DriveNode) => void
+  onStar?: (node: DriveNode) => void
 }) {
   const [rowMenuOpen, setRowMenuOpen] = useState(false)
   const [rowMenuPosition, setRowMenuPosition] = useState<DriveItemMenuPosition | null>(null)
@@ -1422,6 +1506,9 @@ const DriveNodeRow = React.memo(function DriveNodeRow({
         onRestore={onRestore}
         onPurge={onPurge}
         onPreviewClick={!isTrashView ? onPreviewClick : undefined}
+        onShare={!isTrashView ? onShare : undefined}
+        onRevokeShare={!isTrashView ? onRevokeShare : undefined}
+        onStar={!isTrashView ? onStar : undefined}
       />
     </tr>
   )
@@ -1508,8 +1595,8 @@ const DriveToolbar = React.memo(function DriveToolbar({
   onOpenSettings,
   localVaultActive,
 }: {
-  viewMode: 'drive' | 'trash' | 'recent'
-  onViewModeChange: (v: 'drive' | 'trash' | 'recent') => void
+  viewMode: DriveBrowseView
+  onViewModeChange: (v: DriveBrowseView) => void
   breadcrumb: BreadcrumbItem[]
   onBreadcrumbClick: (id: number | null, name: string) => void
   onNewFolder: () => void
@@ -1583,9 +1670,30 @@ const DriveToolbar = React.memo(function DriveToolbar({
             )}
           </nav>
         )}
-        {(viewMode === 'trash' || viewMode === 'recent') && (
+        {viewMode === 'home' && (
+          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Accueil</h1>
+        )}
+        {(viewMode === 'trash' ||
+          viewMode === 'recent' ||
+          viewMode === 'starred' ||
+          viewMode === 'shared' ||
+          viewMode === 'imports' ||
+          viewMode === 'offline' ||
+          viewMode === 'spam') && (
           <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
-            {viewMode === 'trash' ? 'Corbeille' : 'Récents'}
+            {viewMode === 'trash'
+              ? 'Corbeille'
+              : viewMode === 'recent'
+                ? 'Récents'
+                : viewMode === 'starred'
+                  ? 'Favoris'
+                  : viewMode === 'shared'
+                    ? 'Liens partagés'
+                    : viewMode === 'imports'
+                      ? 'Importations'
+                      : viewMode === 'offline'
+                        ? 'Hors connexion'
+                        : 'Spam'}
           </h1>
         )}
         {viewMode === 'drive' && breadcrumb.length <= 1 && (
@@ -1606,79 +1714,39 @@ const DriveToolbar = React.memo(function DriveToolbar({
             Fichiers et dossiers classés par <strong>jour</strong> puis par <strong>heure</strong> de dernière modification (fenêtre ~1 an). Vue grille ou liste comme le Drive.
           </p>
         )}
+        {viewMode === 'starred' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Fichiers et dossiers marqués d’une étoile — comme les favoris Google Drive.
+          </p>
+        )}
+        {viewMode === 'home' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Suggérés et fichiers ouverts récemment. L’arborescence est dans <strong>Fichiers</strong>.
+          </p>
+        )}
+        {viewMode === 'shared' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Éléments pour lesquels un lien public est actif. Copiez le lien ou arrêtez le partage depuis le menu ⋮.
+          </p>
+        )}
+        {viewMode === 'imports' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Fichiers récemment ajoutés ou téléversés.
+          </p>
+        )}
+        {viewMode === 'offline' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Disponibles sans réseau — bientôt via le package commun Hubera ID.
+          </p>
+        )}
+        {viewMode === 'spam' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Fichiers signalés comme indésirables.
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
-        <StorageUsageInline scope="drive" />
-        {viewMode === 'drive' ? (
-          <>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('recent')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <Clock className="h-4 w-4" />
-            Récents
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('trash')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <Trash2 className="h-4 w-4" />
-            Corbeille
-          </button>
-          </>
-        ) : viewMode === 'recent' ? (
-          <>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('drive')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour au Drive
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('trash')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <Trash2 className="h-4 w-4" />
-            Corbeille
-          </button>
-          </>
-        ) : (
-          <>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('drive')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour au Drive
-          </button>
-          <button
-            type="button"
-            onClick={() => onViewModeChange('recent')}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
-          >
-            <Clock className="h-4 w-4" />
-            Récents
-          </button>
-          </>
-        )}
-        {onOpenSettings ? (
-          <button
-            type="button"
-            onClick={onOpenSettings}
-            className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
-            title="Paramètres Drive"
-            aria-label="Paramètres Drive"
-          >
-            <Settings className="h-4 w-4" aria-hidden />
-          </button>
-        ) : null}
-        {(viewMode === 'drive' || viewMode === 'recent') && onDisplayModeChange && (
+        {(viewMode === 'drive' || viewMode === 'recent' || viewMode === 'starred' || viewMode === 'shared') && onDisplayModeChange && (
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 p-0.5">
             <button
               type="button"
@@ -1814,18 +1882,31 @@ export default function DrivePage() {
   const [sortBy, setSortBy] = useState<'name' | 'size' | 'created_at' | 'updated_at'>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [searchParams, setSearchParams] = useSearchParams()
-  const viewFromUrl = searchParams.get('view') === 'trash' ? 'trash' : searchParams.get('view') === 'recent' ? 'recent' : 'drive'
-  const [viewMode, setViewModeState] = useState<'drive' | 'trash' | 'recent'>(viewFromUrl)
+  const viewFromUrl: DriveBrowseView = (() => {
+    const v = searchParams.get('view')
+    if (v === 'home') return 'home'
+    if (v === 'trash') return 'trash'
+    if (v === 'recent') return 'recent'
+    if (v === 'starred') return 'starred'
+    if (v === 'shared') return 'shared'
+    if (v === 'imports') return 'imports'
+    if (v === 'offline') return 'offline'
+    if (v === 'spam') return 'spam'
+    if (v === 'settings') return 'settings'
+    if (v === 'files' || v === 'drive') return 'drive'
+    return 'drive'
+  })()
+  const [viewMode, setViewModeState] = useState<DriveBrowseView>(viewFromUrl)
   const setViewMode = useCallback(
-    (mode: 'drive' | 'trash' | 'recent') => {
+    (mode: DriveBrowseView) => {
       setViewModeState(mode)
       setSearchParams(
         (prev) => {
           const n = new URLSearchParams()
-          if (mode === 'trash') n.set('view', 'trash')
-          else if (mode === 'recent') n.set('view', 'recent')
+          if (mode === 'drive') n.set('view', 'files')
+          else n.set('view', mode)
           const q = prev.get('q')
-          if (q) n.set('q', q)
+          if (q && mode === 'drive') n.set('q', q)
           return n
         },
         { replace: true }
@@ -1836,9 +1917,12 @@ export default function DrivePage() {
   useEffect(() => {
     setViewModeState(viewFromUrl)
   }, [viewFromUrl])
+  useEffect(() => {
+    if (viewFromUrl === 'settings') setShowDriveSettings(true)
+  }, [viewFromUrl])
   const driveNameQuery = (searchParams.get('q') ?? '').trim()
   const driveNameQueryLower = driveNameQuery.toLowerCase()
-  const isGlobalSearch = viewMode === 'drive' && driveNameQuery.length > 0
+  const isGlobalSearch = (viewMode === 'drive' || viewMode === 'home') && driveNameQuery.length > 0
   type DeleteModalTarget = { type: 'single'; node: DriveNode } | { type: 'bulk'; ids: number[] } | null
   const [deleteModalTarget, setDeleteModalTarget] = useState<DeleteModalTarget>(null)
   const [purgeModalTarget, setPurgeModalTarget] = useState<DriveNode | null>(null)
@@ -1976,7 +2060,12 @@ export default function DrivePage() {
   const { data: recentNodesRaw } = useQuery({
     queryKey: ['drive', 'recent', 'ribbon'],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 24),
-    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'drive' && currentParentId == null && !isGlobalSearch,
+    enabled:
+      Boolean(accessToken) &&
+      driveVaultReady &&
+      ((viewMode === 'home' && !isGlobalSearch) ||
+        (viewMode === 'drive' && currentParentId == null && !isGlobalSearch) ||
+        viewMode === 'imports'),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
@@ -1984,10 +2073,24 @@ export default function DrivePage() {
   const { data: recentNodesFullRaw, isLoading: isRecentFullLoading } = useQuery({
     queryKey: ['drive', 'recent', 'full', 500],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 500),
-    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'recent',
+    enabled: Boolean(accessToken) && driveVaultReady && (viewMode === 'recent' || viewMode === 'imports'),
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
+  })
+  const { data: starredData, isLoading: isStarredLoading } = useQuery({
+    queryKey: ['drive', 'starred'],
+    queryFn: () => fetchDriveStarredNodes(accessToken!),
+    enabled: Boolean(accessToken) && driveVaultReady && (viewMode === 'starred' || viewMode === 'home'),
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
+    staleTime: 60 * 1000,
+  })
+  const { data: sharedData, isLoading: isSharedLoading } = useQuery({
+    queryKey: ['drive', 'shared'],
+    queryFn: () => fetchDriveSharedNodes(accessToken!),
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'shared',
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
+    staleTime: 60 * 1000,
   })
   const recentNodesFull = recentNodesFullRaw ?? []
   const recentSectionVisible = driveSettings.showRecentSection
@@ -2010,9 +2113,22 @@ export default function DrivePage() {
         : (data ?? [])
       : viewMode === 'trash'
         ? (trashData ?? [])
-        : recentFlatOrdered
+        : viewMode === 'starred'
+          ? (starredData ?? [])
+          : viewMode === 'shared'
+            ? (sharedData ?? [])
+            : viewMode === 'recent' || viewMode === 'imports'
+              ? recentFlatOrdered
+              : []
   const driveQueryError = error ?? searchError
-  const driveListLoading = isGlobalSearch ? isSearchLoading : isLoading
+  const driveListLoading =
+    viewMode === 'starred'
+      ? isStarredLoading
+      : viewMode === 'shared'
+        ? isSharedLoading
+        : isGlobalSearch
+          ? isSearchLoading
+          : isLoading
   const sortedNodes = React.useMemo(() => {
     if (viewMode === 'recent') return [...nodes]
     const arr = [...nodes]
@@ -2239,6 +2355,58 @@ export default function DrivePage() {
       )
     },
     [accessToken, registerDownload]
+  )
+
+  const invalidateDriveLists = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['drive'] })
+  }, [queryClient])
+
+  const handleShare = useCallback(
+    (node: DriveNode) => {
+      if (!accessToken) return
+      createDriveShare(accessToken, node.id)
+        .then((share) => {
+          const token = (share.token || share.share_token || '').trim()
+          const url = token ? drivePublicShareUrl(token) : `${window.location.origin}${share.url}`
+          return navigator.clipboard.writeText(url).then(() => token)
+        })
+        .then((token) => {
+          toast.success('Lien de partage copié')
+          invalidateDriveLists()
+          if (token) {
+            setPreviewNode((prev) => (prev && prev.id === node.id ? { ...prev, share_token: token } : prev))
+          }
+        })
+        .catch((e) => toast.error(e instanceof Error ? e.message : 'Partage impossible'))
+    },
+    [accessToken, invalidateDriveLists]
+  )
+
+  const handleRevokeShare = useCallback(
+    (node: DriveNode) => {
+      if (!accessToken) return
+      revokeDriveShare(accessToken, node.id)
+        .then(() => {
+          toast.success('Lien de partage désactivé')
+          invalidateDriveLists()
+        })
+        .catch((e) => toast.error(e instanceof Error ? e.message : 'Révocation impossible'))
+    },
+    [accessToken, invalidateDriveLists]
+  )
+
+  const handleStar = useCallback(
+    (node: DriveNode) => {
+      if (!accessToken) return
+      const next = !node.starred
+      setDriveStarred(accessToken, node.id, next)
+        .then(() => {
+          toast.success(next ? 'Ajouté aux favoris' : 'Retiré des favoris')
+          invalidateDriveLists()
+        })
+        .catch((e) => toast.error(e instanceof Error ? e.message : 'Favori impossible'))
+    },
+    [accessToken, invalidateDriveLists]
   )
 
   const handleDownloadSelectionAsZip = useCallback(() => {
@@ -2695,6 +2863,18 @@ export default function DrivePage() {
               <button type="button" onClick={() => { handleDownload(previewNode); setPreviewNode(null) }} className="inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600" title="Télécharger" aria-label="Télécharger">
                 <Download className="h-5 w-5" />
               </button>
+              {viewMode !== 'trash' && (
+                <button
+                  type="button"
+                  data-testid="drive-preview-share"
+                  onClick={() => handleShare(previewNode)}
+                  className="inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+                  title="Copier un lien de partage"
+                  aria-label="Partager"
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+              )}
               {viewMode === 'trash' ? (
                 <>
                   <button type="button" onClick={() => { handleRestore(previewNode); setPreviewNode(null) }} className="inline-flex items-center justify-center p-2.5 rounded-lg border border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600" title="Restaurer" aria-label="Restaurer">
@@ -2888,12 +3068,89 @@ export default function DrivePage() {
         </div>
       )}
 
+      {viewMode === 'home' && (
+        <div className="space-y-6">
+          <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden" aria-label="Suggérés">
+            <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 px-3 py-2 border-b border-slate-200 dark:border-slate-600">
+              <Star className="h-4 w-4 text-amber-500" />
+              Suggérés
+            </h2>
+            <div className="flex gap-3 overflow-x-auto p-3">
+              {((starredData && starredData.length > 0 ? starredData : recentNodes).slice(0, 12)).length === 0 ? (
+                <p className="text-sm text-slate-500 py-2">Rien à suggérer pour l’instant.</p>
+              ) : (
+                (starredData && starredData.length > 0 ? starredData : recentNodes).slice(0, 12).map((node) => (
+                  <button
+                    key={`sug-${node.id}`}
+                    type="button"
+                    onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
+                    className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                  >
+                    {node.is_folder ? <Folder className="h-6 w-6 text-amber-500" /> : <FileText className="h-6 w-6 text-slate-400" />}
+                    <span className="text-xs truncate w-full text-center" title={node.name}>{displayFileName(node.name)}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+          <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden" aria-label="Récents">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-600">
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <Clock className="h-4 w-4 text-slate-500" />
+                Ouverts récemment
+              </h2>
+              <button
+                type="button"
+                onClick={toggleRecentSection}
+                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500"
+                aria-expanded={recentSectionVisible}
+                aria-label={recentSectionVisible ? 'Masquer la section Récents' : 'Afficher la section Récents'}
+                data-testid="drive-recent-section-toggle"
+              >
+                {recentSectionVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            </div>
+            {recentSectionVisible && (
+              <div className="flex gap-3 overflow-x-auto p-3">
+                {recentNodes.length === 0 ? (
+                  <p className="text-sm text-slate-500 py-2">Aucun élément récent.</p>
+                ) : (
+                  recentNodes.slice(0, 24).map((node) => (
+                    <button
+                      key={node.id}
+                      type="button"
+                      onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
+                      className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                    >
+                      {node.is_folder ? <Folder className="h-6 w-6 text-amber-500" /> : <FileText className="h-6 w-6 text-slate-400" />}
+                      <span className="text-xs truncate w-full text-center" title={node.name}>{displayFileName(node.name)}</span>
+                      <span className="text-[10px] text-slate-400">{formatRelativeDateWithTime(node.updated_at)}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+      {(viewMode === 'offline' || viewMode === 'spam') && (
+        <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-10 text-center">
+          {viewMode === 'offline' ? <CloudOff className="h-10 w-10 text-slate-400 mx-auto" /> : <Ban className="h-10 w-10 text-slate-400 mx-auto" />}
+          <p className="mt-4 text-slate-600 dark:text-slate-300">
+            {viewMode === 'offline' ? 'Aucun fichier hors connexion pour l’instant.' : 'Aucun fichier dans Spam.'}
+          </p>
+        </div>
+      )}
+
+      {viewMode !== 'home' && viewMode !== 'offline' && viewMode !== 'spam' && viewMode !== 'settings' && (
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[min(420px,52vh)] max-h-[calc(100dvh-11rem)]">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex flex-wrap items-center gap-2 shrink-0">
           <HardDrive className="h-5 w-5 text-slate-400 shrink-0" />
           <span className="font-medium text-slate-700 dark:text-slate-300">
             {viewMode === 'recent'
               ? 'Récents'
+              : viewMode === 'imports'
+                ? 'Importations'
               : currentParentId == null
                 ? 'Racine'
                 : breadcrumb[breadcrumb.length - 1]?.name}
@@ -2975,7 +3232,7 @@ export default function DrivePage() {
             </div>
           )}
 
-          {viewMode === 'recent' ? (
+          {viewMode === 'recent' || viewMode === 'imports' ? (
             isRecentFullLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -3057,6 +3314,9 @@ export default function DrivePage() {
                                         isTrashView={false}
                                         editorLinkState={{ from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }}
                                         accessToken={accessToken}
+                                        onShare={handleShare}
+                                        onRevokeShare={handleRevokeShare}
+                                        onStar={handleStar}
                                       />
                                     )
                                   })}
@@ -3124,6 +3384,9 @@ export default function DrivePage() {
                             isTrashView={false}
                             editorLinkState={{ from: 'drive', parentId: null, breadcrumb: [{ id: null, name: 'Drive' }] }}
                             onPreviewClick={setPreviewNode}
+                            onShare={handleShare}
+                            onRevokeShare={handleRevokeShare}
+                            onStar={handleStar}
                           />
                         ))}
                       </tbody>
@@ -3147,7 +3410,7 @@ export default function DrivePage() {
             </div>
           ) : nodes.length === 0 && !showNewFolder ? (
             <>
-              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
+              {false && viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"
@@ -3301,7 +3564,7 @@ export default function DrivePage() {
                   </button>
                 </div>
               )}
-              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
+              {false && viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"
@@ -3404,6 +3667,9 @@ export default function DrivePage() {
                         editorLinkState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
                         accessToken={accessToken}
                         fromGlobalSearch={viewMode === 'drive' && isGlobalSearch}
+                        onShare={viewMode === 'trash' ? undefined : handleShare}
+                        onRevokeShare={viewMode === 'trash' ? undefined : handleRevokeShare}
+                        onStar={viewMode === 'trash' ? undefined : handleStar}
                       />
                     ))}
                   </div>
@@ -3486,6 +3752,9 @@ export default function DrivePage() {
                         editorLinkState={viewMode === 'drive' ? { from: 'drive', parentId: currentParentId, breadcrumb } : undefined}
                         onPreviewClick={viewMode === 'drive' && isGlobalSearch ? openPreviewFromGlobalSearch : setPreviewNode}
                         fromGlobalSearch={viewMode === 'drive' && isGlobalSearch}
+                        onShare={viewMode === 'trash' ? undefined : handleShare}
+                        onRevokeShare={viewMode === 'trash' ? undefined : handleRevokeShare}
+                        onStar={viewMode === 'trash' ? undefined : handleStar}
                       />
                     ))}
                   </tbody>
@@ -3503,6 +3772,7 @@ export default function DrivePage() {
           )}
         </div>
       </div>
+      )}
       </>
       ) : null}
     </div>

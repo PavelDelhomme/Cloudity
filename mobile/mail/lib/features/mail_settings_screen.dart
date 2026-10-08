@@ -58,7 +58,7 @@ class MailSettingsScreen extends StatelessWidget {
         Text('Paramètres Mail', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         Text(
-          'Compte Cloudity : $gateway',
+          'Compte Hubera : $gateway',
           style: Theme.of(context).textTheme.bodySmall,
         ),
         const SizedBox(height: 24),
@@ -95,7 +95,7 @@ class MailSettingsScreen extends StatelessWidget {
           );
         }),
         const SizedBox(height: 24),
-        Text('Suite Cloudity', style: Theme.of(context).textTheme.titleSmall),
+        Text('Suite Hubera', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 8),
         Card(
           child: ListTile(

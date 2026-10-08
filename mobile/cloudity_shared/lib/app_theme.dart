@@ -142,6 +142,7 @@ class CloudityThemedAppState extends State<CloudityThemedApp> {
       state: this,
       child: MaterialApp(
         title: widget.title,
+        debugShowCheckedModeBanner: false,
         theme: CloudityAppThemes.light(seed),
         darkTheme: CloudityAppThemes.dark(seed),
         themeMode: _mode,

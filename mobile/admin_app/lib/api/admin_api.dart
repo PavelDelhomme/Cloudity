@@ -74,7 +74,7 @@ class AdminApi {
     if (trimmed.startsWith('<') || trimmed.toLowerCase().startsWith('<!doctype')) {
       throw AdminApiException(
         'L’API $what a renvoyé une page HTML au lieu de JSON. '
-        'Hubera ID ne proxifie pas /admin — bascule sur Cloudity.',
+        'Hubera ID ne proxifie pas /admin — bascule sur la passerelle Mail/Drive live.',
       );
     }
     if (ct.isNotEmpty && !ct.contains('json') && !ct.contains('text/plain')) {

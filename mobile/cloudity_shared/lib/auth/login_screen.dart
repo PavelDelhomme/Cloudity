@@ -37,7 +37,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   final T Function(String gateway) createApi;
   final ClouditySuiteApp suiteApp;
   final String keyPrefix;
-  /// Titre complet affiché (« Connexion — Cloudity Mail »). Défaut : Cloudity + [suiteApp].
+  /// Titre complet affiché (« Connexion — Hubera Mail »). Défaut : Hubera + [suiteApp].
   final String? productTitle;
   /// Texte d’intro sous le titre (branding / consignes app).
   final String? supportingText;
@@ -94,7 +94,9 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _brokerAccounts = accounts;
       if (gateways.isNotEmpty) _gatewayBase = gateways.first;
     });
-    if (accounts.length == 1 && !_brokerPickerHidden) {
+    if (accounts.length == 1 &&
+        !_brokerPickerHidden &&
+        accounts.first.refreshToken.isNotEmpty) {
       await _continueWithBroker(accounts.first);
       return;
     }
@@ -917,6 +919,18 @@ class _BrokerAccountTile extends StatelessWidget {
       'cloud.hubera.tasks': 'Tasks',
       'cloud.hubera.cook': 'Cook',
       'cloud.hubera.admin': 'Admin',
+      'cloud.hubera.id': 'Hubera ID',
+      'cloud.hubera.music': 'Music',
+      'cloud.hubera.music.dev': 'Music',
+      'ovh.delhomme.ytmusic': 'Music',
+      'cloud.hubera.docs': 'Docs',
+      'cloud.hubera.maps': 'Maps',
+      'ovh.delhomme.maps': 'Maps',
+      'cloud.hubera.fuel': 'Fuel',
+      'cloud.hubera.jobs': 'Jobs',
+      'cloud.hubera.row': 'Row',
+      'cloud.hubera.office.docs': 'Office Docs',
+      'cloud.hubera.slides': 'Slides',
       'fr.cloudity.cloudity_mail': 'Mail',
       'fr.cloudity.cloudity_drive': 'Drive',
       'fr.cloudity.cloudity_photos': 'Photos',

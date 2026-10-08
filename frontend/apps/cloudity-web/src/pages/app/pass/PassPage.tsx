@@ -102,7 +102,7 @@ function PassPageInner() {
       <div className="py-8 flex flex-col gap-3 text-sm text-slate-600 dark:text-slate-400">
         <p>
           Session ou identifiant utilisateur indisponible. Normalement, la page Pass
-          n’est accessible qu’après connexion Cloudity.
+          n’est accessible qu’après connexion Hubera.
         </p>
         <Link
           to="/login?next=/app/pass"

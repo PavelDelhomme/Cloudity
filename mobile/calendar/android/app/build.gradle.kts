@@ -20,7 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.hubera.calendar"
+        applicationId = if (project.hasProperty("legacyAppId")) {
+            "fr.cloudity.cloudity_calendar"
+        } else {
+            "cloud.hubera.calendar"
+        }
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

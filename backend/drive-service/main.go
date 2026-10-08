@@ -145,7 +145,9 @@ func setupRouter(db *sql.DB) *gin.Engine {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "drive"})
 	})
 	r.GET("/drive/share/:token", h.getPublicShare)
+	r.HEAD("/drive/share/:token", h.headPublicShare)
 	r.GET("/drive/share/:token/content", h.getPublicShareContent)
+	r.HEAD("/drive/share/:token/content", h.headPublicShareContent)
 	r.Use(h.requireUserID)
 	drive := r.Group("/drive")
 	{
@@ -232,8 +234,9 @@ type Handler struct {
 }
 
 func (h *Handler) requireUserID(c *gin.Context) {
+	path := c.Request.URL.Path
 	if c.FullPath() == "/health" || c.FullPath() == "/drive/health" ||
-		c.FullPath() == "/drive/share/:token" || c.FullPath() == "/drive/share/:token/content" {
+		strings.HasPrefix(path, "/drive/share/") {
 		c.Next()
 		return
 	}
@@ -308,7 +311,8 @@ func (h *Handler) listNodes(c *gin.Context) {
 				n.vault_encrypted, n.is_vault_folder,
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
-				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL),
+				n.starred, COALESCE(n.share_token, '')
 			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id IS NULL AND n.deleted_at IS NULL ` + photosRootExcludeSQL + ` ORDER BY n.is_folder DESC, n.name
 		`)
 	} else {
@@ -322,7 +326,8 @@ func (h *Handler) listNodes(c *gin.Context) {
 				n.vault_encrypted, n.is_vault_folder,
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.deleted_at IS NULL),
 				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = true AND c.deleted_at IS NULL),
-				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL)
+				(SELECT COUNT(*) FROM drive_nodes c WHERE c.parent_id = n.id AND c.is_folder = false AND c.deleted_at IS NULL),
+				n.starred, COALESCE(n.share_token, '')
 			FROM drive_nodes n WHERE n.user_id = current_setting('app.current_user_id', true)::INTEGER AND n.parent_id = $1 AND n.deleted_at IS NULL ORDER BY n.is_folder DESC, n.name
 		`, parentID)
 	}
@@ -337,7 +342,8 @@ func (h *Handler) listNodes(c *gin.Context) {
 		var pid sql.NullInt64
 		var mime sql.NullString
 		var uat string
-		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.VaultEncrypted, &n.IsVaultFolder, &n.ChildCount, &n.ChildFolders, &n.ChildFiles); err != nil {
+		var shareToken string
+		if err := rows.Scan(&n.ID, &n.TenantID, &n.UserID, &pid, &n.Name, &n.IsFolder, &n.Size, &mime, &n.CreatedAt, &uat, &n.VaultEncrypted, &n.IsVaultFolder, &n.ChildCount, &n.ChildFolders, &n.ChildFiles, &n.Starred, &shareToken); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -349,6 +355,7 @@ func (h *Handler) listNodes(c *gin.Context) {
 			n.MimeType = &mime.String
 		}
 		n.UpdatedAt = uat
+		n.ShareToken = shareToken
 		list = append(list, n)
 	}
 	c.JSON(http.StatusOK, list)

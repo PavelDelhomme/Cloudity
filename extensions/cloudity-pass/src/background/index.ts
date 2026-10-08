@@ -298,7 +298,7 @@ async function listAutofillCandidates(pageUrl: string): Promise<AutofillCandidat
   const sess = await readSession();
   const gateway = await getGatewayUrl();
   if (!sess?.access || !gateway) {
-    throw new Error('Session Cloudity ou gateway manquant.');
+    throw new Error('Session Hubera ou gateway manquant.');
   }
 
   const pageHost = new URL(pageUrl).hostname;

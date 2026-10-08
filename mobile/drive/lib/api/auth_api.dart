@@ -385,7 +385,7 @@ class AuthApi extends CloudityAuthClient {
     if (decoded is! Map) throw AuthException('Réponse partage invalide');
     final token = (decoded['token'] ?? decoded['share_token'] ?? '').toString();
     if (token.isEmpty) throw AuthException('Lien de partage vide');
-    return '$baseUrl/drive/share/$token/content';
+    return '$baseUrl/drive/share/$token';
   }
 
   Future<void> revokeDriveShare({

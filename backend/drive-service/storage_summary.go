@@ -14,18 +14,27 @@ type storageServiceUsage struct {
 }
 
 type storageSummaryResponse struct {
-	Photos storageServiceUsage `json:"photos"`
-	Drive  storageServiceUsage `json:"drive"`
-	Mail   *storageServiceUsage `json:"mail,omitempty"`
-	Note   string              `json:"note,omitempty"`
+	Photos     storageServiceUsage  `json:"photos"`
+	Drive      storageServiceUsage  `json:"drive"`
+	Mail       *storageServiceUsage `json:"mail,omitempty"`
+	Note       string               `json:"note,omitempty"`
+	UsedBytes  int64                `json:"used_bytes"`
+	QuotaBytes int64                `json:"quota_bytes"`
+}
+
+const defaultDriveQuotaBytes int64 = 15 * 1024 * 1024 * 1024
+
+func driveQuotaBytes() int64 {
+	return defaultDriveQuotaBytes
 }
 
 func (h *Handler) getStorageSummary(c *gin.Context) {
 	if h.db == nil {
 		c.JSON(http.StatusOK, storageSummaryResponse{
-			Photos: storageServiceUsage{Label: "Photos", Bytes: 0, FileCount: 0},
-			Drive:  storageServiceUsage{Label: "Drive (hors dossier Photos)", Bytes: 0, FileCount: 0},
-			Note:   "Base de données indisponible — totaux à zéro.",
+			Photos:     storageServiceUsage{Label: "Photos", Bytes: 0, FileCount: 0},
+			Drive:      storageServiceUsage{Label: "Drive (hors dossier Photos)", Bytes: 0, FileCount: 0},
+			Note:       "Base de données indisponible — totaux à zéro.",
+			QuotaBytes: driveQuotaBytes(),
 		})
 		return
 	}
@@ -107,11 +116,15 @@ SELECT
 			Bytes:     driveBytes,
 			FileCount: driveCount,
 		},
+		QuotaBytes: driveQuotaBytes(),
 	}
+	used := photosBytes + driveBytes
 	if mailUsage, mailErr := h.queryMailStorageUsage(ctx); mailErr == nil {
 		resp.Mail = &mailUsage
+		used += mailUsage.Bytes
 	} else {
 		resp.Note = "Quota Mail indisponible pour ce compte."
 	}
+	resp.UsedBytes = used
 	c.JSON(http.StatusOK, resp)
 }

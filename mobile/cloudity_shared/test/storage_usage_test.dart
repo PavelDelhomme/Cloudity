@@ -20,5 +20,18 @@ void main() {
     expect(summary.drive.bytes, 2048);
     expect(summary.mailNote, 'test note');
     expect(summary.photos.partial, false);
+    expect(summary.effectiveUsedBytes, 1024 + 2048);
+    expect(summary.effectiveQuotaBytes, kDefaultDriveQuotaBytes);
+  });
+
+  test('summaryFromApiResponse lit quota_bytes / used_bytes', () {
+    final summary = summaryFromApiResponse({
+      'photos': {'bytes': 100, 'file_count': 1},
+      'drive': {'bytes': 200, 'file_count': 1},
+      'used_bytes': 500,
+      'quota_bytes': 1024 * 1024 * 1024,
+    });
+    expect(summary.effectiveUsedBytes, 500);
+    expect(summary.effectiveQuotaBytes, 1024 * 1024 * 1024);
   });
 }

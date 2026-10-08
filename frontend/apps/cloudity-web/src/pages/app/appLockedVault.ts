@@ -210,7 +210,7 @@ export async function registerAppLockedWebAuthn(kind: AppLockedVaultKind, scope:
   const cred = (await navigator.credentials.create({
     publicKey: {
       challenge,
-      rp: { name: `Cloudity ${appLabel}`, id: window.location.hostname },
+      rp: { name: `Hubera ${appLabel}`, id: window.location.hostname },
       user: {
         id: userId,
         name: `${kind}-locked-${scope}`,

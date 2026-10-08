@@ -45,7 +45,7 @@ bool _onLogin(WidgetTester tester) =>
     find.textContaining('Se connecter').evaluate().isNotEmpty;
 
 bool _on2FA(WidgetTester tester) =>
-    find.text('Vérification 2FA — Cloudity Drive').evaluate().isNotEmpty;
+    find.text('Vérification 2FA — Hubera Drive').evaluate().isNotEmpty;
 
 bool _onFiles(WidgetTester tester) => find.byKey(kFiles).evaluate().isNotEmpty;
 

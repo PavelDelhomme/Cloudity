@@ -361,7 +361,7 @@ async function refresh(): Promise<void> {
 
   if (isSetup) {
     parcours.innerHTML =
-      '<strong>2. Initialiser le coffre</strong> — aucun coffre côté serveur. Choisis un mot de passe maître (≥ 8 car.) + confirmation. Cloudity ne le stocke pas.';
+      '<strong>2. Initialiser le coffre</strong> — aucun coffre côté serveur. Choisis un mot de passe maître (≥ 8 car.) + confirmation. Hubera ne le stocke pas.';
     confirmLabel.hidden = false;
     confirmInput.hidden = false;
     unlockBtn.textContent = 'Initialiser et continuer';

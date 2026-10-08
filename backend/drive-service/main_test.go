@@ -240,3 +240,39 @@ func TestStorageSummaryNilDBReturnsZeros(t *testing.T) {
 		t.Errorf("expected photos key in body, got %s", w.Body.String())
 	}
 }
+
+func TestPublicShareDoesNotRequireAuth(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/share/0123456789abcdef", nil)
+	r.ServeHTTP(w, req)
+	if w.Code == http.StatusUnauthorized {
+		t.Fatal("GET /drive/share/:token must not require X-User-ID")
+	}
+}
+
+func TestPublicShareHTMLPreferredForBrowsers(t *testing.T) {
+	r := setupRouter(nil)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/drive/share/0123456789abcdef", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	r.ServeHTTP(w, req)
+	if w.Code == http.StatusUnauthorized {
+		t.Fatal("browser GET /drive/share/:token must not 401")
+	}
+}
+
+func TestPublicShareDisposition(t *testing.T) {
+	if got := publicShareDisposition("scan.pdf", "application/pdf", false); got != "inline" {
+		t.Fatalf("pdf inline: got %s", got)
+	}
+	if got := publicShareDisposition("scan.pdf", "application/pdf", true); got != "attachment" {
+		t.Fatalf("pdf download: got %s", got)
+	}
+	if got := publicShareDisposition("photo.jpg", "image/jpeg", false); got != "inline" {
+		t.Fatalf("image inline: got %s", got)
+	}
+	if got := publicShareDisposition("archive.zip", "application/zip", false); got != "attachment" {
+		t.Fatalf("zip attachment: got %s", got)
+	}
+}

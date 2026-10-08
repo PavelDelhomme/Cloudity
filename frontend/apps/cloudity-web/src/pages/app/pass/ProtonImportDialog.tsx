@@ -199,7 +199,7 @@ export default function ProtonImportDialog({
               ))}
             </ul>
             <div className="rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 text-xs text-blue-800 dark:text-blue-200">
-              Toutes ces entrées seront importées dans le vault Cloudity{' '}
+              Toutes ces entrées seront importées dans le vault Hubera{' '}
               <strong>{targetVaultName}</strong> (id #{targetVaultId}). Les types non
               gérés (cartes bancaires, alias…) deviennent des <em>notes</em> avec un
               dump structuré pour retraitement manuel.
