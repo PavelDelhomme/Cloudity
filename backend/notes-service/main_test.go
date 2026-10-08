@@ -16,6 +16,13 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestNoteFoldersDedup(t *testing.T) {
+	got := noteFolders([]string{" Courses ", "courses", "idées", ""})
+	if len(got) != 2 || got[0] != "Courses" || got[1] != "idées" {
+		t.Fatalf("got %#v", got)
+	}
+}
+
 func TestNotesRequiresAuth(t *testing.T) {
 	r := setupRouter(nil)
 	w := httptest.NewRecorder()

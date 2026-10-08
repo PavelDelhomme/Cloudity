@@ -71,6 +71,17 @@ func profileToJSON(p ContactProfile) []byte {
 	return b
 }
 
+func formatContactAddress(a contactAddress) string {
+	cityLine := strings.TrimSpace(strings.TrimSpace(a.PostalCode) + " " + strings.TrimSpace(a.City))
+	parts := []string{}
+	for _, s := range []string{a.Street, cityLine, a.Region, a.Country} {
+		if t := strings.TrimSpace(s); t != "" {
+			parts = append(parts, t)
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 func composeDisplayName(p ContactProfile, fallbackEmail string) string {
 	if s := strings.TrimSpace(p.FileAs); s != "" {
 		return s

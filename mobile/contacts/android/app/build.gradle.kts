@@ -20,7 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.hubera.contacts"
+        applicationId = if (project.hasProperty("legacyAppId")) {
+            "fr.cloudity.cloudity_contacts"
+        } else {
+            "cloud.hubera.contacts"
+        }
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

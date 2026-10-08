@@ -139,6 +139,10 @@ func normalizeColor(c string) string {
 	}
 }
 
+func noteFolders(in []string) []string {
+	return normalizeLabels(in)
+}
+
 func normalizeLabels(in []string) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0, len(in))

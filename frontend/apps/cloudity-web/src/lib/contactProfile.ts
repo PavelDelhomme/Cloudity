@@ -164,6 +164,26 @@ export function profileFromLegacy(name: string, email: string, phone?: string): 
   return p
 }
 
+export function formatContactAddress(addr?: ContactAddress | null): string {
+  if (!addr) return ''
+  const street = addr.street?.trim() || ''
+  const cityLine = [addr.postal_code?.trim(), addr.city?.trim()].filter(Boolean).join(' ')
+  return [street, cityLine, addr.region?.trim(), addr.country?.trim()].filter(Boolean).join(', ')
+}
+
+/** Deep link Hubera Maps si l’app est installée ; sinon URL web. */
+export function huberaMapsDeepLink(address: string): string {
+  const q = address.trim()
+  if (!q) return ''
+  return `hubera-maps://?q=${encodeURIComponent(q)}`
+}
+
+export function huberaMapsWebLink(address: string): string {
+  const q = address.trim()
+  if (!q) return ''
+  return `https://maps.hubera.cloud/?q=${encodeURIComponent(q)}`
+}
+
 export function mergeProfile(base: ContactProfile | null | undefined, legacy: {
   name: string
   email: string

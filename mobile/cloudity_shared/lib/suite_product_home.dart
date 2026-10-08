@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'calendar_repeat.dart';
 import 'calendar_time_grid.dart';
 import 'cloudity_crash_reporter.dart';
+import 'contact_fiche.dart';
+import 'contact_maps.dart';
 import 'cloudity_datetime.dart';
 import 'cloudity_error_ui.dart';
 import 'hubera_scaffold.dart';
@@ -262,6 +264,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           ...extraMails,
           if (phone != null && phone.isNotEmpty) phone,
         ];
+        final addr = contactAddressQuery(item);
+        if (addr.isNotEmpty) bits.add(addr);
         return bits.isEmpty ? null : bits.join(' · ');
       case SuiteProduct.notes:
         final body =
@@ -297,11 +301,28 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  Future<void> _openContactFiche(Map<String, dynamic> item) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => ContactFicheScreen(
+          item: item,
+          api: _api,
+          onChanged: _reload,
+        ),
+      ),
+    );
+    if (changed == true && mounted) await _reload();
+  }
+
   Future<void> _openEditor({
     Map<String, dynamic>? existing,
     bool noteAsChecklist = false,
     DateTime? seedStart,
   }) async {
+    if (existing != null && widget.product == SuiteProduct.contacts) {
+      await _openContactFiche(existing);
+      return;
+    }
     if (existing != null && existing['_hubera_task'] == true) {
       await _openCalendarTaskSheet(existing);
       return;
@@ -523,7 +544,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         if (_allNoteLabels.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('Libellés'),
+            child: Text('Dossiers'),
           ),
           for (final lab in _allNoteLabels)
             ListTile(
@@ -577,6 +598,14 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         }),
       ],
     ];
+  }
+
+  String _contactInitials(String name) {
+    final parts = name.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    String first(String s) => s.substring(0, 1).toUpperCase();
+    if (parts.length == 1) return first(parts.first);
+    return '${first(parts.first)}${first(parts.last)}';
   }
 
   String _emptyTitle() => switch (widget.product) {
@@ -938,7 +967,14 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                                     ),
                                     onPressed: () => _toggleTask(item),
                                   )
-                                : null,
+                                : widget.product == SuiteProduct.contacts
+                                    ? CircleAvatar(
+                                        child: Text(
+                                          _contactInitials(_itemTitle(item)),
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                      )
+                                    : null,
                             title: Text(
                               _itemTitle(item),
                               maxLines: 2,

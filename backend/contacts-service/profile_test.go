@@ -20,6 +20,15 @@ func TestPrimaryPhoneFR(t *testing.T) {
 	}
 }
 
+func TestFormatContactAddress(t *testing.T) {
+	got := formatContactAddress(contactAddress{
+		Street: "12 rue de la Paix", PostalCode: "75002", City: "Paris", Country: "France",
+	})
+	if got != "12 rue de la Paix, 75002 Paris, France" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestNormalizeRequiresIdentity(t *testing.T) {
 	_, _, _, _, err := normalizeContactFields("", "", "", ContactProfile{})
 	if err == "" {

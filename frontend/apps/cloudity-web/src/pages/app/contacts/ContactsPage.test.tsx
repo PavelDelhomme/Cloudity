@@ -78,6 +78,27 @@ describe('ContactsPage', () => {
     expect(screen.getByText('marie@test.fr')).toBeTruthy()
   })
 
+  it('fiche : affiche adresse et lien Hubera Maps', async () => {
+    vi.mocked(api.fetchContacts).mockResolvedValue([
+      {
+        id: 1,
+        name: 'Jean Dupont',
+        email: 'jean@exemple.fr',
+        phone: '+33612345678',
+        profile: {
+          organization: 'Hubera',
+          addresses: [{ label: 'home', street: '12 rue de la Paix', postal_code: '75002', city: 'Paris' }],
+        },
+      },
+    ])
+    render(wrap(<ContactsPage />))
+    fireEvent.click(await screen.findByText('Jean Dupont'))
+    expect(await screen.findByText('12 rue de la Paix, 75002 Paris')).toBeTruthy()
+    const maps = screen.getByRole('link', { name: 'Ouvrir dans Maps' })
+    expect(maps.getAttribute('href')).toContain('https://maps.hubera.cloud/?q=')
+    expect(screen.getByRole('link', { name: 'Appeler' }).getAttribute('href')).toBe('tel:+33612345678')
+  })
+
   it('paramètres : affiche le téléphone dans la liste', async () => {
     vi.mocked(api.fetchContacts).mockResolvedValue([
       { id: 1, name: 'Jean Dupont', email: 'jean@exemple.fr', phone: '+33 6 12 34 56 78' },
