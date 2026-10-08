@@ -1,7 +1,7 @@
 name: admin_app
-description: "Hubera Admin — administration (tenants, console web). Docs = app native."
+description: "Hubera Admin — cockpit Docs intégré (tâches, docs, rapports, retours) + tenants."
 publish_to: 'none'
-version: 0.1.5+6
+version: 0.1.6+7
 
 environment:
   sdk: ^3.11.4
