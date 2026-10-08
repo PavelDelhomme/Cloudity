@@ -1,7 +1,7 @@
 name: admin_app
-description: "Hubera Admin — administration (tenants, console web, Docs)."
+description: "Hubera Admin — administration (tenants, console web). Docs = app native."
 publish_to: 'none'
-version: 0.1.4+5
+version: 0.1.5+6
 
 environment:
   sdk: ^3.11.4
@@ -18,7 +18,6 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.3.3
   url_launcher: ^6.3.1
-  webview_flutter: ^4.13.0
 
 dev_dependencies:
   flutter_test:

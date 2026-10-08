@@ -74,7 +74,7 @@ extension HuberaProductMeta on HuberaProduct {
         HuberaProduct.music => const ['cloud.hubera.music', 'ovh.delhomme.ytmusic'],
         HuberaProduct.maps => const ['cloud.hubera.maps', 'ovh.delhomme.maps'],
         HuberaProduct.fuel => const ['cloud.hubera.fuel', 'com.gasoiltracking.app'],
-        HuberaProduct.docs => const ['cloud.hubera.docs'],
+        HuberaProduct.docs => const ['cloud.hubera.docs', 'ovh.delhomme.hubera.docs'],
         HuberaProduct.calendar => const ['cloud.hubera.calendar'],
         HuberaProduct.drive => const ['cloud.hubera.drive'],
         HuberaProduct.mail => const ['cloud.hubera.mail'],
@@ -100,6 +100,25 @@ extension HuberaProductMeta on HuberaProduct {
 }
 
 Future<void> openHuberaProduct(HuberaProduct app) async {
+  for (final pkg in app.androidPackages) {
+    final uri = Uri.parse(
+      'intent:#Intent;action=android.intent.action.MAIN;'
+      'category=android.intent.category.LAUNCHER;'
+      'package=$pkg;end',
+    );
+    try {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) return;
+    } catch (_) {
+      /* paquet absent */
+    }
+  }
+  try {
+    if (await launchUrl(Uri.parse('hubera-${app.name}://open'), mode: LaunchMode.externalApplication)) {
+      return;
+    }
+  } catch (_) {
+    /* schéma absent */
+  }
   await launchUrl(app.webUri, mode: LaunchMode.externalApplication);
 }
 

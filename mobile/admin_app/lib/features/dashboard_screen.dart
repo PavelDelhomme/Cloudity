@@ -92,11 +92,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         onDestinationSelected: (index) {
           Navigator.pop(context);
           if (index == 1) {
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const DocsWebScreen(),
-              ),
-            );
+            openHuberaDocsApp(context);
           } else if (index == 2) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -122,7 +118,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           NavigationDrawerDestination(
             icon: Icon(Icons.checklist_outlined),
             selectedIcon: Icon(Icons.checklist),
-            label: Text('Tâches · Docs'),
+            label: Text('Hubera Docs'),
           ),
           NavigationDrawerDestination(
             icon: Icon(Icons.business_outlined),
@@ -188,18 +184,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Card(
                     child: ListTile(
                       leading: const Icon(Icons.checklist_outlined),
-                      title: const Text('Tâches · Hubera Docs'),
+                      title: const Text('Hubera Docs'),
                       subtitle: const Text(
-                        'Kanban, PDF des mails, notes, .md — dans cette app.',
+                        'Ouvre l’application native (kanban, PDF, retours) — pas le site.',
                       ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const DocsWebScreen(),
-                          ),
-                        );
-                      },
+                      trailing: const Icon(Icons.open_in_new),
+                      onTap: () => openHuberaDocsApp(context),
                     ),
                   ),
                   const SizedBox(height: 8),

@@ -1,64 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
-const docsUrl = 'https://docs.hubera.cloud';
+const docsScheme = 'hubera-docs://open';
+const docsPackages = ['cloud.hubera.docs', 'ovh.delhomme.hubera.docs'];
 
-/// Cockpit tâches / PDF / notes — même app que docs.hubera.cloud, dans Admin.
-class DocsWebScreen extends StatefulWidget {
-  const DocsWebScreen({super.key});
-
-  @override
-  State<DocsWebScreen> createState() => _DocsWebScreenState();
+Uri _nativeLaunchUri(String packageName) {
+  return Uri.parse(
+    'intent:#Intent;action=android.intent.action.MAIN;'
+    'category=android.intent.category.LAUNCHER;'
+    'package=$packageName;end',
+  );
 }
 
-class _DocsWebScreenState extends State<DocsWebScreen> {
-  late final WebViewController _controller;
-  var _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFFF4F7F8))
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (_) {
-            if (mounted) setState(() => _loading = true);
-          },
-          onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(docsUrl));
+/// Ouvre l’APK Hubera Docs. Jamais de WebView / Chrome du site.
+Future<void> openHuberaDocsApp(BuildContext context) async {
+  try {
+    if (await launchUrl(Uri.parse(docsScheme), mode: LaunchMode.externalApplication)) {
+      return;
+    }
+  } catch (_) {
+    /* schéma absent */
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tâches · Docs'),
-        actions: [
-          IconButton(
-            tooltip: 'Actualiser',
-            onPressed: () => _controller.reload(),
-            icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            tooltip: 'Ouvrir dans le navigateur',
-            onPressed: () => launchUrl(Uri.parse(docsUrl), mode: LaunchMode.externalApplication),
-            icon: const Icon(Icons.open_in_browser),
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_loading) const LinearProgressIndicator(),
-        ],
-      ),
-    );
+  for (final pkg in docsPackages) {
+    try {
+      if (await launchUrl(_nativeLaunchUri(pkg), mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {
+      /* paquet absent */
+    }
   }
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Installe l’application Hubera Docs (pas le site web).'),
+    ),
+  );
 }
