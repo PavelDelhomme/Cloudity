@@ -6,16 +6,14 @@ MediaQueryData huberaSafeMedia(BuildContext context) {
   final mq = MediaQuery.of(context);
   final p = mq.padding;
   final v = mq.viewPadding;
-  var bottom = math.max(p.bottom, v.bottom);
-  if (bottom < 8 && Theme.of(context).platform == TargetPlatform.android) {
-    bottom = 24;
-  }
+  // Un seul chemin d’inset : ne pas forcer 24 px ni gonfler le bas
+  // (SafeArea + NavigationBar le refaisaient → nav trop haute).
   return mq.copyWith(
     padding: EdgeInsets.only(
       left: math.max(p.left, v.left),
       top: math.max(p.top, v.top),
       right: math.max(p.right, v.right),
-      bottom: bottom,
+      bottom: math.max(p.bottom, v.bottom),
     ),
   );
 }
@@ -306,9 +304,7 @@ class HuberaScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MediaQuery(
-      data: huberaSafeMedia(context),
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: Text(title),
           centerTitle: false,
@@ -329,9 +325,10 @@ class HuberaScaffold extends StatelessWidget {
         floatingActionButton: floatingActionButton,
         bottomNavigationBar: bottomDestinations.isEmpty
             ? null
-            : SafeArea(
-                top: false,
+            : Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
                 child: NavigationBar(
+                  height: 64,
                   selectedIndex: () {
                     final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
                     return i < 0 ? 0 : i;
@@ -343,7 +340,6 @@ class HuberaScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-      ),
     );
   }
 }

@@ -94,9 +94,8 @@ class HuberaOtaInstallerPlugin :
 
     private fun installApk(path: String) {
         if (!canInstallPackages()) {
-            openInstallPermissionSettings()
             throw IllegalStateException(
-                "Autorise l’installation d’apps pour ${appContext.packageName}, puis réessaie.",
+                "Autorise d’abord l’installation d’apps pour ${appContext.packageName}.",
             )
         }
         val file = File(path)
@@ -105,10 +104,12 @@ class HuberaOtaInstallerPlugin :
         }
         val authority = "${appContext.packageName}.hubera.ota"
         val uri = FileProvider.getUriForFile(appContext, authority, file)
-        val intent = Intent(Intent.ACTION_VIEW).apply {
+        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
             setDataAndType(uri, "application/vnd.android.package-archive")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+            putExtra(Intent.EXTRA_RETURN_RESULT, false)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }

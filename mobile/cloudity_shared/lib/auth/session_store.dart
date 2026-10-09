@@ -6,7 +6,7 @@ import '../storage_keys.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
 
-const _sessionRestoreTimeout = Duration(seconds: 10);
+const _sessionRestoreTimeout = Duration(seconds: 4);
 
 /// Persistance session + broker Android (H19 — une seule copie).
 class SessionStore {

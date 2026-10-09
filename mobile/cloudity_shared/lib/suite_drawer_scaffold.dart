@@ -350,9 +350,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MediaQuery(
-      data: huberaSafeMedia(context),
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: Text(title),
           centerTitle: false,
@@ -367,11 +365,13 @@ class SuiteDrawerScaffold extends StatelessWidget {
         drawer: _buildDrawer(context),
         body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
         floatingActionButton: showSettings ? null : floatingActionButton,
+        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
             ? null
-            : SafeArea(
-                top: false,
+            : Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
                 child: NavigationBar(
+                  height: 64,
                   selectedIndex: () {
                     final i = bottomDestinations.indexWhere((d) => d.id == selectedBottomId);
                     return i < 0 ? 0 : i;
@@ -383,7 +383,6 @@ class SuiteDrawerScaffold extends StatelessWidget {
                   ],
                 ),
               ),
-      ),
     );
   }
 }

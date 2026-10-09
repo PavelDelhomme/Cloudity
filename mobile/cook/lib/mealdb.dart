@@ -37,7 +37,9 @@ class MealDetail {
 Future<List<MealSummary>> mealDbSearch(String query) async {
   final q = query.trim();
   if (q.isEmpty) return mealDbRandomBatch();
-  final res = await http.get(Uri.parse('$_mealDb/search.php?s=${Uri.encodeQueryComponent(q)}'));
+  final res = await http
+      .get(Uri.parse('$_mealDb/search.php?s=${Uri.encodeQueryComponent(q)}'))
+      .timeout(const Duration(seconds: 8));
   if (res.statusCode != 200) return [];
   return _summaries(res.body);
 }
@@ -50,14 +52,37 @@ Future<List<MealSummary>> mealDbByIngredient(String ingredient) async {
   return _summaries(res.body);
 }
 
+const _letters = 'abcdefghijklmnopqrstuvwxyz';
+
+Future<List<MealSummary>> mealDbByLetter(String letter) async {
+  final L = letter.trim().toLowerCase();
+  if (L.isEmpty) return [];
+  final res = await http
+      .get(Uri.parse('$_mealDb/search.php?f=${Uri.encodeQueryComponent(L[0])}'))
+      .timeout(const Duration(seconds: 8));
+  if (res.statusCode != 200) return [];
+  return _summaries(res.body);
+}
+
+/// Page suivante (lettres a→z) pour le scroll infini.
+Future<({List<MealSummary> meals, int nextIndex})> mealDbLetterPage(int startIndex) async {
+  var i = startIndex;
+  while (i < _letters.length) {
+    final list = await mealDbByLetter(_letters[i]);
+    i += 1;
+    if (list.isNotEmpty) return (meals: list, nextIndex: i);
+  }
+  return (meals: <MealSummary>[], nextIndex: _letters.length);
+}
+
 Future<List<MealSummary>> mealDbRandomBatch() async {
+  final first = await mealDbLetterPage(0);
+  if (first.meals.isNotEmpty) return first.meals;
   final out = <MealSummary>[];
   final seen = <String>{};
-  for (var i = 0; i < 8; i++) {
-    final res = await http.get(Uri.parse('$_mealDb/random.php'));
-    if (res.statusCode != 200) continue;
-    final list = _summaries(res.body);
-    for (final m in list) {
+  final res = await http.get(Uri.parse('$_mealDb/random.php')).timeout(const Duration(seconds: 8));
+  if (res.statusCode == 200) {
+    for (final m in _summaries(res.body)) {
       if (seen.add(m.id)) out.add(m);
     }
   }

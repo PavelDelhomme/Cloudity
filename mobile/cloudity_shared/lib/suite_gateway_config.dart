@@ -31,9 +31,9 @@ abstract final class SuiteGatewayConfig {
   /// Candidats à tester au login.
   static List<String> candidates({String? savedGateway}) {
     final candidates = <String>[
+      if (savedGateway != null && savedGateway.trim().isNotEmpty) savedGateway.trim(),
       if (hasDartDefine) fromDartDefine,
       if (kReleaseMode) ClouditySuiteDefaults.defaultGatewayProduction,
-      if (savedGateway != null && savedGateway.trim().isNotEmpty) savedGateway.trim(),
       if (kDebugMode) ClouditySuiteDefaults.defaultGatewayUsb,
       if (kDebugMode) ClouditySuiteDefaults.defaultGatewayEmulator,
       if (kDebugMode) 'http://10.0.3.2:6002',

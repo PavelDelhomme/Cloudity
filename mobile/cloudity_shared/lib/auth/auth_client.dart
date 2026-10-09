@@ -195,9 +195,9 @@ class CloudityAuthClient {
   }) async {
     // Renouvellement silencieux avant expiration (comme Google) — évite les 401
     // dès qu’une app revient au premier plan après quelques heures.
-    if (accessToken.isNotEmpty &&
-        !isAccessTokenExpiringSoon(accessToken) &&
-        await validate(accessToken)) {
+    if (accessToken.isNotEmpty && !isAccessTokenExpiringSoon(accessToken)) {
+      // JWT encore valable : pas d’aller-retour /auth/validate au cold start
+      // (c’était ~5 s de latence perçue sur Mail / Drive / Cook).
       return (access: accessToken, refresh: refreshToken);
     }
     if (refreshToken.isEmpty) {

@@ -269,6 +269,13 @@ Future<void> cloudityDownloadAndInstallOta(
     throw UnsupportedError('Mise à jour in-app disponible sur Android uniquement.');
   }
 
+  if (!await HuberaOtaInstaller.canInstallPackages()) {
+    await HuberaOtaInstaller.openInstallPermissionSettings();
+    throw StateError(
+      'Autorise l’installation d’apps pour Hubera, puis réessaie — le téléchargement n’a pas encore commencé.',
+    );
+  }
+
   await cloudityPurgeOtaCache();
   final dir = await _otaCacheDir();
   final safeName = manifest.app.isEmpty
@@ -344,13 +351,6 @@ Future<void> cloudityDownloadAndInstallOta(
           'Contrôle d’intégrité échoué (SHA-256). Mise à jour annulée.',
         );
       }
-    }
-
-    if (!await HuberaOtaInstaller.canInstallPackages()) {
-      await HuberaOtaInstaller.openInstallPermissionSettings();
-      throw StateError(
-        'Autorise l’installation d’apps pour Hubera, puis réessaie la mise à jour.',
-      );
     }
 
     try {

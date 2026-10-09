@@ -244,9 +244,7 @@ class _InboxScreenState extends State<InboxScreen> {
       });
       unawaited(_loadContacts());
       if (_accountId != null) {
-        await _reloadSummaryAndMessages();
-      } else {
-        if (mounted) setState(() => _loading = false);
+        unawaited(_reloadSummaryAndMessages());
       }
     } on AuthException catch (e) {
       if (e.message == 'non_autorisé') {
@@ -292,8 +290,10 @@ class _InboxScreenState extends State<InboxScreen> {
   }
 
   Future<void> _reloadSummaryAndMessages() async {
-    await _reloadSummary();
-    await _reloadMessages();
+    await Future.wait([
+      _reloadSummary(),
+      _reloadMessages(),
+    ]);
   }
 
   Future<void> _reloadSummary() async {
@@ -343,10 +343,13 @@ class _InboxScreenState extends State<InboxScreen> {
   Future<void> _reloadMessages() async {
     final id = _accountId;
     if (id == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final showSpinner = _messages.isEmpty;
+    if (showSpinner) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       await widget.session.refreshIfNeeded();
       final q = _mailSearchQueryParam();

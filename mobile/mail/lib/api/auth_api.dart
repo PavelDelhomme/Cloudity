@@ -88,7 +88,7 @@ class AuthApi extends CloudityAuthClient {
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
-    );
+    ).timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }
@@ -125,7 +125,7 @@ class AuthApi extends CloudityAuthClient {
     final res = await http.get(
       uri,
       headers: authHeaders(accessToken, json: false),
-    );
+    ).timeout(_httpTimeout);
     if (res.statusCode == 401) {
       throw AuthException('non_autorisé');
     }

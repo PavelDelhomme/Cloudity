@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/material.dart';
 
@@ -154,36 +156,31 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         webAppPath: '/app/',
         onLogout: () => widget.onLogout(),
       ),
+      selectedBottomId: '$_tab',
+      onBottomSelected: (id) => setState(() => _tab = int.tryParse(id) ?? 0),
+      bottomDestinations: const [
+        HuberaNavDest(id: '0', label: 'Frigo', icon: Icons.kitchen_outlined),
+        HuberaNavDest(id: '1', label: 'Recettes', icon: Icons.menu_book_outlined),
+        HuberaNavDest(id: '2', label: 'Menu', icon: Icons.calendar_view_week_outlined),
+        HuberaNavDest(id: '3', label: 'Courses', icon: Icons.shopping_cart_outlined),
+      ],
       floatingActionButton: _showSettings || _tab == 1
           ? null
-          : FloatingActionButton(
-              onPressed: switch (_tab) {
-                0 => _addPantry,
-                3 => _addShop,
-                _ => _suggestPlan,
-              },
-              tooltip: _tab == 0
-                  ? 'Ajouter au frigo'
-                  : (_tab == 3 ? 'Ajouter à la liste' : 'Proposer des repas'),
-              child: const Icon(Icons.add),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: FloatingActionButton(
+                onPressed: switch (_tab) {
+                  0 => _addPantry,
+                  3 => _addShop,
+                  _ => _suggestPlan,
+                },
+                tooltip: _tab == 0
+                    ? 'Ajouter au frigo'
+                    : (_tab == 3 ? 'Ajouter à la liste' : 'Proposer des repas'),
+                child: const Icon(Icons.add),
+              ),
             ),
-      body: _showSettings
-          ? const SizedBox.shrink()
-          : Column(
-              children: [
-                Expanded(child: _buildBody()),
-                NavigationBar(
-                  selectedIndex: _tab,
-                  onDestinationSelected: (i) => setState(() => _tab = i),
-                  destinations: const [
-                    NavigationDestination(icon: Icon(Icons.kitchen_outlined), selectedIcon: Icon(Icons.kitchen), label: 'Frigo'),
-                    NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book), label: 'Recettes'),
-                    NavigationDestination(icon: Icon(Icons.calendar_view_week_outlined), selectedIcon: Icon(Icons.calendar_view_week), label: 'Menu'),
-                    NavigationDestination(icon: Icon(Icons.shopping_cart_outlined), selectedIcon: Icon(Icons.shopping_cart), label: 'Courses'),
-                  ],
-                ),
-              ],
-            ),
+      body: _showSettings ? const SizedBox.shrink() : _buildBody(),
     );
   }
 
@@ -195,7 +192,12 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     return IndexedStack(
       index: _tab,
       children: [
-        _PantryTab(items: _data.pantry, onAdd: _addPantry, onRemove: _removePantry),
+        _PantryTab(
+          items: _data.pantry,
+          onAdd: _addPantry,
+          onEdit: _editPantry,
+          onRemove: _removePantry,
+        ),
         _RecipesTab(
           pantry: _data.pantry,
           favorites: _data.favorites,
@@ -278,6 +280,63 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         qty: qty.text.trim(),
         unit: unit.text.trim(),
       ));
+    });
+    await _persist();
+  }
+
+  Future<void> _editPantry(CookPantryItem item) async {
+    final name = TextEditingController(text: item.name);
+    final qty = TextEditingController(text: item.qty);
+    final unit = TextEditingController(text: item.unit);
+    final ok = await showSuiteModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: suiteBottomSheetPadding(ctx),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Modifier la quantité', style: Theme.of(ctx).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: name,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(labelText: 'Ingrédient', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: qty,
+                    keyboardType: TextInputType.number,
+                    autofocus: true,
+                    decoration: const InputDecoration(labelText: 'Qté', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: unit,
+                    decoration: const InputDecoration(labelText: 'Unité', hintText: 'g, pcs…', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty),
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    setState(() {
+      item.name = name.text.trim();
+      item.qty = qty.text.trim();
+      item.unit = unit.text.trim();
     });
     await _persist();
   }
@@ -487,11 +546,13 @@ class _PantryTab extends StatelessWidget {
   const _PantryTab({
     required this.items,
     required this.onAdd,
+    required this.onEdit,
     required this.onRemove,
   });
 
   final List<CookPantryItem> items;
   final VoidCallback onAdd;
+  final Future<void> Function(CookPantryItem) onEdit;
   final Future<void> Function(CookPantryItem) onRemove;
 
   @override
@@ -523,7 +584,8 @@ class _PantryTab extends StatelessWidget {
         return ListTile(
           leading: const Icon(Icons.inventory_2_outlined),
           title: Text(item.name),
-          subtitle: qty.isEmpty ? null : Text(qty),
+          subtitle: Text(qty.isEmpty ? 'Toucher pour la quantité' : qty),
+          onTap: () => onEdit(item),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () => onRemove(item),
@@ -555,6 +617,9 @@ class _RecipesTabState extends State<_RecipesTab> {
   final _query = TextEditingController();
   List<MealSummary> _meals = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _searching = false;
+  int _letterIndex = 0;
   String? _error;
 
   @override
@@ -573,6 +638,8 @@ class _RecipesTabState extends State<_RecipesTab> {
     setState(() {
       _loading = true;
       _error = null;
+      _searching = false;
+      _letterIndex = 0;
     });
     try {
       final names = widget.pantry.map((e) => e.name).toList();
@@ -580,8 +647,10 @@ class _RecipesTabState extends State<_RecipesTab> {
       if (!mounted) return;
       setState(() {
         _meals = list;
+        _letterIndex = names.isEmpty ? 1 : 0;
         _loading = false;
       });
+      if (_meals.length < 12) unawaited(_loadMore());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -591,10 +660,29 @@ class _RecipesTabState extends State<_RecipesTab> {
     }
   }
 
+  Future<void> _loadMore() async {
+    if (_loadingMore || _searching || _letterIndex >= 26) return;
+    setState(() => _loadingMore = true);
+    try {
+      final page = await mealDbLetterPage(_letterIndex);
+      if (!mounted) return;
+      final seen = _meals.map((m) => m.id).toSet();
+      final extra = page.meals.where((m) => seen.add(m.id)).toList();
+      setState(() {
+        _meals = [..._meals, ...extra];
+        _letterIndex = page.nextIndex;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   Future<void> _search() async {
     setState(() {
       _loading = true;
       _error = null;
+      _searching = true;
     });
     try {
       final list = await mealDbSearch(_query.text);
@@ -637,7 +725,14 @@ class _RecipesTabState extends State<_RecipesTab> {
         Expanded(
           child: _meals.isEmpty && !_loading
               ? const Center(child: Text('Aucune recette'))
-              : GridView.builder(
+              : NotificationListener<ScrollNotification>(
+                  onNotification: (n) {
+                    if (n.metrics.pixels > n.metrics.maxScrollExtent - 640) {
+                      _loadMore();
+                    }
+                    return false;
+                  },
+                  child: GridView.builder(
                   padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -645,8 +740,14 @@ class _RecipesTabState extends State<_RecipesTab> {
                     crossAxisSpacing: 8,
                     childAspectRatio: 0.78,
                   ),
-                  itemCount: _meals.length,
+                  itemCount: _meals.length + (_loadingMore ? 1 : 0),
                   itemBuilder: (ctx, i) {
+                    if (i >= _meals.length) {
+                      return const Center(child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ));
+                    }
                     final m = _meals[i];
                     final fav = widget.favorites.contains(m.id);
                     return Card(
@@ -680,6 +781,7 @@ class _RecipesTabState extends State<_RecipesTab> {
                       ),
                     );
                   },
+                ),
                 ),
         ),
       ],
