@@ -6,8 +6,6 @@ MediaQueryData huberaSafeMedia(BuildContext context) {
   final mq = MediaQuery.of(context);
   final p = mq.padding;
   final v = mq.viewPadding;
-  // Un seul chemin d’inset : ne pas forcer 24 px ni gonfler le bas
-  // (SafeArea + NavigationBar le refaisaient → nav trop haute).
   return mq.copyWith(
     padding: EdgeInsets.only(
       left: math.max(p.left, v.left),
@@ -244,7 +242,6 @@ class HuberaDrawerBody extends StatelessWidget {
                 children: [
                   ...navItems,
                   const Divider(height: 1),
-                  HuberaAppSwitcher(current: current),
                   ListTile(
                     leading: const Icon(Icons.person_outline),
                     title: const Text('Compte'),
@@ -310,6 +307,18 @@ class HuberaScaffold extends StatelessWidget {
           centerTitle: false,
           actions: [
             ...appBarActions,
+            IconButton(
+              tooltip: 'Apps Hubera',
+              onPressed: () {
+                showModalBottomSheet<void>(
+                  context: context,
+                  builder: (_) => SafeArea(
+                    child: HuberaAppSwitcher(current: current),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.apps),
+            ),
             HuberaAccountAvatar(onTap: onAccountTap, email: userEmail),
           ],
         ),

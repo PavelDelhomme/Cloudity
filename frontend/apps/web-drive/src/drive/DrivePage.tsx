@@ -29,6 +29,7 @@ import {
   LayoutGrid,
   List,
   MoreVertical,
+  ArrowLeft,
   Clock,
   Eye,
   Lock,
@@ -92,6 +93,7 @@ import { getExtension, isOfficeIframePreviewName, isWordDocument } from '@cloudi
 import { parseCsvToGrid } from '@cloudity/web-shell/utils/csvGrid'
 import { markdownToHtml } from '@cloudity/web-shell/utils/htmlMarkdown'
 import { DrivePdfJsPreview } from '@cloudity/web-shell/components/DrivePdfJsPreview'
+import StorageUsageInline from '@cloudity/web-shell/components/StorageUsageInline'
 
 /** Limites d’aperçu tableur / Office dans la modale (valeurs élevées : l’éditeur complet reste pour l’édition lourde). */
 const OFFICE_PREVIEW_MAX_ROWS = 5000
@@ -271,7 +273,6 @@ type DriveBrowseView =
   | 'imports'
   | 'offline'
   | 'spam'
-  | 'settings'
 
 /** Position du menu Actions (bouton ⋮) ou clic droit. */
 type DriveItemMenuPosition =
@@ -1670,16 +1671,7 @@ const DriveToolbar = React.memo(function DriveToolbar({
             )}
           </nav>
         )}
-        {viewMode === 'home' && (
-          <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Accueil</h1>
-        )}
-        {(viewMode === 'trash' ||
-          viewMode === 'recent' ||
-          viewMode === 'starred' ||
-          viewMode === 'shared' ||
-          viewMode === 'imports' ||
-          viewMode === 'offline' ||
-          viewMode === 'spam') && (
+        {(viewMode === 'trash' || viewMode === 'recent' || viewMode === 'starred' || viewMode === 'shared' || viewMode === 'home' || viewMode === 'imports' || viewMode === 'offline' || viewMode === 'spam') && (
           <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">
             {viewMode === 'trash'
               ? 'Corbeille'
@@ -1689,11 +1681,13 @@ const DriveToolbar = React.memo(function DriveToolbar({
                   ? 'Favoris'
                   : viewMode === 'shared'
                     ? 'Liens partagés'
-                    : viewMode === 'imports'
-                      ? 'Importations'
-                      : viewMode === 'offline'
-                        ? 'Hors connexion'
-                        : 'Spam'}
+                    : viewMode === 'home'
+                      ? 'Accueil'
+                      : viewMode === 'imports'
+                        ? 'Importations'
+                        : viewMode === 'offline'
+                          ? 'Hors connexion'
+                          : 'Spam'}
           </h1>
         )}
         {viewMode === 'drive' && breadcrumb.length <= 1 && (
@@ -1719,33 +1713,119 @@ const DriveToolbar = React.memo(function DriveToolbar({
             Fichiers et dossiers marqués d’une étoile — comme les favoris Google Drive.
           </p>
         )}
-        {viewMode === 'home' && (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Suggérés et fichiers ouverts récemment. L’arborescence est dans <strong>Fichiers</strong>.
-          </p>
-        )}
         {viewMode === 'shared' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Éléments pour lesquels un lien public est actif. Copiez le lien ou arrêtez le partage depuis le menu ⋮.
           </p>
         )}
+        {viewMode === 'home' && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Fichiers suggérés et derniers utilisés. L’arborescence est dans l’onglet Fichiers.
+          </p>
+        )}
         {viewMode === 'imports' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Fichiers récemment ajoutés ou téléversés.
+            Fichiers récemment importés sur ce compte.
           </p>
         )}
         {viewMode === 'offline' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Disponibles sans réseau — bientôt via le package commun Hubera ID.
+            La file hors-ligne commune Hubera ID arrive plus tard.
           </p>
         )}
         {viewMode === 'spam' && (
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Fichiers signalés comme indésirables.
+            Les fichiers signalés apparaîtront ici.
           </p>
         )}
       </div>
       <div className="flex items-center gap-2 flex-wrap">
+        <StorageUsageInline scope="drive" />
+        {viewMode === 'drive' ? (
+          <>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('starred')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Star className="h-4 w-4" />
+            Favoris
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('shared')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Share2 className="h-4 w-4" />
+            Partagés
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('recent')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Clock className="h-4 w-4" />
+            Récents
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('trash')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Trash2 className="h-4 w-4" />
+            Corbeille
+          </button>
+          </>
+        ) : viewMode === 'recent' ? (
+          <>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('drive')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour au Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('trash')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Trash2 className="h-4 w-4" />
+            Corbeille
+          </button>
+          </>
+        ) : (
+          <>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('drive')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Retour au Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => onViewModeChange('recent')}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600"
+          >
+            <Clock className="h-4 w-4" />
+            Récents
+          </button>
+          </>
+        )}
+        {onOpenSettings ? (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="inline-flex items-center justify-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+            title="Paramètres Drive"
+            aria-label="Paramètres Drive"
+          >
+            <Settings className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
         {(viewMode === 'drive' || viewMode === 'recent' || viewMode === 'starred' || viewMode === 'shared') && onDisplayModeChange && (
           <div className="flex rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50 p-0.5">
             <button
@@ -1883,18 +1963,29 @@ export default function DrivePage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [searchParams, setSearchParams] = useSearchParams()
   const viewFromUrl: DriveBrowseView = (() => {
-    const v = searchParams.get('view')
-    if (v === 'home') return 'home'
-    if (v === 'trash') return 'trash'
-    if (v === 'recent') return 'recent'
-    if (v === 'starred') return 'starred'
-    if (v === 'shared') return 'shared'
-    if (v === 'imports') return 'imports'
-    if (v === 'offline') return 'offline'
-    if (v === 'spam') return 'spam'
-    if (v === 'settings') return 'settings'
-    if (v === 'files' || v === 'drive') return 'drive'
-    return 'drive'
+    switch (searchParams.get('view')) {
+      case 'trash':
+        return 'trash'
+      case 'recent':
+        return 'recent'
+      case 'starred':
+        return 'starred'
+      case 'shared':
+        return 'shared'
+      case 'imports':
+        return 'imports'
+      case 'offline':
+        return 'offline'
+      case 'spam':
+        return 'spam'
+      case 'home':
+        return 'home'
+      case 'drive':
+      case 'files':
+        return 'drive'
+      default:
+        return 'drive'
+    }
   })()
   const [viewMode, setViewModeState] = useState<DriveBrowseView>(viewFromUrl)
   const setViewMode = useCallback(
@@ -1903,10 +1994,17 @@ export default function DrivePage() {
       setSearchParams(
         (prev) => {
           const n = new URLSearchParams()
-          if (mode === 'drive') n.set('view', 'files')
-          else n.set('view', mode)
+          if (mode === 'trash') n.set('view', 'trash')
+          else if (mode === 'recent') n.set('view', 'recent')
+          else if (mode === 'starred') n.set('view', 'starred')
+          else if (mode === 'shared') n.set('view', 'shared')
+          else if (mode === 'home') n.set('view', 'home')
+          else if (mode === 'imports') n.set('view', 'imports')
+          else if (mode === 'offline') n.set('view', 'offline')
+          else if (mode === 'spam') n.set('view', 'spam')
+          else if (mode === 'drive') n.delete('view')
           const q = prev.get('q')
-          if (q && mode === 'drive') n.set('q', q)
+          if (q) n.set('q', q)
           return n
         },
         { replace: true }
@@ -1917,12 +2015,9 @@ export default function DrivePage() {
   useEffect(() => {
     setViewModeState(viewFromUrl)
   }, [viewFromUrl])
-  useEffect(() => {
-    if (viewFromUrl === 'settings') setShowDriveSettings(true)
-  }, [viewFromUrl])
   const driveNameQuery = (searchParams.get('q') ?? '').trim()
   const driveNameQueryLower = driveNameQuery.toLowerCase()
-  const isGlobalSearch = (viewMode === 'drive' || viewMode === 'home') && driveNameQuery.length > 0
+  const isGlobalSearch = viewMode === 'drive' && driveNameQuery.length > 0
   type DeleteModalTarget = { type: 'single'; node: DriveNode } | { type: 'bulk'; ids: number[] } | null
   const [deleteModalTarget, setDeleteModalTarget] = useState<DeleteModalTarget>(null)
   const [purgeModalTarget, setPurgeModalTarget] = useState<DriveNode | null>(null)
@@ -2069,11 +2164,24 @@ export default function DrivePage() {
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
   })
+  const { data: homeRootNodesRaw, isLoading: isHomeRootLoading } = useQuery({
+    queryKey: ['drive', 'nodes', 'root', 'home'],
+    queryFn: () => fetchDriveNodes(accessToken!, null),
+    enabled: Boolean(accessToken) && driveVaultReady && viewMode === 'home',
+    retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
+    staleTime: 2 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  })
+  const homeRootNodes = homeRootNodesRaw ?? []
+  const homeFolders = useMemo(
+    () => homeRootNodes.filter((n) => n.is_folder).slice(0, 12),
+    [homeRootNodes]
+  )
   const recentNodes = recentNodesRaw ?? []
   const { data: recentNodesFullRaw, isLoading: isRecentFullLoading } = useQuery({
     queryKey: ['drive', 'recent', 'full', 500],
     queryFn: () => fetchDriveRecentFiles(accessToken!, 500),
-    enabled: Boolean(accessToken) && driveVaultReady && (viewMode === 'recent' || viewMode === 'imports'),
+    enabled: Boolean(accessToken) && driveVaultReady && (viewMode === 'recent' || viewMode === 'home' || viewMode === 'imports'),
     retry: (_, err) => !(err instanceof Error && err.message.includes('401')),
     staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
@@ -2117,9 +2225,11 @@ export default function DrivePage() {
           ? (starredData ?? [])
           : viewMode === 'shared'
             ? (sharedData ?? [])
-            : viewMode === 'recent' || viewMode === 'imports'
-              ? recentFlatOrdered
-              : []
+            : viewMode === 'home'
+              ? []
+              : viewMode === 'offline' || viewMode === 'spam'
+                ? []
+                : recentFlatOrdered
   const driveQueryError = error ?? searchError
   const driveListLoading =
     viewMode === 'starred'
@@ -3069,80 +3179,153 @@ export default function DrivePage() {
       )}
 
       {viewMode === 'home' && (
-        <div className="space-y-6">
-          <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden" aria-label="Suggérés">
+        <div className="space-y-6" data-testid="drive-home">
+          <section
+            className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden"
+            aria-label="Dossiers fréquents"
+          >
             <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 px-3 py-2 border-b border-slate-200 dark:border-slate-600">
-              <Star className="h-4 w-4 text-amber-500" />
-              Suggérés
+              <Folder className="h-4 w-4 text-amber-500" />
+              Dossiers fréquents
             </h2>
             <div className="flex gap-3 overflow-x-auto p-3">
-              {((starredData && starredData.length > 0 ? starredData : recentNodes).slice(0, 12)).length === 0 ? (
-                <p className="text-sm text-slate-500 py-2">Rien à suggérer pour l’instant.</p>
-              ) : (
-                (starredData && starredData.length > 0 ? starredData : recentNodes).slice(0, 12).map((node) => (
+              {isHomeRootLoading ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Chargement…
+                </div>
+              ) : homeFolders.length === 0 ? (
+                <div className="py-2 space-y-2">
+                  <p className="text-sm text-slate-500">Aucun dossier à la racine pour l’instant.</p>
                   <button
-                    key={`sug-${node.id}`}
                     type="button"
-                    onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
-                    className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                    onClick={() => setViewMode('drive')}
+                    className="text-sm font-medium text-brand-700 dark:text-brand-300 hover:underline"
                   >
-                    {node.is_folder ? <Folder className="h-6 w-6 text-amber-500" /> : <FileText className="h-6 w-6 text-slate-400" />}
-                    <span className="text-xs truncate w-full text-center" title={node.name}>{displayFileName(node.name)}</span>
+                    Ouvrir Fichiers et créer un dossier
+                  </button>
+                </div>
+              ) : (
+                homeFolders.map((node) => (
+                  <button
+                    key={`hf-${node.id}`}
+                    type="button"
+                    onClick={() => {
+                      setViewMode('drive')
+                      goTo(node.id, node.name, node.is_vault_folder)
+                    }}
+                    className="flex-shrink-0 w-28 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                  >
+                    <Folder className="h-7 w-7 text-amber-500" />
+                    <span className="text-xs truncate w-full text-center font-medium" title={node.name}>
+                      {displayFileName(node.name)}
+                    </span>
                   </button>
                 ))
               )}
             </div>
           </section>
-          <section className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden" aria-label="Récents">
+          <section
+            className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden"
+            aria-label="Fichiers récents"
+          >
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-slate-200 dark:border-slate-600">
               <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                 <Clock className="h-4 w-4 text-slate-500" />
-                Ouverts récemment
+                Fichiers récents
               </h2>
               <button
                 type="button"
-                onClick={toggleRecentSection}
-                className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-500"
-                aria-expanded={recentSectionVisible}
-                aria-label={recentSectionVisible ? 'Masquer la section Récents' : 'Afficher la section Récents'}
-                data-testid="drive-recent-section-toggle"
+                onClick={() => setViewMode('recent')}
+                className="text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline"
               >
-                {recentSectionVisible ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                Tout voir
               </button>
             </div>
-            {recentSectionVisible && (
-              <div className="flex gap-3 overflow-x-auto p-3">
-                {recentNodes.length === 0 ? (
-                  <p className="text-sm text-slate-500 py-2">Aucun élément récent.</p>
-                ) : (
-                  recentNodes.slice(0, 24).map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      onClick={() => (node.is_folder ? goTo(node.id, node.name, node.is_vault_folder) : setPreviewNode(node))}
-                      className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
-                    >
-                      {node.is_folder ? <Folder className="h-6 w-6 text-amber-500" /> : <FileText className="h-6 w-6 text-slate-400" />}
-                      <span className="text-xs truncate w-full text-center" title={node.name}>{displayFileName(node.name)}</span>
-                      <span className="text-[10px] text-slate-400">{formatRelativeDateWithTime(node.updated_at)}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
+            <div className="flex gap-3 overflow-x-auto p-3">
+              {recentNodes.length === 0 ? (
+                <p className="text-sm text-slate-500 py-2">
+                  Aucun fichier récent. Importez ou créez un document depuis Fichiers.
+                </p>
+              ) : (
+                recentNodes.slice(0, 24).map((node) => (
+                  <button
+                    key={node.id}
+                    type="button"
+                    onClick={() =>
+                      node.is_folder
+                        ? (setViewMode('drive'), goTo(node.id, node.name, node.is_vault_folder))
+                        : setPreviewNode(node)
+                    }
+                    className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                  >
+                    {node.is_folder ? (
+                      <Folder className="h-6 w-6 text-amber-500" />
+                    ) : (
+                      <FileText className="h-6 w-6 text-slate-400" />
+                    )}
+                    <span className="text-xs truncate w-full text-center" title={node.name}>
+                      {displayFileName(node.name)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">{formatRelativeDateWithTime(node.updated_at)}</span>
+                  </button>
+                ))
+              )}
+            </div>
           </section>
+          {(starredData?.length ?? 0) > 0 && (
+            <section
+              className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden"
+              aria-label="Favoris"
+            >
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 px-3 py-2 border-b border-slate-200 dark:border-slate-600">
+                <Star className="h-4 w-4 text-amber-500" />
+                Favoris
+              </h2>
+              <div className="flex gap-3 overflow-x-auto p-3">
+                {(starredData ?? []).slice(0, 12).map((node) => (
+                  <button
+                    key={`star-${node.id}`}
+                    type="button"
+                    onClick={() =>
+                      node.is_folder
+                        ? (setViewMode('drive'), goTo(node.id, node.name, node.is_vault_folder))
+                        : setPreviewNode(node)
+                    }
+                    className="flex-shrink-0 w-24 rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 p-2.5 text-left hover:bg-slate-100 dark:hover:bg-slate-700 flex flex-col items-center gap-1"
+                  >
+                    {node.is_folder ? (
+                      <Folder className="h-6 w-6 text-amber-500" />
+                    ) : (
+                      <FileText className="h-6 w-6 text-slate-400" />
+                    )}
+                    <span className="text-xs truncate w-full text-center" title={node.name}>
+                      {displayFileName(node.name)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
+
       {(viewMode === 'offline' || viewMode === 'spam') && (
         <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-10 text-center">
-          {viewMode === 'offline' ? <CloudOff className="h-10 w-10 text-slate-400 mx-auto" /> : <Ban className="h-10 w-10 text-slate-400 mx-auto" />}
+          {viewMode === 'offline' ? (
+            <CloudOff className="h-10 w-10 text-slate-400 mx-auto" />
+          ) : (
+            <Ban className="h-10 w-10 text-slate-400 mx-auto" />
+          )}
           <p className="mt-4 text-slate-600 dark:text-slate-300">
-            {viewMode === 'offline' ? 'Aucun fichier hors connexion pour l’instant.' : 'Aucun fichier dans Spam.'}
+            {viewMode === 'offline'
+              ? 'Aucun fichier hors connexion pour l’instant.'
+              : 'Aucun fichier dans Spam.'}
           </p>
         </div>
       )}
 
-      {viewMode !== 'home' && viewMode !== 'offline' && viewMode !== 'spam' && viewMode !== 'settings' && (
+      {viewMode !== 'home' && viewMode !== 'offline' && viewMode !== 'spam' && (
       <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 overflow-hidden flex flex-col min-h-[min(420px,52vh)] max-h-[calc(100dvh-11rem)]">
         <div className="border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/50 px-4 py-3 flex flex-wrap items-center gap-2 shrink-0">
           <HardDrive className="h-5 w-5 text-slate-400 shrink-0" />
@@ -3232,7 +3415,7 @@ export default function DrivePage() {
             </div>
           )}
 
-          {viewMode === 'recent' || viewMode === 'imports' ? (
+          {viewMode === 'recent' ? (
             isRecentFullLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
@@ -3410,7 +3593,7 @@ export default function DrivePage() {
             </div>
           ) : nodes.length === 0 && !showNewFolder ? (
             <>
-              {false && viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
+              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"
@@ -3564,7 +3747,7 @@ export default function DrivePage() {
                   </button>
                 </div>
               )}
-              {false && viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
+              {viewMode === 'drive' && currentParentId == null && !isGlobalSearch && (
                 <section
                   className="mb-6 border border-slate-200 dark:border-slate-600 rounded-xl bg-slate-50/80 dark:bg-slate-800/50 overflow-hidden"
                   aria-label="Récents"

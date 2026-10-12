@@ -5,7 +5,14 @@ import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 
-import { AUTH_STORAGE_KEY as STORAGE_KEY, ApiError, isAccessTokenUsable } from '@cloudity/shared'
+import {
+  AUTH_STORAGE_KEY as STORAGE_KEY,
+  ApiError,
+  isAccessTokenUsable,
+  parseHuberaSuiteAuth,
+  readHuberaSuiteCookie,
+  writeHuberaSuiteCookie,
+} from '@cloudity/shared'
 import { AuthContext, type AuthContextValue, type AuthState } from './authContextStore'
 import { refreshSessionExclusive } from './authSessionRefresh'
 
@@ -18,56 +25,16 @@ const defaultState: AuthState = {
   email: null,
 }
 
-const HUBERA_SUITE_COOKIE = 'hubera_suite_auth'
-
-function onHuberaCloudHost(): boolean {
-  if (typeof window === 'undefined') return false
-  const h = window.location.hostname.toLowerCase()
-  return h === 'hubera.cloud' || h.endsWith('.hubera.cloud')
-}
-
 function parseAuthState(raw: string | null): AuthState | null {
-  if (!raw) return null
-  try {
-    const data = JSON.parse(raw) as AuthState
-    if (data.accessToken && data.tenantId != null) {
-      return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken ?? null,
-        tenantId: data.tenantId,
-        email: data.email ?? null,
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return null
+  return parseHuberaSuiteAuth(raw)
 }
 
 function readSuiteCookie(): AuthState | null {
-  if (typeof document === 'undefined') return null
-  const parts = document.cookie.split(';')
-  for (const part of parts) {
-    const [k, ...rest] = part.trim().split('=')
-    if (k !== HUBERA_SUITE_COOKIE) continue
-    try {
-      return parseAuthState(decodeURIComponent(rest.join('=')))
-    } catch {
-      return null
-    }
-  }
-  return null
+  return readHuberaSuiteCookie()
 }
 
 function writeSuiteCookie(state: AuthState): void {
-  if (typeof document === 'undefined' || !onHuberaCloudHost()) return
-  if (state.accessToken && state.tenantId != null) {
-    const payload = encodeURIComponent(JSON.stringify(state))
-    if (payload.length > 3500) return
-    document.cookie = `${HUBERA_SUITE_COOKIE}=${payload}; Domain=.hubera.cloud; Path=/; Secure; SameSite=Lax; Max-Age=1209600`
-  } else {
-    document.cookie = `${HUBERA_SUITE_COOKIE}=; Domain=.hubera.cloud; Path=/; Secure; SameSite=Lax; Max-Age=0`
-  }
+  writeHuberaSuiteCookie(state)
 }
 
 function loadFromStorage(): AuthState {
