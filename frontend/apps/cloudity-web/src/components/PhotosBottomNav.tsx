@@ -1,12 +1,12 @@
 import React from 'react'
-import { Image as ImageIcon, FolderOpen, Users, MoreHorizontal } from 'lucide-react'
+import { Image as ImageIcon, LayoutGrid, PlusCircle, Search } from 'lucide-react'
 import type { PhotosTab } from '../pages/app/photos/photosTypes'
 
-const NAV: { id: 'timeline' | 'albums' | 'sharing' | 'more'; label: string; icon: React.ElementType }[] = [
+const NAV: { id: 'timeline' | 'collections' | 'create' | 'search'; label: string; icon: React.ElementType }[] = [
   { id: 'timeline', label: 'Photos', icon: ImageIcon },
-  { id: 'albums', label: 'Albums', icon: FolderOpen },
-  { id: 'sharing', label: 'Partagés', icon: Users },
-  { id: 'more', label: 'Plus', icon: MoreHorizontal },
+  { id: 'collections', label: 'Collections', icon: LayoutGrid },
+  { id: 'create', label: 'Créer', icon: PlusCircle },
+  { id: 'search', label: 'Recherche', icon: Search },
 ]
 
 export type PhotosBottomNavProps = {
@@ -15,16 +15,15 @@ export type PhotosBottomNavProps = {
 }
 
 function navId(tab: PhotosTab): (typeof NAV)[number]['id'] {
-  if (tab === 'albums') return 'albums'
-  if (tab === 'sharing') return 'sharing'
   if (tab === 'timeline') return 'timeline'
-  return 'more'
+  if (tab === 'create') return 'create'
+  if (tab === 'search') return 'search'
+  return 'collections'
 }
 
 /**
- * Navigation principale Photos en bas d’écran (référence type Google Photos).
- * Photos / Albums / Partagés restent visibles en scroll. Archive, corbeille,
- * dossier sécurisé et réglages sont dans Plus.
+ * Barre du bas type Google Photos 2025 : Photos / Collections / Créer / Recherche.
+ * Albums, lieux, archive, corbeille : tuiles dans Collections.
  */
 export function PhotosBottomNav({ currentTab, onSelectTab }: PhotosBottomNavProps) {
   const activeId = navId(currentTab)

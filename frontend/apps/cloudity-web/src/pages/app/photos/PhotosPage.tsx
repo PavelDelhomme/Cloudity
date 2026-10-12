@@ -15,9 +15,12 @@ import {
   ChevronLeft,
   RotateCcw,
   Plus,
+  PlusCircle,
+  Search,
   Settings,
   Smartphone,
   Users,
+  MapPin,
 } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../authContext'
@@ -94,6 +97,9 @@ function schedulePhotoDownload<T>(job: () => Promise<T>): Promise<T> {
 
 const VALID_PHOTOS_TABS: readonly PhotosTab[] = [
   'timeline',
+  'collections',
+  'create',
+  'search',
   'albums',
   'sharing',
   'more',
@@ -103,6 +109,9 @@ const VALID_PHOTOS_TABS: readonly PhotosTab[] = [
 ]
 
 const SECTION_LABELS: Record<Exclude<PhotosTab, 'timeline'>, string> = {
+  collections: 'Collections',
+  create: 'Créer',
+  search: 'Recherche',
   albums: 'Albums',
   sharing: 'Partagés',
   more: 'Plus',
@@ -519,6 +528,7 @@ export default function PhotosPage() {
   const [pinChangeProgress, setPinChangeProgress] = useState<string | null>(null)
   const [pinChangeError, setPinChangeError] = useState<string | null>(null)
   const [photoContextMenu, setPhotoContextMenu] = useState<{ x: number; y: number; node: DriveNode } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const setTab = useCallback(
     (next: PhotosTab) => {
@@ -542,7 +552,7 @@ export default function PhotosPage() {
       fetchDrivePhotosTimeline(accessToken!, { limit: PAGE_SIZE, offset: pageParam as number }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.offset + lastPage.limit : undefined),
-    enabled: !!accessToken && tab === 'timeline',
+    enabled: !!accessToken && (tab === 'timeline' || tab === 'search'),
     staleTime: 30_000,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -1631,7 +1641,7 @@ export default function PhotosPage() {
                       disabled={createAlbumMutation.isPending || !newAlbumName.trim()}
                       className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                     >
-                      {createAlbumMutation.isPending ? 'Création…' : 'Créer'}
+                      {createAlbumMutation.isPending ? 'Création…' : 'Créer l’album'}
                     </button>
                     <button
                       type="button"
@@ -1678,6 +1688,131 @@ export default function PhotosPage() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {tab === 'collections' && (
+        <div className="mx-auto max-w-lg space-y-2 pb-8">
+          <p className="px-1 text-sm text-neutral-600 dark:text-neutral-400">
+            Grille type Google Photos. Albums Drive, utilitaires, pas de Moments / visages pour l’instant.
+          </p>
+          {[
+            { tab: 'albums' as const, icon: FolderOpen, title: 'Albums', sub: 'Tous / partagés / dossiers Drive' },
+            { tab: 'sharing' as const, icon: Users, title: 'Partagés avec moi', sub: 'Liens déjà créés' },
+            { tab: 'timeline' as const, icon: Smartphone, title: 'Sur cet appareil', sub: 'Galerie locale : app Android Hubera Photos' },
+            { tab: 'search' as const, icon: MapPin, title: 'Lieux', sub: 'Groupes EXIF + Photon (même stack Maps)' },
+            { tab: 'archive' as const, icon: Archive, title: 'Archive', sub: 'Masquées de la chronologie' },
+            { tab: 'trash' as const, icon: Trash2, title: 'Corbeille', sub: 'Restaurables' },
+            { tab: 'locked' as const, icon: Lock, title: 'Dossier verrouillé', sub: 'PIN / empreinte' },
+          ].map((row) => (
+            <button
+              key={row.title}
+              type="button"
+              onClick={() => setTab(row.tab)}
+              className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50 dark:bg-slate-800 dark:ring-white/10 dark:hover:bg-slate-700"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+                <row.icon className="h-5 w-5" aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-neutral-900 dark:text-slate-100">{row.title}</span>
+                <span className="block text-sm text-neutral-500 dark:text-slate-400">{row.sub}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'create' && (
+        <div className="mx-auto max-w-lg space-y-3 pb-8">
+          <p className="px-1 text-sm text-neutral-600 dark:text-neutral-400">
+            Tout local, par paliers. Zéro Veo / Remix / Photo→vidéo IA.
+          </p>
+          <button
+            type="button"
+            onClick={onPickFiles}
+            className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50 dark:bg-slate-800 dark:ring-white/10"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+              <Upload className="h-5 w-5" aria-hidden />
+            </span>
+            <span>
+              <span className="block font-medium text-neutral-900 dark:text-slate-100">Importer depuis l’appareil</span>
+              <span className="block text-sm text-neutral-500">Palier 1 — fichiers locaux</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab('albums')
+              setNewAlbumOpen(true)
+            }}
+            className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50 dark:bg-slate-800 dark:ring-white/10"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-[#e5394a] dark:bg-rose-500/15">
+              <PlusCircle className="h-5 w-5" aria-hidden />
+            </span>
+            <span>
+              <span className="block font-medium text-neutral-900 dark:text-slate-100">Nouvel album</span>
+              <span className="block text-sm text-neutral-500">Palier 1 — dossiers Drive existants</span>
+            </span>
+          </button>
+          <p className="rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:bg-slate-800/60 dark:text-slate-300">
+            Palier 2 — Collage et GIF : mise en page locale, bientôt. Palier 3 — vidéo résumé locale, sans modèle génératif.
+          </p>
+        </div>
+      )}
+
+      {tab === 'search' && (
+        <div className="space-y-4 pb-8">
+          <label className="block">
+            <span className="sr-only">Recherche</span>
+            <span className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 dark:border-slate-600 dark:bg-slate-800">
+              <Search className="h-5 w-5 text-neutral-400" aria-hidden />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Nom, date, album…"
+                className="w-full bg-transparent text-sm outline-none dark:text-slate-100"
+                autoFocus
+              />
+            </span>
+          </label>
+          <p className="text-xs text-neutral-500">Pas de Gemini « Ask ». Filtre local sur tes fichiers Hubera.</p>
+          {(() => {
+            const q = searchQuery.trim().toLowerCase()
+            const hits = q
+              ? flatItems.filter((n) => String(n.name || '').toLowerCase().includes(q))
+              : flatItems.slice(0, 24)
+            if (!accessToken) return <p className="text-sm text-neutral-500">Connectez-vous pour chercher.</p>
+            if (photosQuery.isPending) {
+              return (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-neutral-400" />
+                </div>
+              )
+            }
+            if (hits.length === 0) {
+              return <p className="text-sm text-neutral-500">Aucun fichier pour « {searchQuery} ».</p>
+            }
+            return (
+              <ul className="divide-y divide-neutral-100 rounded-2xl bg-white shadow-sm dark:divide-slate-700 dark:bg-slate-800">
+                {hits.map((node) => (
+                  <li key={node.id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-slate-700"
+                      onClick={() => openAt(node)}
+                    >
+                      <ImageIcon className="h-5 w-5 shrink-0 text-[#e5394a]" aria-hidden />
+                      <span className="min-w-0 truncate text-sm font-medium">{node.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          })()}
         </div>
       )}
 

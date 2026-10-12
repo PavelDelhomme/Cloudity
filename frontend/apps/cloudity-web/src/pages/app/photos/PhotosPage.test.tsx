@@ -31,6 +31,7 @@ vi.mock('../../../api', () => ({
   fetchDrivePhotosLocked: vi.fn(),
   fetchDriveNodes: vi.fn(),
   fetchDriveTrash: vi.fn(),
+  fetchDriveSharedNodes: vi.fn().mockResolvedValue([]),
   downloadDriveFile: vi.fn().mockResolvedValue(new Blob(['pixels'], { type: 'image/jpeg' })),
   putDriveNodeContentBlob: vi.fn().mockResolvedValue({ id: 12, size: 10 }),
   downloadDriveThumbnail: vi.fn(),
@@ -99,6 +100,10 @@ describe('PhotosPage', () => {
     expect(await screen.findByText(/Aucune photo/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Importer des photos' })).toBeTruthy()
     expect(screen.getByRole('navigation', { name: 'Navigation Photos' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Photos' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Collections' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Créer' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Recherche' })).toBeTruthy()
   })
 
   it('sans token, invite à se connecter', () => {
@@ -828,7 +833,7 @@ describe('PhotosPage', () => {
     expect(screen.queryByRole('link', { name: /^Photos$/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Nouvel album' }))
     fireEvent.change(screen.getByPlaceholderText('Vacances 2026'), { target: { value: 'Été' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Créer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Créer l’album' }))
     await waitFor(() => {
       expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Été')
     })
