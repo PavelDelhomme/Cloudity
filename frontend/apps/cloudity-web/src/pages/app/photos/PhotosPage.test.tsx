@@ -838,4 +838,107 @@ describe('PhotosPage', () => {
       expect(api.createDriveFolder).toHaveBeenCalledWith('token', null, 'Été')
     })
   })
+
+  it('Collections : tuiles Albums / Archive sans casser la barre 4 onglets', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=collections']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText(/Grille type Google Photos/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Albums/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Archive/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Corbeille/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Photos' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Recherche' })).toBeTruthy()
+  })
+
+  it('Créer : import local, nouvel album, pas de Veo/Remix', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=create']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText(/Zéro Veo/)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Importer depuis l’appareil/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Nouvel album/ })).toBeTruthy()
+    expect(screen.queryByText(/Remix/)).toBeTruthy()
+  })
+
+  it('Recherche : filtre local sur le nom, sans Gemini', async () => {
+    vi.mocked(useAuth).mockReturnValue({
+      accessToken: 'token',
+      tenantId: 1,
+      email: 'user@test.com',
+      refreshToken: null,
+      isAuthenticated: true,
+      login: vi.fn(),
+      logout: vi.fn(),
+    } as unknown as ReturnType<typeof useAuth>)
+    vi.mocked(api.fetchDrivePhotosTimeline).mockResolvedValue({
+      items: [
+        {
+          id: 11,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'Plage-Rennes.jpg',
+          is_folder: false,
+          size: 12,
+          mime_type: 'image/jpeg',
+          created_at: '2026-10-12',
+          updated_at: '2026-10-12',
+        },
+        {
+          id: 12,
+          tenant_id: 1,
+          user_id: 1,
+          parent_id: null,
+          name: 'Bureau.png',
+          is_folder: false,
+          size: 8,
+          mime_type: 'image/png',
+          created_at: '2026-10-11',
+          updated_at: '2026-10-11',
+        },
+      ],
+      limit: 48,
+      offset: 0,
+      has_more: false,
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <TestRouter initialEntries={['/app/photos?tab=search']}>
+          <PhotosPage />
+        </TestRouter>
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText(/Pas de Gemini/)).toBeTruthy()
+    const box = screen.getByPlaceholderText(/Nom, date, album/)
+    fireEvent.change(box, { target: { value: 'Rennes' } })
+    expect(await screen.findByText('Plage-Rennes.jpg')).toBeTruthy()
+    expect(screen.queryByText('Bureau.png')).toBeNull()
+  })
 })
