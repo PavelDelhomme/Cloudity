@@ -153,8 +153,9 @@ class SessionStore {
     }
     if (refresh.isEmpty) return null;
 
-    // Cold start : JWT encore valable → pas de boucle gateway (Mail/Photos/Drive).
-    if (access.isNotEmpty && !isAccessTokenExpiringSoon(access)) {
+    // Cold start : session locale tout de suite. Le refresh réseau reste
+    // dans refreshIfNeeded, pas devant le premier écran.
+    if (access.isNotEmpty) {
       return (api: createApi(gateway), access: access, refresh: refresh);
     }
 

@@ -14,16 +14,15 @@ Future<void> cloudityRunSuiteApp({
   GlobalKey<CloudityThemedAppState>? appKey,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
-  await cloudityLoadDesignTokens();
   if (beforeRun != null) await beforeRun();
   CloudityCrashReporter.configure(product: product);
   CloudityCrashReporter.initialize();
   runApp(
-    CloudityThemedApp.forSuite(
-      key: appKey,
-      title: title,
+    clouditySuiteTestRoot(
       suiteApp: product,
+      title: title,
       home: home,
+      appKey: appKey,
     ),
   );
 }

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'calendar_repeat.dart';
 import 'calendar_time_grid.dart';
@@ -105,7 +108,33 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       accessToken: widget.accessToken,
       onTokenRefresh: widget.refreshAccessToken,
     );
+    _paintCachedItems();
     _reload();
+  }
+
+  Future<void> _paintCachedItems() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('hubera_suite_list_${widget.product.name}');
+    if (!mounted || raw == null || raw.isEmpty || _items.isNotEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final items = [
+        for (final item in decoded)
+          if (item is Map) Map<String, dynamic>.from(item),
+      ];
+      if (items.isEmpty) return;
+      setState(() {
+        _items = items;
+        _loading = false;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _rememberItems() async {
+    if (_items.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hubera_suite_list_${widget.product.name}', jsonEncode(_items));
   }
 
   @override
@@ -116,7 +145,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   Future<void> _reload() async {
     setState(() {
-      _loading = true;
+      if (_items.isEmpty) _loading = true;
       _error = null;
     });
     try {
@@ -126,6 +155,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         _items = items;
         _loading = false;
       });
+      await _rememberItems();
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
       if (!mounted) return;
