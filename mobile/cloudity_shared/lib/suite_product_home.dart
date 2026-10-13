@@ -488,7 +488,56 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   List<Widget> _productNavItems() {
     return [
-      if (widget.product != SuiteProduct.notes)
+      if (widget.product == SuiteProduct.calendar) ...[
+        ListTile(
+          leading: const Icon(Icons.calendar_view_month_outlined),
+          title: const Text('Mois'),
+          selected: !_showSettings && _calView == CalendarHomeView.month,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _calView = CalendarHomeView.month;
+            });
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.view_week_outlined),
+          title: const Text('Semaine'),
+          selected: !_showSettings && _calView == CalendarHomeView.week,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _calView = CalendarHomeView.week;
+            });
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.view_day_outlined),
+          title: const Text('Jour'),
+          selected: !_showSettings && _calView == CalendarHomeView.day,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _calView = CalendarHomeView.day;
+            });
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.view_agenda_outlined),
+          title: const Text('Agenda'),
+          selected: !_showSettings && _calView == CalendarHomeView.agenda,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _calView = CalendarHomeView.agenda;
+            });
+          },
+        ),
+      ] else if (widget.product != SuiteProduct.notes)
         ListTile(
           leading: Icon(widget.product.icon),
           title: Text(widget.product.title),
@@ -2144,8 +2193,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       await _openEditor();
       return;
     }
-    if (widget.product != SuiteProduct.calendar &&
-        widget.product != SuiteProduct.notes &&
+    if (widget.product == SuiteProduct.calendar) {
+      await _openEditor();
+      return;
+    }
+    if (widget.product != SuiteProduct.notes &&
         widget.product != SuiteProduct.tasks) {
       await _openEditor();
       return;
@@ -2160,28 +2212,28 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           children: [
             Text('Créer', style: Theme.of(ctx).textTheme.titleMedium),
             const SizedBox(height: 8),
-            if (widget.product == SuiteProduct.calendar ||
-                widget.product == SuiteProduct.notes)
-              ListTile(
-                leading: const Icon(Icons.event_outlined),
-                title: const Text('Événement Agenda'),
-                onTap: () => Navigator.pop(ctx, 'event'),
-              ),
-            if (widget.product == SuiteProduct.calendar ||
-                widget.product == SuiteProduct.tasks ||
-                widget.product == SuiteProduct.notes)
-              ListTile(
-                leading: const Icon(Icons.check_circle_outline),
-                title: const Text('Tâche'),
-                onTap: () => Navigator.pop(ctx, 'task'),
-              ),
-            if (widget.product == SuiteProduct.calendar ||
-                widget.product == SuiteProduct.notes ||
-                widget.product == SuiteProduct.tasks)
+            if (widget.product == SuiteProduct.notes) ...[
               ListTile(
                 leading: const Icon(Icons.sticky_note_2_outlined),
                 title: const Text('Note'),
                 onTap: () => Navigator.pop(ctx, 'note'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.checklist_outlined),
+                title: const Text('Liste'),
+                onTap: () => Navigator.pop(ctx, 'list'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.notifications_outlined),
+                title: const Text('Rappel'),
+                onTap: () => Navigator.pop(ctx, 'reminder'),
+              ),
+            ],
+            if (widget.product == SuiteProduct.tasks)
+              ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: const Text('Tâche'),
+                onTap: () => Navigator.pop(ctx, 'task'),
               ),
           ],
         ),
@@ -2189,9 +2241,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
     if (!mounted || choice == null) return;
     final product = switch (choice) {
-      'event' => SuiteProduct.calendar,
       'task' => SuiteProduct.tasks,
-      'note' => SuiteProduct.notes,
+      'note' || 'list' || 'reminder' => SuiteProduct.notes,
       _ => widget.product,
     };
     final saved = await showSuiteProductEditor(
@@ -2199,6 +2250,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       product: product,
       api: _api,
       taskListId: _selectedTaskListId,
+      noteAsChecklist: choice == 'list',
+      seedRemind: choice == 'reminder'
+          ? DateTime.now().add(const Duration(hours: 1))
+          : null,
     );
     if (saved && mounted) await _reload();
   }
@@ -2279,32 +2334,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       onAccountTap: () => setState(() => _showSettings = true),
       versionLabel: 'Hubera ${widget.product.title}',
       huberaProduct: widget.product.suiteApp.asHubera,
-      bottomDestinations: widget.product == SuiteProduct.calendar
-          ? const [
-              HuberaNavDest(id: 'month', label: 'Mois', icon: Icons.calendar_view_month_outlined),
-              HuberaNavDest(id: 'week', label: 'Semaine', icon: Icons.view_week_outlined),
-              HuberaNavDest(id: 'day', label: 'Jour', icon: Icons.view_day_outlined),
-              HuberaNavDest(id: 'agenda', label: 'Agenda', icon: Icons.view_agenda_outlined),
-            ]
-          : const [],
-      selectedBottomId: switch (_calView) {
-        CalendarHomeView.month => 'month',
-        CalendarHomeView.week => 'week',
-        CalendarHomeView.day => 'day',
-        CalendarHomeView.agenda => 'agenda',
-      },
-      onBottomSelected: widget.product == SuiteProduct.calendar
-          ? (id) {
-              setState(() {
-                _calView = switch (id) {
-                  'week' => CalendarHomeView.week,
-                  'day' => CalendarHomeView.day,
-                  'agenda' => CalendarHomeView.agenda,
-                  _ => CalendarHomeView.month,
-                };
-              });
-            }
-          : null,
+      showAppSwitcher: widget.product != SuiteProduct.calendar,
+      bottomDestinations: const [],
       onOpenSettings: () => setState(() => _showSettings = true),
       onCloseSettings: () => setState(() => _showSettings = false),
       onLogout: widget.onLogout,
@@ -2314,7 +2345,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         webAppPath: widget.product.webPath,
         onLogout: () => widget.onLogout(),
       ),
-      floatingActionButton: _showSettings || widget.product == SuiteProduct.notes
+      floatingActionButton: _showSettings
           ? null
           : FloatingActionButton(
               onPressed: _showCreateMenu,

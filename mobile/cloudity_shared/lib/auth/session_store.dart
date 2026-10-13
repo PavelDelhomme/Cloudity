@@ -2,6 +2,7 @@ import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../jwt_claims.dart';
 import '../storage_keys.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
@@ -151,6 +152,11 @@ class SessionStore {
       );
     }
     if (refresh.isEmpty) return null;
+
+    // Cold start : JWT encore valable → pas de boucle gateway (Mail/Photos/Drive).
+    if (access.isNotEmpty && !isAccessTokenExpiringSoon(access)) {
+      return (api: createApi(gateway), access: access, refresh: refresh);
+    }
 
     // Ne pas rester bloqué sur une gateway LAN/USB périmée stockée dans le broker.
     final gateways = SuiteGatewayConfig.candidates(savedGateway: gateway);

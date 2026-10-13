@@ -289,6 +289,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.selectedBottomId,
     this.onBottomSelected,
     this.huberaProduct,
+    this.showAppSwitcher = true,
   });
 
   final ClouditySuiteApp currentApp;
@@ -310,6 +311,8 @@ class SuiteDrawerScaffold extends StatelessWidget {
   final String? selectedBottomId;
   final ValueChanged<String>? onBottomSelected;
   final HuberaProduct? huberaProduct;
+  /// Calendar : pas les autres apps Hubera dans le drawer (C1).
+  final bool showAppSwitcher;
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
@@ -326,8 +329,10 @@ class SuiteDrawerScaffold extends StatelessWidget {
                   ),
                   const Divider(height: 1),
                   ...navItems,
-                  const Divider(height: 1),
-                  HuberaAppSwitcher(current: huberaProduct ?? currentApp.asHubera),
+                  if (showAppSwitcher) ...[
+                    const Divider(height: 1),
+                    HuberaAppSwitcher(current: huberaProduct ?? currentApp.asHubera),
+                  ],
                 ],
               ),
             ),
@@ -350,7 +355,12 @@ class SuiteDrawerScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: !showSettings,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && showSettings) onCloseSettings();
+      },
+      child: Scaffold(
         appBar: AppBar(
           title: Text(title),
           centerTitle: false,
@@ -359,6 +369,8 @@ class SuiteDrawerScaffold extends StatelessWidget {
             HuberaAccountAvatar(
               onTap: onAccountTap ?? onOpenSettings,
               email: userEmail,
+              onOpenSettings: onOpenSettings,
+              onOpenHuberaId: () => openHuberaProduct(HuberaProduct.id),
             ),
           ],
         ),
@@ -383,6 +395,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
                   ],
                 ),
               ),
+      ),
     );
   }
 }

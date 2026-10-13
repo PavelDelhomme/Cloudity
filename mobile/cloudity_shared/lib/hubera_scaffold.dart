@@ -119,25 +119,83 @@ Future<void> openHuberaProduct(HuberaProduct app) async {
 }
 
 class HuberaAccountAvatar extends StatelessWidget {
-  const HuberaAccountAvatar({super.key, required this.onTap, this.email, this.radius = 16});
+  const HuberaAccountAvatar({
+    super.key,
+    required this.onTap,
+    this.email,
+    this.radius = 16,
+    this.onOpenSettings,
+    this.onOpenHuberaId,
+    this.onAddAccount,
+  });
 
   final VoidCallback onTap;
   final String? email;
   final double radius;
+  /// Réglages **de cette app** (pas Hubera ID).
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onOpenHuberaId;
+  final VoidCallback? onAddAccount;
 
   @override
   Widget build(BuildContext context) {
     final letter = (email != null && email!.trim().isNotEmpty)
         ? email!.trim()[0].toUpperCase()
         : 'H';
-    return IconButton(
-      tooltip: 'Compte',
-      onPressed: onTap,
-      icon: CircleAvatar(
-        radius: radius,
-        backgroundColor: huberaTeal.withValues(alpha: 0.15),
-        foregroundColor: huberaTeal,
-        child: Text(letter, style: const TextStyle(fontWeight: FontWeight.w800)),
+    final avatar = CircleAvatar(
+      radius: radius,
+      backgroundColor: huberaTeal.withValues(alpha: 0.15),
+      foregroundColor: huberaTeal,
+      child: Text(letter, style: const TextStyle(fontWeight: FontWeight.w800)),
+    );
+    if (onOpenSettings == null && onOpenHuberaId == null && onAddAccount == null) {
+      return IconButton(tooltip: 'Compte', onPressed: onTap, icon: avatar);
+    }
+    return PopupMenuButton<String>(
+      tooltip: email?.trim().isNotEmpty == true ? email!.trim() : 'Compte',
+      offset: const Offset(0, 40),
+      onSelected: (v) {
+        switch (v) {
+          case 'settings':
+            (onOpenSettings ?? onTap)();
+          case 'add':
+            (onAddAccount ?? onOpenHuberaId ?? onTap)();
+          case 'id':
+            (onOpenHuberaId ?? onTap)();
+        }
+      },
+      itemBuilder: (ctx) => [
+        PopupMenuItem(
+          value: 'settings',
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Réglages de cette app'),
+            subtitle: email == null || email!.trim().isEmpty
+                ? null
+                : Text(email!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'add',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.person_add_outlined),
+            title: Text('Ajouter un compte'),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'id',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.privacy_tip_outlined),
+            title: Text('Hubera ID · confidentialité'),
+          ),
+        ),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: avatar,
       ),
     );
   }

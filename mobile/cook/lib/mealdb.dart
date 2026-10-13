@@ -75,7 +75,17 @@ Future<({List<MealSummary> meals, int nextIndex})> mealDbLetterPage(int startInd
   return (meals: <MealSummary>[], nextIndex: _letters.length);
 }
 
+Future<List<MealSummary>> mealDbFrench() async {
+  final res = await http
+      .get(Uri.parse('$_mealDb/filter.php?a=French'))
+      .timeout(const Duration(seconds: 8));
+  if (res.statusCode != 200) return [];
+  return _summaries(res.body);
+}
+
 Future<List<MealSummary>> mealDbRandomBatch() async {
+  final french = await mealDbFrench();
+  if (french.isNotEmpty) return french;
   final first = await mealDbLetterPage(0);
   if (first.meals.isNotEmpty) return first.meals;
   final out = <MealSummary>[];
@@ -101,7 +111,7 @@ Future<MealDetail?> mealDbLookup(String id) async {
     final name = raw['strIngredient$i']?.toString().trim() ?? '';
     final measure = raw['strMeasure$i']?.toString().trim() ?? '';
     if (name.isEmpty) continue;
-    ingredients.add((name: name, measure: measure));
+    ingredients.add((name: _frIngredient(name), measure: measure));
   }
   return MealDetail(
     id: raw['idMeal']?.toString() ?? id,
@@ -128,6 +138,45 @@ Future<List<MealSummary>> mealDbSuggestFromPantry(List<String> names) async {
   }
   if (out.isEmpty) return mealDbRandomBatch();
   return out;
+}
+
+const _ingredientFr = {
+  'chicken': 'poulet',
+  'beef': 'bœuf',
+  'pork': 'porc',
+  'onion': 'oignon',
+  'garlic': 'ail',
+  'tomato': 'tomate',
+  'potato': 'pomme de terre',
+  'potatoes': 'pommes de terre',
+  'carrot': 'carotte',
+  'butter': 'beurre',
+  'flour': 'farine',
+  'sugar': 'sucre',
+  'salt': 'sel',
+  'pepper': 'poivre',
+  'egg': 'œuf',
+  'eggs': 'œufs',
+  'milk': 'lait',
+  'cheese': 'fromage',
+  'olive oil': 'huile d’olive',
+  'water': 'eau',
+  'rice': 'riz',
+  'pasta': 'pâtes',
+  'lemon': 'citron',
+  'wine': 'vin',
+  'thyme': 'thym',
+  'parsley': 'persil',
+  'basil': 'basilic',
+  'cream': 'crème',
+  'bread': 'pain',
+  'mushroom': 'champignon',
+  'mushrooms': 'champignons',
+};
+
+String _frIngredient(String name) {
+  final k = name.trim().toLowerCase();
+  return _ingredientFr[k] ?? name;
 }
 
 List<MealSummary> _summaries(String body) {

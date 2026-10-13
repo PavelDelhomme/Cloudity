@@ -237,19 +237,37 @@ Future<Directory> _otaCacheDir() async {
   return dir;
 }
 
-/// Supprime tous les APK OTA restants dans le cache app (jamais Téléchargements).
-Future<void> cloudityPurgeOtaCache() async {
+/// Taille cohérente avec un APK réel — 64 Kio de marge (headers / FS).
+bool cloudityShouldReuseOtaFile({
+  required bool exists,
+  int? actualSize,
+  int? expectedSize,
+}) {
+  if (!exists || actualSize == null || actualSize < 100 * 1024) return false;
+  if (expectedSize == null || expectedSize <= 0) {
+    return actualSize >= 5 * 1024 * 1024;
+  }
+  return (actualSize - expectedSize).abs() <= 64 * 1024;
+}
+
+Future<bool> _apkZipMagic(File file) async {
   try {
-    final dir = await _otaCacheDir();
-    if (!await dir.exists()) return;
-    await for (final entity in dir.list()) {
-      if (entity is File) {
-        try {
-          await entity.delete();
-        } catch (_) {}
-      }
+    if (!await file.exists()) return false;
+    final raf = await file.open();
+    try {
+      final magic = await raf.read(4);
+      return magic.length >= 2 && magic[0] == 0x50 && magic[1] == 0x4b;
+    } finally {
+      await raf.close();
     }
-  } catch (_) {}
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Ne plus vider le cache au check OTA : un DL commencé doit survivre au kill.
+Future<void> cloudityPurgeOtaCache() async {
+  // Conservé pour les appels historiques ; no-op volontaire (A7 reprise DL).
 }
 
 Future<void> _safeDelete(File? file) async {
@@ -276,31 +294,63 @@ Future<void> cloudityDownloadAndInstallOta(
     );
   }
 
-  await cloudityPurgeOtaCache();
   final dir = await _otaCacheDir();
   final safeName = manifest.app.isEmpty
       ? 'update'
       : manifest.app.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
   final dest = File('${dir.path}/$safeName-${manifest.version}.apk');
-  if (await dest.exists()) {
-    await dest.delete();
+  final expectedSha = manifest.sha256.trim().toLowerCase();
+
+  Future<bool> fileReady() async {
+    if (!await dest.exists()) return false;
+    final size = await dest.length();
+    if (!cloudityShouldReuseOtaFile(exists: true, actualSize: size)) {
+      return false;
+    }
+    if (!await _apkZipMagic(dest)) return false;
+    if (expectedSha.isEmpty) return true;
+    final actual =
+        (await sha256.bind(dest.openRead()).first).toString().toLowerCase();
+    return actual == expectedSha;
+  }
+
+  if (await fileReady()) {
+    onProgress?.call(1.0);
+    await HuberaOtaInstaller.installApk(dest);
+    return;
   }
 
   final c = client ?? http.Client();
   try {
     final uri = Uri.parse(manifest.apkUrl);
+    var offset = 0;
+    if (await dest.exists()) {
+      offset = await dest.length();
+      if (offset > 0 && offset < 100 * 1024) {
+        await _safeDelete(dest);
+        offset = 0;
+      }
+    }
+
     final req = http.Request('GET', uri);
+    if (offset > 0) {
+      req.headers['Range'] = 'bytes=$offset-';
+    }
     final res = await c.send(req).timeout(const Duration(minutes: 10));
-    if (res.statusCode < 200 || res.statusCode >= 300) {
+    if (res.statusCode == 200 && offset > 0) {
+      await _safeDelete(dest);
+      offset = 0;
+    } else if (res.statusCode != 200 && res.statusCode != 206) {
       throw HttpException(
         'Téléchargement APK HTTP ${res.statusCode}',
         uri: uri,
       );
     }
 
-    final total = res.contentLength ?? 0;
-    final sink = dest.openWrite();
-    var received = 0;
+    final totalHeader = res.contentLength ?? 0;
+    final total = res.statusCode == 206 ? offset + totalHeader : totalHeader;
+    final sink = dest.openWrite(mode: FileMode.append);
+    var received = offset;
 
     try {
       await for (final chunk in res.stream) {
@@ -318,7 +368,7 @@ Future<void> cloudityDownloadAndInstallOta(
       try {
         await sink.close();
       } catch (_) {}
-      await _safeDelete(dest);
+      // Garde le partiel pour reprise après kill — ne pas delete.
       rethrow;
     }
 
@@ -329,23 +379,17 @@ Future<void> cloudityDownloadAndInstallOta(
       await _safeDelete(dest);
       throw StateError('APK trop petite ($size octets) — fichier invalide.');
     }
-    final raf = await dest.open();
-    try {
-      final magic = await raf.read(4);
-      if (magic.length < 2 || magic[0] != 0x50 || magic[1] != 0x4b) {
-        await _safeDelete(dest);
-        throw StateError(
-          'Fichier téléchargé n’est pas une APK (page HTML / réseau).',
-        );
-      }
-    } finally {
-      await raf.close();
+    if (!await _apkZipMagic(dest)) {
+      await _safeDelete(dest);
+      throw StateError(
+        'Fichier téléchargé n’est pas une APK (page HTML / réseau).',
+      );
     }
 
-    final expected = manifest.sha256.trim().toLowerCase();
-    if (expected.isNotEmpty) {
-      final actual = (await sha256.bind(dest.openRead()).first).toString().toLowerCase();
-      if (actual != expected) {
+    if (expectedSha.isNotEmpty) {
+      final actual =
+          (await sha256.bind(dest.openRead()).first).toString().toLowerCase();
+      if (actual != expectedSha) {
         await _safeDelete(dest);
         throw StateError(
           'Contrôle d’intégrité échoué (SHA-256). Mise à jour annulée.',
@@ -353,16 +397,7 @@ Future<void> cloudityDownloadAndInstallOta(
       }
     }
 
-    try {
-      await HuberaOtaInstaller.installApk(dest);
-    } catch (e) {
-      await _safeDelete(dest);
-      rethrow;
-    }
-
-    // L’installeur système a une copie via FileProvider / session — on nettoie le cache.
-    // Petit délai pour laisser le temps au PackageInstaller d’ouvrir le fichier.
-    Future<void>.delayed(const Duration(seconds: 45), () => _safeDelete(dest));
+    await HuberaOtaInstaller.installApk(dest);
   } finally {
     if (client == null) c.close();
   }
@@ -447,26 +482,41 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
   @override
   Widget build(BuildContext context) {
     final m = widget.manifest;
+    final notes = (m.huberaMessage ?? '').trim();
     return AlertDialog(
-      title: const Text('Mise à jour disponible'),
+      title: Text(
+        _busy
+            ? (_phase.isEmpty ? 'Téléchargement…' : _phase)
+            : 'Mise à jour disponible',
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Version ${m.version} (installée : ${widget.currentVersion}).\n'
-            'La mise à jour se fait dans l’application — aucun navigateur.',
+            notes.isNotEmpty
+                ? notes
+                : 'Version ${m.version} (installée : ${widget.currentVersion}). '
+                    'La mise à jour n’est pas obligatoire.',
           ),
-          if ((m.huberaMessage ?? '').isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(m.huberaMessage!, style: Theme.of(context).textTheme.bodySmall),
-          ],
           if (_busy) ...[
             const SizedBox(height: 16),
-            Text(_phase, style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: (_progress != null && _progress! > 0) ? _progress : null,
+            Row(
+              children: [
+                const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: LinearProgressIndicator(
+                    value: (_progress != null && _progress! > 0)
+                        ? _progress
+                        : null,
+                  ),
+                ),
+              ],
             ),
             if (_progress != null && _progress! > 0)
               Padding(
@@ -494,7 +544,7 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
         ),
         FilledButton(
           onPressed: _busy ? null : _start,
-          child: Text(_error == null ? 'Mettre à jour' : 'Réessayer'),
+          child: Text(_error == null ? 'Télécharger' : 'Réessayer'),
         ),
       ],
     );
@@ -526,7 +576,6 @@ void cloudityScheduleOtaCheck(
   String? huberaHost,
 }) {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
-    await cloudityPurgeOtaCache();
     final version = await cloudityResolveInstalledVersion(
       currentVersion: currentVersion,
     );

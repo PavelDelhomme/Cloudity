@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'calendar_repeat.dart';
 import 'cloudity_datetime.dart';
+import 'contact_maps.dart';
 import 'suite_bottom_sheet.dart';
 import 'suite_product_api.dart';
 import 'suite_product_home.dart';
@@ -44,10 +45,17 @@ Future<bool> showSuiteProductEditor({
   int? taskListId,
   bool noteAsChecklist = false,
   DateTime? seedStart,
+  DateTime? seedRemind,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
-      return _editNote(context, api, existing, asChecklist: noteAsChecklist);
+      return _editNote(
+        context,
+        api,
+        existing,
+        asChecklist: noteAsChecklist,
+        seedRemind: seedRemind,
+      );
     case SuiteProduct.contacts:
       return _editContact(context, api, existing);
     case SuiteProduct.tasks:
@@ -62,6 +70,7 @@ Future<bool> _editNote(
   SuiteProductApi api,
   Map<String, dynamic>? existing, {
   bool asChecklist = false,
+  DateTime? seedRemind,
 }) async {
   final titleCtrl = TextEditingController(
     text: existing?['title']?.toString() ?? '',
@@ -72,7 +81,8 @@ Future<bool> _editNote(
   var color = existing?['color']?.toString() ?? 'default';
   var pinned = existing?['pinned'] == true;
   var archived = existing?['archived'] == true;
-  var remindAt = parseCloudityDateTime(existing?['remind_at']?.toString());
+  var remindAt = parseCloudityDateTime(existing?['remind_at']?.toString()) ??
+      seedRemind;
   final labelsCtrl = TextEditingController(
     text: () {
       final labels = existing?['labels'];
@@ -1039,12 +1049,39 @@ Future<bool> _editEvent(
                     onChanged: (v) => setLocal(() => reminderMinutes = v ?? -1),
                   ),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: locCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Lieu',
-                      border: OutlineInputBorder(),
-                    ),
+                  Autocomplete<String>(
+                    optionsBuilder: (text) {
+                      final q = text.text.trim().toLowerCase();
+                      if (q.isEmpty) return const Iterable<String>.empty();
+                      final out = <String>[];
+                      for (final c in contactOpts) {
+                        final name =
+                            (c['name'] ?? c['display_name'] ?? '').toString();
+                        final addr = formatContactAddress(firstContactAddress(c));
+                        if (addr.isEmpty) continue;
+                        if (name.toLowerCase().contains(q) ||
+                            addr.toLowerCase().contains(q)) {
+                          out.add(addr);
+                        }
+                      }
+                      return out.take(8);
+                    },
+                    onSelected: (opt) => locCtrl.text = opt,
+                    fieldViewBuilder: (context, textCtrl, focus, onSubmit) {
+                      if (textCtrl.text.isEmpty && locCtrl.text.isNotEmpty) {
+                        textCtrl.text = locCtrl.text;
+                      }
+                      return TextField(
+                        controller: textCtrl,
+                        focusNode: focus,
+                        decoration: const InputDecoration(
+                          labelText: 'Lieu (Maps + Contacts)',
+                          hintText: 'adresse, contact, lieu enregistré',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (v) => locCtrl.text = v,
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   TextField(
