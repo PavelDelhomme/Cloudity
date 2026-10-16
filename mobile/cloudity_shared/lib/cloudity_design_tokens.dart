@@ -11,20 +11,47 @@ class CloudityDesignTokens {
 
   static Map<String, dynamic>? _raw;
   static bool _loaded = false;
+  static bool _assetLoaded = false;
 
-  /// `true` après [ensureLoaded] / [loadSyncForTests] (tests widget sans FutureBuilder).
+  /// Couleurs minimales pour peindre le premier frame sans attendre l’asset.
+  static Map<String, dynamic> fallbackRaw() => {
+        'brand': <String, dynamic>{'primary': '#2563EB'},
+        'radius': <String, dynamic>{'sm': 8, 'md': 12, 'lg': 16},
+        'spacing': <String, dynamic>{'xs': 4, 'sm': 8, 'md': 12, 'lg': 16, 'xl': 24},
+        'apps': <String, dynamic>{
+          'mail': <String, dynamic>{'accent': '#0D9488', 'accentDark': '#0F766E'},
+          'drive': <String, dynamic>{'accent': '#2563EB', 'accentDark': '#1D4ED8'},
+          'photos': <String, dynamic>{'accent': '#FF0033', 'accentDark': '#C40028'},
+          'notes': <String, dynamic>{'accent': '#CA8A04', 'accentDark': '#A16207'},
+          'calendar': <String, dynamic>{'accent': '#EA580C', 'accentDark': '#C2410C'},
+          'contacts': <String, dynamic>{'accent': '#0891B2', 'accentDark': '#0E7490'},
+          'tasks': <String, dynamic>{'accent': '#16A34A', 'accentDark': '#15803D'},
+          'pass': <String, dynamic>{'accent': '#7C3AED', 'accentDark': '#6D28D9'},
+        },
+      };
+
+  /// `true` après [ensureLoaded] / [installFallback] / [loadSyncForTests].
   static bool get isLoaded => _loaded && _raw != null;
 
+  /// Premier frame immédiat. [ensureLoaded] remplace ensuite par l’asset.
+  static void installFallback() {
+    if (_assetLoaded || _loaded) return;
+    _raw = fallbackRaw();
+    _loaded = true;
+  }
+
   static Future<void> ensureLoaded() async {
-    if (_loaded) return;
+    if (_assetLoaded) return;
     final json = await rootBundle.loadString('packages/cloudity_shared/assets/cloudity_tokens.json');
     _raw = jsonDecode(json) as Map<String, dynamic>;
     _loaded = true;
+    _assetLoaded = true;
   }
 
   static void loadSyncForTests(Map<String, dynamic> data) {
     _raw = data;
     _loaded = true;
+    _assetLoaded = true;
   }
 
   static Color _hex(String value) {

@@ -3,11 +3,12 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../jwt_claims.dart';
+import 'session_restore_plan.dart';
 import '../storage_keys.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
 
-const _sessionRestoreTimeout = Duration(seconds: 4);
+const _sessionRestoreTimeout = Duration(milliseconds: 800);
 
 /// Persistance session + broker Android (H19 — une seule copie).
 class SessionStore {
@@ -153,14 +154,19 @@ class SessionStore {
     }
     if (refresh.isEmpty) return null;
 
+    final candidates = SuiteGatewayConfig.candidates(savedGateway: gateway);
+    final plan = planSessionRestore(
+      hasAccessToken: access.isNotEmpty,
+      gatewayCandidates: candidates.length,
+    );
     // Cold start : session locale tout de suite. Le refresh réseau reste
     // dans refreshIfNeeded, pas devant le premier écran.
-    if (access.isNotEmpty) {
+    if (plan.returnLocalAccess) {
       return (api: createApi(gateway), access: access, refresh: refresh);
     }
 
-    // Ne pas rester bloqué sur une gateway LAN/USB périmée stockée dans le broker.
-    final gateways = SuiteGatewayConfig.candidates(savedGateway: gateway);
+    // Sans access token : un seul essai court. Pas N × timeout avant le login.
+    final gateways = candidates.take(plan.networkAttempts).toList();
     AuthException? lastAuth;
     for (final gw in gateways) {
       final api = createApi(gw);
@@ -196,8 +202,12 @@ class SessionStore {
         // Essayer la gateway suivante.
       }
     }
+    if (lastAuth == null) {
+      // Coupure : on n'efface pas le refresh. Le login s'affiche.
+      return null;
+    }
     try {
-      throw lastAuth ?? AuthException('Session invalide');
+      throw lastAuth;
     } on AuthException catch (e) {
       // Refresh mort localement → tenter les autres copies broker (Drive/Mail/…).
       if (e.message.toLowerCase().contains('refresh') &&

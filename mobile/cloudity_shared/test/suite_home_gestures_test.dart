@@ -11,6 +11,13 @@ void main() {
     expect(raw, contains('Ada'));
   });
 
+  test('retour Tasks : filtre puis accueil, sans quitter', () {
+    expect(tasksFilterBack(selectedListId: 3), isTrue);
+    expect(tasksFilterBack(query: 'courses'), isTrue);
+    expect(tasksFilterBack(), isFalse);
+    expect(decideSuiteRootBack(showSettings: false), SuiteRootBack.stay);
+  });
+
   test('retour accueil ne quitte pas, paramètres se ferment', () {
     expect(
       decideSuiteRootBack(showSettings: false),

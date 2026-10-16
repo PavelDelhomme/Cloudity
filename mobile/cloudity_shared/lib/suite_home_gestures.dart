@@ -4,6 +4,11 @@ import 'dart:convert';
 /// [stay] : déjà sur l’accueil, la route racine ne pop pas (l’app ne se ferme pas).
 enum SuiteRootBack { closeSettings, handledByPage, stay }
 
+/// Retour Tasks : une liste filtrée ou une recherche revient à « toutes ».
+bool tasksFilterBack({int? selectedListId, String query = ''}) {
+  return selectedListId != null || query.trim().isNotEmpty;
+}
+
 SuiteRootBack decideSuiteRootBack({
   required bool showSettings,
   bool pageHandlesBack = false,

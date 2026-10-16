@@ -69,6 +69,7 @@ class SuiteProductHomeScreen extends StatefulWidget {
     required this.refreshAccessToken,
     required this.onLogout,
     this.userEmail,
+    this.initialItems = const [],
   });
 
   final SuiteProduct product;
@@ -77,6 +78,9 @@ class SuiteProductHomeScreen extends StatefulWidget {
   final Future<String?> Function() refreshAccessToken;
   final Future<void> Function() onLogout;
   final String? userEmail;
+
+  /// Liste locale déjà décodée avant runApp. Le premier frame n'attend pas le réseau.
+  final List<Map<String, dynamic>> initialItems;
 
   @override
   State<SuiteProductHomeScreen> createState() => _SuiteProductHomeScreenState();
@@ -117,6 +121,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     final now = DateTime.now();
     _calFocusDay = DateTime(now.year, now.month, now.day);
     _calMonthAnchor = DateTime(now.year, now.month, 1);
+    if (widget.initialItems.isNotEmpty) {
+      _items = [
+        for (final item in widget.initialItems)
+          if (!isDeviceGoogleContact(item)) Map<String, dynamic>.from(item),
+      ];
+      _loading = _items.isEmpty;
+    }
     _api = SuiteProductApi(
       gatewayBase: widget.gatewayBase,
       accessToken: widget.accessToken,
@@ -2842,6 +2853,21 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SuiteDrawerScaffold(
+      onConsumeBack: widget.product == SuiteProduct.tasks
+          ? () {
+              if (!tasksFilterBack(
+                selectedListId: _selectedTaskListId,
+                query: _contactQuery,
+              )) {
+                return false;
+              }
+              setState(() {
+                _selectedTaskListId = null;
+                _contactQuery = '';
+              });
+              return true;
+            }
+          : null,
       currentApp: widget.product.suiteApp,
       title: _showSettings
           ? 'Paramètres'

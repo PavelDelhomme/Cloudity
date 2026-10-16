@@ -14,6 +14,7 @@ Future<void> cloudityRunSuiteApp({
   GlobalKey<CloudityThemedAppState>? appKey,
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+  CloudityDesignTokens.installFallback();
   if (beforeRun != null) await beforeRun();
   CloudityCrashReporter.configure(product: product);
   CloudityCrashReporter.initialize();
