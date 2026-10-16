@@ -1,6 +1,46 @@
 /// Messages réseau lisibles pour les écrans de connexion mobile.
 library;
 
+import 'dart:async';
+import 'dart:io';
+
+/// Vraie coupure de transport (socket, DNS, TLS, délai).
+/// Un HTTP 4xx/5xx ou une session refusée n’en est pas une : la liste
+/// déjà en cache ne doit pas être annoncée comme une synchro coupée.
+bool isRealNetworkFailure(Object error) {
+  if (error is TimeoutException ||
+      error is SocketException ||
+      error is HandshakeException ||
+      error is TlsException) {
+    return true;
+  }
+  final raw = error.toString().toLowerCase();
+  return raw.contains('socketexception') ||
+      raw.contains('clientexception') ||
+      raw.contains('handshakeexception') ||
+      raw.contains('tlsexception') ||
+      raw.contains('timeoutexception') ||
+      raw.contains('failed host lookup') ||
+      raw.contains('network is unreachable') ||
+      raw.contains('connection refused') ||
+      raw.contains('connection reset') ||
+      raw.contains('connection closed') ||
+      raw.contains('connection aborted') ||
+      raw.contains('connection timed out') ||
+      raw.contains('timed out') ||
+      raw.contains('software caused connection abort');
+}
+
+/// Bandeau « synchro interrompue » : cache visible, et le dernier
+/// rafraîchissement a vraiment échoué sur le réseau.
+bool showCachedSyncBanner({
+  required String? error,
+  required bool hasCachedItems,
+}) {
+  if (!hasCachedItems || error == null || error.trim().isEmpty) return false;
+  return isRealNetworkFailure(error);
+}
+
 /// Transforme une exception HTTP/réseau brute en message utilisateur (français).
 String friendlyNetworkMessage(
   Object error, {

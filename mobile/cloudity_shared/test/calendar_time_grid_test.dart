@@ -37,6 +37,19 @@ void main() {
     );
   });
 
+  test('événements à la même heure ne partagent pas une colonne', () {
+    final places = layoutCalendarEventColumns(const [
+      TimedSegment(startMin: 9 * 60, endMin: 10 * 60),
+      TimedSegment(startMin: 9 * 60 + 15, endMin: 11 * 60),
+      TimedSegment(startMin: 11 * 60, endMin: 12 * 60),
+    ]);
+    expect(places[0].column, isNot(places[1].column));
+    expect(places[0].columnCount, 2);
+    expect(places[1].columnCount, 2);
+    expect(places[2].column, 0);
+    expect(places[2].columnCount, 1);
+  });
+
   test('créneau depuis offset', () {
     final day = DateTime(2026, 10, 8);
     final slot = calendarSlotFromOffset(day, 9 * kCalendarHourPx, 24 * kCalendarHourPx);

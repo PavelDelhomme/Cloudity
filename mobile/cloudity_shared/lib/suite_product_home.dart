@@ -6,19 +6,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'calendar_repeat.dart';
 import 'calendar_time_grid.dart';
 import 'cloudity_crash_reporter.dart';
+import 'contact_directory.dart';
 import 'contact_fiche.dart';
 import 'contact_maps.dart';
+import 'device_google_contacts.dart';
 import 'cloudity_datetime.dart';
 import 'cloudity_error_ui.dart';
+import 'network_errors.dart';
 import 'hubera_scaffold.dart';
 import 'suite_app_catalog.dart';
 import 'suite_bottom_sheet.dart';
 import 'suite_drawer_scaffold.dart';
+import 'suite_home_gestures.dart';
 import 'suite_feedback_screen.dart';
+import 'notes_keep.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
 
-/// Vues agenda quotidiennes (mois / semaine / jour / liste).
+/// Vues agenda : journée (ouverture), semaine, mois, liste.
 enum CalendarHomeView { month, week, day, agenda }
 
 /// Produit suite affiché par l'écran d'accueil mobile.
@@ -85,15 +90,24 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _taskLists = [];
   int? _selectedTaskListId;
   String _contactQuery = '';
+  ContactDirectory _contactDirectory = ContactDirectory.professional;
+  List<Map<String, dynamic>> _deviceGoogleContacts = [];
+  bool _deviceContactsLoading = false;
+  bool _devicePermissionDenied = false;
   String? _noteLabelFilter;
   bool _notesSearchOpen = false;
   bool _notesRemindersOnly = false;
   bool _notesShowArchived = false;
+  bool _notesShowTrash = false;
+  List<String> _customLabels = [];
+  final Map<String, String> _trashAt = {};
+  bool _notesPrefsLoaded = false;
   late SuiteProductApi _api;
   late DateTime _calFocusDay;
   late DateTime _calMonthAnchor;
   bool _calDayFilter = false;
-  CalendarHomeView _calView = CalendarHomeView.month;
+  bool _calMonthStripOpen = false;
+  CalendarHomeView _calView = CalendarHomeView.day;
   final ScrollController _agendaScroll = ScrollController();
   final Map<String, GlobalKey> _agendaDayKeys = {};
 
@@ -119,10 +133,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return;
-      final items = [
-        for (final item in decoded)
-          if (item is Map) Map<String, dynamic>.from(item),
-      ];
+      final items = <Map<String, dynamic>>[];
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        if (isDeviceGoogleContact(map)) continue;
+        items.add(map);
+      }
       if (items.isEmpty) return;
       setState(() {
         _items = items;
@@ -132,9 +149,17 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Future<void> _rememberItems() async {
-    if (_items.isEmpty) return;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('hubera_suite_list_${widget.product.name}', jsonEncode(_items));
+    final key = 'hubera_suite_list_${widget.product.name}';
+    final payload = suiteHomeCachePayload([
+      for (final item in _items)
+        if (!isDeviceGoogleContact(item)) item,
+    ]);
+    if (payload == null) {
+      await prefs.remove(key);
+      return;
+    }
+    await prefs.setString(key, payload);
   }
 
   @override
@@ -143,7 +168,183 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     super.dispose();
   }
 
+  String _notesAppBarTitle() {
+    if (_notesSection == NotesHomeSection.notes &&
+        _noteLabelFilter != null &&
+        _noteLabelFilter!.isNotEmpty) {
+      return _noteLabelFilter!;
+    }
+    return switch (_notesSection) {
+      NotesHomeSection.trash => 'Corbeille',
+      NotesHomeSection.archive => 'Archive',
+      NotesHomeSection.reminders => 'Rappels',
+      NotesHomeSection.notes => widget.product.title,
+    };
+  }
+
+  NotesHomeSection get _notesSection {
+    if (_notesShowTrash) return NotesHomeSection.trash;
+    if (_notesShowArchived) return NotesHomeSection.archive;
+    if (_notesRemindersOnly) return NotesHomeSection.reminders;
+    return NotesHomeSection.notes;
+  }
+
+  Future<void> _ensureNotesPrefs() async {
+    if (_notesPrefsLoaded || widget.product != SuiteProduct.notes) return;
+    final prefs = await SharedPreferences.getInstance();
+    _customLabels = prefs.getStringList('hubera_notes_labels_v1') ?? [];
+    final raw = prefs.getString('hubera_notes_trash_v1');
+    if (raw != null && raw.isNotEmpty) {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        _trashAt
+          ..clear()
+          ..addAll(decoded.map((k, v) => MapEntry(k.toString(), v.toString())));
+      }
+    }
+    _notesPrefsLoaded = true;
+  }
+
+  Future<void> _saveTrash() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hubera_notes_trash_v1', jsonEncode(_trashAt));
+  }
+
+  Future<void> _saveCustomLabels() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('hubera_notes_labels_v1', _customLabels);
+  }
+
+  bool _noteIsTrashed(Map<String, dynamic> item) {
+    final id = suiteItemId(item);
+    if (id == null) return false;
+    return _trashAt.containsKey('$id');
+  }
+
+  /// Efface seulement les notes déjà à la corbeille dont les 60 jours sont écoulés.
+  Future<void> _purgeExpiredTrash() async {
+    if (widget.product != SuiteProduct.notes || _trashAt.isEmpty) return;
+    final due = noteIdsDueForPermanentDelete(
+      trashedAtById: Map<String, String>.from(_trashAt),
+      now: DateTime.now().toUtc(),
+    );
+    if (due.isEmpty) return;
+    var changed = false;
+    for (final id in due) {
+      try {
+        await _api.deleteNote(id);
+        _trashAt.remove('$id');
+        changed = true;
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        if (msg.contains('404') || msg.contains('not found')) {
+          _trashAt.remove('$id');
+          changed = true;
+        }
+      }
+    }
+    if (changed) await _saveTrash();
+  }
+
+  Future<void> _moveNoteToTrash(Map<String, dynamic> item) async {
+    final id = suiteItemId(item);
+    if (id == null) return;
+    _trashAt['$id'] = DateTime.now().toUtc().toIso8601String();
+    await _saveTrash();
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Note mise à la corbeille')),
+    );
+  }
+
+  Future<void> _restoreNote(Map<String, dynamic> item) async {
+    final id = suiteItemId(item);
+    if (id == null) return;
+    _trashAt.remove('$id');
+    await _saveTrash();
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _addNoteLabel() async {
+    final ctrl = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nouveau libellé'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Nom du libellé'),
+          onSubmitted: (value) => Navigator.pop(ctx, value),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Ajouter')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || !mounted) return;
+    final known = _allNoteLabels.where((label) => label.toLowerCase() == trimmed.toLowerCase());
+    if (known.isNotEmpty) {
+      setState(() {
+        _noteLabelFilter = known.first;
+        _notesShowTrash = false;
+        _notesShowArchived = false;
+        _notesRemindersOnly = false;
+        _showSettings = false;
+      });
+      return;
+    }
+    setState(() {
+      _customLabels = [..._customLabels, trimmed];
+      _noteLabelFilter = trimmed;
+      _notesShowTrash = false;
+      _notesShowArchived = false;
+      _notesRemindersOnly = false;
+      _showSettings = false;
+    });
+    await _saveCustomLabels();
+  }
+
+  Future<void> _openNotesComposer() async {
+    final draft = await showNotesKeepComposer(context);
+    if (draft == null || !mounted) return;
+    if (draft.title.isEmpty && draft.content.trim().isEmpty) return;
+    try {
+      await _api.createNote(
+        title: draft.title,
+        content: draft.content,
+        labels: _noteLabelFilter == null ? null : [_noteLabelFilter!],
+      );
+      if (mounted) await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
+  void _selectNotesSection(NotesHomeSection section) {
+    setState(() {
+      _showSettings = false;
+      _notesShowTrash = section == NotesHomeSection.trash;
+      _notesShowArchived = section == NotesHomeSection.archive;
+      _notesRemindersOnly = section == NotesHomeSection.reminders;
+      _noteLabelFilter = null;
+    });
+    _reload();
+  }
+
   Future<void> _reload() async {
+    if (widget.product == SuiteProduct.notes) {
+      await _ensureNotesPrefs();
+      await _purgeExpiredTrash();
+    }
+    if (!mounted) return;
     setState(() {
       if (_items.isEmpty) _loading = true;
       _error = null;
@@ -159,10 +360,83 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
       if (!mounted) return;
+      final cached = _items.isNotEmpty;
+      final offline = isRealNetworkFailure(e);
+      debugPrint(
+        'hubera.suite ${widget.product.name} refresh ${e.runtimeType} offline=$offline cached=$cached',
+      );
       setState(() {
-        _error = e.toString();
         _loading = false;
+        // Liste déjà peinte : le bandeau ne reste que si le réseau a lâché.
+        // Un refresh suivant qui réussit repasse _error à null au début de _reload.
+        if (cached && !offline) {
+          _error = null;
+        } else {
+          _error = e.toString();
+        }
       });
+    }
+    if (widget.product == SuiteProduct.contacts &&
+        _contactDirectory == ContactDirectory.personal) {
+      await _refreshDeviceGoogleIfAllowed();
+    }
+  }
+
+  Future<void> _selectContactDirectory(ContactDirectory directory) async {
+    setState(() => _contactDirectory = directory);
+    if (directory == ContactDirectory.personal) {
+      await _refreshDeviceGoogleIfAllowed();
+    }
+  }
+
+  /// Relit le carnet si l’autorisation est déjà là. Ne demande rien.
+  Future<void> _refreshDeviceGoogleIfAllowed() async {
+    final granted = await DeviceGoogleContacts.permissionGranted();
+    if (!mounted || !granted || _contactDirectory != ContactDirectory.personal) {
+      return;
+    }
+    try {
+      final raw = await DeviceGoogleContacts.read();
+      if (!mounted) return;
+      setState(() {
+        _deviceGoogleContacts = personalContactsFromDevice(raw);
+        _devicePermissionDenied = false;
+      });
+    } catch (_) {}
+  }
+
+  /// Geste : bouton Personnel. Demande READ_CONTACTS seulement ici.
+  Future<void> _importDeviceGoogleContacts() async {
+    if (_contactDirectory != ContactDirectory.personal) {
+      setState(() => _contactDirectory = ContactDirectory.personal);
+    }
+    setState(() => _deviceContactsLoading = true);
+    try {
+      var granted = await DeviceGoogleContacts.permissionGranted();
+      if (!granted) {
+        granted = await DeviceGoogleContacts.requestPermission();
+      }
+      if (!mounted) return;
+      if (!granted) {
+        setState(() {
+          _deviceContactsLoading = false;
+          _devicePermissionDenied = true;
+        });
+        return;
+      }
+      final raw = await DeviceGoogleContacts.read();
+      if (!mounted) return;
+      setState(() {
+        _deviceGoogleContacts = personalContactsFromDevice(raw);
+        _deviceContactsLoading = false;
+        _devicePermissionDenied = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _deviceContactsLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Contacts Google indisponibles')),
+      );
     }
   }
 
@@ -208,6 +482,16 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       case SuiteProduct.contacts:
         return _api.fetchContacts();
       case SuiteProduct.notes:
+        if (_notesShowTrash) {
+          final active = await _api.fetchNotes(archived: false);
+          final archived = await _api.fetchNotes(archived: true);
+          final byId = <int, Map<String, dynamic>>{};
+          for (final note in [...active, ...archived]) {
+            final id = suiteItemId(note);
+            if (id != null) byId[id] = note;
+          }
+          return byId.values.toList();
+        }
         return _api.fetchNotes(archived: _notesShowArchived);
       case SuiteProduct.tasks:
         _taskLists = await _api.fetchTaskLists();
@@ -338,6 +622,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           item: item,
           api: _api,
           onChanged: _reload,
+          readOnly: isDeviceGoogleContact(item),
         ),
       ),
     );
@@ -416,6 +701,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Future<void> _deleteItem(Map<String, dynamic> item) async {
+    if (widget.product == SuiteProduct.contacts && isDeviceGoogleContact(item)) {
+      return;
+    }
+    if (widget.product == SuiteProduct.notes) {
+      await _moveNoteToTrash(item);
+      return;
+    }
     final id = suiteItemId(item);
     if (id == null) return;
     if (!await confirmSuiteDelete(context, _itemTitle(item))) return;
@@ -477,31 +769,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
-  List<String> _noteLabelBits(Map<String, dynamic> item) {
-    final labels = item['labels'];
-    final bits = <String>[];
-    if (labels is List) {
-      for (final l in labels) {
-        if (l is String && l.trim().isNotEmpty) bits.add(l.trim());
-        if (l is Map) {
-          final n = (l['name'] ?? l['label'] ?? l['title'])?.toString();
-          if (n != null && n.trim().isNotEmpty) bits.add(n.trim());
-        }
-      }
-    }
-    return bits;
-  }
+  List<String> _noteLabelBits(Map<String, dynamic> item) => noteLabelNames(item);
 
-  List<String> get _allNoteLabels {
-    final seen = <String>{};
-    for (final item in _items) {
-      for (final lab in _noteLabelBits(item)) {
-        seen.add(lab);
-      }
-    }
-    final list = seen.toList()..sort();
-    return list;
-  }
+  List<String> get _allNoteLabels => noteLabelCatalog(
+        custom: _customLabels,
+        fromNotes: _items,
+      );
 
   Future<void> _toggleTask(Map<String, dynamic> item) async {
     final id = suiteItemId(item);
@@ -520,14 +793,14 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     return [
       if (widget.product == SuiteProduct.calendar) ...[
         ListTile(
-          leading: const Icon(Icons.calendar_view_month_outlined),
-          title: const Text('Mois'),
-          selected: !_showSettings && _calView == CalendarHomeView.month,
+          leading: const Icon(Icons.view_day_outlined),
+          title: const Text('Jour'),
+          selected: !_showSettings && _calView == CalendarHomeView.day,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.month;
+              _calView = CalendarHomeView.day;
             });
           },
         ),
@@ -544,14 +817,14 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           },
         ),
         ListTile(
-          leading: const Icon(Icons.view_day_outlined),
-          title: const Text('Jour'),
-          selected: !_showSettings && _calView == CalendarHomeView.day,
+          leading: const Icon(Icons.calendar_view_month_outlined),
+          title: const Text('Mois'),
+          selected: !_showSettings && _calView == CalendarHomeView.month,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.day;
+              _calView = CalendarHomeView.month;
             });
           },
         ),
@@ -577,69 +850,31 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
             setState(() => _showSettings = false);
           },
         ),
-      if (widget.product == SuiteProduct.notes) ...[
-        ListTile(
-          leading: const Icon(Icons.lightbulb_outline),
-          title: const Text('Notes'),
-          selected: !_showSettings && !_notesShowArchived && !_notesRemindersOnly,
-          onTap: () {
+      if (widget.product == SuiteProduct.notes)
+        ...buildNotesDrawerTiles(
+          section: _notesSection,
+          highlight: !_showSettings,
+          selectedLabel: _notesSection == NotesHomeSection.notes ? _noteLabelFilter : null,
+          labels: _allNoteLabels,
+          onSection: (section) {
+            Navigator.pop(context);
+            _selectNotesSection(section);
+          },
+          onLabel: (label) {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
+              _notesShowTrash = false;
               _notesShowArchived = false;
               _notesRemindersOnly = false;
+              _noteLabelFilter = _noteLabelFilter == label ? null : label;
             });
-            _reload();
           },
-        ),
-        ListTile(
-          leading: const Icon(Icons.notifications_outlined),
-          title: const Text('Rappels'),
-          selected: _notesRemindersOnly && !_notesShowArchived,
-          onTap: () {
+          onAddLabel: () {
             Navigator.pop(context);
-            setState(() {
-              _showSettings = false;
-              _notesShowArchived = false;
-              _notesRemindersOnly = true;
-            });
-            _reload();
+            _addNoteLabel();
           },
         ),
-        ListTile(
-          leading: const Icon(Icons.archive_outlined),
-          title: const Text('Archive'),
-          selected: _notesShowArchived,
-          onTap: () {
-            Navigator.pop(context);
-            setState(() {
-              _showSettings = false;
-              _notesShowArchived = true;
-              _notesRemindersOnly = false;
-            });
-            _reload();
-          },
-        ),
-        if (_allNoteLabels.isNotEmpty) ...[
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Text('Dossiers'),
-          ),
-          for (final lab in _allNoteLabels)
-            ListTile(
-              leading: const Icon(Icons.label_outline),
-              title: Text(lab),
-              selected: _noteLabelFilter == lab,
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _showSettings = false;
-                  _noteLabelFilter = _noteLabelFilter == lab ? null : lab;
-                });
-              },
-            ),
-        ],
-      ],
       if (widget.product == SuiteProduct.tasks) ...[
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -878,15 +1113,26 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   List<Map<String, dynamic>> get _visibleItems {
-    var items = _items;
+    var items = widget.product == SuiteProduct.contacts
+        ? contactsForDirectory(
+            hubera: _items,
+            device: _deviceGoogleContacts,
+            directory: _contactDirectory,
+          )
+        : _items;
     if (widget.product == SuiteProduct.notes) {
       items = items.where((n) {
-        final archived = n['archived'] == true;
-        if (_notesShowArchived ? !archived : archived) return false;
-        if (_notesRemindersOnly && n['remind_at'] == null) return false;
-        if (_noteLabelFilter != null) {
-          final labels = (n['labels'] as List?)?.map((e) => e.toString()) ?? const [];
-          if (!labels.contains(_noteLabelFilter)) return false;
+        final trashed = _noteIsTrashed(n);
+        if (_notesShowTrash) {
+          if (!trashed) return false;
+        } else {
+          if (trashed) return false;
+          final archived = n['archived'] == true;
+          if (_notesShowArchived ? !archived : archived) return false;
+          if (_notesRemindersOnly && n['remind_at'] == null) return false;
+        }
+        if (_noteLabelFilter != null && !_notesShowTrash) {
+          if (!noteLabelNames(n).contains(_noteLabelFilter)) return false;
         }
         return true;
       }).toList();
@@ -918,17 +1164,256 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }).toList();
   }
 
+  /// Sync en cours ou en échec : on ne cache la liste que si rien n’est encore en cache.
+  bool get _hideCachedHome => _items.isEmpty && (_loading || _error != null);
+
+  Widget _cachedHomeFrame(Widget child) {
+    if (!showCachedSyncBanner(error: _error, hasCachedItems: _items.isNotEmpty)) {
+      return child;
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Theme.of(context).colorScheme.errorContainer,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Synchronisation interrompue. La liste enregistrée reste affichée.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                TextButton(onPressed: _reload, child: const Text('Réessayer')),
+              ],
+            ),
+          ),
+        ),
+        Expanded(child: child),
+      ],
+    );
+  }
+
+  Widget _buildContactsDirectory() {
+    final theme = Theme.of(context);
+    final personal = _contactDirectory == ContactDirectory.personal;
+    final visible = _visibleItems;
+    final bottom = 88 + MediaQuery.viewPaddingOf(context).bottom;
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SegmentedButton<ContactDirectory>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(
+                        value: ContactDirectory.personal,
+                        label: Text('Personnel'),
+                      ),
+                      ButtonSegment(
+                        value: ContactDirectory.professional,
+                        label: Text('Professionnel'),
+                      ),
+                    ],
+                    selected: {_contactDirectory},
+                    onSelectionChanged: (next) {
+                      if (next.isEmpty) return;
+                      _selectContactDirectory(next.first);
+                    },
+                  ),
+                ),
+                if (personal)
+                  IconButton(
+                    tooltip: 'Contacts Google du téléphone',
+                    onPressed: _deviceContactsLoading ? null : _importDeviceGoogleContacts,
+                    icon: _deviceContactsLoading
+                        ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        : Icon(Icons.contact_phone_outlined, color: theme.colorScheme.primary),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: TextField(
+              decoration: InputDecoration(
+                prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
+                hintText: 'Rechercher',
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHighest,
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(28),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+              onChanged: (v) => setState(() => _contactQuery = v),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _reload,
+              child: _contactsDirectoryScroll(visible, personal, bottom),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _contactsDirectoryScroll(
+    List<Map<String, dynamic>> visible,
+    bool personal,
+    double bottom,
+  ) {
+    if (!personal && _hideCachedHome && _loading) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: const [
+          SizedBox(height: 120),
+          Center(child: CircularProgressIndicator()),
+        ],
+      );
+    }
+    if (!personal && _hideCachedHome && _error != null) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          CloudityErrorBody(
+            message: _error!,
+            onRetry: _reload,
+            onReport: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SuiteFeedbackScreen(
+                    screenName: widget.product.title,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      );
+    }
+    if (visible.isEmpty) {
+      final theme = Theme.of(context);
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(24, 48, 24, bottom),
+        children: [
+          Center(
+            child: Column(
+              children: [
+                Icon(
+                  personal ? Icons.contact_phone_outlined : widget.product.icon,
+                  size: 48,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.55),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  personal ? 'Aucun contact personnel' : _emptyTitle(),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium,
+                ),
+                if (!personal) ...[
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _showCreateMenu,
+                    icon: const Icon(Icons.add),
+                    label: Text('Créer — ${widget.product.title}'),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _deviceContactsLoading ? null : _importDeviceGoogleContacts,
+                    icon: const Icon(Icons.contact_phone_outlined),
+                    label: Text(_devicePermissionDenied ? 'Autoriser' : 'Contacts Google'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(top: 4, bottom: bottom),
+      itemCount: visible.length,
+      itemBuilder: (context, index) {
+        final theme = Theme.of(context);
+        final item = visible[index];
+        final sub = _itemSubtitle(item);
+        return Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              leading: CircleAvatar(
+                backgroundColor: theme.colorScheme.primaryContainer,
+                foregroundColor: theme.colorScheme.onPrimaryContainer,
+                child: Text(
+                  _contactInitials(_itemTitle(item)),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              title: Text(
+                _itemTitle(item),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
+              ),
+              subtitle: sub != null
+                  ? Text(
+                      sub,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                    )
+                  : null,
+              onTap: () => _openEditor(existing: item),
+            ),
+            Divider(
+              height: 1,
+              indent: 72,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildListBody() {
-    return RefreshIndicator(
+    if (widget.product == SuiteProduct.contacts) {
+      return _cachedHomeFrame(_buildContactsDirectory());
+    }
+    return _cachedHomeFrame(
+      RefreshIndicator(
       onRefresh: _reload,
-      child: _loading
+      child: _hideCachedHome && _loading
           ? ListView(
               children: const [
                 SizedBox(height: 120),
                 Center(child: CircularProgressIndicator()),
               ],
             )
-                  : _error != null
+                  : _hideCachedHome && _error != null
                       ? CloudityErrorBody(
                           message: _error!,
                           onRetry: _reload,
@@ -989,29 +1474,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       itemCount: _visibleItems.length +
-                          (widget.product == SuiteProduct.contacts ||
-                                  widget.product == SuiteProduct.tasks
-                              ? 1
-                              : 0),
+                          (widget.product == SuiteProduct.tasks ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (widget.product == SuiteProduct.contacts) {
-                          if (index == 0) {
-                            return Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                              child: TextField(
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.search),
-                                  hintText: 'Rechercher un contact',
-                                  border: OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                onChanged: (v) =>
-                                    setState(() => _contactQuery = v),
-                              ),
-                            );
-                          }
-                          index -= 1;
-                        }
                         if (widget.product == SuiteProduct.tasks) {
                           if (index == 0) {
                             return _buildTasksHeader();
@@ -1077,6 +1541,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         );
                       },
                     ),
+      ),
     );
   }
 
@@ -1205,22 +1670,29 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     icon: const Icon(Icons.more_vert, size: 18),
                     onSelected: (v) => _onNoteCardAction(item, v),
                     itemBuilder: (ctx) => [
-                      PopupMenuItem(
-                        value: 'pin',
-                        child: Text(pinned ? 'Désépingler' : 'Épingler'),
-                      ),
-                      PopupMenuItem(
-                        value: 'archive',
-                        child: Text(archived ? 'Désarchiver' : 'Archiver'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'color',
-                        child: Text('Couleur'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Supprimer'),
-                      ),
+                      if (_notesShowTrash)
+                        const PopupMenuItem(
+                          value: 'restore',
+                          child: Text('Restaurer'),
+                        )
+                      else ...[
+                        PopupMenuItem(
+                          value: 'pin',
+                          child: Text(pinned ? 'Désépingler' : 'Épingler'),
+                        ),
+                        PopupMenuItem(
+                          value: 'archive',
+                          child: Text(archived ? 'Désarchiver' : 'Archiver'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'color',
+                          child: Text('Couleur'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Mettre à la corbeille'),
+                        ),
+                      ],
                     ],
                   ),
                 ],
@@ -1278,6 +1750,15 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                   label: Text(
                     formatCloudityDateTimeLocal(remind),
                     style: theme.textTheme.labelSmall,
+                  ),
+                ),
+              ],
+              if (_notesShowTrash) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _trashExpiryLabel(item),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -1339,8 +1820,19 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       case 'color':
         await _pickNoteColor(item);
       case 'delete':
-        await _deleteItem(item);
+        await _moveNoteToTrash(item);
+      case 'restore':
+        await _restoreNote(item);
     }
+  }
+
+  String _trashExpiryLabel(Map<String, dynamic> item) {
+    final id = suiteItemId(item);
+    final raw = id == null ? null : _trashAt['$id'];
+    final at = raw == null ? null : DateTime.tryParse(raw);
+    if (at == null) return 'Suppression définitive sous 60 jours';
+    final when = formatCloudityDayHeaderFromDate(noteTrashExpiresAt(at).toLocal());
+    return 'Suppression définitive le $when';
   }
 
   Future<void> _showNoteCardMenu(Map<String, dynamic> item) async {
@@ -1355,26 +1847,34 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Note', style: Theme.of(ctx).textTheme.titleMedium),
-            ListTile(
-              leading: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined),
-              title: Text(pinned ? 'Désépingler' : 'Épingler'),
-              onTap: () => Navigator.pop(ctx, 'pin'),
-            ),
-            ListTile(
-              leading: Icon(archived ? Icons.unarchive_outlined : Icons.archive_outlined),
-              title: Text(archived ? 'Désarchiver' : 'Archiver'),
-              onTap: () => Navigator.pop(ctx, 'archive'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.palette_outlined),
-              title: const Text('Couleur'),
-              onTap: () => Navigator.pop(ctx, 'color'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('Supprimer'),
-              onTap: () => Navigator.pop(ctx, 'delete'),
-            ),
+            if (_notesShowTrash)
+              ListTile(
+                leading: const Icon(Icons.restore),
+                title: const Text('Restaurer'),
+                onTap: () => Navigator.pop(ctx, 'restore'),
+              )
+            else ...[
+              ListTile(
+                leading: Icon(pinned ? Icons.push_pin : Icons.push_pin_outlined),
+                title: Text(pinned ? 'Désépingler' : 'Épingler'),
+                onTap: () => Navigator.pop(ctx, 'pin'),
+              ),
+              ListTile(
+                leading: Icon(archived ? Icons.unarchive_outlined : Icons.archive_outlined),
+                title: Text(archived ? 'Désarchiver' : 'Archiver'),
+                onTap: () => Navigator.pop(ctx, 'archive'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.palette_outlined),
+                title: const Text('Couleur'),
+                onTap: () => Navigator.pop(ctx, 'color'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Mettre à la corbeille'),
+                onTap: () => Navigator.pop(ctx, 'delete'),
+              ),
+            ],
           ],
         ),
       ),
@@ -1457,10 +1957,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   Widget _buildNotesKeepBody() {
     final theme = Theme.of(context);
-    if (_loading) {
+    if (_loading && _items.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_error != null) {
+    if (_error != null && _items.isEmpty) {
       return CloudityErrorBody(
         message: _error!,
         onRetry: _reload,
@@ -1483,7 +1983,18 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       child: ListView(
         padding: const EdgeInsets.only(bottom: 88),
         children: [
-          Padding(
+          if (_notesShowTrash)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                'Suppression définitive 60 jours après la mise à la corbeille.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            )
+          else
+            Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: Material(
               color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
@@ -1491,7 +2002,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               borderRadius: BorderRadius.circular(28),
               child: InkWell(
                 borderRadius: BorderRadius.circular(28),
-                onTap: () => _openEditor(),
+                onTap: _openNotesComposer,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 4, 4),
                   child: Row(
@@ -1567,23 +2078,31 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               child: Column(
                 children: [
                   Icon(
-                    _notesShowArchived
-                        ? Icons.archive_outlined
-                        : Icons.sticky_note_2_outlined,
+                    _notesShowTrash
+                        ? Icons.delete_outline
+                        : _notesShowArchived
+                            ? Icons.archive_outlined
+                            : Icons.sticky_note_2_outlined,
                     size: 48,
                     color: theme.colorScheme.primary.withValues(alpha: 0.55),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    _notesShowArchived ? 'Aucune archive' : _emptyTitle(),
+                    _notesShowTrash
+                        ? 'Corbeille vide'
+                        : _notesShowArchived
+                            ? 'Aucune archive'
+                            : _emptyTitle(),
                     style: theme.textTheme.titleMedium,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _notesShowArchived
-                        ? 'Les notes archivées apparaissent ici.'
-                        : _emptySubtitle(),
+                    _notesShowTrash
+                        ? 'Les notes restent ici 60 jours, puis elles sont supprimées définitivement.'
+                        : _notesShowArchived
+                            ? 'Les notes archivées apparaissent ici.'
+                            : _emptySubtitle(),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -1623,54 +2142,199 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
   }
 
-  Widget _buildCalendarMonth(DateTime today, Color accent) {
+  String _frenchLongDate(DateTime d) {
+    const weekdays = [
+      'lundi',
+      'mardi',
+      'mercredi',
+      'jeudi',
+      'vendredi',
+      'samedi',
+      'dimanche',
+    ];
+    return '${weekdays[d.weekday - 1]} ${d.day} ${_monthName(d.month)}';
+  }
+
+  String _calendarFocusLabel(DateTime day) {
+    final full = _frenchLongDate(day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final d = DateTime(day.year, day.month, day.day);
+    if (d == today) return "Aujourd'hui · $full";
+    if (d == today.add(const Duration(days: 1))) return 'Demain · $full';
+    if (d == today.subtract(const Duration(days: 1))) return 'Hier · $full';
+    return full[0].toUpperCase() + full.substring(1);
+  }
+
+  String _weekRangeLabel(List<DateTime> days) {
+    final a = days.first;
+    final b = days.last;
+    if (a.month == b.month && a.year == b.year) {
+      return '${a.day} – ${b.day} ${_monthName(a.month)} ${a.year}';
+    }
+    return '${a.day} ${_monthName(a.month)} – ${b.day} ${_monthName(b.month)}';
+  }
+
+  void _shiftCalendarMonth(int delta) {
+    setState(() {
+      _calMonthAnchor = DateTime(_calMonthAnchor.year, _calMonthAnchor.month + delta);
+    });
+  }
+
+  Widget _buildFoldableDateHeader(String label) {
+    final theme = Theme.of(context);
+    final open = _calMonthStripOpen;
+    return Material(
+      color: theme.colorScheme.surface,
+      child: Tooltip(
+        message: open ? 'Replier le mois' : 'Déplier le mois',
+        child: InkWell(
+          key: const Key('calendar-day-header'),
+          onTap: () => setState(() => _calMonthStripOpen = !open),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Icon(
+                  open ? Icons.expand_less : Icons.expand_more,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _monthNav() {
+    final theme = Theme.of(context);
+    final raw = '${_monthName(_calMonthAnchor.month)} ${_calMonthAnchor.year}';
+    final label = raw.isEmpty ? raw : raw[0].toUpperCase() + raw.substring(1);
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Mois précédent',
+          onPressed: () => _shiftCalendarMonth(-1),
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Expanded(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Mois suivant',
+          onPressed: () => _shiftCalendarMonth(1),
+          icon: const Icon(Icons.chevron_right),
+        ),
+      ],
+    );
+  }
+
+  Widget _monthCells({
+    required DateTime today,
+    required Color accent,
+    required bool compact,
+    required void Function(DateTime day) onPick,
+  }) {
     final theme = Theme.of(context);
     const weekdays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     final cells = _monthGridCells(_calMonthAnchor);
-    final monthLabel = '${_monthName(_calMonthAnchor.month)} ${_calMonthAnchor.year}';
-    final dayItems = _itemsOnDay(_calFocusDay);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: 'Mois précédent',
-                onPressed: () {
-                  setState(() {
-                    _calMonthAnchor = DateTime(
-                      _calMonthAnchor.year,
-                      _calMonthAnchor.month - 1,
-                    );
-                  });
-                },
-                icon: const Icon(Icons.chevron_left),
+    Widget dayCell(DateTime day) {
+      final inMonth = day.month == _calMonthAnchor.month;
+      final isToday = day == today;
+      final selected = day == _calFocusDay;
+      final hasItems = _dayHasCalendarItems(day);
+      final fg = isToday
+          ? theme.colorScheme.onPrimary
+          : (inMonth ? theme.colorScheme.onSurface : theme.colorScheme.outline);
+      return InkWell(
+        onTap: () => onPick(day),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: isToday
+                    ? accent
+                    : (selected ? accent.withValues(alpha: 0.16) : Colors.transparent),
+                shape: BoxShape.circle,
+                border: selected && !isToday
+                    ? Border.all(color: accent, width: 1.5)
+                    : null,
               ),
-              Expanded(
-                child: Text(
-                  monthLabel,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              child: Text(
+                '${day.day}',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
                 ),
               ),
-              IconButton(
-                tooltip: 'Mois suivant',
-                onPressed: () {
-                  setState(() {
-                    _calMonthAnchor = DateTime(
-                      _calMonthAnchor.year,
-                      _calMonthAnchor.month + 1,
-                    );
-                  });
-                },
-                icon: const Icon(Icons.chevron_right),
+            ),
+            const SizedBox(height: 2),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(
+                color: hasItems ? accent : Colors.transparent,
+                shape: BoxShape.circle,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      );
+    }
+
+    final weekRows = <Widget>[
+      for (var w = 0; w < 6; w++)
+        if (compact)
+          SizedBox(
+            height: 40,
+            child: Row(
+              children: [
+                for (var d = 0; d < 7; d++) Expanded(child: dayCell(cells[w * 7 + d])),
+              ],
+            ),
+          )
+        else
+          Expanded(
+            child: Row(
+              children: [
+                for (var d = 0; d < 7; d++) Expanded(child: dayCell(cells[w * 7 + d])),
+              ],
+            ),
+          ),
+    ];
+
+    return Column(
+      key: const Key('calendar-month-grid'),
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+      children: [
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
           child: Row(
             children: [
               for (final w in weekdays)
@@ -1688,146 +2352,91 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
             ],
           ),
         ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          itemCount: 42,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            childAspectRatio: 0.92,
-          ),
-          itemBuilder: (context, i) {
-            final cell = cells[i];
-            final inMonth = cell.month == _calMonthAnchor.month;
-            final isToday = cell == today;
-            final selected = cell == _calFocusDay;
-            final items = _itemsOnDay(cell);
-            return InkWell(
-              onTap: () {
+        if (compact)
+          ...weekRows
+        else
+          Expanded(child: Column(children: weekRows)),
+      ],
+    );
+  }
+
+  Widget _buildMonthNumberStrip(DateTime today, Color accent) {
+    final maxH = MediaQuery.sizeOf(context).height * 0.46;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxHeight: maxH),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _monthNav(),
+            _monthCells(
+              today: today,
+              accent: accent,
+              compact: true,
+              onPick: (day) {
                 setState(() {
-                  _calFocusDay = cell;
-                  _calDayFilter = true;
-                  _calView = CalendarHomeView.day;
+                  _calFocusDay = DateTime(day.year, day.month, day.day);
+                  _calMonthAnchor = DateTime(day.year, day.month, 1);
                 });
               },
-              child: Container(
-                margin: const EdgeInsets.all(1),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: selected
-                      ? accent.withValues(alpha: 0.12)
-                      : Colors.transparent,
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isToday ? accent : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        '${cell.day}',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: isToday
-                              ? theme.colorScheme.onPrimary
-                              : (inMonth
-                                  ? theme.colorScheme.onSurface
-                                  : theme.colorScheme.outline),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 2),
-                        child: Column(
-                          children: [
-                            for (final ev in items.take(2))
-                              Container(
-                                width: double.infinity,
-                                margin: const EdgeInsets.only(bottom: 1),
-                                padding: const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(
-                                  color: _isHuberaTask(ev)
-                                      ? const Color(0xFF188038)
-                                      : accent,
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                                child: Text(
-                                  _itemTitle(ev),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            if (items.length > 2)
-                              Text(
-                                '+${items.length - 2}',
-                                style: theme.textTheme.labelSmall?.copyWith(fontSize: 9),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              formatCloudityDayHeaderFromDate(_calFocusDay),
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTimedCalendar({
+    required DateTime today,
+    required Color accent,
+    required String header,
+    required List<DateTime> days,
+    required bool showDayHeaders,
+  }) {
+    final reveal = DateTime.now().hour.clamp(0, 18);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFoldableDateHeader(header),
+        if (_calMonthStripOpen) _buildMonthNumberStrip(today, accent),
+        Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
+        Expanded(
+          child: CalendarTimeGrid(
+            key: const Key('calendar-hour-grid'),
+            days: days,
+            items: _items,
+            accent: accent,
+            showDayHeaders: showDayHeaders,
+            revealHour: reveal,
+            itemTitle: _itemTitle,
+            isTask: _isHuberaTask,
+            onEventTap: (item) => _openEditor(existing: item),
+            onSlotTap: (start) => _openEditor(seedStart: start),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildCalendarMonth(DateTime today, Color accent) {
+    return Column(
+      children: [
+        _monthNav(),
         Expanded(
-          child: dayItems.isEmpty
-              ? Center(
-                  child: Text(
-                    'Rien ce jour-là',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-                  itemCount: dayItems.length,
-                  itemBuilder: (context, i) {
-                    final item = dayItems[i];
-                    final isTask = _isHuberaTask(item);
-                    final start = (item['start_at'] ?? item['starts_at'])?.toString();
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      child: ListTile(
-                        leading: Icon(
-                          isTask ? Icons.check_circle_outline : Icons.event,
-                          color: isTask ? const Color(0xFF188038) : accent,
-                        ),
-                        title: Text(_itemTitle(item)),
-                        subtitle: Text(
-                          isTask
-                              ? 'Tâche Hubera Tasks · ${formatCloudityTimeLocal(start)}'
-                              : formatCloudityTimeLocal(start),
-                        ),
-                        onTap: () => _openEditor(existing: item),
-                      ),
-                    );
-                  },
-                ),
+          child: _monthCells(
+            today: today,
+            accent: accent,
+            compact: false,
+            onPick: (day) {
+              setState(() {
+                _calFocusDay = DateTime(day.year, day.month, day.day);
+                _calMonthAnchor = DateTime(day.year, day.month, 1);
+                _calDayFilter = true;
+                _calView = CalendarHomeView.day;
+                _calMonthStripOpen = false;
+              });
+            },
+          ),
         ),
       ],
     );
@@ -1851,80 +2460,22 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       return _buildCalendarMonth(today, accent);
     }
     if (_calView == CalendarHomeView.week) {
-      return CalendarTimeGrid(
-        days: calendarWeekDays(_calFocusDay),
-        items: _items,
+      final days = calendarWeekDays(_calFocusDay);
+      return _buildTimedCalendar(
+        today: today,
         accent: accent,
-        itemTitle: _itemTitle,
-        isTask: _isHuberaTask,
-        onEventTap: (item) => _openEditor(existing: item),
-        onSlotTap: (start) => _openEditor(seedStart: start),
+        header: _weekRangeLabel(days),
+        days: days,
+        showDayHeaders: true,
       );
     }
     if (_calView == CalendarHomeView.day) {
-      return Column(
-        children: [
-          Expanded(
-            flex: 3,
-            child: CalendarTimeGrid(
-              days: [_calFocusDay],
-              items: _items,
-              accent: accent,
-              itemTitle: _itemTitle,
-              isTask: _isHuberaTask,
-              onEventTap: (item) => _openEditor(existing: item),
-              onSlotTap: (start) => _openEditor(seedStart: start),
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                formatCloudityDayHeaderFromDate(_calFocusDay),
-                style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: _itemsOnDay(_calFocusDay).isEmpty
-                ? Center(
-                    child: Text(
-                      'Rien ce jour-là',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-                    itemCount: _itemsOnDay(_calFocusDay).length,
-                    itemBuilder: (context, i) {
-                      final item = _itemsOnDay(_calFocusDay)[i];
-                      final isTask = _isHuberaTask(item);
-                      final start = (item['start_at'] ?? item['starts_at'])?.toString();
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        child: ListTile(
-                          leading: Icon(
-                            isTask ? Icons.check_circle_outline : Icons.event,
-                            color: isTask ? const Color(0xFF188038) : accent,
-                          ),
-                          title: Text(_itemTitle(item)),
-                          subtitle: Text(
-                            isTask
-                                ? 'Tâche Hubera Tasks · ${formatCloudityTimeLocal(start)}'
-                                : formatCloudityTimeLocal(start),
-                          ),
-                          onTap: () => _openEditor(existing: item),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+      return _buildTimedCalendar(
+        today: today,
+        accent: accent,
+        header: _calendarFocusLabel(_calFocusDay),
+        days: [_calFocusDay],
+        showDayHeaders: false,
       );
     }
 
@@ -2294,11 +2845,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       currentApp: widget.product.suiteApp,
       title: _showSettings
           ? 'Paramètres'
-          : (widget.product == SuiteProduct.notes && _notesShowArchived
-              ? 'Archive'
-              : (widget.product == SuiteProduct.notes && _notesRemindersOnly
-                  ? 'Rappels'
-                  : widget.product.title)),
+          : widget.product == SuiteProduct.notes
+              ? _notesAppBarTitle()
+              : widget.product.title,
       gatewayUrl: widget.gatewayBase,
       userEmail: widget.userEmail,
       showSettings: _showSettings,
@@ -2364,7 +2913,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       onAccountTap: () => setState(() => _showSettings = true),
       versionLabel: 'Hubera ${widget.product.title}',
       huberaProduct: widget.product.suiteApp.asHubera,
-      showAppSwitcher: widget.product != SuiteProduct.calendar,
+      showAppSwitcher: widget.product != SuiteProduct.calendar &&
+          widget.product != SuiteProduct.notes,
       bottomDestinations: const [],
       onOpenSettings: () => setState(() => _showSettings = true),
       onCloseSettings: () => setState(() => _showSettings = false),
@@ -2378,9 +2928,22 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       floatingActionButton: _showSettings
           ? null
           : FloatingActionButton(
-              onPressed: _showCreateMenu,
-              tooltip: 'Créer',
-              child: const Icon(Icons.add),
+              onPressed: widget.product == SuiteProduct.contacts &&
+                      _contactDirectory == ContactDirectory.personal
+                  ? _importDeviceGoogleContacts
+                  : widget.product == SuiteProduct.notes
+                      ? _openNotesComposer
+                      : _showCreateMenu,
+              tooltip: widget.product == SuiteProduct.contacts &&
+                      _contactDirectory == ContactDirectory.personal
+                  ? 'Contacts Google du téléphone'
+                  : 'Créer',
+              child: Icon(
+                widget.product == SuiteProduct.contacts &&
+                        _contactDirectory == ContactDirectory.personal
+                    ? Icons.contact_phone_outlined
+                    : Icons.add,
+              ),
             ),
       body: _buildListBody(),
     );
