@@ -26,6 +26,7 @@ export 'jwt_claims.dart';
 export 'cloudity_error_ui.dart';
 export 'cloudity_suite_bootstrap.dart';
 export 'http_helpers.dart';
+export 'hubera_http.dart';
 export 'mail_constants.dart';
 export 'mail_view_preferences.dart';
 export 'network_errors.dart';

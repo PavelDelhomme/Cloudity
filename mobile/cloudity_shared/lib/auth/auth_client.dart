@@ -1,9 +1,8 @@
 import 'dart:convert';
 
-import 'package:http/http.dart' as http;
-
 import '../auth_2fa.dart';
 import '../http_helpers.dart';
+import '../hubera_http.dart';
 import '../jwt_claims.dart';
 import 'auth_exception.dart';
 
@@ -33,13 +32,13 @@ class CloudityAuthClient {
     if (tenantId != null && tenantId.trim().isNotEmpty) {
       payload['tenant_id'] = tenantId.trim();
     }
-    final res = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(payload),
-        )
-        .timeout(const Duration(seconds: 20));
+    final res = await huberaHttp.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+      timeout: const Duration(seconds: 20),
+      idempotent: true,
+    );
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -93,13 +92,12 @@ class CloudityAuthClient {
     if (tenantId != null && tenantId.trim().isNotEmpty) {
       payload['tenant_id'] = tenantId.trim();
     }
-    final res = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(payload),
-        )
-        .timeout(const Duration(seconds: 20));
+    final res = await huberaHttp.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+      timeout: const Duration(seconds: 20),
+    );
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 201) {
@@ -116,7 +114,7 @@ class CloudityAuthClient {
 
   Future<bool> authHealth() async {
     final uri = Uri.parse('$_base/auth/health');
-    final res = await http.get(uri).timeout(const Duration(seconds: 3));
+    final res = await huberaHttp.get(uri, timeout: const Duration(seconds: 8));
     return res.statusCode == 200;
   }
 
@@ -124,7 +122,7 @@ class CloudityAuthClient {
   Future<List<Map<String, dynamic>>?> fetchDevQuickLoginPersonas() async {
     final uri = Uri.parse('$_base/auth/dev/personas');
     try {
-      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      final res = await huberaHttp.get(uri, timeout: const Duration(seconds: 8));
       if (res.statusCode == 404) return null;
       if (res.statusCode != 200) return null;
       final map = jsonDecode(res.body.isEmpty ? '{}' : res.body) as Map<String, dynamic>;
@@ -143,16 +141,16 @@ class CloudityAuthClient {
     String tenantId = '1',
   }) async {
     final uri = Uri.parse('$_base/auth/dev/quick-login');
-    final res = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'persona': persona,
-            'tenant_id': tenantId,
-          }),
-        )
-        .timeout(const Duration(seconds: 20));
+    final res = await huberaHttp.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'persona': persona,
+        'tenant_id': tenantId,
+      }),
+      timeout: const Duration(seconds: 20),
+      idempotent: true,
+    );
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
     if (res.statusCode != 200) {
@@ -170,10 +168,12 @@ class CloudityAuthClient {
     String refreshToken,
   ) async {
     final uri = Uri.parse('$_base/auth/refresh');
-    final res = await http.post(
+    final res = await huberaHttp.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'refresh_token': refreshToken}),
+      timeout: const Duration(seconds: 20),
+      idempotent: true,
     );
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
@@ -210,10 +210,11 @@ class CloudityAuthClient {
     if (accessToken.isEmpty) return false;
     final uri = Uri.parse('$_base/auth/validate');
     try {
-      final res = await http.get(
+      final res = await huberaHttp.get(
         uri,
         headers: authHeaders(accessToken, json: false),
-      ).timeout(const Duration(seconds: 5));
+        timeout: const Duration(seconds: 8),
+      );
       return res.statusCode == 200;
     } catch (_) {
       return false;
