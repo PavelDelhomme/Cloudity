@@ -5,6 +5,7 @@ import 'cloudity_design_tokens.dart';
 import 'hubera_scaffold.dart';
 import 'suite_app_catalog.dart';
 import 'suite_bottom_sheet.dart';
+import 'suite_home_gestures.dart';
 
 /// Base web Hubera à partir de l’URL gateway (`api.` → apex).
 String suitePublicWebBase(String gatewayUrl) {
@@ -290,6 +291,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.onBottomSelected,
     this.huberaProduct,
     this.showAppSwitcher = true,
+    this.onConsumeBack,
   });
 
   final ClouditySuiteApp currentApp;
@@ -313,6 +315,10 @@ class SuiteDrawerScaffold extends StatelessWidget {
   final HuberaProduct? huberaProduct;
   /// Calendar : pas les autres apps Hubera dans le drawer (C1).
   final bool showAppSwitcher;
+
+  /// Retour sur un écran interne (onglet, recherche). `true` si la page a bougé.
+  /// L’accueil racine ne pop jamais : le retour ne quitte pas l’app.
+  final bool Function()? onConsumeBack;
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
@@ -356,9 +362,15 @@ class SuiteDrawerScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !showSettings,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && showSettings) onCloseSettings();
+        if (didPop) return;
+        final pageHandles = !showSettings && (onConsumeBack?.call() ?? false);
+        final step = decideSuiteRootBack(
+          showSettings: showSettings,
+          pageHandlesBack: pageHandles,
+        );
+        if (step == SuiteRootBack.closeSettings) onCloseSettings();
       },
       child: Scaffold(
         appBar: AppBar(

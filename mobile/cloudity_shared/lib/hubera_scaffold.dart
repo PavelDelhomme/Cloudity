@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'auth/hubera_account_prompt.dart';
+
 MediaQueryData huberaSafeMedia(BuildContext context) {
   final mq = MediaQuery.of(context);
   final p = mq.padding;
@@ -108,12 +110,24 @@ Future<void> openHuberaProduct(HuberaProduct app) async {
       /* paquet absent */
     }
   }
-  try {
-    if (await launchUrl(Uri.parse('hubera-${app.name}://open'), mode: LaunchMode.externalApplication)) {
-      return;
+  if (app != HuberaProduct.maps) {
+  if (app != HuberaProduct.maps) {
+  if (app != HuberaProduct.maps) {
+  if (app != HuberaProduct.maps) {
+  if (app != HuberaProduct.maps) {
+  if (app != HuberaProduct.maps) {
+    try {
+      if (await launchUrl(Uri.parse('hubera-${app.name}://open'), mode: LaunchMode.externalApplication)) {
+        return;
+      }
+    } catch (_) {
+      /* schéma absent */
     }
-  } catch (_) {
-    /* schéma absent */
+  }
+  }
+  }
+  }
+  }
   }
   await launchUrl(app.webUri, mode: LaunchMode.externalApplication);
 }
@@ -158,8 +172,9 @@ class HuberaAccountAvatar extends StatelessWidget {
         switch (v) {
           case 'settings':
             (onOpenSettings ?? onTap)();
+          case 'choose':
           case 'add':
-            (onAddAccount ?? onOpenHuberaId ?? onTap)();
+            HuberaAccountSwitch.requestChooser();
           case 'id':
             (onOpenHuberaId ?? onTap)();
         }
@@ -174,6 +189,14 @@ class HuberaAccountAvatar extends StatelessWidget {
             subtitle: email == null || email!.trim().isEmpty
                 ? null
                 : Text(email!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'choose',
+          child: ListTile(
+            dense: true,
+            leading: Icon(Icons.switch_account_outlined),
+            title: Text('Choisir un compte'),
           ),
         ),
         const PopupMenuItem(

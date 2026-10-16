@@ -215,6 +215,7 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
   required bool idInstalled,
   String? activeEmail,
   String? deviceEmail,
+  bool prominent = false,
 }) {
   final ordered = placeHuberaAccountFirst(
     accounts,
@@ -258,7 +259,11 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                   child: Text(
                     'Choisir un compte',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w400, color: onSurface),
+                    style: TextStyle(
+                      fontSize: prominent ? 24 : 22,
+                      fontWeight: prominent ? FontWeight.w600 : FontWeight.w400,
+                      color: onSurface,
+                    ),
                   ),
                 ),
                 for (final acc in ordered)

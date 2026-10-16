@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'auth/hubera_account_prompt.dart';
 import 'app_theme.dart';
 import 'cloudity_crash_reporter.dart';
 import 'cloudity_user_prefs_sync.dart';
@@ -59,7 +60,18 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
   @override
   void initState() {
     super.initState();
+    HuberaAccountSwitch.listen(_onChooserRequested);
     _restore();
+  }
+
+  void _onChooserRequested() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    HuberaAccountSwitch.unlisten(_onChooserRequested);
+    super.dispose();
   }
 
   void _bindCrashSession(S session) {
@@ -101,16 +113,19 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
     if (!mounted) return;
     if (session != null) {
       _bindCrashSession(session);
-      await _syncPrefs(session);
     }
     setState(() {
       _ready = true;
       _session = session;
     });
-    if (session != null) _maybeScheduleOta(session);
+    if (session != null) {
+      unawaited(_syncPrefs(session));
+      _maybeScheduleOta(session);
+    }
   }
 
   void _onLoggedIn(S session) {
+    HuberaAccountSwitch.openChooser = false;
     _bindCrashSession(session);
     setState(() => _session = session);
     unawaited(_syncPrefs(session));
@@ -132,7 +147,7 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
       );
     }
     final session = _session;
-    if (session == null) {
+    if (session == null || HuberaAccountSwitch.openChooser) {
       return widget.loginBuilder(_onLoggedIn);
     }
     return widget.homeBuilder(session, _onLogout);

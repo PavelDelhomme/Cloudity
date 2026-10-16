@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../app_theme.dart';
 import '../auth_2fa.dart';
 import '../cloudity_design_tokens.dart';
 import '../jwt_claims.dart';
@@ -15,6 +16,8 @@ import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
+import 'hubera_account_order.dart';
+import 'hubera_account_prompt.dart';
 import 'login_screen_shell.dart';
 import 'session_store.dart';
 import 'user_session.dart';
@@ -58,6 +61,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   bool _busy = false;
   bool _passwordVisible = false;
   bool _brokerPickerHidden = false;
+  bool _addingAccount = false;
+  String? _devicePin;
   List<CloudityAuthAccount> _brokerAccounts = [];
 
   bool _twoFactorRequired = false;
@@ -71,7 +76,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (kDebugMode) {
+    if (kDebugMode && widget.suiteApp != ClouditySuiteApp.admin) {
       ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
       _loadDevPersonas();
     }
@@ -88,33 +93,74 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   /// Charge comptes broker (autre app Cloudity) puis reprise auto si un seul compte.
   Future<void> _bootstrapLogin() async {
     final gateways = await SessionStore.gatewayCandidates();
-    final accounts = await SessionStore.listBrokerAccounts();
+    final accounts = await _orderedBrokerAccounts();
+    final idInstalled = await CloudityAuthBroker.isHuberaIdInstalled();
     if (!mounted) return;
     setState(() {
       _brokerAccounts = accounts;
       if (gateways.isNotEmpty) _gatewayBase = gateways.first;
     });
-    if (accounts.length == 1 &&
-        !_brokerPickerHidden &&
-        accounts.first.refreshToken.isNotEmpty) {
-      await _continueWithBroker(accounts.first);
+    if (widget.suiteApp == ClouditySuiteApp.admin) {
+      await _tryAutoPasskeyLogin();
+      if (!mounted) return;
+    }
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final choice = await promptHuberaAccount(
+      context,
+      accounts,
+      idInstalled: idInstalled,
+      deviceEmail: _devicePin,
+      prominent: widget.suiteApp == ClouditySuiteApp.admin,
+    );
+    if (!mounted) return;
+    if (choice != null && !choice.addNew && choice.account != null) {
+      final acc = choice.account!;
+      if (acc.accessToken.isNotEmpty || acc.refreshToken.isNotEmpty) {
+        await _continueWithBroker(acc);
+        return;
+      }
+      setState(() => _error = widget.suiteApp == ClouditySuiteApp.admin
+          ? 'Session absente'
+          : 'Session absente pour ce compte. Ajoute-le pour le reconnecter.');
       return;
     }
-    if (accounts.isEmpty) {
-      await _tryAutoPasskeyLogin();
+    setState(() {
+      _addingAccount = true;
+      _brokerPickerHidden = false;
+      _emailCtrl.clear();
+      _passwordCtrl.clear();
+    });
+  }
+
+  /// Le compte déjà sur l’appareil reste premier. Ajouter n’efface pas les autres.
+  Future<List<CloudityAuthAccount>> _orderedBrokerAccounts() async {
+    final accounts = await SessionStore.listBrokerAccounts();
+    final prefs = await SharedPreferences.getInstance();
+    final pin = rememberHuberaDeviceAccount(
+      existingPin: prefs.getString(huberaDeviceAccountPinKey),
+      emails: accounts.map((a) => a.email).toList(),
+      sources: accounts.map((a) => a.sourcePackage).toList(),
+      updatedAt: accounts.map((a) => a.updatedAt).toList(),
+    );
+    if (pin != null && pin.isNotEmpty) {
+      await prefs.setString(huberaDeviceAccountPinKey, pin);
     }
+    _devicePin = pin;
+    return placeHuberaAccountFirst(accounts, pin, (a) => a.email);
   }
 
   Future<void> _refreshBrokerAccounts() async {
     if (_busy || _twoFactorRequired) return;
-    final accounts = await SessionStore.listBrokerAccounts();
+    final accounts = await _orderedBrokerAccounts();
     if (!mounted) return;
     setState(() => _brokerAccounts = accounts);
   }
 
   /// Propose la passkey au démarrage (Credential Manager), comme le web.
   Future<void> _tryAutoPasskeyLogin() async {
-    if (!mounted || _busy || _twoFactorRequired || _brokerAccounts.isNotEmpty) return;
+    if (!mounted || _busy || _twoFactorRequired) return;
+    if (widget.suiteApp != ClouditySuiteApp.admin && _brokerAccounts.isNotEmpty) return;
     final gateway = _gatewayBase;
     if (gateway == null) return;
     final passkeys = CloudityPasskeyLogin(gateway);
@@ -439,7 +485,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
         if (msg.toLowerCase().contains('refresh') || msg.contains('401')) {
           setState(() {
             _error = 'Session expirée — reconnecte-toi (email, mot de passe ou empreinte).';
-            _brokerPickerHidden = true;
+            _addingAccount = true;
+            _brokerPickerHidden = false;
             _emailCtrl.text = account.email;
           });
         } else {
@@ -687,7 +734,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   @override
   Widget build(BuildContext context) {
-    return CloudityLoginScreenShell(
+    final shell = CloudityLoginScreenShell(
       suiteApp: widget.suiteApp,
       productTitle: widget.effectiveProductTitle,
       supportingText: _twoFactorRequired
@@ -696,42 +743,71 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       twoFactor: _twoFactorRequired,
       form: _twoFactorRequired ? _build2FAForm(context) : _buildLoginForm(context),
     );
+    if (widget.suiteApp != ClouditySuiteApp.admin) return shell;
+    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    final seed = CloudityDesignTokens.seedColor(widget.suiteApp);
+    return Theme(
+      data: dark ? CloudityAppThemes.dark(seed) : CloudityAppThemes.light(seed),
+      child: shell,
+    );
   }
 
   Widget _buildLoginForm(BuildContext context) {
     final p = widget.keyPrefix;
-    final showBrokerPicker = _brokerAccounts.isNotEmpty && !_brokerPickerHidden;
-    final showAltMethods = showBrokerPicker || _gatewayBase != null;
+    final showBrokerPicker = _brokerAccounts.isNotEmpty && !_brokerPickerHidden && !_addingAccount;
+    final showCredentials = _brokerAccounts.isEmpty || _addingAccount;
+    final admin = widget.suiteApp == ClouditySuiteApp.admin;
+    final passkey = _gatewayBase == null
+        ? const <Widget>[]
+        : <Widget>[
+            SizedBox(height: CloudityDesignTokens.spacing('sm')),
+            CloudityPasskeyLoginButton(
+              gatewayBase: _gatewayBase!,
+              busy: _busy,
+              onBusyChanged: (v) {
+                if (mounted) setState(() => _busy = v);
+              },
+              onSuccess: _onPasskeyLoginSuccess,
+            ),
+          ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (admin) ...passkey,
         if (showBrokerPicker) ...[
           Text(
-            'Continuer avec un compte Hubera',
-            style: Theme.of(context).textTheme.titleSmall,
+            'Choisir un compte',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: admin ? 24 : 22,
+                  fontWeight: admin ? FontWeight.w600 : FontWeight.w400,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFFE8EAED)
+                      : const Color(0xFF202124),
+                ),
           ),
-          SizedBox(height: CloudityDesignTokens.spacing('sm')),
+          SizedBox(height: admin ? 12 : 4),
           for (final acc in _brokerAccounts)
-            _BrokerAccountTile(
-              email: acc.email,
-              sourcePackage: acc.sourcePackage,
+            HuberaAccountLine(
+              title: huberaAccountTitle(acc.email),
+              subtitle: acc.email,
+              letter: huberaAccountInitial(acc.email),
+              colorKey: acc.email,
               onTap: _busy ? null : () => _continueWithBroker(acc),
             ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: _busy
-                  ? null
-                  : () => setState(() {
-                        _brokerPickerHidden = true;
-                        _emailCtrl.clear();
-                        _passwordCtrl.clear();
-                      }),
-              child: const Text('Utiliser un autre compte'),
-            ),
+          HuberaAccountLine(
+            add: true,
+            title: 'Ajouter un compte',
+            onTap: _busy
+                ? null
+                : () => setState(() {
+                      _addingAccount = true;
+                      _brokerPickerHidden = false;
+                      _emailCtrl.clear();
+                      _passwordCtrl.clear();
+                    }),
           ),
         ],
-        if (_gatewayBase != null) ...[
+        if (!admin && _gatewayBase != null) ...[
           SizedBox(height: CloudityDesignTokens.spacing('sm')),
           CloudityPasskeyLoginButton(
             gatewayBase: _gatewayBase!,
@@ -742,25 +818,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
             onSuccess: _onPasskeyLoginSuccess,
           ),
         ],
-        if (showAltMethods) ...[
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: CloudityDesignTokens.spacing('md')),
-            child: Row(
-              children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    'ou avec e-mail',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                const Expanded(child: Divider()),
-              ],
-            ),
-          ),
-        ],
-        if (kDebugMode && _devPersonas.isNotEmpty)
+        if (showCredentials && kDebugMode && _devPersonas.isNotEmpty)
           CloudityLoginExtraPanel(
             title: 'Dev — connexion rapide',
             subtitle: 'Sans mot de passe (local uniquement)',
@@ -780,7 +838,21 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
                 ),
             ],
           ),
-        TextField(
+        if (showCredentials && _addingAccount && _brokerAccounts.isNotEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              tooltip: 'Retour',
+              onPressed: _busy
+                  ? null
+                  : () => setState(() {
+                        _addingAccount = false;
+                        _error = null;
+                      }),
+              icon: const Icon(Icons.arrow_back),
+            ),
+          ),
+        if (showCredentials) TextField(
           key: ValueKey('${p}_login_email'),
           controller: _emailCtrl,
           decoration: const InputDecoration(
@@ -791,8 +863,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
           autocorrect: false,
           textInputAction: TextInputAction.next,
         ),
-        SizedBox(height: CloudityDesignTokens.spacing('md')),
-        TextField(
+        if (showCredentials) SizedBox(height: CloudityDesignTokens.spacing('md')),
+        if (showCredentials) TextField(
           key: ValueKey('${p}_login_password'),
           controller: _passwordCtrl,
           decoration: InputDecoration(
@@ -834,16 +906,17 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
             ),
           ),
         ],
-        SizedBox(height: CloudityDesignTokens.spacing('xl')),
-        CloudityLoginActions(
-          primaryKey: ValueKey('${p}_login_submit'),
-          primaryLabel: 'Se connecter',
-          onPrimary: _submit,
-          busy: _busy,
-          secondaryKey: ValueKey('${p}_register_submit'),
-          secondaryLabel: 'Créer un compte',
-          onSecondary: _register,
-        ),
+        if (showCredentials) SizedBox(height: CloudityDesignTokens.spacing('xl')),
+        if (showCredentials)
+          CloudityLoginActions(
+            primaryKey: ValueKey('${p}_login_submit'),
+            primaryLabel: 'Se connecter',
+            onPrimary: _submit,
+            busy: _busy,
+            secondaryKey: ValueKey('${p}_register_submit'),
+            secondaryLabel: 'Créer un compte',
+            onSecondary: _register,
+          ),
       ],
     );
   }
@@ -888,120 +961,4 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   }
 }
 
-class _BrokerAccountTile extends StatelessWidget {
-  const _BrokerAccountTile({
-    required this.email,
-    this.sourcePackage,
-    required this.onTap,
-  });
-
-  final String email;
-  final String? sourcePackage;
-  final VoidCallback? onTap;
-
-  String get _initial {
-    final local = email.split('@').first.trim();
-    if (local.isEmpty) return '?';
-    return local[0].toUpperCase();
-  }
-
-  String? get _sourceLabel {
-    final pkg = sourcePackage;
-    if (pkg == null || pkg.isEmpty) return null;
-    const labels = {
-      'cloud.hubera.mail': 'Mail',
-      'cloud.hubera.drive': 'Drive',
-      'cloud.hubera.photos': 'Photos',
-      'cloud.hubera.pass': 'Pass',
-      'cloud.hubera.calendar': 'Calendar',
-      'cloud.hubera.contacts': 'Contacts',
-      'cloud.hubera.notes': 'Notes',
-      'cloud.hubera.tasks': 'Tasks',
-      'cloud.hubera.cook': 'Cook',
-      'cloud.hubera.admin': 'Admin',
-      'cloud.hubera.id': 'Hubera ID',
-      'cloud.hubera.music': 'Music',
-      'cloud.hubera.music.dev': 'Music',
-      'ovh.delhomme.ytmusic': 'Music',
-      'cloud.hubera.docs': 'Docs',
-      'cloud.hubera.maps': 'Maps',
-      'ovh.delhomme.maps': 'Maps',
-      'cloud.hubera.fuel': 'Fuel',
-      'cloud.hubera.jobs': 'Jobs',
-      'cloud.hubera.row': 'Row',
-      'cloud.hubera.office.docs': 'Office Docs',
-      'cloud.hubera.slides': 'Slides',
-      'fr.cloudity.cloudity_mail': 'Mail',
-      'fr.cloudity.cloudity_drive': 'Drive',
-      'fr.cloudity.cloudity_photos': 'Photos',
-      'com.cloudity.cloudity_pass': 'Pass',
-      'fr.cloudity.cloudity_calendar': 'Calendar',
-      'fr.cloudity.cloudity_contacts': 'Contacts',
-      'fr.cloudity.cloudity_notes': 'Notes',
-      'fr.cloudity.cloudity_tasks': 'Tasks',
-      'fr.cloudity.cloudity_cook': 'Cook',
-      'fr.cloudity.admin_app': 'Admin',
-    };
-    return labels[pkg];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(CloudityDesignTokens.radius('md')),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: cs.primaryContainer,
-                  child: Text(
-                    _initial,
-                    style: TextStyle(
-                      color: cs.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                      ),
-                      Text(
-                        _sourceLabel != null
-                            ? 'Connecté sur Hubera $_sourceLabel'
-                            : 'Compte Hubera — appuyer pour continuer',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(Icons.chevron_right, color: cs.onSurfaceVariant),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 

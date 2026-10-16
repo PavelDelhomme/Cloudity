@@ -576,6 +576,9 @@ void cloudityScheduleOtaCheck(
   String? huberaHost,
 }) {
   WidgetsBinding.instance.addPostFrameCallback((_) async {
+    // Ne pas coller le dialogue OTA sur le splash / 1er paint (Mail trop lent).
+    await Future<void>.delayed(const Duration(seconds: 20));
+    if (!context.mounted) return;
     final version = await cloudityResolveInstalledVersion(
       currentVersion: currentVersion,
     );

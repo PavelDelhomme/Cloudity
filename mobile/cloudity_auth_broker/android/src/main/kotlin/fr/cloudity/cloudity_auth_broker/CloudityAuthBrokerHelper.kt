@@ -59,6 +59,19 @@ object CloudityAuthBrokerHelper {
     private fun allPackages(ctx: Context): List<String> =
         (peerPackages + ctx.packageName).distinct()
 
+    /** Paquets réellement installés : un provider absent bloque le fil appelant. */
+    private fun reachablePackages(ctx: Context): List<String> {
+        val pm = ctx.packageManager
+        return allPackages(ctx).filter { pkg ->
+            try {
+                pm.getPackageInfo(pkg, 0)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+    }
+
     /**
      * Liste une entrée par e-mail en préférant la copie **la plus fraîche**
      * (access JWT avec `exp` le plus élevé, puis `updated_at`).
@@ -82,7 +95,7 @@ object CloudityAuthBrokerHelper {
 
     private fun listAllCopiesInternal(ctx: Context): List<Candidate> {
         val out = mutableListOf<Candidate>()
-        for (pkg in allPackages(ctx)) {
+        for (pkg in reachablePackages(ctx)) {
             val uri = accountsUri(pkg)
             try {
                 ctx.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -188,7 +201,7 @@ object CloudityAuthBrokerHelper {
             put("issuer", "cloudity")
             put("updated_at", System.currentTimeMillis())
         }
-        for (pkg in allPackages(ctx)) {
+        for (pkg in reachablePackages(ctx)) {
             try {
                 ctx.contentResolver.insert(accountsUri(pkg), values)
             } catch (_: Exception) {
@@ -204,7 +217,7 @@ object CloudityAuthBrokerHelper {
 
     /** Efface le compte chez **tous** les peers (évite un chip SSO avec refresh mort). */
     fun clearAccount(ctx: Context, email: String) {
-        for (pkg in allPackages(ctx)) {
+        for (pkg in reachablePackages(ctx)) {
             try {
                 val uri = Uri.parse("content://${authorityFor(pkg)}/accounts/$email")
                 ctx.contentResolver.delete(uri, null, null)

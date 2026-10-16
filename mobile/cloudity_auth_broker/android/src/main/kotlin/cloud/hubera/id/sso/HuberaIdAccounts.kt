@@ -15,14 +15,21 @@ import org.json.JSONObject
 object HuberaIdAccounts {
 
     fun listAccounts(ctx: Context): List<HuberaIdAccount> {
+        val copies = listAllCopies(ctx)
         val best = linkedMapOf<String, HuberaIdAccount>()
-        for (acc in listAllCopies(ctx)) {
+        for (acc in copies) {
             val prev = best[acc.email]
             if (prev == null || acc.updatedAt >= prev.updatedAt) {
                 best[acc.email] = acc
             }
         }
-        return best.values.toList()
+        val accounts = best.values.toList()
+        val prefs = ctx.getSharedPreferences("hubera_device_account", Context.MODE_PRIVATE)
+        val pin = AccountPickerOrder.choosePin(accounts, copies, prefs.getString("email", null))
+        if (!pin.isNullOrEmpty()) {
+            prefs.edit().putString("email", pin).apply()
+        }
+        return AccountPickerOrder.placeFirst(accounts, pin)
     }
 
     fun listAllCopies(ctx: Context): List<HuberaIdAccount> {

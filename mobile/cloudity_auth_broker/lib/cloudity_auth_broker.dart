@@ -89,4 +89,25 @@ class CloudityAuthBroker {
     if (!isSupported) return;
     await _channel.invokeMethod<void>('clearAccount', {'email': email});
   }
+
+  static Future<bool> isHuberaIdInstalled() async {
+    if (!isSupported) return true;
+    try {
+      return await _channel.invokeMethod<bool>('idInstalled') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Ouvre cloud.hubera.id, ou la page d’install si le paquet manque.
+  static Future<void> openHuberaIdInstall() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod<void>('openIdInstall');
+    } on MissingPluginException {
+      // plugin absent
+    }
+  }
 }

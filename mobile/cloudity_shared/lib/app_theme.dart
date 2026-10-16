@@ -28,7 +28,13 @@ class CloudityThemePrefs {
     };
   }
 
+  static const adminThemeKey = 'hubera.admin.theme';
+
   static Future<ThemeMode> load({ClouditySuiteApp? suiteApp}) async {
+    if (suiteApp == ClouditySuiteApp.admin) {
+      final p = await SharedPreferences.getInstance();
+      return _fromStored(p.getString(adminThemeKey) ?? 'system');
+    }
     final appId = appIdForSuite(suiteApp);
     final cached = await UserPreferencesStore.loadCached();
     final mode = cached.resolveTheme(appId ?? CloudityAppId.hub);
@@ -42,6 +48,10 @@ class CloudityThemePrefs {
       ThemeMode.dark => 'dark',
       ThemeMode.system => 'system',
     };
+    if (suiteApp == ClouditySuiteApp.admin) {
+      await p.setString(adminThemeKey, value);
+      return;
+    }
     final appId = appIdForSuite(suiteApp);
     await p.setString(_appKey(appId), value);
     await p.setString(_legacyKey, value);
@@ -54,6 +64,12 @@ class CloudityThemePrefs {
       await UserPreferencesStore.saveCached(cached.copyWith(themeApps: apps));
     }
   }
+
+  static ThemeMode _fromStored(String? raw) => switch (raw) {
+        'light' => ThemeMode.light,
+        'system' => ThemeMode.system,
+        _ => ThemeMode.dark,
+      };
 
   static ThemeMode _toFlutter(CloudityThemeMode mode) => switch (mode) {
         CloudityThemeMode.light => ThemeMode.light,
@@ -110,11 +126,12 @@ class CloudityThemedApp extends StatefulWidget {
 }
 
 class CloudityThemedAppState extends State<CloudityThemedApp> {
-  ThemeMode _mode = ThemeMode.system;
+  late ThemeMode _mode;
 
   @override
   void initState() {
     super.initState();
+    _mode = ThemeMode.system;
     _load();
   }
 
