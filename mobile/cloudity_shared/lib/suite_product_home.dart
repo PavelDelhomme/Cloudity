@@ -130,6 +130,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   final Map<String, String> _trashAt = {};
   bool _notesPrefsLoaded = false;
   late SuiteProductApi _api;
+  String _installedVersion = '';
+  final TextEditingController _taskAddCtrl = TextEditingController();
   late DateTime _calFocusDay;
   late DateTime _calMonthAnchor;
   bool _calDayFilter = false;
@@ -163,6 +165,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       onTokenRefresh: widget.refreshAccessToken,
     );
     _paintCachedItems();
+    if (widget.product == SuiteProduct.tasks) {
+      cloudityResolveInstalledVersion().then((version) {
+        if (!mounted) return;
+        setState(() => _installedVersion = version);
+      });
+    }
     _reload();
   }
 
@@ -206,6 +214,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   void dispose() {
     _agendaScroll.dispose();
     _calSearchCtrl.dispose();
+    _taskAddCtrl.dispose();
     _blockNumberField.dispose();
     _contactSearchCtrl.dispose();
     for (final controller in _contactScroll.values) {
@@ -2250,7 +2259,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                         )
                   : widget.product == SuiteProduct.calendar
                   ? _buildCalendarList()
-                  : _items.isEmpty
+                  : _items.isEmpty && widget.product != SuiteProduct.tasks
                   ? ListView(
                       children: [
                         const SizedBox(height: 80),
@@ -2292,17 +2301,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     )
                   : widget.product == SuiteProduct.notes
                       ? _buildNotesKeepBody()
+                      : widget.product == SuiteProduct.tasks
+                      ? _buildTasksList()
                       : ListView.builder(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: _visibleItems.length +
-                          (widget.product == SuiteProduct.tasks ? 1 : 0),
+                      itemCount: _visibleItems.length,
                       itemBuilder: (context, index) {
-                        if (widget.product == SuiteProduct.tasks) {
-                          if (index == 0) {
-                            return _buildTasksHeader();
-                          }
-                          index -= 1;
-                        }
                         final theme = Theme.of(context);
                         final item = _visibleItems[index];
                         final sub = _itemSubtitle(item);
@@ -2319,19 +2323,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                           clipBehavior: Clip.antiAlias,
                           child: ListTile(
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            leading: widget.product == SuiteProduct.tasks
-                                ? IconButton(
-                                    icon: Icon(
-                                      done
-                                          ? Icons.check_circle
-                                          : Icons.radio_button_unchecked,
-                                      color: done
-                                          ? theme.colorScheme.primary
-                                          : theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                    onPressed: () => _toggleTask(item),
-                                  )
-                                : widget.product == SuiteProduct.contacts
+                            leading: widget.product == SuiteProduct.contacts
                                     ? CircleAvatar(
                                         child: Text(
                                           _contactInitials(_itemTitle(item)),
@@ -2364,6 +2356,104 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     ),
       ),
     );
+  }
+
+  Widget _buildTasksList() {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 88),
+      children: [
+        _buildTasksHeader(),
+        if (_visibleItems.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
+            child: Text(
+              'Aucune tâche',
+              style: theme.textTheme.titleMedium,
+            ),
+          ),
+        for (final item in _visibleItems) _buildTaskRow(item),
+        _buildTaskAddRow(),
+      ],
+    );
+  }
+
+  Widget _buildTaskRow(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
+    final done = item['completed'] == true;
+    final sub = _itemSubtitle(item);
+    return InkWell(
+      onTap: () => _openEditor(existing: item),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: done,
+              onChanged: (_) => _toggleTask(item),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _itemTitle(item),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: done
+                          ? TextStyle(
+                              decoration: TextDecoration.lineThrough,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            )
+                          : theme.textTheme.bodyLarge,
+                    ),
+                    if (sub != null)
+                      Text(
+                        sub,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTaskAddRow() {
+    return TextField(
+      controller: _taskAddCtrl,
+      textInputAction: TextInputAction.done,
+      decoration: const InputDecoration(
+        prefixIcon: Icon(Icons.add),
+        hintText: 'Ajouter une tâche',
+        border: InputBorder.none,
+        isDense: true,
+      ),
+      onSubmitted: _quickAddTask,
+    );
+  }
+
+  Future<void> _quickAddTask(String raw) async {
+    final title = raw.trim();
+    if (title.isEmpty) return;
+    try {
+      await _api.createTask(title: title, listId: _selectedTaskListId);
+      _taskAddCtrl.clear();
+      if (mounted) await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   Widget _buildTasksHeader() {
@@ -3967,6 +4057,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     widget.product == SuiteProduct.tasks)
                 ? _emailFromAccess(widget.accessToken)
                 : null),
+        installedVersion:
+            widget.product == SuiteProduct.tasks ? _installedVersion : null,
         onCheckUpdate: widget.product == SuiteProduct.calendar
             ? () => cloudityCheckUpdateManually(
                   context,

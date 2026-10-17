@@ -43,4 +43,31 @@ void main() {
     );
     expect(find.text('Apps Hubera'), findsNothing);
   });
+
+  testWidgets('Tasks : le drawer ne liste pas les autres apps', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SuiteDrawerScaffold(
+          currentApp: ClouditySuiteApp.tasks,
+          title: 'Tâches',
+          gatewayUrl: 'https://api.example.test',
+          showSettings: false,
+          showAppSwitcher: false,
+          onOpenSettings: () {},
+          onCloseSettings: () {},
+          onLogout: () async {},
+          navItems: const [
+            ListTile(title: Text('Toutes les tâches')),
+          ],
+          body: const Text('liste'),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Open navigation menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Toutes les tâches'), findsOneWidget);
+    expect(find.text('Apps Hubera'), findsNothing);
+    expect(find.text('Music'), findsNothing);
+    expect(find.text('Mail'), findsNothing);
+  });
 }
