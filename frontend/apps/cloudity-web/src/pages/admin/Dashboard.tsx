@@ -1,11 +1,14 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertTriangle, Building2, ClipboardList, Database, History, Shield, Smartphone, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, Database, HardDrive, History, Shield, Smartphone, Users } from 'lucide-react'
 import { useAuth } from '../../authContext'
 import {
+  fetchAdminDisk,
+  fetchAdminFleet,
   fetchBudgetStatus,
   fetchDashboardStats,
+  fetchMobileCrashList,
   fetchPerformanceHistory,
   fetchPerformanceOverview,
   fetchPipelineRuns,
@@ -13,10 +16,12 @@ import {
 } from '../../api'
 import { adminUiPath, ApiError } from '@cloudity/shared'
 import { Card, PageLayout } from '@cloudity/ui'
-import { AdminHomeReports } from './AdminHomeReports'
-
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
+}
+
+function formatGiB(bytes: number): string {
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} Gio`
 }
 
 export default function Dashboard() {
@@ -51,6 +56,24 @@ export default function Dashboard() {
     queryFn: () => fetchBudgetStatus(accessToken!),
     enabled: Boolean(accessToken),
     refetchInterval: 30_000,
+  })
+  const fleet = useQuery({
+    queryKey: ['admin-fleet'],
+    queryFn: () => fetchAdminFleet(accessToken!),
+    enabled: Boolean(accessToken),
+    retry: false,
+  })
+  const disk = useQuery({
+    queryKey: ['admin-disk'],
+    queryFn: () => fetchAdminDisk(accessToken!),
+    enabled: Boolean(accessToken),
+    retry: false,
+  })
+  const crashes = useQuery({
+    queryKey: ['admin-crashes'],
+    queryFn: () => fetchMobileCrashList(accessToken!),
+    enabled: Boolean(accessToken),
+    retry: false,
   })
 
   const recordSnapshot = useMutation({
@@ -152,9 +175,8 @@ export default function Dashboard() {
   return (
     <PageLayout
       title="Tableau de bord"
-      description="Vue d’ensemble de votre instance Hubera"
+      description="Applications déployées, utilisateurs, disque et erreurs. Les tâches et les rapports sont dans Hubera Docs."
     >
-      <AdminHomeReports accessToken={accessToken} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {cards.map((c) => {
           const Icon = c.icon
@@ -176,25 +198,119 @@ export default function Dashboard() {
         })}
       </div>
 
-      <Card className="p-4 mt-6 border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-indigo-950/20">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Card className="p-4 mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-start gap-2">
-            <ClipboardList className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" aria-hidden />
+            <Smartphone className="w-5 h-5 text-slate-700 dark:text-slate-200 shrink-0 mt-0.5" aria-hidden />
             <div>
-              <p className="font-semibold text-slate-900 dark:text-slate-100">Pilotage projet</p>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Applications déployées</h2>
               <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-                Tâches à faire, à valider et terminées — décisions OK / Partiel / KO depuis le back-office (comme JobbingTrack).
+                Version lue sur le flux public. Le paquet affiché est cloud.hubera.* quand le flux le porte.
               </p>
             </div>
           </div>
-          <Link
-            to={adminUiPath('pilotage')}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 dark:bg-indigo-500 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 dark:hover:bg-indigo-600"
-          >
-            Ouvrir le pilotage
+          <Link to={adminUiPath('mobile-distribution')} className="text-sm underline text-slate-700 dark:text-slate-200">
+            Catalogue Cloudity
           </Link>
         </div>
+        {fleet.isLoading ? <p className="text-sm text-slate-500">Lecture des flux…</p> : null}
+        {fleet.isError ? (
+          <p className="text-sm text-red-700 dark:text-red-300" role="alert">
+            {fleet.error instanceof Error ? fleet.error.message : 'Flux indisponibles'}
+          </p>
+        ) : null}
+        {fleet.data?.apps?.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-slate-500 dark:text-slate-400">
+                  <th className="py-2 pr-3 font-medium">App</th>
+                  <th className="py-2 pr-3 font-medium">Version</th>
+                  <th className="py-2 pr-3 font-medium">Code</th>
+                  <th className="py-2 pr-3 font-medium">Paquet</th>
+                  <th className="py-2 font-medium">Flux</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fleet.data.apps.map((app) => (
+                  <tr key={app.slug} className="border-t border-slate-200 dark:border-slate-700">
+                    <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">{app.label}</td>
+                    <td className="py-2 pr-3 font-mono">{app.error ? '—' : app.version ?? '—'}</td>
+                    <td className="py-2 pr-3 font-mono">{app.error ? '—' : app.versionCode ?? '—'}</td>
+                    <td className="py-2 pr-3 font-mono text-xs">{app.package ?? '—'}</td>
+                    <td className="py-2 text-xs">
+                      {app.error
+                        ? 'injoignable'
+                        : app.canonicalFirst
+                          ? 'canonique en tête'
+                          : 'legacy en tête'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        <Card className="p-4">
+          <div className="flex items-start gap-2 mb-3">
+            <HardDrive className="w-5 h-5 text-slate-700 dark:text-slate-200 shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <h2 className="font-semibold text-slate-900 dark:text-slate-100">Disque</h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Vu depuis le service admin.</p>
+            </div>
+          </div>
+          {disk.isLoading ? <p className="text-sm text-slate-500">Lecture…</p> : null}
+          {disk.isError ? (
+            <p className="text-sm text-red-700 dark:text-red-300">
+              {disk.error instanceof Error ? disk.error.message : 'Disque illisible'}
+            </p>
+          ) : null}
+          {disk.data?.mounts?.length ? (
+            <ul className="space-y-2 text-sm">
+              {disk.data.mounts.map((m) => (
+                <li key={m.path} className="flex justify-between gap-3">
+                  <span className="font-mono text-slate-700 dark:text-slate-200">{m.path}</span>
+                  <span className="text-slate-600 dark:text-slate-300">
+                    {formatGiB(m.usedBytes)} / {formatGiB(m.totalBytes)} · {m.usedPercent} %
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {!disk.isLoading && !disk.isError && (disk.data?.mounts?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">Aucun point de montage lisible.</p>
+          ) : null}
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-slate-700 dark:text-slate-200 shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">Erreurs remontées</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Crashes envoyés par les applications.</p>
+              </div>
+            </div>
+            <Link to={adminUiPath('mobile-logs')} className="text-sm underline text-slate-700 dark:text-slate-200">
+              Ouvrir
+            </Link>
+          </div>
+          {crashes.isLoading ? <p className="text-sm text-slate-500">Lecture…</p> : null}
+          {crashes.isError ? (
+            <p className="text-sm text-red-700 dark:text-red-300">
+              {crashes.error instanceof Error ? crashes.error.message : 'Erreurs illisibles'}
+            </p>
+          ) : null}
+          {crashes.data ? (
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              {crashes.data.items?.length ?? 0} rapport{(crashes.data.items?.length ?? 0) > 1 ? 's' : ''} enregistré
+              {(crashes.data.items?.length ?? 0) > 1 ? 's' : ''}.
+            </p>
+          ) : null}
+        </Card>
+      </div>
 
       <Card className="p-4 mt-6 border-brand-200 dark:border-brand-800 bg-brand-50/40 dark:bg-brand-950/20">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -383,42 +499,6 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
-        </Card>
-
-        <Card className="p-6 border-dashed border-amber-300/60 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-950/20">
-          <div className="flex items-start gap-3">
-            <Smartphone className="w-5 h-5 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" />
-            <div className="min-w-0">
-              <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                Distribution mobile &amp; mises à jour (OTA)
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                Prévoir un canal de mise à jour pour Mail, Drive, Photos et Pass sur les appareils des utilisateurs :
-                manifeste <code className="text-xs bg-white/80 dark:bg-slate-900 px-1 rounded">version.json</code>,
-                APK/AAB signés via CI/CD, page ou notification « nouvelle version disponible », et politique de déploiement
-                (canary, rollback).{' '}
-                <Link to={adminUiPath('mobile-distribution')} className="text-brand-600 dark:text-brand-400 underline underline-offset-2">
-                  Page Mobile / OTA
-                </Link>
-                {' '}· doc{' '}
-                <a
-                  href="https://github.com/pactivisme/Cloudity/blob/main/docs/operations/RELEASE-AND-DISTRIBUTION.md"
-                  className="text-brand-600 dark:text-brand-400 underline underline-offset-2"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  RELEASE-AND-DISTRIBUTION.md
-                </a>
-                .
-              </p>
-              <ul className="mt-3 text-sm text-slate-600 dark:text-slate-400 space-y-1 list-disc list-inside">
-                <li>☐ Endpoint ou bucket public pour <code className="text-xs">version.json</code> par app</li>
-                <li>☐ Job CI : build APK + upload + bump manifeste après tag</li>
-                <li>☐ Écran admin dédié (versions installées, forcer refresh) — à concevoir</li>
-                <li>☐ In-app update prompt (mobile) + lien Play Store / sideload doc</li>
-              </ul>
-            </div>
-          </div>
         </Card>
       </div>
 

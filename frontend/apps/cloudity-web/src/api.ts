@@ -204,6 +204,36 @@ export async function fetchDashboardStats(token: string): Promise<DashboardStats
   return apiJson<DashboardStatsResponse>(token, '/admin/stats', undefined, 'Stats')
 }
 
+export type AdminFleetApp = {
+  slug: string
+  label: string
+  feed: string
+  version: string | null
+  versionCode: number | null
+  package: string | null
+  topPackage: string | null
+  canonicalFirst: boolean
+  apk: string | null
+  forceUpdate: boolean
+  error: string | null
+}
+
+export async function fetchAdminFleet(token: string): Promise<{ apps: AdminFleetApp[] }> {
+  return apiJson<{ apps: AdminFleetApp[] }>(token, '/admin/fleet', undefined, 'Applications déployées')
+}
+
+export type AdminDiskMount = {
+  path: string
+  totalBytes: number
+  usedBytes: number
+  freeBytes: number
+  usedPercent: number
+}
+
+export async function fetchAdminDisk(token: string): Promise<{ mounts: AdminDiskMount[] }> {
+  return apiJson<{ mounts: AdminDiskMount[] }>(token, '/admin/disk', undefined, 'Disque')
+}
+
 export async function fetchPerformanceOverview(token: string): Promise<PerformanceOverviewResponse> {
   return apiJson<PerformanceOverviewResponse>(token, '/admin/performance/overview', undefined, 'Performance overview')
 }

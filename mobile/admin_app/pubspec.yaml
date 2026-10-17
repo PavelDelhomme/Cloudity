@@ -1,5 +1,5 @@
 name: admin_app
-description: "Hubera Admin — cockpit Docs intégré (tâches, docs, rapports, retours) + tenants."
+description: "Hubera Admin — applications déployées, utilisateurs, disque et erreurs."
 publish_to: 'none'
 version: 0.1.10+11
 

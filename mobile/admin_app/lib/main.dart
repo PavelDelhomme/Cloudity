@@ -4,7 +4,7 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
 import 'auth/user_session.dart';
-import 'docs/docs_cockpit.dart';
+import 'features/admin_home.dart';
 
 CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
       accessToken: s.accessToken,
@@ -90,7 +90,7 @@ Future<void> main() async {
         onLoggedIn: (s) => _onLoggedIn(s, onLoggedIn),
       ),
       homeBuilder: (session, onLogout) =>
-          DocsCockpit(session: session, onLogout: onLogout),
+          AdminHome(session: session, onLogout: onLogout),
     ),
   );
 }

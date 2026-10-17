@@ -53,6 +53,49 @@ class AdminApi {
         .toList();
   }
 
+  Future<Map<String, dynamic>> fetchJson(String path) async {
+    AdminApiException? last;
+    for (final base in _bases) {
+      try {
+        final res = await http
+            .get(Uri.parse('$base$path'), headers: _headers)
+            .timeout(const Duration(seconds: 12));
+        if (res.statusCode == 401 || res.statusCode == 403) {
+          throw AdminApiException('Accès admin refusé (${res.statusCode})');
+        }
+        if (res.statusCode != 200) {
+          throw AdminApiException(_htmlOrStatus(res, path));
+        }
+        final body = _decodeJson(res, what: path);
+        if (body is Map<String, dynamic>) return body;
+        if (body is Map) return Map<String, dynamic>.from(body);
+        if (body is List) return {'items': body};
+        return {};
+      } on AdminApiException catch (e) {
+        last = e;
+      }
+    }
+    throw last ?? AdminApiException('$path indisponible');
+  }
+
+  Future<Map<String, dynamic>> fetchFleet() => fetchJson('/admin/fleet');
+
+  Future<Map<String, dynamic>> fetchDisk() => fetchJson('/admin/disk');
+
+  Future<List<Map<String, dynamic>>> listUsers() async {
+    final body = await fetchJson('/admin/users');
+    final raw = body['items'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> listCrashes() async {
+    final body = await fetchJson('/mobile/crashes');
+    final raw = body['items'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
   Future<Map<String, dynamic>> fetchStats() async {
     for (final base in _bases) {
       try {

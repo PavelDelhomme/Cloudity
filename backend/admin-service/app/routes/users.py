@@ -13,6 +13,12 @@ from app.services.two_fa_admin import reset_user_2fa
 router = APIRouter(prefix="/admin", tags=["users"])
 
 
+@router.get("/users", response_model=List[UserResponse])
+async def list_all_users(skip: int = 0, limit: int = 200, db: Session = Depends(get_db)):
+    cap = max(1, min(int(limit), 500))
+    return db.query(User).order_by(User.id.asc()).offset(max(0, skip)).limit(cap).all()
+
+
 @router.get("/tenants/{tenant_id}/users", response_model=List[UserResponse])
 async def list_users(tenant_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     users = db.query(User).filter(User.tenant_id == tenant_id).offset(skip).limit(limit).all()

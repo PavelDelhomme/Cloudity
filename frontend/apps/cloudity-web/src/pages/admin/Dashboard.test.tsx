@@ -13,6 +13,13 @@ vi.mock('../../api', async (importOriginal) => {
   return {
     ...actual,
     fetchDashboardStats: vi.fn(),
+    fetchAdminFleet: vi.fn().mockResolvedValue({ apps: [] }),
+    fetchAdminDisk: vi.fn().mockResolvedValue({ mounts: [] }),
+    fetchMobileCrashList: vi.fn().mockResolvedValue({ items: [] }),
+    fetchPerformanceOverview: vi.fn().mockResolvedValue({ containers: [], notes: [], host: {}, source: 'test', timestamp_utc: '' }),
+    fetchPerformanceHistory: vi.fn().mockResolvedValue({ storage_ready: false, items: [] }),
+    fetchPipelineRuns: vi.fn().mockResolvedValue({ storage_ready: false, items: [] }),
+    fetchBudgetStatus: vi.fn().mockResolvedValue({ violations: [], budgets: {}, source_snapshot: '', evaluated_at: '' }),
   }
 })
 
@@ -78,5 +85,16 @@ describe('Dashboard', () => {
     await waitFor(() => {
       expect(screen.getByText(/Stats: 503/)).toBeTruthy()
     })
+  })
+
+  it('n’affiche pas le kanban Docs ni les rapports Paul', async () => {
+    vi.mocked(api.fetchDashboardStats).mockResolvedValue(mockStats)
+    render(wrap(<Dashboard />))
+    await waitFor(() => {
+      expect(screen.getByText('Applications déployées')).toBeTruthy()
+    })
+    expect(screen.queryByText('Pilotage projet')).toBeNull()
+    expect(screen.queryByText('Derniers rapports')).toBeNull()
+    expect(screen.queryByText('Gantt')).toBeNull()
   })
 })

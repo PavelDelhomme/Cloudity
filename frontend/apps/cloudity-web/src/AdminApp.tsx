@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, Global401Handler } from './authContext'
@@ -15,7 +15,6 @@ import DomainesPage from './pages/admin/Domaines'
 import SecurityCvePage from './pages/admin/SecurityCvePage'
 import PasskeysPage from './pages/admin/Passkeys'
 import UiCatalogPage from './pages/admin/UiCatalogPage'
-import PilotagePage from './pages/admin/PilotagePage'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { StackHealthGate } from './components/StackHealthGate'
 import { AdminAccessGate } from './AdminAccessGate'
@@ -57,7 +56,7 @@ export function AdminAppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="pilotage" element={<PilotagePage />} />
+        <Route path="pilotage" element={<Navigate to="/4dm1n" replace />} />
         <Route path="tenants" element={<TenantsPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="mobile-distribution" element={<MobileDistributionPage />} />
