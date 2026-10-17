@@ -13,6 +13,7 @@ import {
 } from '../../api'
 import { adminUiPath, ApiError } from '@cloudity/shared'
 import { Card, PageLayout } from '@cloudity/ui'
+import { AdminHomeReports } from './AdminHomeReports'
 
 function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
@@ -153,6 +154,7 @@ export default function Dashboard() {
       title="Tableau de bord"
       description="Vue d’ensemble de votre instance Hubera"
     >
+      <AdminHomeReports accessToken={accessToken} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {cards.map((c) => {
           const Icon = c.icon

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloudity_shared/auth/session_store.dart';
 import 'package:cloudity_shared/storage_usage.dart';
+import 'package:cloudity_shared/ota_update.dart';
 import 'package:cloudity_shared/suite_product_api.dart';
 
 import '../api/auth_api.dart';
@@ -1906,6 +1907,15 @@ class _FilesScreenState extends State<FilesScreen> {
               gatewayUrl: widget.session.api.baseUrl,
               appName: 'Drive',
               webAppPath: '/app/drive',
+              ownAppSettings: true,
+              accountEmail: _accountLabel,
+              onCheckUpdate: () => cloudityCheckUpdateManually(
+                context,
+                gatewayBase: widget.session.api.baseUrl,
+                appSlug: 'cloudity_drive',
+                appName: 'Hubera Drive',
+                huberaHost: 'drive.hubera.cloud',
+              ),
               onLogout: () => _confirmLogout(),
             )
           : RefreshIndicator(onRefresh: _reload, child: _buildBody()),

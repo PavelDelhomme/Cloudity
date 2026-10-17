@@ -95,8 +95,47 @@ void main() {
     expect(find.text('Maps'), findsNothing);
   });
 
+  test('note vide ignorée, texte ou case conservés', () {
+    const empty = NotesKeepSnapshot(
+      title: '',
+      content: '   ',
+      color: 'default',
+      pinned: false,
+      archived: false,
+      labels: ['Cuisine'],
+      checklist: [(text: '', done: true)],
+      listMode: true,
+    );
+    expect(empty.hasSubstance, isFalse);
+    expect(
+      const NotesKeepSnapshot(
+        title: '',
+        content: 'pain',
+        color: 'default',
+        pinned: false,
+        archived: false,
+        labels: [],
+        checklist: [],
+      ).hasSubstance,
+      isTrue,
+    );
+    expect(
+      const NotesKeepSnapshot(
+        title: '',
+        content: '',
+        color: 'default',
+        pinned: false,
+        archived: false,
+        labels: [],
+        checklist: [(text: 'lait', done: false)],
+        listMode: true,
+      ).hasSubstance,
+      isTrue,
+    );
+  });
+
   for (final brightness in [Brightness.light, Brightness.dark]) {
-    testWidgets('composer Keep ($brightness) : titre et contenu sans écran titre seul', (tester) async {
+    testWidgets('éditeur ($brightness) : retour vide, frappe, case, couleur, libellé', (tester) async {
       tester.view.physicalSize = const Size(1080, 2400);
       tester.view.devicePixelRatio = 3;
       tester.view.viewPadding = const FakeViewPadding(top: 90, bottom: 72);
@@ -106,6 +145,7 @@ void main() {
       addTearDown(tester.view.resetViewPadding);
       addTearDown(tester.view.resetPadding);
 
+      final calls = <NotesKeepSnapshot>[];
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(brightness: brightness, useMaterial3: true),
@@ -113,7 +153,20 @@ void main() {
             builder: (context) => Scaffold(
               body: Center(
                 child: FilledButton(
-                  onPressed: () => showNotesKeepComposer(context),
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => NotesKeepEditorScreen(
+                          labelCatalog: const ['Cuisine'],
+                          persist: (snap, id) async {
+                            calls.add(snap);
+                            return id ?? 4;
+                          },
+                          remove: (_) async {},
+                        ),
+                      ),
+                    );
+                  },
                   child: const Text('ouvrir'),
                 ),
               ),
@@ -125,34 +178,63 @@ void main() {
       await tester.tap(find.text('ouvrir'));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(notesComposerTitleKey), findsOneWidget);
-      expect(find.byKey(notesComposerBodyKey), findsOneWidget);
-      await tester.enterText(find.byKey(notesComposerBodyKey), 'liste de courses');
-      await tester.pump();
-      expect(find.text('liste de courses'), findsOneWidget);
-      expect(find.text('Titre'), findsOneWidget);
-      final bodyField = tester.widget<TextField>(find.byKey(notesComposerBodyKey));
-      expect(bodyField.controller?.text, 'liste de courses');
-
-      final theme = Theme.of(tester.element(find.byKey(notesComposerBodyKey)));
-      final foreground = bodyField.style?.color ?? theme.colorScheme.onSurface;
-      expect(_contrast(foreground, theme.colorScheme.surface), greaterThan(4.5));
-
-      final logicalHeight = 2400 / 3;
-      final bottomInset = 72 / 3;
       final topInset = 90 / 3;
-      final save = tester.getRect(find.byKey(notesComposerSaveKey));
-      final title = tester.getRect(find.byKey(notesComposerTitleKey));
-      expect(save.bottom, lessThanOrEqualTo(logicalHeight - bottomInset + 0.5));
-      expect(title.top, greaterThanOrEqualTo(topInset));
+      final back = tester.getRect(find.byKey(notesEditorBackKey));
+      expect(back.top, greaterThanOrEqualTo(topInset - 0.5));
+      expect(find.byKey(notesEditorTitleKey), findsOneWidget);
+      expect(find.byKey(notesEditorBodyKey), findsOneWidget);
 
-      final dismiss = tester.getRect(find.byKey(notesComposerDismissKey));
-      expect(dismiss.top, greaterThanOrEqualTo(topInset - 0.5));
-      expect(dismiss.height, greaterThan(24));
-      await tester.tap(find.byKey(notesComposerDismissKey));
+      await tester.tap(find.byKey(notesEditorBackKey));
       await tester.pumpAndSettle();
-      expect(find.byKey(notesComposerBodyKey), findsNothing);
+      expect(calls, isEmpty);
       expect(find.text('ouvrir'), findsOneWidget);
+
+      await tester.tap(find.text('ouvrir'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(notesEditorBodyKey), 'abc');
+      final before = tester.widget<TextField>(find.byKey(notesEditorBodyKey));
+      final theme = Theme.of(tester.element(find.byKey(notesEditorBodyKey)));
+      final foreground = before.style?.color ?? theme.colorScheme.onSurface;
+      expect(_contrast(foreground, theme.colorScheme.surface), greaterThan(4.5));
+      await tester.pump(notesKeepSaveDelay);
+      await tester.pump();
+      expect(calls, isNotEmpty);
+      expect(calls.last.content, 'abc');
+      expect(calls.last.title, isEmpty);
+      final after = tester.widget<TextField>(find.byKey(notesEditorBodyKey));
+      expect(after.controller?.text, 'abc');
+      expect(after.controller?.selection.extentOffset, 3);
+
+      await tester.tap(find.byKey(notesEditorColorKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('note-color-yellow')));
+      await tester.pump();
+      Navigator.of(tester.element(find.text('Couleur'))).pop();
+      await tester.pumpAndSettle();
+      final scaffold = tester.widget<Scaffold>(find.byKey(notesEditorSurfaceKey));
+      final scheme = Theme.of(tester.element(find.byKey(notesEditorSurfaceKey))).colorScheme;
+      expect(scaffold.backgroundColor, noteKeepColor('yellow', scheme));
+
+      await tester.tap(find.byKey(notesEditorLabelsKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(notesLabelFieldKey), 'Courses');
+      await tester.pump();
+      await tester.tap(find.byKey(notesLabelCreateKey));
+      await tester.pump();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Courses'), findsWidgets);
+
+      await tester.tap(find.byKey(notesEditorListKey));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(notesEditorCheckKey), 'lait');
+      await tester.tap(find.byKey(notesEditorBackKey));
+      await tester.pumpAndSettle();
+      expect(find.text('ouvrir'), findsOneWidget);
+      expect(calls.last.listMode, isTrue);
+      expect(calls.last.checklist.map((item) => item.text), contains('lait'));
+      expect(calls.last.labels, contains('Courses'));
+      expect(calls.last.color, 'yellow');
     });
   }
 }

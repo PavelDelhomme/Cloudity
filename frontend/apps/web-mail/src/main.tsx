@@ -9,7 +9,11 @@ import { AppErrorBoundary } from '@cloudity/web-shell/components/AppErrorBoundar
 import { ServiceStatusPage } from '@cloudity/web-shell/components/ServiceStatusPage'
 import { MailPage } from './index'
 import MailShellLayout from './MailShellLayout'
+import { installDevMailFixture } from './devMailFixture'
 import '@cloudity/web-shell/index.css'
+import './mailReadability.css'
+
+if (import.meta.env.DEV) installDevMailFixture()
 
 const queryClient = new QueryClient({
   defaultOptions: {

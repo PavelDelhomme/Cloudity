@@ -33,6 +33,9 @@ class CloudityAuthBrokerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler 
         when (call.method) {
             "listAccounts" -> offMain(result) { CloudityAuthBrokerHelper.listAccounts(appContext) }
             "listAllAccountCopies" -> offMain(result) { CloudityAuthBrokerHelper.listAllCopies(appContext) }
+            "listHuberaDeviceAccounts" -> offMain(result) {
+                CloudityAuthBrokerHelper.listHuberaDeviceAccounts(appContext)
+            }
             "saveSession" -> {
                 val email = call.argument<String>("email")?.trim().orEmpty()
                 if (email.isEmpty()) {

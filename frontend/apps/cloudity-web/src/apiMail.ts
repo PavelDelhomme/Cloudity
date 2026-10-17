@@ -85,6 +85,8 @@ export type MailMessageResponse = {
   scheduled_send_at?: string
   created_at: string
   is_read?: boolean
+  /** Favori porté par l'API. Le message reste dans son dossier. */
+  is_starred?: boolean
   /** 0–100 : heuristique anti-spam (backend). */
   spam_score?: number
   /** Clé de regroupement conversation (Message-ID racine / References). */
@@ -440,6 +442,20 @@ export async function downloadMailAttachment(
     throw new Error(t || `Pièce jointe: ${res.status}`)
   }
   return res.blob()
+}
+
+export async function markMailMessageStarred(
+  token: string,
+  accountId: number,
+  messageId: number,
+  starred: boolean
+): Promise<{ ok: boolean; starred: boolean }> {
+  return apiJsonOk<{ ok: boolean; starred: boolean }>(
+    token,
+    `/mail/me/accounts/${accountId}/messages/${messageId}/star`,
+    { method: 'PATCH', body: JSON.stringify({ starred }) },
+    'Mark starred'
+  )
 }
 
 export async function markMailMessageRead(

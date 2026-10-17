@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
@@ -69,6 +71,8 @@ Future<void> _onLoggedIn(
 }
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.admin,
     title: 'Hubera Admin',

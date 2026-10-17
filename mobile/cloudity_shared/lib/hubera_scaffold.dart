@@ -141,6 +141,8 @@ class HuberaAccountAvatar extends StatelessWidget {
     this.onOpenSettings,
     this.onOpenHuberaId,
     this.onAddAccount,
+    this.showHuberaId = true,
+    this.showAppSettings = true,
   });
 
   final VoidCallback onTap;
@@ -150,6 +152,13 @@ class HuberaAccountAvatar extends StatelessWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onOpenHuberaId;
   final VoidCallback? onAddAccount;
+
+  /// Défaut vrai : les autres apps gardent le lien Hubera ID.
+  /// Contacts le coupe : ce n’est pas un réglage du carnet.
+  final bool showHuberaId;
+
+  /// Défaut vrai. Agenda le coupe : un seul « Paramètres », celui du drawer.
+  final bool showAppSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -180,17 +189,18 @@ class HuberaAccountAvatar extends StatelessWidget {
         }
       },
       itemBuilder: (ctx) => [
-        PopupMenuItem(
-          value: 'settings',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Réglages de cette app'),
-            subtitle: email == null || email!.trim().isEmpty
-                ? null
-                : Text(email!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis),
+        if (showAppSettings)
+          PopupMenuItem(
+            value: 'settings',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Réglages de cette app'),
+              subtitle: email == null || email!.trim().isEmpty
+                  ? null
+                  : Text(email!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
           ),
-        ),
         const PopupMenuItem(
           value: 'choose',
           child: ListTile(
@@ -207,14 +217,15 @@ class HuberaAccountAvatar extends StatelessWidget {
             title: Text('Ajouter un compte'),
           ),
         ),
-        const PopupMenuItem(
-          value: 'id',
-          child: ListTile(
-            dense: true,
-            leading: Icon(Icons.privacy_tip_outlined),
-            title: Text('Hubera ID · confidentialité'),
+        if (showHuberaId)
+          const PopupMenuItem(
+            value: 'id',
+            child: ListTile(
+              dense: true,
+              leading: Icon(Icons.privacy_tip_outlined),
+              title: Text('Hubera ID · confidentialité'),
+            ),
           ),
-        ),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -225,12 +236,16 @@ class HuberaAccountAvatar extends StatelessWidget {
 }
 
 class HuberaAppSwitcher extends StatelessWidget {
-  const HuberaAppSwitcher({super.key, this.current});
+  const HuberaAppSwitcher({super.key, this.current, this.showApps = true});
 
   final HuberaProduct? current;
 
+  /// Défaut vrai : les autres apps gardent la grille. Mail passe faux.
+  final bool showApps;
+
   @override
   Widget build(BuildContext context) {
+    if (!showApps) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
       child: Column(
@@ -364,6 +379,7 @@ class HuberaScaffold extends StatelessWidget {
     this.onBottomSelected,
     this.floatingActionButton,
     this.drawerFooter,
+    this.showHuberaApps = true,
   });
 
   final String title;
@@ -380,6 +396,9 @@ class HuberaScaffold extends StatelessWidget {
   final Widget? floatingActionButton;
   final Widget? drawerFooter;
 
+  /// Défaut vrai : les autres apps gardent la grille. Pass le coupe.
+  final bool showHuberaApps;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -388,18 +407,19 @@ class HuberaScaffold extends StatelessWidget {
           centerTitle: false,
           actions: [
             ...appBarActions,
-            IconButton(
-              tooltip: 'Apps Hubera',
-              onPressed: () {
-                showModalBottomSheet<void>(
-                  context: context,
-                  builder: (_) => SafeArea(
-                    child: HuberaAppSwitcher(current: current),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.apps),
-            ),
+            if (showHuberaApps)
+              IconButton(
+                tooltip: 'Apps Hubera',
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (_) => SafeArea(
+                      child: HuberaAppSwitcher(current: current),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.apps),
+              ),
             HuberaAccountAvatar(onTap: onAccountTap, email: userEmail),
           ],
         ),

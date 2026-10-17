@@ -2,6 +2,16 @@ import 'package:cloudity_shared/calendar_repeat.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('prochain rappel quotidien encore dans le futur', () {
+    final when = nextCalendarReminderAt(
+      start: DateTime(2026, 10, 17, 9),
+      minutesBefore: 15,
+      repeatRule: 'daily',
+      now: DateTime(2026, 10, 17, 9),
+    );
+    expect(when, DateTime(2026, 10, 18, 8, 45));
+  });
+
   test('récurrence daily se déplie', () {
     final out = expandCalendarEvents(
       [

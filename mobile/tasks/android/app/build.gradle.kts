@@ -20,7 +20,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "cloud.hubera.tasks"
+        applicationId = if (project.hasProperty("legacyAppId")) {
+            "fr.cloudity.cloudity_tasks"
+        } else {
+            "cloud.hubera.tasks"
+        }
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

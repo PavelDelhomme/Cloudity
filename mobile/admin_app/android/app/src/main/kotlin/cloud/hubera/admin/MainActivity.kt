@@ -32,8 +32,12 @@ class MainActivity : FlutterActivity() {
                     val pages = ArrayList<String>()
                     for (i in 0 until renderer.pageCount) {
                         renderer.openPage(i).use { page ->
-                            val w = (page.width * 1.4f).toInt().coerceAtLeast(1)
-                            val h = (page.height * 1.4f).toInt().coerceAtLeast(1)
+                            val dpr = call.argument<Double>("dpr") ?: 2.0
+                            val minText = call.argument<Double>("minTextPx") ?: 16.0
+                            // Corps d’un PDF A4 ~10 pt : on vise minText px logiques à l’écran.
+                            val scale = ((minText * dpr) / 10.0).toFloat().coerceIn(1.8f, 5.5f)
+                            val w = (page.width * scale).toInt().coerceIn(1, 4096)
+                            val h = (page.height * scale).toInt().coerceIn(1, 8192)
                             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
                             page.render(bmp, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                             val out = File(outDir, "p$i.png")

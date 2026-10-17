@@ -359,6 +359,7 @@ func main() {
 		mail.GET("/me/accounts/:id/messages/:msgId/attachments/:attId", h.downloadMailAttachmentHTTP)
 		mail.GET("/me/accounts/:id/messages/:msgId", h.getAccountMessage)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/read", h.markMessageRead)
+		mail.PATCH("/me/accounts/:id/messages/:msgId/star", h.markMessageStarred)
 		mail.PATCH("/me/accounts/:id/messages/:msgId/folder", h.moveMessageToFolder)
 		mail.PATCH("/me/accounts/:id/messages/read", h.markMessagesReadBulk)
 		mail.PATCH("/me/accounts/:id/messages/folder", h.moveMessagesToFolderBulk)
@@ -1986,6 +1987,18 @@ func (h *Handler) accountFolderSummary(c *gin.Context) {
 		extra = []extraFolderStat{}
 	}
 	out["extra"] = extra
+	var starredTotal, starredUnread int
+	if err := h.dbex(ctx).QueryRow(`
+		SELECT COUNT(*)::int,
+			COALESCE(SUM(CASE WHEN NOT COALESCE(is_read, false) THEN 1 ELSE 0 END), 0)::int
+		FROM mail_messages
+		WHERE account_id = $1 AND COALESCE(is_starred, false) = true
+		  AND LOWER(TRIM(folder)) <> 'trash'
+	`, accountID).Scan(&starredTotal, &starredUnread); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	out["starred"] = folderStat{Total: starredTotal, Unread: starredUnread}
 	c.JSON(http.StatusOK, out)
 }
 
@@ -2000,6 +2013,7 @@ type MailMessage struct {
 	ScheduledSendAt string `json:"scheduled_send_at,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	IsRead          bool   `json:"is_read"`
+	IsStarred       bool   `json:"is_starred"`
 	SpamScore       int    `json:"spam_score"`
 	ThreadKey       string `json:"thread_key,omitempty"`
 	AttachmentCount int    `json:"attachment_count"`
@@ -2075,12 +2089,17 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		tagJoin = fmt.Sprintf(" INNER JOIN mail_message_tags mt ON mt.message_id = m.id AND mt.tag_id = %d", tagID)
 	}
 	isAll := strings.EqualFold(folder, "all")
+	isStarred := strings.EqualFold(folder, "starred")
 	var args []interface{}
 	p := 2
 	folderSQL := ""
 	// Vue « all » : courrier reçu utile — pas corbeille / spam / brouillons / envoyés (dossier dédié).
+	// Vue « starred » : favoris du compte, le message reste dans son dossier réel.
 	allFolderExclude := ""
-	if isAll {
+	if isStarred {
+		args = []interface{}{accountID}
+		allFolderExclude = " AND COALESCE(m.is_starred, false) = true AND LOWER(TRIM(m.folder)) <> 'trash'"
+	} else if isAll {
 		args = []interface{}{accountID}
 		allFolderExclude = " AND LOWER(TRIM(m.folder)) NOT IN ('trash', 'spam', 'drafts', 'sent')"
 	} else {
@@ -2120,7 +2139,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 	argsSel := append(args, limit, offset)
 	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.id")
 	selectSQL := fmt.Sprintf(`
-			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false),
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false), COALESCE(m.is_starred, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m%s
@@ -2140,7 +2159,7 @@ func (h *Handler) listAccountMessages(c *gin.Context) {
 		var dateAt, scheduledAt sql.NullString
 		var createdRaw string
 		var tagCSV string
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.IsStarred, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -2213,7 +2232,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 	argsSel := append(args, limit, offset)
 	orderBy := mailListOrderByClause(c.Query("order"), ftsOrderPrefix, "m.account_id, m.id")
 	selectSQL := fmt.Sprintf(`
-			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false),
+			SELECT m.id, m.account_id, m.folder, m.from_addr, m.to_addrs, m.subject, m.date_at::text, m.scheduled_send_at::text, m.created_at::text, COALESCE(m.is_read, false), COALESCE(m.is_starred, false),
 				COALESCE(m.thread_key, ''), COALESCE(m.attachment_count, 0),
 				COALESCE((SELECT string_agg(mt.tag_id::text, ',' ORDER BY mt.tag_id) FROM mail_message_tags mt WHERE mt.message_id = m.id), '')
 			FROM mail_messages m
@@ -2233,7 +2252,7 @@ func (h *Handler) listUnifiedUserMessages(c *gin.Context) {
 		var dateAt, scheduledAt sql.NullString
 		var createdRaw string
 		var tagCSV string
-		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
+		if err := rows.Scan(&m.ID, &m.AccountID, &m.Folder, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &m.IsRead, &m.IsStarred, &m.ThreadKey, &m.AttachmentCount, &tagCSV); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -2266,16 +2285,16 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	var dateAt, scheduledAt sql.NullString
 	var createdRaw string
 	var bodyPlain, bodyHTML, rawHeadersDB sql.NullString
-	var isRead bool
+	var isRead, isStarred bool
 	var messageUID int64
 	err = h.dbex(ctx).QueryRow(`
-		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, scheduled_send_at::text, created_at::text, COALESCE(is_read, false), body_plain, body_html,
+		SELECT id, account_id, folder, message_uid, from_addr, to_addrs, subject, date_at::text, scheduled_send_at::text, created_at::text, COALESCE(is_read, false), COALESCE(is_starred, false), body_plain, body_html,
 			raw_headers,
 			COALESCE(thread_key, ''), COALESCE(attachment_count, 0)
 		FROM mail_messages
 		WHERE id = $1 AND account_id = $2
 		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
-	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &isRead, &bodyPlain, &bodyHTML, &rawHeadersDB, &m.ThreadKey, &m.AttachmentCount)
+	`, msgID, accountID).Scan(&m.ID, &m.AccountID, &m.Folder, &messageUID, &m.FromAddr, &m.ToAddrs, &m.Subject, &dateAt, &scheduledAt, &createdRaw, &isRead, &isStarred, &bodyPlain, &bodyHTML, &rawHeadersDB, &m.ThreadKey, &m.AttachmentCount)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
 		return
@@ -2286,6 +2305,7 @@ func (h *Handler) getAccountMessage(c *gin.Context) {
 	}
 	applyListedMailTimestamps(&m.MailMessage, dateAt, scheduledAt, createdRaw)
 	m.IsRead = isRead
+	m.IsStarred = isStarred
 	if bodyPlain.Valid {
 		m.BodyPlain = bodyPlain.String
 	}
@@ -2673,6 +2693,42 @@ func (h *Handler) markMessageRead(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true, "read": *body.Read})
+}
+
+func (h *Handler) markMessageStarred(c *gin.Context) {
+	ctx := c.Request.Context()
+	accountID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || accountID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid account id"})
+		return
+	}
+	msgID, err := strconv.Atoi(c.Param("msgId"))
+	if err != nil || msgID <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message id"})
+		return
+	}
+	var body struct {
+		Starred *bool `json:"starred"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil || body.Starred == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "body must contain \"starred\": true|false"})
+		return
+	}
+	res, err := h.dbex(ctx).Exec(`
+		UPDATE mail_messages SET is_starred = $1
+		WHERE id = $2 AND account_id = $3
+		AND account_id IN (SELECT id FROM user_email_accounts WHERE user_id = current_setting('app.current_user_id', true)::INTEGER)
+	`, *body.Starred, msgID, accountID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "message not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"ok": true, "starred": *body.Starred})
 }
 
 func (h *Handler) moveMessageToFolder(c *gin.Context) {

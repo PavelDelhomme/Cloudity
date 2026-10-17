@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+export 'notes_keep_editor.dart';
+
 /// Une note mise à la corbeille est effacée définitivement 60 jours plus tard.
 const int kNoteTrashRetentionDays = 60;
 
@@ -71,6 +73,19 @@ List<String> noteLabelCatalog({
   return list;
 }
 
+/// Texte des cases, pour la recherche de la liste.
+String noteChecklistPlain(Map<String, dynamic> item) {
+  final extras = item['extras'];
+  if (extras is! Map || extras['checklist'] is! List) return '';
+  final bits = <String>[];
+  for (final raw in extras['checklist'] as List) {
+    if (raw is! Map) continue;
+    final text = raw['text']?.toString().trim() ?? '';
+    if (text.isNotEmpty) bits.add(text);
+  }
+  return bits.join(' ');
+}
+
 enum NotesHomeSection { notes, reminders, archive, trash }
 
 /// Entrées du drawer Notes : libellés et corbeille, jamais les autres apps.
@@ -126,159 +141,4 @@ List<Widget> buildNotesDrawerTiles({
       onTap: onAddLabel,
     ),
   ];
-}
-
-const notesComposerTitleKey = Key('notes-composer-title');
-const notesComposerBodyKey = Key('notes-composer-body');
-const notesComposerSaveKey = Key('notes-composer-save');
-const notesComposerDismissKey = Key('notes-composer-dismiss');
-
-class NotesComposerDraft {
-  const NotesComposerDraft({required this.title, required this.content});
-
-  final String title;
-  final String content;
-}
-
-/// Feuille du bas : titre et contenu saisissables sans changer d’écran.
-Future<NotesComposerDraft?> showNotesKeepComposer(BuildContext context) {
-  final scheme = Theme.of(context).colorScheme;
-  return showModalBottomSheet<NotesComposerDraft>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    showDragHandle: false,
-    enableDrag: true,
-    isDismissible: true,
-    backgroundColor: scheme.surface,
-    builder: (ctx) => const NotesKeepComposerSheet(),
-  );
-}
-
-class NotesKeepComposerSheet extends StatefulWidget {
-  const NotesKeepComposerSheet({super.key});
-
-  @override
-  State<NotesKeepComposerSheet> createState() => _NotesKeepComposerSheetState();
-}
-
-class _NotesKeepComposerSheetState extends State<NotesKeepComposerSheet> {
-  final _title = TextEditingController();
-  final _body = TextEditingController();
-
-  @override
-  void dispose() {
-    _title.dispose();
-    _body.dispose();
-    super.dispose();
-  }
-
-  void _save() {
-    final title = _title.text.trim();
-    final content = _body.text;
-    if (title.isEmpty && content.trim().isEmpty) {
-      Navigator.pop(context);
-      return;
-    }
-    Navigator.pop(
-      context,
-      NotesComposerDraft(title: title, content: content),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    final mq = MediaQuery.of(context);
-    final titleStyle = theme.textTheme.titleLarge?.copyWith(
-      color: scheme.onSurface,
-      fontWeight: FontWeight.w600,
-    );
-    final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
-      color: scheme.onSurface,
-      height: 1.35,
-    );
-    final bottomSafe = mq.viewInsets.bottom > 0
-        ? 0.0
-        : (mq.padding.bottom > mq.viewPadding.bottom ? mq.padding.bottom : mq.viewPadding.bottom);
-    final available = mq.size.height - mq.padding.top - bottomSafe - mq.viewInsets.bottom;
-    final maxHeight = available * 0.78;
-    return Padding(
-      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + bottomSafe),
-      child: Column(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              key: notesComposerDismissKey,
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.pop(context),
-            ),
-          ),
-          Material(
-          color: scheme.surface,
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxHeight.clamp(220, available)),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                    children: [
-                      TextField(
-                        key: notesComposerTitleKey,
-                        controller: _title,
-                        style: titleStyle,
-                        cursorColor: scheme.primary,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText: 'Titre',
-                          hintStyle: titleStyle?.copyWith(color: scheme.onSurfaceVariant),
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                      TextField(
-                        key: notesComposerBodyKey,
-                        controller: _body,
-                        autofocus: true,
-                        style: bodyStyle,
-                        cursorColor: scheme.primary,
-                        minLines: 5,
-                        maxLines: 12,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(
-                          hintText: 'Note',
-                          hintStyle: bodyStyle?.copyWith(color: scheme.onSurfaceVariant),
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      key: notesComposerSaveKey,
-                      onPressed: _save,
-                      child: const Text('Enregistrer'),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ),
-        ],
-      ),
-    );
-  }
 }

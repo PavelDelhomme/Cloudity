@@ -17,15 +17,15 @@ const kCalendarRepeatOptions = <CalendarRepeatOption>[
 
 const kNoteColorOptions = <({String id, String label})>[
   (id: 'default', label: 'Défaut'),
-  (id: 'yellow', label: 'Jaune'),
-  (id: 'green', label: 'Vert'),
-  (id: 'blue', label: 'Bleu'),
-  (id: 'pink', label: 'Rose'),
-  (id: 'purple', label: 'Violet'),
-  (id: 'orange', label: 'Orange'),
-  (id: 'teal', label: 'Sarcelle'),
-  (id: 'red', label: 'Rouge'),
-  (id: 'gray', label: 'Gris'),
+  (id: 'red', label: 'Corail'),
+  (id: 'orange', label: 'Pêche'),
+  (id: 'yellow', label: 'Sable'),
+  (id: 'green', label: 'Menthe'),
+  (id: 'teal', label: 'Sauge'),
+  (id: 'blue', label: 'Acier'),
+  (id: 'purple', label: 'Crépuscule'),
+  (id: 'pink', label: 'Fleur'),
+  (id: 'gray', label: 'Galet'),
 ];
 
 const kCalendarReminderOptions = <({int minutes, String label})>[
@@ -136,6 +136,8 @@ List<Map<String, dynamic>> expandCalendarEvents(
         final copy = Map<String, dynamic>.from(ev);
         copy['start_at'] = cursor.toUtc().toIso8601String();
         copy['end_at'] = occEnd.toUtc().toIso8601String();
+        copy['series_start_at'] = baseStart.toUtc().toIso8601String();
+        copy['series_end_at'] = baseEnd.toUtc().toIso8601String();
         copy['occurrence_key'] = '${ev['id']}:${cursor.toUtc().toIso8601String()}';
         out.add(copy);
       }
@@ -150,4 +152,28 @@ List<Map<String, dynamic>> expandCalendarEvents(
     return sa.compareTo(sb);
   });
   return out;
+}
+
+/// Prochain instant de rappel encore dans le futur.
+/// Une seule notification : la prochaine occurrence, pas une série infinie.
+DateTime? nextCalendarReminderAt({
+  required DateTime start,
+  required int minutesBefore,
+  String? repeatRule,
+  required DateTime now,
+}) {
+  if (minutesBefore < 0) return null;
+  var cursor = start;
+  final rule = normalizeCalendarRepeat(repeatRule);
+  var guard = 0;
+  while (guard < 500) {
+    final when = cursor.subtract(Duration(minutes: minutesBefore));
+    if (when.isAfter(now)) return when;
+    if (rule == null) return null;
+    final next = _addOccurrence(cursor, rule);
+    if (!next.isAfter(cursor)) return null;
+    cursor = next;
+    guard++;
+  }
+  return null;
 }

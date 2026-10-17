@@ -209,6 +209,138 @@ abstract final class CloudityOtaClient {
       client: client,
     );
   }
+
+  /// Feed produit d’abord. Si le host répond, on ne propose pas un APK gateway plus vieux.
+  static Future<CloudityManualUpdateProbe> probeManual({
+    required String gatewayBase,
+    required String appSlug,
+    String? huberaHost,
+  }) async {
+    final installedVersion = await cloudityResolveInstalledVersion();
+    var localCode = 0;
+    var packageName = '';
+    try {
+      final info = await PackageInfo.fromPlatform();
+      localCode = int.tryParse(info.buildNumber) ?? 0;
+      packageName = info.packageName.trim();
+    } catch (_) {}
+
+    final host = huberaHost?.trim() ?? '';
+    if (host.isNotEmpty) {
+      final clean = host.replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), '');
+      final got = await _fetchJsonMap(Uri.parse('https://$clean/updates.json'));
+      if (got.reachable) {
+        final feed = got.json;
+        if (feed == null) {
+          return CloudityManualUpdateProbe(
+            reachable: true,
+            installedVersion: installedVersion,
+          );
+        }
+        final slot = _pickFeedSlot(feed, packageName);
+        if (slot == null) {
+          return CloudityManualUpdateProbe(
+            reachable: true,
+            installedVersion: installedVersion,
+          );
+        }
+        return CloudityManualUpdateProbe(
+          reachable: true,
+          installedVersion: installedVersion,
+          remoteVersion: (slot['version']?.toString() ?? '').trim(),
+          offer: _offerIfNewer(slot, installedVersion, localCode, appSlug),
+        );
+      }
+    }
+
+    final manifest = await fetchManifest(
+      gatewayBase: gatewayBase,
+      appSlug: appSlug,
+      currentVersion: installedVersion,
+    );
+    if (manifest == null) {
+      return CloudityManualUpdateProbe(
+        reachable: false,
+        installedVersion: installedVersion,
+      );
+    }
+    final newer = manifest.apkUrl.isNotEmpty &&
+        cloudityCompareVersions(manifest.version, installedVersion) > 0;
+    return CloudityManualUpdateProbe(
+      reachable: true,
+      installedVersion: installedVersion,
+      remoteVersion: manifest.version,
+      offer: newer ? manifest : null,
+    );
+  }
+
+  static Future<({bool reachable, Map<String, dynamic>? json})> _fetchJsonMap(Uri uri) async {
+    final c = http.Client();
+    try {
+      final res = await c.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return (reachable: false, json: null);
+      final map = jsonDecode(res.body);
+      if (map is! Map) return (reachable: true, json: null);
+      return (reachable: true, json: Map<String, dynamic>.from(map));
+    } catch (_) {
+      return (reachable: false, json: null);
+    } finally {
+      c.close();
+    }
+  }
+
+  static Map<String, dynamic>? _pickFeedSlot(Map<String, dynamic> feed, String installed) {
+    final canon = feed['canonical'];
+    if (canon is Map &&
+        installed.isNotEmpty &&
+        (canon['package']?.toString() ?? '').trim() == installed) {
+      return {
+        'version': canon['version'],
+        'versionCode': canon['versionCode'] ?? feed['versionCode'],
+        'apk_url': canon['apk_url'] ?? canon['apk'],
+        'sha256': canon['sha256'] ?? feed['sha256'],
+        'notes': feed['notes'],
+        'apkAvailable': feed['apkAvailable'],
+        'app': feed['app'] ?? feed['slug'] ?? 'calendar',
+        'published_at': feed['published_at'] ?? feed['generated'],
+        'min_supported': feed['min_supported'],
+      };
+    }
+    final pkg = (feed['package']?.toString() ?? '').trim();
+    if (installed.isNotEmpty && pkg.isNotEmpty && pkg != installed) return null;
+    return feed;
+  }
+
+  static CloudityOtaManifest? _offerIfNewer(
+    Map<String, dynamic> slot,
+    String localVersion,
+    int localCode,
+    String appSlug,
+  ) {
+    if (slot['apkAvailable'] == false) return null;
+    final version = (slot['version']?.toString() ?? '').trim();
+    final apk = (slot['apk_url'] ?? slot['apk'] ?? '').toString().trim();
+    if (version.isEmpty || apk.isEmpty) return null;
+    final path = Uri.tryParse(apk)?.path.toLowerCase() ?? apk.toLowerCase();
+    if (path.endsWith('/install') || path.endsWith('.html') || path.endsWith('.htm')) {
+      return null;
+    }
+    final nameCmp = cloudityCompareVersions(version, localVersion);
+    if (nameCmp < 0) return null;
+    final remoteCode = _jsonInt(slot['versionCode']);
+    if (remoteCode != null && localCode > 0 && remoteCode <= localCode) return null;
+    final newer = nameCmp > 0 || (remoteCode != null && localCode > 0 && remoteCode > localCode);
+    if (!newer) return null;
+    return CloudityOtaManifest.fromJson({
+      'app': (slot['app'] ?? appSlug).toString(),
+      'version': version,
+      'min_supported': (slot['min_supported'] ?? version).toString(),
+      'apk_url': apk,
+      'sha256': (slot['sha256'] ?? '').toString(),
+      'published_at': (slot['published_at'] ?? '').toString(),
+      'hubera': {'message': (slot['notes'] ?? '').toString()},
+    });
+  }
 }
 
 Future<String> _huberaInstallId() async {
@@ -565,6 +697,93 @@ Future<String> cloudityResolveInstalledVersion({String? currentVersion}) async {
     } catch (_) {}
   }
   return version.isEmpty ? '0.0.0' : version;
+}
+
+class CloudityManualUpdateProbe {
+  const CloudityManualUpdateProbe({
+    required this.reachable,
+    required this.installedVersion,
+    this.remoteVersion = '',
+    this.offer,
+  });
+
+  final bool reachable;
+  final String installedVersion;
+  final String remoteVersion;
+
+  /// Non nul seulement si une APK plus récente est proposée. Jamais une plus vieille.
+  final CloudityOtaManifest? offer;
+}
+
+int? _jsonInt(dynamic raw) {
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return int.tryParse(raw?.toString() ?? '');
+}
+
+/// Recherche manuelle. La détection automatique ([cloudityScheduleOtaCheck]) ne change pas.
+/// Une mise à jour trouvée s’affiche avec « Plus tard » : jamais forcée.
+Future<void> cloudityCheckUpdateManually(
+  BuildContext context, {
+  required String gatewayBase,
+  required String appSlug,
+  required String appName,
+  String? huberaHost,
+}) async {
+  if (!context.mounted) return;
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => const AlertDialog(
+      title: Text('Vérification…'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LinearProgressIndicator(),
+          SizedBox(height: 16),
+          Text(
+            'On vérifie s’il y a une mise à jour. Elle reste proposée, jamais forcée.',
+          ),
+        ],
+      ),
+    ),
+  );
+  final probe = await CloudityOtaClient.probeManual(
+    gatewayBase: gatewayBase,
+    appSlug: appSlug,
+    huberaHost: huberaHost,
+  );
+  if (!context.mounted) return;
+  Navigator.of(context, rootNavigator: true).pop();
+  if (!probe.reachable) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Vérification impossible. Le serveur de mise à jour ne répond pas.',
+        ),
+      ),
+    );
+    return;
+  }
+  final offer = probe.offer;
+  if (offer == null) {
+    final remote = probe.remoteVersion.trim();
+    final extra = remote.isEmpty ? '' : ' · serveur v$remote';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Rien de plus récent. $appName v${probe.installedVersion} est à jour$extra.',
+        ),
+      ),
+    );
+    return;
+  }
+  await cloudityShowOtaDialog(
+    context,
+    manifest: offer,
+    currentVersion: probe.installedVersion,
+  );
 }
 
 /// Lance un check OTA en arrière-plan après le 1er frame (best-effort, silencieux si KO).

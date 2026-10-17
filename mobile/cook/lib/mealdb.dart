@@ -35,7 +35,7 @@ class MealDetail {
 }
 
 Future<List<MealSummary>> mealDbSearch(String query) async {
-  final q = query.trim();
+  final q = cookQueryToEnglish(query.trim());
   if (q.isEmpty) return mealDbRandomBatch();
   final res = await http
       .get(Uri.parse('$_mealDb/search.php?s=${Uri.encodeQueryComponent(q)}'))
@@ -45,7 +45,7 @@ Future<List<MealSummary>> mealDbSearch(String query) async {
 }
 
 Future<List<MealSummary>> mealDbByIngredient(String ingredient) async {
-  final q = ingredient.trim();
+  final q = cookQueryToEnglish(ingredient.trim());
   if (q.isEmpty) return [];
   final res = await http.get(Uri.parse('$_mealDb/filter.php?i=${Uri.encodeQueryComponent(q)}'));
   if (res.statusCode != 200) return [];
@@ -111,16 +111,16 @@ Future<MealDetail?> mealDbLookup(String id) async {
     final name = raw['strIngredient$i']?.toString().trim() ?? '';
     final measure = raw['strMeasure$i']?.toString().trim() ?? '';
     if (name.isEmpty) continue;
-    ingredients.add((name: _frIngredient(name), measure: measure));
+    ingredients.add((name: cookToFrench(name), measure: cookToFrench(measure)));
   }
   return MealDetail(
     id: raw['idMeal']?.toString() ?? id,
-    title: raw['strMeal']?.toString() ?? 'Recette',
-    instructions: raw['strInstructions']?.toString() ?? '',
+    title: cookToFrench(raw['strMeal']?.toString() ?? 'Recette'),
+    instructions: cookToFrench(raw['strInstructions']?.toString() ?? ''),
     ingredients: ingredients,
     thumb: raw['strMealThumb']?.toString(),
-    category: raw['strCategory']?.toString(),
-    area: raw['strArea']?.toString(),
+    category: raw['strCategory'] == null ? null : cookToFrench(raw['strCategory'].toString()),
+    area: raw['strArea'] == null ? null : cookToFrench(raw['strArea'].toString()),
     youtube: raw['strYoutube']?.toString(),
   );
 }
@@ -140,43 +140,207 @@ Future<List<MealSummary>> mealDbSuggestFromPantry(List<String> names) async {
   return out;
 }
 
-const _ingredientFr = {
+const _enToFr = {
+  'olive oil': 'huile d’olive',
+  'vegetable oil': 'huile végétale',
+  'soy sauce': 'sauce soja',
+  'double cream': 'crème épaisse',
+  'heavy cream': 'crème épaisse',
+  'sour cream': 'crème aigre',
+  'spring onion': 'oignon nouveau',
+  'spring onions': 'oignons nouveaux',
+  'red pepper': 'poivron rouge',
+  'green pepper': 'poivron vert',
+  'black pepper': 'poivre noir',
+  'chicken breast': 'blanc de poulet',
+  'chicken stock': 'bouillon de poulet',
+  'beef stock': 'bouillon de bœuf',
+  'minced beef': 'bœuf haché',
+  'ground beef': 'bœuf haché',
+  'self-raising flour': 'farine avec levure',
+  'plain flour': 'farine',
+  'brown sugar': 'sucre roux',
+  'caster sugar': 'sucre en poudre',
+  'baking powder': 'levure chimique',
+  'tomato puree': 'concentré de tomate',
+  'chopped tomatoes': 'tomates concassées',
+  'potatoes': 'pommes de terre',
+  'potato': 'pomme de terre',
+  'tomatoes': 'tomates',
+  'tomato': 'tomate',
+  'onions': 'oignons',
+  'onion': 'oignon',
+  'carrots': 'carottes',
+  'carrot': 'carotte',
+  'mushrooms': 'champignons',
+  'mushroom': 'champignon',
   'chicken': 'poulet',
   'beef': 'bœuf',
   'pork': 'porc',
-  'onion': 'oignon',
+  'lamb': 'agneau',
   'garlic': 'ail',
-  'tomato': 'tomate',
-  'potato': 'pomme de terre',
-  'potatoes': 'pommes de terre',
-  'carrot': 'carotte',
   'butter': 'beurre',
   'flour': 'farine',
   'sugar': 'sucre',
   'salt': 'sel',
   'pepper': 'poivre',
-  'egg': 'œuf',
   'eggs': 'œufs',
+  'egg': 'œuf',
   'milk': 'lait',
   'cheese': 'fromage',
-  'olive oil': 'huile d’olive',
+  'cheddar': 'cheddar',
+  'parmesan': 'parmesan',
   'water': 'eau',
   'rice': 'riz',
   'pasta': 'pâtes',
+  'noodles': 'nouilles',
   'lemon': 'citron',
+  'lime': 'citron vert',
   'wine': 'vin',
   'thyme': 'thym',
   'parsley': 'persil',
   'basil': 'basilic',
+  'oregano': 'origan',
+  'rosemary': 'romarin',
   'cream': 'crème',
   'bread': 'pain',
-  'mushroom': 'champignon',
-  'mushrooms': 'champignons',
+  'oil': 'huile',
+  'soup': 'soupe',
+  'stew': 'ragoût',
+  'salad': 'salade',
+  'sauce': 'sauce',
+  'stock': 'bouillon',
+  'broth': 'bouillon',
+  'fish': 'poisson',
+  'salmon': 'saumon',
+  'tuna': 'thon',
+  'shrimp': 'crevettes',
+  'prawns': 'crevettes',
+  'bacon': 'lard',
+  'ham': 'jambon',
+  'sausage': 'saucisse',
+  'beans': 'haricots',
+  'lentils': 'lentilles',
+  'spinach': 'épinards',
+  'cabbage': 'chou',
+  'lettuce': 'laitue',
+  'cucumber': 'concombre',
+  'zucchini': 'courgette',
+  'courgette': 'courgette',
+  'aubergine': 'aubergine',
+  'eggplant': 'aubergine',
+  'apple': 'pomme',
+  'apples': 'pommes',
+  'honey': 'miel',
+  'vinegar': 'vinaigre',
+  'mustard': 'moutarde',
+  'yoghurt': 'yaourt',
+  'yogurt': 'yaourt',
+  'chocolate': 'chocolat',
+  'vanilla': 'vanille',
+  'cinnamon': 'cannelle',
+  'ginger': 'gingembre',
+  'chilli': 'piment',
+  'chili': 'piment',
+  'coriander': 'coriandre',
+  'cumin': 'cumin',
+  'paprika': 'paprika',
+  'nutmeg': 'muscade',
+  'bay leaf': 'feuille de laurier',
+  'bay leaves': 'feuilles de laurier',
+  'clove': 'clou de girofle',
+  'cloves': 'gousses',
+  'tablespoons': 'cuillères à soupe',
+  'tablespoon': 'cuillère à soupe',
+  'teaspoons': 'cuillères à café',
+  'teaspoon': 'cuillère à café',
+  'tbsp': 'c. à soupe',
+  'tsp': 'c. à café',
+  'cups': 'tasses',
+  'cup': 'tasse',
+  'pinch': 'pincée',
+  'slice': 'tranche',
+  'slices': 'tranches',
+  'clove of garlic': 'gousse d’ail',
+  'preheat': 'préchauffer',
+  'heat': 'chauffer',
+  'boil': 'bouillir',
+  'simmer': 'mijoter',
+  'fry': 'faire revenir',
+  'stir': 'remuer',
+  'bake': 'cuire au four',
+  'roast': 'rôtir',
+  'grill': 'griller',
+  'chop': 'hacher',
+  'slice the': 'couper',
+  'add': 'ajouter',
+  'mix': 'mélanger',
+  'serve': 'servir',
+  'until': 'jusqu’à',
+  'then': 'puis',
+  'and': 'et',
+  'with': 'avec',
+  'into': 'dans',
+  'over': 'sur',
+  'the oven': 'le four',
+  'oven': 'four',
+  'pan': 'poêle',
+  'pot': 'casserole',
+  'bowl': 'saladier',
+  'minutes': 'minutes',
+  'minute': 'minute',
+  'french': 'française',
+  'italian': 'italienne',
+  'indian': 'indienne',
+  'chinese': 'chinoise',
+  'british': 'britannique',
+  'american': 'américaine',
+  'mexican': 'mexicaine',
+  'dessert': 'dessert',
+  'breakfast': 'petit-déjeuner',
+  'side': 'accompagnement',
+  'starter': 'entrée',
+  'vegetarian': 'végétarien',
+  'seafood': 'fruits de mer',
+  'goat': 'chèvre',
+  'duck': 'canard',
+  'turkey': 'dinde',
 };
 
-String _frIngredient(String name) {
-  final k = name.trim().toLowerCase();
-  return _ingredientFr[k] ?? name;
+final List<String> _enToFrKeys = _enToFr.keys.toList()
+  ..sort((a, b) => b.length.compareTo(a.length));
+
+final Map<String, String> _frToEn = {
+  for (final e in _enToFr.entries) e.value: e.key,
+};
+
+String cookToFrench(String text) {
+  final raw = text.trim();
+  if (raw.isEmpty) return raw;
+  var out = raw;
+  for (final key in _enToFrKeys) {
+    out = out.replaceAll(
+      RegExp('\\b${RegExp.escape(key)}\\b', caseSensitive: false),
+      _enToFr[key]!,
+    );
+  }
+  return out;
+}
+
+String cookQueryToEnglish(String text) {
+  final raw = text.trim();
+  if (raw.isEmpty) return raw;
+  final direct = _frToEn[raw.toLowerCase()];
+  if (direct != null) return direct;
+  var out = raw;
+  final keys = _frToEn.keys.toList()..sort((a, b) => b.length.compareTo(a.length));
+  for (final key in keys) {
+    out = out.replaceAll(
+      RegExp('\\b${RegExp.escape(key)}\\b', caseSensitive: false),
+      _frToEn[key]!,
+    );
+  }
+  return out;
 }
 
 List<MealSummary> _summaries(String body) {
@@ -191,7 +355,7 @@ List<MealSummary> _summaries(String body) {
     if (id.isEmpty || title.isEmpty) continue;
     out.add(MealSummary(
       id: id,
-      title: title,
+      title: cookToFrench(title),
       thumb: raw['strMealThumb']?.toString(),
     ));
   }

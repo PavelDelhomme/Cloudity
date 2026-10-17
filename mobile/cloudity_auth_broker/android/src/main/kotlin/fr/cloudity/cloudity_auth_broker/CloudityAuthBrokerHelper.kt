@@ -93,6 +93,25 @@ object CloudityAuthBrokerHelper {
     fun listAllCopies(ctx: Context): List<Map<String, Any?>> =
         listAllCopiesInternal(ctx).map { it.toMap() }
 
+    /**
+     * Compte Hubera ID déjà sur l’appareil.
+     *
+     * À appeler hors du fil UI. Seulement les paquets installés : interroger
+     * un fournisseur absent bloque l’appelant (c’est ce qui gelait Hubera ID).
+     * Une adresse sans jeton est conservée pour préremplir la connexion.
+     * [listAccounts] reste inchangé.
+     */
+    fun listHuberaDeviceAccounts(ctx: Context): List<Map<String, Any?>> {
+        val copies = mutableListOf<Candidate>()
+        val pkgs = reachablePackages(ctx).sortedBy { if (it == "cloud.hubera.id") 0 else 1 }
+        for (pkg in pkgs) {
+            copies += readProvider(ctx, accountsUri(pkg), pkg, includeEmailOnly = true)
+            copies += readProvider(ctx, huberaAccountsUri(pkg), pkg, includeEmailOnly = true)
+        }
+        copies += accountManagerCopies(ctx)
+        return richestDevice(copies).map { it.toMap() }
+    }
+
     private fun listAllCopiesInternal(ctx: Context): List<Candidate> {
         val out = mutableListOf<Candidate>()
         for (pkg in reachablePackages(ctx)) {
@@ -169,6 +188,112 @@ object CloudityAuthBrokerHelper {
             }
         }
         return out
+    }
+
+    private fun readProvider(
+        ctx: Context,
+        uri: Uri,
+        pkg: String,
+        includeEmailOnly: Boolean,
+    ): List<Candidate> {
+        return try {
+            val rows = mutableListOf<Candidate>()
+            ctx.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val emailIdx = cursor.getColumnIndex("email")
+                val gwIdx = cursor.getColumnIndex("gateway_url")
+                val accessIdx = cursor.getColumnIndex("access_token")
+                val refreshIdx = cursor.getColumnIndex("refresh_token")
+                val tenantIdx = cursor.getColumnIndex("tenant_id")
+                val sourceIdx = cursor.getColumnIndex("source_package")
+                val updatedIdx = cursor.getColumnIndex("updated_at")
+                while (cursor.moveToNext()) {
+                    val email = if (emailIdx >= 0) cursor.getString(emailIdx).orEmpty().trim() else ""
+                    val refresh = if (refreshIdx >= 0) cursor.getString(refreshIdx).orEmpty() else ""
+                    val access = if (accessIdx >= 0) cursor.getString(accessIdx).orEmpty() else ""
+                    if (email.isEmpty()) continue
+                    if (!includeEmailOnly && refresh.isEmpty() && access.isEmpty()) continue
+                    rows.add(
+                        Candidate(
+                            email = email,
+                            gatewayUrl = if (gwIdx >= 0) cursor.getString(gwIdx).orEmpty() else "",
+                            accessToken = access,
+                            refreshToken = refresh,
+                            tenantId = if (tenantIdx >= 0) cursor.getInt(tenantIdx) else 1,
+                            sourcePackage = if (sourceIdx >= 0) {
+                                cursor.getString(sourceIdx).orEmpty().ifEmpty { pkg }
+                            } else {
+                                pkg
+                            },
+                            updatedAt = if (updatedIdx >= 0) cursor.getLong(updatedIdx) else 0L,
+                            accessExp = jwtExpSeconds(access),
+                        ),
+                    )
+                }
+            }
+            rows
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    /** Session AccountManager de Hubera ID (e-mail connu même si le jeton a expiré). */
+    private fun accountManagerCopies(ctx: Context): List<Candidate> {
+        return try {
+            val am = android.accounts.AccountManager.get(ctx)
+            am.getAccountsByType("cloud.hubera.id").mapNotNull { acc ->
+                val email = acc.name?.trim()?.lowercase().orEmpty()
+                if (email.isEmpty()) return@mapNotNull null
+                val access = runCatching { am.peekAuthToken(acc, "access").orEmpty() }.getOrDefault("")
+                val refresh = runCatching {
+                    am.peekAuthToken(acc, "refresh").orEmpty().ifBlank {
+                        runCatching { am.getPassword(acc).orEmpty() }.getOrDefault("")
+                    }
+                }.getOrDefault("")
+                val updated = runCatching {
+                    am.getUserData(acc, "updated_at")?.toLongOrNull() ?: 0L
+                }.getOrDefault(0L)
+                Candidate(
+                    email = email,
+                    gatewayUrl = "",
+                    accessToken = access,
+                    refreshToken = refresh,
+                    tenantId = 1,
+                    sourcePackage = "cloud.hubera.id",
+                    updatedAt = updated,
+                    accessExp = jwtExpSeconds(access),
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun richestDevice(copies: List<Candidate>): List<Candidate> {
+        val best = linkedMapOf<String, Candidate>()
+        for (cand in copies) {
+            val key = cand.email.trim().lowercase()
+            if (key.isEmpty()) continue
+            val prev = best[key]
+            if (prev == null || deviceFresher(cand, prev)) best[key] = cand
+        }
+        return best.values.sortedWith(
+            compareByDescending<Candidate> { it.sourcePackage == "cloud.hubera.id" }
+                .thenByDescending { sessionRank(it) }
+                .thenByDescending { it.updatedAt },
+        )
+    }
+
+    private fun deviceFresher(candidate: Candidate, previous: Candidate): Boolean {
+        val rank = sessionRank(candidate)
+        val prevRank = sessionRank(previous)
+        if (rank != prevRank) return rank > prevRank
+        return candidate.isFresherThan(previous)
+    }
+
+    private fun sessionRank(candidate: Candidate): Int = when {
+        candidate.accessToken.isNotEmpty() && candidate.refreshToken.isNotEmpty() -> 3
+        candidate.accessToken.isNotEmpty() || candidate.refreshToken.isNotEmpty() -> 2
+        else -> 1
     }
 
     /**

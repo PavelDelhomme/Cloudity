@@ -14,10 +14,13 @@ import {
   Users,
   Image,
   Menu,
+  Moon,
+  Sun,
   X,
   Trash2,
 } from 'lucide-react'
 import { useAuth } from '@cloudity/web-shell/authContext'
+import { useThemePreferences } from '@cloudity/web-shell/theme/themeContext'
 import { AppPageChromeProvider } from '@cloudity/web-shell/appPageChromeContext'
 import { NotificationsProvider } from '@cloudity/web-shell/notificationsContext'
 
@@ -35,6 +38,28 @@ const nav = [
   { name: 'Contacts', href: '/app/contacts', icon: Users },
   { name: 'Photos', href: '/app/photos', icon: Image },
 ] as const
+
+/** Bascule clair ↔ sombre, visible dans la barre du haut sans ouvrir un message. */
+function MailAppearanceToggle() {
+  const { appId, effectiveTheme, setAppTheme } = useThemePreferences()
+  const systemDark =
+    typeof window !== 'undefined' &&
+    !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  const isDark = effectiveTheme === 'dark' || (effectiveTheme === 'system' && systemDark)
+  const label = isDark ? 'Passer en mode clair' : 'Passer en mode sombre'
+  return (
+    <button
+      type="button"
+      className="ml-auto inline-flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-1.5 text-sm font-medium text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-600"
+      aria-label={label}
+      title={label}
+      onClick={() => void setAppTheme(appId, isDark ? 'light' : 'dark')}
+    >
+      {isDark ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
+      <span>{isDark ? 'Clair' : 'Sombre'}</span>
+    </button>
+  )
+}
 
 /**
  * Layout léger pour la SPA Mail autonome (FE-SPLIT-01).
@@ -118,11 +143,12 @@ export default function MailShellLayout() {
             <header className="shrink-0 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 px-4 py-2 flex items-center gap-2">
               <button
                 type="button"
-                className="text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                className="text-sm font-medium text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white"
                 onClick={() => navigate('/')}
               >
                 Mail
               </button>
+              <MailAppearanceToggle />
             </header>
             <div className="flex-1 min-h-0 overflow-auto p-3 md:p-4">
               <Outlet />

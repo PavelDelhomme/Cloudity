@@ -62,6 +62,28 @@ class CloudityAuthBroker {
         .toList();
   }
 
+  /// Compte Hubera ID déjà sur l’appareil, y compris une adresse sans jeton.
+  ///
+  /// Le scan des fournisseurs reste dans l’exécuteur du plugin, jamais sur
+  /// le fil UI. [listAccounts] ne change pas : il ignore toujours les
+  /// adresses sans jeton de rafraîchissement.
+  static Future<List<CloudityAuthAccount>> listHuberaDeviceAccounts() async {
+    if (!isSupported) return [];
+    try {
+      final raw =
+          await _channel.invokeMethod<List<dynamic>>('listHuberaDeviceAccounts');
+      if (raw == null) return [];
+      return raw
+          .map((e) => CloudityAuthAccount.fromMap(Map<dynamic, dynamic>.from(e as Map)))
+          .where((a) => a.email.isNotEmpty)
+          .toList();
+    } on MissingPluginException {
+      return [];
+    } on PlatformException {
+      return [];
+    }
+  }
+
   /// Toutes les copies brutes (tous les ContentProviders) — pour retry SSO.
   static Future<List<CloudityAuthAccount>> listAllAccountCopies() async {
     if (!isSupported) return [];

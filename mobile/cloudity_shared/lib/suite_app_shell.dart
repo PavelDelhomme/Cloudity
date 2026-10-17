@@ -35,6 +35,8 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
     this.syncUserPreferences = true,
     this.suiteApp,
     this.enableOtaCheck = true,
+    this.restoring,
+    this.loginOnlyWithoutSession = false,
   });
 
   final Future<S?> Function() restoreSession;
@@ -48,6 +50,14 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
   /// Produit suite — active le check OTA (`/deploy/mobile/manifest`) si non null.
   final ClouditySuiteApp? suiteApp;
   final bool enableOtaCheck;
+
+  /// Écran pendant la restauration de session. Défaut : indicateur centré.
+  /// Photos fournit la bibliothèque déjà en cache pour ne pas figer un écran vide.
+  final Widget? restoring;
+
+  /// Défaut faux : les autres apps gardent le sélecteur de compte.
+  /// Photos : la connexion n’apparaît que s’il n’y a vraiment pas de session.
+  final bool loginOnlyWithoutSession;
 
   @override
   State<SuiteAppShell<S>> createState() => _SuiteAppShellState<S>();
@@ -142,12 +152,14 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return widget.restoring ??
+          const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
     }
     final session = _session;
-    if (session == null || HuberaAccountSwitch.openChooser) {
+    final chooser = !widget.loginOnlyWithoutSession && HuberaAccountSwitch.openChooser;
+    if (session == null || chooser) {
       return widget.loginBuilder(_onLoggedIn);
     }
     return widget.homeBuilder(session, _onLogout);

@@ -16,6 +16,7 @@ import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
+import 'device_account_plan.dart';
 import 'hubera_account_order.dart';
 import 'hubera_account_prompt.dart';
 import 'login_screen_shell.dart';
@@ -34,6 +35,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
     required this.keyPrefix,
     this.productTitle,
     this.supportingText,
+    this.adoptDeviceAccount = false,
   });
 
   final FutureOr<void> Function(CloudityUserSession<T> session) onLoggedIn;
@@ -44,6 +46,11 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   final String? productTitle;
   /// Texte d’intro sous le titre (branding / consignes app).
   final String? supportingText;
+
+  /// Pass uniquement. Défaut false : les autres apps gardent le sélecteur actuel.
+  /// Vrai : le compte Hubera ID déjà sur l’appareil est ouvert, ou son adresse
+  /// est proposée si le jeton manque. Le scan reste hors du fil UI.
+  final bool adoptDeviceAccount;
 
   String get effectiveProductTitle =>
       productTitle ?? 'Hubera ${suiteApp.title}';
@@ -92,6 +99,15 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   /// Charge comptes broker (autre app Cloudity) puis reprise auto si un seul compte.
   Future<void> _bootstrapLogin() async {
+    if (widget.adoptDeviceAccount) {
+      final gateways = await SessionStore.gatewayCandidates();
+      if (!mounted) return;
+      if (gateways.isNotEmpty) {
+        setState(() => _gatewayBase = gateways.first);
+      }
+      final adopted = await _adoptKnownDeviceAccount();
+      if (!mounted || adopted) return;
+    }
     final gateways = await SessionStore.gatewayCandidates();
     final accounts = await _orderedBrokerAccounts();
     final idInstalled = await CloudityAuthBroker.isHuberaIdInstalled();
@@ -129,6 +145,93 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _addingAccount = true;
       _brokerPickerHidden = false;
       _emailCtrl.clear();
+      _passwordCtrl.clear();
+    });
+  }
+
+  /// Ouvre la session déjà sur l’appareil, ou préremplit l’adresse sans jeton.
+  /// Retourne false pour laisser le sélecteur historique.
+  Future<bool> _adoptKnownDeviceAccount() async {
+    final List<CloudityAuthAccount> device;
+    try {
+      device = await CloudityAuthBroker.listHuberaDeviceAccounts();
+    } catch (_) {
+      return false;
+    }
+    if (!mounted || device.isEmpty) return false;
+    final withSession = device.where((account) {
+      final plan = planDeviceAccount(
+        email: account.email,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+      );
+      return plan.action == DeviceAccountAction.open;
+    }).toList();
+    if (withSession.length == 1) {
+      await _continueWithBroker(withSession.first);
+      return true;
+    }
+    if (withSession.length > 1) {
+      setState(() => _brokerAccounts = withSession);
+      final idInstalled = await CloudityAuthBroker.isHuberaIdInstalled();
+      if (!mounted) return true;
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return true;
+      final choice = await promptHuberaAccount(
+        context,
+        withSession,
+        idInstalled: idInstalled,
+        deviceEmail: withSession.first.email,
+      );
+      if (!mounted) return true;
+      if (choice != null && !choice.addNew && choice.account != null) {
+        final account = choice.account!;
+        final plan = planDeviceAccount(
+          email: account.email,
+          accessToken: account.accessToken,
+          refreshToken: account.refreshToken,
+        );
+        if (plan.action == DeviceAccountAction.open) {
+          await _continueWithBroker(account);
+          return true;
+        }
+        _showKnownEmail(account.email);
+        return true;
+      }
+      if (choice != null && choice.addNew) {
+        setState(() {
+          _addingAccount = true;
+          _brokerPickerHidden = false;
+          _emailCtrl.clear();
+          _passwordCtrl.clear();
+        });
+      }
+      return true;
+    }
+    CloudityAuthAccount? known;
+    for (final account in device) {
+      final plan = planDeviceAccount(
+        email: account.email,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+      );
+      if (plan.fillsEmailField) {
+        known = account;
+        break;
+      }
+    }
+    if (known == null) return false;
+    _showKnownEmail(known.email);
+    return true;
+  }
+
+  void _showKnownEmail(String email) {
+    final address = email.trim();
+    if (address.isEmpty) return;
+    setState(() {
+      _addingAccount = true;
+      _brokerPickerHidden = true;
+      _emailCtrl.text = address;
       _passwordCtrl.clear();
     });
   }

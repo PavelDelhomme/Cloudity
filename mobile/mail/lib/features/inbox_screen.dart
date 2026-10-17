@@ -848,7 +848,11 @@ class _InboxScreenState extends State<InboxScreen> {
             ListTile(
               leading: const CircleAvatar(child: Icon(Icons.person_outline)),
               title: const Text('Compte Hubera'),
-              subtitle: Text(widget.session.api.baseUrl),
+              subtitle: const Text('Choisir un compte'),
+              onTap: () {
+                Navigator.pop(context);
+                HuberaAccountSwitch.requestChooser();
+              },
             ),
             const Divider(),
             Padding(

@@ -31,7 +31,17 @@ function cloudityEarlyHtmlRoutes() {
     name: 'cloudity-early-html-routes',
     enforce: 'pre',
     configureServer(server) {
+      const nightNote = path.resolve(
+        __dirname,
+        '../../../../../HuberaCloud/products/docs/content/reports/2026-10-16-nuit.md',
+      )
       server.middlewares.use((req, res, next) => {
+        const pathOnly = (req.url || '').split('?')[0]
+        if (pathOnly === '/fixture-nuit.md') {
+          res.setHeader('Content-Type', 'text/markdown; charset=utf-8')
+          res.end(fs.readFileSync(nightNote))
+          return
+        }
         const u = req.url || ''
         if (u === '/favicon.ico' || u.startsWith('/favicon.ico?')) {
           res.statusCode = 302
@@ -43,10 +53,10 @@ function cloudityEarlyHtmlRoutes() {
           next()
           return
         }
-        const pathOnly = u.split('?')[0]
+        const routePath = u.split('?')[0]
         // Ne pas intercepter `/admin/*` : ce préfixe est réservé aux API gateway (proxy Vite
         // ci-dessous). L’UI back-office est servie via `/4dm1n` → admin.html uniquement.
-        if (pathOnly === '/4dm1n' || pathOnly.startsWith('/4dm1n/')) {
+        if (routePath === '/4dm1n' || routePath.startsWith('/4dm1n/')) {
           const q = u.includes('?') ? u.slice(u.indexOf('?')) : ''
           req.url = '/admin.html' + q
         } else if (u === '/app' || u === '/app/' || u.startsWith('/app?') || u.startsWith('/app/')) {
@@ -59,6 +69,7 @@ function cloudityEarlyHtmlRoutes() {
 }
 
 export default defineConfig({
+  cacheDir: process.env.VITE_CACHE_DIR || 'node_modules/.vite',
   plugins: [cloudityEarlyHtmlRoutes(), react()],
   optimizeDeps: {
     include: ['pdfjs-dist'],
@@ -125,6 +136,12 @@ export default defineConfig({
       '/drive': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/contacts': { target: 'http://api-gateway:8000', changeOrigin: true },
       '/health': { target: 'http://api-gateway:8000', changeOrigin: true },
+      '/docs-cahier': {
+        target: 'https://docs.hubera.cloud',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (p) => p.replace(/^\/docs-cahier/, ''),
+      },
     },
   },
   build: {

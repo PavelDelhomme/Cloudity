@@ -50,6 +50,11 @@ void main() {
     expect(places[2].columnCount, 1);
   });
 
+  test('ligne d’heure à 10h30', () {
+    final top = calendarNowLineTop(DateTime(2026, 10, 17, 10, 30));
+    expect(top, 10.5 * kCalendarHourPx);
+  });
+
   test('créneau depuis offset', () {
     final day = DateTime(2026, 10, 8);
     final slot = calendarSlotFromOffset(day, 9 * kCalendarHourPx, 24 * kCalendarHourPx);

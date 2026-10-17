@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -19,6 +19,11 @@ import PilotagePage from './pages/admin/PilotagePage'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { StackHealthGate } from './components/StackHealthGate'
 import { AdminAccessGate } from './AdminAccessGate'
+import { applyAdminTheme, readAdminTheme } from './pages/admin/adminTheme'
+
+const ReportFixturePage = import.meta.env.DEV
+  ? React.lazy(() => import('./pages/admin/ReportFixturePage'))
+  : null
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +38,16 @@ const queryClient = new QueryClient({
 export function AdminAppRoutes() {
   return (
     <Routes>
+      {ReportFixturePage ? (
+        <Route
+          path="/4dm1n/apercu-rapport"
+          element={
+            <React.Suspense fallback={<p className="p-6 text-base">Chargement…</p>}>
+              <ReportFixturePage />
+            </React.Suspense>
+          }
+        />
+      ) : null}
       <Route
         path="/4dm1n"
         element={
@@ -75,6 +90,20 @@ export function AdminAppRoutes() {
 }
 
 export default function AdminApp() {
+  useEffect(() => {
+    applyAdminTheme(readAdminTheme())
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => applyAdminTheme(readAdminTheme())
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  if (import.meta.env.DEV && window.location.pathname.startsWith('/4dm1n/apercu-rapport')) {
+    return (
+      <React.Suspense fallback={<p className="p-6 text-base">Chargement…</p>}>
+        {ReportFixturePage ? <ReportFixturePage /> : null}
+      </React.Suspense>
+    )
+  }
   return (
     <QueryClientProvider client={queryClient}>
       <AppErrorBoundary>

@@ -9,6 +9,7 @@ abstract final class MailStandardFolders {
   static const all = 'all';
   static const unified = 'unified';
   static const scheduled = 'scheduled';
+  static const starred = 'starred';
 
   static const standardSet = {
     inbox,
@@ -20,6 +21,7 @@ abstract final class MailStandardFolders {
     all,
     unified,
     scheduled,
+    starred,
   };
 
   /// Libellés UI (français, vocabulaire commun web/mobile).
@@ -33,6 +35,7 @@ abstract final class MailStandardFolders {
     all: 'Tous les messages (reçus)',
     unified: 'Vue unifiée',
     scheduled: 'Programmée',
+    starred: 'Favoris',
   };
 
   static String labelFor(String folder) =>

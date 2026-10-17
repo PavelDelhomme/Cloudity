@@ -16,7 +16,7 @@ Future<void> main() async {
     home: SuiteAppShell<UserSession>(
       suiteApp: ClouditySuiteApp.cook,
       restoreSession: _restoreSession,
-      clearSession: SessionStore.clearTokens,
+      clearSession: SessionStore.clearLocalTokens,
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
@@ -31,9 +31,23 @@ Future<void> main() async {
         accessToken: session.accessToken,
         userEmail: null,
         onLogout: onLogout,
+        refreshAccess: () => _refreshCookAccess(session),
       ),
     ),
   );
+}
+
+Future<String?> _refreshCookAccess(UserSession session) async {
+  if (session.refreshToken.trim().isEmpty) return null;
+  try {
+    final pair = await session.api.refreshTokens(session.refreshToken);
+    session.accessToken = pair.access;
+    session.refreshToken = pair.refresh;
+    await session.persist();
+    return session.accessToken;
+  } catch (_) {
+    return null;
+  }
 }
 
 Future<UserSession?> _restoreSession() async {

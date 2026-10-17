@@ -13,12 +13,16 @@ class CookHomeScreen extends StatefulWidget {
     required this.accessToken,
     required this.userEmail,
     required this.onLogout,
+    this.refreshAccess,
   });
 
   final String gatewayBase;
   final String accessToken;
   final String? userEmail;
   final Future<void> Function() onLogout;
+
+  /// Renouvelle le jeton. `null` ou vide = session morte.
+  final Future<String?> Function()? refreshAccess;
 
   @override
   State<CookHomeScreen> createState() => _CookHomeScreenState();
@@ -44,21 +48,52 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
   }
 
   Future<void> _reload() async {
+    final cached = await CookStore.readCache();
+    if (!mounted) return;
     setState(() {
-      _loading = true;
+      if (cached != null) _data = cached;
+      _loading = cached == null;
       _error = null;
     });
     try {
-      final data = await _store.load();
+      if (_store.accessToken.trim().isEmpty && widget.refreshAccess != null) {
+        final next = await widget.refreshAccess!();
+        if (next != null && next.trim().isNotEmpty) {
+          _store.accessToken = next.trim();
+        }
+      }
+      final result = await _store.load(refresh: widget.refreshAccess);
       if (!mounted) return;
       setState(() {
-        _data = data;
+        _data = result.data;
         _loading = false;
+        _error = null;
       });
+      if (result.needsAccount) HuberaAccountSwitch.requestChooser();
+    } on CookSessionRejected {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = null;
+      });
+      HuberaAccountSwitch.requestChooser();
     } catch (e) {
       if (!mounted) return;
+      final text = e.toString();
+      if (text.contains('(401)')) {
+        setState(() {
+          _loading = false;
+          _error = null;
+        });
+        HuberaAccountSwitch.requestChooser();
+        return;
+      }
+      if (cached != null) {
+        setState(() => _loading = false);
+        return;
+      }
       setState(() {
-        _error = e.toString();
+        _error = text;
         _loading = false;
       });
     }
@@ -68,6 +103,8 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     setState(() => _saving = true);
     try {
       await _store.save(_data);
+    } on CookSessionRejected {
+      if (mounted) HuberaAccountSwitch.requestChooser();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
@@ -148,12 +185,40 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
       ],
       onOpenSettings: () => setState(() => _showSettings = true),
-      onCloseSettings: () => setState(() => _showSettings = false),
+      onCloseSettings: () => setState(() {
+        _showSettings = false;
+        _tab = cookTabAfterSettingsBack();
+      }),
+      onConsumeBack: () {
+        if (_showSettings) {
+          setState(() {
+            _showSettings = false;
+            _tab = cookTabAfterSettingsBack();
+          });
+          return true;
+        }
+        final next = cookTabAfterSystemBack(_tab);
+        if (next == null) return false;
+        setState(() => _tab = next);
+        return true;
+      },
       onLogout: widget.onLogout,
+      showAppSwitcher: false,
+      showHuberaIdLink: false,
+      flushBottomBar: true,
       settingsBody: SuiteSettingsPanel(
         gatewayUrl: widget.gatewayBase,
-        appName: 'Hubera Cook',
+        appName: 'Cook',
         webAppPath: '/app/',
+        ownAppSettings: true,
+        accountEmail: widget.userEmail,
+        onCheckUpdate: () => cloudityCheckUpdateManually(
+          context,
+          gatewayBase: widget.gatewayBase,
+          appSlug: ClouditySuiteApp.cook.otaAppSlug,
+          appName: 'Hubera Cook',
+          huberaHost: ClouditySuiteApp.cook.huberaHost,
+        ),
         onLogout: () => widget.onLogout(),
       ),
       selectedBottomId: '$_tab',
@@ -164,22 +229,24 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         HuberaNavDest(id: '2', label: 'Menu', icon: Icons.calendar_view_week_outlined),
         HuberaNavDest(id: '3', label: 'Courses', icon: Icons.shopping_cart_outlined),
       ],
-      floatingActionButton: _showSettings || _tab == 1
-          ? null
-          : Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: FloatingActionButton(
-                onPressed: switch (_tab) {
-                  0 => _addPantry,
-                  3 => _addShop,
-                  _ => _suggestPlan,
-                },
-                tooltip: _tab == 0
-                    ? 'Ajouter au frigo'
-                    : (_tab == 3 ? 'Ajouter à la liste' : 'Proposer des repas'),
-                child: const Icon(Icons.add),
-              ),
-            ),
+      floatingActionButton: cookFabHandlesTap(settings: _showSettings, tab: _tab)
+          ? FloatingActionButton(
+              heroTag: 'cook-list-fab',
+              onPressed: switch (_tab) {
+                0 => _addPantry,
+                1 => _openRecipeSearch,
+                3 => _addShop,
+                _ => _suggestPlan,
+              },
+              tooltip: switch (_tab) {
+                0 => 'Ajouter au frigo',
+                1 => 'Chercher une recette',
+                3 => 'Ajouter à la liste',
+                _ => 'Proposer des repas',
+              },
+              child: Icon(_tab == 1 ? Icons.search : Icons.add),
+            )
+          : null,
       body: _showSettings ? const SizedBox.shrink() : _buildBody(),
     );
   }
@@ -514,6 +581,59 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     await _pickMealForSlot('lunch');
   }
 
+  Future<void> _openRecipeSearch() async {
+    setState(() => _tab = 1);
+    final query = TextEditingController();
+    final text = await showSuiteModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: suiteBottomSheetPadding(ctx),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Chercher une recette', style: Theme.of(ctx).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            TextField(
+              controller: query,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Recette ou ingrédient',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, query.text.trim()),
+              child: const Text('Chercher'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || text == null || text.isEmpty) return;
+    List<MealSummary> list;
+    try {
+      list = await mealDbSearch(text);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      return;
+    }
+    if (!mounted || list.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune recette')),
+        );
+      }
+      return;
+    }
+    await _openRecipe(list.first);
+  }
+
   Future<void> _generateShopping() async {
     final key = cookDayKey(_planDay);
     final day = _data.plan[key] ?? {};
@@ -542,6 +662,46 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
   }
 }
 
+class CookEmptyPantry extends StatelessWidget {
+  const CookEmptyPantry({super.key, required this.onAdd});
+
+  final VoidCallback onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        const SizedBox(height: 80),
+        Icon(
+          Icons.kitchen_outlined,
+          size: 56,
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Frigo vide',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Ajoute ce que tu as : Hubera Cook propose ensuite des recettes et complète la liste de courses.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Center(
+          child: FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PantryTab extends StatelessWidget {
   const _PantryTab({
     required this.items,
@@ -558,22 +718,7 @@ class _PantryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return ListView(
-        children: [
-          const SizedBox(height: 80),
-          Icon(Icons.kitchen_outlined, size: 56, color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-          const SizedBox(height: 12),
-          Text('Frigo vide', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium),
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Ajoute ce que tu as : Hubera Cook propose ensuite des recettes et complète la liste de courses.',
-              textAlign: TextAlign.center,
-            ),
-          ),
-          Center(child: FilledButton.icon(onPressed: onAdd, icon: const Icon(Icons.add), label: const Text('Ajouter'))),
-        ],
-      );
+      return CookEmptyPantry(onAdd: onAdd);
     }
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 88),

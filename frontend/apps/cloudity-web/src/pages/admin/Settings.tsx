@@ -1,11 +1,13 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../authContext'
 import { Card, PageLayout } from '@cloudity/ui'
 import { adminUiPath } from '@cloudity/shared'
+import { applyAdminTheme, readAdminTheme, type AdminThemeChoice } from './adminTheme'
 
 export default function Settings() {
   const { email } = useAuth()
+  const [theme, setTheme] = useState<AdminThemeChoice>(readAdminTheme)
 
   return (
     <PageLayout
@@ -75,9 +77,31 @@ export default function Settings() {
         </Card>
       </div>
 
-      <p className="mt-6 text-xs text-slate-500 dark:text-slate-400">
-        Les préférences globales admin (thème back-office, notifications ops) ne sont pas encore persistées.
-      </p>
+      <Card className="p-4 mt-4">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Thème du back-office</h3>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Suit le téléphone ou le navigateur, sauf si tu choisis clair ou sombre ici.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(['system', 'light', 'dark'] as const).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => {
+                applyAdminTheme(mode)
+                setTheme(mode)
+              }}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+                theme === mode
+                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  : 'border border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200'
+              }`}
+            >
+              {mode === 'system' ? 'Système' : mode === 'light' ? 'Clair' : 'Sombre'}
+            </button>
+          ))}
+        </div>
+      </Card>
     </PageLayout>
   )
 }

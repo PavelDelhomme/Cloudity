@@ -1,13 +1,9 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
 import 'auth/user_session.dart';
 import 'features/files_screen.dart';
-import 'updates/update_checker.dart';
 
 CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
       accessToken: s.accessToken,
@@ -32,13 +28,6 @@ Widget _driveShell() => SuiteAppShell<UserSession>(
     );
 
 Future<void> main() async {
-  unawaited(
-    HuberaUpdateChecker(slug: 'drive', currentVersion: '1.0.6').check().then((info) {
-      if (info != null) {
-        debugPrint('Hubera update drive ${info.version} ${info.apk}');
-      }
-    }),
-  );
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.drive,
     title: 'Hubera Drive',

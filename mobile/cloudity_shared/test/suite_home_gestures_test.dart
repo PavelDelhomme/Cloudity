@@ -18,6 +18,17 @@ void main() {
     expect(decideSuiteRootBack(showSettings: false), SuiteRootBack.stay);
   });
 
+  test('Cook colle la barre, les autres apps gardent la marge', () {
+    expect(
+      suiteBottomBarOuterPadding(flush: true, viewPaddingBottom: 48),
+      EdgeInsets.zero,
+    );
+    expect(
+      suiteBottomBarOuterPadding(flush: false, viewPaddingBottom: 48),
+      const EdgeInsets.only(bottom: 48),
+    );
+  });
+
   test('retour accueil ne quitte pas, paramètres se ferment', () {
     expect(
       decideSuiteRootBack(showSettings: false),

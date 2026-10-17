@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'contact_card.dart';
+import 'contact_directory.dart';
+import 'device_google_contacts.dart';
 import 'suite_product_api.dart';
 
 /// Création et modification : les mêmes champs que la fiche, en plein écran.
@@ -9,10 +11,34 @@ class ContactEditorScreen extends StatefulWidget {
     super.key,
     required this.api,
     this.existing,
+    this.directory,
+    this.accessGranted,
+    this.requestAccessOnce,
+    this.insertOnDevice,
+    this.onDeviceCopyRefused,
   });
 
   final SuiteProductApi api;
   final Map<String, dynamic>? existing;
+
+  /// `personal` ou `professional`. Absent : le profil n’est pas étiqueté (comportement actuel).
+  final String? directory;
+
+  /// Défaut : lecture Android déjà accordée, sans dialogue.
+  final Future<bool> Function()? accessGranted;
+
+  /// Défaut : une demande système, sautée si l’autorisation est déjà là.
+  final Future<bool> Function()? requestAccessOnce;
+
+  /// Défaut : copie dans le carnet du téléphone. `null` en test pour ne pas écrire.
+  final Future<DeviceWriteResult> Function({
+    required String name,
+    String phone,
+    String email,
+  })? insertOnDevice;
+
+  /// Appelé seulement si la copie téléphone a été refusée. Absent : pas de message inventé.
+  final void Function(String reason)? onDeviceCopyRefused;
 
   @override
   State<ContactEditorScreen> createState() => _ContactEditorScreenState();
@@ -211,12 +237,44 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
       final email = emails.isEmpty ? '' : emails.first.value;
       final id = widget.existing == null ? null : contactItemId(widget.existing!);
       if (id == null) {
+        final directory = widget.directory;
+        if (directory == 'personal' || directory == 'professional') {
+          final extra = profile['extra'] is Map
+              ? Map<String, dynamic>.from(profile['extra'] as Map)
+              : <String, dynamic>{};
+          extra['directory'] = directory;
+          profile['extra'] = extra;
+        }
+        final ready = await (widget.accessGranted ?? DeviceGoogleContacts.accessGranted)();
+        var step = contactCreatePermission(alreadyGranted: ready);
+        if (step == ContactCreatePermission.askOnce) {
+          final asked =
+              await (widget.requestAccessOnce ?? DeviceGoogleContacts.requestAccessOnce)();
+          step = contactCreatePermission(alreadyGranted: false, asked: asked);
+        }
+        if (step != ContactCreatePermission.proceed) {
+          if (!mounted) return;
+          setState(() {
+            _busy = false;
+            _error = 'Autorisation refusée. Le contact n’a pas été créé.';
+          });
+          return;
+        }
         await widget.api.createContact(
           name: display,
           email: email,
           phone: phone,
           profile: profile,
         );
+        final insert = widget.insertOnDevice ?? DeviceGoogleContacts.insertContact;
+        final wrote = await insert(name: display, phone: phone, email: email);
+        if (!wrote.ok) {
+          widget.onDeviceCopyRefused?.call(
+            wrote.reason.isEmpty
+                ? 'Le téléphone n’a pas enregistré la copie du contact.'
+                : wrote.reason,
+          );
+        }
       } else {
         await widget.api.updateContact(
           id: id,

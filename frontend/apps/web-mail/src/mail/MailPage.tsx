@@ -91,6 +91,7 @@ import {
   fetchMailMessage,
   downloadMailAttachment,
   markMailMessageRead,
+  markMailMessageStarred,
   markMailMessagesReadBulk,
   moveMailMessageToFolder,
   moveMailMessagesToFolderBulk,
@@ -1913,6 +1914,15 @@ export default function MailPage() {
     }
     return byKey
   }, [dedupedVisibleMessages])
+  const threadAttachmentCountByKey = useMemo(() => {
+    const byKey = new Map<string, number>()
+    for (const m of dedupedVisibleMessages) {
+      const key = (m.thread_key || '').trim() || `msg:${m.id}`
+      const n = m.attachment_count ?? 0
+      byKey.set(key, Math.max(byKey.get(key) ?? 0, n))
+    }
+    return byKey
+  }, [dedupedVisibleMessages])
   const listMessages = useMemo(() => {
     if (!conversationListMode || conversationThreadKey) return dedupedVisibleMessages
     const bestByKey = new Map<string, (typeof dedupedVisibleMessages)[number]>()
@@ -2851,6 +2861,21 @@ export default function MailPage() {
         }, 2800)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Erreur')
+      }
+    },
+    [accessToken, queryClient]
+  )
+
+  const handleToggleMessageStar = useCallback(
+    async (accountId: number, messageId: number, starred: boolean) => {
+      if (!accessToken) return
+      try {
+        await markMailMessageStarred(accessToken, accountId, messageId, starred)
+        await queryClient.invalidateQueries({ queryKey: ['mail', 'messages'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'folder-summary'] })
+        void queryClient.invalidateQueries({ queryKey: ['mail', 'message'] })
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Impossible de modifier le favori.')
       }
     },
     [accessToken, queryClient]
@@ -4040,6 +4065,7 @@ export default function MailPage() {
   const showMailReadPane = !mailCompactUi || mailMobilePane === 'read'
   const mailMobileFolderTitle = useMemo(() => {
     if (activeFolder === 'all') return 'Tous les dossiers'
+    if (activeFolder === 'starred') return 'Favoris'
     if (activeFolder === 'unified') return 'Unifié'
     if (activeFolder === 'scheduled') return 'Programmée'
     const std = FOLDERS.find((f) => f.id === activeFolder)
@@ -4575,6 +4601,22 @@ export default function MailPage() {
               <button
                 type="button"
                 onClick={() => {
+                  setActiveFolder('starred')
+                  resetMailFilters()
+                }}
+                className={`flex w-full items-center rounded-lg text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center p-2' : 'gap-2 px-3 py-2.5'} ${
+                  activeFolder === 'starred'
+                    ? 'bg-brand-100 text-brand-900 dark:bg-brand-900/60 dark:text-brand-50 ring-1 ring-inset ring-brand-500/35 dark:ring-brand-300/35'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'
+                }`}
+                title="Favoris"
+              >
+                <Star className={`h-4 w-4 flex-shrink-0 ${activeFolder === 'starred' ? 'fill-amber-400 text-amber-500' : ''}`} />
+                {!sidebarCollapsed && <span className="flex-1 text-left truncate">Favoris</span>}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   setActiveFolder('all')
                   resetMailFilters()
                 }}
@@ -5070,6 +5112,10 @@ export default function MailPage() {
                       {listMessages.map((msg) => {
                         const threadKey = (msg.thread_key || '').trim() || `msg:${msg.id}`
                         const threadCount = threadCountByKey.get(threadKey) ?? 1
+                        const attachmentCount =
+                          conversationListMode && !conversationThreadKey
+                            ? Math.max(msg.attachment_count ?? 0, threadAttachmentCountByKey.get(threadKey) ?? 0)
+                            : (msg.attachment_count ?? 0)
                         const senderKey = extractEmailFromSender(msg.from)?.toLowerCase()
                         const rowContact = senderKey ? contactsByEmail.get(senderKey) ?? null : null
                         const isUnread = !msg.is_read
@@ -5209,13 +5255,26 @@ export default function MailPage() {
                                   ) : null}
                                 </p>
                                 <span className="flex items-center gap-2 shrink-0">
-                                  {(msg.attachment_count ?? 0) > 0 ? (
+                                  <button
+                                    type="button"
+                                    className="inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-slate-200/80 dark:hover:bg-slate-600"
+                                    title={msg.is_starred ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                                    aria-label={msg.is_starred ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      void handleToggleMessageStar(msg.account_id, msg.id, !msg.is_starred)
+                                    }}
+                                  >
+                                    <Star className={`h-4 w-4 ${msg.is_starred ? 'fill-amber-400 text-amber-500' : 'text-slate-400 dark:text-slate-300'}`} aria-hidden />
+                                  </button>
+                                  {attachmentCount > 0 ? (
                                     <span
-                                      className="inline-flex items-center gap-0.5 text-xs text-slate-500 dark:text-slate-400"
-                                      title={`${msg.attachment_count} pièce(s) jointe(s)`}
+                                      className="inline-flex items-center gap-1 rounded-md bg-slate-200/90 dark:bg-slate-600 px-1.5 py-0.5 text-xs font-medium text-slate-800 dark:text-slate-100"
+                                      title={attachmentCount === 1 ? '1 pièce jointe' : `${attachmentCount} pièces jointes`}
+                                      aria-label={attachmentCount === 1 ? 'Pièce jointe' : `${attachmentCount} pièces jointes`}
                                     >
-                                      <Paperclip className="h-3.5 w-3.5" aria-hidden />
-                                      {msg.attachment_count}
+                                      <Paperclip className="h-4 w-4 shrink-0" aria-hidden />
+                                      <span>PJ</span>
                                     </span>
                                   ) : null}
                                   <span className="text-xs text-slate-500 dark:text-slate-400">
@@ -5655,7 +5714,7 @@ export default function MailPage() {
                                       }
                                       className="flex flex-1 min-w-0 items-center gap-2 text-left"
                                     >
-                                      <Download className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                                      <Download className="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-300" aria-hidden />
                                       <span className="flex-1 min-w-0 truncate font-medium text-slate-800 dark:text-slate-100">{att.filename}</span>
                                       <span className="text-xs text-slate-500 shrink-0 tabular-nums">
                                         {att.size_bytes > MAIL_INLINE_ATTACHMENT_MAX_BYTES
@@ -6640,6 +6699,28 @@ export default function MailPage() {
         onConnectImap={handleConnectEmail}
       />
 
+      <button
+        type="button"
+        className="fixed z-40 inline-flex items-center gap-2 rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700 dark:bg-brand-500 dark:hover:bg-brand-400"
+        style={{
+          right: 'max(1.25rem, env(safe-area-inset-right))',
+          bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+        }}
+        aria-label="Nouveau message"
+        title="Nouveau message"
+        onClick={() => {
+          if (accounts.length === 0) {
+            toast('Aucune boîte n’est reliée. Ajoute une boîte pour écrire.')
+            return
+          }
+          const only = accounts.length === 1 ? accounts[0] : null
+          openNewCompose({ accountId: only?.id ?? effectiveAccountId ?? accounts[0]?.id })
+        }}
+      >
+        <PenLine className="h-4 w-4 shrink-0" aria-hidden />
+        Nouveau message
+      </button>
+
       {composeSlots.map((slot, index) => (
         <div
           key={slot.id}
@@ -6663,10 +6744,10 @@ export default function MailPage() {
           >
             <h2 id={`compose-title-${slot.id}`} className="text-base font-semibold text-slate-900 dark:text-slate-100 truncate flex-1">{slot.title || 'Nouveau message'}</h2>
             <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-              <button data-compose-header-action="true" type="button" onClick={() => updateSlot(slot.id, { minimized: !slot.minimized })} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" title={slot.minimized ? 'Agrandir' : 'Réduire en barre'}>
+              <button data-compose-header-action="true" type="button" onClick={() => updateSlot(slot.id, { minimized: !slot.minimized })} className="p-2 rounded-lg text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" title={slot.minimized ? 'Agrandir' : 'Réduire en barre'}>
                 {slot.minimized ? <Maximize2 className="h-5 w-5" /> : <Minimize2 className="h-5 w-5" />}
               </button>
-              <button data-compose-header-action="true" type="button" onClick={() => closeSlot(slot.id)} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer">
+              <button data-compose-header-action="true" type="button" onClick={() => closeSlot(slot.id)} className="p-2 rounded-lg text-slate-600 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Fermer">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -6688,6 +6769,30 @@ export default function MailPage() {
                       {composeFromOptions.map((em) => (
                         <option key={em} value={em}>
                           {em}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+                {accounts.length > 1 ? (
+                  <div>
+                    <label htmlFor={`mail-box-${slot.id}`} className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Boîte</label>
+                    <select
+                      id={`mail-box-${slot.id}`}
+                      value={String(slot.sendAccountId ?? effectiveAccountId ?? accounts[0]?.id ?? '')}
+                      onChange={(e) => {
+                        const id = Number(e.target.value)
+                        const chosen = accounts.find((a) => a.id === id)
+                        updateSlot(slot.id, {
+                          sendAccountId: id,
+                          fromAddress: chosen?.email ?? slot.fromAddress,
+                        })
+                      }}
+                      className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {(a.label && a.label.trim()) || a.email}
                         </option>
                       ))}
                     </select>

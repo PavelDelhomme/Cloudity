@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'calendar_visibility.dart';
 import 'cloudity_datetime.dart';
 
 const double kCalendarHourPx = 48;
@@ -136,6 +139,12 @@ bool calendarItemAllDay(Map<String, dynamic> item) {
   return cloudityIsAllDay(start, end);
 }
 
+/// Position verticale de la ligne d’heure, en pixels depuis minuit.
+double calendarNowLineTop(DateTime now) {
+  final minutes = now.hour * 60 + now.minute + now.second / 60.0;
+  return (minutes / 60.0) * kCalendarHourPx;
+}
+
 DateTime calendarSlotFromOffset(DateTime day, double dy, double columnHeight) {
   final hours = kCalendarEndHour - kCalendarStartHour;
   final h = kCalendarStartHour + (dy.clamp(0, columnHeight) / columnHeight) * hours;
@@ -160,7 +169,11 @@ class CalendarTimeGrid extends StatefulWidget {
     this.itemTitle,
     this.isTask,
     this.showDayHeaders = true,
+    this.showAllDay = true,
+    this.onDayHeaderTap,
     this.revealHour,
+    this.showNowLine = true,
+    this.eventColor,
   });
 
   final List<DateTime> days;
@@ -172,8 +185,19 @@ class CalendarTimeGrid extends StatefulWidget {
   final bool Function(Map<String, dynamic> item)? isTask;
   final bool showDayHeaders;
 
+  /// Bandeau des événements journée entière. Le jour unique peut le masquer.
+  final bool showAllDay;
+
+  final void Function(DateTime day)? onDayHeaderTap;
+
   /// Heure amenée près du haut. La grille reste 0h–23h, scrollable.
   final int? revealHour;
+
+  /// Ligne rouge de l’heure actuelle, uniquement sur la colonne d’aujourd’hui.
+  final bool showNowLine;
+
+  /// Couleur d’un événement (agenda). Sinon [accent].
+  final Color Function(Map<String, dynamic> item)? eventColor;
 
   @override
   State<CalendarTimeGrid> createState() => _CalendarTimeGridState();
@@ -181,16 +205,25 @@ class CalendarTimeGrid extends StatefulWidget {
 
 class _CalendarTimeGridState extends State<CalendarTimeGrid> {
   late final ScrollController _scroll;
+  Timer? _tick;
+  DateTime _now = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     final hour = (widget.revealHour ?? 0).clamp(0, 20);
     _scroll = ScrollController(initialScrollOffset: hour * kCalendarHourPx);
+    if (widget.showNowLine) {
+      _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (!mounted) return;
+        setState(() => _now = DateTime.now());
+      });
+    }
   }
 
   @override
   void dispose() {
+    _tick?.cancel();
     _scroll.dispose();
     super.dispose();
   }
@@ -209,11 +242,12 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
     final theme = Theme.of(context);
     final hours = kCalendarEndHour - kCalendarStartHour;
     final gridH = hours * kCalendarHourPx;
-    final today = calendarStartOfDay(DateTime.now());
+    final today = calendarStartOfDay(_now);
     final line = theme.colorScheme.outlineVariant;
-    final hasAllDay = widget.days.any(
-      (d) => widget.items.any((it) => _allDayOn(it, d)),
-    );
+    final hasAllDay = widget.showAllDay &&
+        widget.days.any(
+          (d) => widget.items.any((it) => _allDayOn(it, d)),
+        );
     return Column(
       children: [
         if (widget.showDayHeaders)
@@ -222,18 +256,40 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
               const SizedBox(width: 48),
               for (final d in widget.days)
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(2, 8, 2, 6),
-                    child: Text(
-                      '${_wd(d)} ${d.day}',
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: calendarStartOfDay(d) == today
-                            ? widget.accent
-                            : theme.colorScheme.onSurface,
+                  child: InkWell(
+                    onTap: widget.onDayHeaderTap == null
+                        ? null
+                        : () => widget.onDayHeaderTap!(d),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 6, 2, 4),
+                      child: Column(
+                        children: [
+                          Text(
+                            _wd(d).replaceAll('.', ''),
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          Container(
+                            width: 28,
+                            height: 28,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: calendarStartOfDay(d) == today ? widget.accent : null,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${d.day}',
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: calendarStartOfDay(d) == today
+                                    ? theme.colorScheme.onPrimary
+                                    : theme.colorScheme.onSurface,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -255,9 +311,7 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
                           Padding(
                             padding: const EdgeInsets.fromLTRB(2, 0, 2, 2),
                             child: Material(
-                              color: widget.isTask?.call(item) == true
-                                  ? const Color(0xFF188038)
-                                  : widget.accent,
+                              color: _blockColor(item),
                               borderRadius: BorderRadius.circular(4),
                               child: InkWell(
                                 onTap: () => widget.onEventTap(item),
@@ -376,9 +430,50 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
                 ),
               for (var i = 0; i < timed.length; i++)
                 _eventBlock(context, timed[i], segs[i], places[i], width),
+              if (widget.showNowLine && calendarStartOfDay(day) == calendarStartOfDay(_now))
+                _nowLine(),
             ],
           );
         },
+      ),
+    );
+  }
+
+  Color _blockColor(Map<String, dynamic> item) {
+    if (widget.isTask?.call(item) == true) return const Color(0xFF188038);
+    return widget.eventColor?.call(item) ?? widget.accent;
+  }
+
+  Widget _nowLine() {
+    final top = calendarNowLineTop(_now);
+    return Positioned(
+      key: const Key('calendar-now-line'),
+      top: top - 4,
+      left: 0,
+      right: 0,
+      height: 10,
+      child: const IgnorePointer(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: kCalendarNowLine,
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox(width: 8, height: 8),
+            ),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ColoredBox(
+                  color: kCalendarNowLine,
+                  child: SizedBox(width: double.infinity, height: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -406,7 +501,7 @@ class _CalendarTimeGridState extends State<CalendarTimeGrid> {
       width: blockW.clamp(0.0, columnWidth),
       height: (height - 2).clamp(16.0, gridMaxHeight),
       child: Material(
-        color: task ? const Color(0xFF188038) : widget.accent,
+        color: _blockColor(item),
         borderRadius: BorderRadius.circular(6),
         child: InkWell(
           onTap: () => widget.onEventTap(item),

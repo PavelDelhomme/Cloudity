@@ -1,14 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cloudity_shared/app_theme.dart';
+import 'package:cloudity_shared/ota_update.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/user_session.dart';
 import '../features/tenants_screen.dart';
 import 'docs_api.dart';
 import 'markdown_view.dart';
+import 'report_open.dart';
 
 const _apps = [
   'music', 'maps', 'fuel', 'docs', 'admin', 'pass', 'drive', 'mail',
@@ -39,6 +41,7 @@ class _DocsCockpitState extends State<DocsCockpit> {
   String _email = '';
   bool _fabOpen = false;
   String? _inboxKind;
+  Map<String, dynamic>? _pendingReport;
 
   static const _titles = {
     'home': 'Docs',
@@ -74,12 +77,13 @@ class _DocsCockpitState extends State<DocsCockpit> {
     }
   }
 
-  void _go(String id, {String? inboxKind}) {
+  void _go(String id, {String? inboxKind, Map<String, dynamic>? report}) {
     setState(() {
       _tab = id;
       _nestedTitle = null;
       _nestedBack = null;
       _fabOpen = false;
+      _pendingReport = report;
       if (id == 'inbox' && inboxKind != null) _inboxKind = inboxKind;
       if (id != 'inbox') _inboxKind = null;
     });
@@ -120,11 +124,6 @@ class _DocsCockpitState extends State<DocsCockpit> {
                       builder: (_) => TenantsScreen(session: widget.session),
                     ),
                   );
-                } else if (i == 7) {
-                  launchUrl(
-                    Uri.parse('https://cloudity.delhomme.ovh/4dm1n'),
-                    mode: LaunchMode.externalApplication,
-                  );
                 }
               },
               children: const [
@@ -139,7 +138,6 @@ class _DocsCockpitState extends State<DocsCockpit> {
                 NavigationDrawerDestination(icon: Icon(Icons.feedback_outlined), selectedIcon: Icon(Icons.feedback), label: Text('Retours')),
                 NavigationDrawerDestination(icon: Icon(Icons.timeline_outlined), selectedIcon: Icon(Icons.timeline), label: Text('Gantt')),
                 NavigationDrawerDestination(icon: Icon(Icons.business_outlined), selectedIcon: Icon(Icons.business), label: Text('Tenants')),
-                NavigationDrawerDestination(icon: Icon(Icons.open_in_browser), selectedIcon: Icon(Icons.open_in_browser), label: Text('Console web')),
               ],
             ),
       appBar: AppBar(
@@ -258,13 +256,22 @@ class _DocsCockpitState extends State<DocsCockpit> {
       case 'docs':
         return _FilesScreen(api: _docs, onNested: _setNested);
       case 'pdf':
-        return _ReportsScreen(api: _docs, onNested: _setNested);
+        return _ReportsScreen(
+          key: ValueKey(_pendingReport?['filename'] ?? 'liste'),
+          api: _docs,
+          onNested: _setNested,
+          initial: _pendingReport,
+        );
       case 'inbox':
         return _InboxScreen(api: _docs, initialKind: _inboxKind);
       case 'gantt':
         return _GanttScreen(api: _docs);
       case 'account':
-        return _AccountScreen(email: _email, onLogout: widget.onLogout);
+        return _AccountScreen(
+          email: _email,
+          gatewayBase: widget.session.api.baseUrl,
+          onLogout: widget.onLogout,
+        );
       default:
         return _HomeScreen(api: _docs, onGo: _go);
     }
@@ -274,7 +281,7 @@ class _DocsCockpitState extends State<DocsCockpit> {
 class _HomeScreen extends StatefulWidget {
   const _HomeScreen({required this.api, required this.onGo});
   final DocsApi api;
-  final void Function(String) onGo;
+  final void Function(String tab, {Map<String, dynamic>? report}) onGo;
 
   @override
   State<_HomeScreen> createState() => _HomeScreenState();
@@ -325,9 +332,12 @@ class _HomeScreenState extends State<_HomeScreen> {
         Text('Rapports', style: Theme.of(context).textTheme.titleMedium),
         for (final r in reports)
           ListTile(
-            title: Text(r['title']?.toString() ?? ''),
-            subtitle: Text(r['summary']?.toString() ?? ''),
-            onTap: () => widget.onGo('pdf'),
+            title: Text(r['title']?.toString() ?? 'Rapport'),
+            subtitle: Text(
+              r['filename']?.toString() ?? '',
+              style: const TextStyle(fontSize: 14),
+            ),
+            onTap: () => widget.onGo('pdf', report: Map<String, dynamic>.from(r as Map)),
           ),
         Text('Tâches', style: Theme.of(context).textTheme.titleMedium),
         for (final t in tasks)
@@ -604,9 +614,10 @@ class _FilesScreenState extends State<_FilesScreen> {
 }
 
 class _ReportsScreen extends StatefulWidget {
-  const _ReportsScreen({required this.api, required this.onNested});
+  const _ReportsScreen({super.key, required this.api, required this.onNested, this.initial});
   final DocsApi api;
   final void Function(String?, VoidCallback?) onNested;
+  final Map<String, dynamic>? initial;
 
   @override
   State<_ReportsScreen> createState() => _ReportsScreenState();
@@ -623,9 +634,26 @@ class _ReportsScreenState extends State<_ReportsScreen> {
   @override
   void initState() {
     super.initState();
-    widget.api.reports().then((r) {
-      if (mounted) setState(() => _reports = r);
-    });
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    try {
+      final r = await widget.api.reports();
+      if (!mounted) return;
+      setState(() => _reports = r);
+      final initial = widget.initial;
+      if (initial != null) {
+        await _openReport(Map<String, dynamic>.from(initial), known: r);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _md = 'Impossible de charger les rapports.\n$e';
+        _loading = false;
+        _open = widget.initial ?? const {'title': 'Rapport'};
+      });
+    }
   }
 
   void _close() {
@@ -637,7 +665,7 @@ class _ReportsScreenState extends State<_ReportsScreen> {
     widget.onNested(null, null);
   }
 
-  Future<void> _openReport(Map<String, dynamic> r) async {
+  Future<void> _openReport(Map<String, dynamic> r, {List<dynamic>? known}) async {
     setState(() {
       _open = r;
       _md = null;
@@ -645,10 +673,16 @@ class _ReportsScreenState extends State<_ReportsScreen> {
       _loading = true;
     });
     widget.onNested(r['title']?.toString() ?? 'Rapport', _close);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     try {
       final name = r['filename']?.toString() ?? '';
-      final bytes = await widget.api.reportBytes(name);
-      if (name.toLowerCase().endsWith('.md') || r['kind'] == 'md') {
+      final list = known ?? _reports;
+      final names = list.map((e) => e is Map ? (e['filename']?.toString() ?? '') : '').where((s) => s.isNotEmpty);
+      final note = companionNoteName(name, names);
+      final fileToRead = (note != null && note.isNotEmpty) ? note : name;
+      final bytes = await widget.api.reportBytes(fileToRead);
+      final lower = fileToRead.toLowerCase();
+      if (lower.endsWith('.md') || lower.endsWith('.txt') || r['kind'] == 'md') {
         if (!mounted) return;
         setState(() {
           _md = utf8.decode(bytes);
@@ -656,8 +690,20 @@ class _ReportsScreenState extends State<_ReportsScreen> {
         });
         return;
       }
+      if (lower.endsWith('.html')) {
+        if (!mounted) return;
+        setState(() {
+          _md = htmlReportToPlain(utf8.decode(bytes));
+          _loading = false;
+        });
+        return;
+      }
       final f = await widget.api.saveTemp(name.replaceAll('/', '_'), bytes);
-      final pages = await _pdf.invokeMethod<List<dynamic>>('render', {'path': f.path});
+      final pages = await _pdf.invokeMethod<List<dynamic>>('render', {
+        'path': f.path,
+        'dpr': dpr,
+        'minTextPx': 16,
+      });
       if (!mounted) return;
       setState(() {
         _pages = (pages ?? const []).map((e) => e.toString()).toList();
@@ -693,19 +739,30 @@ class _ReportsScreenState extends State<_ReportsScreen> {
     }
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_md != null) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: MarkdownView(_md!),
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth - 40),
+            child: MarkdownView(_md!),
+          ),
+        ),
       );
     }
-    return ListView(
-      children: [
-        for (final p in _pages)
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Image.file(File(p)),
-          ),
-      ],
+    return InteractiveViewer(
+      constrained: false,
+      minScale: 0.5,
+      maxScale: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final p in _pages)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.file(File(p), filterQuality: FilterQuality.medium),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -891,18 +948,53 @@ class _GanttScreenState extends State<_GanttScreen> {
 }
 
 class _AccountScreen extends StatelessWidget {
-  const _AccountScreen({required this.email, required this.onLogout});
+  const _AccountScreen({
+    required this.email,
+    required this.gatewayBase,
+    required this.onLogout,
+  });
   final String email;
+  final String gatewayBase;
   final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(email.isEmpty ? 'Connecté' : email, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        const Text('Mise à jour jamais forcée. Hubera Docs vit ici, dans Admin — kanban, docs, rapports, retours, Gantt.'),
+        Text('Compte', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(email.isEmpty ? 'Connecté' : email, style: theme.textTheme.titleMedium),
+        const SizedBox(height: 16),
+        Text('Affichage', style: theme.textTheme.titleSmall),
+        Builder(
+          builder: (context) {
+            final themeState = CloudityThemedAppScope.maybeOf(context);
+            if (themeState == null) return const SizedBox.shrink();
+            return CloudityThemeModeTile(
+              mode: themeState.themeMode,
+              onChanged: themeState.setThemeMode,
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text('Application', style: theme.textTheme.titleSmall),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.system_update_alt),
+          title: const Text('Vérifier les mises à jour'),
+          subtitle: const Text(
+            'En plus de la détection automatique. Proposée, jamais forcée.',
+          ),
+          onTap: () => cloudityCheckUpdateManually(
+            context,
+            gatewayBase: gatewayBase,
+            appSlug: 'cloudity_admin',
+            appName: 'Hubera Admin',
+            huberaHost: 'cloudity.delhomme.ovh',
+          ),
+        ),
         const SizedBox(height: 16),
         TextButton.icon(
           onPressed: onLogout,

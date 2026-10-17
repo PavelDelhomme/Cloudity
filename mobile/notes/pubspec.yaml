@@ -1,7 +1,7 @@
 name: cloudity_notes
 description: "Hubera Notes — notes, listes et rappels."
 publish_to: 'none'
-version: 0.1.6+7
+version: 0.1.16+17
 environment:
   sdk: ^3.11.4
 dependencies:

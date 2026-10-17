@@ -25,6 +25,16 @@ Future<void> suiteLaunchWebPath(String gatewayUrl, String webPath) async {
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }
 
+/// Marge sous la barre. Cook (`flush`) n’en ajoute pas : le [NavigationBar]
+/// respecte déjà la zone système. Les autres apps gardent la marge historique.
+EdgeInsets suiteBottomBarOuterPadding({
+  required bool flush,
+  required double viewPaddingBottom,
+}) {
+  if (flush || viewPaddingBottom <= 0) return EdgeInsets.zero;
+  return EdgeInsets.only(bottom: viewPaddingBottom);
+}
+
 /// En-tête drawer Hubera (compte + accent produit).
 class SuiteDrawerHeader extends StatelessWidget {
   const SuiteDrawerHeader({
@@ -88,21 +98,29 @@ class SuiteDrawerHeader extends StatelessWidget {
   }
 }
 
-/// Grille « autres apps Hubera » (schéma Google Photos / Drive / Keep…).
+/// Grille « autres apps Hubera ».
+///
+/// [showApps] est vrai par défaut : Mail, Drive, Agenda, etc. gardent la liste.
+/// Hubera Photos passe `false` — la grille n’a pas sa place dans son drawer.
 class SuiteAppSwitcher extends StatelessWidget {
   const SuiteAppSwitcher({
     super.key,
     required this.currentApp,
     this.gatewayUrl,
     this.onOtherAppTap,
+    this.showApps = true,
   });
 
   final ClouditySuiteApp currentApp;
   final String? gatewayUrl;
   final void Function(ClouditySuiteApp app)? onOtherAppTap;
 
+  /// Défaut inchangé : la liste est visible. Seul Photos la coupe.
+  final bool showApps;
+
   @override
   Widget build(BuildContext context) {
+    if (!showApps) return const SizedBox.shrink();
     final apps = ClouditySuiteAppMeta.consumerApps;
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -291,7 +309,11 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.onBottomSelected,
     this.huberaProduct,
     this.showAppSwitcher = true,
+    this.flushBottomBar = false,
     this.onConsumeBack,
+    this.titleWidget,
+    this.showHuberaIdLink = true,
+    this.showAccountSettings = true,
   });
 
   final ClouditySuiteApp currentApp;
@@ -316,9 +338,22 @@ class SuiteDrawerScaffold extends StatelessWidget {
   /// Calendar : pas les autres apps Hubera dans le drawer (C1).
   final bool showAppSwitcher;
 
+  /// Cook : la barre colle au bord utile. Le [NavigationBar] garde la zone système.
+  /// Défaut : marge basse historique des autres apps.
+  final bool flushBottomBar;
+
   /// Retour sur un écran interne (onglet, recherche). `true` si la page a bougé.
   /// L’accueil racine ne pop jamais : le retour ne quitte pas l’app.
   final bool Function()? onConsumeBack;
+
+  /// Remplace le titre texte. Défaut null : [title] inchangé pour les autres apps.
+  final Widget? titleWidget;
+
+  /// Défaut vrai. Contacts le met à faux pour ne pas ouvrir Hubera ID.
+  final bool showHuberaIdLink;
+
+  /// Défaut vrai. Agenda le coupe pour ne pas doubler le « Paramètres » du drawer.
+  final bool showAccountSettings;
 
   Widget _buildDrawer(BuildContext context) {
     return Drawer(
@@ -374,7 +409,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(title),
+          title: titleWidget ?? Text(title),
           centerTitle: false,
           actions: [
             ...appBarActions,
@@ -382,7 +417,11 @@ class SuiteDrawerScaffold extends StatelessWidget {
               onTap: onAccountTap ?? onOpenSettings,
               email: userEmail,
               onOpenSettings: onOpenSettings,
-              onOpenHuberaId: () => openHuberaProduct(HuberaProduct.id),
+              showHuberaId: showHuberaIdLink,
+              showAppSettings: showAccountSettings,
+              onOpenHuberaId: showHuberaIdLink
+                  ? () => openHuberaProduct(HuberaProduct.id)
+                  : null,
             ),
           ],
         ),
@@ -393,7 +432,10 @@ class SuiteDrawerScaffold extends StatelessWidget {
         bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
             ? null
             : Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.viewPaddingOf(context).bottom),
+                padding: suiteBottomBarOuterPadding(
+                  flush: flushBottomBar,
+                  viewPaddingBottom: MediaQuery.viewPaddingOf(context).bottom,
+                ),
                 child: NavigationBar(
                   height: 64,
                   selectedIndex: () {

@@ -3,10 +3,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'calendar_reminder.dart';
 import 'calendar_repeat.dart';
 import 'calendar_time_grid.dart';
+import 'calendar_visibility.dart';
 import 'cloudity_crash_reporter.dart';
 import 'contact_directory.dart';
+import 'contact_editor.dart';
 import 'contact_fiche.dart';
 import 'contact_maps.dart';
 import 'device_google_contacts.dart';
@@ -20,6 +23,7 @@ import 'suite_drawer_scaffold.dart';
 import 'suite_home_gestures.dart';
 import 'suite_feedback_screen.dart';
 import 'notes_keep.dart';
+import 'ota_update.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
 
@@ -98,6 +102,25 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _deviceGoogleContacts = [];
   bool _deviceContactsLoading = false;
   bool _devicePermissionDenied = false;
+  ContactPlacement _placement = const ContactPlacement();
+  bool _placementReady = false;
+  bool _placementHadPrefs = false;
+  ContactShelf _contactShelf = ContactShelf.active;
+  String _contactsNav = 'contacts';
+  final TextEditingController _contactSearchCtrl = TextEditingController();
+  final Set<String> _selectedContactKeys = {};
+  final Map<ContactShelf, ScrollController> _contactScroll = {
+    for (final shelf in ContactShelf.values) shelf: ScrollController(),
+  };
+  BlockedNumbersView _blocked = const BlockedNumbersView(
+    canRead: false,
+    canWrite: false,
+    reason: '',
+    numbers: [],
+  );
+  bool _blockedLoading = false;
+  bool _blockedLoaded = false;
+  final TextEditingController _blockNumberField = TextEditingController();
   String? _noteLabelFilter;
   bool _notesSearchOpen = false;
   bool _notesRemindersOnly = false;
@@ -112,6 +135,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   bool _calDayFilter = false;
   bool _calMonthStripOpen = false;
   CalendarHomeView _calView = CalendarHomeView.day;
+  List<Map<String, dynamic>> _calendars = [];
+  Set<int> _hiddenCalendarIds = {};
+  bool _calSearchOpen = false;
+  bool _calFabOpen = false;
+  String _calQuery = '';
+  final TextEditingController _calSearchCtrl = TextEditingController();
   final ScrollController _agendaScroll = ScrollController();
   final Map<String, GlobalKey> _agendaDayKeys = {};
 
@@ -176,7 +205,112 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   @override
   void dispose() {
     _agendaScroll.dispose();
+    _calSearchCtrl.dispose();
+    _blockNumberField.dispose();
+    _contactSearchCtrl.dispose();
+    for (final controller in _contactScroll.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _loadContactPlacement() async {
+    if (_placementReady || widget.product != SuiteProduct.contacts) return;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('hubera_contacts_placement_v1');
+    if (raw != null && raw.isNotEmpty) {
+      _placementHadPrefs = true;
+      try {
+        _placement = ContactPlacement.fromJson(jsonDecode(raw));
+      } catch (_) {}
+    }
+    _placementReady = true;
+  }
+
+  Future<void> _saveContactPlacement() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hubera_contacts_placement_v1', jsonEncode(_placement.toJson()));
+    _placementHadPrefs = true;
+  }
+
+  void _restoreContactScroll(ContactShelf shelf, double saved) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final controller = _contactScroll[shelf];
+      if (controller == null || !controller.hasClients) return;
+      controller.jumpTo(
+        contactScrollRestore(saved, controller.position.maxScrollExtent),
+      );
+    });
+  }
+
+  Future<void> _checkOwnAppUpdate() {
+    final app = widget.product.suiteApp;
+    return cloudityCheckUpdateManually(
+      context,
+      gatewayBase: widget.gatewayBase,
+      appSlug: app.otaAppSlug,
+      appName: widget.product.title,
+      huberaHost: app.huberaHost,
+    );
+  }
+
+  String? _emailFromAccess(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length < 2) return null;
+      final payload = utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final map = jsonDecode(payload);
+      if (map is! Map) return null;
+      final email = map['email']?.toString().trim() ?? '';
+      if (email.contains('@')) return email;
+    } catch (_) {}
+    return null;
+  }
+
+  Future<void> _checkContactsUpdate() async {
+    final version = await cloudityResolveInstalledVersion();
+    if (!mounted) return;
+    final hosted = await CloudityOtaClient.fetchHuberaUpdates(
+      host: widget.product.suiteApp.huberaHost,
+    );
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (hosted == null || hosted.version.isEmpty || hosted.apkUrl.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Vérification impossible. Réessaie quand le réseau répond.'),
+        ),
+      );
+      return;
+    }
+    if (cloudityCompareVersions(hosted.version, version) <= 0) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Aucune mise à jour plus récente. Cette version ($version) est à jour.',
+          ),
+        ),
+      );
+      return;
+    }
+    await cloudityShowOtaDialog(
+      context,
+      manifest: hosted,
+      currentVersion: version,
+    );
+  }
+
+  String _contactsAppBarTitle() {
+    if (_selectedContactKeys.isNotEmpty) {
+      final n = _selectedContactKeys.length;
+      return '$n sélectionné${n > 1 ? 's' : ''}';
+    }
+    return switch (_contactShelf) {
+      ContactShelf.archive => 'Archive',
+      ContactShelf.trash => 'Corbeille',
+      ContactShelf.blocked => 'Bloqués',
+      ContactShelf.active => _contactsNav == 'organize' ? 'Organiser' : widget.product.title,
+    };
   }
 
   String _notesAppBarTitle() {
@@ -322,21 +456,18 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     await _saveCustomLabels();
   }
 
-  Future<void> _openNotesComposer() async {
-    final draft = await showNotesKeepComposer(context);
-    if (draft == null || !mounted) return;
-    if (draft.title.isEmpty && draft.content.trim().isEmpty) return;
-    try {
-      await _api.createNote(
-        title: draft.title,
-        content: draft.content,
-        labels: _noteLabelFilter == null ? null : [_noteLabelFilter!],
-      );
-      if (mounted) await _reload();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+  void _rememberNoteLabel(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return;
+    if (_allNoteLabels.any((label) => label.toLowerCase() == trimmed.toLowerCase())) {
+      return;
     }
+    setState(() => _customLabels = [..._customLabels, trimmed]);
+    _saveCustomLabels();
+  }
+
+  Future<void> _openNotesComposer() {
+    return _openEditor();
   }
 
   void _selectNotesSection(NotesHomeSection section) {
@@ -355,6 +486,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       await _ensureNotesPrefs();
       await _purgeExpiredTrash();
     }
+    if (widget.product == SuiteProduct.contacts) {
+      await _loadContactPlacement();
+    }
     if (!mounted) return;
     setState(() {
       if (_items.isEmpty) _loading = true;
@@ -362,12 +496,26 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     });
     try {
       final items = await _fetchItems();
+      if (widget.product == SuiteProduct.calendar) {
+        await _loadCalendarChrome();
+      }
+      if (!mounted) return;
+      if (widget.product == SuiteProduct.contacts && !_placementHadPrefs) {
+        final absorbed = placementFromProfiles(items);
+        if (!absorbed.isEmpty) {
+          _placement = absorbed;
+          await _saveContactPlacement();
+        }
+      }
       if (!mounted) return;
       setState(() {
         _items = items;
         _loading = false;
       });
       await _rememberItems();
+      if (widget.product == SuiteProduct.calendar) {
+        await _rescheduleReminders();
+      }
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
       if (!mounted) return;
@@ -475,8 +623,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
             '_hubera_task': true,
           });
         }
-        if (merged.isNotEmpty) {
-          merged.sort((a, b) {
+        merged.sort((a, b) {
             final da = parseCloudityDateTime(
                   (a['start_at'] ?? a['starts_at'])?.toString(),
                 ) ??
@@ -487,9 +634,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 DateTime.fromMillisecondsSinceEpoch(0);
             return da.compareTo(db);
           });
-          return merged;
-        }
-        return await _api.fetchCalendars();
+        return merged;
       case SuiteProduct.contacts:
         return _api.fetchContacts();
       case SuiteProduct.notes:
@@ -627,6 +772,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Future<void> _openContactFiche(Map<String, dynamic> item) async {
+    final shelf = _contactShelf;
+    final controller = _contactScroll[shelf];
+    final saved = controller != null && controller.hasClients ? controller.offset : 0.0;
+    final key = contactStableKey(item);
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => ContactFicheScreen(
@@ -634,19 +783,277 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           api: _api,
           onChanged: _reload,
           readOnly: isDeviceGoogleContact(item),
+          onArchive: shelf == ContactShelf.active ? () => _archiveContacts([key]) : null,
+          onTrash: shelf == ContactShelf.active ? () => _trashContacts([key]) : null,
+          onRestore: shelf == ContactShelf.archive || shelf == ContactShelf.trash
+              ? () => _restoreContacts([key])
+              : null,
+          onPurge: shelf == ContactShelf.trash ? () => _purgeContact(item) : null,
+          onBlockNumber: (number) => DeviceGoogleContacts.blockNumber(number),
         ),
       ),
     );
-    if (changed == true && mounted) await _reload();
+    if (!mounted) return;
+    if (_contactShelf != shelf) {
+      setState(() => _contactShelf = contactShelfAfterDetail(shelf));
+    }
+    if (changed == true) await _reload();
+    if (mounted) _restoreContactScroll(shelf, saved);
+  }
+
+  Future<void> _openContactCreate() async {
+    final directory =
+        _contactDirectory == ContactDirectory.personal ? 'personal' : 'professional';
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (_) => ContactEditorScreen(
+          api: _api,
+          directory: directory,
+          onDeviceCopyRefused: (reason) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(reason)));
+          },
+        ),
+      ),
+    );
+    if (saved == true && mounted) await _reload();
+  }
+
+  Map<String, dynamic>? _contactByKey(String key) {
+    for (final item in [..._items, ..._deviceGoogleContacts]) {
+      if (contactStableKey(item) == key) return item;
+    }
+    return null;
+  }
+
+  Future<void> _stampHubera(
+    Map<String, dynamic> item, {
+    String? directory,
+    String? shelf,
+    bool clearShelf = false,
+  }) async {
+    if (isDeviceGoogleContact(item)) return;
+    final id = suiteItemId(item);
+    if (id == null) return;
+    final profile = item['profile'] is Map
+        ? Map<String, dynamic>.from(item['profile'] as Map)
+        : <String, dynamic>{};
+    final extra = profile['extra'] is Map
+        ? Map<String, dynamic>.from(profile['extra'] as Map)
+        : <String, dynamic>{};
+    if (directory != null) extra['directory'] = directory;
+    if (clearShelf) {
+      extra.remove('shelf');
+      extra.remove('trashed_at');
+    } else if (shelf != null) {
+      extra['shelf'] = shelf;
+      if (shelf == 'trash') {
+        extra['trashed_at'] = DateTime.now().toUtc().toIso8601String();
+      } else {
+        extra.remove('trashed_at');
+      }
+    }
+    if (extra.isEmpty) {
+      profile.remove('extra');
+    } else {
+      profile['extra'] = extra;
+    }
+    try {
+      await _api.updateContact(id: id, profile: profile);
+      item['profile'] = profile;
+    } catch (_) {}
+  }
+
+  Future<void> _moveSelectedContacts(String directory) async {
+    final keys = Set<String>.from(_selectedContactKeys);
+    if (keys.isEmpty) return;
+    setState(() {
+      _placement = _placement.assignDirectory(keys: keys, directory: directory);
+      _selectedContactKeys.clear();
+    });
+    await _saveContactPlacement();
+    for (final key in keys) {
+      final item = _contactByKey(key);
+      if (item != null) await _stampHubera(item, directory: directory);
+    }
+  }
+
+  Future<void> _trashContacts(Iterable<String> keys) async {
+    final list = keys.toList();
+    setState(() {
+      _placement = _placement.moveToTrash(
+        keys: list,
+        at: DateTime.now().toUtc().toIso8601String(),
+      );
+      _selectedContactKeys.removeAll(list);
+    });
+    await _saveContactPlacement();
+    for (final key in list) {
+      final item = _contactByKey(key);
+      if (item != null) await _stampHubera(item, shelf: 'trash');
+    }
+  }
+
+  Future<void> _archiveContacts(Iterable<String> keys) async {
+    final list = keys.toList();
+    setState(() {
+      _placement = _placement.moveToArchive(keys: list);
+      _selectedContactKeys.removeAll(list);
+    });
+    await _saveContactPlacement();
+    for (final key in list) {
+      final item = _contactByKey(key);
+      if (item != null) await _stampHubera(item, shelf: 'archive');
+    }
+  }
+
+  Future<void> _restoreContacts(Iterable<String> keys) async {
+    final list = keys.toList();
+    setState(() {
+      _placement = _placement.restore(keys: list);
+    });
+    await _saveContactPlacement();
+    for (final key in list) {
+      final item = _contactByKey(key);
+      if (item != null) await _stampHubera(item, clearShelf: true);
+    }
+  }
+
+  Future<void> _purgeContact(Map<String, dynamic> item) async {
+    final key = contactStableKey(item);
+    if (isDeviceGoogleContact(item)) {
+      final result = await DeviceGoogleContacts.deleteContact(
+        lookup: (item['lookup'] ?? '').toString(),
+      );
+      if (!result.ok) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.reason.isEmpty
+                  ? 'Le téléphone a refusé la suppression.'
+                  : result.reason,
+            ),
+          ),
+        );
+        return;
+      }
+    } else {
+      final id = suiteItemId(item);
+      if (id != null) {
+        try {
+          await _api.deleteContact(id);
+        } catch (_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Suppression impossible')),
+          );
+          return;
+        }
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _placement = _placement.forget(keys: [key]);
+      _items.removeWhere((row) => contactStableKey(row) == key);
+      _deviceGoogleContacts.removeWhere((row) => contactStableKey(row) == key);
+    });
+    await _saveContactPlacement();
+  }
+
+  Future<void> _loadBlockedNumbers() async {
+    setState(() => _blockedLoading = true);
+    final view = await DeviceGoogleContacts.blockedNumbers();
+    if (!mounted) return;
+    setState(() {
+      _blocked = view;
+      _blockedLoading = false;
+      _blockedLoaded = true;
+    });
+  }
+
+  Future<void> _blockTypedNumber() async {
+    final number = _blockNumberField.text.trim();
+    if (number.isEmpty) return;
+    final attempt = await DeviceGoogleContacts.blockNumber(number);
+    if (!mounted) return;
+    if (!attempt.blocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            attempt.reason.isEmpty
+                ? 'Le téléphone a refusé de bloquer ce numéro.'
+                : attempt.reason,
+          ),
+        ),
+      );
+    } else {
+      _blockNumberField.clear();
+    }
+    await _loadBlockedNumbers();
+  }
+
+  Future<void> _openBlockedDetail(String number) async {
+    final saved = _contactScroll[ContactShelf.blocked]!.hasClients
+        ? _contactScroll[ContactShelf.blocked]!.offset
+        : 0.0;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (ctx) => Scaffold(
+          appBar: AppBar(title: const Text('Numéro bloqué')),
+          body: ListView(
+            children: [
+              ListTile(
+                title: Text(number),
+                subtitle: const Text('Tel que le téléphone l’a donné'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_open_outlined),
+                title: const Text('Débloquer'),
+                onTap: () async {
+                  final attempt = await DeviceGoogleContacts.unblockNumber(number);
+                  if (!ctx.mounted) return;
+                  if (!attempt.blocked) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          attempt.reason.isEmpty
+                              ? 'Le téléphone a refusé de débloquer ce numéro.'
+                              : attempt.reason,
+                        ),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (_contactShelf != ContactShelf.blocked) {
+      setState(() => _contactShelf = ContactShelf.blocked);
+    }
+    await _loadBlockedNumbers();
+    _restoreContactScroll(ContactShelf.blocked, saved);
   }
 
   Future<void> _openEditor({
     Map<String, dynamic>? existing,
     bool noteAsChecklist = false,
     DateTime? seedStart,
+    DateTime? seedRemind,
   }) async {
-    if (existing != null && widget.product == SuiteProduct.contacts) {
-      await _openContactFiche(existing);
+    if (widget.product == SuiteProduct.contacts) {
+      if (existing != null) {
+        await _openContactFiche(existing);
+      } else {
+        await _openContactCreate();
+      }
       return;
     }
     if (existing != null && existing['_hubera_task'] == true) {
@@ -661,6 +1068,16 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       taskListId: _selectedTaskListId,
       noteAsChecklist: noteAsChecklist,
       seedStart: seedStart,
+      seedRemind: seedRemind,
+      calendars: widget.product == SuiteProduct.calendar ? _calendars : const [],
+      noteLabels: widget.product == SuiteProduct.notes ? _allNoteLabels : const [],
+      noteInitialLabels: widget.product == SuiteProduct.notes &&
+              existing == null &&
+              _noteLabelFilter != null
+          ? [_noteLabelFilter!]
+          : const [],
+      onNoteLabelCreated:
+          widget.product == SuiteProduct.notes ? _rememberNoteLabel : null,
     );
     if (saved && mounted) await _reload();
   }
@@ -712,7 +1129,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Future<void> _deleteItem(Map<String, dynamic> item) async {
-    if (widget.product == SuiteProduct.contacts && isDeviceGoogleContact(item)) {
+    if (widget.product == SuiteProduct.contacts) {
+      await _trashContacts([contactStableKey(item)]);
       return;
     }
     if (widget.product == SuiteProduct.notes) {
@@ -800,55 +1218,123 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  Widget _calendarViewPill(String label, CalendarHomeView view) {
+    final theme = Theme.of(context);
+    final selected = !_showSettings && _calView == view;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 2),
+      child: ListTile(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+        tileColor: selected ? theme.colorScheme.secondaryContainer : null,
+        title: Text(label),
+        selected: selected,
+        onTap: () {
+          Navigator.pop(context);
+          setState(() {
+            _showSettings = false;
+            _calView = view;
+            _calFabOpen = false;
+            _calMonthStripOpen = false;
+          });
+        },
+      ),
+    );
+  }
+
   List<Widget> _productNavItems() {
     return [
       if (widget.product == SuiteProduct.calendar) ...[
+        for (final spec in const <(String, CalendarHomeView)>[
+          ('Planning', CalendarHomeView.agenda),
+          ('Jour', CalendarHomeView.day),
+          ('Semaine', CalendarHomeView.week),
+          ('Mois', CalendarHomeView.month),
+        ])
+          _calendarViewPill(spec.$1, spec.$2),
         ListTile(
-          leading: const Icon(Icons.view_day_outlined),
-          title: const Text('Jour'),
-          selected: !_showSettings && _calView == CalendarHomeView.day,
+          leading: const Icon(Icons.refresh),
+          title: const Text('Actualiser'),
+          onTap: () {
+            Navigator.pop(context);
+            _reload();
+          },
+        ),
+        if (_calendars.isNotEmpty) ...[
+          const Divider(),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Text('Agendas'),
+          ),
+          for (final cal in _calendars)
+            if (suiteItemId(cal) != null)
+              CheckboxListTile(
+                value: !_hiddenCalendarIds.contains(suiteItemId(cal)),
+                secondary: Icon(
+                  Icons.circle,
+                  color: parseCalendarHex(cal['color_hex']?.toString()) ??
+                      Theme.of(context).colorScheme.primary,
+                ),
+                title: Text(cal['name']?.toString() ?? 'Agenda'),
+                controlAffinity: ListTileControlAffinity.leading,
+                onChanged: (v) => _toggleCalendar(suiteItemId(cal)!, v != false),
+              ),
+        ],
+      ] else if (widget.product == SuiteProduct.contacts) ...[
+        ListTile(
+          leading: const Icon(Icons.contacts_outlined),
+          title: const Text('Contacts'),
+          selected: !_showSettings && _contactShelf == ContactShelf.active,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.day;
+              _contactsNav = 'contacts';
+              _contactShelf = ContactShelf.active;
+              _selectedContactKeys.clear();
             });
           },
         ),
         ListTile(
-          leading: const Icon(Icons.view_week_outlined),
-          title: const Text('Semaine'),
-          selected: !_showSettings && _calView == CalendarHomeView.week,
+          leading: const Icon(Icons.archive_outlined),
+          title: const Text('Archive'),
+          selected: !_showSettings && _contactShelf == ContactShelf.archive,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.week;
+              _contactsNav = 'organize';
+              _contactShelf = ContactShelf.archive;
+              _selectedContactKeys.clear();
             });
           },
         ),
         ListTile(
-          leading: const Icon(Icons.calendar_view_month_outlined),
-          title: const Text('Mois'),
-          selected: !_showSettings && _calView == CalendarHomeView.month,
+          leading: const Icon(Icons.delete_outline),
+          title: const Text('Corbeille'),
+          selected: !_showSettings && _contactShelf == ContactShelf.trash,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.month;
+              _contactsNav = 'organize';
+              _contactShelf = ContactShelf.trash;
+              _selectedContactKeys.clear();
             });
           },
         ),
         ListTile(
-          leading: const Icon(Icons.view_agenda_outlined),
-          title: const Text('Agenda'),
-          selected: !_showSettings && _calView == CalendarHomeView.agenda,
+          leading: const Icon(Icons.block),
+          title: const Text('Bloqués'),
+          selected: !_showSettings && _contactShelf == ContactShelf.blocked,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
-              _calView = CalendarHomeView.agenda;
+              _contactsNav = 'organize';
+              _contactShelf = ContactShelf.blocked;
+              _selectedContactKeys.clear();
             });
+            _loadBlockedNumbers();
           },
         ),
       ] else if (widget.product != SuiteProduct.notes)
@@ -955,9 +1441,111 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   bool _isHuberaTask(Map<String, dynamic> item) => item['_hubera_task'] == true;
 
+  List<Map<String, dynamic>> get _visibleCalendarItems =>
+      visibleCalendarItems(_items, _hiddenCalendarIds);
+
+  List<Map<String, dynamic>> _eventsBetween(DateTime start, DateTime end) {
+    final all = expandCalendarEvents(
+      _visibleCalendarItems,
+      rangeStart: start,
+      rangeEnd: end,
+    );
+    final q = _calQuery.trim().toLowerCase();
+    if (q.isEmpty || widget.product != SuiteProduct.calendar) return all;
+    return [
+      for (final item in all)
+        if (_itemTitle(item).toLowerCase().contains(q) ||
+            (item['location']?.toString().toLowerCase().contains(q) ?? false) ||
+            (item['description']?.toString().toLowerCase().contains(q) ?? false))
+          item,
+    ];
+  }
+
+  Future<void> _loadCalendarChrome() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hidden = prefs.getStringList('hubera_calendar_hidden_v1') ?? const [];
+    final ids = <int>{
+      for (final raw in hidden)
+        if (int.tryParse(raw) != null) int.parse(raw),
+    };
+    List<Map<String, dynamic>> cals = _calendars;
+    try {
+      cals = await _api.fetchCalendars();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _hiddenCalendarIds = ids;
+      _calendars = cals;
+    });
+  }
+
+  Future<void> _toggleCalendar(int id, bool visible) async {
+    setState(() {
+      if (visible) {
+        _hiddenCalendarIds.remove(id);
+      } else {
+        _hiddenCalendarIds.add(id);
+      }
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'hubera_calendar_hidden_v1',
+      [for (final n in _hiddenCalendarIds) '$n'],
+    );
+  }
+
+  Future<void> _rescheduleReminders() async {
+    if (huberaCalendarReminderHook == null) return;
+    final now = DateTime.now();
+    for (final item in _items) {
+      if (_isHuberaTask(item)) continue;
+      final id = suiteItemId(item);
+      if (id == null) continue;
+      final start = parseCloudityDateTime(
+        (item['series_start_at'] ?? item['start_at'] ?? item['starts_at'])?.toString(),
+      );
+      final minutes = normalizeCalendarReminder(item['reminder_minutes']);
+      if (start == null || minutes == null) {
+        await dispatchCalendarReminder(
+          CalendarReminderPlan(eventId: id, title: '', when: null, cancel: true),
+        );
+        continue;
+      }
+      final when = nextCalendarReminderAt(
+        start: start,
+        minutesBefore: minutes,
+        repeatRule: item['repeat_rule']?.toString(),
+        now: now,
+      );
+      await dispatchCalendarReminder(
+        CalendarReminderPlan(
+          eventId: id,
+          title: item['title']?.toString() ?? 'Hubera Calendar',
+          when: when,
+          cancel: when == null,
+        ),
+      );
+    }
+  }
+
+  void _shiftCalendar(int days) {
+    setState(() {
+      _calFocusDay = DateTime(
+        _calFocusDay.year,
+        _calFocusDay.month,
+        _calFocusDay.day + days,
+      );
+      _calMonthAnchor = DateTime(_calFocusDay.year, _calFocusDay.month, 1);
+    });
+  }
+
   bool _dayHasCalendarItems(DateTime d) {
     final key = _dayKey(d);
-    for (final item in _items) {
+    final span = _eventsBetween(
+      d.subtract(const Duration(days: 1)),
+      d.add(const Duration(days: 2)),
+    );
+    for (final item in span) {
       final start = parseCloudityDateTime(
         (item['start_at'] ?? item['starts_at'])?.toString(),
       );
@@ -1125,10 +1713,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
 
   List<Map<String, dynamic>> get _visibleItems {
     var items = widget.product == SuiteProduct.contacts
-        ? contactsForDirectory(
+        ? contactsOnShelf(
             hubera: _items,
             device: _deviceGoogleContacts,
-            directory: _contactDirectory,
+            placement: _placement,
+            shelf: _contactShelf,
+            directory: _contactShelf == ContactShelf.active ? _contactDirectory : null,
           )
         : _items;
     if (widget.product == SuiteProduct.notes) {
@@ -1170,6 +1760,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         item['body']?.toString() ?? '',
         item['content']?.toString() ?? '',
         labels,
+        widget.product == SuiteProduct.notes ? noteChecklistPlain(item) : '',
       ].join(' ').toLowerCase();
       return hay.contains(q);
     }).toList();
@@ -1207,76 +1798,213 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
   }
 
-  Widget _buildContactsDirectory() {
+  Widget _buildBlockedPane() {
     final theme = Theme.of(context);
-    final personal = _contactDirectory == ContactDirectory.personal;
-    final visible = _visibleItems;
-    final bottom = 88 + MediaQuery.viewPaddingOf(context).bottom;
+    final bottom = 24 + MediaQuery.viewPaddingOf(context).bottom;
+    if (!_blockedLoaded || _blockedLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final numbers = _blocked.canRead ? _blocked.numbers : const <String>[];
     return SafeArea(
       top: false,
       bottom: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 4, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SegmentedButton<ContactDirectory>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: ContactDirectory.personal,
-                        label: Text('Personnel'),
-                      ),
-                      ButtonSegment(
-                        value: ContactDirectory.professional,
-                        label: Text('Professionnel'),
-                      ),
-                    ],
-                    selected: {_contactDirectory},
-                    onSelectionChanged: (next) {
-                      if (next.isEmpty) return;
-                      _selectContactDirectory(next.first);
+          if (!_blocked.canRead)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Text(
+                _blocked.reason.isEmpty
+                    ? 'Le téléphone ne donne pas la liste des numéros bloqués.'
+                    : _blocked.reason,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          Expanded(
+            child: ListView.builder(
+              controller: _contactScroll[ContactShelf.blocked],
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.only(bottom: bottom),
+              itemCount: numbers.length + 1,
+              itemBuilder: (context, index) {
+                if (index == numbers.length) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _blockNumberField,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(labelText: 'Numéro à bloquer'),
+                        ),
+                        const SizedBox(height: 8),
+                        FilledButton(
+                          onPressed: _blockTypedNumber,
+                          child: const Text('Bloquer'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final number = numbers[index];
+                return ListTile(
+                  title: Text(number),
+                  onTap: () => _openBlockedDetail(number),
+                  trailing: IconButton(
+                    tooltip: 'Débloquer',
+                    icon: const Icon(Icons.lock_open_outlined),
+                    onPressed: () async {
+                      final attempt = await DeviceGoogleContacts.unblockNumber(number);
+                      if (!mounted) return;
+                      if (!attempt.blocked) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              attempt.reason.isEmpty
+                                  ? 'Le téléphone a refusé de débloquer ce numéro.'
+                                  : attempt.reason,
+                            ),
+                          ),
+                        );
+                      }
+                      await _loadBlockedNumbers();
                     },
                   ),
-                ),
-                if (personal)
-                  IconButton(
-                    tooltip: 'Contacts Google du téléphone',
-                    onPressed: _deviceContactsLoading ? null : _importDeviceGoogleContacts,
-                    icon: _deviceContactsLoading
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: theme.colorScheme.primary,
-                            ),
-                          )
-                        : Icon(Icons.contact_phone_outlined, color: theme.colorScheme.primary),
-                  ),
-              ],
+                );
+              },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: TextField(
-              decoration: InputDecoration(
-                prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
-                hintText: 'Rechercher',
-                filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest,
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(28),
-                  borderSide: BorderSide.none,
-                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOrganiser() {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: EdgeInsets.fromLTRB(0, 8, 0, 24 + MediaQuery.viewPaddingOf(context).bottom),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          child: Text('Organiser', style: theme.textTheme.titleMedium),
+        ),
+        ListTile(
+          leading: const Icon(Icons.archive_outlined),
+          title: const Text('Archive'),
+          onTap: () => setState(() => _contactShelf = ContactShelf.archive),
+        ),
+        ListTile(
+          leading: const Icon(Icons.delete_outline),
+          title: const Text('Corbeille'),
+          onTap: () => setState(() => _contactShelf = ContactShelf.trash),
+        ),
+        ListTile(
+          leading: const Icon(Icons.block),
+          title: const Text('Bloqués'),
+          onTap: () {
+            setState(() => _contactShelf = ContactShelf.blocked);
+            _loadBlockedNumbers();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildContactsDirectory() {
+    if (_contactsNav == 'organize' && _contactShelf == ContactShelf.active) {
+      return _buildOrganiser();
+    }
+    if (_contactShelf == ContactShelf.blocked) return _buildBlockedPane();
+    final theme = Theme.of(context);
+    final personal = _contactDirectory == ContactDirectory.personal;
+    final visible = _visibleItems;
+    final bottom = 88 + MediaQuery.viewPaddingOf(context).bottom;
+    final selecting = _contactShelf == ContactShelf.active && _selectedContactKeys.isNotEmpty;
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_contactShelf == ContactShelf.active &&
+              (widget.userEmail ?? '').trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Text(
+                widget.userEmail!.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
               ),
-              onChanged: (v) => setState(() => _contactQuery = v),
             ),
-          ),
+          if (_contactShelf == ContactShelf.active)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  FilterChip(
+                    label: const Text('Personnel'),
+                    selected: personal,
+                    onSelected: (_) => _selectContactDirectory(ContactDirectory.personal),
+                  ),
+                  FilterChip(
+                    label: const Text('Professionnel'),
+                    selected: !personal,
+                    onSelected: (_) => _selectContactDirectory(ContactDirectory.professional),
+                  ),
+                ],
+              ),
+            ),
+          if (_contactShelf != ContactShelf.active)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: TextField(
+                decoration: InputDecoration(
+                  prefixIcon: Icon(Icons.search, color: theme.colorScheme.onSurfaceVariant),
+                  hintText: 'Rechercher',
+                  filled: true,
+                  fillColor: theme.colorScheme.surfaceContainerHighest,
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(28),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (v) => setState(() => _contactQuery = v),
+              ),
+            ),
+          if (selecting)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 4, 4),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 4,
+                children: [
+                  Text(
+                    '${_selectedContactKeys.length} sélectionné${_selectedContactKeys.length > 1 ? 's' : ''}',
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  TextButton(
+                    key: const Key('contacts-move-personal'),
+                    onPressed: () => _moveSelectedContacts('personal'),
+                    child: const Text('Personnel'),
+                  ),
+                  TextButton(
+                    key: const Key('contacts-move-professional'),
+                    onPressed: () => _moveSelectedContacts('professional'),
+                    child: const Text('Professionnel'),
+                  ),
+                  IconButton(
+                    tooltip: 'Annuler la sélection',
+                    onPressed: () => setState(_selectedContactKeys.clear),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _reload,
@@ -1338,18 +2066,24 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  personal ? 'Aucun contact personnel' : _emptyTitle(),
+                  switch (_contactShelf) {
+                    ContactShelf.archive => 'Aucune archive',
+                    ContactShelf.trash => 'Corbeille vide',
+                    ContactShelf.blocked => 'Aucun numéro bloqué',
+                    ContactShelf.active =>
+                      personal ? 'Aucun contact personnel' : _emptyTitle(),
+                  },
                   textAlign: TextAlign.center,
                   style: theme.textTheme.titleMedium,
                 ),
-                if (!personal) ...[
+                if (_contactShelf == ContactShelf.active && !personal) ...[
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _showCreateMenu,
                     icon: const Icon(Icons.add),
                     label: Text('Créer — ${widget.product.title}'),
                   ),
-                ] else ...[
+                ] else if (_contactShelf == ContactShelf.active) ...[
                   const SizedBox(height: 16),
                   FilledButton.icon(
                     onPressed: _deviceContactsLoading ? null : _importDeviceGoogleContacts,
@@ -1363,21 +2097,53 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         ],
       );
     }
+    final rows = <Object>[];
+    if (_contactShelf == ContactShelf.active) {
+      String? letter;
+      for (final item in visible) {
+        final name = _itemTitle(item).trim();
+        final next = name.isEmpty ? '#' : name.substring(0, 1).toUpperCase();
+        if (next != letter) {
+          rows.add(next);
+          letter = next;
+        }
+        rows.add(item);
+      }
+    } else {
+      rows.addAll(visible);
+    }
     return ListView.builder(
+      controller: _contactScroll[_contactShelf],
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(top: 4, bottom: bottom),
-      itemCount: visible.length,
+      itemCount: rows.length,
       itemBuilder: (context, index) {
+        final row = rows[index];
+        if (row is String) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            child: Text(row, style: Theme.of(context).textTheme.titleSmall),
+          );
+        }
         final theme = Theme.of(context);
-        final item = visible[index];
+        final item = row as Map<String, dynamic>;
         final sub = _itemSubtitle(item);
+        final key = contactStableKey(item);
+        final selected = _selectedContactKeys.contains(key);
+        final selecting = _contactShelf == ContactShelf.active &&
+            (_contactsNav == 'select' || _selectedContactKeys.isNotEmpty);
         return Column(
           children: [
             ListTile(
+              selected: selected,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               leading: CircleAvatar(
-                backgroundColor: theme.colorScheme.primaryContainer,
-                foregroundColor: theme.colorScheme.onPrimaryContainer,
+                backgroundColor: selected
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primaryContainer,
+                foregroundColor: selected
+                    ? theme.colorScheme.onPrimary
+                    : theme.colorScheme.onPrimaryContainer,
                 child: Text(
                   _contactInitials(_itemTitle(item)),
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
@@ -1397,7 +2163,51 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                     )
                   : null,
-              onTap: () => _openEditor(existing: item),
+              trailing: switch (_contactShelf) {
+                ContactShelf.trash => Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Restaurer',
+                        icon: const Icon(Icons.restore),
+                        onPressed: () => _restoreContacts([key]),
+                      ),
+                      IconButton(
+                        tooltip: 'Supprimer définitivement',
+                        icon: const Icon(Icons.delete_forever_outlined),
+                        onPressed: () => _purgeContact(item),
+                      ),
+                    ],
+                  ),
+                ContactShelf.archive => IconButton(
+                    tooltip: 'Restaurer',
+                    icon: const Icon(Icons.restore),
+                    onPressed: () => _restoreContacts([key]),
+                  ),
+                _ => null,
+              },
+              onLongPress: _contactShelf == ContactShelf.active
+                  ? () => setState(() {
+                        if (selected) {
+                          _selectedContactKeys.remove(key);
+                        } else {
+                          _selectedContactKeys.add(key);
+                        }
+                      })
+                  : null,
+              onTap: () {
+                if (selecting) {
+                  setState(() {
+                    if (selected) {
+                      _selectedContactKeys.remove(key);
+                    } else {
+                      _selectedContactKeys.add(key);
+                    }
+                  });
+                  return;
+                }
+                _openEditor(existing: item);
+              },
             ),
             Divider(
               height: 1,
@@ -1608,19 +2418,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Color _keepNoteColor(String? id, Brightness brightness) {
-    final dark = brightness == Brightness.dark;
-    return switch (id) {
-      'yellow' => dark ? const Color(0xFF635D19) : const Color(0xFFFFF475),
-      'green' => dark ? const Color(0xFF345920) : const Color(0xFFCCFF90),
-      'blue' => dark ? const Color(0xFF2A4B5C) : const Color(0xFFCBF0F8),
-      'pink' => dark ? const Color(0xFF5C2B43) : const Color(0xFFFDCFE8),
-      'purple' => dark ? const Color(0xFF47325C) : const Color(0xFFD7AEFB),
-      'orange' => dark ? const Color(0xFF614A19) : const Color(0xFFFBBC04),
-      'teal' => dark ? const Color(0xFF1D4A44) : const Color(0xFFA7FFEB),
-      'red' => dark ? const Color(0xFF5C2B28) : const Color(0xFFF28B82),
-      'gray' => dark ? const Color(0xFF3C4043) : const Color(0xFFE8EAED),
-      _ => dark ? const Color(0xFF2D2E30) : const Color(0xFFFFFFFF),
-    };
+    return noteKeepColor(id, Theme.of(context).colorScheme);
   }
 
   Widget _keepNoteCard(Map<String, dynamic> item) {
@@ -1657,14 +2455,16 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
-                      title.isEmpty ? 'Note' : title,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    child: title.isEmpty
+                        ? const SizedBox.shrink()
+                        : Text(
+                            title,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -1791,30 +2591,6 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                   ],
                 ),
               ],
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                children: [
-                  for (final c in kNoteColorOptions)
-                    GestureDetector(
-                      onTap: () => _setNoteColor(item, c.id),
-                      child: Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: _keepNoteColor(c.id, theme.brightness),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: colorId == c.id
-                                ? theme.colorScheme.onSurface
-                                : theme.colorScheme.outlineVariant,
-                            width: colorId == c.id ? 2 : 1,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
             ],
           ),
         ),
@@ -2034,7 +2810,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                       IconButton(
                         tooltip: 'Rappel',
                         icon: const Icon(Icons.notifications_outlined),
-                        onPressed: () => _openEditor(),
+                        onPressed: () => _openEditor(
+                          seedRemind: DateTime.now().add(const Duration(hours: 1)),
+                        ),
                       ),
                     ],
                   ),
@@ -2153,80 +2931,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
   }
 
-  String _frenchLongDate(DateTime d) {
-    const weekdays = [
-      'lundi',
-      'mardi',
-      'mercredi',
-      'jeudi',
-      'vendredi',
-      'samedi',
-      'dimanche',
-    ];
-    return '${weekdays[d.weekday - 1]} ${d.day} ${_monthName(d.month)}';
-  }
-
-  String _calendarFocusLabel(DateTime day) {
-    final full = _frenchLongDate(day);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final d = DateTime(day.year, day.month, day.day);
-    if (d == today) return "Aujourd'hui · $full";
-    if (d == today.add(const Duration(days: 1))) return 'Demain · $full';
-    if (d == today.subtract(const Duration(days: 1))) return 'Hier · $full';
-    return full[0].toUpperCase() + full.substring(1);
-  }
-
-  String _weekRangeLabel(List<DateTime> days) {
-    final a = days.first;
-    final b = days.last;
-    if (a.month == b.month && a.year == b.year) {
-      return '${a.day} – ${b.day} ${_monthName(a.month)} ${a.year}';
-    }
-    return '${a.day} ${_monthName(a.month)} – ${b.day} ${_monthName(b.month)}';
-  }
-
   void _shiftCalendarMonth(int delta) {
     setState(() {
       _calMonthAnchor = DateTime(_calMonthAnchor.year, _calMonthAnchor.month + delta);
     });
-  }
-
-  Widget _buildFoldableDateHeader(String label) {
-    final theme = Theme.of(context);
-    final open = _calMonthStripOpen;
-    return Material(
-      color: theme.colorScheme.surface,
-      child: Tooltip(
-        message: open ? 'Replier le mois' : 'Déplier le mois',
-        child: InkWell(
-          key: const Key('calendar-day-header'),
-          onTap: () => setState(() => _calMonthStripOpen = !open),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: theme.colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                Icon(
-                  open ? Icons.expand_less : Icons.expand_more,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _monthNav() {
@@ -2270,51 +2978,96 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     final theme = Theme.of(context);
     const weekdays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     final cells = _monthGridCells(_calMonthAnchor);
+    final chipsByDay = <int, List<Map<String, dynamic>>>{};
+    if (!compact && cells.isNotEmpty) {
+      final end = cells.last.add(const Duration(days: 1));
+      for (final item in _eventsBetween(cells.first, end)) {
+        final start = parseCloudityDateTime(
+          (item['start_at'] ?? item['starts_at'])?.toString(),
+        );
+        if (start == null) continue;
+        final local = start.toLocal();
+        final key = DateTime(local.year, local.month, local.day).millisecondsSinceEpoch;
+        (chipsByDay[key] ??= []).add(item);
+      }
+    }
     Widget dayCell(DateTime day) {
       final inMonth = day.month == _calMonthAnchor.month;
       final isToday = day == today;
       final selected = day == _calFocusDay;
-      final hasItems = _dayHasCalendarItems(day);
       final fg = isToday
           ? theme.colorScheme.onPrimary
           : (inMonth ? theme.colorScheme.onSurface : theme.colorScheme.outline);
-      return InkWell(
-        onTap: () => onPick(day),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: isToday
-                    ? accent
-                    : (selected ? accent.withValues(alpha: 0.16) : Colors.transparent),
-                shape: BoxShape.circle,
-                border: selected && !isToday
-                    ? Border.all(color: accent, width: 1.5)
-                    : null,
-              ),
-              child: Text(
-                '${day.day}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: fg,
-                  fontWeight: FontWeight.w700,
-                  height: 1,
+      final number = Container(
+        width: compact ? 28 : 22,
+        height: compact ? 28 : 22,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isToday
+              ? accent
+              : (selected ? accent.withValues(alpha: 0.16) : Colors.transparent),
+          shape: BoxShape.circle,
+          border: selected && !isToday ? Border.all(color: accent, width: 1.5) : null,
+        ),
+        child: Text(
+          '${day.day}',
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: fg,
+            fontWeight: FontWeight.w700,
+            height: 1,
+            fontSize: compact ? null : 12,
+          ),
+        ),
+      );
+      if (compact) {
+        final hasItems = _dayHasCalendarItems(day);
+        return InkWell(
+          onTap: () => onPick(day),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              number,
+              const SizedBox(height: 2),
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: hasItems ? accent : Colors.transparent,
+                  shape: BoxShape.circle,
                 ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Container(
-              width: 4,
-              height: 4,
-              decoration: BoxDecoration(
-                color: hasItems ? accent : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ],
+            ],
+          ),
+        );
+      }
+      final chips = (chipsByDay[day.millisecondsSinceEpoch] ?? const <Map<String, dynamic>>[])
+          .take(3)
+          .toList();
+      return InkWell(
+        onTap: () => onPick(day),
+        child: Padding(
+          padding: const EdgeInsets.all(1),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(alignment: Alignment.topCenter, child: number),
+              for (final item in chips)
+                Container(
+                  margin: const EdgeInsets.only(top: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  decoration: BoxDecoration(
+                    color: colorForCalendarEvent(item, _calendars, accent),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                  child: Text(
+                    _itemTitle(item),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 9, color: Colors.white, height: 1.2),
+                  ),
+                ),
+            ],
+          ),
         ),
       );
     }
@@ -2397,35 +3150,239 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     );
   }
 
+  Widget _calendarMonthTitle() {
+    final anchor = _calView == CalendarHomeView.month ? _calMonthAnchor : _calFocusDay;
+    final raw = _monthName(anchor.month);
+    final label = raw.isEmpty ? raw : raw[0].toUpperCase() + raw.substring(1);
+    return InkWell(
+      onTap: () => setState(() {
+        _calView = CalendarHomeView.month;
+        _calFabOpen = false;
+        _showSettings = false;
+      }),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+          const Icon(Icons.arrow_drop_down),
+        ],
+      ),
+    );
+  }
+
+  Widget _calendarSearchField() {
+    return TextField(
+      controller: _calSearchCtrl,
+      autofocus: true,
+      decoration: const InputDecoration(
+        hintText: 'Rechercher',
+        border: InputBorder.none,
+        isDense: true,
+      ),
+      onChanged: (v) => setState(() => _calQuery = v),
+    );
+  }
+
+  Widget _calendarTodayButton() {
+    final day = DateTime.now().day;
+    return IconButton(
+      tooltip: 'Aujourd’hui',
+      onPressed: () {
+        final n = DateTime.now();
+        final t = DateTime(n.year, n.month, n.day);
+        setState(() {
+          _calMonthAnchor = DateTime(t.year, t.month);
+          _calFocusDay = t;
+          _calFabOpen = false;
+        });
+        _jumpToCalendarDay(t, filter: false);
+      },
+      icon: SizedBox(
+        width: 24,
+        height: 24,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const Icon(Icons.calendar_today_outlined),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '$day',
+                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800, height: 1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _calendarCreateFab() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (_calFabOpen)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FloatingActionButton.extended(
+              heroTag: 'hubera-cal-event',
+              onPressed: () {
+                setState(() => _calFabOpen = false);
+                _openEditor();
+              },
+              icon: const Icon(Icons.event_outlined),
+              label: const Text('Événement'),
+            ),
+          ),
+        FloatingActionButton(
+          heroTag: 'hubera-cal-add',
+          tooltip: _calFabOpen ? 'Fermer' : 'Créer',
+          onPressed: () => setState(() => _calFabOpen = !_calFabOpen),
+          child: Icon(_calFabOpen ? Icons.close : Icons.add),
+        ),
+      ],
+    );
+  }
+
+  Widget _dayRail(DateTime day, DateTime today, Color accent, List<Map<String, dynamic>> items) {
+    final theme = Theme.of(context);
+    final isToday = calendarStartOfDay(day) == today;
+    const wd = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+    final allDay = [
+      for (final item in items)
+        if (calendarItemAllDay(item)) item,
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 56,
+            child: Column(
+              children: [
+                Text(wd[day.weekday - 1], style: theme.textTheme.labelMedium),
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isToday ? accent : null,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: isToday ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('calendar-day-header'),
+                  tooltip: _calMonthStripOpen ? 'Replier le mois' : 'Déplier le mois',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _calMonthStripOpen = !_calMonthStripOpen),
+                  icon: Icon(_calMonthStripOpen ? Icons.expand_less : Icons.expand_more),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: allDay.isEmpty
+                ? const SizedBox(height: 8)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final item in allDay.take(4))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Material(
+                            color: colorForCalendarEvent(item, _calendars, accent),
+                            borderRadius: BorderRadius.circular(4),
+                            child: InkWell(
+                              onTap: () => _openEditor(existing: item),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                child: Text(
+                                  _itemTitle(item),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      if (allDay.length > 4)
+                        Text('+${allDay.length - 4}', style: theme.textTheme.labelMedium),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTimedCalendar({
     required DateTime today,
     required Color accent,
-    required String header,
     required List<DateTime> days,
     required bool showDayHeaders,
   }) {
     final reveal = DateTime.now().hour.clamp(0, 18);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildFoldableDateHeader(header),
-        if (_calMonthStripOpen) _buildMonthNumberStrip(today, accent),
-        Divider(height: 1, color: Theme.of(context).colorScheme.outlineVariant),
-        Expanded(
-          child: CalendarTimeGrid(
-            key: const Key('calendar-hour-grid'),
-            days: days,
-            items: _items,
-            accent: accent,
-            showDayHeaders: showDayHeaders,
-            revealHour: reveal,
-            itemTitle: _itemTitle,
-            isTask: _isHuberaTask,
-            onEventTap: (item) => _openEditor(existing: item),
-            onSlotTap: (start) => _openEditor(seedStart: start),
+    final rangeStart = days.first.subtract(const Duration(days: 1));
+    final rangeEnd = days.last.add(const Duration(days: 2));
+    final items = _eventsBetween(rangeStart, rangeEnd);
+    final step = days.length >= 7 ? 7 : 1;
+    final single = days.length == 1;
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final v = details.primaryVelocity ?? 0;
+        if (v > 280) _shiftCalendar(-step);
+        if (v < -280) _shiftCalendar(step);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (single) _dayRail(days.first, today, accent, items),
+          if (_calMonthStripOpen && single) _buildMonthNumberStrip(today, accent),
+          Expanded(
+            child: CalendarTimeGrid(
+              key: const Key('calendar-hour-grid'),
+              days: days,
+              items: items,
+              accent: accent,
+              showDayHeaders: showDayHeaders,
+              showAllDay: !single,
+              revealHour: reveal,
+              showNowLine: true,
+              itemTitle: _itemTitle,
+              isTask: _isHuberaTask,
+              eventColor: (item) => colorForCalendarEvent(item, _calendars, accent),
+              onDayHeaderTap: (d) => setState(() {
+                _calFocusDay = DateTime(d.year, d.month, d.day);
+                _calMonthAnchor = DateTime(d.year, d.month, 1);
+                _calView = CalendarHomeView.day;
+                _calMonthStripOpen = false;
+                _calFabOpen = false;
+              }),
+              onEventTap: (item) => _openEditor(existing: item),
+              onSlotTap: (start) => _openEditor(seedStart: start),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -2475,7 +3432,6 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       return _buildTimedCalendar(
         today: today,
         accent: accent,
-        header: _weekRangeLabel(days),
         days: days,
         showDayHeaders: true,
       );
@@ -2484,13 +3440,12 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       return _buildTimedCalendar(
         today: today,
         accent: accent,
-        header: _calendarFocusLabel(_calFocusDay),
         days: [_calFocusDay],
         showDayHeaders: false,
       );
     }
 
-    final rawEvents = _items.where((item) {
+    final rawEvents = _visibleCalendarItems.where((item) {
       if ((item['start_at'] ?? item['starts_at']) == null &&
           item['name'] != null &&
           item['title'] == null) {
@@ -2702,9 +3657,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                                           margin: const EdgeInsets.only(
                                               right: 12, top: 6),
                                           decoration: BoxDecoration(
-                                            color: _isHuberaTask(item)
-                                                ? const Color(0xFF188038)
-                                                : accent,
+                                            color: colorForCalendarEvent(
+                                              item,
+                                              _calendars,
+                                              accent,
+                                            ),
                                             borderRadius:
                                                 BorderRadius.circular(2),
                                           ),
@@ -2846,6 +3803,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       seedRemind: choice == 'reminder'
           ? DateTime.now().add(const Duration(hours: 1))
           : null,
+      noteLabels: product == SuiteProduct.notes ? _allNoteLabels : const [],
+      noteInitialLabels: product == SuiteProduct.notes && _noteLabelFilter != null
+          ? [_noteLabelFilter!]
+          : const [],
+      onNoteLabelCreated: product == SuiteProduct.notes ? _rememberNoteLabel : null,
     );
     if (saved && mounted) await _reload();
   }
@@ -2853,7 +3815,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return SuiteDrawerScaffold(
-      onConsumeBack: widget.product == SuiteProduct.tasks
+      onConsumeBack: widget.product == SuiteProduct.contacts
+          ? () {
+              if (_selectedContactKeys.isEmpty) return false;
+              setState(_selectedContactKeys.clear);
+              return true;
+            }
+          : widget.product == SuiteProduct.tasks
           ? () {
               if (!tasksFilterBack(
                 selectedListId: _selectedTaskListId,
@@ -2873,42 +3841,30 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           ? 'Paramètres'
           : widget.product == SuiteProduct.notes
               ? _notesAppBarTitle()
-              : widget.product.title,
+              : widget.product == SuiteProduct.contacts
+                  ? _contactsAppBarTitle()
+                  : widget.product == SuiteProduct.calendar
+                      ? ''
+                      : widget.product.title,
       gatewayUrl: widget.gatewayBase,
       userEmail: widget.userEmail,
       showSettings: _showSettings,
       navItems: _productNavItems(),
       appBarActions: [
         if (!_showSettings && widget.product == SuiteProduct.calendar) ...[
-          PopupMenuButton<CalendarHomeView>(
-            tooltip: 'Vue',
-            icon: Icon(switch (_calView) {
-              CalendarHomeView.month => Icons.calendar_view_month_outlined,
-              CalendarHomeView.week => Icons.view_week_outlined,
-              CalendarHomeView.day => Icons.view_day_outlined,
-              CalendarHomeView.agenda => Icons.view_agenda_outlined,
-            }),
-            onSelected: (v) => setState(() => _calView = v),
-            itemBuilder: (ctx) => const [
-              PopupMenuItem(value: CalendarHomeView.day, child: Text('Jour')),
-              PopupMenuItem(value: CalendarHomeView.week, child: Text('Semaine')),
-              PopupMenuItem(value: CalendarHomeView.month, child: Text('Mois')),
-              PopupMenuItem(value: CalendarHomeView.agenda, child: Text('Agenda')),
-            ],
-          ),
           IconButton(
-            tooltip: 'Aujourd’hui',
-            icon: const Icon(Icons.today_outlined),
-            onPressed: () {
-              final n = DateTime.now();
-              final t = DateTime(n.year, n.month, n.day);
-              setState(() {
-                _calMonthAnchor = DateTime(t.year, t.month);
-                _calFocusDay = t;
-              });
-              _jumpToCalendarDay(t, filter: false);
-            },
+            tooltip: _calSearchOpen ? 'Fermer la recherche' : 'Rechercher',
+            icon: Icon(_calSearchOpen ? Icons.close : Icons.search),
+            onPressed: () => setState(() {
+              _calSearchOpen = !_calSearchOpen;
+              _calFabOpen = false;
+              if (!_calSearchOpen) {
+                _calQuery = '';
+                _calSearchCtrl.clear();
+              }
+            }),
           ),
+          _calendarTodayButton(),
         ],
         if (!_showSettings && widget.product == SuiteProduct.notes) ...[
           if (_notesSearchOpen)
@@ -2933,15 +3889,68 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
             }),
           ),
         ],
-        if (!_showSettings)
+        if (!_showSettings &&
+            widget.product != SuiteProduct.contacts &&
+            widget.product != SuiteProduct.calendar)
           IconButton(icon: const Icon(Icons.refresh), onPressed: _reload),
       ],
       onAccountTap: () => setState(() => _showSettings = true),
       versionLabel: 'Hubera ${widget.product.title}',
       huberaProduct: widget.product.suiteApp.asHubera,
       showAppSwitcher: widget.product != SuiteProduct.calendar &&
-          widget.product != SuiteProduct.notes,
-      bottomDestinations: const [],
+          widget.product != SuiteProduct.notes &&
+          widget.product != SuiteProduct.contacts &&
+          widget.product != SuiteProduct.tasks,
+      showHuberaIdLink: widget.product != SuiteProduct.contacts &&
+          widget.product != SuiteProduct.calendar &&
+          widget.product != SuiteProduct.notes &&
+          widget.product != SuiteProduct.tasks,
+      showAccountSettings: widget.product != SuiteProduct.calendar,
+      titleWidget: widget.product == SuiteProduct.calendar && !_showSettings
+          ? (_calSearchOpen ? _calendarSearchField() : _calendarMonthTitle())
+          : widget.product == SuiteProduct.contacts &&
+              !_showSettings &&
+              _contactShelf == ContactShelf.active &&
+              _contactsNav != 'organize'
+          ? TextField(
+              controller: _contactSearchCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Rechercher dans vos contacts',
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _contactQuery = v),
+            )
+          : null,
+      bottomDestinations: widget.product == SuiteProduct.contacts
+          ? const [
+              HuberaNavDest(id: 'contacts', label: 'Contacts', icon: Icons.people_outline),
+              HuberaNavDest(id: 'select', label: 'Sélection', icon: Icons.checklist),
+              HuberaNavDest(id: 'organize', label: 'Organiser', icon: Icons.tune),
+            ]
+          : const [],
+      selectedBottomId: widget.product != SuiteProduct.contacts
+          ? null
+          : _contactShelf != ContactShelf.active || _contactsNav == 'organize'
+              ? 'organize'
+              : _contactsNav,
+      onBottomSelected: widget.product == SuiteProduct.contacts
+          ? (id) {
+              setState(() {
+                _contactsNav = id;
+                _showSettings = false;
+                if (id == 'contacts') {
+                  _contactShelf = ContactShelf.active;
+                  _selectedContactKeys.clear();
+                } else if (id == 'select') {
+                  _contactShelf = ContactShelf.active;
+                } else if (id == 'organize') {
+                  _contactShelf = ContactShelf.active;
+                  _selectedContactKeys.clear();
+                }
+              });
+            }
+          : null,
       onOpenSettings: () => setState(() => _showSettings = true),
       onCloseSettings: () => setState(() => _showSettings = false),
       onLogout: widget.onLogout,
@@ -2949,27 +3958,43 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         gatewayUrl: widget.gatewayBase,
         appName: widget.product.title,
         webAppPath: widget.product.webPath,
+        addressBook: widget.product == SuiteProduct.contacts,
+        calendarOnly: widget.product == SuiteProduct.calendar,
+        ownAppSettings: widget.product == SuiteProduct.notes ||
+            widget.product == SuiteProduct.tasks,
+        accountEmail: widget.userEmail ??
+            ((widget.product == SuiteProduct.notes ||
+                    widget.product == SuiteProduct.tasks)
+                ? _emailFromAccess(widget.accessToken)
+                : null),
+        onCheckUpdate: widget.product == SuiteProduct.calendar
+            ? () => cloudityCheckUpdateManually(
+                  context,
+                  gatewayBase: widget.gatewayBase,
+                  appSlug: widget.product.suiteApp.otaAppSlug,
+                  appName: 'Hubera Calendar',
+                  huberaHost: widget.product.suiteApp.huberaHost,
+                )
+            : widget.product == SuiteProduct.contacts
+                ? _checkContactsUpdate
+                : (widget.product == SuiteProduct.notes ||
+                        widget.product == SuiteProduct.tasks)
+                    ? _checkOwnAppUpdate
+                    : null,
         onLogout: () => widget.onLogout(),
       ),
-      floatingActionButton: _showSettings
+      floatingActionButton: _showSettings ||
+              (widget.product == SuiteProduct.contacts &&
+                  (_contactShelf != ContactShelf.active || _contactsNav == 'organize'))
           ? null
-          : FloatingActionButton(
-              onPressed: widget.product == SuiteProduct.contacts &&
-                      _contactDirectory == ContactDirectory.personal
-                  ? _importDeviceGoogleContacts
-                  : widget.product == SuiteProduct.notes
-                      ? _openNotesComposer
-                      : _showCreateMenu,
-              tooltip: widget.product == SuiteProduct.contacts &&
-                      _contactDirectory == ContactDirectory.personal
-                  ? 'Contacts Google du téléphone'
-                  : 'Créer',
-              child: Icon(
-                widget.product == SuiteProduct.contacts &&
-                        _contactDirectory == ContactDirectory.personal
-                    ? Icons.contact_phone_outlined
-                    : Icons.add,
-              ),
+          : widget.product == SuiteProduct.calendar
+              ? _calendarCreateFab()
+              : FloatingActionButton(
+              onPressed: widget.product == SuiteProduct.notes
+                  ? _openNotesComposer
+                  : _showCreateMenu,
+              tooltip: widget.product == SuiteProduct.contacts ? 'Créer un contact' : 'Créer',
+              child: const Icon(Icons.add),
             ),
       body: _buildListBody(),
     );

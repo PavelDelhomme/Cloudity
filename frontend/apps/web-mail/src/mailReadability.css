@@ -1,0 +1,23 @@
+/*
+ * Corps HTML : les mails imposent souvent une couleur de texte sombre en inline.
+ * En mode sombre, le carton de lecture reste blanc pour que ce texte reste lisible.
+ * Le chrome (liste, barre, rédaction) suit le thème.
+ */
+html.dark .mail-html-body {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+html.dark .mail-html-body a {
+  color: #1d4ed8;
+}
+
+html.dark .mail-html-body blockquote {
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+html.dark .mail-html-body pre {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}

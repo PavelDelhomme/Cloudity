@@ -44,6 +44,9 @@ func normalizeMailFolderQuery(folder string) string {
 	if lf == "scheduled" {
 		return "scheduled"
 	}
+	if lf == "starred" {
+		return "starred"
+	}
 	if isStandardMailFolder(lf) {
 		return lf
 	}
@@ -100,7 +103,7 @@ func (h *Handler) folderAllowed(ctx context.Context, accountID int, folder strin
 		`, accountID).Scan(&dummy)
 		return err == nil
 	}
-	if strings.EqualFold(folder, "scheduled") {
+	if strings.EqualFold(folder, "starred") || strings.EqualFold(folder, "scheduled") {
 		var dummy int
 		err := h.dbex(ctx).QueryRow(`
 			SELECT 1 FROM user_email_accounts

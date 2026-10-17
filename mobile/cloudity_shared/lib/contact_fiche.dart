@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'contact_card.dart';
+import 'contact_directory.dart';
 import 'contact_editor.dart';
 import 'contact_maps.dart';
 import 'suite_product_api.dart';
@@ -14,12 +15,24 @@ class ContactFicheScreen extends StatelessWidget {
     required this.api,
     required this.onChanged,
     this.readOnly = false,
+    this.onArchive,
+    this.onTrash,
+    this.onRestore,
+    this.onPurge,
+    this.onBlockNumber,
   });
 
   final Map<String, dynamic> item;
   final SuiteProductApi api;
   final Future<void> Function() onChanged;
   final bool readOnly;
+
+  /// Absents : la fiche garde Modifier / Supprimer comme aujourd’hui.
+  final Future<void> Function()? onArchive;
+  final Future<void> Function()? onTrash;
+  final Future<void> Function()? onRestore;
+  final Future<void> Function()? onPurge;
+  final Future<BlockAttempt> Function(String number)? onBlockNumber;
 
   ContactCardData get _card => ContactCardData.fromItem(item);
 
@@ -57,7 +70,32 @@ class ContactFicheScreen extends StatelessWidget {
     if (context.mounted) Navigator.pop(context, true);
   }
 
+  Future<void> _runShelf(BuildContext context, Future<void> Function() action) async {
+    await action();
+    if (context.mounted) Navigator.pop(context, true);
+  }
+
+  Future<void> _block(BuildContext context, String phone) async {
+    final attempt = await onBlockNumber?.call(phone);
+    if (!context.mounted || attempt == null) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          attempt.blocked
+              ? 'Numéro bloqué'
+              : (attempt.reason.isEmpty
+                  ? 'Le téléphone a refusé de bloquer ce numéro.'
+                  : attempt.reason),
+        ),
+      ),
+    );
+  }
+
   Future<void> _delete(BuildContext context) async {
+    if (onTrash != null) {
+      await _runShelf(context, onTrash!);
+      return;
+    }
     final id = contactItemId(item);
     if (id == null) return;
     final name = _card.name.isEmpty ? 'ce contact' : _card.name;
@@ -101,22 +139,41 @@ class ContactFicheScreen extends StatelessWidget {
         backgroundColor: scheme.surface,
         surfaceTintColor: Colors.transparent,
         actions: [
-          if (!readOnly)
+          if (onRestore != null)
+            IconButton(
+              tooltip: 'Restaurer',
+              icon: const Icon(Icons.restore),
+              onPressed: () => _runShelf(context, onRestore!),
+            ),
+          if (onPurge != null)
+            IconButton(
+              tooltip: 'Supprimer définitivement',
+              icon: const Icon(Icons.delete_forever_outlined),
+              onPressed: () => _runShelf(context, onPurge!),
+            ),
+          if (!readOnly && onRestore == null)
             IconButton(
               tooltip: 'Modifier',
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => _edit(context),
             ),
-          if (!readOnly)
+          if (onRestore == null && (!readOnly || onTrash != null || onArchive != null))
             PopupMenuButton<String>(
               tooltip: 'Plus',
               onSelected: (value) {
                 if (value == 'edit') _edit(context);
+                if (value == 'archive') _runShelf(context, onArchive!);
                 if (value == 'delete') _delete(context);
               },
-              itemBuilder: (ctx) => const [
-                PopupMenuItem(value: 'edit', child: Text('Modifier')),
-                PopupMenuItem(value: 'delete', child: Text('Supprimer')),
+              itemBuilder: (ctx) => [
+                if (!readOnly) const PopupMenuItem(value: 'edit', child: Text('Modifier')),
+                if (onArchive != null)
+                  const PopupMenuItem(value: 'archive', child: Text('Archiver')),
+                if (!readOnly || onTrash != null)
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(onTrash != null ? 'Mettre à la corbeille' : 'Supprimer'),
+                  ),
               ],
             ),
         ],
@@ -196,6 +253,13 @@ class ContactFicheScreen extends StatelessWidget {
                 icon: Icons.notes_outlined,
                 value: card.notes,
                 label: 'Notes',
+              ),
+            if (onBlockNumber != null && phone.isNotEmpty)
+              ListTile(
+                leading: Icon(Icons.block, color: scheme.onSurfaceVariant),
+                title: const Text('Bloquer ce numéro'),
+                subtitle: const Text('Seulement si le téléphone l’accepte'),
+                onTap: () => _block(context, phone),
               ),
           ],
         ),

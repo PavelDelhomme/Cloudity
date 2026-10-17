@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import 'app_theme.dart';
+import 'calendar_drive.dart';
 import 'http_helpers.dart';
 import 'suite_drawer_scaffold.dart';
 import 'suite_feedback_screen.dart';
@@ -98,6 +99,42 @@ class SuiteProductApi {
 
   Future<List<Map<String, dynamic>>> fetchCalendars() =>
       fetchJsonList('/calendar/calendars');
+
+  /// Drive du même jeton. Aucun secret inventé : si rien ne répond, Drive n’est pas relié.
+  Future<({bool reachable, List<DriveFileRef> files})> probeHuberaDrive() async {
+    final bases = <String>[_base];
+    final uri = Uri.tryParse(_base);
+    if (uri != null && uri.hasScheme && uri.host.isNotEmpty && uri.host != 'drive.hubera.cloud') {
+      final drive = uri.replace(host: 'drive.hubera.cloud').removeFragment();
+      final root = drive.replace(path: '', query: '').toString().replaceAll(RegExp(r'/$'), '');
+      if (!bases.contains(root)) bases.add(root);
+    }
+    for (final base in bases) {
+      try {
+        final token = accessToken;
+        final res = await http
+            .get(Uri.parse('$base/drive/nodes'), headers: authHeaders(token, json: false))
+            .timeout(const Duration(seconds: 8));
+        if (res.statusCode == 401 && onTokenRefresh != null) {
+          final refreshed = await onTokenRefresh!();
+          if (refreshed != null && refreshed.isNotEmpty) {
+            accessToken = refreshed;
+            final again = await http
+                .get(Uri.parse('$base/drive/nodes'), headers: authHeaders(refreshed, json: false))
+                .timeout(const Duration(seconds: 8));
+            if (again.statusCode == 200) {
+              return (reachable: true, files: parseDriveFileList(jsonDecode(again.body)));
+            }
+          }
+          continue;
+        }
+        if (res.statusCode == 200) {
+          return (reachable: true, files: parseDriveFileList(jsonDecode(res.body)));
+        }
+      } catch (_) {}
+    }
+    return (reachable: false, files: const <DriveFileRef>[]);
+  }
 
   Future<List<Map<String, dynamic>>> fetchCalendarEvents() =>
       fetchJsonList('/calendar/events');
@@ -307,6 +344,7 @@ class SuiteProductApi {
     int? reminderMinutes,
     String? sourceKey,
     String? tripId,
+    List<Map<String, dynamic>>? attachments,
   }) async {
     final data = await _request(
       'POST',
@@ -323,6 +361,7 @@ class SuiteProductApi {
         if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
         if (attendees != null) 'attendees': attendees,
         if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+        if (attachments != null) 'attachments': attachments,
         if (sourceKey != null && sourceKey.isNotEmpty) 'source_key': sourceKey,
         if (tripId != null && tripId.isNotEmpty) 'trip_id': tripId,
       },
@@ -343,6 +382,8 @@ class SuiteProductApi {
     bool clearRepeatRule = false,
     List<String>? attendees,
     int? reminderMinutes,
+    int? calendarId,
+    List<Map<String, dynamic>>? attachments,
   }) async {
     await _request(
       'PUT',
@@ -358,6 +399,8 @@ class SuiteProductApi {
         if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
         if (attendees != null) 'attendees': attendees,
         if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
+        if (calendarId != null) 'calendar_id': calendarId,
+        if (attachments != null) 'attachments': attachments,
       },
       ok: const {200, 204},
     );
@@ -440,6 +483,11 @@ class SuiteSettingsPanel extends StatelessWidget {
     this.extraSections = const [],
     this.onLogout,
     this.showThemeTile = true,
+    this.addressBook = false,
+    this.calendarOnly = false,
+    this.ownAppSettings = false,
+    this.onCheckUpdate,
+    this.accountEmail,
   });
 
   final String gatewayUrl;
@@ -449,8 +497,30 @@ class SuiteSettingsPanel extends StatelessWidget {
   final VoidCallback? onLogout;
   final bool showThemeTile;
 
+  /// Défaut faux : Mail, Agenda, Notes gardent les liens suite.
+  /// Vrai : carnet seulement (compte, affichage, thème du téléphone).
+  final bool addressBook;
+
+  /// Défaut faux. Vrai : Agenda seulement — thème et mise à jour.
+  /// Pas de second titre, pas de lien web, pas de Mail / Drive / Notes.
+  final bool calendarOnly;
+
+  /// Défaut faux : Mail, Photos, Pass et l’agenda gardent leurs liens.
+  /// Vrai : réglages de cette app seulement (compte, affichage, mise à jour).
+  /// Music, Fuel et Maps n’utilisent pas ce panneau : le défaut ne leur
+  /// réintroduit aucun lien web ni liste d’apps.
+  final bool ownAppSettings;
+
+  /// Recherche manuelle. Défaut null : pas de bouton.
+  final Future<void> Function()? onCheckUpdate;
+
+  final String? accountEmail;
+
   @override
   Widget build(BuildContext context) {
+    if (addressBook) return _addressBookSettings(context);
+    if (calendarOnly) return _calendarSettings(context);
+    if (ownAppSettings) return _ownAppSettings(context);
     final webUrl = '${suitePublicWebBase(gatewayUrl)}$webAppPath';
     final themeState = CloudityThemedAppScope.maybeOf(context);
     return ListView(
@@ -522,6 +592,156 @@ class SuiteSettingsPanel extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  Widget _addressBookSettings(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeState = CloudityThemedAppScope.maybeOf(context);
+    final account = accountEmail?.trim() ?? '';
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('Paramètres', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 16),
+        Text('Compte', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 4),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.account_circle_outlined),
+          title: Text(account.isEmpty ? 'Compte du téléphone' : account),
+          subtitle: const Text('Compte utilisé pour les nouveaux contacts'),
+        ),
+        const SizedBox(height: 12),
+        Text('Affichage', style: theme.textTheme.titleSmall),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Trier par'),
+          subtitle: const Text('Prénom'),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Format du nom'),
+          subtitle: const Text('Prénom en premier'),
+        ),
+        if (showThemeTile && themeState != null)
+          CloudityThemeModeTile(
+            mode: themeState.themeMode,
+            onChanged: themeState.setThemeMode,
+          ),
+        if (onCheckUpdate != null) ...[
+          const SizedBox(height: 12),
+          Text('Application', style: theme.textTheme.titleSmall),
+          _UpdateCheckTile(onCheck: onCheckUpdate!),
+        ],
+        if (onLogout != null) ...[
+          const SizedBox(height: 24),
+          FilledButton.tonalIcon(
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Déconnexion'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Agenda seulement : thème du téléphone et recherche de mise à jour.
+  /// Pas de second « Paramètres », pas de lien web, pas d’autres apps.
+  Widget _calendarSettings(BuildContext context) {
+    final themeState = CloudityThemedAppScope.maybeOf(context);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+      children: [
+        if (showThemeTile && themeState != null)
+          CloudityThemeModeTile(
+            mode: themeState.themeMode,
+            onChanged: themeState.setThemeMode,
+          ),
+        if (onCheckUpdate != null) _UpdateCheckTile(onCheck: onCheckUpdate!),
+      ],
+    );
+  }
+
+  /// Compte, affichage, réglages métier déjà fournis, recherche de mise à jour.
+  /// Pas de « ouvrir sur le web », pas de lien vers une autre app.
+  Widget _ownAppSettings(BuildContext context) {
+    final theme = Theme.of(context);
+    final themeState = CloudityThemedAppScope.maybeOf(context);
+    final account = accountEmail?.trim() ?? '';
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text('Paramètres', style: theme.textTheme.titleLarge),
+        const SizedBox(height: 16),
+        Text('Compte', style: theme.textTheme.titleSmall),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.account_circle_outlined),
+          title: Text(account.isEmpty ? appName : account),
+          subtitle: Text('Compte $appName'),
+        ),
+        const SizedBox(height: 12),
+        Text('Affichage', style: theme.textTheme.titleSmall),
+        if (showThemeTile && themeState != null)
+          CloudityThemeModeTile(
+            mode: themeState.themeMode,
+            onChanged: themeState.setThemeMode,
+          ),
+        ...extraSections,
+        const SizedBox(height: 12),
+        Text('Application', style: theme.textTheme.titleSmall),
+        if (onCheckUpdate != null) _UpdateCheckTile(onCheck: onCheckUpdate!),
+        if (onLogout != null) ...[
+          const SizedBox(height: 24),
+          FilledButton.tonalIcon(
+            onPressed: onLogout,
+            icon: const Icon(Icons.logout),
+            label: const Text('Déconnexion'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _UpdateCheckTile extends StatefulWidget {
+  const _UpdateCheckTile({required this.onCheck});
+
+  final Future<void> Function() onCheck;
+
+  @override
+  State<_UpdateCheckTile> createState() => _UpdateCheckTileState();
+}
+
+class _UpdateCheckTileState extends State<_UpdateCheckTile> {
+  bool _busy = false;
+
+  Future<void> _run() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onCheck();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: _busy
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.system_update_alt),
+      title: const Text('Vérifier les mises à jour'),
+      subtitle: const Text('En plus de la détection automatique. Proposée, jamais forcée.'),
+      enabled: !_busy,
+      onTap: _busy ? null : _run,
     );
   }
 }
