@@ -57,6 +57,7 @@ void main() {
     );
     expect(find.text('Vérifier les mises à jour'), findsOneWidget);
     expect(find.textContaining('jamais forcée'), findsOneWidget);
+    expect(huberaInstalledVersionLabel('0.1.13', '14'), 'Installée 0.1.13 · code 14');
     expect(find.text('Paramètres suite'), findsNothing);
     expect(find.textContaining('Ouvrir'), findsNothing);
     expect(find.text('Mail, Drive, Agenda, Notes…'), findsNothing);
@@ -80,6 +81,29 @@ void main() {
     expect(find.text('Vérifier les mises à jour'), findsOneWidget);
     expect(find.text('Paramètres suite'), findsNothing);
     expect(find.textContaining('Ouvrir'), findsNothing);
+    expect(find.text('Mail, Drive, Agenda, Notes…'), findsNothing);
+    expect(find.text('Apps Hubera'), findsNothing);
+    expect(find.textContaining('Version '), findsNothing);
+  });
+
+  testWidgets('Tasks : la version s’affiche, sans liens vers les autres apps', (tester) async {
+    await _pump(
+      tester,
+      SuiteSettingsPanel(
+        gatewayUrl: 'https://api.example.test',
+        appName: 'Tâches',
+        webAppPath: '/app/tasks',
+        ownAppSettings: true,
+        accountEmail: 'ada@example.test',
+        installedVersion: '0.1.9',
+        onCheckUpdate: () async {},
+      ),
+    );
+    expect(find.text('Version 0.1.9'), findsOneWidget);
+    expect(find.textContaining('Détection automatique'), findsOneWidget);
+    expect(find.text('Vérifier les mises à jour'), findsOneWidget);
+    expect(find.textContaining('jamais forcée'), findsNWidgets(2));
+    expect(find.text('Paramètres suite'), findsNothing);
     expect(find.text('Mail, Drive, Agenda, Notes…'), findsNothing);
     expect(find.text('Apps Hubera'), findsNothing);
   });

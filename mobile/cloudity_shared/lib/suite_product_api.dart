@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_theme.dart';
 import 'calendar_drive.dart';
@@ -488,6 +489,7 @@ class SuiteSettingsPanel extends StatelessWidget {
     this.ownAppSettings = false,
     this.onCheckUpdate,
     this.accountEmail,
+    this.installedVersion,
   });
 
   final String gatewayUrl;
@@ -515,6 +517,10 @@ class SuiteSettingsPanel extends StatelessWidget {
   final Future<void> Function()? onCheckUpdate;
 
   final String? accountEmail;
+
+  /// Version installée. Défaut null : Notes et les autres apps ne l’affichent pas.
+  /// Tasks la passe pour le même repère que Music (« installée … »).
+  final String? installedVersion;
 
   @override
   Widget build(BuildContext context) {
@@ -603,6 +609,13 @@ class SuiteSettingsPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       children: [
         Text('Paramètres', style: theme.textTheme.titleLarge),
+        if (onCheckUpdate != null) ...[
+          const SizedBox(height: 12),
+          Text('Application', style: theme.textTheme.titleSmall),
+          const _InstalledVersionLine(),
+          _UpdateCheckTile(onCheck: onCheckUpdate!),
+          const SizedBox(height: 12),
+        ],
         const SizedBox(height: 16),
         Text('Compte', style: theme.textTheme.titleSmall),
         const SizedBox(height: 4),
@@ -629,11 +642,6 @@ class SuiteSettingsPanel extends StatelessWidget {
             mode: themeState.themeMode,
             onChanged: themeState.setThemeMode,
           ),
-        if (onCheckUpdate != null) ...[
-          const SizedBox(height: 12),
-          Text('Application', style: theme.textTheme.titleSmall),
-          _UpdateCheckTile(onCheck: onCheckUpdate!),
-        ],
         if (onLogout != null) ...[
           const SizedBox(height: 24),
           FilledButton.tonalIcon(
@@ -691,6 +699,15 @@ class SuiteSettingsPanel extends StatelessWidget {
         ...extraSections,
         const SizedBox(height: 12),
         Text('Application', style: theme.textTheme.titleSmall),
+        if ((installedVersion ?? '').trim().isNotEmpty)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.info_outline),
+            title: Text('Version ${installedVersion!.trim()}'),
+            subtitle: const Text(
+              'Détection automatique au lancement. Proposée, jamais forcée.',
+            ),
+          ),
         if (onCheckUpdate != null) _UpdateCheckTile(onCheck: onCheckUpdate!),
         if (onLogout != null) ...[
           const SizedBox(height: 24),
@@ -701,6 +718,52 @@ class SuiteSettingsPanel extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Ligne « Installée 0.1.13 · code 14 », comme le compte Music.
+String huberaInstalledVersionLabel(String version, String code) {
+  final v = version.trim();
+  final c = code.trim();
+  if (v.isEmpty) return '';
+  if (c.isEmpty) return 'Installée $v';
+  return 'Installée $v · code $c';
+}
+
+class _InstalledVersionLine extends StatefulWidget {
+  const _InstalledVersionLine();
+
+  @override
+  State<_InstalledVersionLine> createState() => _InstalledVersionLineState();
+}
+
+class _InstalledVersionLineState extends State<_InstalledVersionLine> {
+  String _label = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final label = huberaInstalledVersionLabel(info.version, info.buildNumber);
+      if (!mounted || label.isEmpty) return;
+      setState(() => _label = label);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_label.isEmpty) return const SizedBox.shrink();
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.info_outline),
+      title: Text(_label),
+      subtitle: const Text('Détection automatique. Proposée, jamais forcée.'),
     );
   }
 }
