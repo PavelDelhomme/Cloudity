@@ -310,6 +310,7 @@ class SuiteDrawerScaffold extends StatelessWidget {
     this.huberaProduct,
     this.showAppSwitcher = true,
     this.flushBottomBar = false,
+    this.fabClearance = 0,
     this.onConsumeBack,
     this.titleWidget,
     this.showHuberaIdLink = true,
@@ -341,6 +342,9 @@ class SuiteDrawerScaffold extends StatelessWidget {
   /// Cook : la barre colle au bord utile. Le [NavigationBar] garde la zone système.
   /// Défaut : marge basse historique des autres apps.
   final bool flushBottomBar;
+
+  /// Décale le bouton plus au-dessus de la barre (Cook, menu).
+  final double fabClearance;
 
   /// Retour sur un écran interne (onglet, recherche). `true` si la page a bougé.
   /// L’accueil racine ne pop jamais : le retour ne quitte pas l’app.
@@ -428,7 +432,9 @@ class SuiteDrawerScaffold extends StatelessWidget {
         drawer: _buildDrawer(context),
         body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
         floatingActionButton: showSettings ? null : floatingActionButton,
-        floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+        floatingActionButtonLocation: fabClearance <= 0
+            ? FloatingActionButtonLocation.endFloat
+            : _LiftedFabLocation(fabClearance),
         bottomNavigationBar: (showSettings || bottomDestinations.isEmpty)
             ? null
             : Padding(
@@ -451,6 +457,17 @@ class SuiteDrawerScaffold extends StatelessWidget {
               ),
       ),
     );
+  }
+}
+
+class _LiftedFabLocation extends FloatingActionButtonLocation {
+  const _LiftedFabLocation(this.lift);
+  final double lift;
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    final base = FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry);
+    return Offset(base.dx, base.dy - lift);
   }
 }
 

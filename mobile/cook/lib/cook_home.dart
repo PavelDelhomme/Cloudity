@@ -39,11 +39,13 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
   String? _error;
   bool _showSettings = false;
   int _tab = 0;
+  bool _favoritesOnly = false;
   DateTime _planDay = DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    cookLoadUserFixes();
     _reload();
   }
 
@@ -138,11 +140,25 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         ListTile(
           leading: const Icon(Icons.menu_book_outlined),
           title: const Text('Recettes'),
-          selected: !_showSettings && _tab == 1,
+          selected: !_showSettings && _tab == 1 && !_favoritesOnly,
           onTap: () {
             Navigator.pop(context);
             setState(() {
               _showSettings = false;
+              _favoritesOnly = false;
+              _tab = 1;
+            });
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.favorite_outline),
+          title: const Text('Favoris'),
+          selected: !_showSettings && _tab == 1 && _favoritesOnly,
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _showSettings = false;
+              _favoritesOnly = true;
               _tab = 1;
             });
           },
@@ -206,6 +222,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
       showAppSwitcher: false,
       showHuberaIdLink: false,
       flushBottomBar: true,
+      fabClearance: 72,
       settingsBody: SuiteSettingsPanel(
         gatewayUrl: widget.gatewayBase,
         appName: 'Cook',
@@ -268,6 +285,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         _RecipesTab(
           pantry: _data.pantry,
           favorites: _data.favorites,
+          favoritesOnly: _favoritesOnly,
           onOpen: _openRecipe,
           onToggleFav: _toggleFav,
         ),
@@ -459,9 +477,8 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
   }
 
   Future<void> _openRecipe(MealSummary meal, {String? slot}) async {
-    final detail = await showDialog<MealDetail>(
-      context: context,
-      builder: (ctx) => _RecipeDialog(summary: meal),
+    final detail = await Navigator.of(context).push<MealDetail>(
+      MaterialPageRoute(builder: (ctx) => _RecipeDialog(summary: meal)),
     );
     if (detail == null || !mounted) return;
     if (slot != null) {
@@ -747,10 +764,12 @@ class _RecipesTab extends StatefulWidget {
     required this.favorites,
     required this.onOpen,
     required this.onToggleFav,
+    this.favoritesOnly = false,
   });
 
   final List<CookPantryItem> pantry;
   final List<String> favorites;
+  final bool favoritesOnly;
   final Future<void> Function(MealSummary meal) onOpen;
   final Future<void> Function(String id) onToggleFav;
 
@@ -774,6 +793,12 @@ class _RecipesTabState extends State<_RecipesTab> {
   }
 
   @override
+  void didUpdateWidget(covariant _RecipesTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.favoritesOnly != widget.favoritesOnly) _loadSuggested();
+  }
+
+  @override
   void dispose() {
     _query.dispose();
     super.dispose();
@@ -787,6 +812,20 @@ class _RecipesTabState extends State<_RecipesTab> {
       _letterIndex = 0;
     });
     try {
+      if (widget.favoritesOnly) {
+        final list = <MealSummary>[];
+        for (final id in widget.favorites) {
+          final detail = await mealDbLookup(id);
+          if (detail == null) continue;
+          list.add(MealSummary(id: detail.id, title: cookToFrenchLearned(detail.title), thumb: detail.thumb));
+        }
+        if (!mounted) return;
+        setState(() {
+          _meals = list;
+          _loading = false;
+        });
+        return;
+      }
       final names = widget.pantry.map((e) => e.name).toList();
       final list = names.isEmpty ? await mealDbRandomBatch() : await mealDbSuggestFromPantry(names);
       if (!mounted) return;
@@ -1098,47 +1137,89 @@ class _RecipeDialogState extends State<_RecipeDialog> {
     });
   }
 
+  Future<void> _correct(String source) async {
+    final ctrl = TextEditingController(text: cookToFrenchLearned(source));
+    final next = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Corriger la traduction'),
+        content: TextField(controller: ctrl, autofocus: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Retenir'),
+          ),
+        ],
+      ),
+    );
+    if (next == null || next.isEmpty) return;
+    cookRememberFix(source, next);
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _detail;
-    return AlertDialog(
-      title: Text(widget.summary.title),
-      content: SizedBox(
-        width: 420,
-        child: d == null
-            ? SizedBox(
-                height: 120,
-                child: _error != null ? Text(_error!) : const Center(child: CircularProgressIndicator()),
-              )
-            : SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (d.thumb != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(d.thumb!),
-                      ),
-                    if (d.category != null || d.area != null) ...[
-                      const SizedBox(height: 8),
-                      Text([d.category, d.area].whereType<String>().join(' · ')),
-                    ],
-                    const SizedBox(height: 12),
-                    Text('Ingrédients', style: Theme.of(context).textTheme.titleSmall),
-                    for (final ing in d.ingredients)
-                      Text('• ${ing.measure.isEmpty ? ing.name : '${ing.measure} ${ing.name}'}'),
-                    const SizedBox(height: 12),
-                    Text('Préparation', style: Theme.of(context).textTheme.titleSmall),
-                    Text(d.instructions),
-                  ],
+    final title = cookToFrenchLearned(widget.summary.title);
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(d == null ? title : cookToFrenchLearned(d.title)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: d == null
+          ? Center(child: _error != null ? Text(_error!) : const CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (d.thumb != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(d.thumb!),
+                  ),
+                if (d.category != null || d.area != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    [d.category, d.area]
+                        .whereType<String>()
+                        .map(cookToFrenchLearned)
+                        .join(' · '),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Text('Ingrédients', style: Theme.of(context).textTheme.titleSmall),
+                for (final ing in d.ingredients)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      '• ${cookToFrenchLearned(ing.measure)} ${cookToFrenchLearned(ing.name)}'.trim(),
+                    ),
+                    onLongPress: () => _correct(ing.name),
+                  ),
+                const SizedBox(height: 12),
+                Text('Préparation', style: Theme.of(context).textTheme.titleSmall),
+                Text(cookToFrenchLearned(d.instructions)),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => _correct(d.instructions),
+                  child: const Text('Corriger un passage mal traduit'),
+                ),
+              ],
+            ),
+      bottomNavigationBar: d == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, d),
+                  child: const Text('Utiliser'),
                 ),
               ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
-        if (d != null)
-          FilledButton(onPressed: () => Navigator.pop(context, d), child: const Text('Utiliser')),
-      ],
+            ),
     );
   }
 }

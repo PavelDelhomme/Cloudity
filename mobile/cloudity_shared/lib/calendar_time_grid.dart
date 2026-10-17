@@ -21,6 +21,12 @@ List<DateTime> calendarWeekDays(DateTime anchor) {
   return List.generate(7, (i) => mon.add(Duration(days: i)));
 }
 
+/// Trois jours à partir du jour affiché, heures scrollables comme la journée.
+List<DateTime> calendarThreeDays(DateTime anchor) {
+  final start = calendarStartOfDay(anchor);
+  return List.generate(3, (i) => start.add(Duration(days: i)));
+}
+
 class TimedSegment {
   const TimedSegment({required this.startMin, required this.endMin});
   final double startMin;

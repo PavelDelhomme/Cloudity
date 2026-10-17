@@ -654,13 +654,14 @@ class SuiteSettingsPanel extends StatelessWidget {
     );
   }
 
-  /// Agenda seulement : thème du téléphone et recherche de mise à jour.
+  /// Agenda seulement : version installée, thème, recherche manuelle.
   /// Pas de second « Paramètres », pas de lien web, pas d’autres apps.
   Widget _calendarSettings(BuildContext context) {
     final themeState = CloudityThemedAppScope.maybeOf(context);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
+        const _InstalledVersionLine(),
         if (showThemeTile && themeState != null)
           CloudityThemeModeTile(
             mode: themeState.themeMode,

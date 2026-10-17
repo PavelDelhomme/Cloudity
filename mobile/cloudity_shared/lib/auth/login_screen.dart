@@ -14,6 +14,7 @@ import '../passkey_login.dart';
 import '../webauthn_client.dart';
 import '../suite_app_catalog.dart';
 import '../suite_dev_credentials.dart';
+import '../ota_update.dart';
 import '../suite_gateway_config.dart';
 import 'auth_client.dart';
 import 'device_account_plan.dart';
@@ -94,6 +95,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshBrokerAccounts();
+      unawaited(cloudityResumePendingOtaInstall());
     }
   }
 
@@ -876,6 +878,15 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_busy) ...[
+          const LinearProgressIndicator(),
+          const SizedBox(height: 12),
+          Text(
+            'Connexion au compte en cours…',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+        ],
         if (admin) ...passkey,
         if (showBrokerPicker) ...[
           Text(

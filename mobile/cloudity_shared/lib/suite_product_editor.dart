@@ -52,6 +52,7 @@ Future<bool> showSuiteProductEditor({
   List<String> noteLabels = const [],
   List<String> noteInitialLabels = const [],
   void Function(String label)? onNoteLabelCreated,
+  void Function(Map<String, dynamic> event)? onCalendarSaved,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
@@ -76,6 +77,7 @@ Future<bool> showSuiteProductEditor({
         existing,
         seedStart: seedStart,
         calendars: calendars,
+        onSaved: onCalendarSaved,
       );
   }
 }
@@ -384,6 +386,7 @@ Future<bool> _editEvent(
   Map<String, dynamic>? existing, {
   DateTime? seedStart,
   List<Map<String, dynamic>> calendars = const [],
+  void Function(Map<String, dynamic> event)? onSaved,
 }) {
   return showCalendarEventPage(
     context,
@@ -391,6 +394,7 @@ Future<bool> _editEvent(
     existing: existing,
     seedStart: seedStart,
     calendars: calendars,
+    onSaved: onSaved,
   );
 }
 

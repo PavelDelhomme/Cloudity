@@ -26,6 +26,7 @@ Future<bool> showCalendarEventPage(
   DateTime? seedStart,
   List<Map<String, dynamic>> calendars = const [],
   Future<({bool reachable, List<DriveFileRef> files})> Function()? driveProbe,
+  void Function(Map<String, dynamic> event)? onSaved,
 }) {
   return showModalBottomSheet<bool>(
     context: context,
@@ -41,6 +42,7 @@ Future<bool> showCalendarEventPage(
           seedStart: seedStart,
           calendars: calendars,
           driveProbe: driveProbe,
+          onSaved: onSaved,
         ),
       ),
     ),
@@ -55,6 +57,7 @@ class CalendarEventPage extends StatefulWidget {
     this.seedStart,
     this.calendars = const [],
     this.driveProbe,
+    this.onSaved,
   });
 
   final SuiteProductApi api;
@@ -62,6 +65,7 @@ class CalendarEventPage extends StatefulWidget {
   final DateTime? seedStart;
   final List<Map<String, dynamic>> calendars;
   final Future<({bool reachable, List<DriveFileRef> files})> Function()? driveProbe;
+  final void Function(Map<String, dynamic> event)? onSaved;
 
   @override
   State<CalendarEventPage> createState() => _CalendarEventPageState();
@@ -479,6 +483,15 @@ class _CalendarEventPageState extends State<CalendarEventPage> {
           emails: emails,
         );
       } catch (_) {}
+      widget.onSaved?.call({
+        'id': savedId,
+        'title': title,
+        'start_at': _iso(s),
+        'end_at': _iso(e),
+        'all_day': _allDay,
+        'location': _location.text.trim(),
+        'description': _description.text.trim(),
+      });
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;

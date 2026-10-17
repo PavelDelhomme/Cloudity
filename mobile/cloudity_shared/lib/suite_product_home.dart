@@ -27,8 +27,8 @@ import 'ota_update.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
 
-/// Vues agenda : journée (ouverture), semaine, mois, liste.
-enum CalendarHomeView { month, week, day, agenda }
+/// Vues agenda : journée (ouverture), trois jours, semaine, mois, liste.
+enum CalendarHomeView { month, week, three, day, agenda }
 
 /// Produit suite affiché par l'écran d'accueil mobile.
 enum SuiteProduct { calendar, contacts, notes, tasks }
@@ -1087,6 +1087,27 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           : const [],
       onNoteLabelCreated:
           widget.product == SuiteProduct.notes ? _rememberNoteLabel : null,
+      onCalendarSaved: widget.product == SuiteProduct.calendar
+          ? (event) {
+              if (!mounted) return;
+              final id = suiteItemId(event);
+              setState(() {
+                if (id != null) {
+                  _items.removeWhere((it) => suiteItemId(it) == id);
+                }
+                _items.insert(0, event);
+                final start = parseCloudityDateTime(
+                  (event['start_at'] ?? event['starts_at'])?.toString(),
+                );
+                if (start != null) {
+                  _calFocusDay = DateTime(start.year, start.month, start.day);
+                  _calMonthAnchor = DateTime(start.year, start.month, 1);
+                  _calView = CalendarHomeView.day;
+                  _calDayFilter = false;
+                }
+              });
+            }
+          : null,
     );
     if (saved && mounted) await _reload();
   }
@@ -1256,6 +1277,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         for (final spec in const <(String, CalendarHomeView)>[
           ('Planning', CalendarHomeView.agenda),
           ('Jour', CalendarHomeView.day),
+          ('3 jours', CalendarHomeView.three),
           ('Semaine', CalendarHomeView.week),
           ('Mois', CalendarHomeView.month),
         ])
@@ -3526,6 +3548,14 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         showDayHeaders: true,
       );
     }
+    if (_calView == CalendarHomeView.three) {
+      return _buildTimedCalendar(
+        today: today,
+        accent: accent,
+        days: calendarThreeDays(_calFocusDay),
+        showDayHeaders: true,
+      );
+    }
     if (_calView == CalendarHomeView.day) {
       return _buildTimedCalendar(
         today: today,
@@ -3987,10 +4017,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       onAccountTap: () => setState(() => _showSettings = true),
       versionLabel: 'Hubera ${widget.product.title}',
       huberaProduct: widget.product.suiteApp.asHubera,
-      showAppSwitcher: widget.product != SuiteProduct.calendar &&
-          widget.product != SuiteProduct.notes &&
-          widget.product != SuiteProduct.contacts &&
-          widget.product != SuiteProduct.tasks,
+      showAppSwitcher: false,
+      flushBottomBar: widget.product == SuiteProduct.contacts,
       showHuberaIdLink: widget.product != SuiteProduct.contacts &&
           widget.product != SuiteProduct.calendar &&
           widget.product != SuiteProduct.notes &&
@@ -4015,7 +4043,6 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       bottomDestinations: widget.product == SuiteProduct.contacts
           ? const [
               HuberaNavDest(id: 'contacts', label: 'Contacts', icon: Icons.people_outline),
-              HuberaNavDest(id: 'select', label: 'Sélection', icon: Icons.checklist),
               HuberaNavDest(id: 'organize', label: 'Organiser', icon: Icons.tune),
             ]
           : const [],
@@ -4032,8 +4059,6 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 if (id == 'contacts') {
                   _contactShelf = ContactShelf.active;
                   _selectedContactKeys.clear();
-                } else if (id == 'select') {
-                  _contactShelf = ContactShelf.active;
                 } else if (id == 'organize') {
                   _contactShelf = ContactShelf.active;
                   _selectedContactKeys.clear();

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _mealDb = 'https://www.themealdb.com/api/json/v1/1';
 
@@ -314,9 +315,51 @@ final Map<String, String> _frToEn = {
   for (final e in _enToFr.entries) e.value: e.key,
 };
 
+/// Corrections saisies par l’utilisateur, réutilisées telles quelles.
+final Map<String, String> cookUserFixes = {};
+
+const _cookFixesKey = 'cook_user_fixes_v1';
+
+Future<void> cookLoadUserFixes() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_cookFixesKey);
+  if (raw == null || raw.isEmpty) return;
+  final decoded = jsonDecode(raw);
+  if (decoded is! Map) return;
+  for (final entry in decoded.entries) {
+    final key = '${entry.key}'.trim().toLowerCase();
+    final value = '${entry.value}'.trim();
+    if (key.isEmpty || value.isEmpty) continue;
+    cookUserFixes[key] = value;
+  }
+}
+
+Future<void> _cookSaveUserFixes() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_cookFixesKey, jsonEncode(cookUserFixes));
+}
+
+void cookRememberFix(String source, String french) {
+  final key = source.trim().toLowerCase();
+  final value = french.trim();
+  if (key.isEmpty || value.isEmpty) return;
+  cookUserFixes[key] = value;
+  _cookSaveUserFixes();
+}
+
+String cookToFrenchLearned(String text) {
+  final raw = text.trim();
+  if (raw.isEmpty) return raw;
+  final fixed = cookUserFixes[raw.toLowerCase()];
+  if (fixed != null && fixed.isNotEmpty) return fixed;
+  return cookToFrench(raw);
+}
+
 String cookToFrench(String text) {
   final raw = text.trim();
   if (raw.isEmpty) return raw;
+  final fixed = cookUserFixes[raw.toLowerCase()];
+  if (fixed != null && fixed.isNotEmpty) return fixed;
   var out = raw;
   for (final key in _enToFrKeys) {
     out = out.replaceAll(

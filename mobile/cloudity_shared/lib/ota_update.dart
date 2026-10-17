@@ -101,6 +101,27 @@ abstract final class CloudityOtaClient {
     }
   }
 
+  /// `https://<hôte>/updates.json` avec la version installée, pour que l’API
+  /// puisse répondre `apkAvailable: false` quand le téléphone est déjà à jour.
+  static Future<Uri> _updatesUri(String host) async {
+    final uri = Uri.parse('https://$host/updates.json');
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final version = info.version.trim();
+      final code = info.buildNumber.trim();
+      final pkg = info.packageName.trim();
+      return uri.replace(
+        queryParameters: {
+          if (version.isNotEmpty) 'clientVersion': version,
+          if (code.isNotEmpty) 'clientVersionCode': code,
+          if (pkg.isNotEmpty) 'clientPackage': pkg,
+        },
+      );
+    } catch (_) {
+      return uri;
+    }
+  }
+
   /// Feed Maps-like : `https://notes.hubera.cloud/updates.json`.
   static Future<CloudityOtaManifest?> fetchHuberaUpdates({
     required String host,
@@ -108,7 +129,7 @@ abstract final class CloudityOtaClient {
   }) async {
     final h = host.trim().replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), '');
     if (h.isEmpty) return null;
-    final uri = Uri.parse('https://$h/updates.json');
+    final uri = await _updatesUri(h);
     final c = client ?? http.Client();
     try {
       final res = await c.get(uri).timeout(const Duration(seconds: 8));
@@ -228,7 +249,7 @@ abstract final class CloudityOtaClient {
     final host = huberaHost?.trim() ?? '';
     if (host.isNotEmpty) {
       final clean = host.replaceAll(RegExp(r'^https?://'), '').replaceAll(RegExp(r'/$'), '');
-      final got = await _fetchJsonMap(Uri.parse('https://$clean/updates.json'));
+      final got = await _fetchJsonMap(await _updatesUri(clean));
       if (got.reachable) {
         final feed = got.json;
         if (feed == null) {
@@ -409,6 +430,42 @@ Future<void> _safeDelete(File? file) async {
   } catch (_) {}
 }
 
+Future<File> _otaPendingMarker() async {
+  final dir = await _otaCacheDir();
+  return File('${dir.path}/pending-install.path');
+}
+
+Future<void> _rememberPendingInstall(File apk) async {
+  final marker = await _otaPendingMarker();
+  await marker.writeAsString(apk.absolute.path);
+}
+
+/// Au retour de l’écran système : installe l’APK déjà téléchargée, sans nouveau GET.
+Future<void> cloudityResumePendingOtaInstall() async {
+  if (!Platform.isAndroid) return;
+  if (!await HuberaOtaInstaller.canInstallPackages()) return;
+  final marker = await _otaPendingMarker();
+  if (!await marker.exists()) return;
+  final path = (await marker.readAsString()).trim();
+  final file = File(path);
+  if (!await file.exists() || !await _apkZipMagic(file)) return;
+  await marker.delete();
+  await HuberaOtaInstaller.installApk(file);
+}
+
+Future<void> _installOrAskPermission(File dest) async {
+  if (!await HuberaOtaInstaller.canInstallPackages()) {
+    await _rememberPendingInstall(dest);
+    await HuberaOtaInstaller.openInstallPermissionSettings();
+    throw StateError(
+      'Le fichier est déjà téléchargé. Autorise l’installation : au retour, Hubera l’installe sans retélécharger.',
+    );
+  }
+  final marker = await _otaPendingMarker();
+  if (await marker.exists()) await marker.delete();
+  await HuberaOtaInstaller.installApk(dest);
+}
+
 /// Télécharge l’APK dans le cache app, vérifie le SHA-256, lance l’installeur système.
 Future<void> cloudityDownloadAndInstallOta(
   CloudityOtaManifest manifest, {
@@ -417,13 +474,6 @@ Future<void> cloudityDownloadAndInstallOta(
 }) async {
   if (!Platform.isAndroid) {
     throw UnsupportedError('Mise à jour in-app disponible sur Android uniquement.');
-  }
-
-  if (!await HuberaOtaInstaller.canInstallPackages()) {
-    await HuberaOtaInstaller.openInstallPermissionSettings();
-    throw StateError(
-      'Autorise l’installation d’apps pour Hubera, puis réessaie — le téléchargement n’a pas encore commencé.',
-    );
   }
 
   final dir = await _otaCacheDir();
@@ -448,7 +498,7 @@ Future<void> cloudityDownloadAndInstallOta(
 
   if (await fileReady()) {
     onProgress?.call(1.0);
-    await HuberaOtaInstaller.installApk(dest);
+    await _installOrAskPermission(dest);
     return;
   }
 
@@ -529,7 +579,7 @@ Future<void> cloudityDownloadAndInstallOta(
       }
     }
 
-    await HuberaOtaInstaller.installApk(dest);
+    await _installOrAskPermission(dest);
   } finally {
     if (client == null) c.close();
   }
