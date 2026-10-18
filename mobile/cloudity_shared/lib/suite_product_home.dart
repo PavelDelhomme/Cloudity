@@ -1639,6 +1639,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     const labels = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
     return Material(
+      key: const Key('calendar-week-strip'),
       color: theme.colorScheme.surface,
       elevation: 0.5,
       child: Column(
@@ -3467,6 +3468,15 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (single) _buildWeekStrip(today, accent),
+          if (single && calendarStartOfDay(days.first) == today)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Text(
+                formatCloudityDayHeaderFromDate(days.first),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
           if (single) _dayRail(days.first, today, accent, items),
           if (_calMonthStripOpen && single) _buildMonthNumberStrip(today, accent),
           Expanded(
