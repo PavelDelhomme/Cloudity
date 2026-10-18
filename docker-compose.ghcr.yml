@@ -188,7 +188,10 @@ services:
     depends_on:
       db-migrate:
         condition: service_completed_successfully
-    networks: [cloudity-data]
+    networks:
+      cloudity-data:
+        aliases:
+          - mail-directory-service
     labels:
       - com.centurylinklabs.watchtower.enable=true
 

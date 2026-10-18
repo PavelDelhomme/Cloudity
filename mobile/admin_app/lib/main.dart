@@ -29,6 +29,29 @@ Future<bool?> _adminRoleOrNull(AuthApi api, String access) async {
   return role == 'admin';
 }
 
+/// Le jeton encore valide peut porter un ancien rôle `user`. Un refresh relit
+/// le rôle en base avant de refuser l’accès admin.
+Future<({String access, String refresh, bool? isAdmin})> _tokensForAdmin({
+  required AuthApi api,
+  required String access,
+  required String refresh,
+}) async {
+  var nextAccess = access;
+  var nextRefresh = refresh;
+  var isAdmin = await _adminRoleOrNull(api, nextAccess);
+  if (isAdmin == false && nextRefresh.trim().isNotEmpty) {
+    try {
+      final pair = await api.refreshTokens(nextRefresh);
+      nextAccess = pair.access;
+      nextRefresh = pair.refresh;
+      isAdmin = await _adminRoleOrNull(api, nextAccess);
+    } on AuthException {
+      // Le verdict du jeton courant reste valable.
+    }
+  }
+  return (access: nextAccess, refresh: nextRefresh, isAdmin: isAdmin);
+}
+
 Future<List<({String email, String refresh})>> _refreshCopies() async {
   try {
     final copies = await CloudityAuthBroker.listAllAccountCopies();
@@ -68,7 +91,12 @@ Future<UserSession?> _restoreSession() async {
     await SessionStore.clearLocalTokens();
     return null;
   }
-  final isAdmin = await _adminRoleOrNull(pair.api, recovered.access);
+  final adminTokens = await _tokensForAdmin(
+    api: pair.api,
+    access: recovered.access,
+    refresh: recovered.refresh,
+  );
+  final isAdmin = adminTokens.isAdmin;
   if (isAdmin == null) {
     // Gateway injoignable : garder le broker des autres apps, session locale seule.
     await SessionStore.clearLocalTokens();
@@ -79,13 +107,13 @@ Future<UserSession?> _restoreSession() async {
     await SessionStore.clearLocalTokens();
     return null;
   }
-  if (recovered.access != pair.access || recovered.refresh != pair.refresh) {
-    final savedEmail = emailFromAccessToken(recovered.access) ?? email ?? '';
+  if (adminTokens.access != pair.access || adminTokens.refresh != pair.refresh) {
+    final savedEmail = emailFromAccessToken(adminTokens.access) ?? email ?? '';
     if (savedEmail.isNotEmpty) {
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: pair.api.baseUrl,
-        accessToken: recovered.access,
-        refreshToken: recovered.refresh,
+        accessToken: adminTokens.access,
+        refreshToken: adminTokens.refresh,
         email: savedEmail,
         tenantId: await SessionStore.readTenantId(),
         userId: await SessionStore.readUserId(),
@@ -93,16 +121,16 @@ Future<UserSession?> _restoreSession() async {
     } else {
       await SessionStore.saveSession(
         gatewayUrl: pair.api.baseUrl,
-        accessToken: recovered.access,
-        refreshToken: recovered.refresh,
+        accessToken: adminTokens.access,
+        refreshToken: adminTokens.refresh,
       );
     }
     debugPrint('Admin: session renouvelée (${pair.api.baseUrl})');
   }
   return UserSession(
     api: pair.api,
-    accessToken: recovered.access,
-    refreshToken: recovered.refresh,
+    accessToken: adminTokens.access,
+    refreshToken: adminTokens.refresh,
   );
 }
 
@@ -110,7 +138,12 @@ Future<void> _onLoggedIn(
   CloudityUserSession<AuthApi> session,
   void Function(UserSession session) onLoggedIn,
 ) async {
-  final isAdmin = await _adminRoleOrNull(session.api, session.accessToken);
+  final adminTokens = await _tokensForAdmin(
+    api: session.api,
+    access: session.accessToken,
+    refresh: session.refreshToken,
+  );
+  final isAdmin = adminTokens.isAdmin;
   if (isAdmin == null) {
     throw AuthException(
       'Gateway Hubera injoignable. Vérifie la connexion puis réessaie.',
@@ -120,11 +153,24 @@ Future<void> _onLoggedIn(
     await SessionStore.clearLocalTokens();
     throw AuthException('Compte non administrateur.');
   }
+  if (adminTokens.access != session.accessToken ||
+      adminTokens.refresh != session.refreshToken) {
+    final email = emailFromAccessToken(adminTokens.access) ?? '';
+    if (email.isNotEmpty) {
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: session.api.baseUrl,
+        accessToken: adminTokens.access,
+        refreshToken: adminTokens.refresh,
+        email: email,
+        tenantId: tenantIdFromAccessToken(adminTokens.access) ?? 1,
+      );
+    }
+  }
   onLoggedIn(
     UserSession(
       api: session.api,
-      accessToken: session.accessToken,
-      refreshToken: session.refreshToken,
+      accessToken: adminTokens.access,
+      refreshToken: adminTokens.refresh,
     ),
   );
 }
