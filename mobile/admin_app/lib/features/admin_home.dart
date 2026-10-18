@@ -1,6 +1,9 @@
+import 'package:cloudity_shared/cloudity_shared.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../api/admin_api.dart';
+import '../auth/admin_refresh.dart';
 import '../auth/user_session.dart';
 import 'admin_sections.dart';
 
@@ -21,6 +24,7 @@ class AdminHome extends StatefulWidget {
 class _AdminHomeState extends State<AdminHome> {
   String _section = 'home';
   bool _loading = true;
+  bool _refreshRejected = false;
   String? _error;
   Map<String, dynamic> _stats = {};
   Map<String, dynamic> _fleet = {};
@@ -34,12 +38,40 @@ class _AdminHomeState extends State<AdminHome> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(AdminHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session.accessToken != widget.session.accessToken ||
+        oldWidget.session.refreshToken != widget.session.refreshToken) {
+      _refreshRejected = false;
+      _load();
+    }
+  }
+
   AdminApi _api() => AdminApi(
         gatewayBase: widget.session.api.baseUrl,
         accessToken: widget.session.accessToken,
       );
 
+  Future<void> _openAccountChooser() async {
+    _refreshRejected = true;
+    debugPrint(
+      'Admin: refresh refusé, choix de compte (${widget.session.api.baseUrl})',
+    );
+    await SessionStore.clearLocalTokens();
+    if (!mounted) return;
+    HuberaAccountSwitch.requestChooser();
+    setState(() {
+      _loading = false;
+      _error = null;
+    });
+  }
+
   Future<void> _load() async {
+    if (_refreshRejected) {
+      HuberaAccountSwitch.requestChooser();
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -63,6 +95,10 @@ class _AdminHomeState extends State<AdminHome> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (adminRefreshTokenRejected(e)) {
+        await _openAccountChooser();
+        return;
+      }
       setState(() {
         _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
@@ -73,10 +109,23 @@ class _AdminHomeState extends State<AdminHome> {
   @override
   Widget build(BuildContext context) {
     final title = adminSectionLabels[_section] ?? 'Admin';
+    final email = emailFromAccessToken(widget.session.accessToken) ?? '';
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title),
+            if (email.isNotEmpty)
+              Text(email, style: Theme.of(context).textTheme.labelSmall),
+          ],
+        ),
         actions: [
+          IconButton(
+            tooltip: 'Choisir un compte',
+            onPressed: HuberaAccountSwitch.requestChooser,
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
           IconButton(
             tooltip: 'Actualiser',
             onPressed: _loading ? null : _load,

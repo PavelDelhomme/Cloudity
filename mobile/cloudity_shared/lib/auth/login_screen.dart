@@ -79,6 +79,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   T? _pendingApi;
   List<Map<String, dynamic>> _devPersonas = [];
   String? _gatewayBase;
+  int _pickGen = 0;
 
   @override
   void initState() {
@@ -118,7 +119,12 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _brokerAccounts = accounts;
       if (gateways.isNotEmpty) _gatewayBase = gateways.first;
     });
-    if (widget.suiteApp == ClouditySuiteApp.admin) {
+    final admin = widget.suiteApp == ClouditySuiteApp.admin;
+    if (admin &&
+        adminShouldAutoPasskey(
+          chooserRequested: HuberaAccountSwitch.openChooser,
+          listedAccounts: accounts.length,
+        )) {
       await _tryAutoPasskeyLogin();
       if (!mounted) return;
     }
@@ -129,9 +135,14 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       accounts,
       idInstalled: idInstalled,
       deviceEmail: _devicePin,
-      prominent: widget.suiteApp == ClouditySuiteApp.admin,
+      prominent: admin,
+      barrierDismissible: admin,
     );
     if (!mounted) return;
+    if (choice == null) {
+      if (HuberaAccountSwitch.openChooser) HuberaAccountSwitch.closeChooser();
+      if (!mounted) return;
+    }
     if (choice != null && !choice.addNew && choice.account != null) {
       final acc = choice.account!;
       if (acc.accessToken.isNotEmpty || acc.refreshToken.isNotEmpty) {
@@ -240,7 +251,23 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   /// Le compte déjà sur l’appareil reste premier. Ajouter n’efface pas les autres.
   Future<List<CloudityAuthAccount>> _orderedBrokerAccounts() async {
-    final accounts = await SessionStore.listBrokerAccounts();
+    var accounts = await SessionStore.listBrokerAccounts();
+    if (widget.suiteApp == ClouditySuiteApp.admin) {
+      try {
+        final device = await CloudityAuthBroker.listHuberaDeviceAccounts();
+        accounts = mergeAccountsWithTokens(
+          accounts,
+          device,
+          emailOf: (account) => account.email,
+          hasToken: (account) =>
+              account.accessToken.trim().isNotEmpty ||
+              account.refreshToken.trim().isNotEmpty,
+          updatedAtOf: (account) => account.updatedAt,
+        );
+      } catch (_) {
+        // Le sélecteur garde la liste broker si le scan appareil échoue.
+      }
+    }
     final prefs = await SharedPreferences.getInstance();
     final pin = rememberHuberaDeviceAccount(
       existingPin: prefs.getString(huberaDeviceAccountPinKey),
@@ -266,6 +293,14 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   Future<void> _tryAutoPasskeyLogin() async {
     if (!mounted || _busy || _twoFactorRequired) return;
     if (widget.suiteApp != ClouditySuiteApp.admin && _brokerAccounts.isNotEmpty) return;
+    if (widget.suiteApp == ClouditySuiteApp.admin &&
+        !adminShouldAutoPasskey(
+          chooserRequested: HuberaAccountSwitch.openChooser,
+          listedAccounts: _brokerAccounts.length,
+        )) {
+      return;
+    }
+    final generation = _pickGen;
     final gateway = _gatewayBase;
     if (gateway == null) return;
     final passkeys = CloudityPasskeyLogin(gateway);
@@ -273,8 +308,11 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     setState(() => _busy = true);
     try {
       final result = await passkeys.loginDiscoverable();
-      if (result != null && result.accessToken.isNotEmpty && mounted) {
-        await _onPasskeyLoginSuccess(result);
+      if (result != null &&
+          result.accessToken.isNotEmpty &&
+          mounted &&
+          passkeyMayApply(passkeyGeneration: generation, pickGeneration: _pickGen)) {
+        await _onPasskeyLoginSuccess(result, generation);
       }
     } catch (_) {
       // Annulation utilisateur ou aucune passkey — formulaire email/mot de passe.
@@ -454,8 +492,12 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     }
   }
 
-  Future<void> _onPasskeyLoginSuccess(PasskeyLoginResult result) async {
+  Future<void> _onPasskeyLoginSuccess(PasskeyLoginResult result, [int? generation]) async {
     if (result.accessToken.isEmpty) return;
+    if (generation != null &&
+        !passkeyMayApply(passkeyGeneration: generation, pickGeneration: _pickGen)) {
+      return;
+    }
     setState(() {
       _error = null;
       _busy = true;
@@ -469,6 +511,10 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       final api = widget.createApi(gateway);
       if (!await api.authHealth()) {
         throw AuthException('Gateway Hubera injoignable.');
+      }
+      if (generation != null &&
+          !passkeyMayApply(passkeyGeneration: generation, pickGeneration: _pickGen)) {
+        return;
       }
       final email = result.email ?? _emailCtrl.text.trim();
       await _finishAuthSuccess(
@@ -498,6 +544,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   }
 
   Future<void> _continueWithBroker(CloudityAuthAccount account) async {
+    final generation = ++_pickGen;
     setState(() {
       _error = null;
       _busy = true;
@@ -549,11 +596,26 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
                     refreshToken: cand.refreshToken,
                   )
                   .timeout(const Duration(seconds: 10));
+              if (!passkeyMayApply(
+                passkeyGeneration: generation,
+                pickGeneration: _pickGen,
+              )) {
+                return;
+              }
+              final tokenEmail = emailFromAccessToken(pair.access);
+              if (tokenEmail != null &&
+                  !sessionMatchesChosenAccount(
+                    chosenEmail: account.email,
+                    tokenEmail: tokenEmail,
+                  )) {
+                lastAuthError = AuthException('Session d’un autre compte.');
+                break;
+              }
               await _finishAuthSuccess(
                 api: api,
                 access: pair.access,
                 refresh: pair.refresh,
-                email: cand.email,
+                email: account.email.trim().isEmpty ? cand.email : account.email,
               );
               await _refreshBrokerAccounts();
               return;

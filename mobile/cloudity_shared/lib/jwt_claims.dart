@@ -34,6 +34,17 @@ int? tenantIdFromAccessToken(String token) {
   return null;
 }
 
+/// Extrait `email` (sinon `sub`) du JWT d'accès.
+String? emailFromAccessToken(String token) {
+  final payload = decodeJwtPayload(token);
+  if (payload == null) return null;
+  final email = payload['email']?.toString().trim();
+  if (email != null && email.isNotEmpty) return email;
+  final sub = payload['sub']?.toString().trim();
+  if (sub != null && sub.contains('@')) return sub;
+  return null;
+}
+
 /// Extrait `role` du JWT d'accès (`admin` / `user`).
 String? roleFromAccessToken(String token) {
   final payload = decodeJwtPayload(token);

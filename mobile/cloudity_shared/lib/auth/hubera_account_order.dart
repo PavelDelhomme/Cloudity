@@ -1,5 +1,33 @@
 const huberaDeviceAccountPinKey = 'hubera_device_account_email';
 
+/// Admin : la passkey automatique ne doit pas devancer un choix de compte.
+bool adminShouldAutoPasskey({
+  required bool chooserRequested,
+  required int listedAccounts,
+}) {
+  if (chooserRequested) return false;
+  return listedAccounts <= 0;
+}
+
+/// Le jeton appliqué doit être celui du compte tapé.
+bool sessionMatchesChosenAccount({
+  required String chosenEmail,
+  required String tokenEmail,
+}) {
+  final chosen = chosenEmail.trim().toLowerCase();
+  final token = tokenEmail.trim().toLowerCase();
+  if (chosen.isEmpty || token.isEmpty) return false;
+  return chosen == token;
+}
+
+/// Une passkey partie avant le tap ne remplace pas le compte choisi.
+bool passkeyMayApply({
+  required int passkeyGeneration,
+  required int pickGeneration,
+}) {
+  return passkeyGeneration == pickGeneration;
+}
+
 bool huberaSourceIsDeviceCarrier(String? source) {
   final p = (source ?? '').trim().toLowerCase();
   if (p.isEmpty) return false;
@@ -47,6 +75,34 @@ String? rememberHuberaDeviceAccount({
   final pick = bestCarrier ?? bestAny;
   if (pick == null) return pin.isEmpty ? null : pin;
   return emails[pick].trim().toLowerCase();
+}
+
+/// Une entrée par e-mail. La copie la plus récente qui a un jeton gagne.
+List<T> mergeAccountsWithTokens<T>(
+  List<T> primary,
+  List<T> extra, {
+  required String Function(T account) emailOf,
+  required bool Function(T account) hasToken,
+  required int Function(T account) updatedAtOf,
+}) {
+  final best = <String, T>{};
+  void consider(T account) {
+    if (!hasToken(account)) return;
+    final email = emailOf(account).trim().toLowerCase();
+    if (email.isEmpty) return;
+    final prev = best[email];
+    if (prev == null || updatedAtOf(account) >= updatedAtOf(prev)) {
+      best[email] = account;
+    }
+  }
+
+  for (final account in primary) {
+    consider(account);
+  }
+  for (final account in extra) {
+    consider(account);
+  }
+  return best.values.toList();
 }
 
 List<T> placeHuberaAccountFirst<T>(

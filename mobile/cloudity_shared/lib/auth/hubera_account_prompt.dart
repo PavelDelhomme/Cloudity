@@ -216,6 +216,7 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
   String? activeEmail,
   String? deviceEmail,
   bool prominent = false,
+  bool barrierDismissible = false,
 }) {
   final ordered = placeHuberaAccountFirst(
     accounts,
@@ -226,7 +227,7 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
   final pad = MediaQuery.viewPaddingOf(context);
   return showDialog<HuberaAccountChoice>(
     context: context,
-    barrierDismissible: false,
+    barrierDismissible: barrierDismissible,
     builder: (ctx) {
       final dark = MediaQuery.platformBrightnessOf(ctx) == Brightness.dark;
       final surface = dark ? const Color(0xFF2D2E30) : Colors.white;

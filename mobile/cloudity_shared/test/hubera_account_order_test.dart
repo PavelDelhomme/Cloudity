@@ -33,4 +33,52 @@ void main() {
     expect(ordered.first, 'deja-sur-appareil');
     expect(ordered, hasLength(2));
   });
+
+  test('Admin n’auto-connecte pas quand plusieurs comptes sont listés', () {
+    expect(
+      adminShouldAutoPasskey(chooserRequested: false, listedAccounts: 2),
+      isFalse,
+    );
+    expect(
+      adminShouldAutoPasskey(chooserRequested: true, listedAccounts: 0),
+      isFalse,
+    );
+    expect(
+      adminShouldAutoPasskey(chooserRequested: false, listedAccounts: 0),
+      isTrue,
+    );
+  });
+
+  test('le jeton appliqué est celui du compte choisi', () {
+    expect(
+      sessionMatchesChosenAccount(
+        chosenEmail: 'choisi@hubera.cloud',
+        tokenEmail: 'autre@hubera.cloud',
+      ),
+      isFalse,
+    );
+    expect(
+      sessionMatchesChosenAccount(
+        chosenEmail: 'Choisi@Hubera.cloud',
+        tokenEmail: 'choisi@hubera.cloud',
+      ),
+      isTrue,
+    );
+  });
+
+  test('une passkey déjà lancée ne remplace pas le compte tapé', () {
+    expect(passkeyMayApply(passkeyGeneration: 1, pickGeneration: 2), isFalse);
+    expect(passkeyMayApply(passkeyGeneration: 3, pickGeneration: 3), isTrue);
+  });
+
+  test('les comptes appareil et broker sont fusionnés par e-mail', () {
+    final merged = mergeAccountsWithTokens(
+      ['ancien@x'],
+      ['ancien@x', 'autre@x', 'vide@x'],
+      emailOf: (email) => email,
+      hasToken: (email) => email != 'vide@x',
+      updatedAtOf: (email) => email.startsWith('autre') ? 5 : 1,
+    );
+    expect(merged.toSet(), {'ancien@x', 'autre@x'});
+  });
 }

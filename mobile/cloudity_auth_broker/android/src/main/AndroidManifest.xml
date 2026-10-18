@@ -81,6 +81,10 @@
         <provider android:authorities="fr.cloudity.cloudity_tasks.cloudity.auth" />
         <provider android:authorities="fr.cloudity.cloudity_cook.cloudity.auth" />
         <provider android:authorities="fr.cloudity.admin_app.cloudity.auth" />
+        <provider android:authorities="cloud.hubera.admin.hubera.id" />
+        <intent>
+            <action android:name="android.accounts.AccountAuthenticator" />
+        </intent>
     </queries>
 
     <permission
