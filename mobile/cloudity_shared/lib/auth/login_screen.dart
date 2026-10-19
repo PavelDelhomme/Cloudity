@@ -102,7 +102,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   /// Charge comptes broker (autre app Cloudity) puis reprise auto si un seul compte.
   Future<void> _bootstrapLogin() async {
-    if (widget.adoptDeviceAccount) {
+    if (widget.adoptDeviceAccount && !HuberaAccountSwitch.openChooser) {
       final gateways = await SessionStore.gatewayCandidates();
       if (!mounted) return;
       if (gateways.isNotEmpty) {

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/material.dart';
 
+import 'cook_ingredient_fields.dart';
 import 'cook_store.dart';
+import 'ingredient_photo.dart';
 import 'mealdb.dart';
 
 class CookHomeScreen extends StatefulWidget {
@@ -309,11 +311,20 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     );
   }
 
-  Future<void> _addPantry() async {
-    final name = TextEditingController();
-    final qty = TextEditingController();
-    final unit = TextEditingController();
-    final ok = await showSuiteModalBottomSheet<bool>(
+  List<String> get _knownUnits => [for (final item in _data.pantry) item.unit];
+
+  Future<CookIngredientDraft?> _askIngredient({
+    required String title,
+    required String confirm,
+    String name = '',
+    String qty = '',
+    String unit = '',
+    bool focusQty = false,
+  }) {
+    final nameCtrl = TextEditingController(text: name);
+    final qtyCtrl = TextEditingController(text: qty);
+    final unitCtrl = TextEditingController(text: unit);
+    return showSuiteModalBottomSheet<CookIngredientDraft>(
       context: context,
       builder: (ctx) => Padding(
         padding: suiteBottomSheetPadding(ctx),
@@ -321,107 +332,65 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Ajouter au frigo', style: Theme.of(ctx).textTheme.titleMedium),
+            Text(title, style: Theme.of(ctx).textTheme.titleMedium),
             const SizedBox(height: 12),
-            TextField(
-              controller: name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Ingrédient', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: qty,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Qté', border: OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: unit,
-                    decoration: const InputDecoration(labelText: 'Unité', hintText: 'g, pcs…', border: OutlineInputBorder()),
-                  ),
-                ),
-              ],
+            CookIngredientFields(
+              name: nameCtrl,
+              qty: qtyCtrl,
+              unit: unitCtrl,
+              knownUnits: _knownUnits,
+              focusQty: focusQty,
             ),
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty),
-              child: const Text('Ajouter'),
+              onPressed: () {
+                final trimmed = nameCtrl.text.trim();
+                if (trimmed.isEmpty) return;
+                Navigator.pop(
+                  ctx,
+                  CookIngredientDraft(
+                    name: trimmed,
+                    qty: qtyCtrl.text.trim(),
+                    unit: unitCtrl.text.trim(),
+                  ),
+                );
+              },
+              child: Text(confirm),
             ),
           ],
         ),
       ),
     );
-    if (ok != true) return;
+  }
+
+  Future<void> _addPantry() async {
+    final draft = await _askIngredient(title: 'Ajouter au frigo', confirm: 'Ajouter');
+    if (draft == null) return;
     setState(() {
       _data.pantry.add(CookPantryItem(
         id: cookNewId(),
-        name: name.text.trim(),
-        qty: qty.text.trim(),
-        unit: unit.text.trim(),
+        name: draft.name,
+        qty: draft.qty,
+        unit: draft.unit,
       ));
     });
     await _persist();
   }
 
   Future<void> _editPantry(CookPantryItem item) async {
-    final name = TextEditingController(text: item.name);
-    final qty = TextEditingController(text: item.qty);
-    final unit = TextEditingController(text: item.unit);
-    final ok = await showSuiteModalBottomSheet<bool>(
-      context: context,
-      builder: (ctx) => Padding(
-        padding: suiteBottomSheetPadding(ctx),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Modifier la quantité', style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            TextField(
-              controller: name,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Ingrédient', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: qty,
-                    keyboardType: TextInputType.number,
-                    autofocus: true,
-                    decoration: const InputDecoration(labelText: 'Qté', border: OutlineInputBorder()),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: unit,
-                    decoration: const InputDecoration(labelText: 'Unité', hintText: 'g, pcs…', border: OutlineInputBorder()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty),
-              child: const Text('Enregistrer'),
-            ),
-          ],
-        ),
-      ),
+    final draft = await _askIngredient(
+      title: 'Modifier la quantité',
+      confirm: 'Enregistrer',
+      name: item.name,
+      qty: item.qty,
+      unit: item.unit,
+      focusQty: true,
     );
-    if (ok != true) return;
+    if (draft == null) return;
     setState(() {
-      item.name = name.text.trim();
-      item.qty = qty.text.trim();
-      item.unit = unit.text.trim();
+      item.name = draft.name;
+      item.qty = draft.qty;
+      item.unit = draft.unit;
     });
     await _persist();
   }
@@ -744,7 +713,7 @@ class _PantryTab extends StatelessWidget {
         final item = items[i];
         final qty = [item.qty, item.unit].where((s) => s.trim().isNotEmpty).join(' ');
         return ListTile(
-          leading: const Icon(Icons.inventory_2_outlined),
+          leading: IngredientPhoto(name: item.name),
           title: Text(item.name),
           subtitle: Text(qty.isEmpty ? 'Toucher pour la quantité' : qty),
           onTap: () => onEdit(item),
@@ -890,17 +859,28 @@ class _RecipesTabState extends State<_RecipesTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: TextField(
-            controller: _query,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => _search(),
-            decoration: InputDecoration(
-              hintText: 'Chercher une recette…',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: IconButton(icon: const Icon(Icons.tune), onPressed: _loadSuggested, tooltip: 'Selon le frigo'),
-              border: const OutlineInputBorder(),
-              isDense: true,
-            ),
+          child: Row(
+            children: [
+              ListenableBuilder(
+                listenable: _query,
+                builder: (context, _) => IngredientPhoto(name: _query.text),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _query,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _search(),
+                  decoration: InputDecoration(
+                    hintText: 'Chercher un ingrédient ou une recette…',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: IconButton(icon: const Icon(Icons.tune), onPressed: _loadSuggested, tooltip: 'Selon le frigo'),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         if (_loading) const LinearProgressIndicator(),

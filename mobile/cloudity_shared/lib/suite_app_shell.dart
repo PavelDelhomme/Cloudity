@@ -158,7 +158,7 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
           );
     }
     final session = _session;
-    final chooser = !widget.loginOnlyWithoutSession && HuberaAccountSwitch.openChooser;
+    final chooser = HuberaAccountSwitch.openChooser;
     if (session == null || chooser) {
       return widget.loginBuilder(_onLoggedIn);
     }
