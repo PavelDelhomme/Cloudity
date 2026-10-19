@@ -88,6 +88,24 @@ class CloudityAuthBroker {
   /// Le scan des fournisseurs reste dans l’exécuteur du plugin, jamais sur
   /// le fil UI. [listAccounts] ne change pas : il ignore toujours les
   /// adresses sans jeton de rafraîchissement.
+  /// Comptes AccountManager déjà sur l’appareil, sans le scan des fournisseurs.
+  static Future<List<CloudityAuthAccount>> listAccountManagerAccounts() async {
+    if (!isSupported) return [];
+    try {
+      final raw =
+          await _channel.invokeMethod<List<dynamic>>('listAccountManagerAccounts');
+      if (raw == null) return [];
+      return raw
+          .map((e) => CloudityAuthAccount.fromMap(Map<dynamic, dynamic>.from(e as Map)))
+          .where((a) => a.email.isNotEmpty)
+          .toList();
+    } on MissingPluginException {
+      return [];
+    } on PlatformException {
+      return [];
+    }
+  }
+
   static Future<List<CloudityAuthAccount>> listHuberaDeviceAccounts() async {
     if (!isSupported) return [];
     try {

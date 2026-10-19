@@ -103,6 +103,44 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   /// Charge comptes broker (autre app Cloudity) puis reprise auto si un seul compte.
   Future<void> _bootstrapLogin() async {
+    if (widget.suiteApp == ClouditySuiteApp.admin && HuberaAccountSwitch.openChooser) {
+      final fast = await CloudityAuthBroker.listAccountManagerAccounts();
+      if (!mounted) return;
+      if (fast.isNotEmpty) {
+        setState(() => _brokerAccounts = fast);
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+        final choice = await promptHuberaAccount(
+          context,
+          fast,
+          idInstalled: true,
+          deviceEmail: fast.first.email,
+          prominent: true,
+          barrierDismissible: true,
+        );
+        if (!mounted) return;
+        if (choice == null) {
+          HuberaAccountSwitch.closeChooser();
+          return;
+        }
+        if (!choice.addNew && choice.account != null) {
+          final acc = choice.account!;
+          if (acc.accessToken.isNotEmpty || acc.refreshToken.isNotEmpty) {
+            await _continueWithBroker(acc);
+            return;
+          }
+          setState(() => _error = 'Session absente');
+          return;
+        }
+        setState(() {
+          _addingAccount = true;
+          _brokerPickerHidden = false;
+          _emailCtrl.clear();
+          _passwordCtrl.clear();
+        });
+        return;
+      }
+    }
     if (widget.adoptDeviceAccount) {
       final gateways = await SessionStore.gatewayCandidates();
       if (!mounted) return;

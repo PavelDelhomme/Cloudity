@@ -153,6 +153,10 @@ object CloudityAuthBrokerHelper {
         return richestDevice(copies).map { it.toMap() }
     }
 
+    /** Noms AccountManager, sans interroger les fournisseurs. Le sélecteur s’ouvre tout de suite. */
+    fun listAccountManagerAccounts(ctx: Context): List<Map<String, Any?>> =
+        accountManagerCopies(ctx).map { it.toMap() }
+
     private fun listAllCopiesInternal(ctx: Context): List<Candidate> {
         val out = mutableListOf<Candidate>()
         for (pkg in reachablePackages(ctx)) {
