@@ -10,6 +10,15 @@ import 'http_helpers.dart';
 import 'suite_drawer_scaffold.dart';
 import 'suite_feedback_screen.dart';
 
+/// 1 = la plus importante, 5 = la plus faible. Même barème que Hubera Docs.
+int clampTaskPriority(Object? raw, [int fallback = 3]) {
+  final n = raw is int ? raw : int.tryParse('${raw ?? ''}');
+  final v = n ?? fallback;
+  if (v < 1) return 1;
+  if (v > 5) return 5;
+  return v;
+}
+
 /// Client HTTP minimal pour les apps suite (Calendar, Contacts, Notes, Tasks).
 class SuiteProductApi {
   SuiteProductApi({
@@ -268,6 +277,7 @@ class SuiteProductApi {
     String? dueAt,
     String? repeatRule,
     bool starred = false,
+    int priority = 3,
   }) async {
     final data = await _request(
       'POST',
@@ -280,6 +290,7 @@ class SuiteProductApi {
         if (dueAt != null && dueAt.isNotEmpty) 'due_at': dueAt,
         if (repeatRule != null && repeatRule.isNotEmpty) 'repeat_rule': repeatRule,
         'starred': starred,
+        'priority': clampTaskPriority(priority),
       },
       ok: const {200, 201},
     );
@@ -298,6 +309,7 @@ class SuiteProductApi {
     String? repeatRule,
     bool clearRepeatRule = false,
     bool? starred,
+    int? priority,
   }) async {
     await _request(
       'PUT',
@@ -313,6 +325,7 @@ class SuiteProductApi {
         if (clearRepeatRule) 'repeat_rule': '',
         if (!clearRepeatRule && repeatRule != null) 'repeat_rule': repeatRule,
         if (starred != null) 'starred': starred,
+        if (priority != null) 'priority': clampTaskPriority(priority),
       },
       ok: const {200, 204},
     );

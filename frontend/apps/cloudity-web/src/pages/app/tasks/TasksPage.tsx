@@ -96,6 +96,15 @@ function isRootTask(t: Task): boolean {
   return t.parent_id == null || t.parent_id <= 0
 }
 
+function taskPriority(t: { priority?: number | null }): number {
+  const n = Number(t.priority)
+  if (!Number.isFinite(n)) return 3
+  const i = Math.round(n)
+  if (i < 1) return 1
+  if (i > 5) return 5
+  return i
+}
+
 export default function TasksPage() {
   const { accessToken, logout } = useAuth()
   const queryClient = useQueryClient()
@@ -106,6 +115,7 @@ export default function TasksPage() {
   const [newRepeat, setNewRepeat] = useState('')
   const [newNotes, setNewNotes] = useState('')
   const [newStarred, setNewStarred] = useState(false)
+  const [newPriority, setNewPriority] = useState(3)
   const [newListName, setNewListName] = useState('')
   const [tasksSettings, setTasksSettings] = useState<TasksAppSettings>(() => loadTasksAppSettings())
   const [showTasksSettings, setShowTasksSettings] = useState(false)
@@ -151,6 +161,9 @@ export default function TasksPage() {
     }
     for (const [, arr] of m) {
       arr.sort((a, b) => {
+        const pa = taskPriority(a)
+        const pb = taskPriority(b)
+        if (pa !== pb) return pa - pb
         if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1
         return a.title.localeCompare(b.title, 'fr')
       })
@@ -169,6 +182,7 @@ export default function TasksPage() {
         due_at: extra?.parent_id ? null : fromDatetimeLocalToISO(newDue),
         repeat_rule: extra?.parent_id ? null : newRepeat || null,
         starred: extra?.parent_id ? false : newStarred,
+        priority: extra?.parent_id ? 3 : newPriority,
       }),
     onSuccess: (_r, extra) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -179,6 +193,7 @@ export default function TasksPage() {
         setNewRepeat('')
         setNewNotes('')
         setNewStarred(false)
+        setNewPriority(3)
       }
       toast.success(extra?.parent_id ? 'Sous-tâche créée' : 'Tâche créée')
     },
@@ -214,6 +229,7 @@ export default function TasksPage() {
         due_at: string | null
         repeat_rule: string | null
         starred: boolean
+        priority: number
       }>
     ) => {
       const { id, ...rest } = p
@@ -257,6 +273,9 @@ export default function TasksPage() {
   })
 
   const sortOpenTasks = useCallback((a: Task, b: Task) => {
+    const pa = taskPriority(a)
+    const pb = taskPriority(b)
+    if (pa !== pb) return pa - pb
     if (Boolean(a.starred) !== Boolean(b.starred)) return a.starred ? -1 : 1
     const da = a.due_at ? new Date(a.due_at).getTime() : Number.MAX_SAFE_INTEGER
     const db = b.due_at ? new Date(b.due_at).getTime() : Number.MAX_SAFE_INTEGER
@@ -344,6 +363,7 @@ export default function TasksPage() {
           onStartChange={(iso) => patchMutation.mutate({ id: t.id, start_at: iso })}
           onDueChange={(iso) => patchMutation.mutate({ id: t.id, due_at: iso })}
           onRepeatChange={(rule) => patchMutation.mutate({ id: t.id, repeat_rule: rule })}
+          onPriorityChange={(n) => patchMutation.mutate({ id: t.id, priority: n })}
           onStarToggle={() => patchMutation.mutate({ id: t.id, starred: !t.starred })}
           onAddSubtask={() => createMutation.mutate({ parent_id: t.id, title: 'Sous-tâche' })}
           onToAgenda={() => toAgendaMutation.mutate(t)}
@@ -372,6 +392,7 @@ export default function TasksPage() {
                   onStartChange={(iso) => patchMutation.mutate({ id: c.id, start_at: iso })}
                   onDueChange={(iso) => patchMutation.mutate({ id: c.id, due_at: iso })}
                   onRepeatChange={(rule) => patchMutation.mutate({ id: c.id, repeat_rule: rule })}
+                  onPriorityChange={(n) => patchMutation.mutate({ id: c.id, priority: n })}
                   onStarToggle={() => patchMutation.mutate({ id: c.id, starred: !c.starred })}
                   onToAgenda={() => toAgendaMutation.mutate(c)}
                   onDelete={() => deleteMutation.mutate(c.id)}
@@ -540,6 +561,22 @@ export default function TasksPage() {
                 onKeyDown={(e) => e.key === 'Enter' && createMutation.mutate(undefined)}
                 className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:placeholder:text-slate-400"
               />
+              <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                Priorité
+                <select
+                  aria-label="Priorité de la nouvelle tâche"
+                  title="1 la plus importante, 5 la plus faible"
+                  value={String(newPriority)}
+                  onChange={(e) => setNewPriority(Number(e.target.value))}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm font-semibold text-slate-900 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <button
                 type="button"
                 onClick={() => setNewStarred((s) => !s)}
@@ -548,7 +585,7 @@ export default function TasksPage() {
                     ? 'border-amber-300 bg-amber-50 text-amber-600 dark:border-amber-700 dark:bg-amber-950/40'
                     : 'border-slate-200 text-slate-400 dark:border-slate-600'
                 }`}
-                title="Étoile / priorité"
+                title="Étoile"
                 aria-pressed={newStarred}
               >
                 <Star className={`h-4 w-4 ${newStarred ? 'fill-current' : ''}`} />
@@ -657,6 +694,7 @@ function TaskRow({
   onStartChange,
   onDueChange,
   onRepeatChange,
+  onPriorityChange,
   onStarToggle,
   onAddSubtask,
   onToAgenda,
@@ -672,6 +710,7 @@ function TaskRow({
   onStartChange: (iso: string | null) => void
   onDueChange: (iso: string | null) => void
   onRepeatChange: (rule: string | null) => void
+  onPriorityChange: (priority: number) => void
   onStarToggle: () => void
   onAddSubtask?: () => void
   onToAgenda?: () => void
@@ -706,6 +745,20 @@ function TaskRow({
             className="mt-1 h-4 w-4 rounded-md border-slate-300 text-brand-600 focus:ring-brand-500 dark:border-slate-500"
             aria-label={t.completed ? 'Marquer non terminée' : 'Marquer terminée'}
           />
+          <select
+            aria-label="Priorité, 1 la plus importante"
+            title="Priorité · 1 la plus importante"
+            value={String(taskPriority(t))}
+            disabled={disableActions}
+            onChange={(e) => onPriorityChange(Number(e.target.value))}
+            className="mt-0.5 shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-semibold text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={onStarToggle}
@@ -713,7 +766,7 @@ function TaskRow({
             className={`mt-0.5 shrink-0 rounded-md p-0.5 ${
               t.starred ? 'text-amber-500' : 'text-slate-300 hover:text-amber-400 dark:text-slate-600'
             }`}
-            aria-label={t.starred ? 'Retirer l’étoile' : 'Mettre en priorité'}
+            aria-label={t.starred ? 'Retirer l’étoile' : 'Étoile'}
             aria-pressed={Boolean(t.starred)}
           >
             <Star className={`h-4 w-4 ${t.starred ? 'fill-current' : ''}`} />

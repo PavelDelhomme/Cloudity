@@ -46,6 +46,9 @@ func main() {
 		if err := db.Ping(); err != nil {
 			log.Fatal("ping:", err)
 		}
+		if err := ensureTaskPriority(db); err != nil {
+			log.Fatal("tasks priority:", err)
+		}
 	}
 	r := setupRouter(db)
 	port := os.Getenv("PORT")
@@ -115,11 +118,12 @@ type Task struct {
 	StartAt    *string `json:"start_at,omitempty"`
 	DueAt      *string `json:"due_at,omitempty"`
 	RepeatRule *string `json:"repeat_rule,omitempty"`
+	Priority   int     `json:"priority"`
 	CreatedAt  string  `json:"created_at"`
 	UpdatedAt  string  `json:"updated_at"`
 }
 
-const taskSelectCols = `id, tenant_id, user_id, list_id, parent_id, title, COALESCE(notes, ''), completed, starred, start_at::text, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, '')`
+const taskSelectCols = `id, tenant_id, user_id, list_id, parent_id, title, COALESCE(notes, ''), completed, starred, start_at::text, due_at::text, repeat_rule, created_at::text, COALESCE(updated_at::text, ''), COALESCE(priority, 3)`
 
 func scanTask(rows interface {
 	Scan(dest ...any) error
@@ -128,7 +132,7 @@ func scanTask(rows interface {
 	var lid, pid sql.NullInt64
 	var start, due, rr sql.NullString
 	var uat string
-	err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &pid, &t.Title, &t.Notes, &t.Completed, &t.Starred, &start, &due, &rr, &t.CreatedAt, &uat)
+	err := rows.Scan(&t.ID, &t.TenantID, &t.UserID, &lid, &pid, &t.Title, &t.Notes, &t.Completed, &t.Starred, &start, &due, &rr, &t.CreatedAt, &uat, &t.Priority)
 	if err != nil {
 		return t, err
 	}
@@ -151,7 +155,37 @@ func scanTask(rows interface {
 		t.RepeatRule = &s
 	}
 	t.UpdatedAt = uat
+	t.Priority = clampPriority(t.Priority)
 	return t, nil
+}
+
+func clampPriority(n int) int {
+	if n < 1 {
+		return 1
+	}
+	if n > 5 {
+		return 5
+	}
+	return n
+}
+
+func ensureTaskPriority(db *sql.DB) error {
+	var exists bool
+	err := db.QueryRow(`SELECT EXISTS (
+		SELECT 1 FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'tasks' AND column_name = 'priority'
+	)`).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	if _, err = db.Exec(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS priority INTEGER NOT NULL DEFAULT 3`); err != nil {
+		return err
+	}
+	_, err = db.Exec(`UPDATE tasks SET priority = 3 WHERE priority < 1 OR priority > 5`)
+	return err
 }
 
 func (h *Handler) listLists(c *gin.Context) {
@@ -217,7 +251,7 @@ func (h *Handler) listTasks(c *gin.Context) {
 	listID := c.Query("list_id")
 	var rows *sql.Rows
 	var err error
-	order := `ORDER BY starred DESC, completed, due_at NULLS LAST, created_at`
+	order := `ORDER BY priority ASC, starred DESC, completed, due_at NULLS LAST, created_at`
 	if listID == "" {
 		rows, err = h.dbex(ctx).Query(`SELECT `+taskSelectCols+` FROM tasks WHERE user_id = current_setting('app.current_user_id', true)::INTEGER `+order)
 	} else {
@@ -255,6 +289,7 @@ func (h *Handler) createTask(c *gin.Context) {
 		DueAt      *string `json:"due_at"`
 		RepeatRule *string `json:"repeat_rule"`
 		Starred    *bool   `json:"starred"`
+		Priority   *int    `json:"priority"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil || body.Title == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
@@ -280,6 +315,10 @@ func (h *Handler) createTask(c *gin.Context) {
 	starred := false
 	if body.Starred != nil {
 		starred = *body.Starred
+	}
+	priority := 3
+	if body.Priority != nil {
+		priority = clampPriority(*body.Priority)
 	}
 	listID := body.ListID
 	parentID := body.ParentID
@@ -314,14 +353,14 @@ func (h *Handler) createTask(c *gin.Context) {
 	}
 	var id int
 	err := h.dbex(ctx).QueryRow(`
-		INSERT INTO tasks (tenant_id, user_id, list_id, parent_id, title, notes, start_at, due_at, repeat_rule, starred)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10) RETURNING id`,
-		tenantID, userID, listID, parentID, body.Title, notes, body.StartAt, body.DueAt, rr, starred).Scan(&id)
+		INSERT INTO tasks (tenant_id, user_id, list_id, parent_id, title, notes, start_at, due_at, repeat_rule, starred, priority)
+		VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9, $10, $11) RETURNING id`,
+		tenantID, userID, listID, parentID, body.Title, notes, body.StartAt, body.DueAt, rr, starred, priority).Scan(&id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"id": id, "title": body.Title})
+	c.JSON(http.StatusCreated, gin.H{"id": id, "title": body.Title, "priority": priority})
 }
 
 func (h *Handler) updateTask(c *gin.Context) {
@@ -339,6 +378,7 @@ func (h *Handler) updateTask(c *gin.Context) {
 		Notes      *string `json:"notes"`
 		Completed  *bool   `json:"completed"`
 		Starred    *bool   `json:"starred"`
+		Priority   *int    `json:"priority"`
 		StartAt    *string `json:"start_at"`
 		DueAt      *string `json:"due_at"`
 		RepeatRule *string `json:"repeat_rule"`
@@ -369,6 +409,11 @@ func (h *Handler) updateTask(c *gin.Context) {
 	if body.Starred != nil {
 		parts = append(parts, fmt.Sprintf("starred = $%d", argN))
 		args = append(args, *body.Starred)
+		argN++
+	}
+	if body.Priority != nil {
+		parts = append(parts, fmt.Sprintf("priority = $%d", argN))
+		args = append(args, clampPriority(*body.Priority))
 		argN++
 	}
 	if body.StartAt != nil {

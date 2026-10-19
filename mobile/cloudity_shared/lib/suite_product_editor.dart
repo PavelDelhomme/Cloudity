@@ -196,6 +196,7 @@ Future<bool> _editTask(
   var dueAt = parseCloudityDateTime(existing?['due_at']?.toString());
   var repeatRule = normalizeCalendarRepeat(existing?['repeat_rule']?.toString()) ?? '';
   var starred = existing?['starred'] == true;
+  var priority = clampTaskPriority(existing?['priority']);
 
   final saved = await showSuiteModalBottomSheet<bool>(
     context: context,
@@ -234,9 +235,26 @@ Future<bool> _editTask(
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  Text('Priorité', style: Theme.of(ctx).textTheme.labelLarge),
+                  Text(
+                    '1 la plus importante, 5 la plus faible',
+                    style: Theme.of(ctx).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (var n = 1; n <= 5; n++)
+                        ChoiceChip(
+                          label: Text('$n'),
+                          selected: priority == n,
+                          onSelected: (_) => setLocal(() => priority = n),
+                        ),
+                    ],
+                  ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Prioritaire'),
+                    title: const Text('Étoile'),
                     secondary: Icon(
                       starred ? Icons.star : Icons.star_border,
                       color: starred ? Colors.amber : null,
@@ -342,6 +360,7 @@ Future<bool> _editTask(
                                   repeatRule:
                                       repeatRule.isEmpty ? null : repeatRule,
                                   starred: starred,
+                                  priority: priority,
                                 );
                               } else {
                                 await api.updateTask(
@@ -355,6 +374,7 @@ Future<bool> _editTask(
                                   repeatRule: repeatRule,
                                   clearRepeatRule: repeatRule.isEmpty,
                                   starred: starred,
+                                  priority: priority,
                                 );
                               }
                               if (ctx.mounted) Navigator.pop(ctx, true);

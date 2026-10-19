@@ -97,6 +97,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _items = [];
   List<Map<String, dynamic>> _taskLists = [];
   int? _selectedTaskListId;
+  int _quickPriority = 3;
   String _contactQuery = '';
   ContactDirectory _contactDirectory = ContactDirectory.professional;
   List<Map<String, dynamic>> _deviceGoogleContacts = [];
@@ -761,6 +762,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         return bits.isEmpty ? null : bits.join(' · ');
       case SuiteProduct.tasks:
         final bits = <String>[];
+        bits.add('Priorité ${clampTaskPriority(item['priority'])}');
         final due = item['due_at'] ?? item['due_date'];
         if (due != null) {
           bits.add('Échéance ${formatCloudityDateTimeLocal(due.toString())}');
@@ -2416,6 +2418,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               value: done,
               onChanged: (_) => _toggleTask(item),
             ),
+            Padding(
+              padding: const EdgeInsets.only(top: 14, right: 8),
+              child: Text(
+                '${clampTaskPriority(item['priority'])}',
+                style: theme.textTheme.titleSmall,
+              ),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 12, right: 12),
@@ -2453,16 +2462,37 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Widget _buildTaskAddRow() {
-    return TextField(
-      controller: _taskAddCtrl,
-      textInputAction: TextInputAction.done,
-      decoration: const InputDecoration(
-        prefixIcon: Icon(Icons.add),
-        hintText: 'Ajouter une tâche',
-        border: InputBorder.none,
-        isDense: true,
-      ),
-      onSubmitted: _quickAddTask,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+          child: Wrap(
+            spacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('Priorité', style: Theme.of(context).textTheme.labelMedium),
+              for (var n = 1; n <= 5; n++)
+                ChoiceChip(
+                  label: Text('$n'),
+                  selected: _quickPriority == n,
+                  onSelected: (_) => setState(() => _quickPriority = n),
+                ),
+            ],
+          ),
+        ),
+        TextField(
+          controller: _taskAddCtrl,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.add),
+            hintText: 'Ajouter une tâche',
+            border: InputBorder.none,
+            isDense: true,
+          ),
+          onSubmitted: _quickAddTask,
+        ),
+      ],
     );
   }
 
@@ -2470,7 +2500,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     final title = raw.trim();
     if (title.isEmpty) return;
     try {
-      await _api.createTask(title: title, listId: _selectedTaskListId);
+      await _api.createTask(
+        title: title,
+        listId: _selectedTaskListId,
+        priority: _quickPriority,
+      );
       _taskAddCtrl.clear();
       if (mounted) await _reload();
     } catch (e) {

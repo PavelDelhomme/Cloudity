@@ -1943,6 +1943,7 @@ export type Task = {
   notes?: string
   completed: boolean
   starred?: boolean
+  priority?: number
   start_at?: string | null
   due_at?: string | null
   repeat_rule?: TaskRepeatRule | string | null
@@ -1980,6 +1981,7 @@ export async function createTask(
     due_at?: string | null
     repeat_rule?: string | null
     starred?: boolean
+    priority?: number
   }
 ): Promise<{ id: number; title: string }> {
   return apiJson<{ id: number; title: string }>(
@@ -1996,6 +1998,7 @@ export async function createTask(
         due_at: payload.due_at ?? undefined,
         repeat_rule: payload.repeat_rule ?? undefined,
         starred: payload.starred ?? undefined,
+        priority: payload.priority ?? 3,
       }),
     },
     'Create task'
@@ -2114,6 +2117,7 @@ export async function updateTask(
     notes: string
     completed: boolean
     starred: boolean
+    priority: number
     start_at: string | null
     due_at: string | null
     repeat_rule: string | null
@@ -2125,6 +2129,7 @@ export async function updateTask(
   if (patch.notes !== undefined) body.notes = patch.notes
   if (patch.completed !== undefined) body.completed = patch.completed
   if (patch.starred !== undefined) body.starred = patch.starred
+  if (patch.priority !== undefined) body.priority = patch.priority
   if (patch.start_at !== undefined) body.start_at = patch.start_at === null ? '' : patch.start_at
   if (patch.due_at !== undefined) body.due_at = patch.due_at === null ? '' : patch.due_at
   if (patch.repeat_rule !== undefined) body.repeat_rule = patch.repeat_rule === null ? '' : patch.repeat_rule
