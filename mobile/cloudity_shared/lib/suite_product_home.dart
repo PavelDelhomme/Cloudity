@@ -23,6 +23,7 @@ import 'suite_drawer_scaffold.dart';
 import 'suite_home_gestures.dart';
 import 'suite_feedback_screen.dart';
 import 'notes_keep.dart';
+import 'notes_reminder.dart';
 import 'ota_update.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
@@ -408,6 +409,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     await _saveTrash();
     if (!mounted) return;
     setState(() {});
+    await _rescheduleNoteReminders();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Note mise à la corbeille')),
     );
@@ -420,6 +423,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     await _saveTrash();
     if (!mounted) return;
     setState(() {});
+    await _rescheduleNoteReminders();
   }
 
   Future<void> _addNoteLabel() async {
@@ -525,6 +529,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       await _rememberItems();
       if (widget.product == SuiteProduct.calendar) {
         await _rescheduleReminders();
+      }
+      if (widget.product == SuiteProduct.notes) {
+        await _rescheduleNoteReminders();
       }
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
@@ -1524,6 +1531,19 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     await prefs.setStringList(
       'hubera_calendar_hidden_v1',
       [for (final n in _hiddenCalendarIds) '$n'],
+    );
+  }
+
+  Future<void> _rescheduleNoteReminders() async {
+    if (widget.product != SuiteProduct.notes || huberaNoteReminderHook == null) {
+      return;
+    }
+    final trashed = <int>{
+      for (final raw in _trashAt.keys)
+        if (int.tryParse(raw) != null) int.parse(raw),
+    };
+    await dispatchNoteReminders(
+      noteReminderPlans(notes: _items, now: DateTime.now(), trashedIds: trashed),
     );
   }
 

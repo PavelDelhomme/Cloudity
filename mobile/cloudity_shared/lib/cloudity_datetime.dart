@@ -1,13 +1,17 @@
-/// Parse une date API Cloudity (RFC3339 ou PostgreSQL sans fuseau = UTC).
+/// Parse une date API Cloudity (RFC3339 ou PostgreSQL, sans fuseau = UTC).
 DateTime? parseCloudityDateTime(String? raw) {
   final s = raw?.trim();
   if (s == null || s.isEmpty) return null;
-  if (RegExp(r'[zZ]$').hasMatch(s) ||
-      RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(s) ||
-      RegExp(r'[+-]\d{4}$').hasMatch(s)) {
-    return DateTime.tryParse(s)?.toLocal();
+  var normalized = s.contains('T') ? s : s.replaceFirst(' ', 'T');
+  // PostgreSQL écrit parfois le fuseau « +00 » sans les minutes.
+  if (RegExp(r'[+-]\d{2}$').hasMatch(normalized)) {
+    normalized = '$normalized:00';
   }
-  final normalized = s.contains('T') ? s : s.replaceFirst(' ', 'T');
+  if (RegExp(r'[zZ]$').hasMatch(normalized) ||
+      RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(normalized) ||
+      RegExp(r'[+-]\d{4}$').hasMatch(normalized)) {
+    return DateTime.tryParse(normalized)?.toLocal();
+  }
   return DateTime.tryParse('${normalized}Z')?.toLocal();
 }
 
