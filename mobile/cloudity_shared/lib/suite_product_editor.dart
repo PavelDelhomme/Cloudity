@@ -53,6 +53,7 @@ Future<bool> showSuiteProductEditor({
   List<String> noteInitialLabels = const [],
   void Function(String label)? onNoteLabelCreated,
   void Function(Map<String, dynamic> event)? onCalendarSaved,
+  Future<String?> Function(NotesKeepSnapshot snap, String? token)? parkOfflineNote,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
@@ -65,6 +66,7 @@ Future<bool> showSuiteProductEditor({
         labelCatalog: noteLabels,
         initialLabels: noteInitialLabels,
         onLabelCreated: onNoteLabelCreated,
+        parkOffline: parkOfflineNote,
       );
     case SuiteProduct.contacts:
       return _editContact(context, api, existing);
@@ -149,6 +151,7 @@ Future<bool> _editNote(
   List<String> labelCatalog = const [],
   List<String> initialLabels = const [],
   void Function(String label)? onLabelCreated,
+  Future<String?> Function(NotesKeepSnapshot snap, String? token)? parkOffline,
 }) {
   final labels = existing == null ? initialLabels : noteLabelNames(existing);
   return Navigator.of(context).push<bool>(
@@ -160,6 +163,7 @@ Future<bool> _editNote(
         labelCatalog: labelCatalog,
         initialLabels: labels,
         onLabelCreated: onLabelCreated,
+        parkOffline: parkOffline,
         persist: (snap, id) => _persistNoteKeep(api, existing, snap, id),
         remove: api.deleteNote,
       ),

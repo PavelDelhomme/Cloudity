@@ -18,6 +18,7 @@ export 'calendar_drive.dart';
 export 'calendar_event_page.dart';
 export 'calendar_reminder.dart';
 export 'notes_reminder.dart';
+export 'notes_offline.dart';
 export 'calendar_repeat.dart';
 export 'calendar_time_grid.dart';
 export 'calendar_visibility.dart';

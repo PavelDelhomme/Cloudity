@@ -23,6 +23,7 @@ import 'suite_drawer_scaffold.dart';
 import 'suite_home_gestures.dart';
 import 'suite_feedback_screen.dart';
 import 'notes_keep.dart';
+import 'notes_offline.dart';
 import 'notes_reminder.dart';
 import 'ota_update.dart';
 import 'suite_product_api.dart';
@@ -131,6 +132,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<String> _customLabels = [];
   final Map<String, String> _trashAt = {};
   bool _notesPrefsLoaded = false;
+  List<OfflineNoteDraft> _offlineDrafts = [];
+  bool _offlineFlushing = false;
+  bool _offlineReloading = false;
+  bool _offlinePauseFlush = false;
   late SuiteProductApi _api;
   String _installedVersion = '';
   final TextEditingController _taskAddCtrl = TextEditingController();
@@ -358,7 +363,103 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           ..addAll(decoded.map((k, v) => MapEntry(k.toString(), v.toString())));
       }
     }
+    final parked = prefs.getString('hubera_notes_offline_v1');
+    if (parked != null && parked.isNotEmpty) {
+      final decoded = jsonDecode(parked);
+      if (decoded is List) {
+        _offlineDrafts = [
+          for (final raw in decoded)
+            if (OfflineNoteDraft.fromJson(raw) != null) OfflineNoteDraft.fromJson(raw)!,
+        ];
+      }
+    }
     _notesPrefsLoaded = true;
+  }
+
+  Future<void> _saveOfflineDrafts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'hubera_notes_offline_v1',
+      jsonEncode([for (final draft in _offlineDrafts) draft.toJson()]),
+    );
+  }
+
+  Future<String?> _parkOfflineNote(NotesKeepSnapshot snap, String? token) async {
+    final title = snap.title.trim();
+    if (title.isEmpty) return null;
+    final next = token?.trim().isNotEmpty == true
+        ? token!.trim()
+        : DateTime.now().microsecondsSinceEpoch.toString();
+    final draft = OfflineNoteDraft(
+      token: next,
+      title: title,
+      content: snap.content,
+      remindAt: snap.remindAt?.toUtc().toIso8601String(),
+      color: snap.color,
+      pinned: snap.pinned,
+      archived: snap.archived,
+    );
+    _offlineDrafts = [
+      for (final current in _offlineDrafts)
+        if (current.token != next) current,
+      draft,
+    ];
+    _offlinePauseFlush = false;
+    await _saveOfflineDrafts();
+    if (mounted) {
+      setState(() {
+        _items = notesWithOfflineDrafts(_items, _offlineDrafts);
+      });
+    }
+    return next;
+  }
+
+  Future<void> _flushOfflineNotes() async {
+    if (widget.product != SuiteProduct.notes ||
+        _offlineFlushing ||
+        _offlinePauseFlush ||
+        _offlineDrafts.isEmpty) {
+      return;
+    }
+    final missing = offlineDraftsStillMissing(_offlineDrafts, _items);
+    if (missing.length != _offlineDrafts.length) {
+      _offlineDrafts = missing;
+      await _saveOfflineDrafts();
+    }
+    if (missing.isEmpty) return;
+    _offlineFlushing = true;
+    var created = 0;
+    final left = <OfflineNoteDraft>[];
+    try {
+      for (final draft in missing) {
+        try {
+          await _api.createNote(
+            title: draft.title,
+            content: draft.content,
+            color: draft.color,
+            pinned: draft.pinned,
+            remindAt: draft.remindAt,
+            extras: {'client_token': draft.token},
+          );
+          created += 1;
+        } catch (e) {
+          left.add(draft);
+          if (!isRealNetworkFailure(e)) _offlinePauseFlush = true;
+        }
+      }
+    } finally {
+      _offlineFlushing = false;
+    }
+    _offlineDrafts = left;
+    await _saveOfflineDrafts();
+    if (created > 0 && mounted && !_offlineReloading) {
+      _offlineReloading = true;
+      try {
+        await _reload();
+      } finally {
+        _offlineReloading = false;
+      }
+    }
   }
 
   Future<void> _saveTrash() async {
@@ -403,6 +504,24 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   }
 
   Future<void> _moveNoteToTrash(Map<String, dynamic> item) async {
+    if (item['_offline'] == true) {
+      final token = (item['extras'] is Map)
+          ? (item['extras'] as Map)['client_token']?.toString()
+          : null;
+      if (token != null && token.isNotEmpty) {
+        _offlineDrafts = [
+          for (final draft in _offlineDrafts)
+            if (draft.token != token) draft,
+        ];
+        await _saveOfflineDrafts();
+        if (mounted) {
+          setState(() {
+            _items = notesWithOfflineDrafts(_items, _offlineDrafts);
+          });
+        }
+      }
+      return;
+    }
     final id = suiteItemId(item);
     if (id == null) return;
     _trashAt['$id'] = DateTime.now().toUtc().toIso8601String();
@@ -523,7 +642,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _items = widget.product == SuiteProduct.notes
+            ? notesWithOfflineDrafts(items, _offlineDrafts)
+            : items;
         _loading = false;
       });
       await _rememberItems();
@@ -532,6 +653,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       }
       if (widget.product == SuiteProduct.notes) {
         await _rescheduleNoteReminders();
+        await _flushOfflineNotes();
       }
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
@@ -543,6 +665,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       );
       setState(() {
         _loading = false;
+        if (widget.product == SuiteProduct.notes) {
+          _items = notesWithOfflineDrafts(_items, _offlineDrafts);
+        }
         // Liste déjà peinte : le bandeau ne reste que si le réseau a lâché.
         // Un refresh suivant qui réussit repasse _error à null au début de _reload.
         if (cached && !offline) {
@@ -1096,6 +1221,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           : const [],
       onNoteLabelCreated:
           widget.product == SuiteProduct.notes ? _rememberNoteLabel : null,
+      parkOfflineNote:
+          widget.product == SuiteProduct.notes && existing == null
+              ? _parkOfflineNote
+              : null,
       onCalendarSaved: widget.product == SuiteProduct.calendar
           ? (event) {
               if (!mounted) return;
@@ -3992,6 +4121,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           ? [_noteLabelFilter!]
           : const [],
       onNoteLabelCreated: product == SuiteProduct.notes ? _rememberNoteLabel : null,
+      parkOfflineNote: product == SuiteProduct.notes ? _parkOfflineNote : null,
     );
     if (saved && mounted) await _reload();
   }

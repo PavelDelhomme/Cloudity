@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'network_errors.dart';
+
 import 'calendar_repeat.dart';
 import 'cloudity_datetime.dart';
 
@@ -120,6 +122,7 @@ class NotesKeepEditorScreen extends StatefulWidget {
     this.labelCatalog = const [],
     this.initialLabels = const [],
     this.onLabelCreated,
+    this.parkOffline,
   });
 
   final Future<int?> Function(NotesKeepSnapshot snap, int? id) persist;
@@ -130,6 +133,9 @@ class NotesKeepEditorScreen extends StatefulWidget {
   final List<String> labelCatalog;
   final List<String> initialLabels;
   final void Function(String label)? onLabelCreated;
+
+  /// Garde la note sur l’appareil si le réseau manque. Renvoie le jeton local.
+  final Future<String?> Function(NotesKeepSnapshot snap, String? token)? parkOffline;
 
   @override
   State<NotesKeepEditorScreen> createState() => _NotesKeepEditorScreenState();
@@ -153,6 +159,7 @@ class _NotesKeepEditorScreenState extends State<NotesKeepEditorScreen> {
   DateTime? _remindAt;
   List<String> _labels = const [];
   int? _id;
+  String? _offlineToken;
   NotesKeepSnapshot? _saved;
   Timer? _timer;
   Future<void> _chain = Future<void>.value();
@@ -251,10 +258,25 @@ class _NotesKeepEditorScreenState extends State<NotesKeepEditorScreen> {
       if (_error != null) setState(() => _error = null);
       return;
     }
-    final id = await widget.persist(snap, _id);
+    int? id;
+    try {
+      id = await widget.persist(snap, _id);
+    } catch (e) {
+      final park = widget.parkOffline;
+      if (park == null || _id != null || !isRealNetworkFailure(e)) rethrow;
+      final token = await park(snap, _offlineToken);
+      if (!mounted || _discard) return;
+      if (token == null || token.isEmpty) rethrow;
+      _offlineToken = token;
+      _saved = snap;
+      _changed = true;
+      if (_error != null) setState(() => _error = null);
+      return;
+    }
     if (!mounted || _discard) return;
     if (id == null) throw StateError('note sans id');
     _id = id;
+    _offlineToken = null;
     _saved = snap;
     _changed = true;
     if (_error != null) setState(() => _error = null);
