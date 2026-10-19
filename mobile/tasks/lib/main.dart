@@ -1,7 +1,9 @@
 import 'package:cloudity_shared/cloudity_shared.dart';
+import 'package:flutter/widgets.dart';
 
 import 'api/auth_api.dart';
 import 'auth/user_session.dart';
+import 'task_local_reminders.dart';
 
 CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSessionBinding(
       accessToken: s.accessToken,
@@ -9,6 +11,8 @@ CloudityCrashSessionBinding _crashBinding(UserSession s) => CloudityCrashSession
     );
 
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  huberaTaskReminderHook = scheduleTaskReminders;
   await cloudityRunSuiteApp(
     product: ClouditySuiteApp.tasks,
     title: 'Hubera Tasks',

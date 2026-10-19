@@ -4,6 +4,7 @@ import 'calendar_event_page.dart';
 import 'calendar_repeat.dart';
 import 'cloudity_datetime.dart';
 import 'contact_editor.dart';
+import 'network_errors.dart';
 import 'notes_keep.dart';
 import 'suite_bottom_sheet.dart';
 import 'suite_product_api.dart';
@@ -54,6 +55,14 @@ Future<bool> showSuiteProductEditor({
   void Function(String label)? onNoteLabelCreated,
   void Function(Map<String, dynamic> event)? onCalendarSaved,
   Future<String?> Function(NotesKeepSnapshot snap, String? token)? parkOfflineNote,
+  Future<void> Function({
+    required String title,
+    required String notes,
+    String? dueAt,
+    int priority,
+    String? remindAt,
+  })? parkOfflineTask,
+  Future<void> Function(int id, String title, DateTime when)? onTaskReminder,
 }) async {
   switch (product) {
     case SuiteProduct.notes:
@@ -71,7 +80,14 @@ Future<bool> showSuiteProductEditor({
     case SuiteProduct.contacts:
       return _editContact(context, api, existing);
     case SuiteProduct.tasks:
-      return _editTask(context, api, existing, taskListId);
+      return _editTask(
+        context,
+        api,
+        existing,
+        taskListId,
+        parkOffline: parkOfflineTask,
+        onReminder: onTaskReminder,
+      );
     case SuiteProduct.calendar:
       return _editEvent(
         context,
@@ -184,12 +200,35 @@ Future<bool> _editContact(
   ).then((saved) => saved == true);
 }
 
+int? _createdTaskId(Object? data) {
+  if (data is! Map) return null;
+  final map = Map<String, dynamic>.from(data);
+  final direct = suiteItemId(map);
+  if (direct != null) return direct;
+  for (final key in ['task', 'data']) {
+    final nested = map[key];
+    if (nested is Map) {
+      final id = suiteItemId(Map<String, dynamic>.from(nested));
+      if (id != null) return id;
+    }
+  }
+  return null;
+}
+
 Future<bool> _editTask(
   BuildContext context,
   SuiteProductApi api,
   Map<String, dynamic>? existing,
-  int? taskListId,
-) async {
+  int? taskListId, {
+  Future<void> Function({
+    required String title,
+    required String notes,
+    String? dueAt,
+    int priority,
+    String? remindAt,
+  })? parkOffline,
+  Future<void> Function(int id, String title, DateTime when)? onReminder,
+}) async {
   final titleCtrl = TextEditingController(
     text: existing?['title']?.toString() ?? '',
   );
@@ -198,6 +237,7 @@ Future<bool> _editTask(
   );
   var startAt = parseCloudityDateTime(existing?['start_at']?.toString());
   var dueAt = parseCloudityDateTime(existing?['due_at']?.toString());
+  var remindAt = parseCloudityDateTime(existing?['remind_at']?.toString());
   var repeatRule = normalizeCalendarRepeat(existing?['repeat_rule']?.toString()) ?? '';
   var starred = existing?['starred'] == true;
   var priority = clampTaskPriority(existing?['priority']);
@@ -320,6 +360,21 @@ Future<bool> _editTask(
                       if (next != null) setLocal(() => dueAt = next);
                     },
                   ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Rappel'),
+                    subtitle: Text(
+                      remindAt == null
+                          ? 'Aucun'
+                          : formatCloudityDateTimeLocal(_iso(remindAt!)),
+                    ),
+                    trailing: TextButton(
+                      onPressed: () => setLocal(
+                        () => remindAt = DateTime.now().add(const Duration(minutes: 1)),
+                      ),
+                      child: const Text('Dans 1 minute'),
+                    ),
+                  ),
                   DropdownButtonFormField<String>(
                     // ignore: deprecated_member_use
                     value: repeatRule,
@@ -355,7 +410,7 @@ Future<bool> _editTask(
                               final id =
                                   existing == null ? null : suiteItemId(existing);
                               if (id == null) {
-                                await api.createTask(
+                                final created = await api.createTask(
                                   title: title,
                                   listId: taskListId,
                                   notes: notesCtrl.text.trim(),
@@ -366,6 +421,12 @@ Future<bool> _editTask(
                                   starred: starred,
                                   priority: priority,
                                 );
+                                final newId = _createdTaskId(created);
+                                if (newId != null &&
+                                    remindAt != null &&
+                                    onReminder != null) {
+                                  await onReminder(newId, title, remindAt!);
+                                }
                               } else {
                                 await api.updateTask(
                                   id: id,
@@ -380,9 +441,26 @@ Future<bool> _editTask(
                                   starred: starred,
                                   priority: priority,
                                 );
+                                if (remindAt != null && onReminder != null) {
+                                  await onReminder(id, title, remindAt!);
+                                }
                               }
                               if (ctx.mounted) Navigator.pop(ctx, true);
                             } catch (e) {
+                              if (existing == null &&
+                                  parkOffline != null &&
+                                  isRealNetworkFailure(e)) {
+                                await parkOffline(
+                                  title: title,
+                                  notes: notesCtrl.text.trim(),
+                                  dueAt: dueAt == null ? null : _iso(dueAt!),
+                                  priority: priority,
+                                  remindAt:
+                                      remindAt == null ? null : _iso(remindAt!),
+                                );
+                                if (ctx.mounted) Navigator.pop(ctx, true);
+                                return;
+                              }
                               setLocal(() {
                                 busy = false;
                                 error = e.toString();

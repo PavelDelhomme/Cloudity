@@ -19,6 +19,8 @@ export 'calendar_event_page.dart';
 export 'calendar_reminder.dart';
 export 'notes_reminder.dart';
 export 'notes_offline.dart';
+export 'tasks_offline.dart';
+export 'tasks_reminder.dart';
 export 'calendar_repeat.dart';
 export 'calendar_time_grid.dart';
 export 'calendar_visibility.dart';

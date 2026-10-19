@@ -25,6 +25,8 @@ import 'suite_feedback_screen.dart';
 import 'notes_keep.dart';
 import 'notes_offline.dart';
 import 'notes_reminder.dart';
+import 'tasks_offline.dart';
+import 'tasks_reminder.dart';
 import 'ota_update.dart';
 import 'suite_product_api.dart';
 import 'suite_product_editor.dart';
@@ -100,6 +102,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   List<Map<String, dynamic>> _taskLists = [];
   int? _selectedTaskListId;
   int _quickPriority = 3;
+  bool _tasksShowDone = false;
+  List<OfflineTaskDraft> _offlineTasks = [];
+  bool _taskPrefsLoaded = false;
+  bool _taskFlushing = false;
+  bool _taskPauseFlush = false;
   String _contactQuery = '';
   ContactDirectory _contactDirectory = ContactDirectory.professional;
   List<Map<String, dynamic>> _deviceGoogleContacts = [];
@@ -462,6 +469,190 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  Future<void> _ensureTaskPrefs() async {
+    if (_taskPrefsLoaded || widget.product != SuiteProduct.tasks) return;
+    final prefs = await SharedPreferences.getInstance();
+    final parked = prefs.getString('hubera_tasks_offline_v1');
+    if (parked != null && parked.isNotEmpty) {
+      final decoded = jsonDecode(parked);
+      if (decoded is List) {
+        _offlineTasks = [
+          for (final raw in decoded)
+            if (OfflineTaskDraft.fromJson(raw) != null) OfflineTaskDraft.fromJson(raw)!,
+        ];
+      }
+    }
+    _taskPrefsLoaded = true;
+  }
+
+  Future<void> _saveOfflineTasks() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'hubera_tasks_offline_v1',
+      jsonEncode([for (final draft in _offlineTasks) draft.toJson()]),
+    );
+  }
+
+  Future<void> _parkOfflineTask({
+    required String title,
+    required String notes,
+    String? dueAt,
+    int priority = 3,
+    String? remindAt,
+  }) async {
+    final clean = title.trim();
+    if (clean.isEmpty) return;
+    final token = DateTime.now().microsecondsSinceEpoch.toString();
+    final draft = OfflineTaskDraft(
+      token: token,
+      title: clean,
+      notes: notes,
+      dueAt: dueAt,
+      priority: priority,
+      remindAt: remindAt,
+    );
+    _offlineTasks = [
+      for (final current in _offlineTasks)
+        if (current.title.trim() != clean) current,
+      draft,
+    ];
+    _taskPauseFlush = false;
+    await _saveOfflineTasks();
+    if (mounted) {
+      setState(() {
+        _items = tasksWithOfflineDrafts(_items, _offlineTasks);
+      });
+    }
+  }
+
+  Future<void> _flushOfflineTasks() async {
+    if (widget.product != SuiteProduct.tasks ||
+        _taskFlushing ||
+        _taskPauseFlush ||
+        _offlineTasks.isEmpty) {
+      return;
+    }
+    final missing = offlineTasksStillMissing(_offlineTasks, _items);
+    if (missing.length != _offlineTasks.length) {
+      _offlineTasks = missing;
+      await _saveOfflineTasks();
+    }
+    if (missing.isEmpty) return;
+    _taskFlushing = true;
+    var created = 0;
+    final left = <OfflineTaskDraft>[];
+    try {
+      for (final draft in missing) {
+        try {
+          final saved = await _api.createTask(
+            title: draft.title,
+            listId: _selectedTaskListId,
+            notes: draft.notes,
+            dueAt: draft.dueAt,
+            priority: draft.priority,
+          );
+          created += 1;
+          final when = parseCloudityDateTime(draft.remindAt);
+          final id = _createdTaskId(saved);
+          if (id != null && when != null) {
+            await _rememberTaskReminder(id, draft.title, when);
+          }
+        } catch (e) {
+          left.add(draft);
+          if (!isRealNetworkFailure(e)) _taskPauseFlush = true;
+        }
+      }
+    } finally {
+      _taskFlushing = false;
+    }
+    _offlineTasks = left;
+    await _saveOfflineTasks();
+    if (created > 0 && mounted && !_offlineReloading) {
+      _offlineReloading = true;
+      try {
+        await _reload();
+      } finally {
+        _offlineReloading = false;
+      }
+    }
+  }
+
+  int? _createdTaskId(Object? data) {
+    if (data is! Map) return null;
+    final map = Map<String, dynamic>.from(data);
+    final direct = suiteItemId(map);
+    if (direct != null) return direct;
+    for (final key in ['task', 'data']) {
+      final nested = map[key];
+      if (nested is Map) {
+        final id = suiteItemId(Map<String, dynamic>.from(nested));
+        if (id != null) return id;
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>> _readTaskReminders() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('hubera_tasks_reminders_v1');
+    if (raw == null || raw.isEmpty) return {};
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return {};
+    return Map<String, dynamic>.from(decoded);
+  }
+
+  Future<void> _writeTaskReminders(Map<String, dynamic> reminders) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hubera_tasks_reminders_v1', jsonEncode(reminders));
+  }
+
+  Future<void> _rememberTaskReminder(int id, String title, DateTime when) async {
+    final reminders = await _readTaskReminders();
+    reminders['$id'] = {
+      'title': title.trim().isEmpty ? 'Tâche' : title.trim(),
+      'when': when.toUtc().toIso8601String(),
+    };
+    await _writeTaskReminders(reminders);
+    await _rescheduleTaskReminders();
+  }
+
+  Future<void> _dropTaskReminder(int id) async {
+    final reminders = await _readTaskReminders();
+    if (reminders.remove('$id') == null) return;
+    await _writeTaskReminders(reminders);
+    await dispatchTaskReminders([
+      TaskReminderPlan(taskId: id, title: '', when: null),
+    ]);
+  }
+
+  Future<void> _rescheduleTaskReminders() async {
+    if (widget.product != SuiteProduct.tasks || huberaTaskReminderHook == null) {
+      return;
+    }
+    final reminders = await _readTaskReminders();
+    final now = DateTime.now();
+    final plans = <TaskReminderPlan>[];
+    for (final entry in reminders.entries) {
+      final id = int.tryParse(entry.key.toString());
+      if (id == null) continue;
+      final value = entry.value;
+      final title = value is Map ? (value['title']?.toString() ?? 'Tâche') : 'Tâche';
+      final when = value is Map
+          ? parseCloudityDateTime(value['when']?.toString())
+          : null;
+      final fireAt = taskReminderFireAt(when, now);
+      if (fireAt == null) continue;
+      plans.add(
+        TaskReminderPlan(
+          taskId: id,
+          title: title.trim().isEmpty ? 'Tâche' : title.trim(),
+          when: fireAt,
+        ),
+      );
+    }
+    await dispatchTaskReminders(plans);
+  }
+
   Future<void> _saveTrash() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('hubera_notes_trash_v1', jsonEncode(_trashAt));
@@ -619,6 +810,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       await _ensureNotesPrefs();
       await _purgeExpiredTrash();
     }
+    if (widget.product == SuiteProduct.tasks) {
+      await _ensureTaskPrefs();
+    }
     if (widget.product == SuiteProduct.contacts) {
       await _loadContactPlacement();
     }
@@ -642,9 +836,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       }
       if (!mounted) return;
       setState(() {
-        _items = widget.product == SuiteProduct.notes
-            ? notesWithOfflineDrafts(items, _offlineDrafts)
-            : items;
+        _items = switch (widget.product) {
+          SuiteProduct.notes => notesWithOfflineDrafts(items, _offlineDrafts),
+          SuiteProduct.tasks => tasksWithOfflineDrafts(items, _offlineTasks),
+          _ => items,
+        };
         _loading = false;
       });
       await _rememberItems();
@@ -654,6 +850,10 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       if (widget.product == SuiteProduct.notes) {
         await _rescheduleNoteReminders();
         await _flushOfflineNotes();
+      }
+      if (widget.product == SuiteProduct.tasks) {
+        await _rescheduleTaskReminders();
+        await _flushOfflineTasks();
       }
     } catch (e) {
       CloudityCrashReporter.trackNetworkError(e);
@@ -667,6 +867,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         _loading = false;
         if (widget.product == SuiteProduct.notes) {
           _items = notesWithOfflineDrafts(_items, _offlineDrafts);
+        }
+        if (widget.product == SuiteProduct.tasks) {
+          _items = tasksWithOfflineDrafts(_items, _offlineTasks);
         }
         // Liste déjà peinte : le bandeau ne reste que si le réseau a lâché.
         // Un refresh suivant qui réussit repasse _error à null au début de _reload.
@@ -1225,6 +1428,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           widget.product == SuiteProduct.notes && existing == null
               ? _parkOfflineNote
               : null,
+      parkOfflineTask: widget.product == SuiteProduct.tasks && existing == null
+          ? _parkOfflineTask
+          : null,
+      onTaskReminder:
+          widget.product == SuiteProduct.tasks ? _rememberTaskReminder : null,
       onCalendarSaved: widget.product == SuiteProduct.calendar
           ? (event) {
               if (!mounted) return;
@@ -1285,6 +1493,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     try {
       if (choice == 'toggle') {
         await _api.updateTask(id: id, completed: !done);
+        if (done == false) await _dropTaskReminder(id);
       } else if (choice == 'delete') {
         if (!await confirmSuiteDelete(context, title)) return;
         await _api.deleteTask(id);
@@ -1374,11 +1583,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       );
 
   Future<void> _toggleTask(Map<String, dynamic> item) async {
+    if (item['_offline'] == true) return;
     final id = suiteItemId(item);
     if (id == null) return;
     final done = item['completed'] == true;
     try {
       await _api.updateTask(id: id, completed: !done);
+      if (!done) await _dropTaskReminder(id);
       if (mounted) await _reload();
     } catch (e) {
       if (!mounted) return;
@@ -1925,6 +2136,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         final pb = b['pinned'] == true ? 0 : 1;
         return pa.compareTo(pb);
       });
+    }
+    if (widget.product == SuiteProduct.tasks) {
+      items = tasksForDoneFilter(items, doneOnly: _tasksShowDone);
     }
     final q = _contactQuery.trim().toLowerCase();
     if (q.isEmpty) return items;
@@ -2542,7 +2756,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
             child: Text(
-              'Aucune tâche',
+              _tasksShowDone ? 'Aucune tâche faite' : 'Aucune tâche',
               style: theme.textTheme.titleMedium,
             ),
           ),
@@ -2657,6 +2871,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       _taskAddCtrl.clear();
       if (mounted) await _reload();
     } catch (e) {
+      if (isRealNetworkFailure(e)) {
+        await _parkOfflineTask(title: title, notes: '', priority: _quickPriority);
+        _taskAddCtrl.clear();
+        return;
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
@@ -2676,6 +2895,15 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               isDense: true,
             ),
             onChanged: (v) => setState(() => _contactQuery = v),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilterChip(
+              label: const Text('Faites'),
+              selected: _tasksShowDone,
+              onSelected: (selected) => setState(() => _tasksShowDone = selected),
+            ),
           ),
           if (_taskLists.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -4122,6 +4350,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           : const [],
       onNoteLabelCreated: product == SuiteProduct.notes ? _rememberNoteLabel : null,
       parkOfflineNote: product == SuiteProduct.notes ? _parkOfflineNote : null,
+      parkOfflineTask: product == SuiteProduct.tasks ? _parkOfflineTask : null,
+      onTaskReminder: product == SuiteProduct.tasks ? _rememberTaskReminder : null,
     );
     if (saved && mounted) await _reload();
   }
