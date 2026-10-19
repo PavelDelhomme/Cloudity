@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'cook_units.dart';
 import 'ingredient_photo.dart';
+import 'ingredient_suggest.dart';
 
 class CookIngredientDraft {
   const CookIngredientDraft({
@@ -76,12 +77,14 @@ class _CookIngredientFieldsState extends State<CookIngredientFields> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Ingrédient',
+                  hintText: 'Rechercher',
                   border: OutlineInputBorder(),
                 ),
               ),
             ),
           ],
         ),
+        _suggestionList(),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -101,6 +104,35 @@ class _CookIngredientFieldsState extends State<CookIngredientFields> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _suggestionList() {
+    final matches = cookIngredientSuggestions(_typedName);
+    if (matches.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        elevation: 1,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final name in matches)
+              ListTile(
+                dense: true,
+                leading: IngredientPhoto(name: name, size: 36),
+                title: Text(name),
+                onTap: () {
+                  widget.name.value = TextEditingValue(
+                    text: name,
+                    selection: TextSelection.collapsed(offset: name.length),
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 
