@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api/admin_api.dart';
 import '../auth/admin_refresh.dart';
 import '../auth/user_session.dart';
+import 'admin_account_settings.dart';
 import 'admin_sections.dart';
 
 class AdminHome extends StatefulWidget {
@@ -12,10 +13,14 @@ class AdminHome extends StatefulWidget {
     super.key,
     required this.session,
     required this.onLogout,
+    this.loadOnStart = true,
   });
 
   final UserSession session;
   final Future<void> Function() onLogout;
+
+  /// Défaut vrai. Les tests du clic compte le coupent pour ne pas joindre le réseau.
+  final bool loadOnStart;
 
   @override
   State<AdminHome> createState() => _AdminHomeState();
@@ -23,6 +28,7 @@ class AdminHome extends StatefulWidget {
 
 class _AdminHomeState extends State<AdminHome> {
   String _section = 'home';
+  bool _showAccount = false;
   bool _loading = true;
   bool _refreshRejected = false;
   String? _error;
@@ -35,7 +41,7 @@ class _AdminHomeState extends State<AdminHome> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.loadOnStart) _load();
   }
 
   @override
@@ -52,6 +58,12 @@ class _AdminHomeState extends State<AdminHome> {
         gatewayBase: widget.session.api.baseUrl,
         accessToken: widget.session.accessToken,
       );
+
+  /// Compte ID déjà admin : ses réglages et ceux de l’app. Pas l’écran de connexion.
+  void _openAccountSettings() {
+    HuberaAccountSwitch.closeChooser();
+    setState(() => _showAccount = true);
+  }
 
   Future<void> _openAccountChooser() async {
     _refreshRejected = true;
@@ -110,22 +122,39 @@ class _AdminHomeState extends State<AdminHome> {
   Widget build(BuildContext context) {
     final title = adminSectionLabels[_section] ?? 'Admin';
     final email = emailFromAccessToken(widget.session.accessToken) ?? '';
-    return Scaffold(
+    return PopScope(
+      canPop: !_showAccount,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !_showAccount) return;
+        setState(() => _showAccount = false);
+      },
+      child: Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title),
-            if (email.isNotEmpty)
-              Text(email, style: Theme.of(context).textTheme.labelSmall),
-          ],
-        ),
+        automaticallyImplyLeading: false,
+        leading: _showAccount
+            ? IconButton(
+                tooltip: 'Retour',
+                onPressed: () => setState(() => _showAccount = false),
+                icon: const Icon(Icons.arrow_back),
+              )
+            : null,
+        title: _showAccount
+            ? const Text('Compte')
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title),
+                  if (email.isNotEmpty)
+                    Text(email, style: Theme.of(context).textTheme.labelSmall),
+                ],
+              ),
         actions: [
-          IconButton(
-            tooltip: 'Choisir un compte',
-            onPressed: HuberaAccountSwitch.requestChooser,
-            icon: const Icon(Icons.account_circle_outlined),
-          ),
+          if (!_showAccount)
+            IconButton(
+              tooltip: 'Compte',
+              onPressed: _openAccountSettings,
+              icon: const Icon(Icons.account_circle_outlined),
+            ),
           IconButton(
             tooltip: 'Actualiser',
             onPressed: _loading ? null : _load,
@@ -138,7 +167,12 @@ class _AdminHomeState extends State<AdminHome> {
           ),
         ],
       ),
-      body: _loading
+      body: _showAccount
+          ? AdminAccountSettings(
+              gatewayUrl: widget.session.api.baseUrl,
+              email: email,
+            )
+          : _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
@@ -158,7 +192,9 @@ class _AdminHomeState extends State<AdminHome> {
                 ],
               ),
             ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _showAccount
+          ? null
+          : NavigationBar(
         selectedIndex: adminSectionIds.indexOf(_section).clamp(0, adminSectionIds.length - 1),
         onDestinationSelected: (i) => setState(() => _section = adminSectionIds[i]),
         destinations: [
@@ -168,6 +204,7 @@ class _AdminHomeState extends State<AdminHome> {
               label: adminSectionLabels[id] ?? id,
             ),
         ],
+      ),
       ),
     );
   }

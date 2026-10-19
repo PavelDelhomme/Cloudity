@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
@@ -36,40 +35,52 @@ Future<({String access, String refresh, bool? isAdmin})> _tokensForAdmin({
   required String access,
   required String refresh,
 }) async {
-  var nextAccess = access;
-  var nextRefresh = refresh;
-  var isAdmin = await _adminRoleOrNull(api, nextAccess);
-  if (isAdmin == false && nextRefresh.trim().isNotEmpty) {
-    try {
-      final pair = await api.ensureValidTokens(
-        accessToken: nextAccess,
-        refreshToken: nextRefresh,
-      );
-      nextAccess = pair.access;
-      nextRefresh = pair.refresh;
-      isAdmin = await _adminRoleOrNull(api, nextAccess);
-    } on AuthException {
-      // Le verdict du jeton courant reste valable.
-    }
-  }
-  return (access: nextAccess, refresh: nextRefresh, isAdmin: isAdmin);
+  final want = (emailFromAccessToken(access) ?? '').trim().toLowerCase();
+  // Pas de scan des ContentProviders ici : un fournisseur bloqué figeait
+  // le démarrage et renvoyait vers le login. Le renouvellement HTTP suffit.
+  final copies = <({String email, String access, String refresh})>[];
+  // Le jeton encore valide peut porter un ancien rôle. Chaque refresh de CE
+  // compte relit le rôle en base. Le compte labo reste refusé.
+  return resolveAdminTokens(
+    access: access,
+    refresh: refresh,
+    expectedEmail: want,
+    copies: copies,
+    roleOf: (token) => _adminRoleOrNull(api, token),
+    refreshTokens: api.refreshTokens,
+    renewAccess: api.renewFromAccess,
+  );
 }
 
 Future<List<({String email, String refresh})>> _refreshCopies() async {
-  try {
-    final copies = await CloudityAuthBroker.listAllAccountCopies();
-    return [
-      for (final copy in copies) (email: copy.email, refresh: copy.refreshToken),
-    ];
-  } catch (_) {
-    return const [];
-  }
+  // Le scan de tous les fournisseurs a bloqué le fil. Le refresh HTTP suffit.
+  return const [];
 }
 
 Future<UserSession?> _restoreSession() async {
+  debugPrint('Admin: reprise de session');
   final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
-  if (pair == null) return null;
-  final email = emailFromAccessToken(pair.access) ?? await SessionStore.readAccountEmail();
+  if (pair == null) {
+    debugPrint('Admin: session locale absente');
+    return null;
+  }
+  final role = roleFromAccessToken(pair.access);
+  debugPrint(
+    'Admin: session locale lue role=$role valid=${adminAccessStillValid(pair.access)}',
+  );
+  // Session locale encore valide : ouvrir l’app tout de suite.
+  // Le clic compte affiche les réglages, pas un login, même si le rôle
+  // du jeton n’a pas encore été relu.
+  if (role == 'admin' || adminAccessStillValid(pair.access)) {
+    debugPrint('Admin: ouverture de la session locale');
+    return UserSession(
+      api: pair.api,
+      accessToken: pair.access,
+      refreshToken: pair.refresh,
+    );
+  }
+  debugPrint('Admin: jeton à relire');
+  final email = emailFromAccessToken(pair.access) ?? '';
   final AdminRefreshResult recovered;
   try {
     recovered = await recoverAdminRefresh(
@@ -77,11 +88,7 @@ Future<UserSession?> _restoreSession() async {
       refresh: pair.refresh,
       expectedEmail: email,
       listCopies: _refreshCopies,
-      refreshTokens: (access, refresh) => pair.api.ensureValidTokens(
-        accessToken: access,
-        refreshToken: refresh,
-        accountEmail: email,
-      ),
+      refreshTokens: (access, refresh) => pair.api.refreshTokens(refresh),
     );
   } on AuthException catch (error) {
     if (!adminRefreshTokenRejected(error)) rethrow;
