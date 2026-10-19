@@ -2,6 +2,7 @@ import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter/material.dart';
 
 import 'hubera_account_order.dart';
+import 'hubera_id_offer.dart';
 
 class HuberaAccountChoice {
   const HuberaAccountChoice.use(this.account) : addNew = false;
@@ -213,6 +214,7 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
   BuildContext context,
   List<CloudityAuthAccount> accounts, {
   required bool idInstalled,
+  bool idTooOld = false,
   String? activeEmail,
   String? deviceEmail,
   bool prominent = false,
@@ -229,7 +231,7 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
     context: context,
     barrierDismissible: barrierDismissible,
     builder: (ctx) {
-      final dark = MediaQuery.platformBrightnessOf(ctx) == Brightness.dark;
+      final dark = Theme.of(ctx).brightness == Brightness.dark;
       final surface = dark ? const Color(0xFF2D2E30) : Colors.white;
       final onSurface = dark ? const Color(0xFFE8EAED) : const Color(0xFF202124);
       final line = dark ? const Color(0xFF3C4043) : const Color(0xFFE8EAED);
@@ -282,11 +284,14 @@ Future<HuberaAccountChoice?> promptHuberaAccount(
                   title: 'Ajouter un compte',
                   onTap: () => Navigator.pop(ctx, const HuberaAccountChoice.add()),
                 ),
-                if (!idInstalled)
+                if (!idInstalled || idTooOld)
                   HuberaAccountLine(
                     title: 'Installer Hubera ID',
+                    subtitle: 'Application officielle, proposée. Rien ne s’installe tout seul.',
                     icon: Icons.download_outlined,
-                    onTap: () => CloudityAuthBroker.openHuberaIdInstall(),
+                    onTap: () {
+                      offerOfficialHuberaIdApk(userAccepted: true);
+                    },
                   ),
               ],
             ),

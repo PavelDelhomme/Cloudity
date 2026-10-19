@@ -20,6 +20,7 @@ import 'auth_client.dart';
 import 'device_account_plan.dart';
 import 'hubera_account_order.dart';
 import 'hubera_account_prompt.dart';
+import 'hubera_id_launch.dart';
 import 'login_screen_shell.dart';
 import 'session_store.dart';
 import 'user_session.dart';
@@ -113,7 +114,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     }
     final gateways = await SessionStore.gatewayCandidates();
     final accounts = await _orderedBrokerAccounts();
-    final idInstalled = await CloudityAuthBroker.isHuberaIdInstalled();
+    final idInstalled = await _idAlreadyUsable();
     if (!mounted) return;
     setState(() {
       _brokerAccounts = accounts;
@@ -162,6 +163,20 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     });
   }
 
+  /// ID utilisable : déjà là et assez récent pour la session. Sinon on propose l’APK.
+  Future<bool> _idAlreadyUsable() async {
+    final onAndroid = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+    if (!onAndroid) return true;
+    final code = await CloudityAuthBroker.huberaIdVersionCode();
+    final plan = planHuberaIdLaunch(
+      android: true,
+      idInstalled: code >= 0,
+      installedVersionCode: code >= 0 ? code : null,
+      minimumSessionCode: huberaIdSessionMinimumCode,
+    );
+    return plan.action != HuberaIdLaunch.offerApk;
+  }
+
   /// Ouvre la session déjà sur l’appareil, ou préremplit l’adresse sans jeton.
   /// Retourne false pour laisser le sélecteur historique.
   Future<bool> _adoptKnownDeviceAccount() async {
@@ -186,7 +201,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     }
     if (withSession.length > 1) {
       setState(() => _brokerAccounts = withSession);
-      final idInstalled = await CloudityAuthBroker.isHuberaIdInstalled();
+      final idInstalled = await _idAlreadyUsable();
       if (!mounted) return true;
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return true;

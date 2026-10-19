@@ -2,6 +2,7 @@ package fr.cloudity.cloudity_auth_broker
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -72,6 +73,7 @@ class CloudityAuthBrokerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler 
                 }
             }
             "idInstalled" -> result.success(isHuberaIdInstalled(appContext))
+            "idVersionCode" -> result.success(huberaIdVersionCode(appContext))
             "openIdInstall" -> {
                 openHuberaIdInstall(appContext)
                 result.success(null)
@@ -93,10 +95,14 @@ class CloudityAuthBrokerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler 
     }
 
     private fun isHuberaIdInstalled(ctx: android.content.Context): Boolean =
+        huberaIdVersionCode(ctx) >= 0
+
+    /** -1 si le paquet n’est pas là. Ne désinstalle rien et n’efface pas la session. */
+    private fun huberaIdVersionCode(ctx: android.content.Context): Int =
         runCatching {
-            ctx.packageManager.getPackageInfo(HUBERA_ID_PACKAGE, 0)
-            true
-        }.getOrDefault(false)
+            val info = ctx.packageManager.getPackageInfo(HUBERA_ID_PACKAGE, 0)
+            if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toInt() else @Suppress("DEPRECATION") info.versionCode
+        }.getOrDefault(-1)
 
     private fun openHuberaIdInstall(ctx: android.content.Context) {
         val launch = ctx.packageManager.getLaunchIntentForPackage(HUBERA_ID_PACKAGE)

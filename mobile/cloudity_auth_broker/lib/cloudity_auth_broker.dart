@@ -144,7 +144,19 @@ class CloudityAuthBroker {
     }
   }
 
-  /// Ouvre cloud.hubera.id, ou la page d’install si le paquet manque.
+  /// Code de cloud.hubera.id, ou -1 s’il n’est pas installé. N’efface rien.
+  static Future<int> huberaIdVersionCode() async {
+    if (!isSupported) return -1;
+    try {
+      return await _channel.invokeMethod<int>('idVersionCode') ?? -1;
+    } on MissingPluginException {
+      return -1;
+    } on PlatformException {
+      return -1;
+    }
+  }
+
+  /// Ouvre cloud.hubera.id s’il est là. Ne télécharge rien tout seul.
   static Future<void> openHuberaIdInstall() async {
     if (!isSupported) return;
     try {
