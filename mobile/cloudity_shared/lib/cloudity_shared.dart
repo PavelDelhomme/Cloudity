@@ -7,6 +7,7 @@ export 'auth/auth_client.dart';
 export 'auth/auth_exception.dart';
 export 'auth/device_account_plan.dart';
 export 'auth/hubera_account_order.dart';
+export 'auth/hubera_id_renew.dart';
 export 'auth/hubera_account_prompt.dart';
 export 'auth/login_screen.dart';
 export 'auth/session_restore_plan.dart';

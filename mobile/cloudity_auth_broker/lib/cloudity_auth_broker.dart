@@ -51,6 +51,27 @@ class CloudityAuthBroker {
 
   static bool get isSupported => Platform.isAndroid;
 
+  /// Access frais du compte déjà choisi, demandé à Hubera ID. Pas d’autre adresse.
+  static Future<CloudityAuthAccount?> freshAccount(String email) async {
+    if (!isSupported) return null;
+    final want = email.trim().toLowerCase();
+    if (want.isEmpty) return null;
+    try {
+      final raw = await _channel.invokeMethod<dynamic>(
+        'freshAccount',
+        {'email': want},
+      );
+      if (raw is! Map) return null;
+      final account = CloudityAuthAccount.fromMap(Map<dynamic, dynamic>.from(raw));
+      if (account.email.trim().toLowerCase() != want) return null;
+      return account;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   /// Une entrée par e-mail (copie la plus fraîche parmi les peers).
   static Future<List<CloudityAuthAccount>> listAccounts() async {
     if (!isSupported) return [];

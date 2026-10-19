@@ -41,7 +41,10 @@ Future<({String access, String refresh, bool? isAdmin})> _tokensForAdmin({
   var isAdmin = await _adminRoleOrNull(api, nextAccess);
   if (isAdmin == false && nextRefresh.trim().isNotEmpty) {
     try {
-      final pair = await api.refreshTokens(nextRefresh);
+      final pair = await api.ensureValidTokens(
+        accessToken: nextAccess,
+        refreshToken: nextRefresh,
+      );
       nextAccess = pair.access;
       nextRefresh = pair.refresh;
       isAdmin = await _adminRoleOrNull(api, nextAccess);
@@ -77,6 +80,7 @@ Future<UserSession?> _restoreSession() async {
       refreshTokens: (access, refresh) => pair.api.ensureValidTokens(
         accessToken: access,
         refreshToken: refresh,
+        accountEmail: email,
       ),
     );
   } on AuthException catch (error) {

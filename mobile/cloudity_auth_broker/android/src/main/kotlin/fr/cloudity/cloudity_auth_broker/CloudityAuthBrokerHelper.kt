@@ -78,6 +78,47 @@ object CloudityAuthBrokerHelper {
      *
      * Évite le bug « premier gagne » (souvent Mail avec un refresh déjà rotaté).
      */
+    /**
+     * Access frais du compte [email], lu seulement chez Hubera ID.
+     * Le fournisseur ID renouvelle en silence. Une autre adresse est ignorée.
+     */
+    fun freshAccount(ctx: Context, email: String): Map<String, Any?>? {
+        val clean = email.trim().lowercase()
+        if (clean.isEmpty()) return null
+        val uri = Uri.parse("content://cloud.hubera.id.hubera.id/accounts/${Uri.encode(clean)}")
+        return try {
+            ctx.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val emailIdx = cursor.getColumnIndex("email")
+                val gwIdx = cursor.getColumnIndex("gateway_url")
+                val accessIdx = cursor.getColumnIndex("access_token")
+                val refreshIdx = cursor.getColumnIndex("refresh_token")
+                val tenantIdx = cursor.getColumnIndex("tenant_id")
+                val updatedIdx = cursor.getColumnIndex("updated_at")
+                while (cursor.moveToNext()) {
+                    val rowEmail = if (emailIdx >= 0) {
+                        cursor.getString(emailIdx).orEmpty().trim().lowercase()
+                    } else {
+                        ""
+                    }
+                    if (rowEmail != clean) continue
+                    val access = if (accessIdx >= 0) cursor.getString(accessIdx).orEmpty() else ""
+                    return mapOf(
+                        "email" to rowEmail,
+                        "gateway_url" to if (gwIdx >= 0) cursor.getString(gwIdx).orEmpty() else "",
+                        "access_token" to access,
+                        "refresh_token" to if (refreshIdx >= 0) cursor.getString(refreshIdx).orEmpty() else "",
+                        "tenant_id" to if (tenantIdx >= 0) cursor.getInt(tenantIdx) else 1,
+                        "source_package" to "cloud.hubera.id",
+                        "updated_at" to if (updatedIdx >= 0) cursor.getLong(updatedIdx) else 0L,
+                    )
+                }
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun listAccounts(ctx: Context): List<Map<String, Any?>> {
         val bestByEmail = linkedMapOf<String, Candidate>()
         for (cand in listAllCopiesInternal(ctx)) {

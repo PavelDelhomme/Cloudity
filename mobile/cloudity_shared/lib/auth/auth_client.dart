@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
+
 import '../auth_2fa.dart';
 import '../http_helpers.dart';
 import '../hubera_http.dart';
 import '../jwt_claims.dart';
 import 'auth_exception.dart';
+import 'hubera_id_renew.dart';
 
 export 'auth_exception.dart';
 
@@ -192,18 +195,63 @@ class CloudityAuthClient {
   Future<({String access, String refresh})> ensureValidTokens({
     required String accessToken,
     required String refreshToken,
+    String? accountEmail,
   }) async {
     // Renouvellement silencieux avant expiration (comme Google) — évite les 401
     // dès qu’une app revient au premier plan après quelques heures.
-    if (accessToken.isNotEmpty && !isAccessTokenExpiringSoon(accessToken)) {
-      // JWT encore valable : pas d’aller-retour /auth/validate au cold start
-      // (c’était ~5 s de latence perçue sur Mail / Drive / Cook).
-      return (access: accessToken, refresh: refreshToken);
+    final stillValid =
+        accessToken.isNotEmpty && !isAccessTokenExpiringSoon(accessToken);
+    final email = (emailFromAccessToken(accessToken) ?? accountEmail ?? '')
+        .trim()
+        .toLowerCase();
+    final id = stillValid || email.isEmpty ? null : await _idSession(email);
+    final choice = planIdRenew(
+      accessStillValid: stillValid,
+      localRefresh: refreshToken,
+      expectedEmail: email,
+      id: id,
+      idAccessUsable: id != null && _idAccessUsable(id.access),
+      idAccessEmail: id == null ? '' : (emailFromAccessToken(id.access) ?? ''),
+    );
+    switch (choice) {
+      case IdRenewChoice.keepLocal:
+        return (access: accessToken, refresh: refreshToken);
+      case IdRenewChoice.useId:
+        final nextRefresh = id!.refresh.trim().isNotEmpty ? id.refresh : refreshToken;
+        return (access: id.access, refresh: nextRefresh);
+      case IdRenewChoice.askServer:
+        if (refreshToken.isEmpty) {
+          throw AuthException('Session expirée. Reconnectez-vous.');
+        }
+        return refreshTokens(refreshToken);
+      case IdRenewChoice.chooser:
+        throw AuthException('Refresh (401): invalid or expired refresh token');
+      case IdRenewChoice.hold:
+        throw AuthException('Hubera ID injoignable');
     }
-    if (refreshToken.isEmpty) {
-      throw AuthException('Session expirée. Reconnectez-vous.');
+  }
+
+  Future<IdSessionView?> _idSession(String email) async {
+    if (!CloudityAuthBroker.isSupported) return null;
+    try {
+      final account = await CloudityAuthBroker.freshAccount(email);
+      if (account == null) return null;
+      return IdSessionView(
+        known: true,
+        access: account.accessToken,
+        refresh: account.refreshToken,
+      );
+    } catch (_) {
+      return null;
     }
-    return refreshTokens(refreshToken);
+  }
+
+  bool _idAccessUsable(String token) {
+    final value = token.trim();
+    if (value.isEmpty) return false;
+    final exp = accessTokenExpiresAt(value);
+    if (exp == null) return true;
+    return exp.isAfter(DateTime.now().toUtc().add(const Duration(seconds: 30)));
   }
 
   Future<bool> validate(String accessToken) async {

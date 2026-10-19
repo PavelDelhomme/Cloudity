@@ -32,6 +32,10 @@ class CloudityAuthBrokerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "listAccounts" -> offMain(result) { CloudityAuthBrokerHelper.listAccounts(appContext) }
+            "freshAccount" -> {
+                val email = call.argument<String>("email").orEmpty()
+                offMain(result) { CloudityAuthBrokerHelper.freshAccount(appContext, email) }
+            }
             "listAllAccountCopies" -> offMain(result) { CloudityAuthBrokerHelper.listAllCopies(appContext) }
             "listHuberaDeviceAccounts" -> offMain(result) {
                 CloudityAuthBrokerHelper.listHuberaDeviceAccounts(appContext)
