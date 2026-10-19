@@ -4151,9 +4151,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           : widget.product == SuiteProduct.calendar
               ? _calendarCreateFab()
               : FloatingActionButton(
-              onPressed: widget.product == SuiteProduct.notes
-                  ? _openNotesComposer
-                  : _showCreateMenu,
+              onPressed: _showCreateMenu,
               tooltip: widget.product == SuiteProduct.contacts ? 'Créer un contact' : 'Créer',
               child: const Icon(Icons.add),
             ),
