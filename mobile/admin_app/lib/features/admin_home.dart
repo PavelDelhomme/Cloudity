@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../api/admin_api.dart';
 import '../auth/admin_refresh.dart';
 import '../auth/user_session.dart';
+import 'admin_account_chip.dart';
 import 'admin_account_settings.dart';
 import 'admin_sections.dart';
 
@@ -149,22 +150,17 @@ class _AdminHomeState extends State<AdminHome> {
                 ],
               ),
         actions: [
-          if (!_showAccount)
-            IconButton(
-              tooltip: 'Compte',
-              onPressed: _openAccountSettings,
-              icon: const Icon(Icons.account_circle_outlined),
-            ),
           IconButton(
             tooltip: 'Actualiser',
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
-          IconButton(
-            tooltip: 'Déconnexion',
-            onPressed: widget.onLogout,
-            icon: const Icon(Icons.logout),
-          ),
+          if (!_showAccount)
+            AdminAccountChip(
+              email: email,
+              onOpenSettings: _openAccountSettings,
+              onLogout: widget.onLogout,
+            ),
         ],
       ),
       body: _showAccount
