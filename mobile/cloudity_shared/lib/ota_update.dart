@@ -8,6 +8,21 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// Notes de version, qu’elles arrivent en texte, en liste, ou sous releaseNotes.
+String otaReleaseNotes(Object? raw) {
+  if (raw == null) return '';
+  if (raw is String) return raw.trim();
+  if (raw is List) {
+    return raw
+        .map((e) => otaReleaseNotes(e))
+        .where((s) => s.isNotEmpty)
+        .join('\n');
+  }
+  final text = raw.toString().trim();
+  if (text.isEmpty || text == 'null') return '';
+  return text;
+}
+
 /// Manifeste OTA renvoyé par `GET /deploy/mobile/manifest?app=…`.
 class CloudityOtaManifest {
   const CloudityOtaManifest({
@@ -176,7 +191,7 @@ abstract final class CloudityOtaClient {
         'min_supported': (mapped['min_supported'] as String? ?? version).trim(),
         'published_at': (mapped['published_at'] as String? ?? mapped['generated'] as String? ?? '').trim(),
         'hubera': {
-          'message': (mapped['notes'] as String? ?? '').trim(),
+          'message': otaReleaseNotes(mapped['notes'] ?? mapped['releaseNotes']),
         },
       });
     } catch (_) {
@@ -359,7 +374,7 @@ abstract final class CloudityOtaClient {
       'apk_url': apk,
       'sha256': (slot['sha256'] ?? '').toString(),
       'published_at': (slot['published_at'] ?? '').toString(),
-      'hubera': {'message': (slot['notes'] ?? '').toString()},
+      'hubera': {'message': otaReleaseNotes(slot['notes'] ?? slot['releaseNotes'])},
     });
   }
 }
