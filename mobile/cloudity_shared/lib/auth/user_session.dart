@@ -1,3 +1,4 @@
+import '../jwt_claims.dart';
 import 'auth_client.dart';
 import 'session_store.dart';
 
@@ -25,6 +26,7 @@ class CloudityUserSession<T extends CloudityAuthClient> {
     final pair = await api.ensureValidTokens(
       accessToken: accessToken,
       refreshToken: refreshToken,
+      accountEmail: emailFromAccessToken(accessToken),
     );
     accessToken = pair.access;
     refreshToken = pair.refresh;

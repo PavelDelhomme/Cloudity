@@ -170,18 +170,26 @@ class CloudityAuthClient {
   Future<({String access, String refresh})> refreshTokens(
     String refreshToken,
   ) async {
+    final token = refreshToken.trim();
+    if (token.isEmpty || refreshTokenSpent(token)) {
+      throw AuthException('Refresh (401): invalid or expired refresh token');
+    }
     final uri = Uri.parse('$_base/auth/refresh');
     final res = await huberaHttp.post(
       uri,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh_token': refreshToken}),
+      body: jsonEncode({'refresh_token': token}),
       timeout: const Duration(seconds: 20),
       idempotent: true,
     );
     final body = res.body.isEmpty ? '{}' : res.body;
     final map = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode == 401) {
+      markRefreshSpent(token);
+      throw AuthException('Refresh (401): invalid or expired refresh token');
+    }
     if (res.statusCode != 200) {
-      final err = map['error']?.toString() ?? body;
+      final err = map['error']?.toString() ?? 'erreur';
       throw AuthException('Refresh (${res.statusCode}): $err');
     }
     final access = map['access_token'] as String?;
@@ -189,13 +197,16 @@ class CloudityAuthClient {
     if (access == null || access.isEmpty) {
       throw AuthException('Réponse refresh invalide.');
     }
-    return (access: access, refresh: refresh ?? refreshToken);
+    final next = (refresh ?? '').trim();
+    if (next.isNotEmpty && next != token) markRefreshSpent(token);
+    return (access: access, refresh: next.isNotEmpty ? next : token);
   }
 
   Future<({String access, String refresh})> ensureValidTokens({
     required String accessToken,
     required String refreshToken,
     String? accountEmail,
+    bool accessRejected = false,
   }) async {
     // Renouvellement silencieux avant expiration (comme Google) — évite les 401
     // dès qu’une app revient au premier plan après quelques heures.
@@ -204,7 +215,9 @@ class CloudityAuthClient {
     final email = (emailFromAccessToken(accessToken) ?? accountEmail ?? '')
         .trim()
         .toLowerCase();
-    final id = stillValid || email.isEmpty ? null : await _idSession(email);
+    final consultId = accessRejected || !stillValid;
+    final id = !consultId || email.isEmpty ? null : await _idSession(email);
+    final local = refreshToken.trim();
     final choice = planIdRenew(
       accessStillValid: stillValid,
       localRefresh: refreshToken,
@@ -212,24 +225,28 @@ class CloudityAuthClient {
       id: id,
       idAccessUsable: id != null && _idAccessUsable(id.access),
       idAccessEmail: id == null ? '' : (emailFromAccessToken(id.access) ?? ''),
+      accessRejected: accessRejected,
+      spentRefresh: refreshTokenSpent(local) ? local : '',
+      localAccess: accessToken,
     );
     switch (choice) {
       case IdRenewChoice.keepLocal:
         return (access: accessToken, refresh: refreshToken);
       case IdRenewChoice.useId:
-        final nextRefresh = id!.refresh.trim().isNotEmpty ? id.refresh : refreshToken;
+        final idRefresh = id!.refresh.trim();
+        final nextRefresh = idRefresh.isNotEmpty ? idRefresh : refreshToken;
         return (access: id.access, refresh: nextRefresh);
       case IdRenewChoice.askServer:
-        if (refreshToken.isEmpty) {
-          throw AuthException('Session expirée. Reconnectez-vous.');
+        if (refreshToken.isEmpty || refreshTokenSpent(refreshToken)) {
+          throw AuthException('Refresh (401): invalid or expired refresh token');
         }
         return refreshTokens(refreshToken);
       case IdRenewChoice.chooser:
         throw AuthException('Refresh (401): invalid or expired refresh token');
       case IdRenewChoice.hold:
         final idRefresh = id?.refresh.trim() ?? '';
-        if (idRefresh.isEmpty) {
-          throw AuthException('Hubera ID injoignable');
+        if (idRefresh.isEmpty || refreshTokenSpent(idRefresh)) {
+          throw AuthException('Refresh (401): invalid or expired refresh token');
         }
         return refreshTokens(idRefresh);
     }
