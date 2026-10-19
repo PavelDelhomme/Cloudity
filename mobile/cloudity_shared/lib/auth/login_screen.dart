@@ -49,7 +49,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   /// Texte d’intro sous le titre (branding / consignes app).
   final String? supportingText;
 
-  /// Pass uniquement. Défaut false : les autres apps gardent le sélecteur actuel.
+  /// Défaut false : les autres apps gardent le sélecteur actuel.
   /// Vrai : le compte Hubera ID déjà sur l’appareil est ouvert, ou son adresse
   /// est proposée si le jeton manque. Le scan reste hors du fil UI.
   final bool adoptDeviceAccount;
@@ -103,7 +103,7 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
 
   /// Charge comptes broker (autre app Cloudity) puis reprise auto si un seul compte.
   Future<void> _bootstrapLogin() async {
-    if (widget.adoptDeviceAccount && !HuberaAccountSwitch.openChooser) {
+    if (widget.adoptDeviceAccount) {
       final gateways = await SessionStore.gatewayCandidates();
       if (!mounted) return;
       if (gateways.isNotEmpty) {
@@ -180,12 +180,17 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   /// Ouvre la session déjà sur l’appareil, ou préremplit l’adresse sans jeton.
   /// Retourne false pour laisser le sélecteur historique.
   Future<bool> _adoptKnownDeviceAccount() async {
-    final List<CloudityAuthAccount> device;
+    final List<CloudityAuthAccount> listed;
     try {
-      device = await CloudityAuthBroker.listHuberaDeviceAccounts();
+      listed = await CloudityAuthBroker.listHuberaDeviceAccounts().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => const <CloudityAuthAccount>[],
+      );
     } catch (_) {
       return false;
     }
+    if (!mounted || listed.isEmpty) return false;
+    final device = await _renewFromHuberaId(listed);
     if (!mounted || device.isEmpty) return false;
     final withSession = device.where((account) {
       final plan = planDeviceAccount(
@@ -251,6 +256,37 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
     if (known == null) return false;
     _showKnownEmail(known.email);
     return true;
+  }
+
+  /// Hubera ID renouvelle en silence. Une copie sans jeton ne doit pas cacher ça.
+  Future<List<CloudityAuthAccount>> _renewFromHuberaId(
+    List<CloudityAuthAccount> listed,
+  ) async {
+    final out = <CloudityAuthAccount>[];
+    final seen = <String>{};
+    for (final account in listed) {
+      final email = account.email.trim().toLowerCase();
+      if (email.isEmpty || !seen.add(email)) continue;
+      CloudityAuthAccount? fresh;
+      try {
+        fresh = await CloudityAuthBroker.freshAccount(email).timeout(
+          const Duration(seconds: 12),
+        );
+      } catch (_) {
+        fresh = null;
+      }
+      if (fresh == null) {
+        out.add(account);
+        continue;
+      }
+      final plan = planDeviceAccount(
+        email: fresh.email,
+        accessToken: fresh.accessToken,
+        refreshToken: fresh.refreshToken,
+      );
+      out.add(plan.action == DeviceAccountAction.open ? fresh : account);
+    }
+    return out;
   }
 
   void _showKnownEmail(String email) {

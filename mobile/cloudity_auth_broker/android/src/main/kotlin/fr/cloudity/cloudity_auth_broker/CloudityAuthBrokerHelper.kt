@@ -430,6 +430,9 @@ object CloudityAuthBrokerHelper {
         val accessExp: Long,
     ) {
         fun isFresherThan(other: Candidate): Boolean {
+            val selfHas = accessToken.isNotEmpty() || refreshToken.isNotEmpty()
+            val otherHas = other.accessToken.isNotEmpty() || other.refreshToken.isNotEmpty()
+            if (selfHas != otherHas) return selfHas
             if (updatedAt != other.updatedAt) return updatedAt > other.updatedAt
             if (accessExp != other.accessExp) return accessExp > other.accessExp
             // Dernier recours : préférer un access encore valide.

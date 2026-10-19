@@ -227,7 +227,11 @@ class CloudityAuthClient {
       case IdRenewChoice.chooser:
         throw AuthException('Refresh (401): invalid or expired refresh token');
       case IdRenewChoice.hold:
-        throw AuthException('Hubera ID injoignable');
+        final idRefresh = id?.refresh.trim() ?? '';
+        if (idRefresh.isEmpty) {
+          throw AuthException('Hubera ID injoignable');
+        }
+        return refreshTokens(idRefresh);
     }
   }
 

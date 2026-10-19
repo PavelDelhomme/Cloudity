@@ -23,6 +23,7 @@ Future<void> main() async {
         productTitle: 'Hubera Tasks',
         keyPrefix: 'cloudity_tasks',
         createApi: AuthApi.new,
+        adoptDeviceAccount: true,
         onLoggedIn: onLoggedIn,
       ),
       homeBuilder: (session, onLogout) => SuiteProductHomeScreen(

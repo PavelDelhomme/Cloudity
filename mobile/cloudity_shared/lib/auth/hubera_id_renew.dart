@@ -39,6 +39,7 @@ IdRenewChoice planIdRenew({
     }
     return IdRenewChoice.useId;
   }
+  // Access périmé, refresh encore chez Hubera ID : l’app l’échange, sans mot de passe.
   if (id.refresh.trim().isNotEmpty) return IdRenewChoice.hold;
   return IdRenewChoice.chooser;
 }
