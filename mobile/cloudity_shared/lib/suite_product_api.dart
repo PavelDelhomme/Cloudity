@@ -719,7 +719,7 @@ class SuiteSettingsPanel extends StatelessWidget {
             leading: const Icon(Icons.info_outline),
             title: Text('Version ${installedVersion!.trim()}'),
             subtitle: const Text(
-              'Détection automatique au lancement. Proposée, jamais forcée.',
+              'Détection automatique au lancement.',
             ),
           ),
         if (onCheckUpdate != null) _UpdateCheckTile(onCheck: onCheckUpdate!),
@@ -777,7 +777,7 @@ class _InstalledVersionLineState extends State<_InstalledVersionLine> {
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.info_outline),
       title: Text(_label),
-      subtitle: const Text('Détection automatique. Proposée, jamais forcée.'),
+      subtitle: const Text('Détection automatique.'),
     );
   }
 }
@@ -816,7 +816,7 @@ class _UpdateCheckTileState extends State<_UpdateCheckTile> {
             )
           : const Icon(Icons.system_update_alt),
       title: const Text('Vérifier les mises à jour'),
-      subtitle: const Text('En plus de la détection automatique. Proposée, jamais forcée.'),
+      subtitle: const Text('En plus de la détection automatique.'),
       enabled: !_busy,
       onTap: _busy ? null : _run,
     );

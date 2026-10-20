@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -38,11 +40,22 @@ class _AdminHomeState extends State<AdminHome> {
   Map<String, dynamic> _disk = {};
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _crashes = [];
+  DateTime? _errorsOn;
+  Timer? _crashPoll;
 
   @override
   void initState() {
     super.initState();
-    if (widget.loadOnStart) _load();
+    if (widget.loadOnStart) {
+      _load();
+      _crashPoll = Timer.periodic(const Duration(seconds: 5), (_) => _pollCrashes());
+    }
+  }
+
+  @override
+  void dispose() {
+    _crashPoll?.cancel();
+    super.dispose();
   }
 
   @override
@@ -117,6 +130,16 @@ class _AdminHomeState extends State<AdminHome> {
         _loading = false;
       });
     }
+  }
+
+  /// Rapport d’erreur déjà posté par les apps : on le relit sans attendre un rechargement manuel.
+  Future<void> _pollCrashes() async {
+    if (!mounted || _refreshRejected || _showAccount || _loading) return;
+    try {
+      final crashes = await _api().listCrashes();
+      if (!mounted) return;
+      setState(() => _crashes = crashes);
+    } catch (_) {}
   }
 
   @override
@@ -288,14 +311,132 @@ class _AdminHomeState extends State<AdminHome> {
   }
 
   List<Widget> _errorList() {
-    if (_crashes.isEmpty) return const [Text('Aucune erreur remontée par les applications.')];
+    final shown = _crashes.where(_crashOnSelectedDay).toList();
     return [
-      for (final crash in _crashes)
-        ListTile(
-          title: Text('${crash['id'] ?? crash['filename'] ?? 'rapport'}'),
-          subtitle: Text('${crash['modified'] ?? ''}'),
-        ),
+      _errorDateField(),
+      if (shown.isEmpty)
+        const Text('Aucune erreur remontée par les applications pour cette date.')
+      else
+        for (final crash in shown)
+          ListTile(
+            title: Text(
+              '${crash['product'] ?? crash['id'] ?? crash['filename'] ?? 'rapport'}',
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+            subtitle: Text(
+              _crashWhen(crash),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
     ];
+  }
+
+  bool _crashOnSelectedDay(Map<String, dynamic> crash) {
+    final day = _errorsOn;
+    if (day == null) return true;
+    final when = DateTime.tryParse('${crash['modified'] ?? ''}')?.toLocal();
+    if (when == null) return true;
+    return when.year == day.year && when.month == day.month && when.day == day.day;
+  }
+
+  String _crashWhen(Map<String, dynamic> crash) {
+    final when = DateTime.tryParse('${crash['modified'] ?? ''}')?.toLocal();
+    if (when == null) return '${crash['modified'] ?? ''}';
+    final d = when.day.toString().padLeft(2, '0');
+    final m = when.month.toString().padLeft(2, '0');
+    final hh = when.hour.toString().padLeft(2, '0');
+    final mm = when.minute.toString().padLeft(2, '0');
+    return '$d/$m/${when.year} $hh:$mm';
+  }
+
+  Widget _errorDateField() {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = dark ? const Color(0xFF1A2230) : Colors.white;
+    final fg = dark ? const Color(0xFFE8EDF4) : const Color(0xFF0F172A);
+    final label = _errorsOn == null
+        ? 'Toutes les dates'
+        : '${_errorsOn!.day.toString().padLeft(2, '0')}/'
+            '${_errorsOn!.month.toString().padLeft(2, '0')}/${_errorsOn!.year}';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(color: fg.withValues(alpha: 0.35)),
+        ),
+        child: InkWell(
+          onTap: _pickErrorDate,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Row(
+              children: [
+                Icon(Icons.event, color: fg),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(label, style: TextStyle(color: fg, fontSize: 16)),
+                ),
+                if (_errorsOn != null)
+                  IconButton(
+                    tooltip: 'Toutes les dates',
+                    onPressed: () => setState(() => _errorsOn = null),
+                    icon: Icon(Icons.close, color: fg),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickErrorDate() async {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final bg = dark ? const Color(0xFF1A2230) : Colors.white;
+    final fg = dark ? const Color(0xFFE8EDF4) : const Color(0xFF0F172A);
+    final accent = dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _errorsOn ?? DateTime.now(),
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now(),
+      helpText: 'Erreurs déjà survenues',
+      builder: (ctx, child) {
+        final base = Theme.of(ctx);
+        return Theme(
+          data: base.copyWith(
+            colorScheme: base.colorScheme.copyWith(
+              surface: bg,
+              onSurface: fg,
+              primary: accent,
+              onPrimary: dark ? const Color(0xFF0B1220) : Colors.white,
+            ),
+            dialogTheme: DialogThemeData(backgroundColor: bg),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: bg,
+              headerBackgroundColor: bg,
+              headerForegroundColor: fg,
+              weekdayStyle: TextStyle(color: fg),
+              dayStyle: TextStyle(color: fg),
+              yearStyle: TextStyle(color: fg),
+              dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return dark ? const Color(0xFF0B1220) : Colors.white;
+                }
+                return fg;
+              }),
+              yearForegroundColor: WidgetStateProperty.all(fg),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(foregroundColor: fg),
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+    );
+    if (picked != null && mounted) setState(() => _errorsOn = picked);
   }
 
   Widget _stat(String label, String value) {

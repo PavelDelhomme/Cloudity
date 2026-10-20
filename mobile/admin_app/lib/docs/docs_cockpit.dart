@@ -985,7 +985,7 @@ class _AccountScreen extends StatelessWidget {
           leading: const Icon(Icons.system_update_alt),
           title: const Text('Vérifier les mises à jour'),
           subtitle: const Text(
-            'En plus de la détection automatique. Proposée, jamais forcée.',
+            'En plus de la détection automatique.',
           ),
           onTap: () => cloudityCheckUpdateManually(
             context,

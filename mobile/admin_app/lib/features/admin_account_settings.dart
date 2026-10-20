@@ -75,13 +75,13 @@ class _AdminAccountSettingsState extends State<AdminAccountSettings> {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.info_outline),
             title: Text('Version $_version'),
-            subtitle: const Text('Proposée, jamais forcée.'),
+            subtitle: const Text('Détection automatique.'),
           ),
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.system_update_alt),
           title: const Text('Vérifier les mises à jour'),
-          subtitle: const Text('En plus de la détection automatique. Proposée, jamais forcée.'),
+          subtitle: const Text('En plus de la détection automatique.'),
           onTap: () => cloudityCheckUpdateManually(
             context,
             gatewayBase: widget.gatewayUrl,

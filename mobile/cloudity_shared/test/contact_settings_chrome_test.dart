@@ -56,7 +56,8 @@ void main() {
       ),
     );
     expect(find.text('Vérifier les mises à jour'), findsOneWidget);
-    expect(find.textContaining('jamais forcée'), findsOneWidget);
+    expect(find.textContaining('En plus de la détection automatique'), findsOneWidget);
+    expect(find.textContaining('jamais forcée'), findsNothing);
     expect(huberaInstalledVersionLabel('0.1.13', '14'), 'Installée 0.1.13 · code 14');
     expect(find.text('Paramètres suite'), findsNothing);
     expect(find.textContaining('Ouvrir'), findsNothing);
@@ -102,7 +103,8 @@ void main() {
     expect(find.text('Version 0.1.9'), findsOneWidget);
     expect(find.textContaining('Détection automatique'), findsOneWidget);
     expect(find.text('Vérifier les mises à jour'), findsOneWidget);
-    expect(find.textContaining('jamais forcée'), findsNWidgets(2));
+    expect(find.textContaining('En plus de la détection automatique'), findsOneWidget);
+    expect(find.textContaining('jamais forcée'), findsNothing);
     expect(find.text('Paramètres suite'), findsNothing);
     expect(find.text('Mail, Drive, Agenda, Notes…'), findsNothing);
     expect(find.text('Apps Hubera'), findsNothing);

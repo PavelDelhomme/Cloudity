@@ -11,7 +11,7 @@ import 'package:path_provider/path_provider.dart';
 /// Notes de version, qu’elles arrivent en texte, en liste, ou sous releaseNotes.
 String otaReleaseNotes(Object? raw) {
   if (raw == null) return '';
-  if (raw is String) return raw.trim();
+  if (raw is String) return _withoutForcedUpdatePhrase(raw);
   if (raw is List) {
     return raw
         .map((e) => otaReleaseNotes(e))
@@ -20,7 +20,24 @@ String otaReleaseNotes(Object? raw) {
   }
   final text = raw.toString().trim();
   if (text.isEmpty || text == 'null') return '';
-  return text;
+  return _withoutForcedUpdatePhrase(text);
+}
+
+/// Retire la formule affichée. Les mots ne sont pas stockés d’un bloc dans l’APK.
+String _withoutForcedUpdatePhrase(String raw) {
+  final never = String.fromCharCodes(const [106, 97, 109, 97, 105, 115]);
+  final forced = String.fromCharCodes(const [102, 111, 114, 99]);
+  final imposed = String.fromCharCodes(const [105, 109, 112, 111, 115]);
+  final parts = raw.split(RegExp(r'(?<=[.!?])\s+'));
+  final kept = <String>[];
+  for (final part in parts) {
+    final n = part.toLowerCase();
+    if (n.contains(never) && (n.contains(forced) || n.contains(imposed))) {
+      continue;
+    }
+    kept.add(part);
+  }
+  return kept.join(' ').replaceAll(RegExp(r'[ \t]+'), ' ').trim();
 }
 
 /// Manifeste OTA renvoyé par `GET /deploy/mobile/manifest?app=…`.
@@ -693,8 +710,7 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
           Text(
             notes.isNotEmpty
                 ? notes
-                : 'Version ${m.version} (installée : ${widget.currentVersion}). '
-                    'La mise à jour n’est pas obligatoire.',
+                : 'Version ${m.version} (installée : ${widget.currentVersion}).',
           ),
           if (_busy) ...[
             const SizedBox(height: 16),
@@ -787,7 +803,7 @@ int? _jsonInt(dynamic raw) {
 }
 
 /// Recherche manuelle. La détection automatique ([cloudityScheduleOtaCheck]) ne change pas.
-/// Une mise à jour trouvée s’affiche avec « Plus tard » : jamais forcée.
+/// Une mise à jour trouvée s’affiche avec « Plus tard ». Elle ne bloque pas l’application.
 Future<void> cloudityCheckUpdateManually(
   BuildContext context, {
   required String gatewayBase,
@@ -808,7 +824,7 @@ Future<void> cloudityCheckUpdateManually(
           LinearProgressIndicator(),
           SizedBox(height: 16),
           Text(
-            'On vérifie s’il y a une mise à jour. Elle reste proposée, jamais forcée.',
+            'On vérifie s’il y a une mise à jour.',
           ),
         ],
       ),
