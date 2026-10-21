@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { MailGoogleConnectButton } from './MailGoogleConnectButton'
+import { mailGmailSetupHint } from './mailGmailSetup'
 
 export type MailAddAccountModalProps = {
   open: boolean
@@ -69,7 +70,9 @@ export function MailAddAccountModal({
           Ajouter un compte mail
         </h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
-          Connectez Gmail en un clic — comme sur votre téléphone. Aucun mot de passe d&apos;application à créer.
+          {googleOAuthEnabled
+            ? 'Connectez Gmail en un clic. Aucun mot de passe d’application.'
+            : 'Le bouton Google reste inactif tant que le serveur n’a pas les variables OAuth.'}
         </p>
 
         <MailGoogleConnectButton
@@ -79,18 +82,15 @@ export function MailAddAccountModal({
           onClick={onConnectGoogle}
         />
 
-        {googleOAuthEnabled ? (
-          <p className="mt-2 text-xs text-center text-slate-500 dark:text-slate-400">
-            Fenêtre Google → autorisez l&apos;accès à votre boîte → retour automatique ici.
-          </p>
-        ) : (
-          <p className="mt-3 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-            La connexion Google n&apos;est pas encore activée sur ce serveur (variables{' '}
-            <code className="text-[11px]">GOOGLE_OAUTH_*</code>). Utilisez le formulaire IMAP ci-dessous ou demandez à
-            l&apos;administrateur de suivre{' '}
-            <code className="text-[11px]">docs/produit/MAIL-GMAIL-OAUTH.md</code>.
-          </p>
-        )}
+        <p
+          className={
+            googleOAuthEnabled
+              ? 'mt-2 text-xs text-center text-slate-500 dark:text-slate-400'
+              : 'mt-3 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2'
+          }
+        >
+          {mailGmailSetupHint(googleOAuthEnabled)}
+        </p>
 
         <div className="my-5 flex items-center gap-3">
           <div className="h-px flex-1 bg-slate-200 dark:bg-slate-600" />
