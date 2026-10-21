@@ -10,18 +10,36 @@ class CookPantryItem {
     required this.name,
     this.qty = '',
     this.unit = '',
+    this.opened = false,
+    this.openedOn = '',
+    this.keepDays = 0,
+    this.bestBefore = '',
   });
 
   final String id;
   String name;
   String qty;
   String unit;
+  bool opened;
+
+  /// Jour d’ouverture `yyyy-mm-dd`. Vide si non noté.
+  String openedOn;
+
+  /// Jours encore bons après ouverture. 0 = non noté.
+  int keepDays;
+
+  /// Date limite si le produit est encore fermé, `yyyy-mm-dd`.
+  String bestBefore;
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'qty': qty,
         'unit': unit,
+        'opened': opened,
+        'openedOn': openedOn,
+        'keepDays': keepDays,
+        'bestBefore': bestBefore,
       };
 
   static CookPantryItem fromJson(Map<String, dynamic> raw) => CookPantryItem(
@@ -29,6 +47,10 @@ class CookPantryItem {
         name: raw['name']?.toString() ?? '',
         qty: raw['qty']?.toString() ?? '',
         unit: raw['unit']?.toString() ?? '',
+        opened: raw['opened'] == true,
+        openedOn: raw['openedOn']?.toString() ?? '',
+        keepDays: int.tryParse(raw['keepDays']?.toString() ?? '') ?? 0,
+        bestBefore: raw['bestBefore']?.toString() ?? '',
       );
 }
 
@@ -37,18 +59,28 @@ class CookShopItem {
     required this.id,
     required this.name,
     this.done = false,
+    this.kind = 'food',
   });
 
   final String id;
   String name;
   bool done;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'done': done};
+  /// `food` (généré depuis le planning) ou `other` (pas alimentaire).
+  String kind;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'done': done,
+        'kind': kind == 'other' ? 'other' : 'food',
+      };
 
   static CookShopItem fromJson(Map<String, dynamic> raw) => CookShopItem(
         id: raw['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
         name: raw['name']?.toString() ?? '',
         done: raw['done'] == true,
+        kind: raw['kind']?.toString() == 'other' ? 'other' : 'food',
       );
 }
 
@@ -304,3 +336,108 @@ bool cookFabHandlesTap({required bool settings, required int tab}) =>
 
 String cookDayKey(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+enum CookShopHorizon { week, month }
+
+DateTime cookDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+DateTime? cookParseDay(String raw) {
+  final t = raw.trim();
+  if (t.length < 10) return null;
+  final parsed = DateTime.tryParse(t.substring(0, 10));
+  if (parsed == null) return null;
+  return DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+/// Produit ouvert : encore bon pendant `keepDays` à partir du jour d’ouverture.
+/// Sans date notée, on le compte encore (pas de péremption inventée).
+/// Produit fermé : une date limite passée ne compte plus au frigo.
+bool cookPantryStillUsable(CookPantryItem item, DateTime today) {
+  final day = cookDateOnly(today);
+  if (item.opened) {
+    final opened = cookParseDay(item.openedOn);
+    if (opened == null || item.keepDays <= 0) return true;
+    final last = opened.add(Duration(days: item.keepDays));
+    return !day.isAfter(last);
+  }
+  final best = cookParseDay(item.bestBefore);
+  if (best == null) return true;
+  return !day.isAfter(best);
+}
+
+String cookPantryStatusLine(CookPantryItem item, DateTime today) {
+  if (item.opened) {
+    final opened = cookParseDay(item.openedOn);
+    if (opened != null && item.keepDays > 0) {
+      final last = cookDayKey(opened.add(Duration(days: item.keepDays)));
+      if (!cookPantryStillUsable(item, today)) {
+        return 'Ouvert, à racheter (jusqu’au $last)';
+      }
+      return 'Ouvert, se garde jusqu’au $last';
+    }
+    return 'Ouvert';
+  }
+  final best = cookParseDay(item.bestBefore);
+  if (best == null) return '';
+  final label = cookDayKey(best);
+  if (!cookPantryStillUsable(item, today)) return 'Date dépassée ($label)';
+  return 'Fermé, date $label';
+}
+
+/// Semaine : lundi → dimanche de la date. Mois : tout le mois civil.
+List<DateTime> cookHorizonDays(DateTime anchor, CookShopHorizon horizon) {
+  final day = cookDateOnly(anchor);
+  if (horizon == CookShopHorizon.week) {
+    final monday = day.subtract(Duration(days: day.weekday - DateTime.monday));
+    return [for (var i = 0; i < 7; i++) monday.add(Duration(days: i))];
+  }
+  final start = DateTime(day.year, day.month, 1);
+  final next = DateTime(day.year, day.month + 1, 1);
+  final count = next.difference(start).inDays;
+  return [for (var i = 0; i < count; i++) DateTime(start.year, start.month, 1 + i)];
+}
+
+bool cookPantryCovers(String ingredient, Iterable<CookPantryItem> pantry, DateTime today) {
+  final needle = ingredient.toLowerCase().trim();
+  if (needle.isEmpty) return false;
+  for (final item in pantry) {
+    if (!cookPantryStillUsable(item, today)) continue;
+    final name = item.name.toLowerCase().trim();
+    if (name.isEmpty) continue;
+    if (needle.contains(name) || name.contains(needle)) return true;
+  }
+  return false;
+}
+
+/// Ingrédients du planning (semaine ou mois) absents du frigo encore bon.
+/// N’ajoute pas les lignes déjà présentes, y compris le pas-alimentaire.
+List<String> cookShoppingLabelsToAdd({
+  required Map<String, Map<String, CookMeal>> plan,
+  required List<CookPantryItem> pantry,
+  required DateTime anchor,
+  required CookShopHorizon horizon,
+  required Map<String, List<({String name, String measure})>> mealsById,
+  required List<CookShopItem> existing,
+  required DateTime today,
+}) {
+  final have = existing.map((s) => s.name.toLowerCase()).toSet();
+  final out = <String>[];
+  for (final day in cookHorizonDays(anchor, horizon)) {
+    final slots = plan[cookDayKey(day)];
+    if (slots == null) continue;
+    for (final meal in slots.values) {
+      final id = meal.mealId;
+      if (id == null || id.isEmpty) continue;
+      final ingredients = mealsById[id];
+      if (ingredients == null) continue;
+      for (final ing in ingredients) {
+        if (cookPantryCovers(ing.name, pantry, today)) continue;
+        final label = ing.measure.trim().isEmpty ? ing.name : '${ing.measure} ${ing.name}';
+        final key = label.toLowerCase();
+        if (have.contains(key) || out.any((s) => s.toLowerCase() == key)) continue;
+        out.add(label);
+      }
+    }
+  }
+  return out;
+}

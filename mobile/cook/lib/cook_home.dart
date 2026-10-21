@@ -320,44 +320,99 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     String qty = '',
     String unit = '',
     bool focusQty = false,
+    bool opened = false,
+    String openedOn = '',
+    int keepDays = 0,
+    String bestBefore = '',
   }) {
     final nameCtrl = TextEditingController(text: name);
     final qtyCtrl = TextEditingController(text: qty);
     final unitCtrl = TextEditingController(text: unit);
+    final openedOnCtrl = TextEditingController(text: openedOn);
+    final keepCtrl = TextEditingController(text: keepDays > 0 ? '$keepDays' : '');
+    final bestCtrl = TextEditingController(text: bestBefore);
+    var openedNow = opened;
     return showSuiteModalBottomSheet<CookIngredientDraft>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: suiteBottomSheetPadding(ctx),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            CookIngredientFields(
-              name: nameCtrl,
-              qty: qtyCtrl,
-              unit: unitCtrl,
-              knownUnits: _knownUnits,
-              focusQty: focusQty,
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                final trimmed = nameCtrl.text.trim();
-                if (trimmed.isEmpty) return;
-                Navigator.pop(
-                  ctx,
-                  CookIngredientDraft(
-                    name: trimmed,
-                    qty: qtyCtrl.text.trim(),
-                    unit: unitCtrl.text.trim(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: suiteBottomSheetPadding(ctx),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(title, style: Theme.of(ctx).textTheme.titleMedium),
+                const SizedBox(height: 12),
+                CookIngredientFields(
+                  name: nameCtrl,
+                  qty: qtyCtrl,
+                  unit: unitCtrl,
+                  knownUnits: _knownUnits,
+                  focusQty: focusQty,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Produit ouvert'),
+                  subtitle: const Text('Une crème fraîche ouverte se garde quelques jours.'),
+                  value: openedNow,
+                  onChanged: (v) {
+                    setLocal(() {
+                      openedNow = v;
+                      if (v && openedOnCtrl.text.trim().isEmpty) {
+                        openedOnCtrl.text = cookDayKey(DateTime.now());
+                      }
+                    });
+                  },
+                ),
+                if (openedNow) ...[
+                  TextField(
+                    controller: openedOnCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Ouvert le (aaaa-mm-jj)',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                );
-              },
-              child: Text(confirm),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: keepCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Se garde encore (jours)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ] else
+                  TextField(
+                    controller: bestCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Date limite (aaaa-mm-jj)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () {
+                    final trimmed = nameCtrl.text.trim();
+                    if (trimmed.isEmpty) return;
+                    Navigator.pop(
+                      ctx,
+                      CookIngredientDraft(
+                        name: trimmed,
+                        qty: qtyCtrl.text.trim(),
+                        unit: unitCtrl.text.trim(),
+                        opened: openedNow,
+                        openedOn: openedOnCtrl.text.trim(),
+                        keepDays: int.tryParse(keepCtrl.text.trim()) ?? 0,
+                        bestBefore: bestCtrl.text.trim(),
+                      ),
+                    );
+                  },
+                  child: Text(confirm),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -372,6 +427,10 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         name: draft.name,
         qty: draft.qty,
         unit: draft.unit,
+        opened: draft.opened,
+        openedOn: draft.openedOn,
+        keepDays: draft.keepDays,
+        bestBefore: draft.bestBefore,
       ));
     });
     await _persist();
@@ -385,12 +444,20 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
       qty: item.qty,
       unit: item.unit,
       focusQty: true,
+      opened: item.opened,
+      openedOn: item.openedOn,
+      keepDays: item.keepDays,
+      bestBefore: item.bestBefore,
     );
     if (draft == null) return;
     setState(() {
       item.name = draft.name;
       item.qty = draft.qty;
       item.unit = draft.unit;
+      item.opened = draft.opened;
+      item.openedOn = draft.openedOn;
+      item.keepDays = draft.keepDays;
+      item.bestBefore = draft.bestBefore;
     });
     await _persist();
   }
@@ -402,34 +469,48 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
 
   Future<void> _addShop() async {
     final name = TextEditingController();
+    var other = false;
     final ok = await showSuiteModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: suiteBottomSheetPadding(ctx),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Liste de courses', style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            TextField(
-              controller: name,
-              autofocus: true,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'À acheter', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty),
-              child: const Text('Ajouter'),
-            ),
-          ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: suiteBottomSheetPadding(ctx),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Liste de courses', style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              TextField(
+                controller: name,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'À acheter', border: OutlineInputBorder()),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Pas alimentaire'),
+                subtitle: const Text('Reste dans la liste, le planning ne l’efface pas.'),
+                value: other,
+                onChanged: (v) => setLocal(() => other = v),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, name.text.trim().isNotEmpty),
+                child: const Text('Ajouter'),
+              ),
+            ],
+          ),
         ),
       ),
     );
     if (ok != true) return;
     setState(() {
-      _data.shopping.add(CookShopItem(id: cookNewId(), name: name.text.trim()));
+      _data.shopping.add(CookShopItem(
+        id: cookNewId(),
+        name: name.text.trim(),
+        kind: other ? 'other' : 'food',
+      ));
     });
     await _persist();
   }
@@ -620,29 +701,51 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     await _openRecipe(list.first);
   }
 
-  Future<void> _generateShopping() async {
-    final key = cookDayKey(_planDay);
-    final day = _data.plan[key] ?? {};
-    final pantryNames = _data.pantry.map((e) => e.name.toLowerCase()).toSet();
-    for (final meal in day.values) {
-      final id = meal.mealId;
-      if (id == null || id.isEmpty) continue;
-      final detail = await mealDbLookup(id);
-      if (detail == null) continue;
-      for (final ing in detail.ingredients) {
-        if (pantryNames.any((p) => ing.name.toLowerCase().contains(p) || p.contains(ing.name.toLowerCase()))) {
-          continue;
-        }
-        final label = ing.measure.isEmpty ? ing.name : '${ing.measure} ${ing.name}';
-        if (_data.shopping.any((s) => s.name.toLowerCase() == label.toLowerCase())) continue;
-        _data.shopping.add(CookShopItem(id: cookNewId(), name: label));
+  Future<void> _generateShopping(CookShopHorizon horizon) async {
+    final mealsById = <String, List<({String name, String measure})>>{};
+    final ids = <String>{};
+    for (final day in cookHorizonDays(_planDay, horizon)) {
+      final slots = _data.plan[cookDayKey(day)];
+      if (slots == null) continue;
+      for (final meal in slots.values) {
+        final id = meal.mealId;
+        if (id != null && id.isNotEmpty) ids.add(id);
       }
     }
-    setState(() {});
+    for (final id in ids) {
+      final detail = await mealDbLookup(id);
+      if (detail == null) continue;
+      mealsById[id] = detail.ingredients;
+    }
+    final labels = cookShoppingLabelsToAdd(
+      plan: _data.plan,
+      pantry: _data.pantry,
+      anchor: _planDay,
+      horizon: horizon,
+      mealsById: mealsById,
+      existing: _data.shopping,
+      today: DateTime.now(),
+    );
+    setState(() {
+      for (var i = 0; i < labels.length; i++) {
+        _data.shopping.add(CookShopItem(
+          id: '${cookNewId()}-$i',
+          name: labels[i],
+          kind: 'food',
+        ));
+      }
+    });
     await _persist();
     if (mounted) {
+      final span = horizon == CookShopHorizon.week ? 'la semaine' : 'le mois';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Courses générées à partir du planning du jour (moins le frigo).')),
+        SnackBar(
+          content: Text(
+            labels.isEmpty
+                ? 'Rien à ajouter pour $span (frigo encore bon, ou planning vide).'
+                : 'Courses générées depuis le planning de $span, moins le frigo encore bon.',
+          ),
+        ),
       );
     }
   }
@@ -712,10 +815,12 @@ class _PantryTab extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final item = items[i];
         final qty = [item.qty, item.unit].where((s) => s.trim().isNotEmpty).join(' ');
+        final status = cookPantryStatusLine(item, DateTime.now());
+        final subtitle = [if (qty.isNotEmpty) qty, if (status.isNotEmpty) status].join(' · ');
         return ListTile(
           leading: IngredientPhoto(name: item.name),
           title: Text(item.name),
-          subtitle: Text(qty.isEmpty ? 'Toucher pour la quantité' : qty),
+          subtitle: Text(subtitle.isEmpty ? 'Toucher pour la quantité' : subtitle),
           onTap: () => onEdit(item),
           trailing: IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -1016,7 +1121,7 @@ class _PlanTab extends StatelessWidget {
         const SizedBox(height: 12),
         Text(
           'Les recettes programmées se synchronisent avec ton compte Hubera ID. '
-          'La liste de courses se complète à partir du planning, moins ce que tu as déjà au frigo.',
+          'La liste de courses se complète depuis la semaine ou le mois, moins le frigo encore bon.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -1035,7 +1140,7 @@ class _ShopTab extends StatelessWidget {
   final List<CookShopItem> items;
   final VoidCallback onAdd;
   final VoidCallback onChanged;
-  final Future<void> Function() onGenerate;
+  final Future<void> Function(CookShopHorizon horizon) onGenerate;
 
   @override
   Widget build(BuildContext context) {
@@ -1043,10 +1148,24 @@ class _ShopTab extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: OutlinedButton.icon(
-            onPressed: onGenerate,
-            icon: const Icon(Icons.auto_awesome),
-            label: const Text('Générer depuis le planning du jour'),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => onGenerate(CookShopHorizon.week),
+                  icon: const Icon(Icons.date_range),
+                  label: const Text('Semaine'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => onGenerate(CookShopHorizon.month),
+                  icon: const Icon(Icons.calendar_month),
+                  label: const Text('Mois'),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -1070,6 +1189,7 @@ class _ShopTab extends StatelessWidget {
                           decoration: item.done ? TextDecoration.lineThrough : null,
                         ),
                       ),
+                      subtitle: item.kind == 'other' ? const Text('Pas alimentaire') : null,
                       onChanged: (v) {
                         item.done = v ?? false;
                         onChanged();

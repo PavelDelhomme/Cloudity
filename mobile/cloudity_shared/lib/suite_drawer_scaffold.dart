@@ -430,7 +430,11 @@ class SuiteDrawerScaffold extends StatelessWidget {
           ],
         ),
         drawer: _buildDrawer(context),
-        body: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
+        drawerEnableOpenDragGesture: true,
+        drawerEdgeDragWidth: 28,
+        body: _EdgeDrawer(
+          child: showSettings ? (settingsBody ?? const SizedBox.shrink()) : body,
+        ),
         floatingActionButton: showSettings ? null : floatingActionButton,
         floatingActionButtonLocation: fabClearance <= 0
             ? FloatingActionButtonLocation.endFloat
@@ -456,6 +460,49 @@ class SuiteDrawerScaffold extends StatelessWidget {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _EdgeDrawer extends StatefulWidget {
+  const _EdgeDrawer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_EdgeDrawer> createState() => _EdgeDrawerState();
+}
+
+class _EdgeDrawerState extends State<_EdgeDrawer> {
+  double _drag = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 28,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (_) => _drag = 0,
+            onHorizontalDragUpdate: (details) {
+              _drag += details.delta.dx;
+              final scaffold = Scaffold.maybeOf(context);
+              if (scaffold == null) return;
+              if (!huberaEdgeOpensDrawer(drag: _drag, drawerOpen: scaffold.isDrawerOpen)) {
+                return;
+              }
+              scaffold.openDrawer();
+              _drag = 0;
+            },
+            onHorizontalDragEnd: (_) => _drag = 0,
+          ),
+        ),
+      ],
     );
   }
 }

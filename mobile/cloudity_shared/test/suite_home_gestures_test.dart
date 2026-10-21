@@ -86,4 +86,10 @@ void main() {
     expect(find.text('liste contacts'), findsOneWidget);
     expect(navigator.canPop(), isFalse);
   });
+
+  test('glissement depuis le bord gauche ouvre le tiroir', () {
+    expect(huberaEdgeOpensDrawer(drag: 13, drawerOpen: false), isTrue);
+    expect(huberaEdgeOpensDrawer(drag: 12, drawerOpen: false), isFalse);
+    expect(huberaEdgeOpensDrawer(drag: 40, drawerOpen: true), isFalse);
+  });
 }

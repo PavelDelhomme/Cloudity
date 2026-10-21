@@ -362,6 +362,53 @@ class HuberaDrawerBody extends StatelessWidget {
   }
 }
 
+/// Glissement cumulé depuis le bord gauche : ouvre le tiroir.
+bool huberaEdgeOpensDrawer({required double drag, required bool drawerOpen}) =>
+    !drawerOpen && drag > 12;
+
+class _EdgeDrawer extends StatefulWidget {
+  const _EdgeDrawer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_EdgeDrawer> createState() => _EdgeDrawerState();
+}
+
+class _EdgeDrawerState extends State<_EdgeDrawer> {
+  double _drag = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        widget.child,
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 28,
+          child: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onHorizontalDragStart: (_) => _drag = 0,
+            onHorizontalDragUpdate: (details) {
+              _drag += details.delta.dx;
+              final scaffold = Scaffold.maybeOf(context);
+              if (scaffold == null) return;
+              if (!huberaEdgeOpensDrawer(drag: _drag, drawerOpen: scaffold.isDrawerOpen)) {
+                return;
+              }
+              scaffold.openDrawer();
+              _drag = 0;
+            },
+            onHorizontalDragEnd: (_) => _drag = 0,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Scaffold suite : hamburger · titre · compte · drawer · nav bas.
 class HuberaScaffold extends StatelessWidget {
   const HuberaScaffold({
@@ -431,7 +478,9 @@ class HuberaScaffold extends StatelessWidget {
           navItems: navItems,
           footer: drawerFooter,
         ),
-        body: body,
+        drawerEnableOpenDragGesture: true,
+        drawerEdgeDragWidth: 28,
+        body: _EdgeDrawer(child: body),
         floatingActionButton: floatingActionButton,
         bottomNavigationBar: bottomDestinations.isEmpty
             ? null

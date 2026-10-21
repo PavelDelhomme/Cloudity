@@ -9,11 +9,19 @@ class CookIngredientDraft {
     required this.name,
     required this.qty,
     required this.unit,
+    this.opened = false,
+    this.openedOn = '',
+    this.keepDays = 0,
+    this.bestBefore = '',
   });
 
   final String name;
   final String qty;
   final String unit;
+  final bool opened;
+  final String openedOn;
+  final int keepDays;
+  final String bestBefore;
 }
 
 /// Photo libre à côté du nom, unité libre avec suggestions.

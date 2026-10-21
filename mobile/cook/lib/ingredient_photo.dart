@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 const ingredientPhotoUserAgent =
-    'HuberaCook/0.1.14 (https://cook.hubera.cloud; ingredient-photo)';
+    'HuberaCook/0.1.16 (https://cook.hubera.cloud; ingredient-photo)';
 
 const _cacheKey = 'cook_ingredient_photo_v1';
 
