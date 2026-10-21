@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../api/admin_api.dart';
 import '../auth/admin_refresh.dart';
@@ -30,6 +31,9 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
+  static const _edge = MethodChannel('cloud.hubera.admin/edge');
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  double _edgeDrag = 0;
   String _section = 'home';
   bool _showAccount = false;
   bool _loading = true;
@@ -46,6 +50,9 @@ class _AdminHomeState extends State<AdminHome> {
   @override
   void initState() {
     super.initState();
+    _edge.setMethodCallHandler((call) async {
+      if (call.method == 'open') _scaffoldKey.currentState?.openDrawer();
+    });
     if (widget.loadOnStart) {
       _load();
       _crashPoll = Timer.periodic(const Duration(seconds: 5), (_) => _pollCrashes());
@@ -54,6 +61,7 @@ class _AdminHomeState extends State<AdminHome> {
 
   @override
   void dispose() {
+    _edge.setMethodCallHandler(null);
     _crashPoll?.cancel();
     super.dispose();
   }
@@ -153,6 +161,17 @@ class _AdminHomeState extends State<AdminHome> {
         setState(() => _showAccount = false);
       },
       child: Scaffold(
+      key: _scaffoldKey,
+      drawerEdgeDragWidth: 28,
+      drawer: Drawer(
+        child: SafeArea(
+          child: ListView(
+            children: [
+              ListTile(title: Text('Menu Hubera Admin')),
+            ],
+          ),
+        ),
+      ),
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: _showAccount
@@ -186,7 +205,9 @@ class _AdminHomeState extends State<AdminHome> {
             ),
         ],
       ),
-      body: _showAccount
+      body: Stack(
+        children: [
+          _showAccount
           ? AdminAccountSettings(
               gatewayUrl: widget.session.api.baseUrl,
               email: email,
@@ -211,6 +232,28 @@ class _AdminHomeState extends State<AdminHome> {
                 ],
               ),
             ),
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 28,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: (_) => _edgeDrag = 0,
+              onHorizontalDragUpdate: (details) {
+                _edgeDrag += details.primaryDelta ?? 0;
+                if (huberaEdgeOpensDrawer(
+                  drag: _edgeDrag,
+                  drawerOpen: _scaffoldKey.currentState?.isDrawerOpen ?? false,
+                )) {
+                  _edgeDrag = 0;
+                  _scaffoldKey.currentState?.openDrawer();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: _showAccount
           ? null
           : NavigationBar(

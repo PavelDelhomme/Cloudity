@@ -1,8 +1,17 @@
 package cloud.hubera.admin
 
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
+import android.os.Build
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import androidx.core.view.ViewCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -10,8 +19,71 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
+    private var edgeChannel: MethodChannel? = null
+    private var edgeDownX = 0f
+    private var edgeDownY = 0f
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.decorView.post {
+            excludeLeftEdge()
+            attachEdgeStrip()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        window.decorView.post {
+            excludeLeftEdge()
+            attachEdgeStrip()
+        }
+    }
+
+    private fun attachEdgeStrip() {
+        val decor = window.decorView as? ViewGroup ?: return
+        if (decor.findViewWithTag<View>("hubera-edge") != null) return
+        val density = resources.displayMetrics.density
+        val edge = (28 * density).toInt().coerceAtLeast(1)
+        val strip = View(this)
+        strip.tag = "hubera-edge"
+        strip.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    edgeDownX = ev.rawX
+                    edgeDownY = ev.rawY
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = ev.rawX - edgeDownX
+                    val dy = ev.rawY - edgeDownY
+                    if (edgeDownX <= edge && dx > 12f * density && kotlin.math.abs(dx) > kotlin.math.abs(dy)) {
+                        edgeChannel?.invokeMethod("open", null)
+                    }
+                    true
+                }
+                else -> true
+            }
+        }
+        decor.addView(
+            strip,
+            FrameLayout.LayoutParams(edge, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START),
+        )
+    }
+
+    private fun excludeLeftEdge() {
+        if (Build.VERSION.SDK_INT < 29) return
+        val density = resources.displayMetrics.density
+        val width = (28 * density).toInt().coerceAtLeast(1)
+        val height = resources.displayMetrics.heightPixels.coerceAtLeast(1)
+        ViewCompat.setSystemGestureExclusionRects(
+            window.decorView,
+            listOf(Rect(0, 0, width, height)),
+        )
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        edgeChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "cloud.hubera.admin/edge")
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hubera/pdf")
             .setMethodCallHandler { call, result ->
                 if (call.method != "render") {
