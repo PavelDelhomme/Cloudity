@@ -680,6 +680,8 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
           onToggleWant: () => _toggleWant(meal.id),
           onSchedule: (chosen, detail) => _appendMeal(chosen, detail),
           onShop: _shopFromDetail,
+          shopping: _data.shopping,
+          onAddToShop: _addChosenNeeds,
         ),
       ),
     );
@@ -698,6 +700,32 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
           thumb: detail.thumb,
         ),
       );
+    });
+    await _persist();
+  }
+
+  Future<void> _addChosenNeeds(List<CookShopNeed> needs) async {
+    setState(() {
+      for (var i = 0; i < needs.length; i++) {
+        final need = needs[i];
+        if (cookBuyUnits.contains(need.unit) && need.qty.isNotEmpty) {
+          _data.shopping.add(CookShopItem(
+            id: '${cookNewId()}-$i',
+            name: need.label,
+            ingredient: need.ingredient,
+            qty: need.qty,
+            unit: need.unit,
+            kind: 'food',
+          ));
+        } else {
+          _data.shopping.add(CookShopItem(
+            id: '${cookNewId()}-$i',
+            name: need.ingredient,
+            ingredient: need.ingredient,
+            kind: 'food',
+          ));
+        }
+      }
     });
     await _persist();
   }

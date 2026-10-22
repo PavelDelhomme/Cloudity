@@ -45,6 +45,9 @@ void main() {
             onShop: (_) async {
               shops += 1;
             },
+            onAddToShop: (_) async {
+              shops += 1;
+            },
           ),
         ),
       );
@@ -56,6 +59,16 @@ void main() {
     expect(find.text('poulet'), findsOneWidget);
     expect(find.textContaining('c. à c.'), findsOneWidget);
     expect(find.textContaining('0/5 g'), findsOneWidget);
+    expect(find.text('S’utiliser'), findsOneWidget);
+    expect(find.text('Ajouter les ingrédients aux courses'), findsOneWidget);
+
+    await tester.tap(find.text('Ajouter les ingrédients aux courses'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ajouter aux courses'), findsOneWidget);
+    expect(find.text('5 g'), findsOneWidget);
+    await tester.tap(find.text('Ajouter'));
+    await tester.pumpAndSettle();
+    expect(shops, 1);
     expect(find.text('S’utiliser'), findsOneWidget);
 
     await tester.tap(find.text('pas la bonne traduction').first);
@@ -69,7 +82,7 @@ void main() {
     await tester.tap(find.text('S’utiliser'));
     await tester.pumpAndSettle();
     expect(find.text('Dîner'), findsOneWidget);
-    expect(find.text('Ajouter les ingrédients aux courses'), findsOneWidget);
+    expect(find.text('Ajouter les ingrédients aux courses'), findsWidgets);
     await tester.tap(find.text('Dîner'));
     await tester.pumpAndSettle();
     expect(dinners, 1);
@@ -84,7 +97,7 @@ void main() {
 
     await tester.tap(find.text('S’utiliser'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ajouter les ingrédients aux courses'));
+    await tester.tap(find.text('Ajouter les ingrédients aux courses').last);
     await tester.pumpAndSettle();
     expect(shops, 1);
     expect(dinners, 2);

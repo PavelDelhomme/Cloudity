@@ -25,6 +25,8 @@ class CookRecipePage extends StatefulWidget {
     required this.onToggleWant,
     required this.onSchedule,
     required this.onShop,
+    required this.onAddToShop,
+    this.shopping = const [],
     this.seed,
     this.suggestedSlot,
   });
@@ -37,6 +39,8 @@ class CookRecipePage extends StatefulWidget {
   final Future<void> Function() onToggleWant;
   final Future<void> Function(String slot, MealDetail detail) onSchedule;
   final Future<void> Function(MealDetail detail) onShop;
+  final Future<void> Function(List<CookShopNeed> needs) onAddToShop;
+  final List<CookShopItem> shopping;
   final MealDetail? seed;
   final String? suggestedSlot;
 
@@ -155,11 +159,7 @@ class _CookRecipePageState extends State<CookRecipePage> {
     );
     if (!mounted || choice == null) return;
     if (choice == 'shop') {
-      await widget.onShop(detail);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingrédients ajoutés aux courses')),
-      );
+      await _offerShop();
       return;
     }
     await widget.onSchedule(choice, detail);
@@ -171,6 +171,84 @@ class _CookRecipePageState extends State<CookRecipePage> {
     };
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Ajouté au $label')),
+    );
+  }
+
+  Future<void> _offerShop() async {
+    final detail = _detail;
+    if (detail == null) return;
+    final needs = cookNeedsForIngredients(
+      ingredients: detail.ingredients,
+      pantry: widget.pantry,
+      existing: widget.shopping,
+      today: DateTime.now(),
+    );
+    final picked = <int>{for (var i = 0; i < needs.length; i++) i};
+    final ok = await showSuiteModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Padding(
+          padding: suiteBottomSheetPadding(ctx),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 460),
+            child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Ajouter aux courses', style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              if (needs.isEmpty)
+                const Text('Rien à ajouter : déjà aux courses ou au frigo.')
+              else
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    children: [
+                      for (var i = 0; i < needs.length; i++)
+                        CheckboxListTile(
+                          value: picked.contains(i),
+                          onChanged: (v) => setLocal(() {
+                            if (v == true) {
+                              picked.add(i);
+                            } else {
+                              picked.remove(i);
+                            }
+                          }),
+                          secondary: IngredientPhoto(name: needs[i].ingredient, size: 40),
+                          title: Text(needs[i].ingredient),
+                          subtitle: Text(
+                            needs[i].qty.isEmpty || !cookBuyUnits.contains(needs[i].unit)
+                                ? 'À acheter'
+                                : '${needs[i].qty} ${needs[i].unit}',
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              if (needs.isEmpty)
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Fermer'),
+                )
+              else
+                FilledButton(
+                  onPressed: picked.isEmpty ? null : () => Navigator.pop(ctx, true),
+                  child: const Text('Ajouter'),
+                ),
+            ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final chosen = [for (final i in picked) needs[i]];
+    if (chosen.isEmpty) return;
+    await widget.onAddToShop(chosen);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${chosen.length} ajouté aux courses')),
     );
   }
 
@@ -283,6 +361,12 @@ class _CookRecipePageState extends State<CookRecipePage> {
                 Text('Préparer les ingrédients', style: Theme.of(context).textTheme.titleSmall),
                 for (var i = 0; i < detail.ingredients.length; i++)
                   _ingredientTile(detail.ingredients[i], balances[i], i),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _offerShop,
+                  icon: const Icon(Icons.shopping_cart_outlined),
+                  label: const Text('Ajouter les ingrédients aux courses'),
+                ),
                 const SizedBox(height: 12),
                 Text('Préparation', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 4),
