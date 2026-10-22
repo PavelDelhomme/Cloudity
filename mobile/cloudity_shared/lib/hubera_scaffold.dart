@@ -331,6 +331,14 @@ class HuberaDrawerBody extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              trailing: IconButton(
+                tooltip: 'Fermer le menu',
+                onPressed: () {
+                  final nav = Navigator.of(context);
+                  if (nav.canPop()) nav.pop();
+                },
+                icon: const Icon(Icons.close),
+              ),
             ),
             const Divider(height: 1),
             Expanded(
