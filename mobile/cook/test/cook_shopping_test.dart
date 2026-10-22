@@ -1,7 +1,9 @@
+import 'package:cloudity_cook/cook_home.dart';
 import 'package:cloudity_cook/cook_store.dart';
 import 'package:cloudity_cook/cook_units.dart';
 import 'package:cloudity_cook/ingredient_photo.dart';
 import 'package:cloudity_cook/mealdb.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -202,5 +204,49 @@ void main() {
     cookUserFixes['salt'] = 'fleur de sel';
     addTearDown(() => cookUserFixes.remove('salt'));
     expect(cookToFrenchLearned('salt'), 'fleur de sel');
+  });
+
+  testWidgets('glisser vers la gauche marque la course faite', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    IngredientPhotoCache.memory['agneau'] = null;
+    IngredientPhotoCache.diskLoaded = true;
+    final item = CookShopItem(
+      id: 'agneau',
+      name: 'agneau',
+      ingredient: 'agneau',
+      qty: '800',
+      unit: 'g',
+    );
+    final fridge = CookPantryItem(id: 'sel', name: 'sel', qty: '5', unit: 'g');
+    var saved = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => CookShopRow(
+              item: item,
+              onEdit: () {},
+              onChanged: () {
+                saved += 1;
+                setState(() {});
+              },
+              onRemove: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(cookShopTitle(item), '800 g agneau');
+    expect(find.textContaining('agneau'), findsWidgets);
+    await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(item.done, isTrue);
+    expect(saved, 1);
+    expect(find.text('800 g agneau'), findsOneWidget);
+    expect(fridge.qty, '5');
+    expect(fridge.unit, 'g');
+    expect(fridge.name, 'sel');
   });
 }

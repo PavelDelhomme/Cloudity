@@ -1375,54 +1375,156 @@ class _ShopTab extends StatelessWidget {
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                           child: Text(part.title, style: Theme.of(context).textTheme.titleSmall),
                         ),
-                        for (final item in part.rows)
-                          CheckboxListTile(
-                            value: item.done,
-                            title: InkWell(
-                              onTap: () => onEdit(item),
-                              child: Row(
-                                children: [
-                                  Semantics(
-                                    label: 'Photo de ${cookShopPhotoName(item)}',
-                                    image: true,
-                                    child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      cookShopTitle(item),
-                                      style: TextStyle(
-                                        decoration: item.done ? TextDecoration.lineThrough : null,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            subtitle: Text(
-                              item.kind == 'other'
-                                  ? 'Pas alimentaire'
-                                  : (cookShopVisibleQty(item).isEmpty
-                                      ? 'À acheter'
-                                      : cookShopVisibleQty(item)),
-                            ),
-                            onChanged: (v) {
-                              item.done = v ?? false;
+                        for (final item in part.rows.where((e) => !e.done))
+                          CookShopRow(
+                            item: item,
+                            onEdit: () => onEdit(item),
+                            onChanged: onChanged,
+                            onRemove: () {
+                              items.removeWhere((e) => e.id == item.id);
                               onChanged();
                             },
-                            secondary: IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
+                          ),
+                        if (part.rows.any((e) => e.done)) ...[
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 8, 16, 4),
+                            child: Text('Fait'),
+                          ),
+                          for (final item in part.rows.where((e) => e.done))
+                            CookShopRow(
+                              item: item,
+                              onEdit: () => onEdit(item),
+                              onChanged: onChanged,
+                              onRemove: () {
                                 items.removeWhere((e) => e.id == item.id);
                                 onChanged();
                               },
                             ),
-                          ),
+                        ],
                       ],
                   ],
                 ),
         ),
       ],
+    );
+  }
+}
+
+/// Ligne de courses. Un glissement vers la gauche la marque faite, sans toucher au frigo.
+class CookShopRow extends StatelessWidget {
+  const CookShopRow({
+    super.key,
+    required this.item,
+    required this.onEdit,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final CookShopItem item;
+  final VoidCallback onEdit;
+  final VoidCallback onChanged;
+  final VoidCallback onRemove;
+
+  void _detail(BuildContext context) {
+    final name = cookShopPhotoName(item);
+    final qty = cookShopVisibleQty(item);
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Détail', style: Theme.of(ctx).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                IngredientPhoto(name: name, size: 72),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: Theme.of(ctx).textTheme.titleMedium),
+                      Text(qty.isEmpty ? 'À acheter' : qty),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                onEdit();
+              },
+              child: const Text('Quantité à acheter'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = cookShopTitle(item);
+    final tile = CheckboxListTile(
+      value: item.done,
+      title: InkWell(
+        onTap: () => _detail(context),
+        child: Row(
+          children: [
+            Semantics(
+              label: 'Photo de ${cookShopPhotoName(item)}',
+              image: true,
+              child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  decoration: item.done ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      subtitle: Text(
+        item.kind == 'other'
+            ? 'Pas alimentaire'
+            : (cookShopVisibleQty(item).isEmpty ? 'À acheter' : cookShopVisibleQty(item)),
+      ),
+      onChanged: (v) {
+        item.done = v ?? false;
+        onChanged();
+      },
+      secondary: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: onRemove,
+      ),
+    );
+    if (item.done) return tile;
+    return Dismissible(
+      key: ValueKey('shop-${item.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        color: const Color(0xFF2E7D32),
+        child: const Text(
+          'Fait',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+      ),
+      onDismissed: (_) {
+        item.done = true;
+        onChanged();
+      },
+      child: tile,
     );
   }
 }
