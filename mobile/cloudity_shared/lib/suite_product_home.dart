@@ -256,6 +256,11 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     _placementHadPrefs = true;
   }
 
+  Future<void> _toggleFavorite(String key) async {
+    setState(() => _placement = _placement.toggleFavorite(key));
+    await _saveContactPlacement();
+  }
+
   void _restoreContactScroll(ContactShelf shelf, double saved) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final controller = _contactScroll[shelf];
@@ -2355,6 +2360,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 ],
               ),
             ),
+          if (_contactShelf == ContactShelf.active) _contactFavoritesStrip(visible),
           if (_contactShelf != ContactShelf.active)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -2410,6 +2416,58 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _contactFavoritesStrip(List<Map<String, dynamic>> visible) {
+    final theme = Theme.of(context);
+    final favs = contactFavorites(visible, _placement.favorites);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+          child: Text('Favoris', style: theme.textTheme.titleSmall),
+        ),
+        SizedBox(
+          height: 112,
+          child: favs.isEmpty
+              ? const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text('Aucun favori'),
+                  ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: favs.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final item = favs[index];
+                    final title = _itemTitle(item);
+                    return SizedBox(
+                      width: 96,
+                      child: Column(
+                        children: [
+                          CircleAvatar(
+                            child: Text(_contactInitials(title)),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -2581,7 +2639,13 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                     icon: const Icon(Icons.restore),
                     onPressed: () => _restoreContacts([key]),
                   ),
-                _ => null,
+                _ => IconButton(
+                    tooltip: 'Favori',
+                    icon: Icon(
+                      _placement.favorites.contains(key) ? Icons.star : Icons.star_border,
+                    ),
+                    onPressed: () => _toggleFavorite(key),
+                  ),
               },
               onLongPress: _contactShelf == ContactShelf.active
                   ? () => setState(() {

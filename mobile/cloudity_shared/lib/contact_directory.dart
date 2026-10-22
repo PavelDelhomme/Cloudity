@@ -118,12 +118,16 @@ class ContactPlacement {
     this.directory = const {},
     this.trashAt = const {},
     this.archived = const {},
+    this.favorites = const {},
   });
 
   /// Clé stable → `personal` ou `professional`. Absent = annuaire d’origine.
   final Map<String, String> directory;
   final Map<String, String> trashAt;
   final Set<String> archived;
+
+  /// Clés marquées favori. Ne retire aucune fiche.
+  final Set<String> favorites;
 
   ContactPlacement assignDirectory({
     required Iterable<String> keys,
@@ -135,7 +139,23 @@ class ContactPlacement {
         next[key] = directory;
       }
     }
-    return ContactPlacement(directory: next, trashAt: trashAt, archived: archived);
+    return ContactPlacement(
+      directory: next,
+      trashAt: trashAt,
+      archived: archived,
+      favorites: favorites,
+    );
+  }
+
+  ContactPlacement toggleFavorite(String key) {
+    final next = Set<String>.from(favorites);
+    if (!next.remove(key)) next.add(key);
+    return ContactPlacement(
+      directory: directory,
+      trashAt: trashAt,
+      archived: archived,
+      favorites: next,
+    );
   }
 
   ContactPlacement moveToTrash({
@@ -148,7 +168,12 @@ class ContactPlacement {
       trash[key] = at;
       archive.remove(key);
     }
-    return ContactPlacement(directory: directory, trashAt: trash, archived: archive);
+    return ContactPlacement(
+      directory: directory,
+      trashAt: trash,
+      archived: archive,
+      favorites: favorites,
+    );
   }
 
   ContactPlacement moveToArchive({required Iterable<String> keys}) {
@@ -158,7 +183,12 @@ class ContactPlacement {
       trash.remove(key);
       archive.add(key);
     }
-    return ContactPlacement(directory: directory, trashAt: trash, archived: archive);
+    return ContactPlacement(
+      directory: directory,
+      trashAt: trash,
+      archived: archive,
+      favorites: favorites,
+    );
   }
 
   ContactPlacement restore({required Iterable<String> keys}) {
@@ -168,28 +198,37 @@ class ContactPlacement {
       trash.remove(key);
       archive.remove(key);
     }
-    return ContactPlacement(directory: directory, trashAt: trash, archived: archive);
+    return ContactPlacement(
+      directory: directory,
+      trashAt: trash,
+      archived: archive,
+      favorites: favorites,
+    );
   }
 
   ContactPlacement forget({required Iterable<String> keys}) {
     final dir = Map<String, String>.from(directory);
     final trash = Map<String, String>.from(trashAt);
     final archive = Set<String>.from(archived);
+    final favs = Set<String>.from(favorites);
     for (final key in keys) {
       dir.remove(key);
       trash.remove(key);
       archive.remove(key);
+      favs.remove(key);
     }
-    return ContactPlacement(directory: dir, trashAt: trash, archived: archive);
+    return ContactPlacement(directory: dir, trashAt: trash, archived: archive, favorites: favs);
   }
 
   Map<String, dynamic> toJson() => {
         'directory': directory,
         'trash': trashAt,
         'archive': archived.toList(),
+        'favorites': favorites.toList(),
       };
 
-  bool get isEmpty => directory.isEmpty && trashAt.isEmpty && archived.isEmpty;
+  bool get isEmpty =>
+      directory.isEmpty && trashAt.isEmpty && archived.isEmpty && favorites.isEmpty;
 
   static ContactPlacement fromJson(Object? raw) {
     if (raw is! Map) return const ContactPlacement();
@@ -218,8 +257,28 @@ class ContactPlacement {
         if (value.isNotEmpty) archive.add(value);
       }
     }
-    return ContactPlacement(directory: dir, trashAt: trash, archived: archive);
+    final favs = <String>{};
+    final favRaw = raw['favorites'];
+    if (favRaw is List) {
+      for (final key in favRaw) {
+        final value = key?.toString() ?? '';
+        if (value.isNotEmpty) favs.add(value);
+      }
+    }
+    return ContactPlacement(directory: dir, trashAt: trash, archived: archive, favorites: favs);
   }
+}
+
+/// Favoris de la liste déjà affichée. Les autres fiches restent.
+List<Map<String, dynamic>> contactFavorites(
+  List<Map<String, dynamic>> visible,
+  Set<String> favorites,
+) {
+  if (favorites.isEmpty) return const [];
+  return [
+    for (final item in visible)
+      if (favorites.contains(contactStableKey(item))) item,
+  ];
 }
 
 String contactDigits(String raw) {
@@ -295,7 +354,7 @@ ContactPlacement placementFromProfiles(Iterable<Map<String, dynamic>> items) {
       archive.add(key);
     }
   }
-  return ContactPlacement(directory: directory, trashAt: trash, archived: archive);
+  return ContactPlacement(directory: directory, trashAt: trash, archived: archive, favorites: const {});
 }
 
 String contactEffectiveDirectory(

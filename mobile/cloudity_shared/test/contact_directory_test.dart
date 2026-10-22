@@ -237,4 +237,21 @@ void main() {
     );
     expect(kept.blocked, isTrue);
   });
+
+  test('un favori reste dans la liste', () {
+    final placed = const ContactPlacement().toggleFavorite('h:1');
+    final visible = contactsOnShelf(
+      hubera: hubera,
+      device: const [],
+      placement: placed,
+      directory: ContactDirectory.professional,
+    );
+    expect(visible.map((e) => e['display_name']), ['Cabinet Martin', 'Paul Hubera']);
+    expect(
+      contactFavorites(visible, placed.favorites).map((e) => e['display_name']),
+      ['Cabinet Martin'],
+    );
+    final round = ContactPlacement.fromJson(placed.toJson());
+    expect(round.favorites, {'h:1'});
+  });
 }
