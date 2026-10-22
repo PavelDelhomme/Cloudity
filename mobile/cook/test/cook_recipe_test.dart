@@ -107,4 +107,57 @@ void main() {
     await tester.pump();
     expect(find.text('poulet rôti'), findsOneWidget);
   });
+
+  test('les étapes se séparent', () {
+    cookRemoteTranslation = false;
+    addTearDown(() => cookRemoteTranslation = true);
+    final steps = cookPrepSteps('step 1\nHeat the pan.\nstep 2\nServe hot.');
+    expect(steps.length, 2);
+    expect(steps.first.toLowerCase().contains('step'), isFalse);
+  });
+
+  testWidgets('la préparation reste à l’écran', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    cookRemoteTranslation = false;
+    addTearDown(() => cookRemoteTranslation = true);
+    IngredientPhotoCache.memory['sel'] = null;
+    IngredientPhotoCache.diskLoaded = true;
+
+    final seed = MealDetail(
+      id: '1',
+      title: 'Chicken',
+      instructions: 'step 1\nHeat the pan.\nstep 2\nServe hot.',
+      ingredients: [(name: 'salt', measure: '1 tsp')],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CookRecipePage(
+          summary: const MealSummary(id: '1', title: 'Chicken'),
+          pantry: const [],
+          favorite: false,
+          wanted: false,
+          seed: seed,
+          onToggleFav: () async {},
+          onToggleWant: () async {},
+          onSchedule: (_, __) async {},
+          onShop: (_) async {},
+          onAddToShop: (_) async {},
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Préparation').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Ingrédients'), findsOneWidget);
+    expect(find.text('Étape 1'), findsOneWidget);
+    expect(find.text('Étape 2'), findsOneWidget);
+    expect(find.text('Faire la recette'), findsOneWidget);
+    await tester.tap(find.text('Faire la recette'));
+    await tester.pumpAndSettle();
+    expect(find.text('Préparation'), findsOneWidget);
+    expect(find.text('Faire la recette'), findsOneWidget);
+    expect(find.text('Étape 1'), findsOneWidget);
+    expect(find.text('Recettes'), findsNothing);
+  });
 }

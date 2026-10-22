@@ -13,6 +13,30 @@ String _slotName(String slot) => switch (slot) {
       _ => 'dîner',
     };
 
+/// Découpe le mode d’emploi en étapes lisibles, puis les passe en français.
+List<String> cookPrepSteps(String raw) {
+  final text = raw.replaceAll('\r', '\n').trim();
+  if (text.isEmpty) return const ['Aucune étape'];
+  var parts = text
+      .split(RegExp(r'(?:^|\n)\s*(?:step|étape)\s*\d+\s*[:.\-]?\s*', caseSensitive: false))
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+  if (parts.length <= 1) {
+    parts = text.split(RegExp(r'\n{2,}')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+  }
+  if (parts.length <= 1) {
+    final sentences = text
+        .split(RegExp(r'(?<=[.!?])\s+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (sentences.length > 1) parts = sentences;
+  }
+  if (parts.isEmpty) return const ['Aucune étape'];
+  return [for (final part in parts) cookToFrenchLearned(part)];
+}
+
 /// Détail d’une recette. « S’utiliser » ouvre le menu ici, sans revenir à la liste.
 class CookRecipePage extends StatefulWidget {
   const CookRecipePage({
@@ -252,6 +276,18 @@ class _CookRecipePageState extends State<CookRecipePage> {
     );
   }
 
+  void _openPrep(MealDetail detail) {
+    final names = [for (final ing in detail.ingredients) cookToFrench(ing.name)];
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _PrepScreen(
+          ingredients: names,
+          steps: cookPrepSteps(detail.instructions),
+        ),
+      ),
+    );
+  }
+
   Future<void> _cookNow() async {
     final detail = _detail;
     if (detail == null) return;
@@ -355,6 +391,11 @@ class _CookRecipePageState extends State<CookRecipePage> {
                       label: const Text('La faire'),
                       onPressed: _cookNow,
                     ),
+                    ActionChip(
+                      avatar: const Icon(Icons.format_list_numbered, size: 18),
+                      label: const Text('Préparation'),
+                      onPressed: () => _openPrep(detail),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -368,9 +409,11 @@ class _CookRecipePageState extends State<CookRecipePage> {
                   label: const Text('Ajouter les ingrédients aux courses'),
                 ),
                 const SizedBox(height: 12),
-                Text('Préparation', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
-                Text(cookToFrenchLearned(detail.instructions)),
+                FilledButton.icon(
+                  onPressed: () => _openPrep(detail),
+                  icon: const Icon(Icons.format_list_numbered),
+                  label: const Text('Préparation'),
+                ),
               ],
             ),
       bottomNavigationBar: detail == null
@@ -415,6 +458,76 @@ class _CookRecipePageState extends State<CookRecipePage> {
             }
           });
         },
+      ),
+    );
+  }
+}
+
+/// Préparation interactive. « Faire la recette » avance l’étape sans revenir à la liste.
+class _PrepScreen extends StatefulWidget {
+  const _PrepScreen({required this.ingredients, required this.steps});
+
+  final List<String> ingredients;
+  final List<String> steps;
+
+  @override
+  State<_PrepScreen> createState() => _PrepScreenState();
+}
+
+class _PrepScreenState extends State<_PrepScreen> {
+  int _done = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = widget.steps.isEmpty ? const ['Aucune étape'] : widget.steps;
+    final finished = _done >= steps.length;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Préparation')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          Text('Ingrédients', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (final name in widget.ingredients)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: IngredientPhoto(name: name, size: 44),
+              title: Text(name),
+            ),
+          const SizedBox(height: 16),
+          Text('Étapes', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (var i = 0; i < steps.length; i++)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: CircleAvatar(
+                backgroundColor: i < _done
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
+                foregroundColor: i < _done
+                    ? Theme.of(context).colorScheme.onPrimary
+                    : Theme.of(context).colorScheme.onSurface,
+                child: Text('${i + 1}'),
+              ),
+              title: Text('Étape ${i + 1}'),
+              subtitle: Text(steps[i]),
+              trailing: Icon(
+                i < _done ? Icons.check_circle : Icons.radio_button_unchecked,
+              ),
+            ),
+        ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: FilledButton(
+            onPressed: () {
+              if (finished) return;
+              setState(() => _done += 1);
+            },
+            child: Text(finished ? 'Recette faite' : 'Faire la recette'),
+          ),
+        ),
       ),
     );
   }
