@@ -67,16 +67,33 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
   State<SuiteAppShell<S>> createState() => _SuiteAppShellState<S>();
 }
 
-class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
+class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>>
+    with WidgetsBindingObserver {
   bool _ready = false;
   S? _session;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.loginNotice?.addListener(_onLoginNotice);
     HuberaAccountSwitch.listen(_onChooserRequested);
     _restore();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_resumePendingOta());
+    }
+  }
+
+  Future<void> _resumePendingOta() async {
+    final message = await cloudityResumePendingOtaInstall();
+    if (!mounted || message == null || message.isEmpty) return;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   void _onLoginNotice() {
@@ -91,6 +108,7 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.loginNotice?.removeListener(_onLoginNotice);
     HuberaAccountSwitch.unlisten(_onChooserRequested);
     super.dispose();

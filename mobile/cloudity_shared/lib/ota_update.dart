@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:hubera_ota_installer/hubera_ota_installer.dart';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -473,16 +474,58 @@ Future<void> _rememberPendingInstall(File apk) async {
 }
 
 /// Au retour de l’écran système : installe l’APK déjà téléchargée, sans nouveau GET.
-Future<void> cloudityResumePendingOtaInstall() async {
-  if (!Platform.isAndroid) return;
-  if (!await HuberaOtaInstaller.canInstallPackages()) return;
+/// `null` s’il n’y a rien à faire. Un texte si l’installeur s’ouvre ou si le fichier manque.
+Future<String?> cloudityResumePendingOtaInstall() async {
+  if (!Platform.isAndroid) return null;
+  if (_otaDialogOpen) return null;
   final marker = await _otaPendingMarker();
-  if (!await marker.exists()) return;
+  if (!await marker.exists()) return null;
+  if (!await HuberaOtaInstaller.canInstallPackages()) return null;
   final path = (await marker.readAsString()).trim();
   final file = File(path);
-  if (!await file.exists() || !await _apkZipMagic(file)) return;
+  if (!await file.exists() || !await _apkZipMagic(file)) {
+    if (await marker.exists()) await marker.delete();
+    return 'Le fichier de mise à jour a disparu. Relance la recherche.';
+  }
   await marker.delete();
-  await HuberaOtaInstaller.installApk(file);
+  try {
+    await HuberaOtaInstaller.installApk(file);
+  } catch (e) {
+    await _rememberPendingInstall(file);
+    return _otaErrorText(e);
+  }
+  return 'L’écran d’installation Android est ouvert.';
+}
+
+String _otaErrorText(Object error) {
+  if (error is PlatformException) {
+    final message = (error.message ?? '').trim();
+    if (message.isNotEmpty) return message;
+  }
+  final text = error.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '').trim();
+  return text.isEmpty ? 'La mise à jour n’a pas abouti.' : text;
+}
+
+Future<File> _snoozeFile() async {
+  final dir = await _otaCacheDir();
+  return File('${dir.path}/snoozed.version');
+}
+
+/// « Continuer sans installer » : ne plus reproposer cette version tout seul.
+Future<void> clouditySnoozeOfferedVersion(String version) async {
+  final value = version.trim();
+  if (value.isEmpty) return;
+  await (await _snoozeFile()).writeAsString(value);
+}
+
+Future<bool> _otaVersionSnoozed(String version) async {
+  try {
+    final file = await _snoozeFile();
+    if (!await file.exists()) return false;
+    return (await file.readAsString()).trim() == version.trim();
+  } catch (_) {
+    return false;
+  }
 }
 
 Future<void> _installOrAskPermission(File dest) async {
@@ -655,11 +698,35 @@ class _OtaUpdateDialog extends StatefulWidget {
   State<_OtaUpdateDialog> createState() => _OtaUpdateDialogState();
 }
 
-class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
+class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
+    with WidgetsBindingObserver {
   bool _busy = false;
   double? _progress;
   String? _error;
   String _phase = '';
+  bool _installerOpened = false;
+  bool _awaitingPermission = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_awaitingPermission || _busy) {
+      return;
+    }
+    _awaitingPermission = false;
+    _start();
+  }
 
   Future<void> _start() async {
     if (_busy) return;
@@ -682,19 +749,22 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
       );
       if (!mounted) return;
       setState(() {
-        _phase = 'Installeur système ouvert';
+        _phase = 'L’écran d’installation Android est ouvert.';
         _busy = false;
         _progress = 1.0;
+        _installerOpened = true;
+        _error = null;
+        _awaitingPermission = false;
       });
-      // Ferme le dialogue : l’UI Android d’install prend le relais.
-      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final text = _otaErrorText(e);
       setState(() {
         _busy = false;
         _progress = null;
         _phase = '';
-        _error = e.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
+        _error = text;
+        _awaitingPermission = text.contains('Autorise');
       });
     }
   }
@@ -705,11 +775,12 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
     final notes = (m.huberaMessage ?? '').trim();
     return AlertDialog(
       title: Text(
-        _busy
+        _busy || _installerOpened
             ? (_phase.isEmpty ? 'Téléchargement…' : _phase)
             : 'Mise à jour disponible',
       ),
-      content: Column(
+      content: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -757,11 +828,19 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
             ),
           ],
         ],
+        ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Continuer sans installer'),
+          onPressed: () async {
+            if (!_installerOpened) {
+              await clouditySnoozeOfferedVersion(widget.manifest.version);
+            }
+            if (context.mounted) Navigator.of(context).pop();
+          },
+          child: Text(
+            _installerOpened ? 'Fermer' : 'Continuer sans installer',
+          ),
         ),
         FilledButton(
           onPressed: _busy ? null : _start,
@@ -898,6 +977,8 @@ void cloudityScheduleOtaCheck(
       huberaHost: huberaHost,
     );
     if (m == null || !context.mounted || _otaDialogOpen) return;
+    if (await _otaVersionSnoozed(m.version)) return;
+    if (!context.mounted || _otaDialogOpen) return;
     await cloudityShowOtaDialog(
       context,
       manifest: m,

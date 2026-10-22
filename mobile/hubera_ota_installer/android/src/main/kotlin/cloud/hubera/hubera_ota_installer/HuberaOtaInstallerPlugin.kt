@@ -1,6 +1,7 @@
 package cloud.hubera.hubera_ota_installer
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -104,16 +105,28 @@ class HuberaOtaInstallerPlugin :
         }
         val authority = "${appContext.packageName}.hubera.ota"
         val uri = FileProvider.getUriForFile(appContext, authority, file)
-        val intent = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
-            putExtra(Intent.EXTRA_RETURN_RESULT, false)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            }
+        try {
+            startInstall(installIntent(uri), uri)
+        } catch (_: ActivityNotFoundException) {
+            startInstall(viewIntent(uri), uri)
         }
+    }
+
+    private fun installIntent(uri: Uri) = Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+        setDataAndType(uri, "application/vnd.android.package-archive")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+        putExtra(Intent.EXTRA_RETURN_RESULT, true)
+    }
+
+    private fun viewIntent(uri: Uri) = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, "application/vnd.android.package-archive")
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    private fun startInstall(intent: Intent, uri: Uri) {
         val resInfo = appContext.packageManager.queryIntentActivities(
             intent,
             PackageManager.MATCH_DEFAULT_ONLY,
