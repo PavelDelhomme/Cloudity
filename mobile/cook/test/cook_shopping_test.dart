@@ -1,5 +1,6 @@
 import 'package:cloudity_cook/cook_store.dart';
 import 'package:cloudity_cook/cook_units.dart';
+import 'package:cloudity_cook/ingredient_photo.dart';
 import 'package:cloudity_cook/mealdb.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -114,6 +115,36 @@ void main() {
       today: DateTime(2026, 10, 22),
     );
     expect(labels, isEmpty);
+  });
+
+  test('1 c. à c. de sel est 5 g, avec la photo du sel, pas une cuillère', () {
+    final needs = cookNeedsForIngredients(
+      ingredients: [(name: 'sel', measure: '1 c. à c.')],
+      pantry: const [],
+      existing: const [],
+      today: DateTime(2026, 10, 22),
+    );
+    expect(needs, hasLength(1));
+    expect(needs.single.label, '5 g sel');
+    expect(needs.single.unit, 'g');
+    expect(needs.single.label.contains('cuillère'), isFalse);
+    expect(needs.single.label.contains('c. à c.'), isFalse);
+    final item = CookShopItem(
+      id: 's',
+      name: '1 c. à c. de sel',
+      ingredient: needs.single.ingredient,
+      qty: '1',
+      unit: 'c. à c.',
+    );
+    expect(cookShopTitle(item), '5 g sel');
+    expect(cookShopVisibleQty(item), '5 g');
+    expect(cookShopPhotoName(item), 'sel');
+    expect(cookPhotoQuery('sel'), 'table salt');
+    final stored = CookShopItem(id: 'old', name: '1 c. à café sel');
+    expect(cookShopTitle(stored), '5 g sel');
+    expect(cookShopPhotoName(stored), 'sel');
+    expect(cookShopTitle(stored).contains('café'), isFalse);
+    expect(cookShopTitle(stored).contains('cuillère'), isFalse);
   });
 
   test('sans sel, la course est en grammes', () {

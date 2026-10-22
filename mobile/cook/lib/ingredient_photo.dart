@@ -5,10 +5,31 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'mealdb.dart';
+
 const ingredientPhotoUserAgent =
     'HuberaCook/0.1.18 (https://cook.hubera.cloud; ingredient-photo)';
 
-const _cacheKey = 'cook_ingredient_photo_v1';
+const _cacheKey = 'cook_ingredient_photo_v2';
+
+/// « sel » part en « table salt », « savon » en « soap » : pas un homonyme du titre.
+String cookPhotoQuery(String name) {
+  final raw = name.trim().toLowerCase();
+  const precise = <String, String>{
+    'sel': 'table salt',
+    'salt': 'table salt',
+    'savon': 'soap',
+    'éponge': 'sponge',
+    'eponge': 'sponge',
+    'éponges': 'sponge',
+    'eponges': 'sponge',
+    'lessive': 'laundry detergent',
+  };
+  final known = precise[raw];
+  if (known != null) return known;
+  final query = cookQueryToEnglish(name.trim());
+  return query.isEmpty ? name.trim() : query;
+}
 
 /// Recherche Wikimedia Commons. Jamais Google.
 Uri commonsIngredientSearchUri(String name) {
@@ -64,13 +85,15 @@ String? _licenseOf(Object? meta) {
   return null;
 }
 
-/// Première vignette dont la licence est ouverte. Sinon null (pastille).
+/// Première vignette ouverte dans l’ordre de la recherche. Un homonyme plus tard ne passe pas devant.
 String? photoUrlFromCommonsJson(Object? body) {
   if (body is! Map) return null;
   final query = body['query'];
   if (query is! Map) return null;
   final pages = query['pages'];
   if (pages is! Map) return null;
+  String? bestUrl;
+  var bestIndex = 1 << 30;
   for (final page in pages.values) {
     if (page is! Map) continue;
     final info = page['imageinfo'];
@@ -79,10 +102,18 @@ String? photoUrlFromCommonsJson(Object? body) {
     if (!isOpenCommonsLicense(_licenseOf(ii['extmetadata']))) continue;
     final thumb = ii['thumburl']?.toString() ?? '';
     final full = ii['url']?.toString() ?? '';
-    if (thumb.isNotEmpty && _rasterUrl(thumb)) return thumb;
-    if (full.isNotEmpty && _rasterUrl(full)) return full;
+    final url = thumb.isNotEmpty && _rasterUrl(thumb)
+        ? thumb
+        : (full.isNotEmpty && _rasterUrl(full) ? full : '');
+    if (url.isEmpty) continue;
+    final rawIndex = page['index'];
+    final rank = rawIndex is int ? rawIndex : 1 << 20;
+    if (rank < bestIndex) {
+      bestIndex = rank;
+      bestUrl = url;
+    }
   }
-  return null;
+  return bestUrl;
 }
 
 class IngredientPhotoCache {
@@ -130,7 +161,7 @@ Future<String?> fetchOpenIngredientPhoto(
   String name, {
   http.Client? client,
 }) async {
-  final query = name.trim();
+  final query = cookPhotoQuery(name);
   if (query.length < 2) return null;
   final own = client == null;
   final httpClient = client ?? http.Client();

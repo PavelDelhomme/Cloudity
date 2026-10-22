@@ -101,10 +101,69 @@ class CookShopItem {
       );
 }
 
+/// « 1 c. à café sel » ou « 1 c. à c. de sel » : le produit est le sel, la quantité des grammes.
+({String qty, String name})? cookInterpretShopLine(String raw) {
+  var s = raw.trim().toLowerCase();
+  // « café » finit par une lettre accentuée : la frontière de mot ne la voit pas.
+  const spoons = <(String, String)>[
+    ('cuillères à café', 'c. à c.'),
+    ('cuillère à café', 'c. à c.'),
+    ('cuilleres a cafe', 'c. à c.'),
+    ('c. à café', 'c. à c.'),
+    ('c. a café', 'c. à c.'),
+    ('c. à cafe', 'c. à c.'),
+    ('cuillères à soupe', 'c. à s.'),
+    ('cuillère à soupe', 'c. à s.'),
+    ('c. à soupe', 'c. à s.'),
+  ];
+  for (final pair in spoons) {
+    s = s.replaceAll(pair.$1, pair.$2);
+  }
+  s = cookNormalizeUnits(s);
+  final match = RegExp(
+    r'^(\d+(?:[.,]\d+)?)\s+(c\. à c\.|c\. à s\.|pincée|pièce|paquet|kg|ml|cl|g|l)\s+(?:de\s+)?(.+)$',
+  ).firstMatch(s);
+  if (match == null) return null;
+  final value = double.tryParse(match.group(1)!.replaceAll(',', '.'));
+  if (value == null) return null;
+  final name = match.group(3)!.trim();
+  if (name.isEmpty) return null;
+  final base = cookBaseQty(value: value, unit: match.group(2)!, ingredient: name);
+  if (base == null || !cookBuyUnits.contains(base.unit)) return null;
+  return (qty: '${cookFormatQty(base.value)} ${base.unit}', name: name);
+}
+
 String cookShopPhotoName(CookShopItem item) {
+  final fromLine = cookInterpretShopLine(item.name);
+  if (fromLine != null) return fromLine.name;
   final ingredient = item.ingredient.trim();
-  if (ingredient.isNotEmpty) return ingredient;
+  if (ingredient.isNotEmpty) {
+    final fromIngredient = cookInterpretShopLine(ingredient);
+    if (fromIngredient != null) return fromIngredient.name;
+    return ingredient;
+  }
   return cookNameFromShopLabel(item.name);
+}
+
+/// Quantité affichée. Une c. à c. de sel reste des grammes, pas une cuillère.
+String cookShopVisibleQty(CookShopItem item) {
+  final fromLine = cookInterpretShopLine(item.name);
+  if (fromLine != null) return fromLine.qty;
+  final ingredient = cookShopPhotoName(item);
+  final unit = cookCanonicalUnit(item.unit);
+  final qty = item.qty.trim();
+  if (qty.isNotEmpty && cookBuyUnits.contains(unit)) return '$qty $unit';
+  final parsed = cookParseMeasure(qty.isEmpty ? '' : '$qty ${item.unit}');
+  if (parsed == null) return '';
+  final base = cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: ingredient);
+  if (base == null || !cookBuyUnits.contains(base.unit)) return '';
+  return '${cookFormatQty(base.value)} ${base.unit}';
+}
+
+String cookShopTitle(CookShopItem item) {
+  final fromLine = cookInterpretShopLine(item.name);
+  if (fromLine != null) return '${fromLine.qty} ${fromLine.name}';
+  return item.name.trim();
 }
 
 class CookMeal {

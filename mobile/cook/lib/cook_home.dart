@@ -1199,44 +1199,66 @@ class _ShopTab extends StatelessWidget {
                     Center(child: Text('Liste de courses vide')),
                   ],
                 )
-              : ListView.builder(
+              : ListView(
                   padding: const EdgeInsets.only(bottom: 88),
-                  itemCount: items.length,
-                  itemBuilder: (ctx, i) {
-                    final item = items[i];
-                    final qty = [item.qty, item.unit].where((s) => s.trim().isNotEmpty).join(' ');
-                    return CheckboxListTile(
-                      value: item.done,
-                      title: Row(
-                        children: [
-                          IngredientPhoto(name: cookShopPhotoName(item), size: 36),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              style: TextStyle(
-                                decoration: item.done ? TextDecoration.lineThrough : null,
-                              ),
+                  children: [
+                    for (final part in [
+                      (
+                        title: 'Alimentaire',
+                        rows: [for (final item in items) if (item.kind != 'other') item],
+                      ),
+                      (
+                        title: 'Pas alimentaire',
+                        rows: [for (final item in items) if (item.kind == 'other') item],
+                      ),
+                    ])
+                      if (part.rows.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          child: Text(part.title, style: Theme.of(context).textTheme.titleSmall),
+                        ),
+                        for (final item in part.rows)
+                          CheckboxListTile(
+                            value: item.done,
+                            title: Row(
+                              children: [
+                                Semantics(
+                                  label: 'Photo de ${cookShopPhotoName(item)}',
+                                  image: true,
+                                  child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    cookShopTitle(item),
+                                    style: TextStyle(
+                                      decoration: item.done ? TextDecoration.lineThrough : null,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            subtitle: Text(
+                              item.kind == 'other'
+                                  ? 'Pas alimentaire'
+                                  : (cookShopVisibleQty(item).isEmpty
+                                      ? 'À acheter'
+                                      : cookShopVisibleQty(item)),
+                            ),
+                            onChanged: (v) {
+                              item.done = v ?? false;
+                              onChanged();
+                            },
+                            secondary: IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () {
+                                items.removeWhere((e) => e.id == item.id);
+                                onChanged();
+                              },
                             ),
                           ),
-                        ],
-                      ),
-                      subtitle: Text(
-                        item.kind == 'other' ? 'Pas alimentaire' : (qty.isEmpty ? 'À acheter' : qty),
-                      ),
-                      onChanged: (v) {
-                        item.done = v ?? false;
-                        onChanged();
-                      },
-                      secondary: IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          items.removeAt(i);
-                          onChanged();
-                        },
-                      ),
-                    );
-                  },
+                      ],
+                  ],
                 ),
         ),
       ],

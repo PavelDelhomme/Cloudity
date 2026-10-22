@@ -6,6 +6,12 @@ void main() {
     final uri = commonsIngredientSearchUri('tomate');
     expect(uri.host, 'commons.wikimedia.org');
     expect(uri.queryParameters['gsrsearch'], 'tomate');
+    expect(cookPhotoQuery('sel'), 'table salt');
+    expect(cookPhotoQuery('savon'), 'soap');
+    expect(
+      commonsIngredientSearchUri(cookPhotoQuery('sel')).queryParameters['gsrsearch'],
+      'table salt',
+    );
     expect(uri.toString().contains('google'), isFalse);
   });
 
