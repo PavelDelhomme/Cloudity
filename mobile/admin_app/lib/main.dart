@@ -95,12 +95,14 @@ Future<UserSession?> _restoreSession() async {
     if (!adminRefreshTokenRejected(error)) rethrow;
     debugPrint('Admin: refresh refusé, choix de compte (${pair.api.baseUrl})');
     await SessionStore.clearLocalTokens();
+    if (role != 'admin') adminStayOnLogin();
     return null;
   }
   if (recovered.openChooser) {
     // Jeton mort : ne pas le réafficher, ne pas le renvoyer au prochain lancement.
     debugPrint('Admin: refresh refusé, choix de compte (${pair.api.baseUrl})');
     await SessionStore.clearLocalTokens();
+    if (role != 'admin') adminStayOnLogin();
     return null;
   }
   final ({String access, String refresh, bool? isAdmin}) adminTokens;
@@ -113,12 +115,14 @@ Future<UserSession?> _restoreSession() async {
   } catch (error) {
     debugPrint('Admin: rôle illisible ($error)');
     await SessionStore.clearLocalTokens();
+    if (role != 'admin') adminStayOnLogin();
     return null;
   }
   final isAdmin = adminTokens.isAdmin;
   if (isAdmin == null) {
     // Gateway injoignable : garder le broker des autres apps, session locale seule.
     await SessionStore.clearLocalTokens();
+    if (role != 'admin') adminStayOnLogin();
     return null;
   }
   if (!isAdmin) {
