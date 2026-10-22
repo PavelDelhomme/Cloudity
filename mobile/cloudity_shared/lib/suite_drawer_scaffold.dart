@@ -90,6 +90,14 @@ class SuiteDrawerHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: 'Fermer le menu',
+                onPressed: () {
+                  final nav = Navigator.of(context);
+                  if (nav.canPop()) nav.pop();
+                },
+                icon: const Icon(Icons.close),
+              ),
             ],
           ),
         ),
