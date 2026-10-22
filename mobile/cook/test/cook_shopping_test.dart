@@ -1,4 +1,6 @@
 import 'package:cloudity_cook/cook_store.dart';
+import 'package:cloudity_cook/cook_units.dart';
+import 'package:cloudity_cook/mealdb.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,10 +43,10 @@ void main() {
   test('génération semaine : repas du lundi, pas le jour seul, frigo périmé racheté', () {
     final plan = {
       '2026-10-19': {
-        'lunch': CookMeal(mealId: 'm1', title: 'Lundi'),
+        'lunch': [CookMeal(mealId: 'm1', title: 'Lundi')],
       },
       '2026-10-21': {
-        'dinner': CookMeal(mealId: 'm2', title: 'Mercredi'),
+        'dinner': [CookMeal(mealId: 'm2', title: 'Mercredi')],
       },
     };
     final labels = cookShoppingLabelsToAdd(
@@ -93,5 +95,64 @@ void main() {
     expect(loaded?.pantry.single.opened, isTrue);
     expect(loaded?.pantry.single.keepDays, 3);
     expect(loaded?.shopping.single.kind, 'other');
+  });
+
+  test('1 c. à c. de sel déjà au frigo en grammes n’est pas une cuillère à acheter', () {
+    final labels = cookShoppingLabelsToAdd(
+      plan: {
+        '2026-10-22': {
+          'dinner': [CookMeal(mealId: 'm', title: 'Sel')],
+        },
+      },
+      pantry: [CookPantryItem(id: 'p', name: 'sel', qty: '500', unit: 'g')],
+      anchor: DateTime(2026, 10, 22),
+      horizon: CookShopHorizon.week,
+      mealsById: {
+        'm': [(name: 'salt', measure: '1 tsp')],
+      },
+      existing: const [],
+      today: DateTime(2026, 10, 22),
+    );
+    expect(labels, isEmpty);
+  });
+
+  test('sans sel, la course est en grammes', () {
+    final labels = cookShoppingLabelsToAdd(
+      plan: {
+        '2026-10-22': {
+          'dinner': [CookMeal(mealId: 'm', title: 'Sel')],
+        },
+      },
+      pantry: const [],
+      anchor: DateTime(2026, 10, 22),
+      horizon: CookShopHorizon.week,
+      mealsById: {
+        'm': [(name: 'salt', measure: '1 teaspoon')],
+      },
+      existing: const [],
+      today: DateTime(2026, 10, 22),
+    );
+    expect(labels, ['5 g sel']);
+    expect(labels.single.contains('cuillère'), isFalse);
+  });
+
+  test('deux dîners restent, un paquet de sel couvre la pincée', () {
+    final plan = <String, Map<String, List<CookMeal>>>{};
+    cookAppendMeal(plan, '2026-10-22', 'dinner', CookMeal(mealId: 'a', title: 'A'));
+    cookAppendMeal(plan, '2026-10-22', 'dinner', CookMeal(mealId: 'a', title: 'A'));
+    expect(plan['2026-10-22']!['dinner'], hasLength(2));
+    final balance = cookPantryBalance(
+      ingredient: 'salt',
+      measure: '1 pinch',
+      pantry: [CookPantryItem(id: 'p', name: 'sel', qty: '1', unit: 'paquet')],
+      today: DateTime(2026, 10, 22),
+    );
+    expect(balance.inFridge, isTrue);
+    expect(balance.missing, isFalse);
+    expect(cookNormalizeUnits('1 teaspoon'), '1 c. à c.');
+    expect(cookNormalizeUnits(cookNormalizeUnits('1 tablespoon')), '1 c. à s.');
+    cookUserFixes['salt'] = 'fleur de sel';
+    addTearDown(() => cookUserFixes.remove('salt'));
+    expect(cookToFrenchLearned('salt'), 'fleur de sel');
   });
 }

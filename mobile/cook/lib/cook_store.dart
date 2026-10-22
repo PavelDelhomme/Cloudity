@@ -4,6 +4,9 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'cook_units.dart';
+import 'mealdb.dart';
+
 class CookPantryItem {
   CookPantryItem({
     required this.id,
@@ -60,6 +63,9 @@ class CookShopItem {
     required this.name,
     this.done = false,
     this.kind = 'food',
+    this.ingredient = '',
+    this.qty = '',
+    this.unit = '',
   });
 
   final String id;
@@ -69,11 +75,19 @@ class CookShopItem {
   /// `food` (généré depuis le planning) ou `other` (pas alimentaire).
   String kind;
 
+  /// Nom de l’ingrédient, pour la photo. Vide sur les anciennes lignes.
+  String ingredient;
+  String qty;
+  String unit;
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'done': done,
         'kind': kind == 'other' ? 'other' : 'food',
+        'ingredient': ingredient,
+        'qty': qty,
+        'unit': unit,
       };
 
   static CookShopItem fromJson(Map<String, dynamic> raw) => CookShopItem(
@@ -81,7 +95,16 @@ class CookShopItem {
         name: raw['name']?.toString() ?? '',
         done: raw['done'] == true,
         kind: raw['kind']?.toString() == 'other' ? 'other' : 'food',
+        ingredient: raw['ingredient']?.toString() ?? '',
+        qty: raw['qty']?.toString() ?? '',
+        unit: raw['unit']?.toString() ?? '',
       );
+}
+
+String cookShopPhotoName(CookShopItem item) {
+  final ingredient = item.ingredient.trim();
+  if (ingredient.isNotEmpty) return ingredient;
+  return cookNameFromShopLabel(item.name);
 }
 
 class CookMeal {
@@ -113,27 +136,35 @@ class CookData {
   CookData({
     List<CookPantryItem>? pantry,
     List<CookShopItem>? shopping,
-    Map<String, Map<String, CookMeal>>? plan,
+    Map<String, Map<String, List<CookMeal>>>? plan,
     List<String>? favorites,
+    List<String>? wanted,
   })  : pantry = pantry ?? [],
         shopping = shopping ?? [],
         plan = plan ?? {},
-        favorites = favorites ?? [];
+        favorites = favorites ?? [],
+        wanted = wanted ?? [];
 
   final List<CookPantryItem> pantry;
   final List<CookShopItem> shopping;
-  /// date ISO `yyyy-mm-dd` → slot (`breakfast`/`lunch`/`dinner`) → repas
-  final Map<String, Map<String, CookMeal>> plan;
+  /// date ISO `yyyy-mm-dd` → slot (`breakfast`/`lunch`/`dinner`) → repas, plusieurs fois.
+  final Map<String, Map<String, List<CookMeal>>> plan;
   final List<String> favorites;
+
+  /// Recettes que l’on veut faire, sans les programmer.
+  final List<String> wanted;
 
   Map<String, dynamic> toJson() => {
         'pantry': pantry.map((e) => e.toJson()).toList(),
         'shopping': shopping.map((e) => e.toJson()).toList(),
         'plan': {
           for (final e in plan.entries)
-            e.key: {for (final s in e.value.entries) s.key: s.value.toJson()},
+            e.key: {
+              for (final s in e.value.entries) s.key: s.value.map((m) => m.toJson()).toList(),
+            },
         },
         'favorites': favorites,
+        'wanted': wanted,
       };
 
   static CookData fromJson(Map<String, dynamic>? raw) {
@@ -152,16 +183,14 @@ class CookData {
         if (item is Map<String, dynamic>) shopping.add(CookShopItem.fromJson(item));
       }
     }
-    final plan = <String, Map<String, CookMeal>>{};
+    final plan = <String, Map<String, List<CookMeal>>>{};
     final pl = raw['plan'];
     if (pl is Map) {
       for (final e in pl.entries) {
-        final day = <String, CookMeal>{};
+        final day = <String, List<CookMeal>>{};
         if (e.value is Map) {
           for (final s in (e.value as Map).entries) {
-            day[s.key.toString()] = CookMeal.fromJson(
-              s.value is Map<String, dynamic> ? s.value as Map<String, dynamic> : null,
-            );
+            day[s.key.toString()] = _mealsFromJson(s.value);
           }
         }
         plan[e.key.toString()] = day;
@@ -175,8 +204,37 @@ class CookData {
         if (t.isNotEmpty) favs.add(t);
       }
     }
-    return CookData(pantry: pantry, shopping: shopping, plan: plan, favorites: favs);
+    final wanted = <String>[];
+    final w = raw['wanted'];
+    if (w is List) {
+      for (final id in w) {
+        final t = id?.toString() ?? '';
+        if (t.isNotEmpty) wanted.add(t);
+      }
+    }
+    return CookData(pantry: pantry, shopping: shopping, plan: plan, favorites: favs, wanted: wanted);
   }
+}
+
+List<CookMeal> _mealsFromJson(Object? raw) {
+  if (raw is List) {
+    return [
+      for (final item in raw)
+        if (item is Map) CookMeal.fromJson(Map<String, dynamic>.from(item)),
+    ];
+  }
+  if (raw is Map) return [CookMeal.fromJson(Map<String, dynamic>.from(raw))];
+  return [];
+}
+
+void cookAppendMeal(
+  Map<String, Map<String, List<CookMeal>>> plan,
+  String day,
+  String slot,
+  CookMeal meal,
+) {
+  final slots = plan.putIfAbsent(day, () => {});
+  slots.putIfAbsent(slot, () => []).add(meal);
 }
 
 /// Jeton absent ou refusé après un essai de renouvellement : écran de compte.
@@ -409,10 +467,116 @@ bool cookPantryCovers(String ingredient, Iterable<CookPantryItem> pantry, DateTi
   return false;
 }
 
-/// Ingrédients du planning (semaine ou mois) absents du frigo encore bon.
-/// N’ajoute pas les lignes déjà présentes, y compris le pas-alimentaire.
-List<String> cookShoppingLabelsToAdd({
-  required Map<String, Map<String, CookMeal>> plan,
+class CookShopNeed {
+  const CookShopNeed({required this.ingredient, this.qty = '', this.unit = ''});
+
+  final String ingredient;
+  final String qty;
+  final String unit;
+
+  /// Produit achetable. Une c. à c. de sel devient des grammes, pas une cuillère.
+  String get label {
+    if (qty.isEmpty || unit.isEmpty || !cookBuyUnits.contains(unit)) return ingredient;
+    return '$qty $unit $ingredient';
+  }
+}
+
+class _ShopAgg {
+  _ShopAgg(this.name);
+
+  final String name;
+  double need = 0;
+  String unit = '';
+  bool sawMeasure = false;
+}
+
+void _absorbNeed(Map<String, _ShopAgg> agg, List<String> order, String rawName, String measure) {
+  final name = cookToFrench(rawName).trim();
+  if (name.isEmpty) return;
+  final key = name.toLowerCase();
+  final slot = agg.putIfAbsent(key, () {
+    order.add(key);
+    return _ShopAgg(name);
+  });
+  final parsed = cookParseMeasure(measure);
+  if (parsed == null) return;
+  final base = cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: name);
+  if (base == null || !cookBuyUnits.contains(base.unit)) return;
+  if (slot.unit.isEmpty) slot.unit = base.unit;
+  if (slot.unit != base.unit) return;
+  slot.need += base.value;
+  slot.sawMeasure = true;
+}
+
+List<CookStock> cookStockOf(List<CookPantryItem> pantry, DateTime today) {
+  return [
+    for (final item in pantry)
+      CookStock(
+        name: cookToFrench(item.name),
+        qty: item.qty,
+        unit: item.unit,
+        usable: cookPantryStillUsable(item, today),
+      ),
+  ];
+}
+
+bool _shopAlready(List<CookShopItem> existing, String ingredient) {
+  final needle = ingredient.toLowerCase();
+  for (final item in existing) {
+    if (cookNamesMatch(needle, cookShopPhotoName(item))) return true;
+  }
+  return false;
+}
+
+List<CookShopNeed> _emitNeeds(
+  Map<String, _ShopAgg> agg,
+  List<String> order,
+  List<CookPantryItem> pantry,
+  List<CookShopItem> existing,
+  DateTime today,
+) {
+  final stock = cookStockOf(pantry, today);
+  final out = <CookShopNeed>[];
+  for (final key in order) {
+    final slot = agg[key]!;
+    if (_shopAlready(existing, slot.name)) continue;
+    final balance = cookBalance(
+      name: slot.name,
+      stock: stock,
+      need: slot.sawMeasure ? slot.need : null,
+      unit: slot.unit,
+    );
+    if (!balance.missing) continue;
+    if (balance.comparable && balance.need != null && cookBuyUnits.contains(balance.unit)) {
+      final deficit = balance.need! - (balance.have ?? 0);
+      if (deficit <= 0.05) continue;
+      out.add(CookShopNeed(ingredient: slot.name, qty: cookFormatQty(deficit), unit: balance.unit));
+    } else {
+      out.add(CookShopNeed(ingredient: slot.name));
+    }
+  }
+  return out;
+}
+
+List<CookShopNeed> cookNeedsForIngredients({
+  required List<({String name, String measure})> ingredients,
+  required List<CookPantryItem> pantry,
+  required List<CookShopItem> existing,
+  required DateTime today,
+}) {
+  final order = <String>[];
+  final agg = <String, _ShopAgg>{};
+  for (final ing in ingredients) {
+    _absorbNeed(agg, order, ing.name, ing.measure);
+  }
+  return _emitNeeds(agg, order, pantry, existing, today);
+}
+
+/// Ingrédients du planning (semaine ou mois) qui manquent encore au frigo.
+/// N’efface pas les lignes déjà présentes, y compris le pas-alimentaire.
+/// Le manque est une quantité achetable (g, ml, pièce), pas une cuillère.
+List<CookShopNeed> cookShoppingNeeds({
+  required Map<String, Map<String, List<CookMeal>>> plan,
   required List<CookPantryItem> pantry,
   required DateTime anchor,
   required CookShopHorizon horizon,
@@ -420,24 +584,61 @@ List<String> cookShoppingLabelsToAdd({
   required List<CookShopItem> existing,
   required DateTime today,
 }) {
-  final have = existing.map((s) => s.name.toLowerCase()).toSet();
-  final out = <String>[];
+  final order = <String>[];
+  final agg = <String, _ShopAgg>{};
   for (final day in cookHorizonDays(anchor, horizon)) {
     final slots = plan[cookDayKey(day)];
     if (slots == null) continue;
-    for (final meal in slots.values) {
-      final id = meal.mealId;
-      if (id == null || id.isEmpty) continue;
-      final ingredients = mealsById[id];
-      if (ingredients == null) continue;
-      for (final ing in ingredients) {
-        if (cookPantryCovers(ing.name, pantry, today)) continue;
-        final label = ing.measure.trim().isEmpty ? ing.name : '${ing.measure} ${ing.name}';
-        final key = label.toLowerCase();
-        if (have.contains(key) || out.any((s) => s.toLowerCase() == key)) continue;
-        out.add(label);
+    for (final meals in slots.values) {
+      for (final meal in meals) {
+        final id = meal.mealId;
+        if (id == null || id.isEmpty) continue;
+        final ingredients = mealsById[id];
+        if (ingredients == null) continue;
+        for (final ing in ingredients) {
+          _absorbNeed(agg, order, ing.name, ing.measure);
+        }
       }
     }
   }
-  return out;
+  return _emitNeeds(agg, order, pantry, existing, today);
+}
+
+List<String> cookShoppingLabelsToAdd({
+  required Map<String, Map<String, List<CookMeal>>> plan,
+  required List<CookPantryItem> pantry,
+  required DateTime anchor,
+  required CookShopHorizon horizon,
+  required Map<String, List<({String name, String measure})>> mealsById,
+  required List<CookShopItem> existing,
+  required DateTime today,
+}) {
+  return cookShoppingNeeds(
+    plan: plan,
+    pantry: pantry,
+    anchor: anchor,
+    horizon: horizon,
+    mealsById: mealsById,
+    existing: existing,
+    today: today,
+  ).map((need) => need.label).toList();
+}
+
+CookBalance cookPantryBalance({
+  required String ingredient,
+  required String measure,
+  required List<CookPantryItem> pantry,
+  required DateTime today,
+}) {
+  final name = cookToFrench(ingredient).trim();
+  final parsed = cookParseMeasure(measure);
+  final base = parsed == null
+      ? null
+      : cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: name);
+  return cookBalance(
+    name: name,
+    stock: cookStockOf(pantry, today),
+    need: base?.value,
+    unit: base?.unit ?? '',
+  );
 }

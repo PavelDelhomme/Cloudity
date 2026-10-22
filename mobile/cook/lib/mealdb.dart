@@ -1,7 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'cook_units.dart';
 
 const _mealDb = 'https://www.themealdb.com/api/json/v1/1';
 
@@ -112,16 +115,16 @@ Future<MealDetail?> mealDbLookup(String id) async {
     final name = raw['strIngredient$i']?.toString().trim() ?? '';
     final measure = raw['strMeasure$i']?.toString().trim() ?? '';
     if (name.isEmpty) continue;
-    ingredients.add((name: cookToFrench(name), measure: cookToFrench(measure)));
+    ingredients.add((name: name, measure: measure));
   }
   return MealDetail(
     id: raw['idMeal']?.toString() ?? id,
-    title: cookToFrench(raw['strMeal']?.toString() ?? 'Recette'),
-    instructions: cookToFrench(raw['strInstructions']?.toString() ?? ''),
+    title: raw['strMeal']?.toString() ?? 'Recette',
+    instructions: raw['strInstructions']?.toString() ?? '',
     ingredients: ingredients,
     thumb: raw['strMealThumb']?.toString(),
-    category: raw['strCategory'] == null ? null : cookToFrench(raw['strCategory'].toString()),
-    area: raw['strArea'] == null ? null : cookToFrench(raw['strArea'].toString()),
+    category: raw['strCategory']?.toString(),
+    area: raw['strArea']?.toString(),
     youtube: raw['strYoutube']?.toString(),
   );
 }
@@ -251,15 +254,6 @@ const _enToFr = {
   'bay leaves': 'feuilles de laurier',
   'clove': 'clou de girofle',
   'cloves': 'gousses',
-  'tablespoons': 'cuillères à soupe',
-  'tablespoon': 'cuillère à soupe',
-  'teaspoons': 'cuillères à café',
-  'teaspoon': 'cuillère à café',
-  'tbsp': 'c. à soupe',
-  'tsp': 'c. à café',
-  'cups': 'tasses',
-  'cup': 'tasse',
-  'pinch': 'pincée',
   'slice': 'tranche',
   'slices': 'tranches',
   'clove of garlic': 'gousse d’ail',
@@ -318,6 +312,9 @@ final Map<String, String> _frToEn = {
 /// Corrections saisies par l’utilisateur, réutilisées telles quelles.
 final Map<String, String> cookUserFixes = {};
 
+/// Les libellés affichés se relisent quand une correction est retenue.
+final ValueNotifier<int> cookFixesTick = ValueNotifier<int>(0);
+
 const _cookFixesKey = 'cook_user_fixes_v1';
 
 Future<void> cookLoadUserFixes() async {
@@ -344,6 +341,7 @@ void cookRememberFix(String source, String french) {
   final value = french.trim();
   if (key.isEmpty || value.isEmpty) return;
   cookUserFixes[key] = value;
+  cookFixesTick.value++;
   _cookSaveUserFixes();
 }
 
@@ -360,7 +358,7 @@ String cookToFrench(String text) {
   if (raw.isEmpty) return raw;
   final fixed = cookUserFixes[raw.toLowerCase()];
   if (fixed != null && fixed.isNotEmpty) return fixed;
-  var out = raw;
+  var out = cookNormalizeUnits(raw);
   for (final key in _enToFrKeys) {
     out = out.replaceAll(
       RegExp('\\b${RegExp.escape(key)}\\b', caseSensitive: false),
@@ -398,7 +396,7 @@ List<MealSummary> _summaries(String body) {
     if (id.isEmpty || title.isEmpty) continue;
     out.add(MealSummary(
       id: id,
-      title: cookToFrench(title),
+      title: title,
       thumb: raw['strMealThumb']?.toString(),
     ));
   }

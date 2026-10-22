@@ -4,7 +4,9 @@ import 'package:cloudity_shared/cloudity_shared.dart';
 import 'package:flutter/material.dart';
 
 import 'cook_ingredient_fields.dart';
+import 'cook_recipe.dart';
 import 'cook_store.dart';
+import 'cook_translate.dart';
 import 'ingredient_photo.dart';
 import 'mealdb.dart';
 
@@ -296,7 +298,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
           data: _data,
           onDay: (d) => setState(() => _planDay = d),
           onPick: _pickMealForSlot,
-          onClear: _clearSlot,
+          onClear: _clearMeal,
         ),
         _ShopTab(
           items: _data.shopping,
@@ -526,74 +528,78 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     await _persist();
   }
 
+  Future<void> _toggleWant(String id) async {
+    setState(() {
+      if (_data.wanted.contains(id)) {
+        _data.wanted.remove(id);
+      } else {
+        _data.wanted.add(id);
+      }
+    });
+    await _persist();
+  }
+
   Future<void> _openRecipe(MealSummary meal, {String? slot}) async {
-    final detail = await Navigator.of(context).push<MealDetail>(
-      MaterialPageRoute(builder: (ctx) => _RecipeDialog(summary: meal)),
-    );
-    if (detail == null || !mounted) return;
-    if (slot != null) {
-      _setSlot(slot, CookMeal(mealId: detail.id, title: detail.title, thumb: detail.thumb));
-      return;
-    }
-    final choice = await showSuiteModalBottomSheet<String>(
-      context: context,
-      builder: (ctx) => Padding(
-        padding: suiteBottomSheetPadding(ctx),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.wb_twilight_outlined),
-              title: const Text('Petit-déjeuner'),
-              onTap: () => Navigator.pop(ctx, 'breakfast'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.wb_sunny_outlined),
-              title: const Text('Déjeuner'),
-              onTap: () => Navigator.pop(ctx, 'lunch'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.nights_stay_outlined),
-              title: const Text('Dîner'),
-              onTap: () => Navigator.pop(ctx, 'dinner'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.shopping_cart_outlined),
-              title: const Text('Ajouter les ingrédients aux courses'),
-              onTap: () => Navigator.pop(ctx, 'shop'),
-            ),
-          ],
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (ctx) => CookRecipePage(
+          summary: meal,
+          pantry: _data.pantry,
+          favorite: _data.favorites.contains(meal.id),
+          wanted: _data.wanted.contains(meal.id),
+          suggestedSlot: slot,
+          onToggleFav: () => _toggleFav(meal.id),
+          onToggleWant: () => _toggleWant(meal.id),
+          onSchedule: (chosen, detail) => _appendMeal(chosen, detail),
+          onShop: _shopFromDetail,
         ),
       ),
     );
-    if (!mounted || choice == null) return;
-    if (choice == 'shop') {
-      setState(() {
-        for (final ing in detail.ingredients) {
-          final label = ing.measure.isEmpty ? ing.name : '${ing.measure} ${ing.name}';
-          if (_data.shopping.any((s) => s.name.toLowerCase() == label.toLowerCase())) continue;
-          _data.shopping.add(CookShopItem(id: cookNewId(), name: label));
-        }
-      });
-      await _persist();
-      return;
-    }
-    _setSlot(choice, CookMeal(mealId: detail.id, title: detail.title, thumb: detail.thumb));
   }
 
-  void _setSlot(String slot, CookMeal meal) {
+  Future<void> _appendMeal(String slot, MealDetail detail) async {
     final key = cookDayKey(_planDay);
     setState(() {
-      _data.plan.putIfAbsent(key, () => {});
-      _data.plan[key]![slot] = meal;
-      _tab = 2;
+      cookAppendMeal(
+        _data.plan,
+        key,
+        slot,
+        CookMeal(
+          mealId: detail.id,
+          title: cookToFrenchLearned(detail.title),
+          thumb: detail.thumb,
+        ),
+      );
     });
-    _persist();
+    await _persist();
   }
 
-  Future<void> _clearSlot(String slot) async {
+  Future<void> _shopFromDetail(MealDetail detail) async {
+    final needs = cookNeedsForIngredients(
+      ingredients: detail.ingredients,
+      pantry: _data.pantry,
+      existing: _data.shopping,
+      today: DateTime.now(),
+    );
+    setState(() {
+      for (var i = 0; i < needs.length; i++) {
+        final need = needs[i];
+        _data.shopping.add(CookShopItem(
+          id: '${cookNewId()}-$i',
+          name: need.label,
+          ingredient: need.ingredient,
+          qty: need.qty,
+          unit: need.unit,
+          kind: 'food',
+        ));
+      }
+    });
+    await _persist();
+  }
+
+  Future<void> _clearMeal(String slot, CookMeal meal) async {
     final key = cookDayKey(_planDay);
-    setState(() => _data.plan[key]?.remove(slot));
+    setState(() => _data.plan[key]?[slot]?.remove(meal));
     await _persist();
   }
 
@@ -630,7 +636,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
                                 child: Image.network(m.thumb!, width: 44, height: 44, fit: BoxFit.cover),
                               )
                             : const Icon(Icons.restaurant),
-                        title: Text(m.title),
+                        title: CookFrenchText(source: m.title),
                         onTap: () => Navigator.pop(ctx, m),
                       ),
                   ],
@@ -707,9 +713,11 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
     for (final day in cookHorizonDays(_planDay, horizon)) {
       final slots = _data.plan[cookDayKey(day)];
       if (slots == null) continue;
-      for (final meal in slots.values) {
-        final id = meal.mealId;
-        if (id != null && id.isNotEmpty) ids.add(id);
+      for (final meals in slots.values) {
+        for (final meal in meals) {
+          final id = meal.mealId;
+          if (id != null && id.isNotEmpty) ids.add(id);
+        }
       }
     }
     for (final id in ids) {
@@ -717,7 +725,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
       if (detail == null) continue;
       mealsById[id] = detail.ingredients;
     }
-    final labels = cookShoppingLabelsToAdd(
+    final needs = cookShoppingNeeds(
       plan: _data.plan,
       pantry: _data.pantry,
       anchor: _planDay,
@@ -727,10 +735,14 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
       today: DateTime.now(),
     );
     setState(() {
-      for (var i = 0; i < labels.length; i++) {
+      for (var i = 0; i < needs.length; i++) {
+        final need = needs[i];
         _data.shopping.add(CookShopItem(
           id: '${cookNewId()}-$i',
-          name: labels[i],
+          name: need.label,
+          ingredient: need.ingredient,
+          qty: need.qty,
+          unit: need.unit,
           kind: 'food',
         ));
       }
@@ -741,7 +753,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            labels.isEmpty
+            needs.isEmpty
                 ? 'Rien à ajouter pour $span (frigo encore bon, ou planning vide).'
                 : 'Courses générées depuis le planning de $span, moins le frigo encore bon.',
           ),
@@ -891,7 +903,7 @@ class _RecipesTabState extends State<_RecipesTab> {
         for (final id in widget.favorites) {
           final detail = await mealDbLookup(id);
           if (detail == null) continue;
-          list.add(MealSummary(id: detail.id, title: cookToFrenchLearned(detail.title), thumb: detail.thumb));
+          list.add(MealSummary(id: detail.id, title: detail.title, thumb: detail.thumb));
         }
         if (!mounted) return;
         setState(() {
@@ -1036,7 +1048,7 @@ class _RecipesTabState extends State<_RecipesTab> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Text(m.title, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                    child: CookFrenchText(source: m.title, maxLines: 2),
                                   ),
                                   IconButton(
                                     icon: Icon(fav ? Icons.favorite : Icons.favorite_border, size: 20),
@@ -1071,23 +1083,34 @@ class _PlanTab extends StatelessWidget {
   final CookData data;
   final ValueChanged<DateTime> onDay;
   final Future<void> Function(String slot) onPick;
-  final Future<void> Function(String slot) onClear;
+  final Future<void> Function(String slot, CookMeal meal) onClear;
 
   @override
   Widget build(BuildContext context) {
     final key = cookDayKey(day);
     final slots = data.plan[key] ?? {};
     Widget card(String slot, String label, IconData icon) {
-      final meal = slots[slot];
+      final meals = slots[slot] ?? const <CookMeal>[];
       return Card(
-        child: ListTile(
-          leading: Icon(icon),
-          title: Text(label),
-          subtitle: Text(meal?.title?.trim().isNotEmpty == true ? meal!.title! : 'Rien de prévu'),
-          trailing: meal?.isEmpty == false
-              ? IconButton(icon: const Icon(Icons.close), onPressed: () => onClear(slot))
-              : const Icon(Icons.add),
-          onTap: () => onPick(slot),
+        child: Column(
+          children: [
+            ListTile(
+              leading: Icon(icon),
+              title: Text(label),
+              subtitle: meals.isEmpty ? const Text('Rien de prévu') : Text('${meals.length} prévu${meals.length > 1 ? 's' : ''}'),
+              trailing: const Icon(Icons.add),
+              onTap: () => onPick(slot),
+            ),
+            for (final meal in meals)
+              ListTile(
+                title: Text(meal.title?.trim().isNotEmpty == true ? meal.title! : 'Recette'),
+                subtitle: _MealCoverage(mealId: meal.mealId, pantry: data.pantry),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => onClear(slot, meal),
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -1181,15 +1204,26 @@ class _ShopTab extends StatelessWidget {
                   itemCount: items.length,
                   itemBuilder: (ctx, i) {
                     final item = items[i];
+                    final qty = [item.qty, item.unit].where((s) => s.trim().isNotEmpty).join(' ');
                     return CheckboxListTile(
                       value: item.done,
-                      title: Text(
-                        item.name,
-                        style: TextStyle(
-                          decoration: item.done ? TextDecoration.lineThrough : null,
-                        ),
+                      title: Row(
+                        children: [
+                          IngredientPhoto(name: cookShopPhotoName(item), size: 36),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              item.name,
+                              style: TextStyle(
+                                decoration: item.done ? TextDecoration.lineThrough : null,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      subtitle: item.kind == 'other' ? const Text('Pas alimentaire') : null,
+                      subtitle: Text(
+                        item.kind == 'other' ? 'Pas alimentaire' : (qty.isEmpty ? 'À acheter' : qty),
+                      ),
                       onChanged: (v) {
                         item.done = v ?? false;
                         onChanged();
@@ -1210,116 +1244,48 @@ class _ShopTab extends StatelessWidget {
   }
 }
 
-class _RecipeDialog extends StatefulWidget {
-  const _RecipeDialog({required this.summary});
-  final MealSummary summary;
+class _MealCoverage extends StatefulWidget {
+  const _MealCoverage({required this.mealId, required this.pantry});
+
+  final String? mealId;
+  final List<CookPantryItem> pantry;
 
   @override
-  State<_RecipeDialog> createState() => _RecipeDialogState();
+  State<_MealCoverage> createState() => _MealCoverageState();
 }
 
-class _RecipeDialogState extends State<_RecipeDialog> {
-  MealDetail? _detail;
-  String? _error;
+class _MealCoverageState extends State<_MealCoverage> {
+  String _line = '';
+  bool _short = false;
 
   @override
   void initState() {
     super.initState();
-    mealDbLookup(widget.summary.id).then((d) {
-      if (!mounted) return;
-      setState(() {
-        _detail = d;
-        if (d == null) _error = 'Recette introuvable';
-      });
-    }).catchError((e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
-    });
-  }
-
-  Future<void> _correct(String source) async {
-    final ctrl = TextEditingController(text: cookToFrenchLearned(source));
-    final next = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Corriger la traduction'),
-        content: TextField(controller: ctrl, autofocus: true),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Retenir'),
+    final id = widget.mealId;
+    if (id == null || id.isEmpty) return;
+    mealDbLookup(id).then((detail) {
+      if (!mounted || detail == null) return;
+      final balances = [
+        for (final ing in detail.ingredients)
+          cookPantryBalance(
+            ingredient: ing.name,
+            measure: ing.measure,
+            pantry: widget.pantry,
+            today: DateTime.now(),
           ),
-        ],
-      ),
-    );
-    if (next == null || next.isEmpty) return;
-    cookRememberFix(source, next);
-    if (mounted) setState(() {});
+      ];
+      if (balances.isEmpty) return;
+      final missing = balances.where((b) => b.missing).length;
+      setState(() {
+        _short = missing > 0;
+        _line = '${balances.length - missing}/${balances.length} au frigo';
+      });
+    }).catchError((_) {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final d = _detail;
-    final title = cookToFrenchLearned(widget.summary.title);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(d == null ? title : cookToFrenchLearned(d.title)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: d == null
-          ? Center(child: _error != null ? Text(_error!) : const CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                if (d.thumb != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(d.thumb!),
-                  ),
-                if (d.category != null || d.area != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    [d.category, d.area]
-                        .whereType<String>()
-                        .map(cookToFrenchLearned)
-                        .join(' · '),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Text('Ingrédients', style: Theme.of(context).textTheme.titleSmall),
-                for (final ing in d.ingredients)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      '• ${cookToFrenchLearned(ing.measure)} ${cookToFrenchLearned(ing.name)}'.trim(),
-                    ),
-                    onLongPress: () => _correct(ing.name),
-                  ),
-                const SizedBox(height: 12),
-                Text('Préparation', style: Theme.of(context).textTheme.titleSmall),
-                Text(cookToFrenchLearned(d.instructions)),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => _correct(d.instructions),
-                  child: const Text('Corriger un passage mal traduit'),
-                ),
-              ],
-            ),
-      bottomNavigationBar: d == null
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(context, d),
-                  child: const Text('Utiliser'),
-                ),
-              ),
-            ),
-    );
+    if (_line.isEmpty) return const SizedBox.shrink();
+    return Text(_line, style: TextStyle(color: _short ? Colors.red : null));
   }
 }
