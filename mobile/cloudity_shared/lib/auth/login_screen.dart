@@ -37,6 +37,7 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
     required this.keyPrefix,
     this.productTitle,
     this.supportingText,
+    this.initialError,
     this.adoptDeviceAccount = false,
   });
 
@@ -48,6 +49,8 @@ class CloudityLoginScreen<T extends CloudityAuthClient> extends StatefulWidget {
   final String? productTitle;
   /// Texte d’intro sous le titre (branding / consignes app).
   final String? supportingText;
+  /// Message déjà connu (refus d’accès) affiché sur le formulaire.
+  final String? initialError;
 
   /// Défaut false : les autres apps gardent le sélecteur actuel.
   /// Vrai : le compte Hubera ID déjà sur l’appareil est ouvert, ou son adresse
@@ -86,6 +89,8 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    final seeded = widget.initialError?.trim();
+    if (seeded != null && seeded.isNotEmpty) _error = seeded;
     if (kDebugMode && widget.suiteApp != ClouditySuiteApp.admin) {
       ClouditySuiteDevCredentials.prefill(_emailCtrl, _passwordCtrl);
       _loadDevPersonas();
@@ -158,6 +163,9 @@ class _CloudityLoginScreenState<T extends CloudityAuthClient>
       _brokerAccounts = accounts;
       if (gateways.isNotEmpty) _gatewayBase = gateways.first;
     });
+    if ((widget.initialError?.trim().isNotEmpty ?? false)) {
+      return;
+    }
     final admin = widget.suiteApp == ClouditySuiteApp.admin;
     if (admin &&
         adminShouldAutoPasskey(

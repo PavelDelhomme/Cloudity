@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../api/admin_api.dart';
+import '../auth/admin_gate.dart';
 import '../auth/admin_refresh.dart';
 import '../auth/user_session.dart';
 import 'admin_account_chip.dart';
@@ -129,6 +130,13 @@ class _AdminHomeState extends State<AdminHome> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (adminAccessForbidden(e)) {
+        debugPrint('Admin: accès refusé, écran de connexion');
+        await SessionStore.clearLocalTokens();
+        if (!mounted) return;
+        adminStayOnLogin();
+        return;
+      }
       if (adminRefreshTokenRejected(e)) {
         await _openAccountChooser();
         return;

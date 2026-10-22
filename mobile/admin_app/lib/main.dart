@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:cloudity_shared/cloudity_shared.dart';
 
 import 'api/auth_api.dart';
+import 'auth/admin_gate.dart';
 import 'auth/admin_refresh.dart';
 import 'auth/user_session.dart';
 import 'features/admin_home.dart';
@@ -65,14 +66,14 @@ Future<UserSession?> _restoreSession() async {
     return null;
   }
   final role = roleFromAccessToken(pair.access);
-  debugPrint(
-    'Admin: session locale lue role=$role valid=${adminAccessStillValid(pair.access)}',
-  );
-  // Session locale encore valide : ouvrir l’app tout de suite.
-  // Le clic compte affiche les réglages, pas un login, même si le rôle
-  // du jeton n’a pas encore été relu.
-  if (role == 'admin' || adminAccessStillValid(pair.access)) {
+  final accessStillValid = adminAccessStillValid(pair.access);
+  debugPrint('Admin: session locale lue role=$role valid=$accessStillValid');
+  // Rôle admin déjà dans le jeton : ouvrir. Un autre rôle, même avec un
+  // jeton encore valide, ne voit pas le tableau. Le renouvellement plus bas
+  // relit le rôle côté serveur (allowlist) avant de trancher.
+  if (adminOpensHome(role: role, accessStillValid: accessStillValid)) {
     debugPrint('Admin: ouverture de la session locale');
+    adminClearLoginNotice();
     return UserSession(
       api: pair.api,
       accessToken: pair.access,
@@ -102,11 +103,18 @@ Future<UserSession?> _restoreSession() async {
     await SessionStore.clearLocalTokens();
     return null;
   }
-  final adminTokens = await _tokensForAdmin(
-    api: pair.api,
-    access: recovered.access,
-    refresh: recovered.refresh,
-  );
+  final ({String access, String refresh, bool? isAdmin}) adminTokens;
+  try {
+    adminTokens = await _tokensForAdmin(
+      api: pair.api,
+      access: recovered.access,
+      refresh: recovered.refresh,
+    );
+  } catch (error) {
+    debugPrint('Admin: rôle illisible ($error)');
+    await SessionStore.clearLocalTokens();
+    return null;
+  }
   final isAdmin = adminTokens.isAdmin;
   if (isAdmin == null) {
     // Gateway injoignable : garder le broker des autres apps, session locale seule.
@@ -114,12 +122,16 @@ Future<UserSession?> _restoreSession() async {
     return null;
   }
   if (!isAdmin) {
-    // Compte user classique — ne pas effacer Drive/Mail/Notes.
+    // Le serveur n’a pas mis le rôle admin. Session locale Admin seulement :
+    // le broker des autres apps, et le compte principal, restent en place.
+    debugPrint('Admin: compte sans rôle admin, écran de connexion');
     await SessionStore.clearLocalTokens();
+    adminStayOnLogin();
     return null;
   }
+  adminClearLoginNotice();
   if (adminTokens.access != pair.access || adminTokens.refresh != pair.refresh) {
-    final savedEmail = emailFromAccessToken(adminTokens.access) ?? email ?? '';
+    final savedEmail = emailFromAccessToken(adminTokens.access) ?? email;
     if (savedEmail.isNotEmpty) {
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: pair.api.baseUrl,
@@ -162,8 +174,10 @@ Future<void> _onLoggedIn(
   }
   if (!isAdmin) {
     await SessionStore.clearLocalTokens();
-    throw AuthException('Compte non administrateur.');
+    adminStayOnLogin();
+    throw AuthException(adminDeniedMessage);
   }
+  adminClearLoginNotice();
   if (adminTokens.access != session.accessToken ||
       adminTokens.refresh != session.refreshToken) {
     final email = emailFromAccessToken(adminTokens.access) ?? '';
@@ -196,6 +210,7 @@ Future<void> main() async {
       suiteApp: ClouditySuiteApp.admin,
       restoreSession: _restoreSession,
       clearSession: SessionStore.clearTokens,
+      loginNotice: adminLoginNotice,
       crashSession: _crashBinding,
       sessionCredentials: (s) => (gatewayBase: s.api.baseUrl, accessToken: s.accessToken),
       loginBuilder: (onLoggedIn) => CloudityLoginScreen<AuthApi>(
@@ -203,6 +218,7 @@ Future<void> main() async {
         productTitle: 'Hubera Admin',
         keyPrefix: 'cloudity_admin',
         createApi: AuthApi.new,
+        initialError: adminLoginNotice.value,
         onLoggedIn: (s) => _onLoggedIn(s, onLoggedIn),
       ),
       homeBuilder: (session, onLogout) =>

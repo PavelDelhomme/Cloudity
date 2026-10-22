@@ -37,6 +37,7 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
     this.enableOtaCheck = true,
     this.restoring,
     this.loginOnlyWithoutSession = false,
+    this.loginNotice,
   });
 
   final Future<S?> Function() restoreSession;
@@ -59,6 +60,9 @@ class SuiteAppShell<S extends Object> extends StatefulWidget {
   /// Photos : la connexion n’apparaît que s’il n’y a vraiment pas de session.
   final bool loginOnlyWithoutSession;
 
+  /// Message non vide : revenir à l’écran de connexion sans effacer le broker.
+  final ValueNotifier<String?>? loginNotice;
+
   @override
   State<SuiteAppShell<S>> createState() => _SuiteAppShellState<S>();
 }
@@ -70,8 +74,15 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
   @override
   void initState() {
     super.initState();
+    widget.loginNotice?.addListener(_onLoginNotice);
     HuberaAccountSwitch.listen(_onChooserRequested);
     _restore();
+  }
+
+  void _onLoginNotice() {
+    final message = widget.loginNotice?.value?.trim() ?? '';
+    if (message.isEmpty || _session == null || !mounted) return;
+    setState(() => _session = null);
   }
 
   void _onChooserRequested() {
@@ -80,6 +91,7 @@ class _SuiteAppShellState<S extends Object> extends State<SuiteAppShell<S>> {
 
   @override
   void dispose() {
+    widget.loginNotice?.removeListener(_onLoginNotice);
     HuberaAccountSwitch.unlisten(_onChooserRequested);
     super.dispose();
   }
