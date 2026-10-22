@@ -617,22 +617,30 @@ Future<void> cloudityDownloadAndInstallOta(
   }
 }
 
-/// Dialogue « mise à jour disponible » — téléchargement + install **in-app** (pas de navigateur).
+/// Dialogue de mise à jour : versions, progression, erreur, deux actions.
 Future<void> cloudityShowOtaDialog(
   BuildContext context, {
   required CloudityOtaManifest manifest,
   required String currentVersion,
 }) async {
-  if (!context.mounted) return;
-  await showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) => _OtaUpdateDialog(
-      manifest: manifest,
-      currentVersion: currentVersion,
-    ),
-  );
+  if (!context.mounted || _otaDialogOpen) return;
+  _otaDialogOpen = true;
+  try {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _OtaUpdateDialog(
+        manifest: manifest,
+        currentVersion: currentVersion,
+      ),
+    );
+  } finally {
+    _otaDialogOpen = false;
+  }
 }
+
+bool _otaDialogOpen = false;
+final Set<String> _otaScheduled = <String>{};
 
 class _OtaUpdateDialog extends StatefulWidget {
   const _OtaUpdateDialog({
@@ -686,9 +694,7 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
         _busy = false;
         _progress = null;
         _phase = '';
-        _error = e is StateError || e is HttpException || e is UnsupportedError
-            ? e.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '')
-            : 'Mise à jour impossible. Réessaie.';
+        _error = e.toString().replaceFirst(RegExp(r'^[^:]+:\s*'), '');
       });
     }
   }
@@ -707,11 +713,13 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            notes.isNotEmpty
-                ? notes
-                : 'Version ${m.version} (installée : ${widget.currentVersion}).',
-          ),
+          Text('Installée ${widget.currentVersion}'),
+          const SizedBox(height: 4),
+          Text('Disponible ${m.version}'),
+          if (notes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(notes),
+          ],
           if (_busy) ...[
             const SizedBox(height: 16),
             Row(
@@ -752,12 +760,12 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _busy ? null : () => Navigator.of(context).pop(),
-          child: const Text('Plus tard'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Continuer sans installer'),
         ),
         FilledButton(
           onPressed: _busy ? null : _start,
-          child: Text(_error == null ? 'Télécharger' : 'Réessayer'),
+          child: Text(_error == null ? 'Installer maintenant' : 'Réessayer l’installation'),
         ),
       ],
     );
@@ -875,6 +883,7 @@ void cloudityScheduleOtaCheck(
   String? currentVersion,
   String? huberaHost,
 }) {
+  if (!_otaScheduled.add(appSlug)) return;
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     // Ne pas coller le dialogue OTA sur le splash / 1er paint (Mail trop lent).
     await Future<void>.delayed(const Duration(seconds: 20));
@@ -888,7 +897,7 @@ void cloudityScheduleOtaCheck(
       currentVersion: version,
       huberaHost: huberaHost,
     );
-    if (m == null || !context.mounted) return;
+    if (m == null || !context.mounted || _otaDialogOpen) return;
     await cloudityShowOtaDialog(
       context,
       manifest: m,
