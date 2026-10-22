@@ -145,14 +145,14 @@ String cookShopPhotoName(CookShopItem item) {
   return cookNameFromShopLabel(item.name);
 }
 
-/// Quantité affichée. Une c. à c. de sel reste des grammes, pas une cuillère.
+/// Quantité affichée. Une quantité stockable saisie gagne. Sinon une c. à c. devient des grammes.
 String cookShopVisibleQty(CookShopItem item) {
-  final fromLine = cookInterpretShopLine(item.name);
-  if (fromLine != null) return fromLine.qty;
-  final ingredient = cookShopPhotoName(item);
   final unit = cookCanonicalUnit(item.unit);
   final qty = item.qty.trim();
   if (qty.isNotEmpty && cookBuyUnits.contains(unit)) return '$qty $unit';
+  final fromLine = cookInterpretShopLine(item.name);
+  if (fromLine != null) return fromLine.qty;
+  final ingredient = cookShopPhotoName(item);
   final parsed = cookParseMeasure(qty.isEmpty ? '' : '$qty ${item.unit}');
   if (parsed == null) return '';
   final base = cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: ingredient);
@@ -161,9 +161,21 @@ String cookShopVisibleQty(CookShopItem item) {
 }
 
 String cookShopTitle(CookShopItem item) {
-  final fromLine = cookInterpretShopLine(item.name);
-  if (fromLine != null) return '${fromLine.qty} ${fromLine.name}';
+  final qty = cookShopVisibleQty(item);
+  final product = cookShopPhotoName(item);
+  if (qty.isNotEmpty && product.isNotEmpty) return '$qty $product';
   return item.name.trim();
+}
+
+/// Assez, ou aucune recette : rien. Sinon les recettes prévues qui manqueraient.
+String cookRecipesShortfall({
+  required double qty,
+  required double planned,
+  required List<String> recipes,
+}) {
+  final names = recipes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  if (names.isEmpty || planned <= qty + 0.05) return '';
+  return 'Pas assez pour : ${names.join(', ')}';
 }
 
 class CookMeal {

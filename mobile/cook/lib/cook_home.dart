@@ -7,6 +7,7 @@ import 'cook_ingredient_fields.dart';
 import 'cook_recipe.dart';
 import 'cook_store.dart';
 import 'cook_translate.dart';
+import 'cook_units.dart';
 import 'ingredient_photo.dart';
 import 'mealdb.dart';
 
@@ -303,6 +304,7 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
         _ShopTab(
           items: _data.shopping,
           onAdd: _addShop,
+          onEdit: _editShopQty,
           onChanged: () {
             setState(() {});
             _persist();
@@ -467,6 +469,132 @@ class _CookHomeScreenState extends State<CookHomeScreen> {
   Future<void> _removePantry(CookPantryItem item) async {
     setState(() => _data.pantry.removeWhere((e) => e.id == item.id));
     await _persist();
+  }
+
+  Future<void> _editShopQty(CookShopItem item) async {
+    const units = ['g', 'kg', 'ml', 'cl', 'l', 'pièce', 'paquet'];
+    final visible = cookShopVisibleQty(item);
+    final parsed = cookParseMeasure(visible);
+    final qtyCtrl = TextEditingController(text: parsed == null ? '' : cookFormatQty(parsed.value));
+    var unit = parsed != null && units.contains(parsed.unit) ? parsed.unit : 'g';
+    final product = cookShopPhotoName(item);
+    final previous = parsed?.value ?? 0;
+    final ok = await showSuiteModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final typed = double.tryParse(qtyCtrl.text.trim().replaceAll(',', '.'));
+          final preview = typed == null ? '' : '${cookFormatQty(typed)} $unit';
+          return Padding(
+            padding: suiteBottomSheetPadding(ctx),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('Quantité à acheter', style: Theme.of(ctx).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(product, style: Theme.of(ctx).textTheme.bodyMedium),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: qtyCtrl,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Quantité stockable',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setLocal(() {}),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(unit),
+                  initialValue: unit,
+                  decoration: const InputDecoration(labelText: 'Unité', border: OutlineInputBorder()),
+                  items: [
+                    for (final u in units) DropdownMenuItem(value: u, child: Text(u)),
+                  ],
+                  onChanged: (v) {
+                    if (v == null || !cookBuyUnits.contains(v)) return;
+                    setLocal(() => unit = v);
+                  },
+                ),
+                if (preview.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(preview, style: Theme.of(ctx).textTheme.titleMedium),
+                ],
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: typed == null ? null : () => Navigator.pop(ctx, true),
+                  child: const Text('Enregistrer'),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final typed = double.tryParse(qtyCtrl.text.trim().replaceAll(',', '.'));
+    if (typed == null || !cookBuyUnits.contains(unit)) return;
+    final saved = cookFormatQty(typed);
+    setState(() {
+      item.qty = saved;
+      item.unit = unit;
+      item.ingredient = product;
+    });
+    await _persist();
+    if (!mounted || typed + 0.05 >= previous) return;
+    final line = await _shortfallLine(product, typed, unit);
+    if (!mounted || line.isEmpty) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(line)));
+  }
+
+  Future<String> _shortfallLine(String product, double qty, String unit) async {
+    final mealsById = <String, List<({String name, String measure})>>{};
+    final titles = <String, String>{};
+    final ids = <String>{};
+    for (final day in cookHorizonDays(_planDay, CookShopHorizon.week)) {
+      final slots = _data.plan[cookDayKey(day)];
+      if (slots == null) continue;
+      for (final meals in slots.values) {
+        for (final meal in meals) {
+          final id = meal.mealId;
+          if (id == null || id.isEmpty) continue;
+          ids.add(id);
+          titles[id] = meal.title?.trim().isNotEmpty == true ? meal.title!.trim() : 'Recette';
+        }
+      }
+    }
+    for (final id in ids) {
+      try {
+        final detail = await mealDbLookup(id).timeout(const Duration(seconds: 4));
+        if (detail != null) mealsById[id] = detail.ingredients;
+      } catch (_) {}
+    }
+    final needs = cookShoppingNeeds(
+      plan: _data.plan,
+      pantry: _data.pantry,
+      anchor: _planDay,
+      horizon: CookShopHorizon.week,
+      mealsById: mealsById,
+      existing: const [],
+      today: DateTime.now(),
+    );
+    final hit = needs.where((n) => cookNamesMatch(n.ingredient, product));
+    if (hit.isEmpty) return '';
+    final planned = hit.fold<double>(0, (sum, n) {
+      final value = double.tryParse(n.qty.replaceAll(',', '.')) ?? 0;
+      if (n.unit != unit) return sum;
+      return sum + value;
+    });
+    final recipes = <String>[];
+    for (final id in ids) {
+      final ings = mealsById[id];
+      if (ings == null) continue;
+      final uses = ings.any((ing) => cookNamesMatch(cookToFrench(ing.name), product));
+      if (uses) recipes.add(titles[id] ?? 'Recette');
+    }
+    return cookRecipesShortfall(qty: qty, planned: planned, recipes: recipes);
   }
 
   Future<void> _addShop() async {
@@ -1156,12 +1284,14 @@ class _ShopTab extends StatelessWidget {
   const _ShopTab({
     required this.items,
     required this.onAdd,
+    required this.onEdit,
     required this.onChanged,
     required this.onGenerate,
   });
 
   final List<CookShopItem> items;
   final VoidCallback onAdd;
+  final Future<void> Function(CookShopItem item) onEdit;
   final VoidCallback onChanged;
   final Future<void> Function(CookShopHorizon horizon) onGenerate;
 
@@ -1220,23 +1350,26 @@ class _ShopTab extends StatelessWidget {
                         for (final item in part.rows)
                           CheckboxListTile(
                             value: item.done,
-                            title: Row(
-                              children: [
-                                Semantics(
-                                  label: 'Photo de ${cookShopPhotoName(item)}',
-                                  image: true,
-                                  child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    cookShopTitle(item),
-                                    style: TextStyle(
-                                      decoration: item.done ? TextDecoration.lineThrough : null,
+                            title: InkWell(
+                              onTap: () => onEdit(item),
+                              child: Row(
+                                children: [
+                                  Semantics(
+                                    label: 'Photo de ${cookShopPhotoName(item)}',
+                                    image: true,
+                                    child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      cookShopTitle(item),
+                                      style: TextStyle(
+                                        decoration: item.done ? TextDecoration.lineThrough : null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                             subtitle: Text(
                               item.kind == 'other'

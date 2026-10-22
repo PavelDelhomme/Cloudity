@@ -147,6 +147,23 @@ void main() {
     expect(cookShopTitle(stored).contains('cuillère'), isFalse);
   });
 
+  test('une quantité stockable saisie remplace la c. à c.', () {
+    final item = CookShopItem(
+      id: 's',
+      name: '1 c. à c. de sel',
+      qty: '250',
+      unit: 'g',
+    );
+    expect(cookShopVisibleQty(item), '250 g');
+    expect(cookShopTitle(item), '250 g sel');
+    expect(cookShopTitle(item).contains('c. à c.'), isFalse);
+    expect(cookRecipesShortfall(qty: 250, planned: 5, recipes: ['Soupe']), '');
+    expect(
+      cookRecipesShortfall(qty: 1, planned: 5, recipes: ['Soupe', 'Pain']),
+      'Pas assez pour : Soupe, Pain',
+    );
+  });
+
   test('sans sel, la course est en grammes', () {
     final labels = cookShoppingLabelsToAdd(
       plan: {
