@@ -9,10 +9,16 @@ class SeenMailAddress {
 }
 
 class EmailRecipientSuggestion {
-  const EmailRecipientSuggestion({required this.name, required this.email});
+  const EmailRecipientSuggestion({
+    required this.name,
+    required this.email,
+    this.label = '',
+  });
 
   final String name;
   final String email;
+  /// Libellé déjà enregistré sur l’e-mail. Vide si le contact n’en a pas.
+  final String label;
 }
 
 String normalizeMailEmail(String raw) => raw.trim().toLowerCase();
@@ -79,6 +85,27 @@ bool _matchesQuery(String name, String email, String query) {
   return name.toLowerCase().contains(query) || email.contains(query);
 }
 
+/// E-mails du contact, avec le libellé enregistré. L’adresse seule, sans libellé
+/// dans la fiche, reste proposable et n’en reçoit pas un inventé.
+List<LabeledValue> _labeledLibraryEmails(Map<String, dynamic> item) {
+  final out = <LabeledValue>[];
+  final seen = <String>{};
+  void add(String raw, String label) {
+    final e = normalizeMailEmail(raw);
+    if (!e.contains('@') || e == 'locked@vault.local' || !seen.add(e)) return;
+    out.add(LabeledValue(label: label.trim(), value: e));
+  }
+
+  final profile = item['profile'];
+  if (profile is Map) {
+    for (final email in labeledValues(profile['emails'])) {
+      add(email.value, email.label);
+    }
+  }
+  add(item['email']?.toString() ?? '', '');
+  return out;
+}
+
 /// Suggestions d’un champ destinataire.
 /// La bibliothèque d’abord, puis les adresses déjà vues qui n’y sont pas.
 /// Une adresse dont le nom ou la partie locale commence par un point est ignorée.
@@ -94,26 +121,23 @@ List<EmailRecipientSuggestion> emailRecipientSuggestions({
   final seenHits = <EmailRecipientSuggestion>[];
   final taken = <String>{};
 
-  void consider(List<EmailRecipientSuggestion> dest, String name, String email) {
+  void consider(List<EmailRecipientSuggestion> dest, String name, String email, [String label = '']) {
     final e = normalizeMailEmail(email);
-    if (!e.contains('@') || taken.contains(e)) return;
+    if (!e.contains('@') || e == 'locked@vault.local' || taken.contains(e)) return;
     if (automaticMailIdentity(name: name, email: e)) return;
     final display = name.trim().isEmpty ? e : name.trim();
     if (!_matchesQuery(display, e, q)) return;
     taken.add(e);
-    dest.add(EmailRecipientSuggestion(name: display, email: e));
+    dest.add(EmailRecipientSuggestion(name: display, email: e, label: label.trim()));
   }
 
   for (final raw in library) {
     final item = Map<String, dynamic>.from(raw);
     final card = ContactCardData.fromItem(item);
-    if (card.emails.isEmpty) {
-      final lone = item['email']?.toString() ?? '';
-      consider(libraryHits, card.name, lone);
-      continue;
-    }
-    for (final email in card.emails) {
-      consider(libraryHits, card.name, email.value);
+    final emails = _labeledLibraryEmails(item);
+    if (emails.isEmpty) continue;
+    for (final email in emails) {
+      consider(libraryHits, card.name, email.value, email.label);
     }
   }
 
@@ -121,8 +145,11 @@ List<EmailRecipientSuggestion> emailRecipientSuggestions({
     consider(seenHits, seen.name, seen.email);
   }
 
-  int byName(EmailRecipientSuggestion a, EmailRecipientSuggestion b) =>
-      a.name.toLowerCase().compareTo(b.name.toLowerCase());
+  int byName(EmailRecipientSuggestion a, EmailRecipientSuggestion b) {
+    final by = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    if (by != 0) return by;
+    return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+  }
   libraryHits.sort(byName);
   seenHits.sort(byName);
   return [...libraryHits, ...seenHits].take(limit).toList();

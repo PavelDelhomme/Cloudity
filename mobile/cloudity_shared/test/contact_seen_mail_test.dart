@@ -74,6 +74,29 @@ void main() {
     expect(hits.map((s) => s.email), contains('camille@example.com'));
   });
 
+  test('un contact sans e-mail n’est pas proposé, et le libellé réel est gardé', () {
+    final hits = emailRecipientSuggestions(
+      library: [
+        {
+          'display_name': 'Camille Martin',
+          'profile': {
+            'emails': [
+              {'label': 'home', 'value': 'camille.home@example.com'},
+              {'label': 'work', 'value': 'camille.work@example.com'},
+            ],
+          },
+        },
+        {'display_name': 'Atelier Labo', 'phone': '0600000000'},
+        {'display_name': 'Seul', 'email': 'seul@example.com'},
+      ],
+      alreadySeen: const [],
+    );
+    expect(hits.map((s) => s.name), isNot(contains('Atelier Labo')));
+    final camille = hits.where((s) => s.name == 'Camille Martin').toList();
+    expect(camille.map((s) => s.label), ['home', 'work']);
+    expect(hits.singleWhere((s) => s.email == 'seul@example.com').label, isEmpty);
+  });
+
   test('le switch Personnel / Professionnel ne mélange pas les listes', () {
     const hubera = [
       {'id': 1, 'display_name': 'Cabinet Martin', 'email': 'm@cabinet.fr'},
