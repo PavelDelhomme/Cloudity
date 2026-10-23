@@ -1937,6 +1937,24 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     });
   }
 
+  /// Planning : un glissement horizontal change le jour affiché.
+  /// Droite → jour d’avant, gauche → jour d’après. Même seuil que la vue Jour.
+  void _onPlanningSwipe(DragEndDetails details) {
+    final delta = calendarHorizontalDayDelta(details.primaryVelocity ?? 0);
+    if (delta == 0) return;
+    _jumpToCalendarDay(
+      DateTime(_calFocusDay.year, _calFocusDay.month, _calFocusDay.day + delta),
+      filter: true,
+    );
+  }
+
+  Widget _planningSwipe(Widget child) {
+    return GestureDetector(
+      onHorizontalDragEnd: _onPlanningSwipe,
+      child: child,
+    );
+  }
+
   bool _dayHasCalendarItems(DateTime d) {
     final key = _dayKey(d);
     final span = _eventsBetween(
@@ -4079,7 +4097,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
           }).toList();
 
     if (events.isEmpty) {
-      return Column(
+      return _planningSwipe(Column(
         children: [
           _buildWeekStrip(today, accent),
           Expanded(
@@ -4118,7 +4136,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
             ),
           ),
         ],
-      );
+      ));
     }
 
     final entries =
@@ -4149,7 +4167,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
     flush();
 
-    return Column(
+    return _planningSwipe(Column(
       children: [
         _buildWeekStrip(today, accent),
         Expanded(
@@ -4339,7 +4357,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 ),
         ),
       ],
-    );
+    ));
   }
 
   Future<void> _showCreateMenu() async {
