@@ -729,8 +729,13 @@ func (a *AuthService) RenewSession(c *gin.Context) {
 	claims, err := a.parseAccessToken(tokenString)
 	if err != nil {
 		signed, signedErr := a.parseSignedAccess(tokenString)
-		if signedErr == nil && signed != nil && signed.ExpiresAt != nil &&
-			time.Since(signed.ExpiresAt.Time) <= refreshTokenDuration {
+		if signedErr != nil {
+			log.Printf("renew: signature refusée (%v) après (%v)", signedErr, err)
+		} else if signed == nil || signed.ExpiresAt == nil {
+			log.Printf("renew: access sans expiration (%v)", err)
+		} else if time.Since(signed.ExpiresAt.Time) > refreshTokenDuration {
+			log.Printf("renew: access trop ancien")
+		} else {
 			claims, err = signed, nil
 		}
 	}
