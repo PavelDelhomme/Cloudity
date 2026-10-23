@@ -121,7 +121,7 @@ class CookShopItem {
   }
   s = cookNormalizeUnits(s);
   final match = RegExp(
-    r'^(\d+(?:[.,]\d+)?)\s+(c\. à c\.|c\. à s\.|pincée|pièce|paquet|kg|ml|cl|g|l)\s+(?:de\s+)?(.+)$',
+    r'^(\d+(?:[.,]\d+)?)\s*(c\. à c\.|c\. à s\.|pincée|pièce|paquet|kg|ml|cl|g|l)\s+(?:de\s+)?(.+)$',
   ).firstMatch(s);
   if (match == null) return null;
   final value = double.tryParse(match.group(1)!.replaceAll(',', '.'));
@@ -154,10 +154,17 @@ String cookShopVisibleQty(CookShopItem item) {
   if (fromLine != null) return fromLine.qty;
   final ingredient = cookShopPhotoName(item);
   final parsed = cookParseMeasure(qty.isEmpty ? '' : '$qty ${item.unit}');
-  if (parsed == null) return '';
-  final base = cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: ingredient);
-  if (base == null || !cookBuyUnits.contains(base.unit)) return '';
-  return '${cookFormatQty(base.value)} ${base.unit}';
+  if (parsed != null) {
+    final base = cookBaseQty(value: parsed.value, unit: parsed.unit, ingredient: ingredient);
+    if (base != null && cookBuyUnits.contains(base.unit)) {
+      return '${cookFormatQty(base.value)} ${base.unit}';
+    }
+  }
+  final leading = RegExp(r'^(\d+(?:[.,]\d+)?)(?:\s+|$)').firstMatch(item.name.trim());
+  if (leading == null) return '';
+  final rest = item.name.trim().substring(leading.end).trim().toLowerCase();
+  if (rest.isEmpty || RegExp(r'^(g|kg|ml|cl|l)\b').hasMatch(rest)) return '';
+  return leading.group(1)!;
 }
 
 String cookShopTitle(CookShopItem item) {

@@ -10,7 +10,7 @@ import 'mealdb.dart';
 const ingredientPhotoUserAgent =
     'HuberaCook/0.1.18 (https://cook.hubera.cloud; ingredient-photo)';
 
-const _cacheKey = 'cook_ingredient_photo_v2';
+const _cacheKey = 'cook_ingredient_photo_v3';
 
 /// « sel » part en « table salt », « savon » en « soap » : pas un homonyme du titre.
 String cookPhotoQuery(String name) {
@@ -18,6 +18,10 @@ String cookPhotoQuery(String name) {
   const precise = <String, String>{
     'sel': 'table salt',
     'salt': 'table salt',
+    'black eyed peas': 'black-eyed pea beans',
+    'black-eyed peas': 'black-eyed pea beans',
+    'black eyed pea': 'black-eyed pea beans',
+    'black-eyed pea': 'black-eyed pea beans',
     'savon': 'soap',
     'éponge': 'sponge',
     'eponge': 'sponge',
@@ -28,7 +32,62 @@ String cookPhotoQuery(String name) {
   final known = precise[raw];
   if (known != null) return known;
   final query = cookQueryToEnglish(name.trim());
+  final knownEn = precise[query.trim().toLowerCase()];
+  if (knownEn != null) return knownEn;
   return query.isEmpty ? name.trim() : query;
+}
+
+/// Une fiche Commons d’album, de concert ou de logo n’est pas un aliment.
+bool commonsTitleLooksLikeAct(String? title) {
+  final s = (title ?? '').toLowerCase();
+  if (s.isEmpty) return false;
+  const marks = [
+    'album',
+    'concert',
+    ' logo',
+    'logo.',
+    'singer',
+    'musician',
+    'performance',
+    'discography',
+    'music video',
+    'live at',
+    'band ',
+  ];
+  for (final mark in marks) {
+    if (s.contains(mark)) return true;
+  }
+  return _isBareBlackEyedPeasAct(s);
+}
+
+/// « File:BlackEyedPeas.JPG » est le groupe. Un plat ou une boîte de haricots reste.
+bool _isBareBlackEyedPeasAct(String title) {
+  final letters = title.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+  if (!letters.contains('blackeyedpeas')) return false;
+  const food = [
+    'bean',
+    'salad',
+    'can',
+    'pod',
+    'cowpea',
+    'plant',
+    'flower',
+    'food',
+    'soup',
+    'rice',
+    'bbq',
+    'roll',
+    'collard',
+    'vegetable',
+    'seed',
+    'cook',
+    'dish',
+    'meal',
+  ];
+  for (final mark in food) {
+    if (letters.contains(mark)) return false;
+  }
+  return true;
 }
 
 /// Recherche Wikimedia Commons. Jamais Google.
@@ -96,6 +155,7 @@ String? photoUrlFromCommonsJson(Object? body) {
   var bestIndex = 1 << 30;
   for (final page in pages.values) {
     if (page is! Map) continue;
+    if (commonsTitleLooksLikeAct(page['title']?.toString())) continue;
     final info = page['imageinfo'];
     if (info is! List || info.isEmpty || info.first is! Map) continue;
     final ii = info.first as Map;

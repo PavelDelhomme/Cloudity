@@ -7,6 +7,11 @@ void main() {
     expect(uri.host, 'commons.wikimedia.org');
     expect(uri.queryParameters['gsrsearch'], 'tomate');
     expect(cookPhotoQuery('sel'), 'table salt');
+    expect(cookPhotoQuery('black eyed peas'), 'black-eyed pea beans');
+    expect(commonsTitleLooksLikeAct('File:Black Eyed Peas live at concert.jpg'), isTrue);
+    expect(commonsTitleLooksLikeAct('File:BlackEyedPeas.JPG'), isTrue);
+    expect(commonsTitleLooksLikeAct('File:Black-eyed pea beans.jpg'), isFalse);
+    expect(commonsTitleLooksLikeAct('File:Black-eyed peas salad.jpg'), isFalse);
     expect(cookPhotoQuery('savon'), 'soap');
     expect(
       commonsIngredientSearchUri(cookPhotoQuery('sel')).queryParameters['gsrsearch'],
@@ -51,6 +56,52 @@ void main() {
       },
     });
     expect(url, contains('b.jpg'));
+  });
+
+  test('une photo de concert ne passe pas devant les haricots', () {
+    final url = photoUrlFromCommonsJson({
+      'query': {
+        'pages': {
+          '0': {
+            'title': 'File:BlackEyedPeas.JPG',
+            'index': 0,
+            'imageinfo': [
+              {
+                'thumburl': 'https://upload.wikimedia.org/thumb/band/group.jpg/160px-group.jpg',
+                'extmetadata': {
+                  'LicenseShortName': {'value': 'CC BY-SA 4.0'},
+                },
+              },
+            ],
+          },
+          '1': {
+            'title': 'File:Black Eyed Peas live at concert.jpg',
+            'index': 1,
+            'imageinfo': [
+              {
+                'thumburl': 'https://upload.wikimedia.org/thumb/band/band.jpg/160px-band.jpg',
+                'extmetadata': {
+                  'LicenseShortName': {'value': 'CC BY-SA 4.0'},
+                },
+              },
+            ],
+          },
+          '2': {
+            'title': 'File:Black-eyed pea beans.jpg',
+            'index': 2,
+            'imageinfo': [
+              {
+                'thumburl': 'https://upload.wikimedia.org/thumb/beans/beans.jpg/160px-beans.jpg',
+                'extmetadata': {
+                  'LicenseShortName': {'value': 'CC BY-SA 4.0'},
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+    expect(url, contains('beans.jpg'));
   });
 
   test('sans licence ouverte, pas d’URL', () {

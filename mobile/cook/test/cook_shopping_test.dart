@@ -1,5 +1,6 @@
 import 'package:cloudity_cook/cook_home.dart';
 import 'package:cloudity_cook/cook_store.dart';
+import 'package:cloudity_cook/cook_translate.dart';
 import 'package:cloudity_cook/cook_units.dart';
 import 'package:cloudity_cook/ingredient_photo.dart';
 import 'package:cloudity_cook/mealdb.dart';
@@ -239,14 +240,66 @@ void main() {
     );
     await tester.pump();
     expect(cookShopTitle(item), '800 g agneau');
-    expect(find.textContaining('agneau'), findsWidgets);
+    expect(find.text('agneau'), findsWidgets);
+    expect(find.text('800 g'), findsWidgets);
     await tester.drag(find.byType(Dismissible), const Offset(-500, 0));
     await tester.pumpAndSettle();
     expect(item.done, isTrue);
     expect(saved, 1);
-    expect(find.text('800 g agneau'), findsOneWidget);
+    expect(find.text('agneau'), findsWidgets);
+    expect(find.text('800 g'), findsWidgets);
     expect(fridge.qty, '5');
     expect(fridge.unit, 'g');
     expect(fridge.name, 'sel');
+  });
+
+  test('800g collés : même quantité, libellé traduit, pas le groupe', () {
+    final item = CookShopItem(id: 'peas', name: '800g Black Eyed Peas');
+    expect(cookShopVisibleQty(item), '800 g');
+    expect(cookShopPhotoName(item), 'black eyed peas');
+    expect(cookToFrench(cookShopPhotoName(item)), 'haricots cornille');
+    expect(cookToFrench(cookShopPhotoName(item)).toLowerCase().contains('groupe'), isFalse);
+    final salt = CookShopItem(
+      id: 's',
+      name: '1 c. à c. de sel',
+      qty: '1',
+      unit: 'c. à c.',
+    );
+    expect(cookShopVisibleQty(salt), '5 g');
+    final clove = CookShopItem(id: 'c', name: '1 clou de girofle ail');
+    expect(cookShopVisibleQty(clove), '1');
+    expect(cookShopPhotoName(clove).contains('1'), isFalse);
+  });
+
+  testWidgets('la liste et la tête du détail montrent la même quantité et le même libellé', (tester) async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+    IngredientPhotoCache.memory['black eyed peas'] = null;
+    IngredientPhotoCache.diskLoaded = true;
+    final previous = cookRemoteTranslation;
+    cookRemoteTranslation = false;
+    addTearDown(() => cookRemoteTranslation = previous);
+    final item = CookShopItem(id: 'peas', name: '800g Black Eyed Peas');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CookShopRow(
+            item: item,
+            onEdit: () {},
+            onChanged: () {},
+            onRemove: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('haricots cornille'), findsOneWidget);
+    expect(find.text('800 g'), findsOneWidget);
+    expect(find.textContaining('Black Eyed Peas'), findsNothing);
+    await tester.tap(find.text('haricots cornille'));
+    await tester.pumpAndSettle();
+    expect(find.text('haricots cornille'), findsNWidgets(2));
+    expect(find.text('800 g'), findsNWidgets(2));
+    expect(find.text('Détail'), findsOneWidget);
   });
 }

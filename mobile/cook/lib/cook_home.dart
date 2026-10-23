@@ -1430,38 +1430,79 @@ class CookShopRow extends StatelessWidget {
     final qty = cookShopVisibleQty(item);
     showModalBottomSheet<void>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Détail', style: Theme.of(ctx).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                IngredientPhoto(name: name, size: 72),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: Theme.of(ctx).textTheme.titleMedium),
-                      Text(qty.isEmpty ? 'À acheter' : qty),
-                    ],
+      useSafeArea: true,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Détail', style: Theme.of(ctx).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  IngredientPhoto(name: name, size: 72),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CookFrenchText(
+                          source: name,
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                        ),
+                        Text(
+                          qty.isEmpty ? 'À acheter' : qty,
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                        ),
+                        CookFixHint(
+                          onPressed: () async {
+                            final ctrl = TextEditingController(
+                              text: cookToFrenchLearned(name),
+                            );
+                            final next = await showDialog<String>(
+                              context: ctx,
+                              builder: (dialogCtx) => AlertDialog(
+                                title: const Text('Corriger la traduction'),
+                                content: TextField(
+                                  controller: ctrl,
+                                  autofocus: true,
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(dialogCtx),
+                                    child: const Text('Annuler'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(
+                                      dialogCtx,
+                                      ctrl.text.trim(),
+                                    ),
+                                    child: const Text('Retenir'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (next == null || next.isEmpty) return;
+                            cookRememberFix(name, next);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(ctx);
-                onEdit();
-              },
-              child: const Text('Quantité à acheter'),
-            ),
-          ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  onEdit();
+                },
+                child: const Text('Quantité à acheter'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1469,7 +1510,8 @@ class CookShopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = cookShopTitle(item);
+    final name = cookShopPhotoName(item);
+    final qty = cookShopVisibleQty(item);
     final tile = CheckboxListTile(
       value: item.done,
       title: InkWell(
@@ -1483,8 +1525,9 @@ class CookShopRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                title,
+              child: CookFrenchText(
+                source: name,
+                maxLines: 3,
                 style: TextStyle(
                   decoration: item.done ? TextDecoration.lineThrough : null,
                 ),
@@ -1494,9 +1537,7 @@ class CookShopRow extends StatelessWidget {
         ),
       ),
       subtitle: Text(
-        item.kind == 'other'
-            ? 'Pas alimentaire'
-            : (cookShopVisibleQty(item).isEmpty ? 'À acheter' : cookShopVisibleQty(item)),
+        item.kind == 'other' ? 'Pas alimentaire' : (qty.isEmpty ? 'À acheter' : qty),
       ),
       onChanged: (v) {
         item.done = v ?? false;
