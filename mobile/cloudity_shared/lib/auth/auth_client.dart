@@ -202,6 +202,58 @@ class CloudityAuthClient {
     return (access: access, refresh: next.isNotEmpty ? next : token);
   }
 
+  /// Le refresh en Redis a souvent déjà été tourné. L’access signé, même
+  /// expiré, permet à /auth/session/renew de réémettre la session en cours.
+  Future<({String access, String refresh})> _refreshOrRenew({
+    required String refreshToken,
+    required String accessToken,
+  }) async {
+    final token = refreshToken.trim();
+    if (token.isNotEmpty && !refreshTokenSpent(token)) {
+      try {
+        return await refreshTokens(token);
+      } on AuthException catch (e) {
+        if (!e.message.contains('(401)')) rethrow;
+      }
+    }
+    return _renewFromAccess(accessToken);
+  }
+
+  Future<({String access, String refresh})> _renewFromAccess(
+    String accessToken,
+  ) async {
+    final access = accessToken.trim();
+    if (access.isEmpty) {
+      throw AuthException('Refresh (401): invalid or expired refresh token');
+    }
+    final uri = Uri.parse('$_base/auth/session/renew');
+    final res = await huberaHttp.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $access',
+      },
+      body: '{}',
+      timeout: const Duration(seconds: 20),
+      idempotent: true,
+    );
+    final body = res.body.isEmpty ? '{}' : res.body;
+    final map = jsonDecode(body) as Map<String, dynamic>;
+    if (res.statusCode != 200) {
+      throw AuthException('Refresh (401): invalid or expired refresh token');
+    }
+    final nextAccess = map['access_token'] as String?;
+    final refresh = map['refresh_token'] as String?;
+    if (nextAccess == null || nextAccess.isEmpty) {
+      throw AuthException('Refresh (401): invalid or expired refresh token');
+    }
+    final nextRefresh = (refresh ?? '').trim();
+    return (
+      access: nextAccess,
+      refresh: nextRefresh.isNotEmpty ? nextRefresh : '',
+    );
+  }
+
   Future<({String access, String refresh})> ensureValidTokens({
     required String accessToken,
     required String refreshToken,
@@ -237,18 +289,21 @@ class CloudityAuthClient {
         final nextRefresh = idRefresh.isNotEmpty ? idRefresh : refreshToken;
         return (access: id.access, refresh: nextRefresh);
       case IdRenewChoice.askServer:
-        if (refreshToken.isEmpty || refreshTokenSpent(refreshToken)) {
-          throw AuthException('Refresh (401): invalid or expired refresh token');
-        }
-        return refreshTokens(refreshToken);
+        return _refreshOrRenew(
+          refreshToken: refreshToken,
+          accessToken: accessToken,
+        );
       case IdRenewChoice.chooser:
-        throw AuthException('Refresh (401): invalid or expired refresh token');
+        return _renewFromAccess(accessToken);
       case IdRenewChoice.hold:
         final idRefresh = id?.refresh.trim() ?? '';
-        if (idRefresh.isEmpty || refreshTokenSpent(idRefresh)) {
-          throw AuthException('Refresh (401): invalid or expired refresh token');
-        }
-        return refreshTokens(idRefresh);
+        final candidate = idRefresh.isNotEmpty && !refreshTokenSpent(idRefresh)
+            ? idRefresh
+            : refreshToken;
+        return _refreshOrRenew(
+          refreshToken: candidate,
+          accessToken: accessToken,
+        );
     }
   }
 

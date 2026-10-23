@@ -761,3 +761,54 @@ func TestLoadRSAKeys_WritesPublicPemWhenGenerating(t *testing.T) {
 	_ = priv
 	_ = pub
 }
+
+func expiredSuiteToken(svc *AuthService, userID, email string, exp time.Time) string {
+	claims := Claims{
+		UserID:   userID,
+		TenantID: "1",
+		Email:    email,
+		Role:     "user",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(exp),
+			IssuedAt:  jwt.NewNumericDate(exp.Add(-12 * time.Hour)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
+	token.Header["kid"] = kidEd25519
+	signed, err := token.SignedString(svc.edPrivateKey)
+	if err != nil {
+		panic(err)
+	}
+	return signed
+}
+
+func TestRenewAcceptsSignedExpiredAccess(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := newTestAuthService()
+	mockUsers := svc.userStore.(*mockUserStore)
+	uid, err := mockUsers.CreateUser("renew@example.com", "hash", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := gin.New()
+	r.POST("/auth/session/renew", svc.RenewSession)
+
+	recent := expiredSuiteToken(svc, uid, "renew@example.com", time.Now().Add(-2*time.Hour))
+	req := httptest.NewRequest(http.MethodPost, "/auth/session/renew", strings.NewReader("{}"))
+	req.Header.Set("Authorization", "Bearer "+recent)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expired access within refresh life: got %d body %s", w.Code, w.Body.String())
+	}
+
+	stale := expiredSuiteToken(svc, uid, "renew@example.com", time.Now().Add(-40*24*time.Hour))
+	req2 := httptest.NewRequest(http.MethodPost, "/auth/session/renew", strings.NewReader("{}"))
+	req2.Header.Set("Authorization", "Bearer "+stale)
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusUnauthorized {
+		t.Fatalf("access expired beyond refresh life: got %d body %s", w2.Code, w2.Body.String())
+	}
+}

@@ -42,9 +42,9 @@ var accessTokenDuration time.Duration
 // refreshTokenDuration : session longue device ; rotation soft à chaque refresh.
 var refreshTokenDuration = 30 * 24 * time.Hour
 
-// Après rotation, l’ancien refresh reste valide brièvement pour les apps suite
-// qui refreshent en parallèle (Notes/Drive/Mail…) — sinon 401 en rafale.
-const refreshRotationGrace = 5 * time.Minute
+// L’ancien refresh n’est plus raccourci. Une autre app ouverte plus tard
+// avec la même session doit encore pouvoir l’échanger. Le délai de 5 min
+// produisait des 401 dès que la première app avait tourné le jeton.
 
 // newRedisClient construit le client Redis. Si REDIS_TLS=1 (ou true/on),
 // connexion TLS vers Redis avec vérification de la CA (fichier REDIS_TLS_CA,
@@ -443,29 +443,46 @@ func (a *AuthService) issueTokens(ctx context.Context, userID, tenantID, email, 
 // parseAccessToken vérifie un access token. Accepte EdDSA (nouveaux tokens —
 // kid="ed25519-1") ET RS256 (anciens tokens — kid="rs256-1" ou kid absent),
 // pour la fenêtre de transition Phase B → Phase C (cf. CRYPTO-NORME.md § 5.2).
-func (a *AuthService) parseAccessToken(tokenString string) (*Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
-		kid, _ := t.Header["kid"].(string)
-		switch kid {
-		case kidEd25519:
-			if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
-				return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
-			}
-			return a.edPublicKey, nil
-		case kidRSA, "":
-			if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
-			}
-			return a.publicKey, nil
-		default:
-			return nil, fmt.Errorf("unknown kid %q", kid)
+func (a *AuthService) accessKey(t *jwt.Token) (interface{}, error) {
+	kid, _ := t.Header["kid"].(string)
+	switch kid {
+	case kidEd25519:
+		if _, ok := t.Method.(*jwt.SigningMethodEd25519); !ok {
+			return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
 		}
-	})
+		return a.edPublicKey, nil
+	case kidRSA, "":
+		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method %v for kid=%s", t.Method.Alg(), kid)
+		}
+		return a.publicKey, nil
+	default:
+		return nil, fmt.Errorf("unknown kid %q", kid)
+	}
+}
+
+func (a *AuthService) parseAccessToken(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, a.accessKey)
 	if err != nil {
 		return nil, err
 	}
 	claims, ok := token.Claims.(*Claims)
 	if !ok || !token.Valid {
+		return nil, jwt.ErrTokenInvalidClaims
+	}
+	return claims, nil
+}
+
+// parseSignedAccess vérifie la signature sans rejeter l’expiration.
+// Renouveler une session dont le refresh a déjà disparu de Redis.
+func (a *AuthService) parseSignedAccess(tokenString string) (*Claims, error) {
+	parser := jwt.NewParser(jwt.WithoutClaimsValidation())
+	token, err := parser.ParseWithClaims(tokenString, &Claims{}, a.accessKey)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok || claims == nil {
 		return nil, jwt.ErrTokenInvalidClaims
 	}
 	return claims, nil
@@ -683,11 +700,8 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Soft-rotate : garder l’ancien hash ~2 min (multi-apps Android broker).
-	// Un DEL immédiat provoquait des 401 en chaîne dès qu’une 2ᵉ app
-	// présentait le même refresh pendant que la 1ʳᵉ propagait le nouveau.
-	_ = a.sessionStore.SetRefresh(ctx, refreshHash, userID, tenantID, email, refreshRotationGrace)
-
+	// L’ancien hash garde le délai déjà enregistré. Le remplacer par une
+	// grâce de quelques minutes invalidait la session des autres apps.
 	accessToken, _ := a.generateAccessToken(userID, tenantID, email, role)
 	newRefresh := generateRandomToken()
 	newHash := hashRefreshToken(newRefresh)
@@ -700,9 +714,10 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 	})
 }
 
-// RenewSession réémet une paire à partir d’un access token encore valide.
-// Le rôle relu en base (et l’allowlist déjà prévue) remplace un vieux claim `user`.
-// Un refresh mort ne force pas à retaper le mot de passe.
+// RenewSession réémet une paire à partir d’un access token signé.
+// Un access expiré depuis moins longtemps que le refresh reste accepté :
+// le refresh a souvent déjà disparu de Redis, et ça ne doit pas redemander
+// le mot de passe. Le rôle relu en base remplace un vieux claim `user`.
 func (a *AuthService) RenewSession(c *gin.Context) {
 	auth := c.GetHeader("Authorization")
 	const prefix = "Bearer "
@@ -712,6 +727,13 @@ func (a *AuthService) RenewSession(c *gin.Context) {
 	}
 	tokenString := strings.TrimSpace(strings.TrimPrefix(auth, prefix))
 	claims, err := a.parseAccessToken(tokenString)
+	if err != nil {
+		signed, signedErr := a.parseSignedAccess(tokenString)
+		if signedErr == nil && signed != nil && signed.ExpiresAt != nil &&
+			time.Since(signed.ExpiresAt.Time) <= refreshTokenDuration {
+			claims, err = signed, nil
+		}
+	}
 	if err != nil {
 		claims, err = parseHMACAccess(tokenString, os.Getenv("JWT_SECRET"))
 	}
