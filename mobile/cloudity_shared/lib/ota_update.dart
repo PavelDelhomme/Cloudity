@@ -541,6 +541,72 @@ Future<void> _installOrAskPermission(File dest) async {
   await HuberaOtaInstaller.installApk(dest);
 }
 
+const cloudityOtaResumeTitle = 'Reprendre le téléchargement';
+const cloudityOtaResumeLiveTitle = 'Reprise du téléchargement…';
+const cloudityOtaInterruptedNote =
+    'Téléchargement interrompu. Le fichier reste, tu peux le reprendre.';
+
+/// L’utilisateur a quitté le téléchargement. Le fichier partiel reste sur l’appareil.
+class CloudityOtaCancelled implements Exception {
+  const CloudityOtaCancelled();
+}
+
+bool _otaDownloadLive = false;
+bool _otaCancelRequested = false;
+double _otaDownloadProgress = 0;
+http.Client? _otaDownloadClient;
+
+bool get cloudityOtaDownloadLive => _otaDownloadLive;
+
+/// Titre du compte : reprise, jamais un blocage « déjà en cours ».
+String cloudityOtaAccountTitle({
+  required bool live,
+  required bool partial,
+  required String readyTitle,
+}) {
+  if (live) return cloudityOtaResumeLiveTitle;
+  if (partial) return cloudityOtaResumeTitle;
+  return readyTitle;
+}
+
+void cloudityCancelOtaDownload() {
+  _otaCancelRequested = true;
+  final client = _otaDownloadClient;
+  _otaDownloadClient = null;
+  client?.close();
+}
+
+Future<File> _otaDestFile(CloudityOtaManifest manifest) async {
+  final dir = await _otaCacheDir();
+  final safeName = manifest.app.isEmpty
+      ? 'update'
+      : manifest.app.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+  return File('${dir.path}/$safeName-${manifest.version}.apk');
+}
+
+Future<bool> _otaFileReady(File dest, String sha) async {
+  if (!await dest.exists()) return false;
+  final size = await dest.length();
+  if (!cloudityShouldReuseOtaFile(exists: true, actualSize: size)) return false;
+  if (!await _apkZipMagic(dest)) return false;
+  final expectedSha = sha.trim().toLowerCase();
+  if (expectedSha.isEmpty) return true;
+  final actual =
+      (await sha256.bind(dest.openRead()).first).toString().toLowerCase();
+  return actual == expectedSha;
+}
+
+/// Vrai si un morceau de cette version est déjà sur le disque, incomplet.
+Future<bool> cloudityOtaPartialReady(CloudityOtaManifest manifest) async {
+  final dest = await _otaDestFile(manifest);
+  if (!await dest.exists()) return false;
+  final size = await dest.length();
+  if (size <= 0) return false;
+  if (await _otaFileReady(dest, manifest.sha256)) return false;
+  if (size >= 4 && !await _apkZipMagic(dest)) return false;
+  return true;
+}
+
 /// Télécharge l’APK dans le cache app, vérifie le SHA-256, lance l’installeur système.
 Future<void> cloudityDownloadAndInstallOta(
   CloudityOtaManifest manifest, {
@@ -551,39 +617,43 @@ Future<void> cloudityDownloadAndInstallOta(
     throw UnsupportedError('Mise à jour in-app disponible sur Android uniquement.');
   }
 
-  final dir = await _otaCacheDir();
-  final safeName = manifest.app.isEmpty
-      ? 'update'
-      : manifest.app.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-  final dest = File('${dir.path}/$safeName-${manifest.version}.apk');
-  final expectedSha = manifest.sha256.trim().toLowerCase();
-
-  Future<bool> fileReady() async {
-    if (!await dest.exists()) return false;
-    final size = await dest.length();
-    if (!cloudityShouldReuseOtaFile(exists: true, actualSize: size)) {
-      return false;
+  if (_otaDownloadLive) {
+    while (_otaDownloadLive) {
+      if (_otaCancelRequested) throw const CloudityOtaCancelled();
+      onProgress?.call(_otaDownloadProgress);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    if (!await _apkZipMagic(dest)) return false;
-    if (expectedSha.isEmpty) return true;
-    final actual =
-        (await sha256.bind(dest.openRead()).first).toString().toLowerCase();
-    return actual == expectedSha;
+    if (_otaCancelRequested) throw const CloudityOtaCancelled();
+    final done = await _otaDestFile(manifest);
+    if (await _otaFileReady(done, manifest.sha256)) {
+      onProgress?.call(1.0);
+      await _installOrAskPermission(done);
+    }
+    return;
   }
 
-  if (await fileReady()) {
+  _otaCancelRequested = false;
+  _otaDownloadLive = true;
+  _otaDownloadProgress = 0;
+
+  final dest = await _otaDestFile(manifest);
+  final expectedSha = manifest.sha256.trim().toLowerCase();
+
+  if (await _otaFileReady(dest, expectedSha)) {
+    _otaDownloadLive = false;
     onProgress?.call(1.0);
     await _installOrAskPermission(dest);
     return;
   }
 
   final c = client ?? http.Client();
+  _otaDownloadClient = c;
   try {
     final uri = Uri.parse(manifest.apkUrl);
     var offset = 0;
     if (await dest.exists()) {
       offset = await dest.length();
-      if (offset > 0 && offset < 100 * 1024) {
+      if (offset >= 4 && !await _apkZipMagic(dest)) {
         await _safeDelete(dest);
         offset = 0;
       }
@@ -594,30 +664,37 @@ Future<void> cloudityDownloadAndInstallOta(
       req.headers['Range'] = 'bytes=$offset-';
     }
     final res = await c.send(req).timeout(const Duration(minutes: 10));
-    if (res.statusCode == 200 && offset > 0) {
-      await _safeDelete(dest);
-      offset = 0;
-    } else if (res.statusCode != 200 && res.statusCode != 206) {
+    if (res.statusCode != 200 && res.statusCode != 206) {
       throw HttpException(
         'Téléchargement APK HTTP ${res.statusCode}',
         uri: uri,
       );
     }
 
+    // 200 alors qu’un morceau existe : le serveur ignore Range. On écrit à
+    // côté. Le morceau déjà là reste si ce second passage est interrompu.
+    var writeFile = dest;
+    var received = offset;
+    if (res.statusCode == 200 && offset > 0) {
+      writeFile = File('${dest.path}.full');
+      await _safeDelete(writeFile);
+      received = 0;
+    }
+
     final totalHeader = res.contentLength ?? 0;
     final total = res.statusCode == 206 ? offset + totalHeader : totalHeader;
-    final sink = dest.openWrite(mode: FileMode.append);
-    var received = offset;
+    final sink = writeFile.openWrite(
+      mode: received > 0 ? FileMode.append : FileMode.write,
+    );
 
     try {
       await for (final chunk in res.stream) {
+        if (_otaCancelRequested) throw const CloudityOtaCancelled();
         sink.add(chunk);
         received += chunk.length;
-        if (total > 0) {
-          onProgress?.call((received / total).clamp(0.0, 1.0));
-        } else {
-          onProgress?.call(0.0);
-        }
+        final p = total > 0 ? (received / total).clamp(0.0, 1.0) : 0.0;
+        _otaDownloadProgress = p;
+        onProgress?.call(p);
       }
       await sink.flush();
       await sink.close();
@@ -625,11 +702,20 @@ Future<void> cloudityDownloadAndInstallOta(
       try {
         await sink.close();
       } catch (_) {}
-      // Garde le partiel pour reprise après kill — ne pas delete.
+      if (writeFile.path != dest.path) await _safeDelete(writeFile);
+      if (_otaCancelRequested || e is CloudityOtaCancelled) {
+        throw const CloudityOtaCancelled();
+      }
       rethrow;
     }
 
+    if (writeFile.path != dest.path) {
+      await _safeDelete(dest);
+      await writeFile.rename(dest.path);
+    }
+
     onProgress?.call(1.0);
+    _otaDownloadProgress = 1.0;
 
     final size = await dest.length();
     if (size < 100 * 1024) {
@@ -655,8 +741,19 @@ Future<void> cloudityDownloadAndInstallOta(
     }
 
     await _installOrAskPermission(dest);
+  } catch (e) {
+    if (_otaCancelRequested || e is CloudityOtaCancelled) {
+      throw const CloudityOtaCancelled();
+    }
+    rethrow;
   } finally {
-    if (client == null) c.close();
+    _otaDownloadLive = false;
+    _otaDownloadClient = null;
+    if (client == null) {
+      try {
+        c.close();
+      } catch (_) {}
+    }
   }
 }
 
@@ -706,11 +803,24 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
   String _phase = '';
   bool _installerOpened = false;
   bool _awaitingPermission = false;
+  bool _partial = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadPartial();
+  }
+
+  Future<void> _loadPartial() async {
+    final partial = await cloudityOtaPartialReady(widget.manifest);
+    if (!mounted) return;
+    setState(() => _partial = partial);
+  }
+
+  Future<void> _leaveUsable() async {
+    if (_busy) cloudityCancelOtaDownload();
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -734,7 +844,7 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
       _busy = true;
       _error = null;
       _progress = 0;
-      _phase = 'Téléchargement…';
+      _phase = _partial ? cloudityOtaResumeLiveTitle : 'Téléchargement…';
     });
     try {
       await cloudityDownloadAndInstallOta(
@@ -743,7 +853,7 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
           if (!mounted) return;
           setState(() {
             _progress = p;
-            _phase = p >= 1.0 ? 'Installation…' : 'Téléchargement…';
+            _phase = p >= 1.0 ? 'Installation…' : cloudityOtaResumeLiveTitle;
           });
         },
       );
@@ -753,6 +863,15 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
         _busy = false;
         _progress = 1.0;
         _installerOpened = true;
+        _error = null;
+        _awaitingPermission = false;
+      });
+    } on CloudityOtaCancelled {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _partial = true;
+        _phase = cloudityOtaInterruptedNote;
         _error = null;
         _awaitingPermission = false;
       });
@@ -773,11 +892,20 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
   Widget build(BuildContext context) {
     final m = widget.manifest;
     final notes = (m.huberaMessage ?? '').trim();
-    return AlertDialog(
+    final leaveLabel = _busy || _partial
+        ? 'Continuer à utiliser l’app'
+        : 'Continuer sans installer';
+    return PopScope(
+      canPop: !_busy,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop || !_busy) return;
+        _leaveUsable();
+      },
+      child: AlertDialog(
       title: Text(
         _busy || _installerOpened
-            ? (_phase.isEmpty ? 'Téléchargement…' : _phase)
-            : 'Mise à jour disponible',
+            ? (_phase.isEmpty ? cloudityOtaResumeLiveTitle : _phase)
+            : (_partial ? cloudityOtaResumeTitle : 'Mise à jour disponible'),
       ),
       content: SingleChildScrollView(
         child: Column(
@@ -787,6 +915,10 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
           Text('Installée ${widget.currentVersion}'),
           const SizedBox(height: 4),
           Text('Disponible ${m.version}'),
+          if (_partial && !_busy && !_installerOpened) ...[
+            const SizedBox(height: 8),
+            const Text(cloudityOtaInterruptedNote),
+          ],
           if (notes.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(notes),
@@ -833,20 +965,34 @@ class _OtaUpdateDialogState extends State<_OtaUpdateDialog>
       actions: [
         TextButton(
           onPressed: () async {
+            if (_busy || _partial) {
+              await _leaveUsable();
+              return;
+            }
             if (!_installerOpened) {
               await clouditySnoozeOfferedVersion(widget.manifest.version);
             }
             if (context.mounted) Navigator.of(context).pop();
           },
-          child: Text(
-            _installerOpened ? 'Fermer' : 'Continuer sans installer',
-          ),
+          child: Text(_installerOpened ? 'Fermer' : leaveLabel),
         ),
+        if (_busy)
+          TextButton(
+            onPressed: _leaveUsable,
+            child: const Text('Interrompre'),
+          ),
         FilledButton(
           onPressed: _busy ? null : _start,
-          child: Text(_error == null ? 'Installer maintenant' : 'Réessayer l’installation'),
+          child: Text(
+            _partial && _error == null
+                ? cloudityOtaResumeTitle
+                : (_error == null
+                    ? 'Installer maintenant'
+                    : 'Réessayer l’installation'),
+          ),
         ),
       ],
+    ),
     );
   }
 }
