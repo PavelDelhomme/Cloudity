@@ -1519,7 +1519,7 @@ class CookShopRow extends StatelessWidget {
         child: Row(
           children: [
             Semantics(
-              label: 'Photo de ${cookShopPhotoName(item)}',
+              label: 'Photo de ${cookToFrench(name)}',
               image: true,
               child: IngredientPhoto(name: cookShopPhotoName(item), size: 48),
             ),

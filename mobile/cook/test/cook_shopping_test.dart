@@ -268,7 +268,10 @@ void main() {
     expect(cookShopVisibleQty(salt), '5 g');
     final clove = CookShopItem(id: 'c', name: '1 clou de girofle ail');
     expect(cookShopVisibleQty(clove), '1');
-    expect(cookShopPhotoName(clove).contains('1'), isFalse);
+    expect(cookShopPhotoName(clove), 'clou de girofle ail');
+    final pepper = CookShopItem(id: 'g', name: '1 Green piment');
+    expect(cookShopVisibleQty(pepper), '1');
+    expect(cookShopPhotoName(pepper), 'Green piment');
   });
 
   testWidgets('la liste et la tête du détail montrent la même quantité et le même libellé', (tester) async {

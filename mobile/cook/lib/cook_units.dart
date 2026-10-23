@@ -328,7 +328,7 @@ String cookNameFromShopLabel(String label) {
   const units = ['c. à c.', 'c. à s.', 'pincée', 'pièce', 'tasse', 'paquet', 'kg', 'ml', 'cl', 'g', 'l'];
   final low = s.toLowerCase();
   for (final unit in units) {
-    if (low.startsWith(unit)) {
+    if (low == unit || low.startsWith('$unit ')) {
       s = s.substring(unit.length).trim();
       break;
     }
