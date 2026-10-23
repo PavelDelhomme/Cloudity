@@ -11,6 +11,7 @@ import '../auth/admin_refresh.dart';
 import '../auth/user_session.dart';
 import 'admin_account_chip.dart';
 import 'admin_account_settings.dart';
+import 'admin_error_range.dart';
 import 'admin_sections.dart';
 
 class AdminHome extends StatefulWidget {
@@ -45,7 +46,8 @@ class _AdminHomeState extends State<AdminHome> {
   Map<String, dynamic> _disk = {};
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _crashes = [];
-  DateTime? _errorsOn;
+  DateTime? _errorsFrom;
+  DateTime? _errorsTo;
   Timer? _crashPoll;
 
   @override
@@ -362,97 +364,31 @@ class _AdminHomeState extends State<AdminHome> {
   }
 
   List<Widget> _errorList() {
-    final shown = _crashes.where(_crashOnSelectedDay).toList();
     return [
-      _errorDateField(),
-      if (shown.isEmpty)
-        const Text('Aucune erreur remontée par les applications pour cette date.')
-      else
-        for (final crash in shown)
-          ListTile(
-            title: Text(
-              '${crash['product'] ?? crash['id'] ?? crash['filename'] ?? 'rapport'}',
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            ),
-            subtitle: Text(
-              _crashWhen(crash),
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ),
+      AdminErrorRangeView(
+        crashes: _crashes,
+        start: _errorsFrom,
+        end: _errorsTo,
+        onPickStart: () => _pickErrorBound(start: true),
+        onPickEnd: () => _pickErrorBound(start: false),
+        onClearStart: () => setState(() => _errorsFrom = null),
+        onClearEnd: () => setState(() => _errorsTo = null),
+      ),
     ];
   }
 
-  bool _crashOnSelectedDay(Map<String, dynamic> crash) {
-    final day = _errorsOn;
-    if (day == null) return true;
-    final when = DateTime.tryParse('${crash['modified'] ?? ''}')?.toLocal();
-    if (when == null) return true;
-    return when.year == day.year && when.month == day.month && when.day == day.day;
-  }
-
-  String _crashWhen(Map<String, dynamic> crash) {
-    final when = DateTime.tryParse('${crash['modified'] ?? ''}')?.toLocal();
-    if (when == null) return '${crash['modified'] ?? ''}';
-    final d = when.day.toString().padLeft(2, '0');
-    final m = when.month.toString().padLeft(2, '0');
-    final hh = when.hour.toString().padLeft(2, '0');
-    final mm = when.minute.toString().padLeft(2, '0');
-    return '$d/$m/${when.year} $hh:$mm';
-  }
-
-  Widget _errorDateField() {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final bg = dark ? const Color(0xFF1A2230) : Colors.white;
-    final fg = dark ? const Color(0xFFE8EDF4) : const Color(0xFF0F172A);
-    final label = _errorsOn == null
-        ? 'Toutes les dates'
-        : '${_errorsOn!.day.toString().padLeft(2, '0')}/'
-            '${_errorsOn!.month.toString().padLeft(2, '0')}/${_errorsOn!.year}';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: bg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(color: fg.withValues(alpha: 0.35)),
-        ),
-        child: InkWell(
-          onTap: _pickErrorDate,
-          borderRadius: BorderRadius.circular(8),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: Row(
-              children: [
-                Icon(Icons.event, color: fg),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(label, style: TextStyle(color: fg, fontSize: 16)),
-                ),
-                if (_errorsOn != null)
-                  IconButton(
-                    tooltip: 'Toutes les dates',
-                    onPressed: () => setState(() => _errorsOn = null),
-                    icon: Icon(Icons.close, color: fg),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickErrorDate() async {
+  Future<void> _pickErrorBound({required bool start}) async {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final bg = dark ? const Color(0xFF1A2230) : Colors.white;
     final fg = dark ? const Color(0xFFE8EDF4) : const Color(0xFF0F172A);
     final accent = dark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8);
+    final current = start ? _errorsFrom : _errorsTo;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _errorsOn ?? DateTime.now(),
+      initialDate: current ?? DateTime.now(),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      helpText: 'Erreurs déjà survenues',
+      helpText: start ? 'Début' : 'Fin',
       builder: (ctx, child) {
         final base = Theme.of(ctx);
         return Theme(
@@ -487,7 +423,15 @@ class _AdminHomeState extends State<AdminHome> {
         );
       },
     );
-    if (picked != null && mounted) setState(() => _errorsOn = picked);
+    if (picked != null && mounted) {
+      setState(() {
+        if (start) {
+          _errorsFrom = picked;
+        } else {
+          _errorsTo = picked;
+        }
+      });
+    }
   }
 
   Widget _stat(String label, String value) {
