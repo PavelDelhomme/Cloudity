@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:cloudity_auth_broker/cloudity_auth_broker.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -132,7 +133,7 @@ Future<void> openHuberaProduct(HuberaProduct app) async {
   await launchUrl(app.webUri, mode: LaunchMode.externalApplication);
 }
 
-class HuberaAccountAvatar extends StatelessWidget {
+class HuberaAccountAvatar extends StatefulWidget {
   const HuberaAccountAvatar({
     super.key,
     required this.onTap,
@@ -161,7 +162,64 @@ class HuberaAccountAvatar extends StatelessWidget {
   final bool showAppSettings;
 
   @override
+  State<HuberaAccountAvatar> createState() => _HuberaAccountAvatarState();
+}
+
+class _HuberaAccountAvatarState extends State<HuberaAccountAvatar> {
+  List<String> _emails = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _emails = _knownEmails(widget.email, const []);
+    _loadAccounts();
+  }
+
+  @override
+  void didUpdateWidget(HuberaAccountAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.email != widget.email) {
+      _emails = _knownEmails(widget.email, _emails);
+    }
+  }
+
+  static List<String> _knownEmails(String? current, List<String> extra) {
+    final seen = <String>{};
+    final emails = <String>[];
+    void add(String? raw) {
+      final mail = raw?.trim() ?? '';
+      if (mail.isEmpty || !seen.add(mail.toLowerCase())) return;
+      emails.add(mail);
+    }
+
+    add(current);
+    for (final mail in extra) {
+      add(mail);
+    }
+    return emails;
+  }
+
+  Future<void> _loadAccounts() async {
+    final broker = <String>[];
+    try {
+      for (final account in await CloudityAuthBroker.listAccounts()) {
+        broker.add(account.email);
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _emails = _knownEmails(widget.email, broker));
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final email = widget.email;
+    final onTap = widget.onTap;
+    final radius = widget.radius;
+    final onOpenSettings = widget.onOpenSettings;
+    final onOpenHuberaId = widget.onOpenHuberaId;
+    final onAddAccount = widget.onAddAccount;
+    final showHuberaId = widget.showHuberaId;
+    final showAppSettings = widget.showAppSettings;
     final letter = (email != null && email!.trim().isNotEmpty)
         ? email!.trim()[0].toUpperCase()
         : 'H';
@@ -171,13 +229,17 @@ class HuberaAccountAvatar extends StatelessWidget {
       foregroundColor: huberaTeal,
       child: Text(letter, style: const TextStyle(fontWeight: FontWeight.w800)),
     );
-    if (onOpenSettings == null && onOpenHuberaId == null && onAddAccount == null) {
-      return IconButton(tooltip: 'Compte', onPressed: onTap, icon: avatar);
-    }
     return PopupMenuButton<String>(
-      tooltip: email?.trim().isNotEmpty == true ? email!.trim() : 'Compte',
+      tooltip: 'Compte',
       offset: const Offset(0, 40),
+      onOpened: () {
+        _loadAccounts();
+      },
       onSelected: (v) {
+        if (v.startsWith('account:')) {
+          HuberaAccountSwitch.requestChooser();
+          return;
+        }
         switch (v) {
           case 'settings':
             (onOpenSettings ?? onTap)();
@@ -189,6 +251,16 @@ class HuberaAccountAvatar extends StatelessWidget {
         }
       },
       itemBuilder: (ctx) => [
+        for (final mail in _emails)
+          PopupMenuItem(
+            value: 'account:$mail',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.account_circle_outlined),
+              title: Text(mail, maxLines: 1, overflow: TextOverflow.ellipsis),
+              subtitle: const Text('Compte Hubera ID'),
+            ),
+          ),
         if (showAppSettings)
           PopupMenuItem(
             value: 'settings',
@@ -196,9 +268,6 @@ class HuberaAccountAvatar extends StatelessWidget {
               dense: true,
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Réglages de cette app'),
-              subtitle: email == null || email!.trim().isEmpty
-                  ? null
-                  : Text(email!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           ),
         const PopupMenuItem(
