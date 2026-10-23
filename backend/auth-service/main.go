@@ -716,11 +716,17 @@ func (a *AuthService) RenewSession(c *gin.Context) {
 		claims, err = parseHMACAccess(tokenString, os.Getenv("JWT_SECRET"))
 	}
 	if err != nil || claims == nil {
-		if err != nil {
-			log.Printf("renew: jeton refusé (%v)", err)
+		// Jeton d’une autre app Hubera (Music, HS256). Music vérifie la
+		// signature. Le rôle réémis vient de la base, pas du jeton.
+		email, musicErr := emailFromMusicSession(c.Request.Context(), tokenString)
+		if musicErr != nil || email == "" {
+			if err != nil {
+				log.Printf("renew: jeton refusé (%v)", err)
+			}
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+			return
 		}
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
-		return
+		claims = &Claims{Email: email}
 	}
 	userID := strings.TrimSpace(claims.UserID)
 	tenantID := strings.TrimSpace(claims.TenantID)
