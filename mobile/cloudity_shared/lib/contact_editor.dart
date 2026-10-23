@@ -586,40 +586,53 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
         ),
         title: Text(creating ? 'Nouveau contact' : 'Modifier'),
         actions: [
-          TextButton(
-            onPressed: _busy ? null : _save,
-            child: Text(_busy ? '…' : 'Enregistrer'),
+          Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Center(
+              child: FilledButton(
+                key: const Key('contact_editor_save_bar'),
+                style: FilledButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  shape: const StadiumBorder(),
+                ),
+                onPressed: _busy ? null : _save,
+                child: Text(_busy ? '…' : 'Enregistrer'),
+              ),
+            ),
           ),
         ],
       ),
       body: SafeArea(
         top: false,
         child: ListView(
+          primary: false,
           padding: EdgeInsets.fromLTRB(8, 8, 8, bottom),
           children: [
             Center(child: _EditorAvatar(name: _title)),
+            _addButton(_busy ? '…' : 'Enregistrer', () {
+              if (!_busy) _save();
+            }),
             if (!_nameExpanded)
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      key: const Key('contact_editor_name'),
-                      controller: _singleName,
-                      textCapitalization: TextCapitalization.words,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
-                      ),
-                      decoration: _hint(theme, 'Nom'),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: TextField(
+                  key: const Key('contact_editor_name'),
+                  controller: _singleName,
+                  textCapitalization: TextCapitalization.words,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                  decoration: _hint(theme, 'Nom').copyWith(
+                    suffixIcon: IconButton(
+                      key: const Key('contact_editor_expand_name'),
+                      tooltip: 'Afficher plus',
+                      onPressed: _expandName,
+                      icon: const Icon(Icons.expand_more),
                     ),
                   ),
-                  IconButton(
-                    key: const Key('contact_editor_expand_name'),
-                    tooltip: 'Afficher plus',
-                    onPressed: _expandName,
-                    icon: const Icon(Icons.expand_more),
-                  ),
-                ],
+                ),
               )
             else ...[
               if (_showPrefix) _nameField(_prefix, 'Préfixe', const Key('contact_editor_prefix')),
@@ -635,31 +648,9 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
             _plain(_org, 'Entreprise'),
             if (_showJob) _plain(_job, 'Intitulé du poste'),
             if (_showDepartment) _plain(_department, 'Service'),
-            for (var i = 0; i < _phones.length; i++)
-              _labeledField(
-                row: _phones[i],
-                icon: Icons.call_outlined,
-                hint: 'Téléphone',
-                keyboard: TextInputType.phone,
-                choices: kPhoneLabelIds,
-                onRemove: () => setState(() => _phones.removeAt(i).dispose()),
-                onSubmitted: () {
-                  if (!_busy) _save();
-                },
-              ),
+            for (var i = 0; i < _phones.length; i++) _phoneBox(i),
+            for (var i = 0; i < _emails.length; i++) _emailBox(i),
             _addButton('Ajouter un numéro', () => setState(() => _phones.add(_FieldRow(label: 'mobile')))),
-            _addButton('Enregistrer le contact', () {
-              if (!_busy) _save();
-            }),
-            for (var i = 0; i < _emails.length; i++)
-              _labeledField(
-                row: _emails[i],
-                icon: Icons.mail_outlined,
-                hint: 'E-mail',
-                keyboard: TextInputType.emailAddress,
-                choices: kEmailLabelIds,
-                onRemove: () => setState(() => _emails.removeAt(i).dispose()),
-              ),
             if (_emails.isNotEmpty)
               _addButton(
                 'Ajouter adresse e-mail',
@@ -690,16 +681,7 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
                     : Text('Anniversaire', style: TextStyle(color: scheme.onSurfaceVariant)),
                 onTap: _pickBirthday,
               ),
-            ListTile(
-              leading: Icon(Icons.notes_outlined, color: scheme.onSurfaceVariant),
-              title: TextField(
-                controller: _notes,
-                minLines: 1,
-                maxLines: 4,
-                style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
-                decoration: _hint(theme, 'Notes'),
-              ),
-            ),
+            _plain(_notes, 'Notes'),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: Text(
@@ -802,31 +784,118 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
 
   Widget _nameField(TextEditingController controller, String hint, Key key) {
     final theme = Theme.of(context);
-    return TextField(
-      key: key,
-      controller: controller,
-      textCapitalization: TextCapitalization.words,
-      style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
-      decoration: _hint(theme, hint),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: TextField(
+        key: key,
+        controller: controller,
+        textCapitalization: TextCapitalization.words,
+        style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+        decoration: _hint(theme, hint),
+      ),
     );
   }
 
   Widget _plain(TextEditingController controller, String hint) {
     final theme = Theme.of(context);
-    return TextField(
-      controller: controller,
-      textCapitalization: hint == 'Site Web' ? TextCapitalization.none : TextCapitalization.sentences,
-      style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface),
-      decoration: _hint(theme, hint),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: TextField(
+        controller: controller,
+        textCapitalization: hint == 'Site Web' ? TextCapitalization.none : TextCapitalization.sentences,
+        style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface),
+        decoration: _hint(theme, hint),
+      ),
     );
   }
 
   InputDecoration _hint(ThemeData theme, String hint) {
+    final scheme = theme.colorScheme;
     return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-      border: InputBorder.none,
-      isDense: true,
+      labelText: hint,
+      floatingLabelBehavior: FloatingLabelBehavior.auto,
+      contentPadding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+      border: const OutlineInputBorder(),
+      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: scheme.outline)),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: scheme.primary, width: 2),
+      ),
+    );
+  }
+
+  /// Cadre du numéro, toujours au-dessus de « Ajouter un numéro ».
+  Widget _phoneBox(int i) {
+    final row = _phones[i];
+    final shown = contactLabelFr(row.label);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: InputDecorator(
+        decoration: _hint(Theme.of(context), 'Téléphone').copyWith(
+          suffixIcon: IconButton(
+            tooltip: 'Retirer',
+            onPressed: () => setState(() {
+              if (_phones.length == 1) {
+                row.controller.clear();
+              } else {
+                _phones.removeAt(i).dispose();
+              }
+            }),
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: ValueKey('contact_phone_$i'),
+              controller: row.controller,
+              keyboardType: TextInputType.phone,
+              style: Theme.of(context).textTheme.bodyLarge,
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+            ),
+            PopupMenuButton<String>(
+              initialValue: kPhoneLabelIds.contains(row.label) ? row.label : null,
+              onSelected: (value) => setState(() => row.label = value),
+              itemBuilder: (ctx) => [
+                for (final id in kPhoneLabelIds)
+                  PopupMenuItem(value: id, child: Text(contactLabelFr(id))),
+              ],
+              child: Text(shown.isEmpty ? 'Mobile' : shown),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Cadre de l’e-mail, toujours au-dessus de « Ajouter adresse e-mail ».
+  Widget _emailBox(int i) {
+    final row = _emails[i];
+    final shown = contactLabelFr(row.label);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: InputDecorator(
+        decoration: _hint(Theme.of(context), 'E-mail').copyWith(
+          suffixIcon: IconButton(
+            tooltip: 'Retirer',
+            onPressed: () => setState(() => _emails.removeAt(i).dispose()),
+            icon: const Icon(Icons.remove_circle_outline),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: ValueKey('contact_email_$i'),
+              controller: row.controller,
+              keyboardType: TextInputType.emailAddress,
+              style: Theme.of(context).textTheme.bodyLarge,
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+            ),
+            Text(shown.isEmpty ? 'Domicile' : shown),
+          ],
+        ),
+      ),
     );
   }
 

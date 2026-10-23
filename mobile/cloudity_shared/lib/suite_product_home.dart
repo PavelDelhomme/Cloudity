@@ -119,6 +119,9 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   ContactShelf _contactShelf = ContactShelf.active;
   String _contactsNav = 'contacts';
   final TextEditingController _contactSearchCtrl = TextEditingController();
+  final FocusNode _contactSearchFocus = FocusNode();
+  bool _contactSearchFocused = false;
+  Map<String, int> _contactViews = {};
   final Set<String> _selectedContactKeys = {};
   final Map<ContactShelf, ScrollController> _contactScroll = {
     for (final shelf in ContactShelf.values) shelf: ScrollController(),
@@ -180,6 +183,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
       onTokenRefresh: widget.refreshAccessToken,
     );
     _paintCachedItems();
+    _contactSearchFocus.addListener(_onContactSearchFocus);
+    if (widget.product == SuiteProduct.contacts) _loadContactViews();
     if (widget.product == SuiteProduct.tasks) {
       cloudityResolveInstalledVersion().then((version) {
         if (!mounted) return;
@@ -231,6 +236,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     _calSearchCtrl.dispose();
     _taskAddCtrl.dispose();
     _blockNumberField.dispose();
+    _contactSearchFocus.removeListener(_onContactSearchFocus);
+    _contactSearchFocus.dispose();
     _contactSearchCtrl.dispose();
     for (final controller in _contactScroll.values) {
       controller.dispose();
@@ -1083,7 +1090,56 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     }
   }
 
+  void _onContactSearchFocus() {
+    if (!mounted) return;
+    final focused = _contactSearchFocus.hasFocus;
+    if (focused == _contactSearchFocused) return;
+    setState(() => _contactSearchFocused = focused);
+  }
+
+  bool get _showContactSearchClear =>
+      _contactSearchFocused || _contactSearchCtrl.text.isNotEmpty;
+
+  bool get _contactSuggesting =>
+      widget.product == SuiteProduct.contacts &&
+      _contactShelf == ContactShelf.active &&
+      _contactsNav != 'organize' &&
+      _contactSearchFocused &&
+      _contactQuery.trim().isEmpty;
+
+  Future<void> _loadContactViews() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('hubera_contacts_views_v1');
+    if (!mounted || raw == null || raw.isEmpty) return;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final views = <String, int>{};
+      decoded.forEach((key, value) {
+        final n = value is int ? value : int.tryParse('$value') ?? 0;
+        if (n > 0) views['$key'] = n;
+      });
+      setState(() => _contactViews = views);
+    } catch (_) {}
+  }
+
+  Future<void> _rememberContactOpen(Map<String, dynamic> item) async {
+    final key = contactStableKey(item);
+    final next = Map<String, int>.from(_contactViews);
+    next[key] = (next[key] ?? 0) + 1;
+    if (mounted) setState(() => _contactViews = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('hubera_contacts_views_v1', jsonEncode(next));
+  }
+
+  void _clearContactSearch() {
+    _contactSearchCtrl.clear();
+    _contactSearchFocus.unfocus();
+    setState(() => _contactQuery = '');
+  }
+
   Future<void> _openContactFiche(Map<String, dynamic> item) async {
+    await _rememberContactOpen(item);
     final shelf = _contactShelf;
     final controller = _contactScroll[shelf];
     final saved = controller != null && controller.hasClients ? controller.offset : 0.0;
@@ -2301,6 +2357,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
     final theme = Theme.of(context);
     final personal = _contactDirectory == ContactDirectory.personal;
     final visible = _visibleItems;
+    final suggesting = _contactSuggesting;
     final bottom = 88 + MediaQuery.viewPaddingOf(context).bottom;
     final selecting = _contactShelf == ContactShelf.active && _selectedContactKeys.isNotEmpty;
     return SafeArea(
@@ -2339,7 +2396,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
                 ],
               ),
             ),
-          if (_contactShelf == ContactShelf.active) _contactFavoritesStrip(visible),
+          if (_contactShelf == ContactShelf.active && !suggesting) _contactFavoritesStrip(visible),
           if (_contactShelf != ContactShelf.active)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -2388,13 +2445,76 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               ),
             ),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: _reload,
-              child: _contactsDirectoryScroll(visible, personal, bottom),
-            ),
+            child: suggesting
+                ? _contactSuggestionsPane(visible, bottom)
+                : RefreshIndicator(
+                    onRefresh: _reload,
+                    child: _contactsDirectoryScroll(visible, personal, bottom),
+                  ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _contactSuggestionsPane(List<Map<String, dynamic>> pool, double bottom) {
+    final theme = Theme.of(context);
+    final picks = contactSuggestionsByViews(pool, _contactViews);
+    if (picks.isEmpty) {
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(24, 48, 24, bottom),
+        children: [
+          Text(
+            'Aucun contact ouvert pour l’instant.',
+            key: const Key('contact_search_empty'),
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+          ),
+        ],
+      );
+    }
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.only(bottom: bottom),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text('Ouverts souvent', style: theme.textTheme.titleSmall),
+        ),
+        SizedBox(
+          height: 112,
+          child: ListView.separated(
+            key: const Key('contact_search_suggestions'),
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: picks.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, index) {
+              final item = picks[index];
+              final title = _itemTitle(item);
+              return SizedBox(
+                width: 96,
+                child: InkWell(
+                  onTap: () => _openContactFiche(item),
+                  child: Column(
+                    children: [
+                      CircleAvatar(child: Text(_contactInitials(title))),
+                      const SizedBox(height: 6),
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -4491,11 +4611,21 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
               _contactShelf == ContactShelf.active &&
               _contactsNav != 'organize'
           ? TextField(
+              key: const Key('contact_search_field'),
               controller: _contactSearchCtrl,
-              decoration: const InputDecoration(
+              focusNode: _contactSearchFocus,
+              decoration: InputDecoration(
                 hintText: 'Rechercher dans vos contacts',
                 border: InputBorder.none,
                 isDense: true,
+                suffixIcon: _showContactSearchClear
+                    ? IconButton(
+                        key: const Key('contact_search_clear'),
+                        tooltip: 'Effacer',
+                        onPressed: _clearContactSearch,
+                        icon: const Icon(Icons.close),
+                      )
+                    : null,
               ),
               onChanged: (v) => setState(() => _contactQuery = v),
             )

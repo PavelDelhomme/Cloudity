@@ -254,4 +254,21 @@ void main() {
     final round = ContactPlacement.fromJson(placed.toJson());
     expect(round.favorites, {'h:1'});
   });
+
+  test('les propositions suivent les ouvertures et n’inventent pas de nom', () {
+    final items = [
+      {'id': 1, 'display_name': 'Essai Local'},
+      {'id': 2, 'display_name': 'Atelier Labo'},
+      {'id': 3, 'display_name': 'Autre'},
+    ];
+    expect(contactSuggestionsByViews(items, const {}), isEmpty);
+    expect(
+      contactSuggestionsByViews(items, const {'h:2': 1}).map((e) => e['display_name']),
+      ['Atelier Labo'],
+    );
+    expect(
+      contactSuggestionsByViews(items, const {'h:2': 1, 'h:1': 4}).map((e) => e['display_name']),
+      ['Essai Local', 'Atelier Labo'],
+    );
+  });
 }

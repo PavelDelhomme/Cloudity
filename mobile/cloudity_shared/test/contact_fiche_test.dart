@@ -109,21 +109,38 @@ void main() {
         ContactEditorScreen(api: _api(), existing: Map<String, dynamic>.from(_item)),
         brightness: brightness,
       );
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+      scroll.position.jumpTo(0);
+      await tester.pump();
       expect(find.text('Camille'), findsWidgets);
       expect(find.text('Martin'), findsWidgets);
       expect(find.text('Atelier'), findsOneWidget);
       expect(find.text('Relieuse'), findsOneWidget);
       expect(find.text('0600000001'), findsOneWidget);
       expect(find.text('Mobile'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('0600000001')).dy,
+        lessThan(tester.getTopLeft(find.text('Ajouter un numéro')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('camille@example.com')).dy,
+        lessThan(tester.getTopLeft(find.text('Ajouter un numéro')).dy),
+      );
+      expect(
+        tester.getTopLeft(find.text('camille@example.com')).dy,
+        lessThan(tester.getTopLeft(find.text('Ajouter adresse e-mail')).dy),
+      );
       expect(find.text('camille@example.com'), findsOneWidget);
       expect(find.text('1 rue des Lilas'), findsOneWidget);
-      expect(find.text('Préfère le matin'), findsOneWidget);
-      expect(find.text('21 février 1990'), findsOneWidget);
-      expect(find.text('Enregistrer'), findsOneWidget);
-      expect(find.text('Enregistrer le contact'), findsOneWidget);
+      expect(find.text('Enregistrer'), findsNWidgets(2));
+      expect(find.text('Enregistrer le contact'), findsNothing);
       expect(find.textContaining('synchronisé'), findsNothing);
+      await tester.drag(find.byType(ListView), const Offset(0, -700));
+      await tester.pump();
+      expect(find.text('Préfère le matin'), findsWidgets);
+      expect(find.text('21 février 1990'), findsWidgets);
 
-      final scheme = Theme.of(tester.element(find.text('Enregistrer'))).colorScheme;
+      final scheme = Theme.of(tester.element(find.text('Enregistrer').first)).colorScheme;
       expect(_contrast(scheme.onSurface, scheme.surface), greaterThan(4.5));
     }
   });

@@ -521,3 +521,23 @@ BlockAttempt interpretBlockResult({
   }
   return const BlockAttempt(blocked: true, reason: '');
 }
+
+/// Contacts ouverts au moins une fois, du plus vu au moins vu.
+/// Une fiche jamais ouverte n’apparaît pas : on n’invente pas de nom.
+List<Map<String, dynamic>> contactSuggestionsByViews(
+  List<Map<String, dynamic>> items,
+  Map<String, int> views, {
+  int limit = 8,
+}) {
+  final ranked = <Map<String, dynamic>>[
+    for (final item in items)
+      if ((views[contactStableKey(item)] ?? 0) > 0) item,
+  ];
+  ranked.sort((a, b) {
+    final diff = (views[contactStableKey(b)] ?? 0).compareTo(views[contactStableKey(a)] ?? 0);
+    if (diff != 0) return diff;
+    return contactStableKey(a).compareTo(contactStableKey(b));
+  });
+  if (ranked.length <= limit) return ranked;
+  return ranked.sublist(0, limit);
+}
