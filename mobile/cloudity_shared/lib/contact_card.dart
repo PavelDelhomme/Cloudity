@@ -35,6 +35,103 @@ class ContactNameParts {
 /// Nom affiché. Les champs vides ne laissent pas de double espace.
 String composeContactDisplayName(ContactNameParts parts) => parts.display;
 
+String _profileString(Map<String, dynamic> item, List<String> keys) {
+  final profile = item['profile'] is Map
+      ? Map<String, dynamic>.from(item['profile'] as Map)
+      : <String, dynamic>{};
+  for (final key in keys) {
+    final raw = profile[key] ?? item[key];
+    final v = raw?.toString().trim() ?? '';
+    if (v.isNotEmpty) return v;
+  }
+  return '';
+}
+
+/// Nom de liste et de fiche : prénom/nom, sinon l’entreprise, sinon e-mail ou téléphone.
+String contactHeadline(Map<String, dynamic> item) {
+  final parts = readContactName(item);
+  if (!parts.isEmpty) return parts.display;
+  final org = _profileString(item, ['organization', 'company']);
+  if (org.isNotEmpty) return org;
+  final display = (item['display_name'] ?? item['name'] ?? '').toString().trim();
+  if (display.isNotEmpty) {
+    return _looksLikePhone(display) ? formatContactPhone(display) : display;
+  }
+  final email = (item['email'] ?? '').toString().trim();
+  if (email.isNotEmpty && email != 'locked@vault.local') return email;
+  final phone = _firstPhone(item);
+  if (phone != null) return formatContactPhone(phone);
+  return '';
+}
+
+bool _looksLikePhone(String raw) {
+  final digits = raw.replaceAll(RegExp(r'\D'), '');
+  if (digits.length < 8) return false;
+  return raw.replaceAll(RegExp(r'[\d\s.+\-()]'), '').isEmpty;
+}
+
+String _digitPairs(String digits) {
+  final out = StringBuffer();
+  for (var i = 0; i < digits.length; i += 2) {
+    if (out.isNotEmpty) out.write(' ');
+    final end = i + 2 > digits.length ? digits.length : i + 2;
+    out.write(digits.substring(i, end));
+  }
+  return out.toString();
+}
+
+/// Groupe un numéro pour la liste : 06 12 34 56 78, ou +33 6 12 34 56 78.
+String formatContactPhone(String raw) {
+  final trimmed = raw.trim();
+  if (!_looksLikePhone(trimmed)) return trimmed;
+  final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+  if (digits.startsWith('33') && digits.length >= 11) {
+    var rest = digits.substring(2);
+    if (rest.startsWith('0')) rest = rest.substring(1);
+    if (rest.length == 9) {
+      return '+33 ${rest[0]} ${_digitPairs(rest.substring(1))}';
+    }
+    return '+33 ${_digitPairs(rest)}';
+  }
+  if (digits.length == 10 && digits.startsWith('0')) return _digitPairs(digits);
+  if (trimmed.startsWith('+')) return '+${_digitPairs(digits)}';
+  return _digitPairs(digits);
+}
+
+String? _firstPhone(Map<String, dynamic> item) {
+  final profile = item['profile'];
+  if (profile is Map) {
+    final phones = profile['phones'];
+    if (phones is List) {
+      for (final p in phones) {
+        final v = p is Map ? p['value']?.toString() : p?.toString();
+        final t = (v ?? '').trim();
+        if (t.isNotEmpty) return t;
+      }
+    }
+  }
+  final phone = (item['phone'] ?? '').toString().trim();
+  return phone.isEmpty ? null : phone;
+}
+
+/// Ligne sous le nom. Un numéro présent remplace l’e-mail : l’e-mail reste sur la fiche.
+String? contactListSubtitle(Map<String, dynamic> item) {
+  final rawPhone = _firstPhone(item);
+  final title = contactHeadline(item);
+  if (rawPhone != null) {
+    final titleDigits = title.replaceAll(RegExp(r'\D'), '');
+    final phoneDigits = rawPhone.replaceAll(RegExp(r'\D'), '');
+    if (titleDigits != phoneDigits) return formatContactPhone(rawPhone);
+  }
+  if (rawPhone == null) {
+    final email = (item['email'] ?? '').toString().trim();
+    if (email.isNotEmpty && email != 'locked@vault.local') return email;
+  }
+  final org = _profileString(item, ['organization', 'company']);
+  if (org.isNotEmpty && org != title) return org;
+  return null;
+}
+
 /// Relit le nom enregistré. S’il n’y a que le nom affiché, le premier mot
 /// devient le prénom et le reste le nom : rien n’est jeté.
 ContactNameParts readContactName(Map<String, dynamic> item) {
@@ -66,7 +163,13 @@ ContactNameParts readContactName(Map<String, dynamic> item) {
       suffix: suffix,
     );
   }
+  final org = pick(['organization', 'company']);
   final display = (item['display_name'] ?? item['name'] ?? '').toString().trim();
+  // Un contact « entreprise seule » enregistre l’entreprise comme nom affiché.
+  // On ne la découpe pas en prénom et nom.
+  if (display.isEmpty || (org.isNotEmpty && display == org)) {
+    return const ContactNameParts();
+  }
   final words = display.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
   if (words.isEmpty) return const ContactNameParts();
   if (words.length == 1) return ContactNameParts(given: words.first);
@@ -202,19 +305,9 @@ class ContactCardData {
     final profile = item['profile'] is Map
         ? Map<String, dynamic>.from(item['profile'] as Map)
         : <String, dynamic>{};
-    var name = (item['display_name'] ?? item['name'] ?? '').toString().trim();
-    if (name.isEmpty) {
-      final given = (profile['given_name'] ?? item['first_name'] ?? '').toString().trim();
-      final family = (profile['family_name'] ?? item['last_name'] ?? '').toString().trim();
-      name = '$given $family'.trim();
-    }
+    final name = contactHeadline(item);
     final columnEmail = (item['email'] ?? '').toString().trim();
     final columnPhone = (item['phone'] ?? '').toString().trim();
-    if (name.isEmpty) {
-      name = columnEmail.isNotEmpty && columnEmail != 'locked@vault.local'
-          ? columnEmail
-          : columnPhone;
-    }
 
     var phones = labeledValues(profile['phones']);
     if (columnPhone.isNotEmpty &&

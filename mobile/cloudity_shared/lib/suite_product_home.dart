@@ -8,6 +8,7 @@ import 'calendar_repeat.dart';
 import 'calendar_time_grid.dart';
 import 'calendar_visibility.dart';
 import 'cloudity_crash_reporter.dart';
+import 'contact_card.dart';
 import 'contact_directory.dart';
 import 'contact_editor.dart';
 import 'contact_fiche.dart';
@@ -1015,14 +1016,8 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         final rr = normalizeCalendarRepeat(item['repeat_rule']?.toString());
         return rr == null ? title : '↻ $title';
       case SuiteProduct.contacts:
-        final name = item['display_name']?.toString().trim();
-        if (name != null && name.isNotEmpty) return name;
-        final n = item['name']?.toString().trim();
-        if (n != null && n.isNotEmpty) return n;
-        final fn = item['first_name']?.toString() ?? '';
-        final ln = item['last_name']?.toString() ?? '';
-        final full = '$fn $ln'.trim();
-        return full.isNotEmpty ? full : item['email']?.toString() ?? '(contact)';
+        final name = contactHeadline(item);
+        return name.isNotEmpty ? name : '(contact)';
       case SuiteProduct.notes:
         final t = item['title']?.toString() ?? '(sans titre)';
         return item['pinned'] == true ? '📌 $t' : t;
@@ -1052,41 +1047,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         }
         return bits.isEmpty ? null : bits.join(' · ');
       case SuiteProduct.contacts:
-        final profile = item['profile'];
-        String? org;
-        final extraMails = <String>[];
-        if (profile is Map) {
-          org = profile['organization']?.toString();
-          if (org != null && org.trim().isEmpty) org = null;
-          final emails = profile['emails'];
-          if (emails is List) {
-            final primary = (item['email']?.toString() ?? '').trim().toLowerCase();
-            for (final e in emails) {
-              String? v;
-              if (e is String) {
-                v = e;
-              } else if (e is Map) {
-                v = e['value']?.toString();
-              }
-              final t = (v ?? '').trim();
-              if (t.isEmpty) continue;
-              if (t.toLowerCase() == primary) continue;
-              extraMails.add(t);
-            }
-          }
-        }
-        final email = item['email']?.toString();
-        final phone = item['phone']?.toString();
-        final bits = <String>[
-          if (org != null) org,
-          if (email != null && email.isNotEmpty && email != 'locked@vault.local')
-            email,
-          ...extraMails,
-          if (phone != null && phone.isNotEmpty) phone,
-        ];
-        final addr = contactAddressQuery(item);
-        if (addr.isNotEmpty) bits.add(addr);
-        return bits.isEmpty ? null : bits.join(' · ');
+        return contactListSubtitle(item);
       case SuiteProduct.notes:
         final body =
             item['body']?.toString() ?? item['content']?.toString() ?? '';
@@ -2440,6 +2401,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
   Widget _contactFavoritesStrip(List<Map<String, dynamic>> visible) {
     final theme = Theme.of(context);
     final favs = contactFavorites(visible, _placement.favorites);
+    if (favs.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2449,15 +2411,7 @@ class _SuiteProductHomeScreenState extends State<SuiteProductHomeScreen> {
         ),
         SizedBox(
           height: 112,
-          child: favs.isEmpty
-              ? const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('Aucun favori'),
-                  ),
-                )
-              : ListView.separated(
+          child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   itemCount: favs.length,

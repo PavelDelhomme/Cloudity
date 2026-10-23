@@ -197,7 +197,7 @@ class ContactFicheScreen extends StatelessWidget {
                 ),
               ),
             ),
-            if (card.orgLine.isNotEmpty) ...[
+            if (card.orgLine.isNotEmpty && card.orgLine != title) ...[
               const SizedBox(height: 4),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),

@@ -120,6 +120,7 @@ void main() {
       expect(find.text('Préfère le matin'), findsOneWidget);
       expect(find.text('21 février 1990'), findsOneWidget);
       expect(find.text('Enregistrer'), findsOneWidget);
+      expect(find.text('Enregistrer le contact'), findsOneWidget);
       expect(find.textContaining('synchronisé'), findsNothing);
 
       final scheme = Theme.of(tester.element(find.text('Enregistrer'))).colorScheme;
@@ -210,6 +211,29 @@ void main() {
     expect(stored.middle, 'Marie');
     expect(stored.suffix, 'Jr');
     expect(composeContactDisplayName(stored), 'Dr Camille Marie Martin Jr');
+  });
+
+  test('la liste groupe le numéro et le préfère à l’e-mail', () {
+    expect(formatContactPhone('0600112233'), '06 00 11 22 33');
+    expect(formatContactPhone('+33600445566'), '+33 6 00 44 55 66');
+    expect(formatContactPhone('33.6.00.44.55.66'), '+33 6 00 44 55 66');
+    final both = contactListSubtitle({
+      'display_name': 'Essai Liste',
+      'email': 'essai.liste@local.test',
+      'phone': '0600445566',
+    });
+    expect(both, '06 00 44 55 66');
+    expect(both!.contains('@'), isFalse);
+  });
+
+  test('sans prénom ni nom, la fiche et la liste affichent l’entreprise', () {
+    final item = {
+      'display_name': 'Atelier Labo',
+      'profile': {'organization': 'Atelier Labo'},
+    };
+    expect(readContactName(item).isEmpty, isTrue);
+    expect(contactHeadline(item), 'Atelier Labo');
+    expect(ContactCardData.fromItem(item).name, 'Atelier Labo');
   });
 
   test('Photon remplit une adresse structurée', () {

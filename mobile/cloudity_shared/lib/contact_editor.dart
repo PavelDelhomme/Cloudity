@@ -422,7 +422,10 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
         if (row.controller.text.trim().contains('@'))
           LabeledValue(label: _savedLabel(row), value: row.controller.text.trim()),
     ];
-    final display = parts.display.isNotEmpty ? parts.display : _title.trim();
+    final org = _org.text.trim();
+    final display = parts.display.isNotEmpty
+        ? parts.display
+        : (_title.trim().isNotEmpty ? _title.trim() : org);
     if (display.isEmpty && phones.isEmpty && emails.isEmpty) {
       setState(() => _error = 'Nom, e-mail ou téléphone requis');
       return;
@@ -551,11 +554,15 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
         );
       }
       if (mounted) Navigator.pop(context, true);
-    } catch (_) {
+    } catch (err) {
       if (!mounted) return;
+      final raw = err.toString();
+      final detail = raw.contains('refresh token')
+          ? 'Session expirée. La fiche n’a pas été enregistrée.'
+          : raw.replaceFirst('SuiteApiException: ', '').replaceFirst('AuthException: ', '');
       setState(() {
         _busy = false;
-        _error = 'Enregistrement impossible';
+        _error = detail.length > 220 ? '${detail.substring(0, 220)}…' : detail;
       });
     }
   }
@@ -636,8 +643,14 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
                 keyboard: TextInputType.phone,
                 choices: kPhoneLabelIds,
                 onRemove: () => setState(() => _phones.removeAt(i).dispose()),
+                onSubmitted: () {
+                  if (!_busy) _save();
+                },
               ),
             _addButton('Ajouter un numéro', () => setState(() => _phones.add(_FieldRow(label: 'mobile')))),
+            _addButton('Enregistrer le contact', () {
+              if (!_busy) _save();
+            }),
             for (var i = 0; i < _emails.length; i++)
               _labeledField(
                 row: _emails[i],
@@ -831,6 +844,7 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     required TextInputType keyboard,
     required List<String> choices,
     required VoidCallback onRemove,
+    VoidCallback? onSubmitted,
   }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
@@ -846,6 +860,8 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
       title: TextField(
         controller: row.controller,
         keyboardType: keyboard,
+        textInputAction: onSubmitted == null ? TextInputAction.next : TextInputAction.done,
+        onSubmitted: onSubmitted == null ? null : (_) => onSubmitted(),
         style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
         decoration: _hint(theme, hint),
       ),
