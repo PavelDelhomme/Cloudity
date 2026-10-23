@@ -58,6 +58,60 @@ Future<List<({String email, String refresh})>> _refreshCopies() async {
   return const [];
 }
 
+Future<AdminEntry> _adminEntry(AuthApi api, String access) async {
+  if (access.trim().isEmpty) return AdminEntry.unresolved;
+  try {
+    return adminEntryFromStatus(await api.adminUsersStatus(access));
+  } catch (error) {
+    debugPrint('Admin: API admin injoignable ($error)');
+    return AdminEntry.unresolved;
+  }
+}
+
+Future<UserSession?> _sessionAfterProbe({
+  required AdminEntry entry,
+  required AuthApi api,
+  required String access,
+  required String refresh,
+  required String previousAccess,
+  required String previousRefresh,
+  String emailHint = '',
+}) async {
+  if (entry == AdminEntry.denied) {
+    debugPrint('Admin: API 403, écran de connexion');
+    await SessionStore.clearLocalTokens();
+    adminStayOnLogin();
+    return null;
+  }
+  if (entry != AdminEntry.open) {
+    debugPrint('Admin: API admin sans 200, tableau fermé');
+    return null;
+  }
+  adminClearLoginNotice();
+  if (access != previousAccess || refresh != previousRefresh) {
+    final savedEmail = emailFromAccessToken(access) ?? emailHint;
+    if (savedEmail.isNotEmpty) {
+      await SessionStore.saveSessionWithEmail(
+        gatewayUrl: api.baseUrl,
+        accessToken: access,
+        refreshToken: refresh,
+        email: savedEmail,
+        tenantId: await SessionStore.readTenantId(),
+        userId: await SessionStore.readUserId(),
+      );
+    } else {
+      await SessionStore.saveSession(
+        gatewayUrl: api.baseUrl,
+        accessToken: access,
+        refreshToken: refresh,
+      );
+    }
+    debugPrint('Admin: session renouvelée (${api.baseUrl})');
+  }
+  debugPrint('Admin: API 200, ouverture du tableau');
+  return UserSession(api: api, accessToken: access, refreshToken: refresh);
+}
+
 Future<UserSession?> _restoreSession() async {
   debugPrint('Admin: reprise de session');
   final pair = await SessionStore.loadValidatedSession(createApi: AuthApi.new);
@@ -65,99 +119,40 @@ Future<UserSession?> _restoreSession() async {
     debugPrint('Admin: session locale absente');
     return null;
   }
-  final role = roleFromAccessToken(pair.access);
-  final accessStillValid = adminAccessStillValid(pair.access);
-  debugPrint('Admin: session locale lue role=$role valid=$accessStillValid');
-  // Rôle admin déjà dans le jeton : ouvrir. Un autre rôle, même avec un
-  // jeton encore valide, ne voit pas le tableau. Le renouvellement plus bas
-  // relit le rôle côté serveur (allowlist) avant de trancher.
-  if (adminOpensHome(role: role, accessStillValid: accessStillValid)) {
-    debugPrint('Admin: ouverture de la session locale');
-    adminClearLoginNotice();
-    return UserSession(
-      api: pair.api,
-      accessToken: pair.access,
-      refreshToken: pair.refresh,
-    );
-  }
-  debugPrint('Admin: jeton à relire');
-  final email = emailFromAccessToken(pair.access) ?? '';
-  final AdminRefreshResult recovered;
+  var access = pair.access;
+  var refresh = pair.refresh;
+  final email = emailFromAccessToken(access) ?? '';
+  debugPrint('Admin: session locale lue, lecture API admin');
   try {
-    recovered = await recoverAdminRefresh(
+    final recovered = await recoverAdminRefresh(
       access: pair.access,
       refresh: pair.refresh,
       expectedEmail: email,
       listCopies: _refreshCopies,
       refreshTokens: (access, refresh) => pair.api.refreshTokens(refresh),
     );
-  } on AuthException catch (error) {
-    if (!adminRefreshTokenRejected(error)) rethrow;
-    debugPrint('Admin: refresh refusé, choix de compte (${pair.api.baseUrl})');
-    await SessionStore.clearLocalTokens();
-    if (role != 'admin') adminStayOnLogin();
-    return null;
-  }
-  if (recovered.openChooser) {
-    // Jeton mort : ne pas le réafficher, ne pas le renvoyer au prochain lancement.
-    debugPrint('Admin: refresh refusé, choix de compte (${pair.api.baseUrl})');
-    await SessionStore.clearLocalTokens();
-    if (role != 'admin') adminStayOnLogin();
-    return null;
-  }
-  final ({String access, String refresh, bool? isAdmin}) adminTokens;
-  try {
-    adminTokens = await _tokensForAdmin(
-      api: pair.api,
-      access: recovered.access,
-      refresh: recovered.refresh,
-    );
-  } catch (error) {
-    debugPrint('Admin: rôle illisible ($error)');
-    await SessionStore.clearLocalTokens();
-    if (role != 'admin') adminStayOnLogin();
-    return null;
-  }
-  final isAdmin = adminTokens.isAdmin;
-  if (isAdmin == null) {
-    // Gateway injoignable : garder le broker des autres apps, session locale seule.
-    await SessionStore.clearLocalTokens();
-    if (role != 'admin') adminStayOnLogin();
-    return null;
-  }
-  if (!isAdmin) {
-    // Le serveur n’a pas mis le rôle admin. Session locale Admin seulement :
-    // le broker des autres apps, et le compte principal, restent en place.
-    debugPrint('Admin: compte sans rôle admin, écran de connexion');
-    await SessionStore.clearLocalTokens();
-    adminStayOnLogin();
-    return null;
-  }
-  adminClearLoginNotice();
-  if (adminTokens.access != pair.access || adminTokens.refresh != pair.refresh) {
-    final savedEmail = emailFromAccessToken(adminTokens.access) ?? email;
-    if (savedEmail.isNotEmpty) {
-      await SessionStore.saveSessionWithEmail(
-        gatewayUrl: pair.api.baseUrl,
-        accessToken: adminTokens.access,
-        refreshToken: adminTokens.refresh,
-        email: savedEmail,
-        tenantId: await SessionStore.readTenantId(),
-        userId: await SessionStore.readUserId(),
+    if (!recovered.openChooser && recovered.access.trim().isNotEmpty) {
+      final adminTokens = await _tokensForAdmin(
+        api: pair.api,
+        access: recovered.access,
+        refresh: recovered.refresh,
       );
-    } else {
-      await SessionStore.saveSession(
-        gatewayUrl: pair.api.baseUrl,
-        accessToken: adminTokens.access,
-        refreshToken: adminTokens.refresh,
-      );
+      if (adminTokens.access.trim().isNotEmpty) {
+        access = adminTokens.access;
+        refresh = adminTokens.refresh;
+      }
     }
-    debugPrint('Admin: session renouvelée (${pair.api.baseUrl})');
+  } catch (error) {
+    debugPrint('Admin: relecture interrompue ($error)');
   }
-  return UserSession(
+  return _sessionAfterProbe(
+    entry: await _adminEntry(pair.api, access),
     api: pair.api,
-    accessToken: adminTokens.access,
-    refreshToken: adminTokens.refresh,
+    access: access,
+    refresh: refresh,
+    previousAccess: pair.access,
+    previousRefresh: pair.refresh,
+    emailHint: email,
   );
 }
 
@@ -170,36 +165,41 @@ Future<void> _onLoggedIn(
     access: session.accessToken,
     refresh: session.refreshToken,
   );
-  final isAdmin = adminTokens.isAdmin;
-  if (isAdmin == null) {
-    throw AuthException(
-      'Gateway Hubera injoignable. Vérifie la connexion puis réessaie.',
-    );
-  }
-  if (!isAdmin) {
+  final access = adminTokens.access.trim().isNotEmpty
+      ? adminTokens.access
+      : session.accessToken;
+  final refresh = adminTokens.refresh.trim().isNotEmpty
+      ? adminTokens.refresh
+      : session.refreshToken;
+  final entry = await _adminEntry(session.api, access);
+  if (entry == AdminEntry.denied) {
     await SessionStore.clearLocalTokens();
     adminStayOnLogin();
     throw AuthException(adminDeniedMessage);
   }
+  if (entry != AdminEntry.open) {
+    throw AuthException(
+      'Gateway Hubera injoignable. Vérifie la connexion puis réessaie.',
+    );
+  }
   adminClearLoginNotice();
-  if (adminTokens.access != session.accessToken ||
-      adminTokens.refresh != session.refreshToken) {
-    final email = emailFromAccessToken(adminTokens.access) ?? '';
+  if (access != session.accessToken || refresh != session.refreshToken) {
+    final email = emailFromAccessToken(access) ?? '';
     if (email.isNotEmpty) {
       await SessionStore.saveSessionWithEmail(
         gatewayUrl: session.api.baseUrl,
-        accessToken: adminTokens.access,
-        refreshToken: adminTokens.refresh,
+        accessToken: access,
+        refreshToken: refresh,
         email: email,
-        tenantId: tenantIdFromAccessToken(adminTokens.access) ?? 1,
+        tenantId: tenantIdFromAccessToken(access) ?? 1,
       );
     }
   }
   onLoggedIn(
     UserSession(
       api: session.api,
-      accessToken: adminTokens.access,
-      refreshToken: adminTokens.refresh,
+      accessToken: access,
+      refreshToken: refresh,
     ),
   );
 }

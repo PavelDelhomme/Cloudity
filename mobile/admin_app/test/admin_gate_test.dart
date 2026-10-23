@@ -3,12 +3,12 @@ import 'package:admin_app/auth/admin_gate.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('seul un jeton admin encore valide ouvre l’accueil', () {
-    expect(adminOpensHome(role: 'admin', accessStillValid: true), isTrue);
-    expect(adminOpensHome(role: 'admin', accessStillValid: false), isFalse);
-    expect(adminOpensHome(role: 'user', accessStillValid: true), isFalse);
-    expect(adminOpensHome(role: null, accessStillValid: true), isFalse);
-    expect(adminOpensHome(role: '', accessStillValid: true), isFalse);
+  test('seul un 200 de l’API admin ouvre le tableau', () {
+    expect(adminEntryFromStatus(200), AdminEntry.open);
+    expect(adminEntryFromStatus(403), AdminEntry.denied);
+    expect(adminEntryFromStatus(401), AdminEntry.unresolved);
+    expect(adminEntryFromStatus(500), AdminEntry.unresolved);
+    expect(adminEntryFromStatus(null), AdminEntry.unresolved);
   });
 
   test('un 403 renvoie vers la connexion, un autre échec non', () {

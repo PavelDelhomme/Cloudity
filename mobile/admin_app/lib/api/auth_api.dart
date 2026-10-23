@@ -19,6 +19,17 @@ class AuthApi extends CloudityAuthClient {
     return map;
   }
 
+  /// Statut de `GET /admin/users`. Le corps n’est pas utilisé : 200 ouvre
+  /// le tableau, 403 le refuse. Aucune adresse n’est comparée ici.
+  Future<int> adminUsersStatus(String accessToken) async {
+    final res = await huberaHttp.get(
+      Uri.parse('$baseUrl/admin/users'),
+      headers: authHeaders(accessToken, json: false),
+      timeout: const Duration(seconds: 12),
+    );
+    return res.statusCode;
+  }
+
   /// Réémet les jetons à partir d’un access encore valide. Le serveur relit le rôle.
   Future<({String access, String refresh})> renewFromAccess(String accessToken) async {
     final res = await http
