@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'contact_address_search.dart';
 import 'contact_card.dart';
 import 'contact_directory.dart';
 import 'device_google_contacts.dart';
 import 'suite_product_api.dart';
 
-/// Création et modification : les mêmes champs que la fiche, en plein écran.
+/// Création et modification. Même logique que le formulaire Google Contacts
+/// vu sur le téléphone : nom replié, puis prénom et nom, champs ajoutés à la demande.
 class ContactEditorScreen extends StatefulWidget {
   const ContactEditorScreen({
     super.key,
@@ -16,130 +20,319 @@ class ContactEditorScreen extends StatefulWidget {
     this.requestAccessOnce,
     this.insertOnDevice,
     this.onDeviceCopyRefused,
+    this.searchAddresses,
   });
 
   final SuiteProductApi api;
   final Map<String, dynamic>? existing;
-
-  /// `personal` ou `professional`. Absent : le profil n’est pas étiqueté (comportement actuel).
   final String? directory;
-
-  /// Défaut : lecture Android déjà accordée, sans dialogue.
   final Future<bool> Function()? accessGranted;
-
-  /// Défaut : une demande système, sautée si l’autorisation est déjà là.
   final Future<bool> Function()? requestAccessOnce;
-
-  /// Défaut : copie dans le carnet du téléphone. `null` en test pour ne pas écrire.
   final Future<DeviceWriteResult> Function({
     required String name,
     String phone,
     String email,
   })? insertOnDevice;
-
-  /// Appelé seulement si la copie téléphone a été refusée. Absent : pas de message inventé.
   final void Function(String reason)? onDeviceCopyRefused;
+
+  /// Défaut : la recherche d’adresses de Hubera Maps (Photon, puis Nominatim).
+  final Future<List<ContactAddressHit>> Function(String query)? searchAddresses;
 
   @override
   State<ContactEditorScreen> createState() => _ContactEditorScreenState();
 }
 
 class _FieldRow {
-  _FieldRow({required this.label, String value = ''})
-      : controller = TextEditingController(text: value);
+  _FieldRow({required this.label, String custom = '', String value = ''})
+      : controller = TextEditingController(text: value),
+        customController = TextEditingController(text: custom);
 
   String label;
   final TextEditingController controller;
+  final TextEditingController customController;
 
-  void dispose() => controller.dispose();
+  String get custom => customController.text;
+
+  void dispose() {
+    controller.dispose();
+    customController.dispose();
+  }
+}
+
+class _AddressRow {
+  _AddressRow({
+    this.label = 'home',
+    String custom = '',
+    String street = '',
+    String postal = '',
+    String city = '',
+    String country = '',
+  })  : customController = TextEditingController(text: custom),
+        street = TextEditingController(text: street),
+        postal = TextEditingController(text: postal),
+        city = TextEditingController(text: city),
+        country = TextEditingController(text: country);
+
+  String get custom => customController.text;
+
+  String label;
+  final TextEditingController customController;
+  final TextEditingController street;
+  final TextEditingController postal;
+  final TextEditingController city;
+  final TextEditingController country;
+
+  bool get isEmpty =>
+      street.text.trim().isEmpty &&
+      postal.text.trim().isEmpty &&
+      city.text.trim().isEmpty &&
+      country.text.trim().isEmpty;
+
+  VoidCallback? onStreet;
+
+  void dispose() {
+    if (onStreet != null) street.removeListener(onStreet!);
+    customController.dispose();
+    street.dispose();
+    postal.dispose();
+    city.dispose();
+    country.dispose();
+  }
 }
 
 class _ContactEditorScreenState extends State<ContactEditorScreen> {
-  late final TextEditingController _name;
+  late final TextEditingController _singleName;
+  late final TextEditingController _prefix;
+  late final TextEditingController _given;
+  late final TextEditingController _middle;
+  late final TextEditingController _family;
+  late final TextEditingController _suffix;
+  late final TextEditingController _phonetic;
+  late final TextEditingController _nickname;
+  late final TextEditingController _fileAs;
   late final TextEditingController _org;
   late final TextEditingController _job;
   late final TextEditingController _department;
-  late final TextEditingController _street;
-  late final TextEditingController _postal;
-  late final TextEditingController _city;
+  late final TextEditingController _relation;
+  late final TextEditingController _website;
+  late final TextEditingController _labels;
   late final TextEditingController _notes;
   late final List<_FieldRow> _phones;
   late final List<_FieldRow> _emails;
-  late String _addressLabel;
+  late final List<_AddressRow> _addresses;
+  late final List<_FieldRow> _customs;
+  late bool _nameExpanded;
+  late bool _showPrefix;
+  late bool _showMiddle;
+  late bool _showSuffix;
+  late bool _showPhonetic;
+  late bool _showNickname;
+  late bool _showFileAs;
+  late bool _showJob;
+  late bool _showDepartment;
+  late bool _showRelation;
+  late bool _showWebsite;
+  late bool _showLabels;
+  late bool _showBirthday;
   String _birthday = '';
   bool _busy = false;
   String? _error;
   Map<String, dynamic> _profile = {};
+  Timer? _addressTimer;
+  int _addressGen = 0;
+  int? _searchIndex;
+  List<ContactAddressHit> _hits = const [];
+  bool _suppressSearch = false;
 
   @override
   void initState() {
     super.initState();
     final existing = widget.existing;
-    final card = existing == null
-        ? const ContactCardData(
-            name: '',
-            organization: '',
-            jobTitle: '',
-            department: '',
-            phones: [],
-            emails: [],
-            street: '',
-            postalCode: '',
-            city: '',
-            addressLabel: '',
-            birthday: '',
-            notes: '',
-            addressLine: '',
-          )
-        : ContactCardData.fromItem(existing);
+    final card = existing == null ? null : ContactCardData.fromItem(existing);
     final rawProfile = existing?['profile'];
     if (rawProfile is Map) _profile = Map<String, dynamic>.from(rawProfile);
-
-    _name = TextEditingController(text: card.name);
-    _org = TextEditingController(text: card.organization);
-    _job = TextEditingController(text: card.jobTitle);
-    _department = TextEditingController(text: card.department);
-    _street = TextEditingController(text: card.street);
-    _postal = TextEditingController(text: card.postalCode);
-    _city = TextEditingController(text: card.city);
-    _notes = TextEditingController(text: card.notes);
-    _addressLabel = card.addressLabel.isEmpty ? 'home' : card.addressLabel;
-    _birthday = card.birthday;
+    final parts = card?.nameParts ?? const ContactNameParts();
+    _singleName = TextEditingController(text: card?.name ?? '');
+    _prefix = TextEditingController(text: parts.prefix);
+    _given = TextEditingController(text: parts.given);
+    _middle = TextEditingController(text: parts.middle);
+    _family = TextEditingController(text: parts.family);
+    _suffix = TextEditingController(text: parts.suffix);
+    _phonetic = TextEditingController(text: card?.phonetic ?? '');
+    _nickname = TextEditingController(text: card?.nickname ?? '');
+    _fileAs = TextEditingController(text: card?.fileAs ?? '');
+    _org = TextEditingController(text: card?.organization ?? '');
+    _job = TextEditingController(text: card?.jobTitle ?? '');
+    _department = TextEditingController(text: card?.department ?? '');
+    _relation = TextEditingController(text: card?.relation ?? '');
+    _website = TextEditingController(text: card?.website ?? '');
+    _labels = TextEditingController(text: card?.labels ?? '');
+    _notes = TextEditingController(text: card?.notes ?? '');
+    _birthday = card?.birthday ?? '';
+    _nameExpanded = existing != null && (card?.name.isNotEmpty ?? false);
+    _showPrefix = parts.prefix.isNotEmpty;
+    _showMiddle = parts.middle.isNotEmpty;
+    _showSuffix = parts.suffix.isNotEmpty;
+    _showPhonetic = (card?.phonetic ?? '').isNotEmpty;
+    _showNickname = (card?.nickname ?? '').isNotEmpty;
+    _showFileAs = (card?.fileAs ?? '').isNotEmpty;
+    _showJob = (card?.jobTitle ?? '').isNotEmpty;
+    _showDepartment = (card?.department ?? '').isNotEmpty;
+    _showRelation = (card?.relation ?? '').isNotEmpty;
+    _showWebsite = (card?.website ?? '').isNotEmpty;
+    _showLabels = (card?.labels ?? '').isNotEmpty;
+    _showBirthday = _birthday.isNotEmpty;
     _phones = [
-      for (final p in card.phones)
-        _FieldRow(label: p.label.isEmpty ? 'mobile' : p.label, value: p.value),
-      if (card.phones.isEmpty) _FieldRow(label: 'mobile'),
+      for (final p in card?.phones ?? const <LabeledValue>[])
+        _storedRow(p.label, p.value, fallback: 'mobile', known: kPhoneLabelIds),
+      if ((card?.phones ?? const []).isEmpty) _FieldRow(label: 'mobile'),
     ];
     _emails = [
-      for (final e in card.emails)
-        _FieldRow(label: e.label.isEmpty ? 'personal' : e.label, value: e.value),
-      if (card.emails.isEmpty) _FieldRow(label: 'personal'),
+      for (final e in card?.emails ?? const <LabeledValue>[])
+        _storedRow(e.label, e.value, fallback: 'home', known: kEmailLabelIds),
     ];
-    _name.addListener(_refreshName);
+    _addresses = [
+      for (final a in card?.addresses ?? const <ContactAddress>[])
+        _storedAddress(a),
+    ];
+    for (final row in _addresses) {
+      _bindAddress(row);
+    }
+    _customs = [
+      for (final c in card?.customFields ?? const <ContactCustomField>[])
+        if (!c.isEmpty) _FieldRow(label: 'custom', custom: c.label, value: c.value),
+    ];
+    for (final c in [_singleName, _given, _family, _prefix, _middle, _suffix]) {
+      c.addListener(_refresh);
+    }
   }
 
-  void _refreshName() {
+  _FieldRow _storedRow(
+    String label,
+    String value, {
+    required String fallback,
+    required List<String> known,
+  }) {
+    final id = _canonicalLabel(label, known);
+    if (id.isEmpty) return _FieldRow(label: fallback, value: value);
+    if (id == 'custom') return _FieldRow(label: 'custom', value: value);
+    if (!known.contains(id)) return _FieldRow(label: id, value: value);
+    return _FieldRow(label: id, value: value);
+  }
+
+  _AddressRow _storedAddress(ContactAddress address) {
+    final id = _canonicalLabel(address.label, kAddressLabelIds);
+    return _AddressRow(
+      label: id.isEmpty ? 'home' : id,
+      custom: id == 'custom' ? address.label : '',
+      street: address.street,
+      postal: address.postalCode,
+      city: address.city,
+      country: address.country,
+    );
+  }
+
+  String _canonicalLabel(String raw, List<String> known) {
+    final id = raw.trim().toLowerCase();
+    const alias = {
+      'domicile': 'home',
+      'bureau': 'work',
+      'travail': 'work',
+      'pro': 'work',
+      'autre': 'other',
+      'personnalisé': 'custom',
+      'personnalise': 'custom',
+      'principal': 'main',
+      'fax travail': 'fax_work',
+      'fax domicile': 'fax_home',
+      'bipeur': 'pager',
+    };
+    final mapped = alias[id] ?? id;
+    if (mapped.isEmpty) return '';
+    if (known.contains(mapped)) return mapped;
+    return raw.trim();
+  }
+
+  void _refresh() {
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
-    _name.removeListener(_refreshName);
-    _name.dispose();
-    _org.dispose();
-    _job.dispose();
-    _department.dispose();
-    _street.dispose();
-    _postal.dispose();
-    _city.dispose();
-    _notes.dispose();
+    _addressTimer?.cancel();
+    for (final c in [_singleName, _given, _family, _prefix, _middle, _suffix]) {
+      c.removeListener(_refresh);
+    }
+    for (final c in [
+      _singleName,
+      _prefix,
+      _given,
+      _middle,
+      _family,
+      _suffix,
+      _phonetic,
+      _nickname,
+      _fileAs,
+      _org,
+      _job,
+      _department,
+      _relation,
+      _website,
+      _labels,
+      _notes,
+    ]) {
+      c.dispose();
+    }
     for (final row in _phones) {
       row.dispose();
     }
     for (final row in _emails) {
       row.dispose();
     }
+    for (final row in _addresses) {
+      row.dispose();
+    }
+    for (final row in _customs) {
+      row.dispose();
+    }
     super.dispose();
+  }
+
+  ContactNameParts _parts() {
+    if (_nameExpanded) {
+      return ContactNameParts(
+        prefix: _showPrefix ? _prefix.text.trim() : '',
+        given: _given.text.trim(),
+        middle: _showMiddle ? _middle.text.trim() : '',
+        family: _family.text.trim(),
+        suffix: _showSuffix ? _suffix.text.trim() : '',
+      );
+    }
+    return readContactName({'display_name': _singleName.text.trim()});
+  }
+
+  String get _title {
+    if (!_nameExpanded && _singleName.text.trim().isNotEmpty) {
+      return _singleName.text.trim();
+    }
+    return _parts().display;
+  }
+
+  void _expandName() {
+    if (_given.text.trim().isEmpty && _family.text.trim().isEmpty) {
+      final split = readContactName({'display_name': _singleName.text.trim()});
+      _given.text = split.given;
+      _family.text = split.family;
+    }
+    setState(() => _nameExpanded = true);
+  }
+
+  String _savedLabel(_FieldRow row) {
+    if (row.label == 'custom') {
+      final typed = row.custom.trim();
+      return typed.isEmpty ? 'other' : typed;
+    }
+    return row.label;
   }
 
   Future<void> _pickBirthday() async {
@@ -154,22 +347,83 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     setState(() {
       _birthday =
           '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+      _showBirthday = true;
+    });
+  }
+
+  void _bindAddress(_AddressRow row) {
+    if (row.onStreet != null) return;
+    void listen() {
+      final index = _addresses.indexOf(row);
+      if (index < 0) return;
+      _onAddressTyped(index, row.street.text);
+    }
+
+    row.onStreet = listen;
+    row.street.addListener(listen);
+  }
+
+  void _onAddressTyped(int index, String value) {
+    if (_suppressSearch) return;
+    _addressTimer?.cancel();
+    final q = value.trim();
+    if (q.length < 3) {
+      setState(() {
+        _hits = const [];
+        _searchIndex = null;
+      });
+      return;
+    }
+    _addressTimer = Timer(const Duration(milliseconds: 300), () async {
+      final gen = ++_addressGen;
+      try {
+        final hits = await (widget.searchAddresses ?? searchHuberaAddresses)(q);
+        if (!mounted || gen != _addressGen) return;
+        setState(() {
+          _hits = hits;
+          _searchIndex = index;
+        });
+      } catch (error) {
+        if (!mounted || gen != _addressGen) return;
+        debugPrint('address search failed: $error');
+        setState(() {
+          _hits = const [];
+          _searchIndex = null;
+        });
+      }
+    });
+  }
+
+  void _applyHit(int index, ContactAddressHit hit) {
+    _addressTimer?.cancel();
+    _addressGen++;
+    final row = _addresses[index];
+    _suppressSearch = true;
+    row.street.text = hit.street.isNotEmpty ? hit.street : hit.label;
+    row.postal.text = hit.postalCode;
+    row.city.text = hit.city;
+    row.country.text = hit.country;
+    _suppressSearch = false;
+    setState(() {
+      _hits = const [];
+      _searchIndex = null;
     });
   }
 
   Future<void> _save() async {
-    final name = _name.text.trim();
+    final parts = _parts();
     final phones = [
       for (final row in _phones)
         if (row.controller.text.trim().isNotEmpty)
-          LabeledValue(label: row.label, value: row.controller.text.trim()),
+          LabeledValue(label: _savedLabel(row), value: row.controller.text.trim()),
     ];
     final emails = [
       for (final row in _emails)
         if (row.controller.text.trim().contains('@'))
-          LabeledValue(label: row.label, value: row.controller.text.trim()),
+          LabeledValue(label: _savedLabel(row), value: row.controller.text.trim()),
     ];
-    if (name.isEmpty && phones.isEmpty && emails.isEmpty) {
+    final display = parts.display.isNotEmpty ? parts.display : _title.trim();
+    if (display.isEmpty && phones.isEmpty && emails.isEmpty) {
       setState(() => _error = 'Nom, e-mail ou téléphone requis');
       return;
     }
@@ -180,27 +434,29 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     try {
       final profile = Map<String, dynamic>.from(_profile);
       void put(String key, String value) {
-        if (value.isEmpty) {
+        if (value.trim().isEmpty) {
           profile.remove(key);
         } else {
-          profile[key] = value;
+          profile[key] = value.trim();
         }
       }
 
-      put('organization', _org.text.trim());
-      put('job_title', _job.text.trim());
-      put('department', _department.text.trim());
-      put('birthday', _birthday.trim());
-      put('notes', _notes.text.trim());
-      final parts = name.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
-      if (parts.isEmpty) {
-        profile.remove('given_name');
-        profile.remove('family_name');
-      } else {
-        profile['given_name'] = parts.first;
-        profile['family_name'] = parts.length == 1 ? '' : parts.sublist(1).join(' ');
-        if ((profile['family_name'] as String).isEmpty) profile.remove('family_name');
-      }
+      put('name_prefix', parts.prefix);
+      put('given_name', parts.given);
+      put('middle_name', parts.middle);
+      put('family_name', parts.family);
+      put('name_suffix', parts.suffix);
+      put('phonetic_name', _showPhonetic ? _phonetic.text : '');
+      put('nickname', _showNickname ? _nickname.text : '');
+      put('file_as', _showFileAs ? _fileAs.text : '');
+      put('organization', _org.text);
+      put('job_title', _showJob ? _job.text : '');
+      put('department', _showDepartment ? _department.text : '');
+      put('relation', _showRelation ? _relation.text : '');
+      put('website', _showWebsite ? _website.text : '');
+      put('birthday', _showBirthday ? _birthday : '');
+      put('notes', _notes.text);
+      put('labels', _showLabels ? _labels.text : '');
       if (phones.isEmpty) {
         profile.remove('phones');
       } else {
@@ -215,24 +471,34 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
           for (final e in emails) {'label': e.label, 'value': e.value},
         ];
       }
-      final street = _street.text.trim();
-      final postal = _postal.text.trim();
-      final city = _city.text.trim();
-      if (street.isEmpty && postal.isEmpty && city.isEmpty) {
+      final addresses = [
+        for (final row in _addresses)
+          if (!row.isEmpty)
+            ContactAddress(
+              label: row.label == 'custom'
+                  ? (row.custom.trim().isEmpty ? 'other' : row.custom.trim())
+                  : row.label,
+              street: row.street.text.trim(),
+              postalCode: row.postal.text.trim(),
+              city: row.city.text.trim(),
+              country: row.country.text.trim(),
+            ).toJson(),
+      ];
+      if (addresses.isEmpty) {
         profile.remove('addresses');
       } else {
-        profile['addresses'] = [
-          {
-            'label': _addressLabel,
-            if (street.isNotEmpty) 'street': street,
-            if (postal.isNotEmpty) 'postal_code': postal,
-            if (city.isNotEmpty) 'city': city,
-          },
-        ];
+        profile['addresses'] = addresses;
       }
-      final display = name.isNotEmpty
-          ? name
-          : (emails.isNotEmpty ? emails.first.value : phones.first.value);
+      final customs = [
+        for (final row in _customs)
+          if (row.custom.trim().isNotEmpty || row.controller.text.trim().isNotEmpty)
+            {'label': row.custom.trim(), 'value': row.controller.text.trim()},
+      ];
+      if (customs.isEmpty) {
+        profile.remove('custom_fields');
+      } else {
+        profile['custom_fields'] = customs;
+      }
       final phone = phones.isEmpty ? '' : phones.first.value;
       final email = emails.isEmpty ? '' : emails.first.value;
       final id = widget.existing == null ? null : contactItemId(widget.existing!);
@@ -300,8 +566,6 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     final scheme = theme.colorScheme;
     final creating = widget.existing == null;
     final bottom = 32 + MediaQuery.viewPaddingOf(context).bottom;
-    final title = _name.text.trim();
-
     return Scaffold(
       backgroundColor: scheme.surface,
       resizeToAvoidBottomInset: true,
@@ -326,76 +590,93 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
         child: ListView(
           padding: EdgeInsets.fromLTRB(8, 8, 8, bottom),
           children: [
-            Center(child: _EditorAvatar(name: title)),
-            TextField(
-              key: const Key('contact_editor_name'),
-              controller: _name,
-              textAlign: TextAlign.center,
-              textCapitalization: TextCapitalization.words,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
-              cursorColor: scheme.primary,
-              decoration: InputDecoration(
-                hintText: 'Nom',
-                hintStyle: theme.textTheme.headlineSmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-              ),
-            ),
-            _plainField(_org, 'Organisation', center: true),
-            _plainField(_job, 'Poste', center: true),
-            _plainField(_department, 'Service', center: true),
-            const SizedBox(height: 8),
-            for (final row in _phones)
+            Center(child: _EditorAvatar(name: _title)),
+            if (!_nameExpanded)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const Key('contact_editor_name'),
+                      controller: _singleName,
+                      textCapitalization: TextCapitalization.words,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                      decoration: _hint(theme, 'Nom'),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('contact_editor_expand_name'),
+                    tooltip: 'Afficher plus',
+                    onPressed: _expandName,
+                    icon: const Icon(Icons.expand_more),
+                  ),
+                ],
+              )
+            else ...[
+              if (_showPrefix) _nameField(_prefix, 'Préfixe', const Key('contact_editor_prefix')),
+              _nameField(_given, 'Prénom', const Key('contact_editor_given')),
+              if (_showMiddle)
+                _nameField(_middle, 'Deuxième prénom', const Key('contact_editor_middle')),
+              _nameField(_family, 'Nom', const Key('contact_editor_family')),
+              if (_showSuffix) _nameField(_suffix, 'Suffixe', const Key('contact_editor_suffix')),
+              if (_showPhonetic) _plain(_phonetic, 'Prononciation phonétique'),
+              if (_showNickname) _plain(_nickname, 'Pseudo'),
+              if (_showFileAs) _plain(_fileAs, 'Classer en tant que'),
+            ],
+            _plain(_org, 'Entreprise'),
+            if (_showJob) _plain(_job, 'Intitulé du poste'),
+            if (_showDepartment) _plain(_department, 'Service'),
+            for (var i = 0; i < _phones.length; i++)
               _labeledField(
-                row: row,
+                row: _phones[i],
                 icon: Icons.call_outlined,
                 hint: 'Téléphone',
                 keyboard: TextInputType.phone,
                 choices: kPhoneLabelIds,
+                onRemove: () => setState(() => _phones.removeAt(i).dispose()),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => setState(() => _phones.add(_FieldRow(label: 'mobile'))),
-                child: const Text('Ajouter un numéro'),
-              ),
-            ),
-            for (final row in _emails)
+            _addButton('Ajouter un numéro', () => setState(() => _phones.add(_FieldRow(label: 'mobile')))),
+            for (var i = 0; i < _emails.length; i++)
               _labeledField(
-                row: row,
+                row: _emails[i],
                 icon: Icons.mail_outlined,
                 hint: 'E-mail',
                 keyboard: TextInputType.emailAddress,
                 choices: kEmailLabelIds,
+                onRemove: () => setState(() => _emails.removeAt(i).dispose()),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () => setState(() => _emails.add(_FieldRow(label: 'personal'))),
-                child: const Text('Ajouter un e-mail'),
+            if (_emails.isNotEmpty)
+              _addButton(
+                'Ajouter adresse e-mail',
+                () => setState(() => _emails.add(_FieldRow(label: 'home'))),
               ),
-            ),
-            _addressBlock(scheme),
-            ListTile(
-              leading: Icon(Icons.cake_outlined, color: scheme.onSurfaceVariant),
-              title: Text(
-                _birthday.isEmpty ? 'Anniversaire' : formatContactBirthday(_birthday),
-                style: TextStyle(
-                  color: _birthday.isEmpty ? scheme.onSurfaceVariant : scheme.onSurface,
+            for (var i = 0; i < _addresses.length; i++) _addressBlock(i),
+            if (_addresses.isNotEmpty)
+              _addButton('Ajouter une adresse', () {
+                final row = _AddressRow();
+                _bindAddress(row);
+                setState(() => _addresses.add(row));
+              }),
+            if (_showRelation) _plain(_relation, 'Relations'),
+            if (_showWebsite) _plain(_website, 'Site Web'),
+            for (var i = 0; i < _customs.length; i++) _customBlock(i),
+            if (_showLabels) _plain(_labels, 'Libellés'),
+            if (_showBirthday)
+              ListTile(
+                leading: Icon(Icons.cake_outlined, color: scheme.onSurfaceVariant),
+                title: Text(
+                  _birthday.isEmpty ? 'Anniversaire' : formatContactBirthday(_birthday),
+                  style: TextStyle(
+                    color: _birthday.isEmpty ? scheme.onSurfaceVariant : scheme.onSurface,
+                  ),
                 ),
+                subtitle: _birthday.isEmpty
+                    ? null
+                    : Text('Anniversaire', style: TextStyle(color: scheme.onSurfaceVariant)),
+                onTap: _pickBirthday,
               ),
-              subtitle: _birthday.isEmpty
-                  ? null
-                  : Text('Anniversaire', style: TextStyle(color: scheme.onSurfaceVariant)),
-              onTap: _pickBirthday,
-            ),
             ListTile(
               leading: Icon(Icons.notes_outlined, color: scheme.onSurfaceVariant),
               title: TextField(
@@ -403,14 +684,32 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
                 minLines: 1,
                 maxLines: 4,
                 style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
-                decoration: InputDecoration(
-                  hintText: 'Notes',
-                  hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
+                decoration: _hint(theme, 'Notes'),
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                'Ajouter des infos',
+                style: theme.textTheme.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (_emails.isEmpty)
+                  _addButton('E-mail', () => setState(() => _emails.add(_FieldRow(label: 'home')))),
+                if (!_showBirthday)
+                  _addButton('Anniversaire', () => setState(() => _showBirthday = true)),
+                if (_addresses.isEmpty)
+                  _addButton('Adresse', () {
+                    final row = _AddressRow();
+                    _bindAddress(row);
+                    setState(() => _addresses.add(row));
+                  }),
+                if (!_showLabels) _addButton('Libellés', () => setState(() => _showLabels = true)),
+                _addButton('Autre', _openMoreFields),
+              ],
             ),
             if (_error != null)
               Padding(
@@ -423,20 +722,105 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     );
   }
 
-  Widget _plainField(TextEditingController controller, String hint, {bool center = false}) {
+  Future<void> _openMoreFields() async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        final items = <(String, String)>[
+          if (!_showMiddle) ('middle', 'Deuxième prénom'),
+          if (!_showPhonetic) ('phonetic', 'Prononciation phonétique'),
+          if (!_showPrefix) ('prefix', 'Préfixe'),
+          if (!_showSuffix) ('suffix', 'Suffixe'),
+          if (!_showNickname) ('nickname', 'Pseudo'),
+          if (!_showFileAs) ('file_as', 'Classer en tant que'),
+          if (!_showJob) ('job', 'Intitulé du poste'),
+          if (!_showDepartment) ('department', 'Service'),
+          if (!_showRelation) ('relation', 'Relations'),
+          if (!_showWebsite) ('website', 'Site Web'),
+          ('custom', 'Champ personnalisé'),
+        ];
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(title: Text('Sélectionner les champs à ajouter')),
+              for (final item in items)
+                ListTile(
+                  title: Text(item.$2),
+                  onTap: () => Navigator.pop(context, item.$1),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (choice == null || !mounted) return;
+    setState(() {
+      switch (choice) {
+        case 'middle':
+          _showMiddle = true;
+          _nameExpanded = true;
+        case 'phonetic':
+          _showPhonetic = true;
+        case 'prefix':
+          _showPrefix = true;
+          _nameExpanded = true;
+        case 'suffix':
+          _showSuffix = true;
+          _nameExpanded = true;
+        case 'nickname':
+          _showNickname = true;
+        case 'file_as':
+          _showFileAs = true;
+        case 'job':
+          _showJob = true;
+        case 'department':
+          _showDepartment = true;
+        case 'relation':
+          _showRelation = true;
+        case 'website':
+          _showWebsite = true;
+        case 'custom':
+          _customs.add(_FieldRow(label: 'custom'));
+      }
+    });
+  }
+
+  Widget _nameField(TextEditingController controller, String hint, Key key) {
     final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
+    return TextField(
+      key: key,
+      controller: controller,
+      textCapitalization: TextCapitalization.words,
+      style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+      decoration: _hint(theme, hint),
+    );
+  }
+
+  Widget _plain(TextEditingController controller, String hint) {
+    final theme = Theme.of(context);
     return TextField(
       controller: controller,
-      textAlign: center ? TextAlign.center : TextAlign.start,
-      textCapitalization: TextCapitalization.words,
-      style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-        border: InputBorder.none,
-        isDense: true,
-      ),
+      textCapitalization: hint == 'Site Web' ? TextCapitalization.none : TextCapitalization.sentences,
+      style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface),
+      decoration: _hint(theme, hint),
+    );
+  }
+
+  InputDecoration _hint(ThemeData theme, String hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+      border: InputBorder.none,
+      isDense: true,
+    );
+  }
+
+  Widget _addButton(String label, VoidCallback onPressed) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(onPressed: onPressed, child: Text(label)),
     );
   }
 
@@ -446,95 +830,171 @@ class _ContactEditorScreenState extends State<ContactEditorScreen> {
     required String hint,
     required TextInputType keyboard,
     required List<String> choices,
+    required VoidCallback onRemove,
   }) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final label = contactLabelFr(row.label);
+    final ids = [
+      ...choices,
+      if (!choices.contains(row.label) && row.label != 'custom') row.label,
+    ];
+    final shown = row.label == 'custom'
+        ? (row.custom.trim().isEmpty ? 'Personnalisé' : row.custom.trim())
+        : contactLabelFr(row.label);
     return ListTile(
       leading: Icon(icon, color: scheme.onSurfaceVariant),
       title: TextField(
         controller: row.controller,
         keyboardType: keyboard,
         style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
+        decoration: _hint(theme, hint),
       ),
-      subtitle: PopupMenuButton<String>(
-        initialValue: row.label,
-        onSelected: (value) => setState(() => row.label = value),
-        itemBuilder: (ctx) => [
-          for (final id in choices)
-            PopupMenuItem(value: id, child: Text(contactLabelFr(id))),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          PopupMenuButton<String>(
+            initialValue: ids.contains(row.label) ? row.label : null,
+            onSelected: (value) => setState(() {
+              row.label = value;
+              if (value != 'custom') row.customController.text = '';
+            }),
+            itemBuilder: (ctx) => [
+              for (final id in ids)
+                PopupMenuItem(value: id, child: Text(contactLabelFr(id))),
+            ],
+            child: Text(
+              shown.isEmpty ? 'Libellé' : shown,
+              style: theme.textTheme.labelMedium?.copyWith(color: scheme.primary),
+            ),
+          ),
+          if (row.label == 'custom')
+            TextField(
+              controller: row.customController,
+              decoration: _hint(theme, 'Personnalisé'),
+            ),
         ],
-        child: Text(
-          label.isEmpty ? 'Libellé' : label,
-          style: theme.textTheme.labelMedium?.copyWith(color: scheme.primary),
-        ),
+      ),
+      trailing: IconButton(
+        tooltip: 'Retirer',
+        onPressed: onRemove,
+        icon: Icon(Icons.remove_circle_outline, color: scheme.onSurfaceVariant),
       ),
     );
   }
 
-  Widget _addressBlock(ColorScheme scheme) {
+  Widget _customBlock(int index) {
     final theme = Theme.of(context);
+    final row = _customs[index];
     return ListTile(
-      leading: Icon(Icons.place_outlined, color: scheme.onSurfaceVariant),
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: _street,
+      leading: Icon(Icons.notes_outlined, color: theme.colorScheme.onSurfaceVariant),
+      title: TextField(
+        controller: row.controller,
+        decoration: _hint(theme, 'Champ personnalisé'),
+      ),
+      subtitle: TextField(
+        controller: row.customController,
+        decoration: _hint(theme, 'Libellé'),
+      ),
+      trailing: IconButton(
+        tooltip: 'Retirer',
+        onPressed: () => setState(() => _customs.removeAt(index).dispose()),
+        icon: Icon(Icons.remove_circle_outline, color: theme.colorScheme.onSurfaceVariant),
+      ),
+    );
+  }
+
+  Widget _addressBlock(int index) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final row = _addresses[index];
+    final ids = [
+      ...kAddressLabelIds,
+      if (!kAddressLabelIds.contains(row.label) && row.label != 'custom') row.label,
+    ];
+    final shown = row.label == 'custom'
+        ? (row.custom.trim().isEmpty ? 'Personnalisé' : row.custom.trim())
+        : contactLabelFr(row.label);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          leading: Icon(Icons.place_outlined, color: scheme.onSurfaceVariant),
+          title: TextField(
+            key: index == 0 ? const Key('contact_editor_street') : null,
+            controller: row.street,
             textCapitalization: TextCapitalization.words,
+            onChanged: (v) => _onAddressTyped(index, v),
             style: theme.textTheme.bodyLarge?.copyWith(color: scheme.onSurface),
-            decoration: InputDecoration(
-              hintText: 'Adresse',
-              hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-              border: InputBorder.none,
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-            ),
+            decoration: _hint(theme, 'Adresse'),
           ),
-          Row(
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: 88,
-                child: TextField(
-                  controller: _postal,
-                  keyboardType: TextInputType.number,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface),
-                  decoration: InputDecoration(
-                    hintText: 'Code',
-                    hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                    border: InputBorder.none,
-                    isDense: true,
+              Row(
+                children: [
+                  SizedBox(
+                    width: 110,
+                    child: TextField(
+                      controller: row.postal,
+                      keyboardType: TextInputType.text,
+                      decoration: _hint(theme, 'Code postal'),
+                    ),
                   ),
+                  Expanded(
+                    child: TextField(
+                      controller: row.city,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: _hint(theme, 'Ville'),
+                    ),
+                  ),
+                ],
+              ),
+              TextField(
+                controller: row.country,
+                textCapitalization: TextCapitalization.words,
+                decoration: _hint(theme, 'Pays'),
+              ),
+              PopupMenuButton<String>(
+                initialValue: ids.contains(row.label) ? row.label : null,
+                onSelected: (value) => setState(() {
+                  row.label = value;
+                  if (value != 'custom') row.customController.text = '';
+                }),
+                itemBuilder: (ctx) => [
+                  for (final id in ids)
+                    PopupMenuItem(value: id, child: Text(contactLabelFr(id))),
+                ],
+                child: Text(
+                  shown.isEmpty ? 'Libellé' : shown,
+                  style: theme.textTheme.labelMedium?.copyWith(color: scheme.primary),
                 ),
               ),
-              Expanded(
-                child: TextField(
-                  controller: _city,
-                  textCapitalization: TextCapitalization.words,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: scheme.onSurface),
-                  decoration: InputDecoration(
-                    hintText: 'Ville',
-                    hintStyle: TextStyle(color: scheme.onSurfaceVariant),
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
+              if (row.label == 'custom')
+                TextField(
+                  controller: row.customController,
+                  decoration: _hint(theme, 'Personnalisé'),
                 ),
-              ),
             ],
           ),
-        ],
-      ),
-      subtitle: Text(
-        contactLabelFr(_addressLabel).isEmpty ? 'Adresse' : contactLabelFr(_addressLabel),
-        style: theme.textTheme.labelMedium?.copyWith(color: scheme.onSurfaceVariant),
-      ),
+          trailing: IconButton(
+            tooltip: 'Retirer',
+            onPressed: () => setState(() {
+              _addresses.removeAt(index).dispose();
+              _hits = const [];
+              _searchIndex = null;
+            }),
+            icon: Icon(Icons.remove_circle_outline, color: scheme.onSurfaceVariant),
+          ),
+        ),
+        if (_searchIndex == index && _hits.isNotEmpty)
+          for (final hit in _hits)
+            ListTile(
+              key: Key('contact_address_hit_${hit.label}'),
+              dense: true,
+              title: Text(hit.label),
+              onTap: () => _applyHit(index, hit),
+            ),
+      ],
     );
   }
 }

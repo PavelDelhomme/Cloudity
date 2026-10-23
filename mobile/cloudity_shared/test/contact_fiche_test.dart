@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:cloudity_shared/contact_address_search.dart';
+import 'package:cloudity_shared/contact_card.dart';
 import 'package:cloudity_shared/contact_editor.dart';
 import 'package:cloudity_shared/contact_fiche.dart';
 import 'package:cloudity_shared/suite_product_api.dart';
@@ -107,7 +109,8 @@ void main() {
         ContactEditorScreen(api: _api(), existing: Map<String, dynamic>.from(_item)),
         brightness: brightness,
       );
-      expect(find.text('Camille Martin'), findsOneWidget);
+      expect(find.text('Camille'), findsWidgets);
+      expect(find.text('Martin'), findsWidgets);
       expect(find.text('Atelier'), findsOneWidget);
       expect(find.text('Relieuse'), findsOneWidget);
       expect(find.text('0600000001'), findsOneWidget);
@@ -122,5 +125,112 @@ void main() {
       final scheme = Theme.of(tester.element(find.text('Enregistrer'))).colorScheme;
       expect(_contrast(scheme.onSurface, scheme.surface), greaterThan(4.5));
     }
+  });
+
+  testWidgets('création : nom replié, puis prénom, nom et champs ajoutés', (tester) async {
+    await _pump(
+      tester,
+      ContactEditorScreen(api: _api()),
+      brightness: Brightness.dark,
+    );
+    expect(find.text('Nom'), findsOneWidget);
+    expect(find.text('Prénom'), findsNothing);
+    expect(find.text('Entreprise'), findsOneWidget);
+    expect(find.text('Téléphone'), findsOneWidget);
+    expect(find.text('Mobile'), findsOneWidget);
+    expect(find.text('Ajouter un numéro'), findsOneWidget);
+    expect(find.text('Notes'), findsOneWidget);
+    expect(find.text('Ajouter des infos'), findsOneWidget);
+    expect(find.text('E-mail'), findsOneWidget);
+    expect(find.text('Adresse'), findsOneWidget);
+    expect(find.text('Autre'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('contact_editor_expand_name')));
+    await tester.pump();
+    expect(find.text('Prénom'), findsOneWidget);
+    expect(find.text('Nom'), findsOneWidget);
+
+    await tester.tap(find.text('Autre'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sélectionner les champs à ajouter'), findsOneWidget);
+    expect(find.text('Préfixe'), findsOneWidget);
+    expect(find.text('Deuxième prénom'), findsOneWidget);
+    expect(find.text('Suffixe'), findsOneWidget);
+    expect(find.text('Prononciation phonétique'), findsOneWidget);
+  });
+
+  testWidgets('adresse : une proposition remplit rue, code, ville et pays', (tester) async {
+    await _pump(
+      tester,
+      ContactEditorScreen(
+        api: _api(),
+        searchAddresses: (query) async => const [
+          ContactAddressHit(
+            label: '12 rue des Lilas, Nantes, France',
+            street: '12 rue des Lilas',
+            postalCode: '44000',
+            city: 'Nantes',
+            country: 'France',
+          ),
+        ],
+      ),
+      brightness: Brightness.dark,
+    );
+    await tester.tap(find.text('Adresse'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('contact_editor_street')), 'Lil');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('12 rue des Lilas, Nantes, France'), findsOneWidget);
+    await tester.tap(find.text('12 rue des Lilas, Nantes, France'));
+    await tester.pump();
+    expect(find.text('44000'), findsOneWidget);
+    expect(find.text('Nantes'), findsOneWidget);
+    expect(find.text('France'), findsOneWidget);
+  });
+
+  test('un nom déjà enregistré se rouvre en prénom et nom', () {
+    final parts = readContactName({
+      'display_name': 'Camille Martin',
+    });
+    expect(parts.given, 'Camille');
+    expect(parts.family, 'Martin');
+    expect(composeContactDisplayName(parts), 'Camille Martin');
+
+    final stored = readContactName({
+      'display_name': 'Dr Camille Marie Martin Jr',
+      'profile': {
+        'name_prefix': 'Dr',
+        'given_name': 'Camille',
+        'middle_name': 'Marie',
+        'family_name': 'Martin',
+        'name_suffix': 'Jr',
+      },
+    });
+    expect(stored.prefix, 'Dr');
+    expect(stored.middle, 'Marie');
+    expect(stored.suffix, 'Jr');
+    expect(composeContactDisplayName(stored), 'Dr Camille Marie Martin Jr');
+  });
+
+  test('Photon remplit une adresse structurée', () {
+    final hits = hitsFromPhoton({
+      'features': [
+        {
+          'properties': {
+            'name': 'Lilas',
+            'housenumber': '12',
+            'street': 'rue des Lilas',
+            'postcode': '44000',
+            'city': 'Nantes',
+            'country': 'France',
+          },
+        },
+      ],
+    });
+    expect(hits, hasLength(1));
+    expect(hits.first.street, '12 rue des Lilas');
+    expect(hits.first.postalCode, '44000');
+    expect(hits.first.city, 'Nantes');
+    expect(hits.first.country, 'France');
   });
 }

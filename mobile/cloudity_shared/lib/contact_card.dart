@@ -8,6 +8,138 @@ class LabeledValue {
   final String value;
 }
 
+/// Bloc nom du formulaire Google Contacts : préfixe, prénom, deuxième prénom, nom, suffixe.
+class ContactNameParts {
+  const ContactNameParts({
+    this.prefix = '',
+    this.given = '',
+    this.middle = '',
+    this.family = '',
+    this.suffix = '',
+  });
+
+  final String prefix;
+  final String given;
+  final String middle;
+  final String family;
+  final String suffix;
+
+  String get display => [prefix, given, middle, family, suffix]
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .join(' ');
+
+  bool get isEmpty => display.isEmpty;
+}
+
+/// Nom affiché. Les champs vides ne laissent pas de double espace.
+String composeContactDisplayName(ContactNameParts parts) => parts.display;
+
+/// Relit le nom enregistré. S’il n’y a que le nom affiché, le premier mot
+/// devient le prénom et le reste le nom : rien n’est jeté.
+ContactNameParts readContactName(Map<String, dynamic> item) {
+  final profile = item['profile'] is Map
+      ? Map<String, dynamic>.from(item['profile'] as Map)
+      : <String, dynamic>{};
+  String pick(List<Object?> keys) {
+    for (final key in keys) {
+      final raw = key is String
+          ? (profile[key] ?? item[key])
+          : null;
+      final v = raw?.toString().trim() ?? '';
+      if (v.isNotEmpty) return v;
+    }
+    return '';
+  }
+
+  final prefix = pick(['name_prefix', 'prefix']);
+  final given = pick(['given_name', 'first_name']);
+  final middle = pick(['middle_name']);
+  final family = pick(['family_name', 'last_name']);
+  final suffix = pick(['name_suffix', 'suffix']);
+  if ([prefix, given, middle, family, suffix].any((s) => s.isNotEmpty)) {
+    return ContactNameParts(
+      prefix: prefix,
+      given: given,
+      middle: middle,
+      family: family,
+      suffix: suffix,
+    );
+  }
+  final display = (item['display_name'] ?? item['name'] ?? '').toString().trim();
+  final words = display.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toList();
+  if (words.isEmpty) return const ContactNameParts();
+  if (words.length == 1) return ContactNameParts(given: words.first);
+  return ContactNameParts(given: words.first, family: words.sublist(1).join(' '));
+}
+
+class ContactAddress {
+  const ContactAddress({
+    this.label = '',
+    this.street = '',
+    this.postalCode = '',
+    this.city = '',
+    this.country = '',
+  });
+
+  final String label;
+  final String street;
+  final String postalCode;
+  final String city;
+  final String country;
+
+  bool get isEmpty =>
+      street.trim().isEmpty &&
+      postalCode.trim().isEmpty &&
+      city.trim().isEmpty &&
+      country.trim().isEmpty;
+
+  String get line => formatContactAddress({
+        'street': street,
+        'postal_code': postalCode,
+        'city': city,
+        'country': country,
+      });
+
+  factory ContactAddress.fromMap(Map raw) {
+    return ContactAddress(
+      label: raw['label']?.toString().trim() ?? '',
+      street: raw['street']?.toString().trim() ?? '',
+      postalCode: raw['postal_code']?.toString().trim() ?? '',
+      city: raw['city']?.toString().trim() ?? '',
+      country: raw['country']?.toString().trim() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        if (street.isNotEmpty) 'street': street,
+        if (postalCode.isNotEmpty) 'postal_code': postalCode,
+        if (city.isNotEmpty) 'city': city,
+        if (country.isNotEmpty) 'country': country,
+      };
+}
+
+class ContactCustomField {
+  const ContactCustomField({this.label = '', this.value = ''});
+
+  final String label;
+  final String value;
+
+  bool get isEmpty => label.trim().isEmpty && value.trim().isEmpty;
+}
+
+List<ContactAddress> contactAddressesOf(Map<String, dynamic> item) {
+  final profile = item['profile'];
+  if (profile is! Map) return const [];
+  final raw = profile['addresses'];
+  if (raw is! List) return const [];
+  return [
+    for (final entry in raw)
+      if (entry is Map) ContactAddress.fromMap(entry),
+  ];
+}
+
 class ContactCardData {
   const ContactCardData({
     required this.name,
@@ -24,6 +156,16 @@ class ContactCardData {
     required this.notes,
     required this.addressLine,
     this.photoUrl,
+    this.country = '',
+    this.addresses = const [],
+    this.nameParts = const ContactNameParts(),
+    this.phonetic = '',
+    this.nickname = '',
+    this.fileAs = '',
+    this.relation = '',
+    this.website = '',
+    this.labels = '',
+    this.customFields = const [],
   });
 
   final String name;
@@ -40,6 +182,16 @@ class ContactCardData {
   final String notes;
   final String addressLine;
   final String? photoUrl;
+  final String country;
+  final List<ContactAddress> addresses;
+  final ContactNameParts nameParts;
+  final String phonetic;
+  final String nickname;
+  final String fileAs;
+  final String relation;
+  final String website;
+  final String labels;
+  final List<ContactCustomField> customFields;
 
   String get orgLine {
     final bits = [jobTitle, organization, department].where((s) => s.isNotEmpty);
@@ -82,7 +234,19 @@ class ContactCardData {
         if (e.value != 'locked@vault.local' && e.value.contains('@')) e,
     ];
 
-    final addr = firstContactAddress(item);
+    final addresses = contactAddressesOf(item);
+    final addr = addresses.isEmpty ? null : addresses.first;
+    final customs = <ContactCustomField>[];
+    final rawCustoms = profile['custom_fields'];
+    if (rawCustoms is List) {
+      for (final entry in rawCustoms) {
+        if (entry is! Map) continue;
+        customs.add(ContactCustomField(
+          label: entry['label']?.toString().trim() ?? '',
+          value: entry['value']?.toString().trim() ?? '',
+        ));
+      }
+    }
     return ContactCardData(
       name: name,
       organization: profile['organization']?.toString().trim() ?? '',
@@ -90,14 +254,24 @@ class ContactCardData {
       department: profile['department']?.toString().trim() ?? '',
       phones: phones,
       emails: emails,
-      street: addr?['street']?.toString().trim() ?? '',
-      postalCode: addr?['postal_code']?.toString().trim() ?? '',
-      city: addr?['city']?.toString().trim() ?? '',
-      addressLabel: addr?['label']?.toString().trim() ?? '',
+      street: addr?.street ?? '',
+      postalCode: addr?.postalCode ?? '',
+      city: addr?.city ?? '',
+      addressLabel: addr?.label ?? '',
       birthday: profile['birthday']?.toString().trim() ?? '',
       notes: profile['notes']?.toString().trim() ?? '',
-      addressLine: formatContactAddress(addr),
+      addressLine: addr?.line ?? '',
       photoUrl: contactPhotoUrl(item),
+      country: addr?.country ?? '',
+      addresses: addresses,
+      nameParts: readContactName(item),
+      phonetic: profile['phonetic_name']?.toString().trim() ?? '',
+      nickname: profile['nickname']?.toString().trim() ?? '',
+      fileAs: profile['file_as']?.toString().trim() ?? '',
+      relation: profile['relation']?.toString().trim() ?? '',
+      website: profile['website']?.toString().trim() ?? '',
+      labels: profile['labels']?.toString().trim() ?? '',
+      customFields: customs,
     );
   }
 }
@@ -156,8 +330,12 @@ String contactInitials(String name) {
   return '${one(parts.first)}${one(parts.last)}';
 }
 
-const kPhoneLabelIds = ['mobile', 'home', 'work', 'other'];
-const kEmailLabelIds = ['personal', 'work', 'other'];
+/// Libellés vus dans Google Contacts sur le téléphone : menu du numéro.
+const kPhoneLabelIds = ['mobile', 'work', 'home', 'main', 'fax_work', 'fax_home', 'pager'];
+
+/// Libellés vus pour l’e-mail et l’adresse : Domicile, Bureau, Autre, Personnalisé.
+const kEmailLabelIds = ['home', 'work', 'other', 'custom'];
+const kAddressLabelIds = ['home', 'work', 'other', 'custom'];
 
 String contactLabelFr(String raw) {
   switch (raw.trim().toLowerCase()) {
@@ -168,16 +346,33 @@ String contactLabelFr(String raw) {
       return 'Domicile';
     case 'work':
     case 'travail':
-      return 'Travail';
+    case 'bureau':
+    case 'pro':
+      return 'Bureau';
     case 'personal':
     case 'personnel':
+    case 'perso':
       return 'Personnel';
     case 'other':
     case 'autre':
       return 'Autre';
+    case 'custom':
+    case 'personnalise':
+    case 'personnalisé':
+      return 'Personnalisé';
     case 'main':
     case 'primary':
+    case 'principal':
       return 'Principal';
+    case 'fax_work':
+    case 'fax travail':
+      return 'Fax travail';
+    case 'fax_home':
+    case 'fax domicile':
+      return 'Fax domicile';
+    case 'pager':
+    case 'bipeur':
+      return 'Bipeur';
     default:
       final t = raw.trim();
       if (t.isEmpty) return '';
