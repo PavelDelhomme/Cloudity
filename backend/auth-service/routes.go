@@ -14,6 +14,7 @@ func registerAuthHTTPRoutes(r *gin.Engine, auth *AuthService, db *sql.DB, rdb *r
 	r.POST("/auth/register", auth.Register)
 	r.POST("/auth/login", auth.Login)
 	r.POST("/auth/refresh", auth.RefreshToken)
+	r.POST("/auth/session/renew", auth.RenewSession)
 	r.POST("/auth/2fa/enable", auth.Enable2FA)
 	r.POST("/auth/2fa/verify", auth.Verify2FA)
 	r.POST("/auth/2fa/recovery-codes/regenerate", auth.RegenerateRecoveryCodes)

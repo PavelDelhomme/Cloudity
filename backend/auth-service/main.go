@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
@@ -26,8 +27,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	"github.com/lib/pq"
-	"github.com/pavel/cloudity/internalsec"
 	"github.com/pavel/cloudity/auth-service/recovery"
+	"github.com/pavel/cloudity/internalsec"
 	"github.com/pquerna/otp/totp"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -183,6 +184,7 @@ type Claims struct {
 	UserID   string `json:"user_id"`
 	TenantID string `json:"tenant_id"`
 	Email    string `json:"email"`
+	Sub      string `json:"sub,omitempty"`
 	Role     string `json:"role,omitempty"`
 	jwt.RegisteredClaims
 }
@@ -331,7 +333,7 @@ func (p *postgresUserStore) GetUserByEmail(email string) (userID, tenantID, pass
 	defer rows.Close()
 	type row struct {
 		userID, tenantID, passwordHash, totpSecret, role string
-		is2FAEnabled                                      bool
+		is2FAEnabled                                     bool
 	}
 	var matches []row
 	for rows.Next() {
@@ -404,9 +406,7 @@ func (r *redisSessionStore) DeleteRefresh(ctx context.Context, tokenHash string)
 // --- JWT ---
 
 func (a *AuthService) generateAccessToken(userID, tenantID, email, role string) (string, error) {
-	if strings.TrimSpace(role) == "" {
-		role = "user"
-	}
+	role = effectiveRole(email, role)
 	claims := Claims{
 		UserID:   userID,
 		TenantID: tenantID,
@@ -469,6 +469,69 @@ func (a *AuthService) parseAccessToken(tokenString string) (*Claims, error) {
 		return nil, jwt.ErrTokenInvalidClaims
 	}
 	return claims, nil
+}
+
+// parseHMACAccess accepte un ancien jeton HS256 (kid vide) signé avec JWT_SECRET.
+// Sert uniquement à l’échange : le jeton réémis est en EdDSA, avec le rôle relu en base.
+func hmacKeyCandidates(secret string) [][]byte {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var out [][]byte
+	add := func(b []byte) {
+		if len(b) == 0 {
+			return
+		}
+		k := string(b)
+		if _, ok := seen[k]; ok {
+			return
+		}
+		seen[k] = struct{}{}
+		out = append(out, b)
+	}
+	add([]byte(secret))
+	if b, err := hex.DecodeString(secret); err == nil && len(b) >= 16 {
+		add(b)
+	}
+	if b, err := base64.StdEncoding.DecodeString(secret); err == nil {
+		add(b)
+	}
+	if b, err := base64.RawURLEncoding.DecodeString(secret); err == nil {
+		add(b)
+	}
+	return out
+}
+
+func parseHMACAccess(tokenString, secret string) (*Claims, error) {
+	keys := hmacKeyCandidates(secret)
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("hmac secret missing")
+	}
+	var last error
+	for _, key := range keys {
+		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+			if t.Method == nil || t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+				return nil, fmt.Errorf("unexpected signing method")
+			}
+			return key, nil
+		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+		if err != nil {
+			last = err
+			continue
+		}
+		claims, ok := token.Claims.(*Claims)
+		if !ok || !token.Valid {
+			last = jwt.ErrTokenInvalidClaims
+			continue
+		}
+		return claims, nil
+	}
+	if last == nil {
+		last = fmt.Errorf("hmac secret missing")
+	}
+	return nil, last
 }
 
 func hashRefreshToken(token string) string {
@@ -633,6 +696,66 @@ func (a *AuthService) RefreshToken(c *gin.Context) {
 	c.JSON(200, gin.H{
 		"access_token":  accessToken,
 		"refresh_token": newRefresh,
+		"expires_in":    int(accessTokenDuration.Seconds()),
+	})
+}
+
+// RenewSession réémet une paire à partir d’un access token encore valide.
+// Le rôle relu en base (et l’allowlist déjà prévue) remplace un vieux claim `user`.
+// Un refresh mort ne force pas à retaper le mot de passe.
+func (a *AuthService) RenewSession(c *gin.Context) {
+	auth := c.GetHeader("Authorization")
+	const prefix = "Bearer "
+	if !strings.HasPrefix(auth, prefix) {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing Authorization header"})
+		return
+	}
+	tokenString := strings.TrimSpace(strings.TrimPrefix(auth, prefix))
+	claims, err := a.parseAccessToken(tokenString)
+	if err != nil {
+		claims, err = parseHMACAccess(tokenString, os.Getenv("JWT_SECRET"))
+	}
+	if err != nil || claims == nil {
+		if err != nil {
+			log.Printf("renew: jeton refusé (%v)", err)
+		}
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+	userID := strings.TrimSpace(claims.UserID)
+	tenantID := strings.TrimSpace(claims.TenantID)
+	email := normalizeAuthEmail(claims.Email)
+	if email == "" && strings.Contains(claims.Sub, "@") {
+		email = normalizeAuthEmail(claims.Sub)
+	}
+	if userID == "" && email == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
+		return
+	}
+	role, roleErr := a.userStore.GetUserRoleByID(userID)
+	if roleErr != nil && email != "" {
+		uid, tid, _, _, dbRole, _, emailErr := a.userStore.GetUserByEmail(email)
+		if emailErr != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "session invalide — reconnectez-vous (compte introuvable)",
+			})
+			return
+		}
+		userID, tenantID, role = uid, tid, dbRole
+	} else if roleErr != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "session invalide — reconnectez-vous (compte introuvable)",
+		})
+		return
+	}
+	access, refresh, err := a.issueTokens(c.Request.Context(), userID, tenantID, email, role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  access,
+		"refresh_token": refresh,
 		"expires_in":    int(accessTokenDuration.Seconds()),
 	})
 }

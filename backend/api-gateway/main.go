@@ -559,6 +559,9 @@ func authMiddleware(next http.Handler) http.Handler {
 			strings.HasPrefix(r.URL.Path, "/auth/e2e/") ||
 			strings.HasPrefix(r.URL.Path, "/auth/dev/") ||
 			strings.HasPrefix(r.URL.Path, "/auth/refresh") ||
+			// Le renouvellement relit le rôle en base. Le gateway ne doit pas
+			// refuser le Bearer avant que auth-service ne tranche.
+			strings.HasPrefix(r.URL.Path, "/auth/session/renew") ||
 			strings.HasPrefix(r.URL.Path, "/auth/webauthn/login") ||
 			strings.HasPrefix(r.URL.Path, "/auth/health") ||
 			r.URL.Path == "/admin/health" ||
