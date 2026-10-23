@@ -26,6 +26,35 @@ class MailViewPreferences {
     return MailStandardFolders.inbox;
   }
 
+  static Future<Map<String, dynamic>> _readMap(
+    SharedPreferences prefs,
+    String email,
+    int? tenantId,
+  ) async {
+    final raw = prefs.getString(scopedKey(tenantId, email));
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) return decoded;
+      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    } catch (_) {}
+    return {};
+  }
+
+  static List<int> _parseOrder(dynamic raw) {
+    if (raw is! List) return const [];
+    final out = <int>[];
+    for (final item in raw) {
+      final id = item is int
+          ? item
+          : item is num
+              ? item.toInt()
+              : int.tryParse(item?.toString() ?? '');
+      if (id != null && id > 0 && !out.contains(id)) out.add(id);
+    }
+    return out;
+  }
+
   static Future<({int? accountId, String folder})> load({
     required String email,
     int? tenantId,
@@ -54,6 +83,15 @@ class MailViewPreferences {
     }
   }
 
+  static Future<List<int>> loadOrder({
+    required String email,
+    int? tenantId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final map = await _readMap(prefs, email, tenantId);
+    return _parseOrder(map['accountOrder']);
+  }
+
   static Future<void> save({
     required String email,
     int? tenantId,
@@ -61,11 +99,37 @@ class MailViewPreferences {
     required String folder,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final payload = jsonEncode({
+    final existing = await _readMap(prefs, email, tenantId);
+    final payload = <String, dynamic>{
       'accountId': accountId,
       'folder': _parseFolder(folder),
-    });
-    await prefs.setString(scopedKey(tenantId, email), payload);
+    };
+    final order = _parseOrder(existing['accountOrder']);
+    if (order.isNotEmpty) payload['accountOrder'] = order;
+    await prefs.setString(scopedKey(tenantId, email), jsonEncode(payload));
+    await prefs.remove(_legacyMobileKey(email));
+  }
+
+  static Future<void> saveOrder({
+    required String email,
+    int? tenantId,
+    required List<int> accountOrder,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await _readMap(prefs, email, tenantId);
+    final folder = _parseFolder(existing['folder']?.toString());
+    final idRaw = existing['accountId'];
+    final accountId = idRaw is int
+        ? idRaw
+        : idRaw is num
+            ? idRaw.toInt()
+            : int.tryParse(idRaw?.toString() ?? '');
+    final payload = <String, dynamic>{
+      'accountId': accountId != null && accountId > 0 ? accountId : null,
+      'folder': existing.isEmpty ? MailStandardFolders.inbox : folder,
+      'accountOrder': _parseOrder(accountOrder),
+    };
+    await prefs.setString(scopedKey(tenantId, email), jsonEncode(payload));
     await prefs.remove(_legacyMobileKey(email));
   }
 }
